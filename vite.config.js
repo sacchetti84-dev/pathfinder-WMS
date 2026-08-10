@@ -81,6 +81,15 @@ export default defineConfig({
     keepNames: true,
   },
 
+  /* I collaudi passano da Vite perché passano dal suo resolver: gli import
+     senza estensione — quelli che puntano ai moduli diventati .ts — Node da
+     solo non li risolve. Vitest riusa questa configurazione, quindi non c'è
+     una seconda verità su come i moduli si trovano fra loro. */
+  test: {
+    setupFiles: ['./test/ambiente.js'],
+    include: ['test/**/*.test.js'],
+  },
+
   server: {
     port: 5173,
     open: false,

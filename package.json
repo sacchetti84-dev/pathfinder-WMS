@@ -10,7 +10,9 @@
     "dev": "vite",
     "build": "vite build",
     "anteprima": "vite preview",
-    "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json"
+    "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json",
+    "test": "vitest run",
+    "test:guarda": "vitest"
   },
   "dependencies": {
     "dexie": "3.2.4",
@@ -20,7 +22,8 @@
     "@types/node": "^26.2.0",
     "typescript": "^7.0.2",
     "vite": "^7.1.5",
-    "vite-plugin-singlefile": "^2.3.0"
+    "vite-plugin-singlefile": "^2.3.0",
+    "vitest": "^4.1.10"
   },
   "comment": "Le versioni di dexie e xlsx sono FISSE, non con l'accento circonflesso: sono le stesse due che scendevano dai CDN nella 1.1 (Dexie 3.2.4, SheetJS 0.18.5) e l'applicativo e' collaudato con quelle. Aggiornarle e' una decisione, non un effetto collaterale di npm install."
 }
