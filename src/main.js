@@ -31,7 +31,7 @@ import './styles/03-dash-sections.css';
 import './styles/04-dash-quick.css';
 import './styles/05-pick-report.css';
 
-import { Persistence } from './core/persistence/index.js';
+import { Persistence } from './core/persistence/index';
 import { App } from './ui/app.js';
 
 

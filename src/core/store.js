@@ -1,5 +1,5 @@
 import { MOV } from './costanti';
-import { Persistence } from './persistence/index.js';
+import { Persistence } from './persistence/index';
 import { App } from '../ui/app.js';
 
 // ═══════════════════════════════════════════════════════════════════

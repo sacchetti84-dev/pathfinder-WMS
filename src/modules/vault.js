@@ -1,4 +1,4 @@
-import { Persistence } from '../core/persistence/index.js';
+import { Persistence } from '../core/persistence/index';
 import { Store } from '../core/store.js';
 
 // ═══════════════════════════════════════════════════════════════════

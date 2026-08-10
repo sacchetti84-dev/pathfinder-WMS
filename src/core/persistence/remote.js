@@ -46,6 +46,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 const RemotePersistence = {
+  /** @type {'remote'} */
   kind: 'remote',
 
   supportsTransactions: true,
@@ -242,8 +243,11 @@ const RemotePersistence = {
     return await this._call('GET', `/api/c/${collection}/query${qs ? '?' + qs : ''}`);
   },
 
-  /* A blocchi, per non portare in memoria sei anni di registro. La
-     paginazione la fa il server con LIMIT/OFFSET: qui si scorre. */
+  /** A blocchi, per non portare in memoria sei anni di registro. La
+     paginazione la fa il server con LIMIT/OFFSET: qui si scorre.
+     @param {import('../../types/collezioni.js').Collezione} collection
+     @param {{ criteria?: import('../../types/contratto.js').Criterio | null, chunkSize?: number }} [opzioni]
+     @param {(blocco: any[]) => void | Promise<void>} fn */
   async eachChunk(collection, { criteria = null, chunkSize = 5000 } = {}, fn) {
     let offset = 0, totale = 0;
     for (;;) {

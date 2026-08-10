@@ -1,6 +1,11 @@
 import { LocalPersistence } from './local.js';
 import { RemotePersistence } from './remote.js';
 
+/* FASE 3 — l'annotazione qui sotto non è decorativa: è il punto in cui il
+   contratto smette di essere una descrizione e diventa un controllo. Se un
+   adapter perde un metodo o ne cambia la firma, non compila più. */
+import type { Persistenza } from '../../types/contratto.js';
+
 // ═══════════════════════════════════════════════════════════════════
 // PERSISTENCE ADAPTER
 // © Andrea Sacchetti — Dietopack S.r.l.
@@ -74,7 +79,7 @@ import { RemotePersistence } from './remote.js';
    locale un applicativo servito dal servizio — serve a confrontare i due
    supporti senza toccare niente.
    ═══════════════════════════════════════════════════════════════════ */
-const Persistence = (() => {
+const Persistence: Persistenza = (() => {
   const forzato = new URLSearchParams(location.search).get('db');
   if (forzato === 'local') return LocalPersistence;
   if (forzato === 'remote') return RemotePersistence;

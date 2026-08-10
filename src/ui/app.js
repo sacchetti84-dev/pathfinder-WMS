@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx';
 import { LOG_RETENTION_DAYS, LOG_RETENTION_MS, MOV, MOV_LABELS } from '../core/costanti';
-import { debounce, _h } from '../core/utils.js';
-import { Persistence } from '../core/persistence/index.js';
+import { debounce, _h } from '../core/utils';
+import { Persistence } from '../core/persistence/index';
 import { Validate } from '../modules/validate.js';
 import { pickupAlertStatus } from '../modules/pickupAlert.js';
 import { OdpParser } from '../modules/odpParser.js';

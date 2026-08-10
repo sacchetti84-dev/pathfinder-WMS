@@ -81,7 +81,13 @@ export interface Capacita {
 export interface Persistenza extends Capacita {
   readonly kind: 'local' | 'remote';
 
-  open(): Promise<void>;
+  /* `Promise<unknown>` e non `Promise<void>` perché i due adapter non
+     restituiscono la stessa cosa: quello locale niente, quello remoto `true`.
+     Nessuno dei due valori viene letto — `Store.init()` fa `await
+     Persistence.open()` e prosegue. Dichiararlo `void` avrebbe voluto dire
+     togliere quel `return true`, cioè cambiare il codice per far tornare i
+     conti a un tipo che ho scritto io: qui la cosa sbagliata era il tipo. */
+  open(): Promise<unknown>;
   loadAll(opzioni?: { movLogFrom?: Istante | null }): Promise<Record<string, unknown>>;
 
   /* Le due scritture sono SEPARATE di proposito: `add` pretende che il record
@@ -107,11 +113,13 @@ export interface Persistenza extends Capacita {
   count(collezione: Collezione, criterio?: Criterio | null): Promise<number>;
   countAll(): Promise<Record<string, number>>;
   query<T>(collezione: Collezione, opzioni?: OpzioniQuery): Promise<T[]>;
+  /** Restituisce quanti record ha scorso: `Store.queryMovements` lo propaga
+      al chiamante, quindi non è un dettaglio interno dell'adapter. */
   eachChunk<T>(
     collezione: Collezione,
     opzioni: { criteria?: Criterio | null; chunkSize?: number },
     fn: (blocco: T[]) => void | Promise<void>,
-  ): Promise<void>;
+  ): Promise<number>;
 
   /** Le scritture dentro `fn` sono tutto-o-niente. */
   transaction<T>(collezioni: Collezione[], fn: () => Promise<T>): Promise<T>;

@@ -9,6 +9,9 @@
 import { db } from '../schema.js';
 
 const LocalPersistence = {
+  /* Il commento non è decorativo: senza, il compilatore legge 'local' come una
+     stringa qualunque e l'adapter non risulta più conforme al contratto. */
+  /** @type {'local'} */
   kind: 'local',
 
   supportsTransactions: true,
@@ -226,9 +229,15 @@ const LocalPersistence = {
     return await coll.toArray();
   },
 
-  /* Scorrimento a blocchi, senza mai tenere in memoria piu' di `chunkSize`
+  /** Scorrimento a blocchi, senza mai tenere in memoria piu' di `chunkSize`
      record. E' cosi' che l'export attraversa sei anni di archivio su una
-     macchina che non ha sei anni di archivio di RAM libera. */
+     macchina che non ha sei anni di archivio di RAM libera.
+
+     Il valore predefinito `criteria = null` da solo farebbe dedurre che null
+     sia l'unica cosa ammessa; il criterio va dichiarato.
+     @param {import('../../types/collezioni.js').Collezione} collection
+     @param {{ criteria?: import('../../types/contratto.js').Criterio | null, chunkSize?: number }} [opzioni]
+     @param {(blocco: any[]) => void | Promise<void>} fn */
   async eachChunk(collection, { criteria = null, chunkSize = 5000 } = {}, fn) {
     const total = criteria
       ? await this._where(collection, criteria).count()

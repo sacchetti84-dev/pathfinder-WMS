@@ -1,4 +1,4 @@
-import { Persistence } from '../core/persistence/index.js';
+import { Persistence } from '../core/persistence/index';
 
 // ═══════════════════════════════════════════════════════════════════
 // © Andrea Sacchetti — Dietopack S.r.l.
