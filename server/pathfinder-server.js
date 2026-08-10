@@ -37,6 +37,8 @@ const express = require('express');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
+const http = require('http');
+const https = require('https');
 const { PathfinderDB } = require('./lib/db');
 const { NAMES } = require('./lib/schema');
 
@@ -45,6 +47,14 @@ const ROOT = path.resolve(__dirname, '..');
 const DB_FILE = process.env.PATHFINDER_DB || path.join(__dirname, 'data', 'pathfinder.db');
 const APP_FILE = process.env.PATHFINDER_APP || path.join(ROOT, 'pathfinder-1.1.html');
 const VERSION = '1.1';
+
+/* v1.2 — CERTIFICATO, SE C'E'.
+   Su http il PIN attraversa la rete in chiaro. Su una LAN aziendale lo si
+   accetta di solito, ma resta una cosa che si chiude. Qui il certificato non
+   e' obbligatorio: se le due variabili non ci sono il servizio parte in http
+   esattamente come prima, e nessuna installazione esistente cambia. */
+const TLS_CERT = process.env.PATHFINDER_TLS_CERT || null;
+const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
 
 const db = new PathfinderDB(DB_FILE);
 const app = express();
@@ -475,14 +485,47 @@ app.get('/api/app-info', wrap((req, res) => {
 
 app.use((req, res) => res.status(404).json({ error: 'endpoint inesistente' }));
 
-const server = app.listen(PORT, () => {
+/* v1.2 — COSTRUZIONE DEL SERVER.
+   Prima era `app.listen(PORT)`, che sa fare solo http.
+
+   PERCHE' UN CERTIFICATO A META' FERMA TUTTO invece di ripiegare su http:
+   un ripiego silenzioso e' la peggiore delle tre possibilita'. Il servizio
+   risponderebbe, i terminali funzionerebbero, e tutti crederebbero che i PIN
+   viaggino cifrati mentre attraversano la rete in chiaro. Un servizio che non
+   parte lo si vede subito; uno che mente non lo vede nessuno. */
+const creaServer = () => {
+  if (!TLS_CERT && !TLS_KEY) return { srv: http.createServer(app), schema: 'http' };
+
+  if (!TLS_CERT || !TLS_KEY) {
+    console.error('\n  Certificato incompleto: servono PATHFINDER_TLS_CERT e PATHFINDER_TLS_KEY.');
+    console.error(`  cert: ${TLS_CERT || '(mancante)'}`);
+    console.error(`  key:  ${TLS_KEY  || '(mancante)'}`);
+    console.error('  Il servizio non parte in chiaro per errore.\n');
+    process.exit(1);
+  }
+
+  try {
+    const opzioni = { cert: fs.readFileSync(TLS_CERT), key: fs.readFileSync(TLS_KEY) };
+    return { srv: https.createServer(opzioni, app), schema: 'https' };
+  } catch (err) {
+    console.error(`\n  Certificato illeggibile: ${err.message}`);
+    console.error('  Controllare percorsi e permessi. Il servizio gira come SYSTEM:');
+    console.error('  la chiave privata deve essere leggibile da SYSTEM, non solo dall\'utente.\n');
+    process.exit(1);
+  }
+};
+
+const { srv, schema } = creaServer();
+
+const server = srv.listen(PORT, () => {
   const nets = os.networkInterfaces();
   const lan = Object.values(nets).flat()
     .filter(n => n && n.family === 'IPv4' && !n.internal).map(n => n.address);
   console.log(`\n  Pathfinder ${VERSION} — servizio dati`);
   console.log(`  database   ${DB_FILE}`);
-  console.log(`  applicativo http://localhost:${PORT}/`);
-  for (const ip of lan) console.log(`  in rete     http://${ip}:${PORT}/`);
+  console.log(`  applicativo ${schema}://localhost:${PORT}/`);
+  for (const ip of lan) console.log(`  in rete     ${schema}://${ip}:${PORT}/`);
+  if (schema === 'http') console.log('  ATTENZIONE  senza certificato il PIN viaggia in chiaro');
   console.log(`  revisione   ${db.currentRevision()}\n`);
 });
 
