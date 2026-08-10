@@ -1,4 +1,4 @@
-# ═══════════════════════════════════════════════════════════════════
+﻿# ═══════════════════════════════════════════════════════════════════
 #  PATHFINDER — INSTALLAZIONE DEL SERVIZIO DATI
 #  © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
 #

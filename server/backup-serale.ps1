@@ -1,4 +1,4 @@
-# ═══════════════════════════════════════════════════════════════════
+﻿# ═══════════════════════════════════════════════════════════════════
 #  PATHFINDER — BACKUP SERALE DEL DATABASE
 #  © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
 #
