@@ -1,0 +1,31 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Pathfinder — cosa NON entra nel repository
+# © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Dipendenze: si ricostruiscono con "npm install", non si versionano.
+node_modules/
+
+# Database e stato del servizio.
+# PERCHÉ: non è codice, contiene i dati operativi veri e le anagrafiche degli
+# operatori (vincolo GDPR §10 dell'HANDOFF 1.0). Il file -wal e il -shm sono
+# per giunta stato transitorio di SQLite: versionarli non ha alcun senso.
+server/data/
+*.db
+*.db-shm
+*.db-wal
+
+# Esportazioni e file di prova: contengono movimenti reali e sigle operatore.
+# Gli HANDOFF in .md dentro la stessa cartella invece restano — sono memoria di progetto.
+BACKUP E FILE DI TEST/*.json
+BACKUP E FILE DI TEST/*.xlsx
+BACKUP E FILE DI TEST/movimenti/
+
+# Output di build: si rigenera con "npm run build".
+dist/
+
+# Rumore di Windows e degli editor.
+Thumbs.db
+desktop.ini
+.vscode/
+*.log

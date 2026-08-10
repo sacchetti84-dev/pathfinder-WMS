@@ -1,0 +1,10 @@
+# Git non deve riscrivere i fine riga né reinterpretare il contenuto dei file.
+#
+# PERCHÉ: pathfinder-*.html contiene sequenze \uXXXX letterali (non i caratteri) e
+# caratteri di riquadro nei banner dei commenti. La normalizzazione automatica CRLF/LF
+# di Git su Windows riscriverebbe byte dentro un file da 1,2 MB, con l'effetto di far
+# fallire senza spiegazione le sostituzioni testuali che li attraversano — la stessa
+# trappola descritta al §5.1 dell'HANDOFF 1.0, ma applicata da Git invece che dall'editor.
+#
+# Con "-text" i file vanno e tornano dal repository byte per byte, identici.
+* -text
