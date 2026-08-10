@@ -10,13 +10,14 @@
     "dev": "vite",
     "build": "vite build",
     "anteprima": "vite preview",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.server.json"
   },
   "dependencies": {
     "dexie": "3.2.4",
     "xlsx": "0.18.5"
   },
   "devDependencies": {
+    "@types/node": "^26.2.0",
     "typescript": "^7.0.2",
     "vite": "^7.1.5",
     "vite-plugin-singlefile": "^2.3.0"

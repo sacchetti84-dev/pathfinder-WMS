@@ -37,6 +37,25 @@
      unique    campi con vincolo di unicita' (erano gli & di Dexie)
      numeric   campi materializzati come numero: servono ai confronti
                d'intervallo (la purge del registro lavora su ts) */
+/** IL VOCABOLARIO È DICHIARATO IN UN POSTO SOLO.
+   Fino a ieri l'elenco delle collezioni era scritto tre volte — qui, in
+   `Persistence.COLLECTIONS` sul client, e nella mappa `_PK` dell'adapter
+   remoto. Combaciavano perché qualcuno se n'era ricordato.
+
+   Questa annotazione lo rende una cosa verificata: se qui compare una
+   collezione che il client non conosce, o ne manca una che il client si
+   aspetta, il controllo dei tipi si ferma. Un nome sbagliato da una parte
+   sola non fa rumore — fa un 404 in mezzo a un turno.
+
+   @type {Record<import('../../src/types/collezioni').Collezione, {
+     pk: string,
+     pkType: 'auto' | 'text',
+     indexed: string[],
+     unique?: string[],
+     numeric?: string[],
+     composite?: string[][],
+     compositeUnique?: string[][]
+   }>} */
 const COLLECTIONS = {
   sites: {
     pk: '_id', pkType: 'auto',

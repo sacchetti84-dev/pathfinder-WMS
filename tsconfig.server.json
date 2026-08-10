@@ -1,0 +1,51 @@
+{
+  // ═══════════════════════════════════════════════════════════════════
+  //  PATHFINDER — controllo dei tipi sul SERVIZIO
+  //  © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+  //
+  //  PERCHÉ UN SECONDO FILE E NON UNO SOLO.
+  //  Client e servizio sono due mondi diversi: il primo è ESM e gira in un
+  //  browser, il secondo è CommonJS e gira in Node. Un solo tsconfig
+  //  dovrebbe mentire a uno dei due.
+  //
+  //  PERCHÉ QUI `checkJs` È ACCESO E NEL CLIENT NO.
+  //  Il servizio è 800 righe scritte in un colpo solo e con un collaudo che
+  //  le esercita tutte; il client sono 15.000 righe stratificate su due anni.
+  //  Sul primo il controllo si accende e si legge il risultato, sul secondo
+  //  produrrebbe un elenco che nessuno guarda.
+  //
+  //  `strict` resta spento: qui non si vogliono annotazioni ovunque, si
+  //  vuole che il servizio e il client parlino della stessa cosa quando
+  //  nominano una collezione. Quello lo controlla il tipo condiviso, non
+  //  `noImplicitAny`.
+  //
+  //  Non produce niente: il servizio resta `node pathfinder-server.js`, che
+  //  è una delle ragioni per cui è affidabile.
+  // ═══════════════════════════════════════════════════════════════════
+  "compilerOptions": {
+    "target": "ES2022",
+    // PERCHÉ "preserve"/"bundler" E NON "node16".
+    // Con node16 il compilatore applica le regole di interoperabilità fra
+    // CommonJS ed ESM, e pretende un'annotazione di modalità ogni volta che
+    // il servizio — che è CommonJS — nomina un tipo che vive nei moduli del
+    // client. Ma qui non si compila niente: questo file serve a CONTROLLARE.
+    // Il servizio continua a essere avviato con `node pathfinder-server.js`,
+    // resta CommonJS, e non cambia di una riga. Chiedergli cerimonie di
+    // interoperabilità per un import che esiste solo dentro un commento
+    // sarebbe far cambiare il codice a un controllo.
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "lib": ["ES2022"],
+    "types": ["node"],
+
+    "allowJs": true,
+    "checkJs": true,
+    "strict": false,
+
+    "noEmit": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true
+  },
+  "include": ["server/**/*.js", "src/types/**/*.ts"],
+  "exclude": ["server/node_modules", "node_modules"]
+}
