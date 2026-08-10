@@ -2086,7 +2086,16 @@ const Store = {
             level: loc.level ?? '',
             /* Indice del livello nell'ordine configurato: si assume che
                l'elenco sia già dal basso verso l'alto, come nella UI di
-               configurazione. Livello non in elenco → in coda. */
+               configurazione.
+
+               Il `Math.max(0, …)` non è una regola di ordinamento, è una
+               rete: un livello fuori elenco qui non può arrivare, perché
+               `levels` è la stessa riga di configurazione da cui
+               _genLocations() ha appena preso quel livello. Se un giorno le
+               due letture divergessero, l'indice -1 diventerebbe 0 e il
+               livello finirebbe a pari merito col primo — visibile,
+               invece di far scendere l'ordinamento sotto zero.
+               (Il commento diceva «in coda»: non è mai stato vero.) */
             level_idx: loc.level ? Math.max(0, levels.indexOf(loc.level)) : 0
           });
         }
