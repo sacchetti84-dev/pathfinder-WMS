@@ -1,4 +1,4 @@
-import { MOV } from './costanti.js';
+import { MOV } from './costanti';
 import { Persistence } from './persistence/index.js';
 import { App } from '../ui/app.js';
 

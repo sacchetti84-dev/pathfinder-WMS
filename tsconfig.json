@@ -1,0 +1,41 @@
+{
+  // ═══════════════════════════════════════════════════════════════════
+  //  PATHFINDER — configurazione del compilatore
+  //  © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+  //
+  //  PERCHÉ `checkJs` È SPENTO E `include` PRENDE SOLO I .ts.
+  //  Accendere il controllo su 15.000 righe di JavaScript scritto prima che
+  //  esistessero i tipi produce migliaia di segnalazioni tutte insieme: un
+  //  elenco così non lo legge nessuno, e la prima cosa che si fa per farlo
+  //  tacere è spegnerlo. Qui il controllo è severo — `strict` acceso — ma
+  //  su ciò che è già stato tipizzato. Un file per volta: quando un modulo
+  //  diventa .ts, entra nel controllo con tutte le regole attive, e non ci
+  //  esce più.
+  //
+  //  `noEmit`: a compilare è esbuild dentro Vite, ed è il motivo per cui il
+  //  ciclo salva-e-ricarica resta istantaneo su un progetto di questa
+  //  dimensione. `tsc` qui serve a controllare, non a produrre.
+  // ═══════════════════════════════════════════════════════════════════
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+
+    "strict": true,
+    // Un accesso per indice può non trovare niente, e il codice deve dirlo.
+    "noUncheckedIndexedAccess": true,
+    "noFallthroughCasesInSwitch": true,
+
+    "allowJs": true,
+    "checkJs": false,
+
+    "noEmit": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist"]
+}

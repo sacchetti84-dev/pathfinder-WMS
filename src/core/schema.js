@@ -13,7 +13,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 
 import Dexie from 'dexie';
-import { DB_NAME } from './costanti.js';
+import { DB_NAME } from './costanti';
 
 const db = new Dexie(DB_NAME);
 db.version(1).stores({

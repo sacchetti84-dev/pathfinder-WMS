@@ -5,7 +5,25 @@
    Nome del database, ritenzione del registro, tipi di movimento e loro
    etichette. Non dipendono da niente e non fanno niente: sono le uniche
    cose del progetto che si possono leggere senza sapere il resto.
+
+   FASE 3 — primo modulo tipizzato. Il corpo non è cambiato di una riga:
+   sono state aggiunte due clausole `satisfies`, che non producono codice e
+   non toccano il comportamento. Servono a far verificare al compilatore due
+   cose che finora reggevano solo sull'attenzione di chi scriveva:
+
+   1. che ogni valore di MOV sia uno dei quattordici del contratto;
+   2. che MOV_LABELS abbia un'etichetta per OGNUNO di quei quattordici.
+
+   La seconda non è teoria. Il registro stampa `MOV_LABELS[m.type] || m.type`:
+   se un giorno si aggiunge un tipo di movimento e ci si dimentica
+   l'etichetta, l'applicativo non protesta — mostra il codice grezzo in mezzo
+   ai movimenti, e nessuno se ne accorge finché non lo legge un ispettore.
+   Da adesso quella dimenticanza non compila.
    ═══════════════════════════════════════════════════════════════════ */
+
+/* Il tipo si chiama MOV come la costante, e i due nomi non possono
+   convivere: qui serve il tipo, quindi lo si rinomina all'ingresso. */
+import type { MOV as TipoMovimento } from '../types/contratto.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // DATABASE 
@@ -42,7 +60,7 @@ const MOV = Object.freeze({
      di audit, come PURGE. A registro finisce CHI ha rinnovato il PIN di CHI;
      il PIN non compare, ne' in chiaro ne' come impronta. */
   PINRESET: 'PINRESET'
-});
+} as const satisfies Record<string, TipoMovimento>);
 
 const MOV_LABELS = {
   IN: 'Posizionamento', OUT: 'Smaltimento', MOVE: 'Cambio Ubicazione',
@@ -54,6 +72,6 @@ const MOV_LABELS = {
   SHIP: 'Spedizione',
   PURGE: 'Purge Registro (manuale)',  // v2.0.1 [B8]
   PINRESET: 'Rinnovo PIN operatore'   // v2.7.0 [G6]
-};
+} satisfies Record<TipoMovimento, string>;
 
 export { DB_NAME, LOG_RETENTION_DAYS, LOG_RETENTION_MS, MOV, MOV_LABELS };
