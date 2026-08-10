@@ -1,3 +1,23 @@
+> ## ⚠ DOCUMENTO SUPERATO — vale come memoria, non come piano
+>
+> Scritto il 10/08/2026 prima delle decisioni definitive. Tre punti sono stati
+> poi cambiati, e leggerlo come istruzioni porterebbe fuori strada:
+>
+> | Qui dentro c'è scritto | Ma poi si è deciso |
+> |---|---|
+> | Microsoft Entra ID come identità (§2 D3, §3) | **Si resta al PIN/QR** esistente. Tutta la §3 non si applica |
+> | Adapter D365 e Azure Functions (§4 Fase 6) | **Sage X3 resta fino al 2038.** Rimane solo la cucitura: il parser dietro un'interfaccia |
+> | §10 «nessuna richiesta di rete verso l'esterno» da riscrivere | Non serve più riscriverlo: senza Entra, il vincolo regge |
+>
+> Restano validi e sono stati eseguiti: le tre correzioni ai documenti di
+> valutazione (§1), le decisioni D1, D2 e D4 (§2), le fasi 0-4 e la struttura
+> target (§5), e l'elenco di ciò che non si fa (§6).
+>
+> **Per lo stato attuale e per installare, aggiornare o diagnosticare:
+> vedi [README.md](../README.md).**
+
+---
+
 # PIANO DI AZIONE — Pathfinder 2.0
 
 **Da monolite a moduli, con il servizio in casa e l'identità in Entra**
