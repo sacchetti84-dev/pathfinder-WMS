@@ -1,0 +1,23 @@
+{
+  "name": "pathfinder",
+  "version": "1.2.0",
+  "description": "Pathfinder — gestione magazzino. Client. Dietopack S.r.l. (Naturacare Group)",
+  "author": "Andrea Sacchetti",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "anteprima": "vite preview"
+  },
+  "dependencies": {
+    "dexie": "3.2.4",
+    "xlsx": "0.18.5"
+  },
+  "devDependencies": {
+    "vite": "^7.1.5",
+    "vite-plugin-singlefile": "^2.3.0"
+  },
+  "comment": "Le versioni di dexie e xlsx sono FISSE, non con l'accento circonflesso: sono le stesse due che scendevano dai CDN nella 1.1 (Dexie 3.2.4, SheetJS 0.18.5) e l'applicativo e' collaudato con quelle. Aggiornarle e' una decisione, non un effetto collaterale di npm install."
+}

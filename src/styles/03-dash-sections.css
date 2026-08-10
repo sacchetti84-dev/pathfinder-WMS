@@ -1,0 +1,134 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v2.4.3 [S1][S2] — SEZIONI OPERATIVE DASHBOARD + SCALA TIPOGRAFICA
+   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+   [S2] Il problema che questo layer risolve: la dashboard usava tredici
+   dimensioni di testo diverse (0.55 0.62 0.63 0.64 0.65 0.66 0.68 0.70 0.72
+   0.73 0.74 0.75 0.78 rem) nate una alla volta. Nessuna era sbagliata da
+   sola, ma insieme non componevano una gerarchia: erano rumore. Qui la scala
+   viene ridotta a QUATTRO gradini, tutti presi dai token MD3 gia' definiti.
+   Le regole sono limitate a #viewDashboard: nessun'altra vista e' toccata.
+
+   [S1] Tutte e quattro le nuove sezioni operative (movimenti, ordini di
+   produzione, documenti pendenti, quarantena) condividono lo stesso schema
+   di riga .dl-*: etichetta di tipo a larghezza fissa, blocco centrale su due
+   righe, azioni a destra. Un unico idioma percorso quattro volte pesa meno,
+   all'occhio, di quattro impaginazioni simili ma non uguali.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+#viewDashboard {
+  /* Quattro gradini, nessun valore intermedio */
+  --dash-fs-num:  var(--md-sys-typescale-headline-small-size);  /* 1.5rem   — valori KPI */
+  --dash-fs-head: var(--md-sys-typescale-title-small-size);     /* 0.875rem — titoli */
+  --dash-fs-body: var(--md-sys-typescale-body-small-size);      /* 0.75rem  — testo di riga */
+  --dash-fs-meta: var(--md-sys-typescale-label-small-size);     /* 0.6875rem— dati secondari */
+}
+
+/* ── Intestazione della vista ── */
+#viewDashboard .dash-h1 {
+  font-size: var(--md-sys-typescale-title-large-size);
+  line-height: var(--md-sys-typescale-title-large-line-height, 1.3);
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+  letter-spacing: 0;
+}
+#viewDashboard .dash-sub { font-size: var(--dash-fs-meta); color: var(--md-sys-color-on-surface-variant); }
+
+/* ── Intestazione di card con conteggio e azione ── */
+.dl-head {
+  display: flex; align-items: center; gap: 0.5rem;
+  background: var(--md-sys-color-surface-container-low);
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  color: var(--md-sys-color-on-surface-variant);
+  font-size: var(--dash-fs-head); font-weight: 600;
+  padding: 0.6rem 1rem;
+}
+.dl-head-title { flex: 1 1 auto; min-width: 0; }
+.dl-badge {
+  font-family: var(--mono); font-size: var(--dash-fs-meta); font-weight: 700;
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-radius: var(--md-shape-full, 999px); padding: 0.1rem 0.5rem; flex: 0 0 auto;
+}
+.dl-badge.is-alert { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+
+/* ── Riga di lista: unico schema per tutte e quattro le sezioni ── */
+.dl-list { max-height: 272px; overflow-y: auto; overscroll-behavior: contain; }
+.dl-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.42rem 0.7rem;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+  font-size: var(--dash-fs-body);
+}
+.dl-row:last-child { border-bottom: none; }
+.dl-row:hover { background: var(--md-sys-color-surface-container-low); }
+.dl-tag {
+  flex: 0 0 68px; text-align: center;
+  font-size: var(--dash-fs-meta); font-weight: 700; letter-spacing: 0.02em;
+  color: var(--md-sys-color-on-surface); background: var(--md-sys-color-surface-container-highest);
+  border-left: 3px solid var(--md-sys-color-outline);
+  border-radius: 0 var(--md-shape-xs, 4px) var(--md-shape-xs, 4px) 0;
+  padding: 0.18rem 0.25rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dl-main { flex: 1 1 auto; min-width: 0; }
+.dl-p {
+  font-size: var(--dash-fs-body); color: var(--md-sys-color-on-surface);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.dl-p .mono { font-weight: 700; }
+.dl-s {
+  font-size: var(--dash-fs-meta); color: var(--md-sys-color-on-surface-variant);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 1px;
+}
+.dl-end {
+  flex: 0 0 auto; display: flex; align-items: center; gap: 0.3rem;
+  font-size: var(--dash-fs-meta); color: var(--md-sys-color-on-surface-variant);
+  font-family: var(--mono); white-space: nowrap;
+}
+.dl-qty { font-weight: 700; color: var(--md-sys-color-on-surface); }
+.dl-chip {
+  font-size: var(--dash-fs-meta); font-weight: 700;
+  border-radius: var(--md-shape-full, 999px); padding: 0.1rem 0.45rem;
+  border: 1px solid currentColor; white-space: nowrap;
+}
+.dl-btn {
+  flex: 0 0 auto; min-width: 30px; height: 28px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--md-sys-color-outline-variant);
+  background: var(--md-sys-color-surface);
+  color: var(--md-sys-color-on-surface-variant);
+  border-radius: var(--md-shape-full, 999px);
+  font-size: var(--dash-fs-body); cursor: pointer; padding: 0 0.5rem;
+  transition: background var(--md-motion-short, 0.15s), border-color var(--md-motion-short, 0.15s);
+}
+.dl-btn:hover { background: var(--md-sys-color-secondary-container); border-color: var(--md-sys-color-secondary); }
+.dl-btn:focus-visible { outline: 3px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.dl-empty {
+  padding: 1.4rem 1rem; text-align: center;
+  font-size: var(--dash-fs-body); color: var(--md-sys-color-on-surface-variant);
+}
+.dl-foot {
+  padding: 0.4rem 0.7rem; border-top: 1px solid var(--md-sys-color-outline-variant);
+  font-size: var(--dash-fs-meta); color: var(--md-sys-color-on-surface-variant); text-align: center;
+}
+
+/* ── Riallineamento delle dimensioni ereditate dentro la dashboard ── */
+#viewDashboard .kpi-sub,
+#viewDashboard .ct-summary,
+#viewDashboard .ct-legend-row { font-size: var(--dash-fs-body); }
+#viewDashboard .ct-legend-pct,
+#viewDashboard .ct-gauge-sub,
+#viewDashboard .kpi-label { font-size: var(--dash-fs-meta); }
+#viewDashboard .ct-gauge-name,
+#viewDashboard .ct-bar-head { font-size: var(--dash-fs-body); }
+
+/* ── Tipografia interna ai grafici: divari ridotti ──
+   Il totale al centro della ciambella (26px) sovrastava sia i valori KPI
+   (1.5rem = 24px) sia la percentuale degli anelli (15px). Portato a 21px si
+   allinea alla gerarchia senza perdere il ruolo di dato principale.
+   Le ciambelle e gli anelli hanno larghezza fissa, quindi questi px sono
+   quelli effettivamente resi a schermo. */
+.chart .ct-total { font-size: 21px; }
+.chart .ct-gauge { font-size: 14px; }
+.chart .ct-total-lbl { font-size: 9px; }
+/* Fine layer sezioni [S1][S2] — © Andrea Sacchetti */

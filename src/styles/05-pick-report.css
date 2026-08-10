@@ -1,0 +1,85 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v2.5.1 — LAYER REPORT DI PRELIEVO
+   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+   Layer di sola AGGIUNTA, caricato per ultimo: nessuna regola preesistente
+   del blocco @media print viene rimossa o riscritta. Le classi .pr-* gia'
+   esistenti (header, meta-grid, summary, table, footer) restano quelle di
+   prima e continuano a servire gli altri documenti (report di uscita,
+   cartello NC). Qui si aggiunge soltanto cio' che il nuovo template del
+   report di prelievo richiede:
+
+     .pr-reprint   fascia di RISTAMPA — un documento GMP ristampato non deve
+                   poter essere scambiato per l'originale
+     .pr-times     banda dei tempi: inizio, fine, durata, media per prelievo.
+                   E' il focus del documento, quindi ha peso tipografico
+                   maggiore delle tessere di conteggio (.pr-summary)
+     .pr-box       casella da barrare a penna per il recupero fuori percorso
+     regole di impaginazione: l'intestazione di tabella si ripete a ogni
+                   pagina e nessuna riga viene spezzata a meta'
+   ═══════════════════════════════════════════════════════════════════════════ */
+@media print {
+
+  /* ── Fascia di ristampa / avviso sulla fonte dei dati ── */
+  .pr-reprint {
+    border: 1.5pt solid #1b3a4b; background: #eff1f3;
+    padding: 5px 10px; margin-bottom: 10px; border-radius: 3px;
+    font-size: 8.5pt; line-height: 1.35; color: #1b3a4b;
+  }
+  .pr-reprint strong { display: block; font-size: 10pt; letter-spacing: 0.04em; }
+  .pr-reprint.pr-reprint-warn { border-color: #92400e; background: #fef3c7; color: #92400e; }
+
+  /* ── Banda dei tempi ── */
+  .pr-times {
+    display: flex; gap: 0; margin-bottom: 12px;
+    border: 1.5pt solid #1b3a4b; border-radius: 3px; overflow: hidden;
+  }
+  .pr-time-cell {
+    flex: 1; padding: 6px 8px; text-align: center;
+    border-left: 1px solid #ccd4d9;
+  }
+  .pr-time-cell:first-child { border-left: 0; }
+  .pr-time-lbl {
+    font-size: 7pt; text-transform: uppercase; letter-spacing: 0.05em;
+    color: #666; font-weight: 700;
+  }
+  .pr-time-val {
+    font-size: 15pt; font-weight: 700; color: #1b3a4b;
+    font-family: Consolas, monospace; line-height: 1.2;
+  }
+  .pr-time-sub { font-size: 7pt; color: #777; }
+  /* La media e' il dato che si va a cercare: sta in negativo. */
+  .pr-time-cell.pr-time-key { background: #1b3a4b; }
+  .pr-time-cell.pr-time-key .pr-time-lbl,
+  .pr-time-cell.pr-time-key .pr-time-sub { color: #c6d3da; }
+  .pr-time-cell.pr-time-key .pr-time-val { color: #fff; }
+
+  /* ── Titoli di sezione ── */
+  .pr-sec {
+    font-size: 9pt; font-weight: 700; color: #1b3a4b;
+    text-transform: uppercase; letter-spacing: 0.04em;
+    margin: 12px 0 4px; padding-bottom: 2px;
+    border-bottom: 1.2pt solid #1b3a4b;
+  }
+  .pr-sec-note { font-size: 7.5pt; color: #666; font-weight: 500; text-transform: none; letter-spacing: 0; }
+
+  /* ── Casella di conferma recupero ── */
+  .pr-check-col { width: 58px; text-align: center; }
+  .pr-box {
+    display: inline-block; width: 12pt; height: 12pt;
+    border: 1.4pt solid #000; border-radius: 1px; vertical-align: middle;
+  }
+
+  /* ── Elenco avvisi ── */
+  .pr-warn-list { margin: 0 0 10px 0; padding: 6px 10px 6px 24px; font-size: 8.5pt;
+    background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; color: #92400e; }
+  .pr-warn-list li { margin-bottom: 2px; }
+
+  /* ── Impaginazione multipagina ── */
+  .pr-table { page-break-inside: auto; }
+  .pr-table thead { display: table-header-group; }
+  .pr-table tr { page-break-inside: avoid; page-break-after: auto; }
+  .pr-sec { page-break-after: avoid; }
+  .pr-times, .pr-summary, .doc-idblock { page-break-inside: avoid; }
+  .pr-empty-row td { text-align: center; color: #777; font-style: italic; }
+}

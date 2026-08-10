@@ -1,0 +1,167 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v2.4.2 [G1] — LAYER GRAFICI DASHBOARD (Material Design 3)
+   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+   Layer di sola aggiunta, caricato per ultimo nel <head>. Definisce il
+   linguaggio visivo comune di tutti i grafici della dashboard. Tutti i colori
+   derivano dai token MD3 gia' presenti (seed #00745A, SchemeTonalSpot): non
+   viene introdotto alcun colore nuovo, cosi' il tema resta governato da un
+   unico punto. Nessuna regola preesistente rimossa; @media print invariato.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Palette CATEGORIALE dei grafici ──
+   I colori semantici dell'app (--md-ext-*) sono tarati per badge di stato letti
+   UNO ALLA VOLTA. Affiancati in una ciambella collassano: success #2D694F,
+   resi #20695D e primary #166B54 sono tre verdi quasi indistinguibili, e
+   warning #7B581B, spediz #845326 e warning-dim #604103 tre marroni.
+   Serve percio' una palette CATEGORIALE, costruita separando le tinte a
+   luminosita' e croma confrontabili, come previsto dalle extended colors MD3
+   per la visualizzazione dati. Gli ancoraggi semantici forti restano:
+   verde = merce in ingresso, rosso = smaltimento, indaco = quarantena.
+   I tipi rari (correzioni, modifiche, riposizionamenti) prendono le tinte
+   residue: devono solo non collidere con quelli frequenti. */
+:root {
+  --ct-cat-in:    #2D694F;  /* verde        — Posizionamento */
+  --ct-cat-pick:  #8A5A00;  /* ambra        — Prelievo produzione */
+  --ct-cat-move:  #2E6590;  /* blu          — Cambio ubicazione */
+  --ct-cat-out:   #BA1A1A;  /* rosso        — Smaltimento */
+  --ct-cat-quar:  #565B8B;  /* indaco       — Quarantena */
+  --ct-cat-qrel:  #7FA88F;  /* verde chiaro — Rilascio quarantena */
+  --ct-cat-ret:   #00707A;  /* ciano        — Resi */
+  --ct-cat-ship:  #A4462A;  /* terracotta   — Spedizioni */
+  --ct-cat-edit:  #6D6A5F;  /* grigio caldo — Modifica dati item */
+  --ct-cat-fixp:  #9B4F86;  /* magenta      — Correzione + */
+  --ct-cat-fixm:  #C08A2E;  /* oro chiaro   — Correzione - */
+  --ct-cat-repos: #0D3540;  /* blu profondo — Riposizionamento */
+}
+
+/* ── Contenitore comune ── */
+/* ── Riquadro condiviso dei grafici ──
+   v2.4.4 [N1]: .chart era width:100% senza limite superiore. La ciambella,
+   vincolata da max-width al proprio viewBox, restava resa 1:1; il grafico ad
+   area invece cresceva con la card e su un pannello da 700px arrivava a
+   700x313 px, con ogni testo interno ingrandito di 2,06 volte. Le due card
+   della stessa riga risultavano percio' di altezza e peso tipografico molto
+   diversi. Ora entrambi i grafici sono limitati a un riquadro alto
+   --ct-size e vengono resi 1:1: i px dichiarati nel viewBox sono i px
+   effettivi a schermo, uguali in tutti i grafici. */
+:root { --ct-size: 196px; }
+
+.chart { display: block; width: 100%; height: auto; overflow: visible; }
+.chart--area {
+  max-width: calc(var(--ct-size) * 2.245);   /* rapporto del viewBox 440x196 */
+  max-height: var(--ct-size);
+  margin: 0 auto;
+}
+.chart-wrap { padding: 0.15rem 0 0; }
+
+/* ── Tipografia dei grafici: Label Small MD3 per gli assi ── */
+/* v2.4.4 [N1] — con la resa 1:1 questi px sono quelli effettivi a schermo:
+   prima l'ingrandimento del viewBox li portava a dimensioni leggibili quasi
+   per caso, e diverse da card a card. Valori rialzati di conseguenza. */
+.chart text {
+  font-family: var(--font);
+  font-size: 10.5px;
+  letter-spacing: 0.03em;
+  fill: var(--md-sys-color-on-surface-variant);
+}
+.chart .ct-axis      { font-size: 10px; fill: var(--md-sys-color-on-surface-variant); }
+.chart .ct-axis-now  { font-weight: 700; fill: var(--md-sys-color-primary); }
+.chart .ct-total     { font-size: 26px; font-weight: 700; fill: var(--md-sys-color-on-surface); font-family: var(--mono); }
+.chart .ct-total-lbl { font-size: 8.5px; font-weight: 600; letter-spacing: 0.06em; fill: var(--md-sys-color-on-surface-variant); }
+.chart .ct-gauge     { font-size: 15px; font-weight: 700; fill: var(--md-sys-color-on-surface); font-family: var(--mono); }
+
+/* ── Griglia e assi ── */
+.chart .ct-grid   { stroke: var(--md-sys-color-outline-variant); stroke-width: 1; }
+.chart .ct-grid-0 { stroke: var(--md-sys-color-outline); stroke-width: 1; }
+
+/* ── Serie a linea morbida ── */
+.chart .ct-line {
+  fill: none;
+  stroke: var(--md-sys-color-primary);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.chart .ct-area  { stroke: none; }
+.chart .ct-dot   { fill: var(--md-sys-color-surface); stroke: var(--md-sys-color-primary); stroke-width: 2; }
+.chart .ct-dot-now { fill: var(--md-sys-color-primary); stroke: var(--md-sys-color-surface); stroke-width: 2.5; }
+.chart .ct-hit   { fill: transparent; cursor: help; }
+.chart .ct-hit:hover + .ct-dot,
+.chart .ct-hit:hover ~ .ct-dot-now { r: 5.5; }
+
+/* ── Ciambelle e anelli ── */
+.chart .ct-track { fill: none; stroke: var(--md-sys-color-surface-container-highest); }
+.chart .ct-seg   { fill: none; stroke-linecap: butt; transition: opacity var(--md-motion-short, 0.15s); cursor: help; }
+.chart .ct-seg:hover { opacity: 0.72; }
+
+/* ── Legenda ── */
+.ct-legend { display: grid; grid-template-columns: repeat(auto-fit, minmax(132px, 1fr)); gap: 0.15rem 0.6rem; margin-top: 0.55rem; }
+.ct-legend-row {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.2rem 0.1rem; font-size: var(--md-sys-typescale-body-small-size); line-height: 1.25;
+  color: var(--md-sys-color-on-surface);
+}
+.ct-swatch { width: 10px; height: 10px; border-radius: 3px; flex: 0 0 auto; }
+.ct-legend-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ct-legend-val  { font-family: var(--mono); font-weight: 700; color: var(--md-sys-color-on-surface); }
+.ct-legend-pct  { font-family: var(--mono); font-size: var(--md-sys-typescale-label-small-size); color: var(--md-sys-color-on-surface-variant); min-width: 30px; text-align: right; }
+
+/* ── Barre orizzontali (classifiche) ── */
+.ct-bar-row { padding: 0.3rem 0; }
+.ct-bar-head { display: flex; justify-content: space-between; align-items: baseline; gap: 0.5rem; margin-bottom: 0.25rem; font-size: var(--md-sys-typescale-body-small-size); }
+.ct-bar-track {
+  height: 10px; border-radius: var(--md-shape-full, 999px);
+  background: var(--md-sys-color-surface-container-highest); overflow: hidden;
+}
+.ct-bar-fill { height: 100%; border-radius: var(--md-shape-full, 999px); background: var(--md-sys-color-primary); }
+.ct-bar-rank {
+  font-family: var(--mono); font-size: var(--md-sys-typescale-label-small-size); font-weight: 700;
+  color: var(--md-sys-color-on-secondary-container);
+  background: var(--md-sys-color-secondary-container);
+  border-radius: var(--md-shape-full, 999px);
+  padding: 0.05rem 0.4rem; flex: 0 0 auto;
+}
+
+/* ── Griglia degli anelli di occupazione per sito ── */
+.ct-gauge-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(112px, 1fr)); gap: 0.5rem; }
+.ct-gauge-cell {
+  display: flex; flex-direction: column; align-items: center; gap: 0.15rem;
+  padding: 0.55rem 0.35rem;
+  background: var(--md-sys-color-surface-container-low);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-shape-md, 12px);
+  cursor: pointer;
+  transition: background var(--md-motion-short, 0.15s), border-color var(--md-motion-short, 0.15s);
+}
+.ct-gauge-cell:hover { background: var(--md-sys-color-surface-container); border-color: var(--md-sys-color-outline); }
+.ct-gauge-cell:focus-visible { outline: 3px solid var(--md-sys-color-primary); outline-offset: 2px; }
+.ct-gauge-name { font-size: var(--md-sys-typescale-body-small-size); font-weight: 600; color: var(--md-sys-color-on-surface); text-align: center; line-height: 1.2; }
+.ct-gauge-sub  { font-size: var(--md-sys-typescale-label-small-size); color: var(--md-sys-color-on-surface-variant); text-align: center; font-family: var(--mono); }
+
+/* ── Riepilogo numerico sotto i grafici ── */
+.ct-summary {
+  display: flex; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem;
+  margin-top: 0.5rem; padding-top: 0.5rem;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  font-size: var(--md-sys-typescale-label-small-size); color: var(--md-sys-color-on-surface-variant);
+}
+.ct-summary strong { color: var(--md-sys-color-on-surface); font-family: var(--mono); }
+
+/* ── Stato vuoto dei grafici ── */
+.ct-empty {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 118px; padding: 1rem; text-align: center;
+  background: var(--md-sys-color-surface-container-low);
+  border-radius: var(--md-shape-md, 12px);
+  font-size: var(--md-sys-typescale-body-small-size); color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ── Ingresso: un solo movimento orchestrato, non effetti sparsi ── */
+@keyframes ctRise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+.ct-anim { animation: ctRise 0.42s cubic-bezier(0.2, 0, 0, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  .ct-anim { animation: none; }
+  .chart .ct-seg { transition: none; }
+}
+/* Fine layer grafici [G1] — © Andrea Sacchetti */

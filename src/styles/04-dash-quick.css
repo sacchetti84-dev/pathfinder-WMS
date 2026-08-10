@@ -1,0 +1,426 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   v2.4.5 [Q1] — SCORCIATOIE OPERAZIONI PRINCIPALI
+   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+   Tre comandi in testa alla dashboard per le operazioni piu' frequenti:
+   Posiziona, Sposta, Prelievo ordini. Non aggiungono funzioni: portano a un
+   solo tocco flussi che prima richiedevano due o tre passaggi (vista
+   Movimenta, scheda operazione, e per gli ultimi due anche la scelta della
+   sotto-scheda del Prelievo).
+
+   Il colore di ciascun comando e' quello che lo stesso tipo di movimento ha
+   nella ciambella e nell'elenco movimenti (token --ct-cat-*): un'operazione
+   ha un solo colore in tutta l'applicazione. Il filetto laterale riprende
+   l'impostazione gia' usata da .kpi-card e .dl-tag.
+
+   Tipografia sui quattro gradini della dashboard (--dash-fs-*): la barra non
+   introduce nuove misure. Il blocco @media print resta invariato: in stampa
+   .app-main e' gia' nascosto, quindi le scorciatoie non compaiono nei report.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.qa-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.qa-btn {
+  display: flex; align-items: center; gap: 0.65rem;
+  width: 100%; text-align: left;
+  padding: 0.6rem 0.75rem;
+  background: var(--md-sys-color-surface-container-low);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-left: 4px solid var(--qa-c, var(--md-sys-color-primary));
+  border-radius: var(--md-shape-md, 12px);
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background var(--md-motion-short, 0.15s),
+              border-color var(--md-motion-short, 0.15s);
+}
+.qa-btn:hover { background: var(--md-sys-color-surface-container); border-color: var(--md-sys-color-outline); }
+.qa-btn:active { background: var(--md-sys-color-surface-container-high); }
+.qa-btn:focus-visible { outline: 3px solid var(--md-sys-color-primary); outline-offset: 2px; }
+
+/* Contenitore icona: tinta piena su fondo tenue della stessa tinta.
+   Il fondo neutro e' dichiarato per primo come ripiego, perche' color-mix()
+   e' supportato solo dai browser recenti. */
+.qa-ico {
+  flex: 0 0 auto;
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--md-shape-full, 999px);
+  background: var(--md-sys-color-surface-container-highest);
+  background: color-mix(in srgb, var(--qa-c) 15%, transparent);
+  font-size: var(--md-sys-typescale-body-large-size); line-height: 1;
+}
+
+.qa-txt { flex: 1 1 auto; min-width: 0; }
+.qa-title {
+  font-size: var(--dash-fs-head);
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.qa-sub {
+  font-size: var(--dash-fs-meta);
+  color: var(--md-sys-color-on-surface-variant);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-top: 1px;
+}
+.qa-key {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: var(--dash-fs-meta); font-weight: 700;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-highest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-shape-xs, 4px);
+  padding: 0.1rem 0.4rem;
+}
+/* Il suggerimento del tasto funzione non ha senso dove non c'e' tastiera */
+@media (max-width: 700px) { .qa-key { display: none; } }
+/* Fine layer scorciatoie [Q1] — © Andrea Sacchetti */
+
+/* ════════════════════════════════════════════════════════════════════
+   v2.5.0 — PRELIEVO GUIDATO DA ORDINE DI PRODUZIONE
+   © Andrea Sacchetti — Dietopack S.r.l.
+   Componenti Material Design 3 su token --md-sys-color-* (seed #00745A).
+   Nessun colore letterale: tutto deriva dallo schema gia' in uso.
+   ════════════════════════════════════════════════════════════════════ */
+
+/* ── Ripresa di un percorso interrotto ── */
+.route-resume {
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.8rem;
+  font-size: var(--md-sys-typescale-body-medium-size);
+}
+
+/* ── Testata dell'ordine importato ── */
+.route-head-card {
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.7rem;
+}
+.route-head-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: 0.7rem;
+}
+.route-head-grid > div { display: flex; flex-direction: column; gap: 0.1rem; }
+.route-head-lbl {
+  font-size: var(--md-sys-typescale-label-small-size);
+  letter-spacing: var(--md-sys-typescale-label-small-tracking);
+  color: var(--md-sys-color-on-surface-variant);
+  text-transform: uppercase;
+}
+.route-head-val {
+  font-size: var(--md-sys-typescale-title-small-size);
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+}
+.route-head-desc {
+  margin-top: 0.6rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  font-size: var(--md-sys-typescale-body-medium-size);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ── Avvisi sui dati dell'ordine ── */
+.route-warn {
+  background: var(--md-ext-warning-container);
+  color: var(--md-ext-on-warning-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.7rem;
+  font-size: var(--md-sys-typescale-body-small-size);
+  line-height: 1.45;
+}
+
+/* ── Segnalazioni conoscitive (quarantena / DDT) ── */
+.route-note-box {
+  background: var(--md-sys-color-surface-container-low);
+  border-left: 4px solid var(--md-sys-color-outline);
+  border-radius: var(--md-sys-shape-corner-small);
+  padding: 0.7rem 0.9rem;
+  margin-top: 0.7rem;
+  font-size: var(--md-sys-typescale-body-small-size);
+}
+.route-note-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  flex-wrap: wrap;
+  padding: 0.35rem 0;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  margin-top: 0.3rem;
+}
+
+/* ── Contatori di sintesi ── */
+.route-stats {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+  margin-bottom: 0.7rem;
+}
+.route-stat {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.6rem 0.4rem;
+  text-align: center;
+  display: flex; flex-direction: column; gap: 0.1rem;
+}
+.route-stat-val { font-size: var(--md-sys-typescale-headline-small-size); font-weight: 700; line-height: 1.1; }
+.route-stat-lbl { font-size: var(--md-sys-typescale-label-small-size); text-transform: uppercase; letter-spacing: 0.05em; }
+
+/* ── Ordine di visita dei siti ── */
+.route-siteorder {
+  background: var(--md-sys-color-surface-container-low);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.7rem;
+}
+.route-site-row {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.3rem 0;
+}
+.route-site-num {
+  width: 24px; height: 24px; flex-shrink: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--md-sys-typescale-body-small-size); font-weight: 700;
+}
+.route-site-name { flex: 1; font-size: var(--md-sys-typescale-body-medium-size); }
+
+/* ── Anteprima e coda ── */
+.route-preview, .route-tail {
+  background: var(--md-sys-color-surface-container-low);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.7rem;
+  max-height: 42vh; overflow-y: auto;
+}
+.route-prev-row {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.4rem 0;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  font-size: var(--md-sys-typescale-body-small-size);
+}
+.route-prev-seq {
+  width: 22px; height: 22px; flex-shrink: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-surface-container-highest);
+  color: var(--md-sys-color-on-surface-variant);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--md-sys-typescale-label-small-size); font-weight: 700;
+}
+.route-prev-loc { font-weight: 700; color: var(--md-sys-color-primary); }
+.route-prev-art { flex: 1; min-width: 130px; }
+.route-prev-kg { color: var(--md-sys-color-on-surface-variant); }
+
+.route-tail-row {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.45rem 0;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+  font-size: var(--md-sys-typescale-body-small-size);
+}
+.route-tail-desc { flex: 1; min-width: 130px; color: var(--md-sys-color-on-surface-variant); }
+.route-tail-kg { color: var(--md-sys-color-on-surface-variant); }
+.route-tail-detail {
+  flex-basis: 100%;
+  font-size: var(--md-sys-typescale-label-small-size);
+  color: var(--md-sys-color-on-surface-variant);
+  padding-left: 0.2rem;
+}
+
+/* ── Barra di avanzamento del percorso ── */
+.route-runbar {
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.7rem 0.9rem;
+  margin-bottom: 0.7rem;
+}
+.route-runbar-top { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+.route-runbar-odp { font-weight: 700; font-size: var(--md-sys-typescale-title-small-size); color: var(--md-sys-color-primary); }
+.route-runbar-count { font-size: var(--md-sys-typescale-label-large-size); font-weight: 700; color: var(--md-sys-color-on-surface-variant); }
+.route-progress {
+  height: 6px; margin: 0.5rem 0 0.4rem;
+  background: var(--md-sys-color-surface-container-highest);
+  border-radius: var(--md-sys-shape-corner-full);
+  overflow: hidden;
+}
+.route-progress > i {
+  display: block; height: 100%;
+  background: var(--md-sys-color-primary);
+  border-radius: var(--md-sys-shape-corner-full);
+  transition: width 0.3s ease;
+}
+.route-runbar-legend {
+  display: flex; gap: 0.9rem; flex-wrap: wrap;
+  font-size: var(--md-sys-typescale-label-small-size);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* ── Scheda della tappa corrente ── */
+.route-stop-card {
+  background: var(--md-sys-color-surface-container-lowest);
+  border: 2px solid var(--md-sys-color-primary);
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 0.9rem 1rem;
+  box-shadow: var(--md-sys-elevation-level1);
+}
+.route-stop-head {
+  display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.route-stop-seq {
+  width: 40px; height: 40px; flex-shrink: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--md-sys-typescale-body-large-size); font-weight: 800;
+}
+.route-stop-title { flex: 1; min-width: 0; }
+.route-stop-loc {
+  font-size: var(--md-sys-typescale-headline-small-size);
+  font-weight: 800; line-height: 1.15;
+  color: var(--md-sys-color-primary);
+  word-break: break-all;
+}
+.route-stop-site {
+  font-size: var(--md-sys-typescale-label-medium-size);
+  color: var(--md-sys-color-on-surface-variant);
+}
+.route-stop-body {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.4rem 0.9rem;
+  padding: 0.6rem 0;
+}
+.route-stop-kv { display: flex; flex-direction: column; gap: 0.05rem; }
+.route-stop-kv > span {
+  font-size: var(--md-sys-typescale-label-small-size);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.route-stop-kv > b { font-size: var(--md-sys-typescale-body-large-size); font-weight: 700; }
+.route-stop-kg > b { color: var(--md-sys-color-tertiary); }
+.route-alt {
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-small);
+  padding: 0.5rem 0.7rem;
+  font-size: var(--md-sys-typescale-body-small-size);
+}
+.route-alt .badge { margin: 0.2rem 0.2rem 0 0; }
+
+/* ── Elenco completo delle tappe ── */
+.route-details {
+  margin-top: 0.7rem;
+  background: var(--md-sys-color-surface-container-low);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.5rem 0.8rem;
+}
+.route-details > summary {
+  cursor: pointer;
+  font-size: var(--md-sys-typescale-label-large-size);
+  font-weight: 600;
+  color: var(--md-sys-color-on-surface-variant);
+  padding: 0.25rem 0;
+}
+.route-list { max-height: 38vh; overflow-y: auto; margin-top: 0.4rem; }
+.route-list-row {
+  display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap;
+  padding: 0.35rem 0.4rem;
+  border-radius: var(--md-sys-shape-corner-small);
+  font-size: var(--md-sys-typescale-body-small-size);
+}
+.route-list-row.ok  { background: var(--md-ext-success-container); color: var(--md-ext-on-success-container); }
+.route-list-row.ko  { background: var(--md-sys-color-error-container); color: var(--md-sys-color-on-error-container); }
+.route-list-row.cur { background: var(--md-sys-color-primary-container); color: var(--md-sys-color-on-primary-container); font-weight: 700; }
+.route-list-ico { width: 16px; flex-shrink: 0; font-weight: 800; }
+.route-list-seq { width: 24px; flex-shrink: 0; text-align: right; opacity: 0.7; }
+.route-list-loc { font-weight: 700; }
+.route-list-art { flex: 1; min-width: 120px; }
+.route-list-kg { opacity: 0.8; }
+
+/* ── Percorso concluso ── */
+.route-done {
+  background: var(--md-ext-success-container);
+  color: var(--md-ext-on-success-container);
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 1.1rem 1rem;
+  text-align: center;
+  display: flex; flex-direction: column; align-items: center; gap: 0.3rem;
+}
+.route-done-ico {
+  width: 48px; height: 48px;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--md-sys-typescale-headline-small-size); font-weight: 800;
+}
+.route-done > strong { font-size: var(--md-sys-typescale-title-medium-size); }
+
+/* ── Adattamento a schermo stretto (terminale palmare) ── */
+@media (max-width: 700px) {
+  .route-stats { grid-template-columns: repeat(2, 1fr); }
+  /* Su palmare il codice ubicazione e' l'informazione che l'operatore cerca
+     per primo: cresce oltre l'Headline Small, unico gradino sopra la scala.
+     Il valore e' derivato dal token, non scritto a mano. */
+  .route-stop-loc { font-size: calc(var(--md-sys-typescale-headline-small-size) * 1.2); }
+  .route-stop-seq { width: 44px; height: 44px; font-size: var(--md-sys-typescale-body-large-size); }
+  .route-stop-body { grid-template-columns: 1fr 1fr; }
+  .route-preview, .route-tail { max-height: 34vh; }
+}
+
+/* ── v2.5.1 — Blocco di testa: materiale non reperibile ──
+   Contenitore sul ruolo error, perché l'informazione va vista prima del
+   pulsante di avvio, non cercata a fondo pagina. */
+.route-alert {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.8rem;
+  box-shadow: var(--md-sys-elevation-level1);
+}
+.route-alert-head {
+  display: flex; align-items: flex-start; gap: 0.7rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid var(--md-sys-color-on-error-container);
+}
+.route-alert-head > div { flex: 1; min-width: 0; }
+.route-alert-head strong { font-size: var(--md-sys-typescale-title-small-size); }
+.route-alert-ico {
+  width: 30px; height: 30px; flex-shrink: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-error);
+  color: var(--md-sys-color-on-error);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--md-sys-typescale-body-large-size); font-weight: 800;
+}
+.route-alert-sub {
+  font-size: var(--md-sys-typescale-body-small-size);
+  line-height: 1.45;
+  margin-top: 0.15rem;
+}
+.route-alert .route-tail-row { border-top-color: var(--md-sys-color-on-error-container); }
+.route-alert .route-tail-desc,
+.route-alert .route-tail-kg,
+.route-alert .route-tail-detail { color: inherit; opacity: 0.9; }
+
+/* In stampa il percorso a video non serve: il report ha una sua struttura. */
+@media print {
+  .route-runbar, .route-stop-card, .route-details, .route-siteorder,
+  .route-resume, .route-preview, .route-alert { display: none !important; }
+}
+
