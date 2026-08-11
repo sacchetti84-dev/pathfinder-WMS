@@ -6,6 +6,7 @@ import {
   indicizzaGiacenza, ricostruisciIndici, indiciVuoti, metaVuota,
 } from './cache';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
+import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
 import { verificaConformita } from '../modules/conformita';
 import { App } from '../ui/app.js';
 
@@ -594,57 +595,13 @@ const Store = {
   getItemsAtLocation(code) { return this._invByLoc.get(code) || []; },
   getItemByKey(itemKey) { return this._invByKey.get(itemKey) || []; },
 
-  findItemLocations(query) {
-    if (!query) return [];
-    const q = query.toLowerCase().trim();
-    // Fast path: exact itemKey match
-    if (this._invByKey.has(query.toUpperCase())) return [...this._invByKey.get(query.toUpperCase())];
-    const out = [];
-    for (const i of this._cache.inventory) {
-      if (i.article_code?.toLowerCase().includes(q) ||
-          i.lot_code?.toLowerCase().includes(q) ||
-          i.article_description?.toLowerCase().includes(q) ||
-          i.item_key?.toLowerCase().includes(q) ||
-          i.location_code?.toLowerCase().includes(q)) {
-        out.push(i);
-      }
-    }
-    return out;
-  },
-
-  sortByFEFO(items) {
-    if (!items || items.length < 2) return items ? [...items] : [];
-    const sorted = [...items];
-    sorted.sort((a, b) => {
-      const ea = (a.expiry_date || '').trim();
-      const eb = (b.expiry_date || '').trim();
-      // Senza scadenza → in coda, ordinati per placed_at (FIFO)
-      if (!ea && !eb) return (a.placed_at || 0) - (b.placed_at || 0);
-      if (!ea) return 1;
-      if (!eb) return -1;
-      // Confronto stringa ISO YYYY-MM-DD funziona lessicograficamente
-      if (ea !== eb) return ea < eb ? -1 : 1;
-      return (a.placed_at || 0) - (b.placed_at || 0);
-    });
-    return sorted;
-  },
-
-  /* Per un dato articolo, identifica quale item è il "FEFO consigliato"
-     (il primo da prelevare). Ritorna null se non ci sono item dell'articolo. */
-  getFEFOItemForArticle(articleCode) {
-    const matching = this._cache.inventory.filter(i => i.article_code === articleCode);
-    if (!matching.length) return null;
-    return this.sortByFEFO(matching)[0];
-  },
-
-  /* Verifica se un dato item è il candidato FEFO per il suo articolo.
-     Usato per evidenziare il lotto consigliato nelle UI di picking. */
-  isFEFOItem(item) {
-    if (!item) return false;
-    const fefo = this.getFEFOItemForArticle(item.article_code);
-    if (!fefo) return false;
-    return fefo._id === item._id || (fefo.item_key === item.item_key && fefo.location_code === item.location_code);
-  },
+  /* ═══ LETTURE DELLA GIACENZA ═══
+     FEFO e ricerca stanno in `core/giacenza.ts` — terzo blocco della
+     conversione. Qui restano i nomi che l'interfaccia chiama. */
+  findItemLocations(query) { return cercaGiacenze(this._cache.inventory, this._invByKey, query); },
+  sortByFEFO(items) { return ordinaFEFO(items); },
+  getFEFOItemForArticle(articleCode) { return primoFEFO(this._cache.inventory, articleCode); },
+  isFEFOItem(item) { return eFEFO(this._cache.inventory, item); },
 
   async addItem(locationCode, articleCode, articleDescription, lotCode, expiryDate = '', notes = '', qty = 1) {
     const qtyAdd = Store._assertPositiveInt(qty, 'Quantità da posizionare');
