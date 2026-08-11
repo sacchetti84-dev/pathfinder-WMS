@@ -1220,6 +1220,32 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
 .all-chip.on { border-color: var(--sx-accent); background: var(--sx-accent-soft); }
 .all-chip input { margin: 0; flex: none; }
 
+/* Avvisi merceologici sulla tappa di prelievo. Non è una decorazione: è
+   l'ultima cosa che l'operatore legge prima di mettere le mani sul collo,
+   quindi sta sopra i campi di scansione e non sotto. */
+.avv-banda { display: flex; flex-direction: column; gap: 0.25rem; margin: 0.55rem 0 0.2rem; }
+.avv-riga {
+  display: flex; align-items: baseline; gap: 0.45rem;
+  padding: 0.3rem 0.55rem; border-radius: var(--radius);
+  border-left: 3px solid transparent;
+  font-size: var(--md-sys-typescale-label-small-size); line-height: 1.35;
+}
+.avv-riga b { font-weight: 700; }
+.avv-et { color: var(--sx-text-muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.avv-ico { flex: none; }
+/* L'allergene è il solo che può fare male a qualcuno: è l'unico in rosso. */
+.avv-riga--all  { background: var(--sx-danger-soft);  border-left-color: var(--sx-danger); }
+.avv-riga--temp { background: var(--sx-warning-soft); border-left-color: var(--sx-warning); }
+.avv-riga--cert { background: var(--sx-bg-alt);       border-left-color: var(--sx-accent); }
+
+/* Sul foglio: una riga sola sotto la descrizione. Colore fisso e nessuno
+   sfondo, perché la stampante può scartare i fondi e un avviso che sparisce
+   in stampa è peggio di un avviso che non c'è mai stato. */
+.avv-stampa {
+  font-size: 7pt; line-height: 1.25; margin-top: 1px;
+  color: #7f1d1d; font-weight: 600;
+}
+
 /* ════ Detail panel (destra) ════ */
 .detail-panel {
   position: fixed;

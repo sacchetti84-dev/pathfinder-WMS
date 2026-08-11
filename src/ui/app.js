@@ -15,8 +15,10 @@ import { Store } from '../core/store.js';
 import { PickRoute } from '../modules/pickRoute.js';
 import { Vault } from '../modules/vault';
 import {
-  ALLERGENI, CLASSI_TEMPERATURA, leggiAllergeni, scriviAllergeni,
-  leggiClasseTemperatura, etichettaAllergene, etichettaClasse, fogliValoriAmmessi,
+  ALLERGENI, CLASSI_TEMPERATURA, CERTIFICAZIONI,
+  leggiAllergeni, scriviAllergeni, leggiCertificazioni, scriviCertificazioni,
+  leggiClasseTemperatura, etichettaAllergene, etichettaClasse,
+  etichettaCertificazione, fogliValoriAmmessi,
 } from '../modules/anagrafica';
 
 const App = {
@@ -4604,6 +4606,8 @@ const App = {
           <div class="route-stop-kv"><span>Colli disponibili</span><b>${st.qty_available}</b></div>
         </div>
 
+        ${this._avvisiBanda(st.article_code)}
+
         ${st.alternatives.length ? `<div class="route-alt">
           <strong>Altre ubicazioni con lo stesso articolo e lotto:</strong>
           ${st.alternatives.map(a => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_available} Coll.</span>`).join(' ')}
@@ -5209,7 +5213,7 @@ const App = {
       <td class="td-num">${i + 1}</td>
       <td class="td-num">${r.seq != null ? E(r.seq) : '<span style="color:#999">—</span>'}</td>
       <td class="td-code">${E(r.article_code || '—')}</td>
-      <td>${E(r.article_description || '—')}</td>
+      <td>${E(r.article_description || '—')}${this._avvisiRigaStampa(r.article_code)}</td>
       <td class="td-lot">${E(r.lot_code || '—')}</td>
       <td class="td-loc">${E(r.location_code || '—')}</td>
       <td class="td-num">${kgCell(r.kg_required, r.um)}</td>
@@ -5219,7 +5223,7 @@ const App = {
     const tailHTML = snap.tail.map((t, i) => `<tr>
       <td class="td-num">${i + 1}</td>
       <td class="td-code">${E(t.article_code || '—')}</td>
-      <td>${E(t.description || '—')}</td>
+      <td>${E(t.description || '—')}${this._avvisiRigaStampa(t.article_code)}</td>
       <td class="td-lot">${E(t.lot_code || '—')}</td>
       <td class="td-num">${kgCell(t.kg_required, t.um)}</td>
       <td style="font-weight:600">${E(t.label)}</td>
@@ -7210,7 +7214,7 @@ const App = {
       return `<tr>
         <td class="c-idx">${i+1}</td>
         <td class="c-art">${this._esc(l.article_code)}</td>
-        <td class="c-desc">${this._esc(l.article_description || '—')}</td>
+        <td class="c-desc">${this._esc(l.article_description || '—')}${this._avvisiRigaStampa(l.article_code)}</td>
         <td class="c-lot">${this._esc(l.lot_code)}</td>
         <td class="c-exp">${this._esc(this._dateISOtoIT(l.expiry_date) || l.expiry_date || '—')}</td>
         <td class="c-qty">${l.qty}</td>
@@ -9972,6 +9976,56 @@ const App = {
     this.toast(`✓ Articolo ${code} creato`, 'success');
   },
 
+  /* ═══ AVVISI MERCEOLOGICI ═══════════════════════════════════════════
+     Temperatura, allergeni e certificazioni stanno in anagrafica, ma
+     servono DOVE LA MERCE SI TOCCA: davanti allo scaffale, sul report
+     dell'ODP e sul DDT che accompagna il camion. Chi ha in mano il collo
+     non apre la Configurazione per controllare, e un surgelato lasciato su
+     un bancale a temperatura ambiente non torna indietro.
+
+     Una sorgente sola per tre viste, perche' tre elenchi scritti a mano
+     divergono: e un avviso che compare al prelievo ma non sul DDT e' peggio
+     di nessun avviso, perche' insegna a non fidarsi.
+
+     Un articolo senza attributi non produce avvisi. Il silenzio qui vuol
+     dire «non e' stato classificato», non «e' a posto» — e la differenza si
+     legge in Configurazione, dove si conta chi manca. */
+  _avvisiArticolo(code) {
+    const a = Store.getArticle(code);
+    if (!a) return [];
+    const out = [];
+    if (a.temp_class) {
+      out.push({ tipo: 'temp', icona: '🌡', et: 'Conservazione', testo: etichettaClasse(a.temp_class) });
+    }
+    if (a.allergens?.length) {
+      out.push({ tipo: 'all', icona: '⚠', et: 'Allergeni', testo: a.allergens.map(etichettaAllergene).join(', ') });
+    }
+    if (a.certifications?.length) {
+      out.push({ tipo: 'cert', icona: '✓', et: 'Certificazioni', testo: a.certifications.map(etichettaCertificazione).join(', ') });
+    }
+    return out;
+  },
+
+  /** A video: una fascia, dove c'è spazio per leggerla per intero. */
+  _avvisiBanda(code) {
+    const av = this._avvisiArticolo(code);
+    if (!av.length) return '';
+    return `<div class="avv-banda">${av.map(x => `
+      <div class="avv-riga avv-riga--${x.tipo}">
+        <span class="avv-ico">${x.icona}</span>
+        <span class="avv-et">${this._esc(x.et)}</span>
+        <b>${this._esc(x.testo)}</b>
+      </div>`).join('')}</div>`;
+  },
+
+  /** In stampa: una riga sola sotto la descrizione, e nient'altro. */
+  _avvisiRigaStampa(code) {
+    const av = this._avvisiArticolo(code);
+    if (!av.length) return '';
+    return `<div class="avv-stampa">${
+      av.map(x => `${x.icona} ${this._esc(x.testo)}`).join(' · ')}</div>`;
+  },
+
   /* 1.4.0 — i due attributi che il motore di stoccaggio usera' come vincoli
      duri. Stessi controlli in creazione e in modifica: due maschere che
      divergono sono due maschere che prima o poi si contraddicono. */
@@ -9987,6 +10041,16 @@ const App = {
           onchange="this.parentElement.classList.toggle('on',this.checked)">
         ${this._esc(a.label)}</label>`
     ).join('');
+    /* 1.4.0 — le certificazioni non sono un vincolo di stoccaggio: sono un
+       fatto che deve arrivare fino all'operatore e fino al DDT. Stessa
+       maschera degli allergeni perche' si compilano nello stesso momento. */
+    const certScelte = new Set(art?.certifications || []);
+    const certificati = CERTIFICAZIONI.map(c =>
+      `<label class="all-chip ${certScelte.has(c.code) ? 'on' : ''}">
+        <input type="checkbox" id="${p}Cert_${c.code}" value="${c.code}" ${certScelte.has(c.code) ? 'checked' : ''}
+          onchange="this.parentElement.classList.toggle('on',this.checked)">
+        ${this._esc(c.label)}</label>`
+    ).join('');
     return `
       <div class="form-group" style="margin-bottom:0.5rem"><label>Classe di conservazione</label>
         <select class="input" id="${p}TempClass">
@@ -9994,8 +10058,11 @@ const App = {
         </select></div>
       <div class="form-group" style="margin-bottom:0.3rem"><label>Allergeni (Reg. UE 1169/2011)</label>
         <div class="all-grid">${caselle}</div></div>
+      <div class="form-group" style="margin-bottom:0.3rem"><label>Certificazioni</label>
+        <div class="all-grid">${certificati}</div></div>
       <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
-        🧭 Con questi la <strong>mappa</strong> segnala la merce fuori posto. Lasciati vuoti, l'articolo non viene verificato.
+        🧭 Con questi la <strong>mappa</strong> segnala la merce fuori posto, e prelievo e DDT
+        avvisano l'operatore. Lasciati vuoti, l'articolo non viene verificato.
       </div>`;
   },
 
@@ -10009,7 +10076,14 @@ const App = {
        passato oltre. Per dichiarare l'assenza c'e' NESSUNO nella colonna del
        foglio Excel, che qualcuno ha dovuto scrivere apposta.
        null cancella una classificazione messa per sbaglio. */
-    return { temp_class: cls || null, allergens: allergens.length ? allergens : null };
+    const certifications = CERTIFICAZIONI
+      .filter(c => document.getElementById(`${p}Cert_${c.code}`)?.checked)
+      .map(c => c.code);
+    return {
+      temp_class: cls || null,
+      allergens: allergens.length ? allergens : null,
+      certifications: certifications.length ? certifications : null,
+    };
   },
 
   showEditArticleModal(code) {
@@ -10537,7 +10611,7 @@ const App = {
     const problemi = [];
     let senzaCodice = 0;
     const nuoviCodici = new Set();
-    let conAllergeni = 0, conTemperatura = 0;
+    let conAllergeni = 0, conTemperatura = 0, conCertificazioni = 0;
 
     rows.forEach((row, i) => {
       const foglio = i + 2;                      // +1 intestazione, +1 base uno
@@ -10592,11 +10666,22 @@ const App = {
         if (codici.length) conAllergeni++;
       }
 
+      if (row['Certificazioni'] !== undefined) {
+        const { codici, scarti } = leggiCertificazioni(row['Certificazioni']);
+        if (scarti.length) {
+          problemi.push(`Riga ${foglio} — ${code}: certificazione non prevista ${scarti.map(s => `"${s}"`).join(', ')}. Ammesse: ${CERTIFICAZIONI.map(c => c.code).join(', ')}`);
+          return;
+        }
+        rec.certifications = codici;
+        if (codici.length) conCertificazioni++;
+      }
+
       if (!esiste) nuoviCodici.add(code);
       righe.push(rec);
     });
 
-    return { righe, problemi, senzaCodice, nuovi: nuoviCodici.size, conAllergeni, conTemperatura };
+    return { righe, problemi, senzaCodice, nuovi: nuoviCodici.size,
+             conAllergeni, conTemperatura, conCertificazioni };
   },
 
   async _confermaImportArticoli(letto) {
@@ -10608,6 +10693,7 @@ const App = {
       ['Articoli esistenti da aggiornare', aggiornati],
       ['Con classe di temperatura', letto.conTemperatura],
       ['Con allergeni dichiarati', letto.conAllergeni],
+      ['Con certificazioni dichiarate', letto.conCertificazioni],
       ['Righe senza codice, ignorate', letto.senzaCodice || ''],
     ]));
 
@@ -10639,7 +10725,8 @@ const App = {
     const nota = document.createElement('p');
     nota.className = 'dlg-nota';
     nota.textContent = 'Le colonne assenti dal foglio non vengono toccate: un file con '
-      + 'solo Codice, Temperatura e Allergeni aggiorna quei due campi e lascia il resto com’è.';
+      + 'solo Codice, Temperatura e Allergeni aggiorna quei due campi e lascia il resto com’è.'
+      + ' Vale anche per Certificazioni.';
     wrap.appendChild(nota);
 
     /* Niente da scrivere e solo problemi: non e' una conferma, e' un referto. */
@@ -10669,6 +10756,7 @@ const App = {
       // 1.4.0 — vuote finche' non le si compila: la cella vuota dice «non
       // classificato», che e' un'informazione e non va confusa con «nessuno».
       'Temperatura': a.temp_class || '', 'Allergeni': scriviAllergeni(a.allergens),
+      'Certificazioni': scriviCertificazioni(a.certifications),
       'Note': a.notes || ''
     }));
     const wb = XLSX.utils.book_new();
