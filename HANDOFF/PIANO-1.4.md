@@ -2,7 +2,8 @@
 
 **Cinque funzioni nuove su un magazzino che sta già lavorando**
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 11/08/2026 · Rev. 01 · **Scadenza del progetto: 31/12/2026**
+Data: 11/08/2026 · Rev. 02 · **Scadenza del progetto: 31/12/2026**
+Ultima installazione utile in magazzino: **19/12/2026** — poi c'è l'inventario
 
 ---
 
@@ -12,9 +13,10 @@ Cinque richieste: **motore di stoccaggio**, **UDC**, **schedulatore di attività
 **WIP**, **unità di misura**. Sono legate fra loro più di quanto sembri, e l'ordine
 in cui sono venute in mente non è l'ordine in cui si costruiscono.
 
-Verdetto, per non nasconderlo in fondo: **quattro entrano entro il 31/12, la quinta
-no.** Il WIP dipende dalle altre tre e arriva ultimo, con due settimane in un mese
-in cui il magazzino fa l'inventario. Sotto c'è la proposta su cosa farne.
+**Tutte e cinque entrano entro il 19/12**, con `store.js` in TypeScript dentro la
+prima consegna (D1 e D3, §8). Il calendario è pieno al centimetro — 18,5 settimane di
+lavoro su 18,5 disponibili — quindi la §6 porta con sé una verifica al 31 ottobre e
+una scala, già decisa, di cosa si toglie se quella verifica va male.
 
 Prima di tutto, però, c'è un difetto verificato che ferma il servizio all'avvio.
 
@@ -117,11 +119,18 @@ disinstallare niente e senza toccare il database.
 
 ### Le due cose da fare qui e non dopo
 
-**`core/store.js` in TypeScript.** Sono 1.974 righe, ed è il file che tutte e cinque
-le funzioni devono modificare. Convertirlo **prima** costa una settimana e mezza;
-convertirlo dopo significa convertire anche quello che ci avremo aggiunto. È già
-l'aperto #4 dell'INDEX: qui smette di essere un miglioramento e diventa il modo di
-non perdere ore sul campo.
+**`core/store.js` in TypeScript — deciso, entra in Fase 0** (Andrea, 11/08). Sono
+1.974 righe, ed è il file che tutte e cinque le funzioni devono modificare.
+Convertirlo prima costa una settimana e mezza; convertirlo dopo significa convertire
+anche quello che ci avremo aggiunto. Era l'aperto #4 dell'INDEX: qui smette di essere
+un miglioramento e diventa il modo di non perdere ore sul campo.
+
+> **Come si converte, e come non si converte.** Vale la regola della §7
+> dell'HANDOFF 1.3: `store.js` e `app.js` **non nello stesso commit**, e `app.js`
+> non si tocca affatto. La conversione si fa a blocchi — cache e `_applyToCache`
+> per primi, perché sono ciò su cui poggiano le quattro collezioni nuove — con
+> build e collaudo in mezzo a ognuno. E **spariscono i due ponti** verso Store in
+> cima a `pickRoute.ts` e `vault.ts`: erano lì proprio in attesa di questo.
 
 **I collaudi su `Store._applyToCache`.** È il punto dove ogni scrittura entra nella
 cache: quattordici collezioni oggi, **diciotto** dopo la 1.4, e nessuna prova.
@@ -301,7 +310,7 @@ davanti a un auditor.
 
 ---
 
-### 4.5 — WIP · non entra nella 1.4
+### 4.5 — WIP · 1.4.5
 
 **Cosa.** Gli items prelevati per un ODP finiscono in ubicazione WIP invece di
 sparire; il sistema tiene il conto e il tempo; quello che rientra si riposiziona con
@@ -323,13 +332,23 @@ trasferimento verso l'ubicazione WIP. È l'unica delle cinque funzioni che **cam
 il significato di un movimento esistente**, e va dietro al suo interruttore: a
 `feature.wip` spento, `PICK` resta quello di sempre.
 
-**Perché resta fuori.** Dipende da UM, da UDC e dal motore — tutti e tre. Arriva
-per forza ultimo, e ultimo vuol dire la seconda metà di dicembre, quando il magazzino
-fa l'inventario di fine anno. Rilasciare una modifica al prelievo di produzione in
-quella settimana non è ambizioso: è il modo di perdere le ore sul campo che hai detto
-di non poter perdere.
+**Resta in calendario — deciso** (Andrea, 11/08), con verifica dell'andamento a fine
+ottobre. Va detto cosa comporta, perché non è gratis: il WIP dipende da UM, da UDC e
+dal motore, quindi arriva per forza ultimo, e ultimo vuol dire **la settimana che
+precede l'inventario di fine anno**.
 
-**Proposta.** Vedi §6.
+Da cui due condizioni, che non sono opinioni ma conseguenze della data:
+
+1. **Si rilascia con `feature.wip` spento.** Il codice entra in magazzino il 19/12,
+   l'interruttore si alza a gennaio, a inventario finito e a turni normali. Un
+   rilascio installato non è una funzione accesa, ed è precisamente per questo che
+   gli interruttori esistono.
+2. **Il collaudo del WIP non aspetta dicembre.** È un modulo con una logica sua —
+   quanto è uscito, quanto è tornato, quanto manca — e il file di prova si scrive a
+   novembre, insieme a quello del motore. A dicembre resta la cucitura.
+
+Con queste due, il 19/12 è una data che si può tenere. Senza, è una data che si
+dichiara.
 
 ---
 
@@ -426,39 +445,87 @@ nessuno dei quattro cambia nella 1.4. È il caso più facile che ci sia.
 
 ---
 
-## 6. Calendario, e la scadenza
+## 6. Calendario
 
-Dall'11/08 al 31/12 ci sono **20 settimane**. Ma l'ultima finestra utile per mettere
-qualcosa in mano agli operatori è **metà dicembre**: dopo c'è l'inventario di fine
-anno e le feste. Il budget vero è **18 settimane**.
+Dall'11/08 al 31/12 ci sono 20 settimane. Ma l'ultima finestra utile per **installare**
+qualcosa in magazzino è **il 19 dicembre**: dopo c'è l'inventario di fine anno e le
+feste. Il budget vero è **18 settimane e mezza**.
+
+Sei consegne, `store.js` in TypeScript dentro la prima, e il WIP dentro l'ultima.
 
 | Versione | Cosa | Da → a | Sett. |
 |---|---|---|---|
-| **1.4.0** | Fondamenta: migrazione §1, schema mosso una volta, `store.js` in TS, collaudi su `_applyToCache`, interruttori. **Invisibile** | 11/08 → 12/09 | 4 |
-| **1.4.1** | Schedulatore sulle attività che esistono già | 15/09 → 10/10 | 4 |
-| **1.4.2** | Unità di misura, split colli, collo incompleto | 13/10 → 07/11 | 4 |
-| **1.4.3** | UDC, `moveUdc` transazionale, etichette | 10/11 → 28/11 | 3 |
-| **1.4.4** | Motore di stoccaggio: attributi, regole come dato, punteggio, motivazioni | 01/12 → **19/12** | 3 |
-| **1.5** | WIP completo | Q1 2027 | — |
+| **1.4.0** | Fondamenta: migrazione §1, schema mosso una volta, **`store.js` in TS**, collaudi su `_applyToCache`, export/import da `COLLEZIONI`, interruttori. **Invisibile** | 11/08 → 19/09 | 5,5 |
+| **1.4.1** | Schedulatore sulle attività che esistono già | 21/09 → 10/10 | 3 |
+| **1.4.2** | Unità di misura, split colli, collo incompleto | 12/10 → **31/10** | 3 |
+| **1.4.3** | UDC, `moveUdc` transazionale, etichette | 02/11 → 21/11 | 3 |
+| **1.4.4** | Motore di stoccaggio: attributi, regole come dato, punteggio, motivazioni | 23/11 → 09/12 | 2,5 |
+| **1.4.5** | WIP — installato con l'interruttore **spento**, si accende a gennaio | 10/12 → **19/12** | 1,5 |
 
-Prima di ogni rilascio: build, 57+ collaudi client, 29+ di servizio, `npm run check`
+Prima di ogni consegna: build, 57+ collaudi client, 29+ di servizio, `npm run check`
 a zero, e il confronto fra due istanze su porte diverse. Il metodo non cambia perché
 il calendario stringe — è quando stringe che serve.
 
-### Le tre strade per il WIP
+### La cosa da sapere prima di cominciare: non c'è slack
 
-1. **Slitta alla 1.5, Q1 2027.** ← quella che consiglio. Le altre quattro escono
-   fatte bene, e il WIP arriva sopra fondamenta già collaudate da un trimestre di
-   turni veri.
-2. **WIP minimo entro il 19/12**: ubicazione WIP, conto aperto, posizionamento resi.
-   Fuori gli allarmi sull'anzianità e la riconciliazione dei consumi — cioè la parte
-   che vale. Fattibile solo se il motore chiude in due settimane invece di tre.
-3. **Entra il WIP, esce un altro.** Se il WIP è la cosa che serve davvero adesso, il
-   candidato a uscire è lo schedulatore: è il solo che non blocca nessuno degli altri.
-   Ma perderesti quattro mesi di misure sui tempi di esecuzione.
+5,5 + 3 + 3 + 3 + 2,5 + 1,5 = **18,5 settimane su 18,5 disponibili**. Ogni consegna è
+al suo minimo, e non c'è una settimana di riserva da nessuna parte. Una influenza, un
+fermo impianto, un difetto che si scopre in magazzino, e il ritardo non si riassorbe:
+si propaga fino al 19/12.
 
-Non è una decisione tecnica ed è tua. Le prime quattro partono comunque, e la Fase 0
-è identica in tutti e tre gli scenari: **si comincia da lì mentre decidi.**
+Questo non rende il calendario sbagliato — lo rende **un calendario che va guardato,
+non lasciato andare.** Da cui le due cose qui sotto.
+
+### Due mestieri anticipati, che è ciò che rende possibile il resto
+
+Il motore ha 2,5 settimane e il WIP 1,5. Reggono per una ragione sola: **i loro
+collaudi si scrivono prima, nel tempo delle consegne precedenti.**
+
+- Il file di prova del **motore** — vincoli duri, punteggi, motivazioni — si scrive
+  durante la 1.4.2, contro dati finti. Non serve che il motore esista.
+- Il file di prova del **WIP** — quanto è uscito, quanto è tornato, quanto manca — si
+  scrive durante la 1.4.3.
+
+Non è ottimismo di pianificazione: è la §5.1 dell'HANDOFF 1.3, *«i collaudi si
+scrivono prima»*, usata anche come strumento di calendario. A dicembre resta la
+cucitura, che è la parte veloce.
+
+### La verifica del 31 ottobre
+
+Cade alla fine della 1.4.2, e non è una riunione: sono quattro fatti da guardare.
+
+| # | Deve essere vero il 31/10 |
+|---|---|
+| 1 | **1.4.0 in magazzino da almeno quattro settimane, senza un ritorno indietro** |
+| 2 | **1.4.1 in magazzino, e gli operatori ci hanno aperto dei compiti davvero** — non installato: usato |
+| 3 | **1.4.2 costruita e verificata**, pronta da installare |
+| 4 | Il file di prova del **motore** esiste e gira, anche se il motore no |
+
+Se tutti e quattro sono veri, si tira dritto. Se anche uno solo è falso, il ritardo è
+già di almeno una settimana e va tolto qualcosa — **e cosa togliere si decide adesso,
+non a dicembre.**
+
+### La scala di ciò che si toglie, in ordine
+
+Si scende di un gradino per ogni settimana di ritardo, dal primo:
+
+1. **Il cruscotto dello schedulatore** → resta l'elenco per priorità. Costo: si vede
+   peggio, funziona uguale.
+2. **Le etichette UDC** → si stampa il codice interno con lo strumento che c'è già in
+   `ARCHIVIO`, senza integrarlo nel prodotto. Costo: un passaggio a mano.
+3. **Il punteggio morbido del motore** → restano i vincoli duri, cioè allergeni,
+   temperatura e magazzino imposto. Sparisce «gli articoli simili vicini», che torna
+   nella 1.5. Costo: il motore propone un posto **giusto** invece del posto **migliore**.
+4. **Allarmi di anzianità e riconciliazione dei consumi del WIP** → restano
+   l'ubicazione WIP, il conto aperto e il posizionamento resi.
+
+Il quinto gradino non c'è: sotto il quarto si sposta la data, non si toglie altro.
+E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
+
+> Nota di calendario, non tecnica: la 1.4.5 si **installa** il 19/12 e si **accende**
+> a gennaio. Chiudere il progetto il 31/12 significa che il codice è in magazzino e
+> collaudato entro quella data — non che si cambia il prelievo di produzione durante
+> l'inventario di fine anno.
 
 ---
 
@@ -475,21 +542,29 @@ Non è una decisione tecnica ed è tua. Le prime quattro partono comunque, e la 
 
 ---
 
-## 8. Decisioni che aspettano te
+## 8. Decisioni
 
-1. **Il WIP**: quale delle tre strade della §6.
-2. **`store.js` in TypeScript dentro la Fase 0**: costa una settimana e mezza di
-   calendario. Consiglio di spenderla, ma è tempo tolto alle funzioni.
-3. **L'elenco degli allergeni** da segregare, e se la segregazione è per zona o per
-   corsia. Cambia i vincoli duri del motore.
-4. **Le classi di temperatura** che esistono davvero in Dietopack, e quali ubicazioni
-   sono refrigerate. Senza, il motore ha una regola che non può verificare.
-5. **Prefisso aziendale GS1**: c'è? Chi lo sa? Cambia solo le etichette UDC, ma prima
-   si sa e meglio è.
-6. **Chi può alzare la priorità** di un compito. Proposta: solo Team Leader.
+### Prese — 11/08/2026, Andrea
 
-Le prime due bloccano il calendario. Le altre quattro bloccano la funzione a cui
-appartengono, non l'inizio dei lavori.
+| # | Decisione | Conseguenza |
+|---|---|---|
+| D1 | **Il WIP resta in calendario**, 1.4.5 | Installato il 19/12 a interruttore spento, acceso a gennaio. Il suo collaudo si scrive a novembre. §4.5, §6 |
+| D2 | **Verifica dell'andamento a fine ottobre** | Quattro fatti da guardare il 31/10, e una scala di cosa togliere già decisa. §6 |
+| D3 | **`store.js` in TypeScript dentro la Fase 0** | 1.4.0 passa da 4 a 5,5 settimane. Sparisce l'aperto #4, spariscono i due ponti verso Store. §3 |
+
+### Aperte — bloccano la funzione, non l'inizio dei lavori
+
+| # | Cosa serve sapere | Entro | Blocca |
+|---|---|---|---|
+| A1 | **L'elenco degli allergeni** da segregare, e se la segregazione è per zona o per corsia | 21/11 | i vincoli duri del motore, §4.4 |
+| A2 | **Le classi di temperatura** che esistono davvero in Dietopack, e quali ubicazioni sono refrigerate | 21/11 | idem — senza, il motore ha una regola che non può verificare |
+| A3 | **Prefisso aziendale GS1**: c'è? Chi lo sa? | 02/11 | solo le etichette UDC, §4.3. Prima si sa, meglio è |
+| A4 | **Chi può alzare la priorità** di un compito. Proposta: solo Team Leader | 21/09 | il modello dei permessi dello schedulatore, §4.1 |
+| A5 | Partita IVA e dati del mittente — aperto vecchio, ancora aperto | quando puoi | i DDT escono «non conformi» finché manca |
+
+A1 e A2 sono le uniche che vale la pena chiedere in giro adesso: sono le sole che
+dipendono da qualcuno che non sei tu, e arrivano tardi nel calendario — cioè quando
+non c'è più tempo per aspettarle.
 
 ---
 

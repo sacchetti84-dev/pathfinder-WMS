@@ -113,14 +113,20 @@ Si leggono **all'avvio**: cambiate senza riavvio non hanno effetto.
 Cinque funzioni nuove. Piano, disegno dei dati e calendario:
 **[HANDOFF/PIANO-1.4.md](HANDOFF/PIANO-1.4.md)**.
 
+Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inventario.
+
 | Versione | Cosa | Entro |
 |---|---|---|
-| **1.4.0** | Fondamenta invisibili: migrazione `ALTER TABLE`, schema mosso una volta, `store.js` in TS, collaudi su `_applyToCache`, interruttori `feature.*` | 12/09 |
+| **1.4.0** | Fondamenta invisibili: migrazione `ALTER TABLE`, schema mosso una volta, **`store.js` in TS**, collaudi su `_applyToCache`, export/import da `COLLEZIONI`, interruttori `feature.*` | 19/09 |
 | **1.4.1** | Schedulatore di attività — richieste, priorità, tempi | 10/10 |
-| **1.4.2** | Unità di misura PZ/MT/LT/KG/GR, split colli, collo incompleto | 07/11 |
-| **1.4.3** | UDC — contenitori, `moveUdc` transazionale, etichette | 28/11 |
-| **1.4.4** | Motore logico di stoccaggio — attributi, regole come dato, motivazioni | 19/12 |
-| 1.5 | WIP — non entra nella 1.4, dipende dalle altre tre | Q1 2027 |
+| **1.4.2** | Unità di misura PZ/MT/LT/KG/GR, split colli, collo incompleto | **31/10** |
+| **1.4.3** | UDC — contenitori, `moveUdc` transazionale, etichette | 21/11 |
+| **1.4.4** | Motore logico di stoccaggio — attributi, regole come dato, motivazioni | 09/12 |
+| **1.4.5** | WIP — installato a interruttore **spento**, si accende a gennaio | 19/12 |
+
+> **Verifica il 31/10**, fine della 1.4.2. Quattro fatti da guardare, e una scala già
+> decisa di cosa togliere se anche uno solo è falso — PIANO-1.4 §6. Serve perché
+> 18,5 settimane di lavoro stanno in 18,5 settimane di calendario: **non c'è slack.**
 
 > **Bloccante, verificato.** Aggiungere un campo indicizzato a una collezione che
 > esiste già **non fa partire il servizio**: `CREATE TABLE IF NOT EXISTS` non aggiunge
@@ -132,8 +138,12 @@ Prototipo e collaudo scritti prima del codice:
 articolo, lotto e colli sopravvivono al cambio di schema e che la 1.2 rilegge il
 database della 1.4. PIANO-1.4 §5bis.
 
-Sei decisioni aspettano Andrea — PIANO-1.4 §8. Due bloccano il calendario:
-la strada per il WIP, e se `store.js` in TypeScript entra nella Fase 0.
+**Deciso l'11/08:** il WIP resta in calendario · verifica dell'andamento a fine
+ottobre · `store.js` in TypeScript entra in Fase 0.
+
+Restano cinque domande aperte — PIANO-1.4 §8. Le due da girare **subito** a chi le sa
+sono l'elenco degli allergeni da segregare e le classi di temperatura reali: servono
+al motore, che è a fine novembre, cioè quando non c'è più tempo per aspettarle.
 
 ## 6bis. Aperti
 
@@ -142,7 +152,7 @@ la strada per il WIP, e se `store.js` in TypeScript entra nella Fase 0.
 | 1 | **Portare la 1.2 in magazzino** — cinque comandi, HANDOFF 1.3 §6 | atto |
 | 2 | Nome DNS interno e certificato dalla CA aziendale — **IT** | esterno |
 | 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea** | esterno |
-| 4 | `core/store.js` a TypeScript — 1.974 righe, tocca tutte le entità. **Assorbito in 1.4.0** | grande |
+| 4 | ~~`core/store.js` a TypeScript~~ — **deciso 11/08: entra in 1.4.0**, non è più un aperto | — |
 | 5 | `ui/` a TypeScript, per ultima — `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | grande |
 | 6 | Collaudi su `Store._applyToCache` — 14 collezioni oggi, 18 dopo la 1.4, nessuna prova. **Assorbito in 1.4.0** | medio |
 | 7 | `TODO F1-REVIEW` ×3: cache svuotata prima della conferma del supporto (`store.js`), riallineamento ridondante dopo `resetAll()` (`app.js`) | piccolo |
@@ -154,7 +164,7 @@ la strada per il WIP, e se `store.js` in TypeScript entra nella Fase 0.
 
 - **Non toccare `pathfinder-1.1.html` in radice**: è il file servito in questo momento.
 - **Non convertire `store.js` e `app.js` nello stesso commit** — 12.500 righe insieme non sono verificabili.
-- **Non togliere i ponti verso Store** finché Store è JavaScript: senza, il compilatore deduce `never[]`.
+- **Non togliere i ponti verso Store** finché Store è JavaScript: senza, il compilatore deduce `never[]`. Cadono con la 1.4.0, non prima.
 - **Non scrivere a mano dentro `Pathfinder 1.2/`**: è prodotta, `npm run build` la azzera.
 - **Non versionare `server/data/`**: contiene i dati veri e le anagrafiche operatori.
 - **Non aggiornare `dexie` e `xlsx`**: versioni fisse, l'applicativo è collaudato con quelle.
