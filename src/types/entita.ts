@@ -1,24 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — LE ENTITÀ DEL MAGAZZINO
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   I campi qui dichiarati sono quelli che il codice scrive davvero: presi
-   dalle note del progetto in `Store._cache` e dagli indici dello schema,
-   non immaginati.
-
-   PERCHÉ QUASI TUTTO È OPZIONALE TRANNE LE CHIAVI.
-   Il servizio tiene il documento intero in una colonna JSON e materializza
-   in colonna soltanto i campi indicizzati: è la scelta che ha permesso alla
-   v3.0.0 di aggiungere `weight_net_kg` agli articoli senza una migrazione e
-   senza fermare il servizio. Se qui i tipi pretendessero ogni campo, si
-   rimetterebbe esattamente la catena che quella scelta ha tolto.
-
-   Quindi: obbligatorio ciò senza cui il record non ha senso — la chiave, il
-   collegamento, la quantità. Opzionale ciò che può arrivare dopo. I campi
-   in più non sono un errore: sono il motivo per cui la colonna `data`
-   esiste.
-   ═══════════════════════════════════════════════════════════════════ */
-
 import type { MOV } from './contratto.js';
 
 /** Millisecondi dall'epoca, come li scrive `Date.now()`. */
@@ -90,12 +69,6 @@ export interface StatoUbicazione {
   updated_at?: Istante;
 }
 
-/* Un'ubicazione messa fuori uso. È una collezione a sé e non uno stato dentro
-   StatoUbicazione perché le due cose hanno vite diverse: «bloccata» e
-   «riservata» sono condizioni di lavoro che cambiano nel turno, «disattivata»
-   dice che quel posto in magazzino non c'è più — uno scaffale smontato, una
-   corsia chiusa. Il record non ha altro che il codice: non c'è niente da
-   sapere su un posto che non esiste. */
 export interface UbicazioneDisattivata {
   _id?: number;
   location_code: string;
@@ -143,9 +116,6 @@ export interface Quarantena {
 
 /* ── Documenti di uscita ─────────────────────────────────────────── */
 
-/* v3.0.0 [M3] — Resi e Spedizioni sono lo stesso documento: a decidere se il
-   movimento a registro è RET o SHIP è la CAUSALE DI TRASPORTO, non il tipo.
-   `kind` resta per i documenti pendenti emessi prima della v3.0.0. */
 export interface DocumentoUscita {
   doc_id: string;
   kind?: 'return' | 'shipment' | string;
@@ -153,9 +123,6 @@ export interface DocumentoUscita {
   ddt_num?: string;
   destination?: string;
   carrier?: string;
-  /** v2.0.0+ — La data in cui il vettore dovrebbe passare. È ciò che ordina
-      l'elenco dei documenti pendenti, dai più urgenti in giù: vedi
-      `pickupAlertStatus`. Vuota finché non la si concorda. */
   expected_pickup_date?: Giorno;
   operator: string;
   status: 'pending' | 'evaded' | 'cancelled' | string;
@@ -196,20 +163,12 @@ export interface Mittente {
 
 /* ── Geometria ───────────────────────────────────────────────────── */
 
-/* Dove sta FISICAMENTE un'ubicazione. Non si deduce dal suo codice: la
-   costruisce `Store.buildLocationGeometry()` a partire dalla stessa funzione
-   che i codici li ha generati, perché interpretare la stringa a posteriori
-   vorrebbe dire dare per scontato che il separatore non compaia mai dentro
-   un id di sito o di zona — ipotesi che nessuno garantisce. */
 export interface Coordinate {
   site_id: string;
   zone_id: string;
   /** Posizione della zona nell'ordine di configurazione, non alfabetico. */
   zone_idx: number;
   type: string;
-  /** A terra e alla rinfusa non ci sono corsie: la fila fa da corsia e la
-      posizione da campata, così il percorso attraversa zone di tipo diverso
-      senza sapere di che tipo sono. */
   aisle: number;
   bay: number;
   level: string;

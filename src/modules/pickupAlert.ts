@@ -1,19 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════
-// APP
-// ═══════════════════════════════════════════════════════════════════
-
-/* v2.0.0+ — Helper alert "Data di Ritiro Prevista" per DDT pendenti.
-   Calcola il livello di urgenza in base alla differenza tra oggi e la data
-   di ritiro programmata. Restituisce un oggetto strutturato con label, colore
-   CSS e sortKey (utilizzato per ordinare la lista DDT con i più urgenti in cima).
-   Livelli:
-     - 'overdue'  : data passata (rosso, critico)
-     - 'today'    : ritiro oggi (rosso, urgentissimo)
-     - 'tomorrow' : ritiro domani (arancio, urgente)
-     - 'soon'     : 2-3 giorni (arancio chiaro, attenzione)
-     - 'ok'       : >3 giorni (verde, regolare)
-     - 'none'     : data non specificata (grigio, da definire) */
-
 import type { Giorno } from '../types/entita.js';
 
 export type LivelloRitiro = 'overdue' | 'today' | 'tomorrow' | 'soon' | 'ok' | 'none';
@@ -31,9 +15,6 @@ export interface AvvisoRitiro {
   sortKey: number;
 }
 
-/* Il parametro non è un `DocumentoUscita` intero perché di quel documento
-   qui serve un campo solo, e chiederne quindici renderebbe la funzione
-   impossibile da collaudare senza costruire un DDT completo. */
 const pickupAlertStatus = (doc?: { expected_pickup_date?: Giorno } | null): AvvisoRitiro => {
   if (!doc?.expected_pickup_date) {
     return { level: 'none', label: 'Data ritiro non impostata', shortLabel: 'da definire', color: 'var(--sx-text-muted)', bg: 'var(--sx-card-alt)', days: null, sortKey: 99999 };
@@ -44,10 +25,6 @@ const pickupAlertStatus = (doc?: { expected_pickup_date?: Giorno } | null): Avvi
   if (isNaN(pickup.getTime())) {
     return { level: 'none', label: 'Data non valida', shortLabel: '!', color: 'var(--sx-text-muted)', bg: 'var(--sx-card-alt)', days: null, sortKey: 99999 };
   }
-  /* I due `.getTime()` sono nuovi. Sottrarre due Date funziona in JavaScript
-     perché il motore le converte in numero da sé, ma è una conversione che
-     non si legge: scriverla per esteso dice la stessa cosa e permette al
-     compilatore di controllarla. Il valore prodotto è identico. */
   const diff = Math.round((pickup.getTime() - today.getTime()) / 86400000);
   const fmtIT = pickup.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit', year: 'numeric' });
   if (diff < 0) {

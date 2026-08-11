@@ -1,28 +1,5 @@
 import * as XLSX from 'xlsx';
 
-// ═══════════════════════════════════════════════════════════════════
-// © Andrea Sacchetti — Dietopack S.r.l.
-// modulo OdpParser — v2.5.0
-// Lettura dell'ordine di produzione esportato da Sage X3 (.xlsx)
-//
-// SCELTA DELLA SORGENTE. Il medesimo ordine è esportabile in PDF e in XLSX.
-// Il confronto diretto sui due file ha dato: quantità a 3 decimali contro 6
-// (14,790 contro 14.789618), date come testo contro seriale nativo, colonne
-// ricostruite dal layout contro celle indirizzate. Il PDF è il documento di
-// reparto; la sorgente dati è l'XLSX, che per giunta SheetJS — già caricato
-// per l'import articoli — legge senza aggiungere alcuna dipendenza.
-//
-// ROBUSTEZZA. Il foglio contiene celle unite e colonne che si spostano fra
-// una riga articolo e l'altra (le prime due righe del file di riferimento non
-// hanno la colonna "quantità per unità"). Per questo il parser NON legge per
-// indice fisso di colonna ma per ANCORE TESTUALI e per posizione relativa dei
-// valori all'interno della riga.
-// ═══════════════════════════════════════════════════════════════════
-
-/* Una riga del foglio. `any` è la descrizione onesta: le celle arrivano da un
-   file che non abbiamo scritto noi e possono essere testo, numero o vuoto
-   nella stessa colonna di due righe consecutive — è tutto il motivo per cui
-   questo parser legge per ancore invece che per indice. */
 type Riga = any[];
 
 export interface LottoODP {
@@ -57,10 +34,6 @@ export interface TestataODP {
   um: string;
 }
 
-/* O il file è leggibile, e allora ci sono testata e righe; o non lo è, e
-   allora c'è un motivo da mostrare. Non esiste il caso a metà, ed è
-   dichiarato così perché a valle nessuno provi a leggere le righe di un file
-   rifiutato. */
 export type EsitoODP =
   | { ok: false; error: string }
   | { ok: true; header: TestataODP; lines: RigaODP[]; warnings: string[] };
@@ -77,11 +50,6 @@ const OdpParser = {
     return v === null || v === undefined || String(v).trim() === '';
   },
 
-  /* Conversione seriale Excel → ISO YYYY-MM-DD.
-     Epoca 1899-12-30 (compensa il 1900 bisestile inesistente di Excel).
-     Si preferisce XLSX.SSF quando disponibile: è l'implementazione della
-     libreria stessa e gestisce i casi limite meglio di un calcolo manuale.
-     Ritorna '' se il valore non è una data plausibile. */
   excelSerialToISO(v: unknown): string {
     if (this._isBlank(v)) return '';
     // Già in forma testuale gg/mm/aaaa
@@ -119,10 +87,6 @@ const OdpParser = {
     return out;
   },
 
-  /* ─────────────────────────────────────────────────────────────────
-     PARSE PRINCIPALE
-     Riceve un ArrayBuffer, ritorna un EsitoODP.
-     ───────────────────────────────────────────────────────────────── */
   parse(arrayBuffer: ArrayBuffer): EsitoODP {
     if (typeof XLSX === 'undefined') {
       return { ok: false, error: 'Libreria Excel non disponibile: ricaricare la pagina con connessione attiva.' };
@@ -153,10 +117,6 @@ const OdpParser = {
     return { ok: true, header, lines, warnings };
   },
 
-  /* ─── TESTATA ─────────────────────────────────────────────────────
-     Numero ordine e commessa si riconoscono dal loro stesso formato
-     (ODP…/ODV…), più affidabile della posizione in un blocco di celle unite.
-     L'articolo finito si legge dalla sezione "Articoli da Realizzare".      */
   _parseHeader(rows: Riga[], warnings: string[]): TestataODP {
     const h: TestataODP = { odp_num: '', commessa: '', article_code: '', article_desc: '', lot: '', qty_planned: '', um: '' };
     const scanLimit = Math.min(rows.length, 30);
@@ -195,9 +155,6 @@ const OdpParser = {
     return h;
   },
 
-  /* ─── RIGHE MATERIALI E BLOCCHI LOTTO ─────────────────────────────
-     Si parte dall'intestazione che contiene "CONSERVAZIONE" (esclusiva della
-     sezione materiali) e si scorre fino ai blocchi di fine documento.        */
   _parseLines(rows: Riga[], warnings: string[]): RigaODP[] {
     const STOP = ['N°OPERAZIONE', 'N.OPERAZIONE', 'PRELIEVO CAMPIONI', 'QUANTITÀ PRODOTTA', 'QUANTITA PRODOTTA'];
     let start = -1;
@@ -226,9 +183,6 @@ const OdpParser = {
         const lotCode = String(row[1] ?? '').trim();
         if (!lotCode) continue;
         const nums = this._numericCells(row);
-        /* La riga lotto porta due numeri: quantità e seriale di scadenza.
-           La quantità precede l'etichetta "Scad.", la scadenza la segue.
-           Si individua l'etichetta invece di fidarsi dell'ordine. */
         const scadIdx = row.findIndex(c => this._norm(c).startsWith('SCAD'));
         let qty: number | null = null, expSerial: number | null = null;
         for (const n of nums) {
@@ -247,17 +201,11 @@ const OdpParser = {
         continue;
       }
 
-      // ── Riga ARTICOLO ──
-      // Un codice articolo è la prima cella non vuota di una riga che porta
-      // almeno un numero (il totale) e una descrizione.
       const code = String(row[0] ?? '').trim();
       if (!code) continue;
       const nums = this._numericCells(row);
       if (!nums.length) continue;
 
-      /* I due `!`: la riga sopra ha appena verificato che l'elenco non è
-         vuoto, quindi l'ultimo elemento c'è. È l'unico modo di dirlo a un
-         compilatore che, giustamente, di un accesso per indice non si fida. */
       const total = nums[nums.length - 1]!.value;
       const totalIdx = nums[nums.length - 1]!.idx;
       /* Unità di misura del totale: l'etichetta immediatamente precedente. */
@@ -285,19 +233,6 @@ const OdpParser = {
     return lines;
   },
 
-  /* ─── RIGHE SENZA LOTTO ASSEGNATO ─────────────────────────────────
-     v2.5.1 — Il controllo di coerenza sulla somma dei lotti e' stato RIMOSSO.
-
-     Motivo, verificato sul campo: generava un avviso per ogni riga in cui i
-     decimali non tornavano al millesimo, cioe' costantemente. L'export Sage
-     arrotonda a sei decimali e i granulati sono espressi in grammi mentre il
-     totale di riga e' in chilogrammi: la differenza residua era quasi sempre
-     rumore di conversione, non un errore reale. Un avviso che scatta sempre
-     smette di essere un avviso e insegna a ignorare anche quelli veri.
-
-     Resta il solo controllo che porta informazione utile: una riga senza
-     alcun lotto assegnato non e' prelevabile e va risolta a monte.
-     ───────────────────────────────────────────────────────────────── */
   _checkMissingLots(lines: RigaODP[], warnings: string[]): void {
     for (const line of lines) {
       if (!line.lots.length) {

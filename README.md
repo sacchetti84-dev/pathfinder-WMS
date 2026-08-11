@@ -8,6 +8,11 @@ il prelievo guidato da ordine di produzione, la quarantena e i documenti di
 trasporto. Gira su un PC in rete locale; i terminali lo aprono con un browser
 e non installano niente.
 
+> Per chi deve **lavorarci sopra** — o riprendere il progetto in una
+> conversazione nuova — il punto di partenza è [INDEX.md](INDEX.md): mappa dei
+> file, comandi, aperti e trappole in due pagine. Questo README serve a chi
+> deve installarlo, aggiornarlo o rimetterlo in piedi.
+
 ---
 
 ## Indice

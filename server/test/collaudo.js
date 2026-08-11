@@ -1,14 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — COLLAUDO DEL SERVIZIO DATI
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   Prova il contratto su un database usa-e-getta: le operazioni generiche,
-   il lotto atomico, le due operazioni di dominio e — la parte che conta
-   davvero — la CONTESA fra due terminali sullo stesso collo.
-
-   Si lancia con `npm test`. Non tocca il database di lavoro.
-   ═══════════════════════════════════════════════════════════════════ */
-
 'use strict';
 
 const path = require('path');
@@ -156,10 +145,6 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   ok('scarico oltre la giacenza respinto', troppo.stato === 409, troppo.dati.error);
 
   // ── LA PROVA CHE CONTA: due terminali sullo stesso collo ──────────
-  /* Trentacinque colli, due terminali che ne chiedono venti ciascuno
-     nello stesso istante. Uno solo deve passare. Se passassero entrambi
-     la giacenza andrebbe sotto zero, ed e' esattamente il difetto che un
-     database condiviso senza arbitro introduce. */
   const [t1, t2] = await Promise.all([
     call('POST', '/api/op/removeItem', { location_code: 'DP-A-01-01-T', item_key: 'MP-1#L1', qty: 20 }, 'TERMINALE-1'),
     call('POST', '/api/op/removeItem', { location_code: 'DP-A-01-01-T', item_key: 'MP-1#L1', qty: 20 }, 'TERMINALE-2')

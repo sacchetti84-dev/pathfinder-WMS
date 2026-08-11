@@ -1,17 +1,5 @@
-// ═══════════════════════════════════════════════════════════════════
-// VALIDATE
-// ═══════════════════════════════════════════════════════════════════
-
-/* Ogni controllo risponde con il MOTIVO del rifiuto, oppure con null se il
-   valore va bene. È il contrario della convenzione più comune (true = ok), e
-   resta così perché quello che serve all'interfaccia è la frase da mostrare
-   sotto il campo: un booleano costringerebbe a tenere i messaggi da un'altra
-   parte, lontano dalla regola che li ha decisi. */
 type Esito = string | null;
 
-/* I campi arrivano da `document.getElementById(...)?.value`, che è
-   `string | undefined`: dichiararli solo `string` avrebbe costretto ogni
-   punto di chiamata a un controllo che questi metodi già fanno. */
 type Campo = string | null | undefined;
 
 const Validate = {
@@ -30,9 +18,6 @@ const Validate = {
     LOT: /^[A-Z0-9][A-Z0-9\-_./]{0,29}$/i,
     LOC: /^[A-Z0-9]+(-[A-Z0-9]+)+$/,
     SAFE_TEXT: /^[^<>"']{0,200}$/,
-    /* v2.0.1 [C5] — Variante senza vincolo di lunghezza, per i campi con MAX
-       diverso da 200 (es. reason, che ammette 300 caratteri). Serve a impedire
-       che <, >, " o ' finiscano nei payload degli attributi onclick. */
     SAFE_CHARS: /^[^<>"']*$/,
     CATEGORY: /^[A-Z]{1,5}$/
   }),
@@ -87,9 +72,6 @@ const Validate = {
   reason(v: Campo): Esito {
     if (!v || !v.trim()) return 'Motivo obbligatorio';
     if (v.length > this.MAX.REASON) return `Max ${this.MAX.REASON} caratteri`;
-    // v2.0.1 [C5] — Era l'UNICO campo testuale libero privo di controllo caratteri.
-    // Il motivo della quarantena confluisce in item.notes ('QUARANTENA: ' + reason)
-    // e da lì nei payload JSON degli attributi onclick: un apostrofo rompeva l'handler.
     if (!this.RE.SAFE_CHARS.test(v)) return 'Caratteri non ammessi (<, >, ", \')';
     return null;
   },
@@ -109,11 +91,6 @@ const Validate = {
     return null;
   },
 
-  /* Sanitize: rimuove caratteri pericolosi e normalizza.
-     `unknown` e non `Campo`: questo è l'unico metodo che accetta qualunque
-     cosa, ed è voluto — esiste proprio per essere il primo a toccare un
-     valore di cui non si sa niente. Restituisce sempre una stringa, quindi
-     chi lo chiama può concatenare senza controllare. */
   clean(v: unknown, upper = false): string {
     if (v === null || v === undefined) return '';
     let s = String(v).trim().replace(/[\x00-\x1F\x7F]/g, '');

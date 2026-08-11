@@ -1,23 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   v2.4.5 [Q1] — SCORCIATOIE OPERAZIONI PRINCIPALI
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   Tre comandi in testa alla dashboard per le operazioni piu' frequenti:
-   Posiziona, Sposta, Prelievo ordini. Non aggiungono funzioni: portano a un
-   solo tocco flussi che prima richiedevano due o tre passaggi (vista
-   Movimenta, scheda operazione, e per gli ultimi due anche la scelta della
-   sotto-scheda del Prelievo).
-
-   Il colore di ciascun comando e' quello che lo stesso tipo di movimento ha
-   nella ciambella e nell'elenco movimenti (token --ct-cat-*): un'operazione
-   ha un solo colore in tutta l'applicazione. Il filetto laterale riprende
-   l'impostazione gia' usata da .kpi-card e .dl-tag.
-
-   Tipografia sui quattro gradini della dashboard (--dash-fs-*): la barra non
-   introduce nuove misure. Il blocco @media print resta invariato: in stampa
-   .app-main e' gia' nascosto, quindi le scorciatoie non compaiono nei report.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
 .qa-bar {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
@@ -42,9 +22,6 @@
 .qa-btn:active { background: var(--md-sys-color-surface-container-high); }
 .qa-btn:focus-visible { outline: 3px solid var(--md-sys-color-primary); outline-offset: 2px; }
 
-/* Contenitore icona: tinta piena su fondo tenue della stessa tinta.
-   Il fondo neutro e' dichiarato per primo come ripiego, perche' color-mix()
-   e' supportato solo dai browser recenti. */
 .qa-ico {
   flex: 0 0 auto;
   width: 38px; height: 38px;
@@ -81,13 +58,6 @@
 /* Il suggerimento del tasto funzione non ha senso dove non c'e' tastiera */
 @media (max-width: 700px) { .qa-key { display: none; } }
 /* Fine layer scorciatoie [Q1] — © Andrea Sacchetti */
-
-/* ════════════════════════════════════════════════════════════════════
-   v2.5.0 — PRELIEVO GUIDATO DA ORDINE DI PRODUZIONE
-   © Andrea Sacchetti — Dietopack S.r.l.
-   Componenti Material Design 3 su token --md-sys-color-* (seed #00745A).
-   Nessun colore letterale: tutto deriva dallo schema gia' in uso.
-   ════════════════════════════════════════════════════════════════════ */
 
 /* ── Ripresa di un percorso interrotto ── */
 .route-resume {
@@ -373,18 +343,12 @@
 /* ── Adattamento a schermo stretto (terminale palmare) ── */
 @media (max-width: 700px) {
   .route-stats { grid-template-columns: repeat(2, 1fr); }
-  /* Su palmare il codice ubicazione e' l'informazione che l'operatore cerca
-     per primo: cresce oltre l'Headline Small, unico gradino sopra la scala.
-     Il valore e' derivato dal token, non scritto a mano. */
   .route-stop-loc { font-size: calc(var(--md-sys-typescale-headline-small-size) * 1.2); }
   .route-stop-seq { width: 44px; height: 44px; font-size: var(--md-sys-typescale-body-large-size); }
   .route-stop-body { grid-template-columns: 1fr 1fr; }
   .route-preview, .route-tail { max-height: 34vh; }
 }
 
-/* ── v2.5.1 — Blocco di testa: materiale non reperibile ──
-   Contenitore sul ruolo error, perché l'informazione va vista prima del
-   pulsante di avvio, non cercata a fondo pagina. */
 .route-alert {
   background: var(--md-sys-color-error-container);
   color: var(--md-sys-color-on-error-container);
@@ -423,4 +387,3 @@
   .route-runbar, .route-stop-card, .route-details, .route-siteorder,
   .route-resume, .route-preview, .route-alert { display: none !important; }
 }
-

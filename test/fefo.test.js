@@ -1,14 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — collaudo dell'ordinamento FEFO
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   First Expired First Out: decide QUALE lotto l'operatore preleva fra più
-   giacenze dello stesso articolo. Sbagliarlo non fa rumore — la merce esce
-   lo stesso, il DDT si stampa lo stesso — e si scopre quando in magazzino
-   resta un lotto scaduto che avrebbe dovuto uscire tre mesi prima.
-
-   È puro: prende un elenco, restituisce un elenco.
-   ═══════════════════════════════════════════════════════════════════ */
 import { describe, it, expect } from 'vitest';
 import { Store } from '../src/core/store.js';
 
@@ -27,25 +16,12 @@ describe('FEFO', () => {
   });
 
   it('confronta le date come stringhe ISO, quindi anche a cavallo d’anno', () => {
-    /* Il confronto lessicografico su AAAA-MM-GG è corretto solo in quel
-       formato: se un giorno le date arrivassero come GG/MM/AAAA, questo
-       collaudo lo direbbe subito invece di lasciar prelevare a caso. */
     expect(codici([
       lotto('DOPO', '2027-01-02'),
       lotto('PRIMA', '2026-12-31'),
     ])).toEqual(['PRIMA', 'DOPO']);
   });
 
-  /* PERCHÉ LA STESSA COPPIA IN TUTTI E DUE GLI ORDINI.
-     Con due soli elementi, sort() chiama il comparatore UNA volta e lo fa
-     nell'ordine (secondo, primo). Provando una coppia sola si esercita un
-     ramo e si lascia scoperto l'altro: l'ho scoperto rompendo il codice di
-     proposito e vedendo il collaudo passare lo stesso. Due righe invece di
-     una, e i due rami sono coperti entrambi.
-
-     In testa sarebbero un disastro silenzioso: l'operatore preleverebbe per
-     primo ciò che non ha scadenza, e i lotti che scadono resterebbero lì a
-     scadere. */
   it('i lotti senza scadenza vanno in coda — con l’elenco in un ordine', () => {
     expect(codici([
       lotto('SENZA', ''),
@@ -82,9 +58,6 @@ describe('FEFO', () => {
   });
 
   it('non riordina l’elenco che riceve', () => {
-    /* Restituisce una copia. Se un giorno ordinasse sul posto, chi ha in
-       mano quell'array se lo ritroverebbe cambiato sotto le mani — e nel
-       codice quell'array è la cache delle giacenze. */
     const originale = [lotto('C', '2027-01-01'), lotto('A', '2026-01-01')];
     const prima = originale.map(i => i.lot_code);
     Store.sortByFEFO(originale);

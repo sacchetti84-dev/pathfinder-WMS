@@ -1,36 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — SERVIZIO DATI
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   Serve due cose: l'applicativo (un file HTML) e il suo database.
-   Girano sulla stessa macchina, cosi' il terminale di reparto ha un solo
-   indirizzo da conoscere e non esiste il caso in cui l'uno sia
-   raggiungibile e l'altro no.
-
-   LE TRE FAMIGLIE DI ENDPOINT, e perche' sono tre e non una:
-
-     /api/c/...      le operazioni GENERICHE del contratto. Una collezione,
-                     una chiave, un documento. Non sanno niente di
-                     magazzino e non devono saperlo.
-
-     /api/tx         un LOTTO di scritture eseguito tutto o niente. Serve
-                     alle cinque transazioni del client che sono sole
-                     scritture (import, azzeramento, cancellazione di un
-                     sito): il client le accumula e le manda in un colpo.
-
-     /api/op/...     le operazioni di DOMINIO. Servono alle due
-                     transazioni che leggono, decidono e riscrivono nello
-                     stesso respiro — scaricare una giacenza controllando
-                     che basti, chiudere una tappa di prelievo. Quelle non
-                     si possono spezzare in chiamate separate: fra la
-                     lettura e la scrittura ci passerebbe un altro
-                     terminale. Vivono qui perche' e' qui che c'e' il lock.
-
-   E' anche la ragione per cui il passaggio a piu' terminali non e' solo
-   un cambio di indirizzo: con un database solo, chi arbitra fra due
-   operatori che vogliono lo stesso collo dev'essere uno, e sta qui.
-   ═══════════════════════════════════════════════════════════════════ */
-
 'use strict';
 
 const express = require('express');
@@ -48,11 +15,6 @@ const DB_FILE = process.env.PATHFINDER_DB || path.join(__dirname, 'data', 'pathf
 const APP_FILE = process.env.PATHFINDER_APP || path.join(ROOT, 'pathfinder-1.1.html');
 const VERSION = '1.1';
 
-/* v1.2 — CERTIFICATO, SE C'E'.
-   Su http il PIN attraversa la rete in chiaro. Su una LAN aziendale lo si
-   accetta di solito, ma resta una cosa che si chiude. Qui il certificato non
-   e' obbligatorio: se le due variabili non ci sono il servizio parte in http
-   esattamente come prima, e nessuna installazione esistente cambia. */
 const TLS_CERT = process.env.PATHFINDER_TLS_CERT || null;
 const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
 
@@ -60,17 +22,8 @@ const db = new PathfinderDB(DB_FILE);
 const app = express();
 app.use(express.json({ limit: '256mb' }));   // un import completo puo' pesare
 
-/* Ogni client si presenta con un identificativo. Serve a NON rimandargli
-   indietro la notifica di un cambiamento che ha fatto lui: altrimenti
-   ogni scrittura gli farebbe ricaricare la cache che ha gia' aggiornato. */
 const originOf = (req) => req.get('X-Pathfinder-Client') || null;
 
-/* Un vincolo violato NON e' un guasto del servizio: e' il database che
-   dice di no a una richiesta sbagliata — un codice articolo gia' usato,
-   due operatori con le stesse iniziali. Va risposto 409 e va scritto a
-   registro in una riga, non con uno stack trace: un registro pieno di
-   eccezioni che sono risposte corrette e' un registro che nessuno legge
-   piu', e il giorno del guasto vero non se ne accorge nessuno. */
 const SQL_CONSTRAINT = {
   SQLITE_CONSTRAINT_UNIQUE:     'valore gia\' presente: il vincolo di unicita\' lo impedisce',
   SQLITE_CONSTRAINT_PRIMARYKEY: 'chiave gia\' esistente',
@@ -103,10 +56,6 @@ const parseCriteria = (raw) => {
   catch { throw Object.assign(new Error('criterio non leggibile'), { status: 400 }); }
 };
 
-// ─────────────────────────────────────────────────────────────────────
-// SALUTE E CARICAMENTO
-// ─────────────────────────────────────────────────────────────────────
-
 app.get('/api/health', wrap((req, res) => {
   res.json({ ok: true, service: 'pathfinder', version: VERSION,
              collections: NAMES, ...db.stats() });
@@ -117,10 +66,6 @@ app.get('/api/load', wrap((req, res) => {
     ? Number(req.query.movLogFrom) : null;
   res.json(db.loadAll({ movLogFrom: from }));
 }));
-
-// ─────────────────────────────────────────────────────────────────────
-// OPERAZIONI GENERICHE DI COLLEZIONE
-// ─────────────────────────────────────────────────────────────────────
 
 app.get('/api/c/:col/query', wrap((req, res) => {
   const { col } = req.params;
@@ -184,13 +129,6 @@ app.post('/api/clear', wrap((req, res) => {
   res.json({ ok: true });
 }));
 
-// ─────────────────────────────────────────────────────────────────────
-// LOTTO ATOMICO
-// ─────────────────────────────────────────────────────────────────────
-
-/* Corpo: { collections:[...], ops:[ {op, collection, record|key|changes|criteria|records} ] }
-   O passano tutte o non passa nessuna. E' la traduzione fedele delle
-   transazioni di sole scritture che il client gia' dichiara. */
 app.post('/api/tx', wrap((req, res) => {
   const { collections = [], ops = [] } = req.body || {};
   if (!Array.isArray(ops)) throw Object.assign(new Error('atteso { ops: [...] }'), { status: 400 });
@@ -214,16 +152,6 @@ app.post('/api/tx', wrap((req, res) => {
   res.json({ ok: true, results });
 }));
 
-// ─────────────────────────────────────────────────────────────────────
-// OPERAZIONI DI DOMINIO
-// ─────────────────────────────────────────────────────────────────────
-
-/* Scarico di una giacenza con controllo della quantita', in una sola
-   transazione. E' l'operazione che con piu' terminali NON puo' stare sul
-   client: fra il momento in cui A legge "ci sono 40 colli" e quello in
-   cui scrive "adesso sono 35", B puo' averne presi 10. Qui la lettura e
-   la scrittura sono dentro lo stesso lock, e chi arriva secondo trova il
-   saldo aggiornato e viene respinto con un errore parlante. */
 app.post('/api/op/removeItem', wrap((req, res) => {
   const { location_code, item_key, qty } = req.body || {};
   const n = Number(qty);
@@ -254,10 +182,6 @@ app.post('/api/op/removeItem', wrap((req, res) => {
   res.json(out);
 }));
 
-/* Chiusura di una tappa di prelievo: scarico, movimento a registro e
-   avanzamento della sessione in un colpo solo. Era gia' una transazione
-   sul client (v2.5.0 "commit atomico per tappa"); qui resta una
-   transazione, ma arbitrata dal server. */
 app.post('/api/op/commitPickStop', wrap((req, res) => {
   const { location_code, item_key, qty, movement, session } = req.body || {};
   const n = Number(qty);
@@ -291,30 +215,6 @@ app.post('/api/op/commitPickStop', wrap((req, res) => {
   res.json(out);
 }));
 
-// ─────────────────────────────────────────────────────────────────────
-// PIN — CALCOLO E VERIFICA SUL SERVER
-// ─────────────────────────────────────────────────────────────────────
-
-/* PERCHE' IL PIN SI VERIFICA QUI E NON NEL BROWSER.
-   Fino alla versione a file locale non c'era scelta: non esisteva un
-   server, e l'hash lo faceva `crypto.subtle` nella scheda. Ma quella
-   funzione il browser la concede solo in CONTESTO SICURO — https,
-   file:// o localhost — e un terminale che apre http://192.168.x.x NON
-   e' in contesto sicuro. Li' crypto.subtle non esiste proprio, e
-   l'applicativo si trovava a dover scegliere fra fingere una verifica e
-   rinunciarci: sceglieva onestamente di rinunciarci, e degradava
-   all'identificazione per sole iniziali.
-
-   Con un servizio a disposizione la scelta non serve piu': il calcolo si
-   fa dove il contesto e' sempre sicuro. Il formato dell'impronta e'
-   IDENTICO a quello del browser — SHA-256 di `salt:pin` in esadecimale —
-   quindi i PIN impostati dalla versione a file locale restano validi qui
-   e viceversa. Nessuna migrazione, nessun PIN da rifare.
-
-   Resta vero, e va detto: su http semplice il PIN attraversa la rete in
-   chiaro. Su una rete di reparto e' un rischio che si accetta di solito,
-   ma la risposta completa e' servire in https — vedi LEGGIMI. */
-
 const crypto = require('crypto');
 
 const hashPin = (pin, salt) =>
@@ -325,12 +225,6 @@ const equal = (a, b) => {
   return crypto.timingSafeEqual(Buffer.from(a), Buffer.from(b));
 };
 
-/* Freno ai tentativi. Un PIN e' di sei cifre: un milione di combinazioni
-   sono niente per un programma che le prova via rete. Cinque tentativi
-   sbagliati e quella sigla aspetta un minuto. Il conteggio sta in
-   memoria: al riavvio del servizio riparte, ed e' accettabile perche'
-   riavviare il servizio non e' cosa che un attaccante possa fare a
-   ripetizione dall'esterno. */
 const tentativi = new Map();
 const MAX_TENTATIVI = 5;
 const ATTESA_MS = 60000;
@@ -380,18 +274,6 @@ app.post('/api/op/verifyPin', wrap((req, res) => {
   res.json({ ok });
 }));
 
-/* Calcolo dei campi PIN per un operatore che sta per essere creato o
-   aggiornato. Restituisce sale e impronta senza scrivere niente: e' il
-   chiamante a metterli nel record, esattamente come faceva quando il
-   calcolo avveniva nel browser.
-
-   PERCHE' COSI' E NON UN "IMPOSTA IL PIN". Due dei quattro punti che
-   impostano un PIN lo fanno mentre CREANO l'operatore, quando un op_id
-   ancora non esiste. Un endpoint che scrive obbligherebbe a creare prima
-   l'operatore senza PIN e a completarlo dopo: due passaggi, e se il
-   secondo fallisce resta a sistema un Team Leader che non puo' entrare —
-   proprio lo stato che chiudeva fuori tutti. Calcolare e basta lascia i
-   quattro punti di chiamata come sono, e non apre quella finestra. */
 app.post('/api/op/hashPin', wrap((req, res) => {
   const pin = String(req.body?.pin || '');
   if (!/^\d{6}$/.test(pin))
@@ -400,17 +282,6 @@ app.post('/api/op/hashPin', wrap((req, res) => {
   res.json({ pin_salt: salt, pin_hash: hashPin(pin, salt), pin_set_at: Date.now() });
 }));
 
-// ─────────────────────────────────────────────────────────────────────
-// FEED DEI CAMBIAMENTI
-// ─────────────────────────────────────────────────────────────────────
-
-/* Server-Sent Events: un canale solo, in sola lettura, che il browser
-   riapre da se' se cade. Ogni scrittura dice quali collezioni ha toccato,
-   e i terminali che non l'hanno fatta riallineano la loro copia.
-
-   Senza questo, con piu' terminali, il secondo lavora su giacenze vecchie
-   e ci costruisce sopra documenti sbagliati: e' il difetto che il
-   passaggio a un database condiviso introduce, e va chiuso qui. */
 app.get('/api/events', (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
@@ -426,16 +297,9 @@ app.get('/api/events', (req, res) => {
     res.write(`event: change\ndata: ${JSON.stringify(ev)}\n\n`);
   });
 
-  /* Battito: tiene viva la connessione attraverso proxy e antivirus che
-     chiudono le connessioni inattive, e fa accorgere il client se il
-     servizio e' morto senza chiudere il socket. */
   const beat = setInterval(() => { try { res.write(': beat\n\n'); } catch {} }, 20000);
   req.on('close', () => { off(); clearInterval(beat); });
 });
-
-// ─────────────────────────────────────────────────────────────────────
-// BACKUP
-// ─────────────────────────────────────────────────────────────────────
 
 app.post('/api/backup', wrap((req, res) => {
   const dir = req.body?.dir || path.join(__dirname, 'data', 'backup');
@@ -447,43 +311,11 @@ app.post('/api/backup', wrap((req, res) => {
   );
 }));
 
-// ─────────────────────────────────────────────────────────────────────
-// L'APPLICATIVO
-// ─────────────────────────────────────────────────────────────────────
-
-/* Servire l'HTML da qui non e' una comodita': e' cio' che fa smettere di
-   essere `file://`. Da http://localhost il browser concede la persistenza
-   dello storage, che aperto come file locale NEGA — era il difetto [H5]
-   dichiarato nella v2.8.0, e si chiude senza scrivere una riga di codice. */
-/* v1.1 — L'APPLICATIVO NON SI METTE IN CACHE.
-   L'applicativo e' UN file, e aggiornarlo vuol dire sostituire quel file.
-   Senza dirlo esplicitamente il browser puo' continuare a servire la copia
-   che ha gia', e il terminale mostra la versione di ieri: si corregge un
-   difetto, si ricarica la pagina e il difetto e' ancora li'. Non e' un caso
-   di scuola — e' successo.
-
-   `no-cache` non vieta di conservare la copia: obbliga a CHIEDERE prima di
-   usarla. Con l'ETag che sendFile calcola gia', se il file non e' cambiato
-   la risposta e' un 304 di poche decine di byte; se e' cambiato arriva
-   quello nuovo. Su una rete di reparto il costo e' nullo e la certezza di
-   avere in mano la versione giusta vale molto di piu'. */
 const noCache = (res) => res.set('Cache-Control', 'no-cache');
 
 app.get('/', (req, res) => { noCache(res); res.sendFile(APP_FILE); });
 app.get('/app', (req, res) => { noCache(res); res.sendFile(APP_FILE); });
 
-/* TOLTO: `app.use('/loghi', express.static(ROOT/LOGHI))`.
-   Serviva una cartella di marchi che l'applicativo non ha mai chiesto — i
-   marchi sono <svg> in linea dentro la pagina, verificato: nessun punto del
-   client nomina /loghi. Era anche l'ultima riga che legava il servizio a come
-   e' fatto il repository intorno, e adesso che il servizio viaggia dentro un
-   pacchetto che sta in piedi da solo quel legame e' un impiccio: puntava a
-   una cartella che nel pacchetto non c'e' e non deve esserci. */
-
-/* Quale versione sta servendo QUESTA macchina, e da quale file.
-   Serve a rispondere in dieci secondi alla domanda "ho aggiornato ma non
-   vedo il cambiamento": se `mtime` non e' quello del file appena copiato,
-   il servizio sta servendo un'altra cartella. */
 app.get('/api/app-info', wrap((req, res) => {
   let stat = null;
   try { const s = fs.statSync(APP_FILE); stat = { bytes: s.size, mtime: s.mtime.toISOString() }; } catch {}
@@ -492,14 +324,6 @@ app.get('/api/app-info', wrap((req, res) => {
 
 app.use((req, res) => res.status(404).json({ error: 'endpoint inesistente' }));
 
-/* v1.2 — COSTRUZIONE DEL SERVER.
-   Prima era `app.listen(PORT)`, che sa fare solo http.
-
-   PERCHE' UN CERTIFICATO A META' FERMA TUTTO invece di ripiegare su http:
-   un ripiego silenzioso e' la peggiore delle tre possibilita'. Il servizio
-   risponderebbe, i terminali funzionerebbero, e tutti crederebbero che i PIN
-   viaggino cifrati mentre attraversano la rete in chiaro. Un servizio che non
-   parte lo si vede subito; uno che mente non lo vede nessuno. */
 const creaServer = () => {
   if (!TLS_CERT && !TLS_KEY) return { srv: http.createServer(app), schema: 'http' };
 
@@ -533,12 +357,6 @@ const server = srv.listen(PORT, () => {
   console.log(`  applicativo ${schema}://localhost:${PORT}/`);
   for (const ip of lan) console.log(`  in rete     ${schema}://${ip}:${PORT}/`);
   if (schema === 'http') console.log('  ATTENZIONE  senza certificato il PIN viaggia in chiaro');
-  /* IL FILE CHE SI SERVE, DETTO ALL'AVVIO E NON AL PRIMO OPERATORE.
-     Se non c'e', finora se ne accorgeva il terminale: apriva l'indirizzo e
-     riceveva un 404 senza spiegazioni, cioe' una pagina bianca. Il servizio
-     lo sa gia' adesso, e adesso lo dice. Non si ferma - il database e le API
-     funzionano lo stesso, e da qui si puo' sistemare senza riavviare la
-     macchina - ma non lascia scoprire la cosa a chi sta per lavorare. */
   if (!fs.existsSync(APP_FILE)) {
     console.error(`  ATTENZIONE  l'applicativo NON esiste: ${APP_FILE}`);
     console.error('              i terminali riceveranno una pagina vuota (404).');

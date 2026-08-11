@@ -1,27 +1,3 @@
-// ═══════════════════════════════════════════════════════════════════
-// © Andrea Sacchetti — Dietopack S.r.l.
-// modulo Tabs — Pathfinder Warehouse Mapper v2.8.0 [H6]
-//
-// UNA SOLA ISTANZA PUO' SCRIVERE.
-//
-// L'applicativo tiene una cache in memoria e la usa per rispondere a ogni
-// lettura. Due schede aperte significano due cache che non si parlano: la
-// seconda non vede le scritture della prima e continua a mostrare — e a
-// usare per i propri calcoli — uno stato superato. Su un terminale di
-// reparto, dove le finestre non si chiudono mai e qualcuno riapre il file
-// "per sicurezza", e' una perdita di dati che non lascia traccia.
-//
-// La soluzione non e' sincronizzare le cache (sarebbe un piccolo sistema
-// distribuito, con tutti i suoi modi di sbagliare): e' stabilire che a
-// scrivere sia una sola istanza. Le altre restano utilizzabili in lettura,
-// con una fascia che dice chiaramente cosa sta succedendo, e possono
-// prendere il comando solo con un atto esplicito di chi le sta guardando.
-//
-// BroadcastChannel non e' un lock e non pretende di esserlo: e' un annuncio.
-// Basta, perche' il caso da evitare non e' la corsa di due millisecondi, e'
-// la finestra dimenticata aperta da ieri.
-// ═══════════════════════════════════════════════════════════════════
-
 const Tabs = {
   CHANNEL: 'wm-instances',
   _ch: null,

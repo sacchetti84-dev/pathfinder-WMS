@@ -2,39 +2,6 @@ import { Store as StoreJS } from '../core/store.js';
 import type { Coordinate, Geometria, Giacenza, Sito } from '../types/entita.js';
 import type { RigaODP } from './odpParser';
 
-// ═══════════════════════════════════════════════════════════════════
-// © Andrea Sacchetti — Dietopack S.r.l.
-// modulo PickRoute — v2.5.0
-// Costruzione del percorso di prelievo a serpentina
-//
-// REGOLE FISSATE IN SEDE DI ANALISI, qui rese esecutive:
-//  · i lotti dell'ODP si rispettano sempre; il FEFO non si applica, perché
-//    l'assegnazione del lotto è già stata decisa a monte da Sage X3;
-//  · un percorso per sito, siti nell'ordine configurato dall'operatore;
-//  · dentro il sito: zone in ordine di configurazione, corsie crescenti,
-//    campate a serpentina (crescenti sulle dispari, decrescenti sulle pari),
-//    livelli dal basso verso l'alto;
-//  · articolo+lotto in più ubicazioni: UNA tappa sulla più conveniente, le
-//    altre elencate come alternative e accettate in scansione;
-//  · quarantena e impegno su DDT: segnalati, mai percorsi;
-//  · la quantità non è un criterio di esclusione — Warehouse Mapper traccia la
-//    presenza dei colli, i kg stanno su Sage.
-// ═══════════════════════════════════════════════════════════════════
-
-/* ═══════════════════════════════════════════════════════════════════
-   IL PONTE VERSO STORE, FINCHÉ STORE È JAVASCRIPT
-
-   `Store._cache` nasce da una manciata di array vuoti, e da un array vuoto
-   il compilatore deduce `never[]`: `Store.getSites()` risulta un elenco di
-   niente, e leggerne `.id` non compila. Non è un difetto di Store — è
-   quello che si vede di un file che i tipi non li ha ancora.
-
-   Invece di spargere un cast a ogni chiamata, il ponte sta qui: dichiara
-   che cosa questo modulo usa di Store e con che forma. Sono sei metodi su
-   novanta, ed è anche un elenco utile — dice esattamente quanto PickRoute
-   dipende dal magazzino. Quando `store.js` diventerà `store.ts` queste
-   quindici righe si cancellano e non resta niente da sistemare altrove.
-   ═══════════════════════════════════════════════════════════════════ */
 const Store = StoreJS as unknown as {
   getSites(): Sito[];
   getItemByKey(itemKey: string): Giacenza[];
@@ -49,9 +16,6 @@ export type MotivoFuoriPercorso =
   | 'not_mapped' | 'lot_absent_other_lots' | 'no_lot_in_odp' | 'all_blocked'
   | 'quarantine' | 'pending_outbound' | 'marked_missing';
 
-/* Le tre uscite di build(), che sono tre cose diverse e non vanno confuse:
-   una tappa si percorre, una riga fuori percorso no, una segnalazione è
-   un'informazione su merce che esiste ma non si può prendere. */
 export interface RigaFuoriPercorso {
   article_code: string;
   description: string;
@@ -126,9 +90,6 @@ const PickRoute = {
     catch (err) { console.warn('[WM] PickRoute: ordine siti non salvabile', err); }
   },
 
-  /* ─── COMPARATORE A SERPENTINA ────────────────────────────────────
-     Opera su coordinate reali fornite da Store.buildLocationGeometry(),
-     non sul testo del codice ubicazione.                                 */
   _serpentineCompare(geo: Geometria, siteRank: Map<string, number>) {
     return (a: Ordinabile, b: Ordinabile): number => {
       const ga: Coordinate | undefined = geo.get(a.location_code);
@@ -153,12 +114,6 @@ const PickRoute = {
     };
   },
 
-  /* ─── COSTRUZIONE ─────────────────────────────────────────────────
-     Ritorna { stops, offroute, notes }.
-       stops    — tappe percorribili, già ordinate
-       offroute — righe che finiscono in coda al percorso
-       notes    — segnalazioni conoscitive (quarantena, DDT pendenti)
-     ───────────────────────────────────────────────────────────────── */
   build(parsedLines: RigaODP[]): Percorso {
     const geo = Store.buildLocationGeometry();
     const siteOrder = this.getSiteOrder();
@@ -195,9 +150,6 @@ const PickRoute = {
         };
 
         if (!found.length) {
-          /* Il lotto non c'è. L'articolo però potrebbe esserci con altri lotti:
-             è informazione che costa nulla e dice all'operatore se cercare
-             altrove o se è l'ODP a essere disallineato. */
           const otherLots = Store.getLotsForArticle(line.article_code);
           offroute.push({
             ...base,

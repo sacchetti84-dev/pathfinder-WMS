@@ -1,25 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — ACCESSO AL DATABASE
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   Implementa il contratto di persistenza dell'applicativo contro SQLite.
-   I nomi dei metodi sono quelli che il client gia' chiama: add, put,
-   update, delete, bulkAdd, bulkPut, clear, clearMany, get, count,
-   countAll, query, deleteWhere, transaction. Chi legge il client e chi
-   legge questo file trova le stesse parole.
-
-   SINCRONO DI PROPOSITO. better-sqlite3 non e' asincrono e non deve
-   esserlo: una transazione che attraversa un await puo' essere
-   interrotta a meta' da un'altra richiesta, ed e' esattamente cio' che
-   una transazione serve a impedire. Node regge una richiesta alla volta
-   su questo, e su un magazzino con qualche terminale e' abbondante:
-   l'inserimento di mille movimenti misurato qui sta sotto i 20 ms.
-
-   LA REVISIONE. Ogni scrittura incrementa un contatore e dichiara quali
-   collezioni ha toccato. E' cio' che permette agli altri terminali di
-   accorgersi che la loro copia in memoria e' vecchia — vedi events.js.
-   ═══════════════════════════════════════════════════════════════════ */
-
 'use strict';
 
 const Database = require('better-sqlite3');
@@ -33,11 +11,6 @@ class PathfinderDB {
     this.file = file;
     this.db = new Database(file);
 
-    /* WAL: i lettori non bloccano lo scrittore. Con piu' terminali che
-       leggono mentre uno scrive e' la differenza fra un'attesa e un
-       errore. `synchronous = NORMAL` e' il compromesso consigliato con
-       WAL: si perde al massimo l'ultima transazione in caso di black-out
-       improvviso della macchina, non il database. */
     this.db.pragma('journal_mode = WAL');
     this.db.pragma('synchronous = NORMAL');
     this.db.pragma('foreign_keys = ON');
@@ -67,9 +40,6 @@ class PathfinderDB {
     return r?.r || 0;
   }
 
-  /* Dentro una transazione i tocchi si accumulano e la notifica parte una
-     volta sola, al commit: altrimenti gli altri terminali vedrebbero gli
-     stati intermedi di un'operazione che non e' ancora avvenuta. */
   _touch(collections, origin) {
     const list = Array.isArray(collections) ? collections : [collections];
     if (this._txDepth > 0) { for (const c of list) this._txTouched.add(c); return; }
@@ -103,9 +73,6 @@ class PathfinderDB {
     if (!row) return null;
     const col = COLLECTIONS[name];
     const doc = JSON.parse(row.data);
-    /* La chiave primaria vive nella colonna, non nel JSON: e' la sola
-       cosa che il database possiede piu' del documento. La si rimette
-       dentro all'uscita, perche' il client la usa (era ++_id). */
     doc[col.pk] = row[col.pk];
     return doc;
   }
@@ -146,9 +113,6 @@ class PathfinderDB {
     return key;
   }
 
-  /* Modifica PARZIALE. Esiste separata da put() perche' due operatori che
-     toccano campi diversi dello stesso record devono poter convivere:
-     e' la ragione per cui il contratto la distingue. */
   update(name, key, changes, origin) {
     const col = this._col(name);
     const cur = this.get(name, key);
@@ -201,10 +165,6 @@ class PathfinderDB {
     return this.db.prepare(`SELECT * FROM ${name}`).all().map(r => this._hydrate(name, r));
   }
 
-  /* Il criterio dichiarativo del contratto: { field, op, value }.
-     Gli operatori sono quelli che il client usa davvero — uguaglianza,
-     prefisso, soglia — e nessuno di piu': un criterio che il client non
-     sa esprimere non ha ragione di esistere qui. */
   _where(name, criteria) {
     if (!criteria) return { sql: '', args: [] };
     const col = this._col(name);
@@ -260,9 +220,6 @@ class PathfinderDB {
 
   /* ── Transazioni ──────────────────────────────────────────────────── */
 
-  /* Annidabile: le operazioni composte (bulkAdd dentro clearMany dentro
-     un import) devono poter dichiarare la propria transazione senza che
-     la piu' interna chiuda quella di fuori. */
   transaction(collections, fn, origin) {
     if (this._txDepth > 0) { for (const c of collections) this._txTouched.add(c); return fn(); }
     this._txDepth = 1;
@@ -281,10 +238,6 @@ class PathfinderDB {
 
   /* ── Caricamento iniziale ─────────────────────────────────────────── */
 
-  /* Il client chiede tutto in UNA volta all'avvio: quattordici collezioni
-     in quattordici viaggi di rete sarebbero quattordici occasioni di
-     trovare lo stato a meta'. `movLogFrom` e' la finestra del registro
-     introdotta dalla v2.8.0: il registro intero non si carica mai. */
   loadAll({ movLogFrom = null } = {}) {
     const out = {};
     for (const n of NAMES) {
@@ -308,9 +261,6 @@ class PathfinderDB {
     return { file: this.file, bytes, counts, revision: this.currentRevision() };
   }
 
-  /* Copia a caldo del database, transazionalmente coerente: e' il backup
-     vero, quello che si porta via su una chiavetta. SQLite lo sa fare da
-     solo mentre il servizio continua a lavorare. */
   backupTo(destFile) {
     fs.mkdirSync(path.dirname(destFile), { recursive: true });
     return this.db.backup(destFile);

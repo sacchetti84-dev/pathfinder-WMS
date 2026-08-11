@@ -1,21 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   v2.4.3 [S1][S2] — SEZIONI OPERATIVE DASHBOARD + SCALA TIPOGRAFICA
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   [S2] Il problema che questo layer risolve: la dashboard usava tredici
-   dimensioni di testo diverse (0.55 0.62 0.63 0.64 0.65 0.66 0.68 0.70 0.72
-   0.73 0.74 0.75 0.78 rem) nate una alla volta. Nessuna era sbagliata da
-   sola, ma insieme non componevano una gerarchia: erano rumore. Qui la scala
-   viene ridotta a QUATTRO gradini, tutti presi dai token MD3 gia' definiti.
-   Le regole sono limitate a #viewDashboard: nessun'altra vista e' toccata.
-
-   [S1] Tutte e quattro le nuove sezioni operative (movimenti, ordini di
-   produzione, documenti pendenti, quarantena) condividono lo stesso schema
-   di riga .dl-*: etichetta di tipo a larghezza fissa, blocco centrale su due
-   righe, azioni a destra. Un unico idioma percorso quattro volte pesa meno,
-   all'occhio, di quattro impaginazioni simili ma non uguali.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
 #viewDashboard {
   /* Quattro gradini, nessun valore intermedio */
   --dash-fs-num:  var(--md-sys-typescale-headline-small-size);  /* 1.5rem   — valori KPI */
@@ -122,12 +104,6 @@
 #viewDashboard .ct-gauge-name,
 #viewDashboard .ct-bar-head { font-size: var(--dash-fs-body); }
 
-/* ── Tipografia interna ai grafici: divari ridotti ──
-   Il totale al centro della ciambella (26px) sovrastava sia i valori KPI
-   (1.5rem = 24px) sia la percentuale degli anelli (15px). Portato a 21px si
-   allinea alla gerarchia senza perdere il ruolo di dato principale.
-   Le ciambelle e gli anelli hanno larghezza fissa, quindi questi px sono
-   quelli effettivamente resi a schermo. */
 .chart .ct-total { font-size: 21px; }
 .chart .ct-gauge { font-size: 14px; }
 .chart .ct-total-lbl { font-size: 9px; }

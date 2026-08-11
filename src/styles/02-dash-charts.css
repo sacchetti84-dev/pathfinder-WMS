@@ -1,25 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   v2.4.2 [G1] — LAYER GRAFICI DASHBOARD (Material Design 3)
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   Layer di sola aggiunta, caricato per ultimo nel <head>. Definisce il
-   linguaggio visivo comune di tutti i grafici della dashboard. Tutti i colori
-   derivano dai token MD3 gia' presenti (seed #00745A, SchemeTonalSpot): non
-   viene introdotto alcun colore nuovo, cosi' il tema resta governato da un
-   unico punto. Nessuna regola preesistente rimossa; @media print invariato.
-   ═══════════════════════════════════════════════════════════════════════════ */
-
-/* ── Palette CATEGORIALE dei grafici ──
-   I colori semantici dell'app (--md-ext-*) sono tarati per badge di stato letti
-   UNO ALLA VOLTA. Affiancati in una ciambella collassano: success #2D694F,
-   resi #20695D e primary #166B54 sono tre verdi quasi indistinguibili, e
-   warning #7B581B, spediz #845326 e warning-dim #604103 tre marroni.
-   Serve percio' una palette CATEGORIALE, costruita separando le tinte a
-   luminosita' e croma confrontabili, come previsto dalle extended colors MD3
-   per la visualizzazione dati. Gli ancoraggi semantici forti restano:
-   verde = merce in ingresso, rosso = smaltimento, indaco = quarantena.
-   I tipi rari (correzioni, modifiche, riposizionamenti) prendono le tinte
-   residue: devono solo non collidere con quelli frequenti. */
 :root {
   --ct-cat-in:    #2D694F;  /* verde        — Posizionamento */
   --ct-cat-pick:  #8A5A00;  /* ambra        — Prelievo produzione */
@@ -36,15 +14,6 @@
 }
 
 /* ── Contenitore comune ── */
-/* ── Riquadro condiviso dei grafici ──
-   v2.4.4 [N1]: .chart era width:100% senza limite superiore. La ciambella,
-   vincolata da max-width al proprio viewBox, restava resa 1:1; il grafico ad
-   area invece cresceva con la card e su un pannello da 700px arrivava a
-   700x313 px, con ogni testo interno ingrandito di 2,06 volte. Le due card
-   della stessa riga risultavano percio' di altezza e peso tipografico molto
-   diversi. Ora entrambi i grafici sono limitati a un riquadro alto
-   --ct-size e vengono resi 1:1: i px dichiarati nel viewBox sono i px
-   effettivi a schermo, uguali in tutti i grafici. */
 :root { --ct-size: 196px; }
 
 .chart { display: block; width: 100%; height: auto; overflow: visible; }
@@ -56,9 +25,6 @@
 .chart-wrap { padding: 0.15rem 0 0; }
 
 /* ── Tipografia dei grafici: Label Small MD3 per gli assi ── */
-/* v2.4.4 [N1] — con la resa 1:1 questi px sono quelli effettivi a schermo:
-   prima l'ingrandimento del viewBox li portava a dimensioni leggibili quasi
-   per caso, e diverse da card a card. Valori rialzati di conseguenza. */
 .chart text {
   font-family: var(--font);
   font-size: 10.5px;

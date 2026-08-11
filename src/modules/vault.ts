@@ -2,70 +2,6 @@ import { Persistence } from '../core/persistence/index';
 import { Store as StoreJS } from '../core/store.js';
 import type { Istante, Movimento } from '../types/entita.js';
 
-// ═══════════════════════════════════════════════════════════════════
-// © Andrea Sacchetti — Dietopack S.r.l.
-// modulo Vault — Pathfinder Warehouse Mapper v2.8.0 [H4]
-//
-// COPIA ESTERNA DEI DATI.
-//
-// Il problema che risolve e' il piu' semplice e il piu' grave di tutti:
-// fino alla v2.7.0 esisteva UNA sola copia dei dati, su UNA sola macchina.
-// I backup automatici OPFS stanno nello stesso profilo browser di IndexedDB
-// e se ne vanno con lo stesso clic; un guasto al disco li porta via insieme.
-// Per una tracciabilita' che deve reggere sei anni non e' abbastanza.
-//
-// Qui l'operatore sceglie UNA VOLTA una cartella — tipicamente dentro
-// OneDrive, quindi replicata fuori dall'edificio — e da quel momento
-// l'applicativo ci scrive da solo.
-//
-// PERCHE' NON UN UNICO FILE. A 500 movimenti al giorno l'export completo
-// arriva a ~370 MB al sesto anno. Riscriverlo ogni giorno significherebbe
-// far transitare centinaia di MB su una cartella sincronizzata, ogni giorno,
-// per riscrivere in massima parte dati identici a quelli del giorno prima.
-// Il formato e' quindi incrementale, e sfrutta l'unica proprieta' davvero
-// utile del registro: un movimento passato NON CAMBIA PIU'.
-//
-//   wm-stato-AAAA-MM-GG.json        fotografia del presente (giacenze,
-//                                   anagrafiche, ubicazioni, quarantene,
-//                                   DDT, operatori). Pochi MB. Se ne
-//                                   conservano 30.
-//   movimenti/wm-mov-AAAA-MM.jsonl  un file per mese, una riga JSON per
-//                                   movimento. Viene riscritto SOLO il mese
-//                                   in corso: i mesi chiusi si scrivono una
-//                                   volta e non si toccano mai piu'.
-//   wm-manifest.json                conteggi, intervallo di date coperto e
-//                                   impronta SHA-256 dell'ultimo stato.
-//                                   Serve ad accorgersi che un backup e'
-//                                   incompleto PRIMA di averne bisogno.
-//
-// Sei anni occupano ~320 MB distribuiti su 72 file mensili, e nessuna
-// singola scrittura supera i pochi MB.
-//
-// JSONL e non JSON per i movimenti: una riga per record si appende, si
-// legge a pezzi e sopravvive a un troncamento — se l'ultima riga e' rotta si
-// perde quella, non l'intero mese.
-//
-// NOTA SUI PERMESSI. Il permesso sulla cartella non sopravvive alla chiusura
-// del browser: al riavvio Chrome lo rimette in stato "prompt" e serve un
-// gesto dell'utente per riattivarlo. Non e' aggirabile ed e' giusto che sia
-// cosi'. L'applicativo se ne accorge e lo chiede con un pulsante, invece di
-// fallire in silenzio.
-// ═══════════════════════════════════════════════════════════════════
-
-/* ═══════════════════════════════════════════════════════════════════
-   LE DUE COSE CHE IL BROWSER SA FARE MA LO STANDARD NON DICHIARA
-
-   `showDirectoryPicker` e la coppia queryPermission/requestPermission sulle
-   handle sono la File System Access API: implementata da Chrome ed Edge —
-   cioè dai due browser su cui questo applicativo gira — e non ancora nelle
-   definizioni standard del DOM.
-
-   Dichiararle qui non le rende disponibili: le rende DICHIARATE. È l'unico
-   punto del client che dipende da un'API non standard, e adesso è scritto
-   nero su bianco invece di essere una scoperta di chi un giorno lo aprirà
-   su un browser che non ce l'ha. `supported()` continua a controllarlo a
-   runtime, che è ciò che conta davvero.
-   ═══════════════════════════════════════════════════════════════════ */
 export type PermessoCartella = 'granted' | 'denied' | 'prompt';
 
 declare global {
@@ -78,11 +14,6 @@ declare global {
   }
 }
 
-/* Il ponte verso Store, come in pickRoute.ts: finché Store è JavaScript, la
-   sua cache nasce da array vuoti e il compilatore ne deduce `never[]`. Sono
-   i quattro metodi che il backup usa, e spariranno con la conversione di
-   Store. `_countsOf` e `_applyToCache` cominciano con l'underscore e restano
-   qui lo stesso: è il codice che li chiama, non il tipo che li invita. */
 const Store = StoreJS as unknown as {
   exportAll(opzioni?: { includeMovLog?: boolean }): Promise<PacchettoDati>;
   eachMovement(fn: (blocco: Movimento[]) => void | Promise<void>, chunkSize?: number): Promise<number>;
@@ -90,16 +21,6 @@ const Store = StoreJS as unknown as {
   _countsOf(data: PacchettoDati): Record<string, number>;
 };
 
-/* Il pacchetto di export/import: un contenitore con dentro le collezioni e
-   qualche campo di servizio. Non se ne dichiara la forma per intero di
-   proposito — è la stessa ragione per cui il servizio tiene il documento in
-   una colonna JSON: un campo nuovo non deve costringere a una migrazione.
-
-   L'unica chiave che qui conta davvero è `mov_log`, e conta la differenza
-   fra il valore e l'ASSENZA: un array vuoto dichiara «il registro è vuoto»
-   e importAll azzera la tabella, la chiave mancante dice «di questo non
-   parlo» e la lascia stare. Sei anni di storico stanno in quella
-   distinzione, ed è per questo che è opzionale e non `Movimento[] | null`. */
 export interface PacchettoDati {
   mov_log?: Movimento[];
   _counts?: Record<string, number>;
@@ -191,9 +112,6 @@ const Vault = {
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   },
 
-  /* Esegue il backup completo secondo la politica descritta in testa.
-     `onProgress(testo)` serve a non lasciare l'operatore davanti a una
-     finestra ferma mentre si scrivono decine di MB. */
   async runBackup({ force = false, onProgress = null }: { force?: boolean, onProgress?: ((testo: string) => void) | null } = {}): Promise<EsitoBackup | null> {
     if (this._busy) throw new Error('Un backup è già in corso.');
     const dir = await this.loadHandle();
@@ -230,10 +148,6 @@ const Vault = {
         say(`Lettura del registro movimenti… ${totMov.toLocaleString('it-IT')}`);
       });
 
-      /* Si riscrivono solo i mesi che non risultano gia' presenti con lo
-         stesso numero di righe. I mesi chiusi vengono cosi' scritti una
-         volta sola nella vita del backup, e OneDrive non si vede passare
-         sotto lo stesso identico file ogni notte. */
       const attesi: Record<string, number> = {};
       let scritti = 0;
       for (const [mese, righe] of [...perMese.entries()].sort()) {
@@ -316,9 +230,6 @@ const Vault = {
     } catch { return null; }
   },
 
-  /* Ricompone un pacchetto di import completo dalla cartella: fotografia
-     piu' scelta dei mesi. E' l'operazione inversa di runBackup, e l'unica
-     ragione per cui il backup ha senso di esistere. */
   async buildRestorePackage({ statoFile = null, onProgress = null }: { statoFile?: string | null, onProgress?: ((testo: string) => void) | null } = {}): Promise<PacchettoDati> {
     const dir = await this.loadHandle();
     if (!dir) throw new Error('Nessuna cartella di backup configurata.');
@@ -366,11 +277,6 @@ const Vault = {
       }
     } catch { /* sottocartella assente */ }
 
-    /* Se non e' stato trovato NEMMENO UN file mensile, il registro non viene
-       messo nel pacchetto: l'assenza dei file e' molto piu' probabilmente una
-       cartella incompleta che un magazzino senza storia, e nel dubbio non si
-       cancellano sei anni di movimenti. Con la chiave omessa, importAll lascia
-       il registro dov'e'. */
     if (fileMensili > 0) {
       data.mov_log = mov;
     } else {

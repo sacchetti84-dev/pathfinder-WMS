@@ -1,43 +1,11 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — costanti di dominio
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   Nome del database, ritenzione del registro, tipi di movimento e loro
-   etichette. Non dipendono da niente e non fanno niente: sono le uniche
-   cose del progetto che si possono leggere senza sapere il resto.
-
-   FASE 3 — primo modulo tipizzato. Il corpo non è cambiato di una riga:
-   sono state aggiunte due clausole `satisfies`, che non producono codice e
-   non toccano il comportamento. Servono a far verificare al compilatore due
-   cose che finora reggevano solo sull'attenzione di chi scriveva:
-
-   1. che ogni valore di MOV sia uno dei quattordici del contratto;
-   2. che MOV_LABELS abbia un'etichetta per OGNUNO di quei quattordici.
-
-   La seconda non è teoria. Il registro stampa `MOV_LABELS[m.type] || m.type`:
-   se un giorno si aggiunge un tipo di movimento e ci si dimentica
-   l'etichetta, l'applicativo non protesta — mostra il codice grezzo in mezzo
-   ai movimenti, e nessuno se ne accorge finché non lo legge un ispettore.
-   Da adesso quella dimenticanza non compila.
-   ═══════════════════════════════════════════════════════════════════ */
-
 /* Il tipo si chiama MOV come la costante, e i due nomi non possono
    convivere: qui serve il tipo, quindi lo si rinomina all'ingresso. */
 import type { MOV as TipoMovimento } from '../types/contratto.js';
-
-// ═══════════════════════════════════════════════════════════════════
-// DATABASE 
-// ═══════════════════════════════════════════════════════════════════
 
 const DB_NAME = 'WarehouseMapperDB';
 /* v2.0.1 [C6] — rimossa la costante DB_VERSION: era ferma a 2 mentre la versione
    effettiva dello schema è 3 (vedi catena db.version() sotto). Era morta e fuorviante. */
 
-/* v2.0.1 [B8] — RETENTION 6 ANNI (2192 giorni, include 2 anni bisestili).
-   ATTENZIONE: questo valore NON innesca più alcuna cancellazione automatica.
-   È usato esclusivamente come SOGLIA SUGGERITA per la purge MANUALE in
-   Config → Dati e Backup. Nessun record viene mai eliminato senza azione
-   esplicita dell'operatore, export preventivo e registrazione a log. */
 const LOG_RETENTION_DAYS = 2192;
 const LOG_RETENTION_MS = LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
 
@@ -56,9 +24,6 @@ const MOV = Object.freeze({
   RET: 'RET',         // Reso — v2.0: ora è USCITA merce ritirata da vettore
   SHIP: 'SHIP',       // Spedizione (v2.0.0) — uscita merce verso cliente
   PURGE: 'PURGE',     // v2.0.1 [B8] — Purge manuale registro storico (evento di audit)
-  /* v2.7.0 [G6] — Rinnovo di un PIN smarrito. Non muove merce: e' un evento
-     di audit, come PURGE. A registro finisce CHI ha rinnovato il PIN di CHI;
-     il PIN non compare, ne' in chiaro ne' come impronta. */
   PINRESET: 'PINRESET'
 } as const satisfies Record<string, TipoMovimento>);
 

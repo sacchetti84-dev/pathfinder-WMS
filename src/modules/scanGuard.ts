@@ -1,21 +1,6 @@
-// ═══════════════════════════════════════════════════════════════════
-// © Andrea Sacchetti — Dietopack S.r.l.
-// modulo ScanGuard — v2.1.0
-// Protezione dalla doppia scansione involontaria.
-//
-// Nella v2.0.2 due scansioni identiche ravvicinate in Posiziona sommavano
-// silenziosamente la giacenza: l'operatore che non vedeva il riscontro
-// d'angolo ripeteva la scansione e raddoppiava i colli. Qui ogni operazione
-// registra una firma; una firma ripetuta entro la finestra richiede una
-// conferma esplicita.
-// ═══════════════════════════════════════════════════════════════════
-
 const ScanGuard = {
   WINDOW_MS: 3000,
 
-  /* Firma dell'operazione → istante in cui è passata. La firma la compone
-     chi chiama, mettendo insieme ciò che rende una scansione «la stessa»:
-     ubicazione, articolo, lotto. */
   _last: new Map<string, number>(),
 
   /* Ritorna i millisecondi trascorsi se la stessa firma e' recente, altrimenti null. */

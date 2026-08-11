@@ -1,25 +1,6 @@
-// ═══════════════════════════════════════════════════════════════════
-// © Andrea Sacchetti — Dietopack S.r.l.
-// modulo Feedback — v2.1.0
-// Riscontro multisensoriale per operatori di magazzino: suono, vibrazione,
-// flash perimetrale e messaggio al CENTRO dello schermo.
-//
-// Perche' al centro: dopo una scansione lo sguardo dell'operatore e' sul
-// campo attivo o sul collo, non sull'angolo in alto a destra. Il riscontro
-// d'angolo della v2.0.x veniva sistematicamente perso.
-//
-// Nessun file audio esterno: i toni sono sintetizzati con WebAudio, quindi
-// l'applicazione resta un singolo file e funziona completamente offline.
-// Nessun dato personale trattato: le preferenze salvate sono tre booleani
-// e un livello di volume (GDPR — minimizzazione, art. 5.1.c Reg. UE 2016/679).
-// ═══════════════════════════════════════════════════════════════════
-
 const Feedback = {
   PREF_KEY: 'wm_feedback_prefs',
 
-  /* Durate calibrate sul tipo di esito: l'errore deve restare a video
-     abbastanza da essere letto, l'esito positivo deve sparire in fretta
-     per non rallentare una sequenza di scansioni. */
   DURATIONS: Object.freeze({ ok: 1500, info: 2400, warn: 4500, error: 6500 }),
 
   _prefs: { audio: true, vibration: true, flash: true, volume: 0.55 },

@@ -1,21 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — LE QUATTORDICI COLLEZIONI
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   Questo file è il vocabolario condiviso fra client e servizio: gli stessi
-   nomi, le stesse chiavi primarie, gli stessi campi indicizzati.
-
-   PERCHÉ ESISTE. Oggi lo stesso elenco è scritto in tre posti — in
-   `Persistence.COLLECTIONS` sul client, in `_PK` dentro l'adapter remoto, e
-   in `COLLECTIONS` dentro `server/lib/schema.js`. Combaciano, ma combaciano
-   perché qualcuno se n'è ricordato: non c'è niente che se ne accorga se un
-   giorno divergono. Un nome di collezione sbagliato da una parte sola non fa
-   rumore, fa un 404 in mezzo a un turno.
-
-   Da qui in avanti il contratto ha un posto solo dove è dichiarato, e il
-   compilatore può controllarlo.
-   ═══════════════════════════════════════════════════════════════════ */
-
 /** I nomi delle collezioni, nell'ordine in cui il progetto li ha sempre elencati. */
 export const COLLEZIONI = [
   'sites', 'zones', 'articles', 'inventory', 'loc_status', 'disabled',
@@ -26,11 +8,6 @@ export const COLLEZIONI = [
 /** Una collezione, e nient'altro: `Persistence.get('sitess', …)` non compila. */
 export type Collezione = typeof COLLEZIONI[number];
 
-/* La chiave primaria di ogni collezione.
-   `_id` è il vecchio `++_id` di Dexie, cioè un intero assegnato dal supporto;
-   le altre sono chiavi naturali di testo, fornite da chi scrive il record.
-   La differenza non è cosmetica: su una chiave naturale il client può
-   costruire il record e conoscerne l'identità PRIMA di scriverlo. */
 export const CHIAVE_PRIMARIA = {
   sites: '_id', zones: '_id', articles: '_id', inventory: '_id',
   loc_status: '_id', disabled: '_id', mov_log: '_id', quarantine: '_id',
@@ -41,10 +18,6 @@ export const CHIAVE_PRIMARIA = {
 
 export type ChiavePrimaria = typeof CHIAVE_PRIMARIA;
 
-/* I campi MATERIALIZZATI: quelli che sul servizio diventano una colonna vera
-   con un indice, e che quindi si possono usare in un criterio di ricerca.
-   Tutto il resto del documento vive nella colonna `data` in JSON, e cercarci
-   dentro non si può: è il motivo per cui questo elenco va tenuto onesto. */
 export const CAMPI_INDICIZZATI = {
   sites: ['id'],
   zones: ['site_id', 'id'],

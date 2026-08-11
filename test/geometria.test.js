@@ -1,23 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — collaudo della geometria delle ubicazioni
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   COSA COLLAUDA, E PERCHÉ.
-   buildLocationGeometry() è ciò che sta A MONTE della serpentina: traduce
-   ogni codice di ubicazione nelle sue coordinate reali (sito, zona, corsia,
-   campata, livello). Il collaudo della serpentina parte da coordinate già
-   pronte; qui si verifica che quelle coordinate siano quelle giuste. Se
-   sbagliano loro, il percorso è ordinato benissimo — nel posto sbagliato.
-
-   Il punto che vale davvero è dichiarato nel commento della funzione: le
-   coordinate NON si deducono dal testo del codice, vengono da chi il codice
-   l'ha generato. Qui sotto c'è una prova che lo dimostra invece di crederci:
-   un sito e una zona con il trattino nel nome, cioè proprio il separatore.
-
-   FINGE LA CACHE DI STORE, e nient'altro. getSites() e getZones() leggono
-   _cache.sites: riempirlo è tutto ciò che serve, senza database, senza rete
-   e senza adapter di persistenza.
-   ═══════════════════════════════════════════════════════════════════ */
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Store } from '../src/core/store.js';
 
@@ -48,9 +28,6 @@ describe('generazione delle ubicazioni', () => {
     ]);
   });
 
-  /* PERCHÉ LE DUE CIFRE CONTANO. I codici finiscono su etichette, su
-     scansioni e nei filtri per prefisso di deleteZone(). Passare da 01 a 1
-     dopo che il magazzino è etichettato significa ristampare tutto. */
   it('la decina non cambia formato: la campata 10 è 10, non 010', () => {
     magazzino({ id: 'DP', zones: [rack('A', { aisles: 1, bays_per_aisle: 10, levels: ['T'] })] });
     const codici = Store.generateLocations('DP', 'A').map(l => l.code);
@@ -74,10 +51,6 @@ describe('generazione delle ubicazioni', () => {
       .toEqual(['DP-R-01', 'DP-R-02', 'DP-R-03']);
   });
 
-  /* Una zona appena creata, prima che qualcuno la configuri, non deve
-     produrre zero ubicazioni: zero ubicazioni è una zona che non esiste, e
-     la si cercherebbe come un guasto. Produce la singola ubicazione di
-     partenza, che si vede e si corregge. */
   it('una zona senza configurazione vale una sola ubicazione, non nessuna', () => {
     magazzino({ id: 'DP', zones: [rack('A'), floor('P'), bulk('R')] });
     expect(Store.generateLocations('DP', 'A').map(l => l.code)).toEqual(['DP-A-01-01-T']);
@@ -109,14 +82,6 @@ describe('geometria delle ubicazioni', () => {
     });
   });
 
-  /* IL COLLAUDO CHE GIUSTIFICA L'INTERA FUNZIONE.
-     Il commento di buildLocationGeometry() dice che interpretare la stringa
-     a posteriori significherebbe dare per scontato che il separatore non
-     compaia mai dentro un id. Qui compare in tutti e due: sito «MAG-1»,
-     zona «A-B». Un parser che spezzasse su '-' leggerebbe corsia «1» e
-     campata «A» — e manderebbe l'operatore da un'altra parte.
-     Rompendo il codice per farlo leggere dal codice, questa prova cade e le
-     altre no: è l'unica che distingue le due implementazioni. */
   it('le coordinate non vengono lette dal codice: reggono il trattino negli id', () => {
     magazzino({ id: 'MAG-1', zones: [rack('A-B', { aisles: 1, bays_per_aisle: 2, levels: ['T'] })] });
     const geo = Store.buildLocationGeometry();
@@ -127,10 +92,6 @@ describe('geometria delle ubicazioni', () => {
     });
   });
 
-  /* A terra non ci sono corsie e campate, ma il percorso ha bisogno di due
-     numeri per ordinare: la fila fa da corsia e la posizione da campata.
-     È la traduzione che permette alla serpentina di attraversare zone di
-     tipo diverso senza sapere di che tipo sono. */
   it('a terra la fila fa da corsia e la posizione da campata', () => {
     magazzino({ id: 'DP', zones: [floor('P', { rows: 2, positions_per_row: 2 })] });
     const geo = Store.buildLocationGeometry();
@@ -149,9 +110,6 @@ describe('geometria delle ubicazioni', () => {
     });
   });
 
-  /* L'ordine dei livelli è quello configurato, non quello alfabetico: se
-     fosse alfabetico, 'T' (terra) finirebbe dopo '1' e '2' e l'operatore si
-     sentirebbe dire di partire dal ripiano alto per poi chinarsi. */
   it('il livello pesa per la posizione in elenco, non per il suo nome', () => {
     magazzino({ id: 'DP', zones: [rack('A', { aisles: 1, bays_per_aisle: 1, levels: ['T', '1', '2'] })] });
     const geo = Store.buildLocationGeometry();
@@ -175,11 +133,6 @@ describe('geometria delle ubicazioni', () => {
     expect(geo.get('DP-PRIMA-IN-ALFABETO-01-01-T').zone_idx).toBe(1);
   });
 
-  /* Un sito o una zona disattivati sono spariti dal magazzino: le loro
-     ubicazioni non devono comparire in un percorso di prelievo. La
-     serpentina, per parte sua, mette in coda ciò che non ha geometria — che
-     è esattamente dove deve finire una riga rimasta appesa a una zona
-     chiusa. */
   it('siti e zone disattivati non entrano nella geometria', () => {
     magazzino(
       { id: 'DP', zones: [

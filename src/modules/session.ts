@@ -1,39 +1,14 @@
-// ═══════════════════════════════════════════════════════════════════
-// © Andrea Sacchetti — Dietopack S.r.l.
-// modulo Session — Pathfinder Warehouse Mapper v2.7.0 [G6]
-//
-// Chi lavora al terminale si allontana: va a prendere un pallet, risponde
-// al telefono, finisce il turno. Il terminale resta acceso con la sessione
-// di qualcun altro aperta, e il movimento successivo viene firmato dalla
-// persona sbagliata. In un sistema che deve reggere un audit questa non e'
-// una scomodita': e' un record falso.
-//
-// Allo scadere dell'inattivita' l'applicazione SALVA — perche' il lavoro
-// fatto fin li' e' buono e non va perso — e si blocca dietro un popup che
-// non si puo' aggirare. Non un avviso: un blocco.
-//
-// Il timeout e' preferenza di DISPOSITIVO (localStorage), non dato
-// aziendale: un tablet in reparto e un PC in ufficio hanno esigenze
-// diverse e non c'e' ragione perche' la scelta viaggi negli export.
-// ═══════════════════════════════════════════════════════════════════
 const Session = {
   KEY: 'wm_session_timeout_min',
   DEFAULT_MIN: 10,
   MIN_MIN: 1,
   MAX_MIN: 120,
 
-  /* `ReturnType<typeof setTimeout>` e non `number`: nel browser è un numero,
-     sotto Node è un oggetto Timeout, e questo file viene compilato con le
-     definizioni di tutti e due a disposizione. Scrivere `number` avrebbe
-     costretto a un cast che non aggiunge niente. */
   _timer: null as ReturnType<typeof setTimeout> | null,
   _minutes: null as number | null,
   _onExpire: null as (() => void | Promise<void>) | null,
   _armed: false,
 
-  /* 0 = disattivato. Valori fuori scala vengono riportati nell'intervallo:
-     un file di preferenze manipolato non deve poter disattivare il blocco
-     scrivendo "0.0001". */
   getTimeoutMinutes(): number {
     if (this._minutes !== null) return this._minutes;
     let v = this.DEFAULT_MIN;
@@ -48,10 +23,6 @@ const Session = {
     return v;
   },
 
-  /* Arriva dal campo di configurazione, quindi una stringa; il `as` copre il
-     caso in cui un chiamante passi già il numero, che parseInt digerisce
-     comunque. Aggiungere `String(min)` sarebbe cambiare il codice per far
-     tornare i conti a un tipo — §3.8 dell'HANDOFF. */
   setTimeoutMinutes(min: string | number): number {
     const n = parseInt(min as string, 10);
     const v = !Number.isFinite(n) || n === 0 ? 0 : Math.min(this.MAX_MIN, Math.max(this.MIN_MIN, n));

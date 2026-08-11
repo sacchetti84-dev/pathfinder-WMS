@@ -1,42 +1,5 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — SCHEMA DEL DATABASE
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   LO SCHEMA E' LA TRADUZIONE DEL CONTRATTO, NON UN NUOVO MODELLO.
-   Le quattordici collezioni sono le stesse che il client dichiara in
-   Persistence.COLLECTIONS, con le stesse chiavi e gli stessi indici che
-   Dexie aveva. Il vocabolario non cambia passando da IndexedDB a SQLite:
-   cambia solo dove i dati dormono.
-
-   PERCHE' UNA COLONNA `data` IN JSON E NON UNA COLONNA PER CAMPO.
-   I record dell'applicativo hanno forma VARIABILE nel tempo: la v3.0.0 ha
-   aggiunto `weight_net_kg` e `pieces_per_pack` agli articoli, e dodici
-   campi nuovi ai documenti di uscita, senza nessuna migrazione — perche'
-   IndexedDB non ha uno schema di colonne. Normalizzare tutto qui
-   significherebbe rimettere quella catena: ogni campo nuovo diventerebbe
-   un ALTER TABLE e un fermo del servizio.
-
-   Si tiene quindi il documento intero in `data`, e si MATERIALIZZANO come
-   colonne vere soltanto i campi su cui si cerca davvero — cioe' esattamente
-   quelli che Dexie aveva indicizzato. Quelli hanno indice e valgono per le
-   query; tutto il resto vive nel JSON e non ha bisogno di permesso per
-   esistere.
-
-   Le colonne materializzate sono scritte dal server a ogni put/add
-   leggendole dal documento: non esiste il caso in cui divergano, perche'
-   non c'e' un percorso che scriva la colonna senza scrivere il documento.
-   ═══════════════════════════════════════════════════════════════════ */
-
 'use strict';
 
-/* Per ogni collezione:
-     pk        nome della chiave primaria
-     pkType    'auto'   → INTEGER PRIMARY KEY AUTOINCREMENT (il vecchio ++_id)
-               'text'   → chiave naturale di testo, fornita dal client
-     indexed   campi materializzati in colonna e indicizzati
-     unique    campi con vincolo di unicita' (erano gli & di Dexie)
-     numeric   campi materializzati come numero: servono ai confronti
-               d'intervallo (la purge del registro lavora su ts) */
 /** IL VOCABOLARIO È DICHIARATO IN UN POSTO SOLO.
    Fino a ieri l'elenco delle collezioni era scritto tre volte — qui, in
    `Persistence.COLLECTIONS` sul client, e nella mappa `_PK` dell'adapter
@@ -124,9 +87,6 @@ const COLLECTIONS = {
 
 const NAMES = Object.keys(COLLECTIONS);
 
-/* Il tipo SQL di una colonna materializzata. Il default e' TEXT: i codici
-   di articolo, lotto e ubicazione sono testo, e confrontarli come numeri
-   sarebbe sbagliato anche quando sembrano numeri. */
 function colType(col, field) {
   return (col.numeric || []).includes(field) ? 'INTEGER' : 'TEXT';
 }

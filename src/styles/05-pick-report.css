@@ -1,23 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════════════
-   v2.5.1 — LAYER REPORT DI PRELIEVO
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   Layer di sola AGGIUNTA, caricato per ultimo: nessuna regola preesistente
-   del blocco @media print viene rimossa o riscritta. Le classi .pr-* gia'
-   esistenti (header, meta-grid, summary, table, footer) restano quelle di
-   prima e continuano a servire gli altri documenti (report di uscita,
-   cartello NC). Qui si aggiunge soltanto cio' che il nuovo template del
-   report di prelievo richiede:
-
-     .pr-reprint   fascia di RISTAMPA — un documento GMP ristampato non deve
-                   poter essere scambiato per l'originale
-     .pr-times     banda dei tempi: inizio, fine, durata, media per prelievo.
-                   E' il focus del documento, quindi ha peso tipografico
-                   maggiore delle tessere di conteggio (.pr-summary)
-     .pr-box       casella da barrare a penna per il recupero fuori percorso
-     regole di impaginazione: l'intestazione di tabella si ripete a ogni
-                   pagina e nessuna riga viene spezzata a meta'
-   ═══════════════════════════════════════════════════════════════════════════ */
 @media print {
 
   /* ── Fascia di ristampa / avviso sulla fonte dei dati ── */

@@ -41,17 +41,6 @@ const App = {
   _prodPickStartTime: null,
   _prodOrderNum: '',
   _prodOperator: '',
-  /* === v3.0.0 [M3][M4] — SPEDIZIONI: testata del DDT in composizione ===
-     Sostituisce i due gruppi di stato gemelli della v2.0.0 (_returns* e
-     _ship*), che tenevano gli stessi campi in due posti diversi.
-
-     La testata vive QUI e non nel DOM perché il carrello si ridisegna a
-     ogni riga aggiunta: quello che l'operatore aveva scritto e non ancora
-     confermato sparirebbe a metà compilazione. _persistShipHeader() la
-     rilegge dai campi a ogni modifica.
-
-     Le date restano in ISO (YYYY-MM-DD) nello stato — pickupAlertStatus
-     le vuole così — e in gg/mm/aaaa a video. */
   _shipCart: [],               // [{ article_code, article_description, lot_code, location_code, item_key, qty, qty_at_creation, expiry_date, notes }]
   _shipState: null,            // Stato corrente lookup: { item, availableQty, totalQty, pendingQty }
   _shipStartTime: null,        // Timer inizio sessione (per report)
@@ -84,49 +73,15 @@ const App = {
   _artSort: 'code_asc',
   _editingSiteId: null,
 
-  /* Operatore corrente (iniziali)
-     v2.7.0 [G6] — currentOperator resta le INIZIALI e resta la sorgente per i
-     ~13 punti che la leggono: nessuno di essi e' stato toccato. Accanto vive
-     currentOperatorRecord con la scheda completa dell'anagrafica, da cui
-     Store.getCurrentIdentity() ricava id e ruolo. */
   currentOperator: null,                // es. "AS", "MR" — popolato al login
   currentOperatorRecord: null,          // v2.7.0 — record completo dell'anagrafica
   _OPERATOR_KEY: 'wm_current_operator', // chiave localStorage (NON è token, solo iniziali)
   _KNOWN_OPERATORS_KEY: 'wm_known_operators', // v2.7.0: sigle storiche, solo per la migrazione
   _MIGRATED_KEY: 'wm_operators_migrated',     // v2.7.0: la migrazione avviene una volta sola
 
-  /* v1.9.1 — Fix scanner barcode US→IT layout
-     Quando lo scanner emula tastiera US e l'OS è in layout IT, alcuni tasti producono
-     caratteri "errati" (es. tasto fisico Slash → '-' invece di '/'). Il fix usa
-     event.code per ricostruire il carattere atteso. Default ATTIVO. */
   _scannerLayoutFix: true,
   _SCANNER_FIX_KEY: 'wm_scanner_fix',
 
-  /* ═══════════════════════════════════════════════════════════════════
-     DATABASE SULLA MACCHINA — AGGANCIO ALL'INTERFACCIA
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-     Due sole cose, ma nessuna delle due e' rinunciabile quando il
-     database non e' piu' dentro questa scheda.
-
-     1. SE IL SERVIZIO NON RISPONDE, SI FERMA TUTTO E LO SI DICE.
-        E' la scelta dichiarata: niente lavoro offline, niente code da
-        risincronizzare, nessun dato che diverge. Un operatore che
-        continua a scansionare mentre il servizio e' morto sta buttando
-        via il proprio turno, e va fermato subito e in modo visibile —
-        non con una scritta piccola in un angolo.
-
-     2. SE SCRIVE UN ALTRO TERMINALE, QUESTO SI RIALLINEA.
-        Il server dice quali collezioni ha toccato. La copia in memoria
-        va riletta, altrimenti questa postazione mostra giacenze che non
-        esistono piu' e ci costruisce sopra documenti sbagliati.
-        Il riallineamento e' RITARDATO di poco e accorpato: durante un
-        carico a raffica arrivano decine di avvisi, e rileggere tutto a
-        ogni collo bloccherebbe la scansione.
-
-     Con l'adapter locale non succede niente di tutto questo: non c'e'
-     nessun servizio che possa cadere e nessun altro terminale.
-     ═══════════════════════════════════════════════════════════════════ */
   _wireRemote() {
     if (Persistence.kind !== 'remote') return;
 
@@ -137,9 +92,6 @@ const App = {
 
     Persistence._onChange = (ev) => this._scheduleResync(ev);
 
-    /* Un battito lento verso il servizio: EventSource si accorge della
-       caduta solo quando prova a riconnettersi, e su una rete di reparto
-       possono passare minuti. Meglio saperlo in venti secondi. */
     this._svcBeat = setInterval(async () => {
       try { await Persistence._call('GET', '/api/health'); } catch {}
     }, 20000);
@@ -169,9 +121,6 @@ const App = {
     else if (this.currentView === 'map') { this.renderMap(); this.renderSidebar(); }
     else if (this.currentView === 'config') this.renderConfig();
     else if (this.currentView === 'archive') this.renderArchive();   // v1.1.0 [N5]
-    /* La vista Movimenta NON si ridisegna: l'operatore ci sta dentro con
-       il lettore in mano. Si aggiorna il solo riquadro dei documenti
-       pendenti, che e' l'unica cosa che cambia sotto i suoi occhi. */
     else if (this.currentView === 'movimenta' && this._movMode === 'shipping') {
       const zona = document.getElementById('movFormArea');
       if (zona && !this._shipCart.length) this._formSpedizioni(zona);
@@ -179,9 +128,6 @@ const App = {
     if (toccate.length) this.updateSyncIndicator();
   },
 
-  /* Il blocco. Copre lo schermo perche' deve interrompere, non informare:
-     l'unica cosa che si puo' fare senza servizio e' aspettare che torni,
-     e provare a lavorare intanto e' peggio che fermarsi. */
   _showServiceDown(err) {
     if (document.getElementById('svcDown')) return;
     const el = document.createElement('div');
@@ -216,9 +162,6 @@ const App = {
     if (!el) return;
     el.remove();
     this.toast('✓ Servizio dati di nuovo raggiungibile', 'success');
-    /* Tornati in linea, la copia in memoria e' vecchia di quanto e'
-       durata l'interruzione: si rilegge tutto prima di lasciar toccare
-       qualcosa. */
     this._doResync();
   },
 
@@ -269,11 +212,6 @@ const App = {
        sola lettura invece di lavorare su una cache che invecchia in silenzio. */
     Tabs.init((ro) => this._onReadOnlyChange(ro));
 
-    /* ═══════════════════════════════════════════════════════════════
-       v2.8.0 [H3] — LA CODA DI RECUPERO VIENE PRIMA DI TUTTO
-       Se al riavvio precedente e' rimasto un movimento eseguito ma non
-       registrato, si tenta di scriverlo adesso: la giornata deve cominciare
-       con un registro completo, o almeno con la consapevolezza che non lo e'. */
     await this._flushRecoveryQueue();
     this._renderRecoveryBanner();
 
@@ -288,34 +226,12 @@ const App = {
     // v2.8.0 [H4] — Copia esterna giornaliera sulla cartella configurata
     this._scheduleVaultBackup();
 
-    /* ═══════════════════════════════════════════════════════════════
-       v2.7.0 [G6] — IDENTIFICAZIONE ALL'AVVIO
-       Prima migrazione delle sigle storiche, poi il gate: wizard se non
-       esiste alcun Team Leader, altrimenti login. Il percorso di prelievo
-       interrotto si propone DOPO, perche' una domanda alla volta e perche'
-       riprenderlo e' una decisione che spetta a chi si e' identificato. */
     await this._migrateLegacyOperators();
     Session.init(() => this._onSessionExpired());
     await this._openIdentityGate({ initial: true });
     setTimeout(() => this._checkPendingPickSession(), 400);
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G6] — MIGRAZIONE DELLE SIGLE STORICHE
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Fino alla v2.6.0 gli operatori erano sigle in localStorage. Buttarle
-     via significherebbe che i movimenti gia' registrati portano una firma
-     che in anagrafica non esiste piu': storico illeggibile.
-
-     Diventano quindi schede da completare — iniziali valorizzate, nome e
-     cognome vuoti, ruolo Operatore, nessun PIN. Al primo accesso l'app
-     chiede di completarle. Le iniziali NON cambiano: i record di ieri
-     restano attribuibili esattamente come prima.
-
-     Gira una volta sola: la chiave di controllo evita che una sigla
-     disattivata a mano riappaia al riavvio successivo.
-     ═══════════════════════════════════════════════════════════════════ */
   async _migrateLegacyOperators() {
     try {
       if (localStorage.getItem(this._MIGRATED_KEY) === '1') return;
@@ -345,11 +261,6 @@ const App = {
     } catch { return []; }
   },
 
-  // ═══════════════════════════════════════════════════════════════════
-  // v1.9.1 — FIX SCANNER BARCODE US→IT LAYOUT
-  // © Andrea Sacchetti — Dietopack S.r.l.
-  // ═══════════════════════════════════════════════════════════════════
-
   /* Carica preferenza fix scanner da localStorage. Default: ATTIVO. */
   _loadScannerSettings() {
     try {
@@ -369,10 +280,6 @@ const App = {
     if (this._configTab === 'data') this.renderConfig();
   },
 
-  /* Handler globale keydown — corregge i caratteri prodotti da scanner barcode
-     in modalità HID Keyboard layout US su sistemi con layout IT.
-     Usa event.code (tasto fisico, indipendente dal layout) per ricostruire il carattere
-     originale del barcode. Si attiva solo su input con classe .input-mono (campi scan). */
   _scanKeydownFix(e) {
     if (!this._scannerLayoutFix) return;
     const t = e.target;
@@ -407,20 +314,6 @@ const App = {
   // © Andrea Sacchetti — fine modulo fix scanner v1.9.1
   // ═══════════════════════════════════════════════════════════════════
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G6] — GATE DI IDENTITÀ
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Un unico ingresso per tre situazioni che sembrano diverse e non lo sono:
-     l'avvio dell'applicazione, il rientro dopo l'inattivita' e il cambio
-     operatore. In tutti e tre i casi la domanda e' la stessa — chi sta
-     lavorando adesso — e la risposta deve essere verificata.
-
-     Prima del login viene la garanzia [G7]: se in anagrafica non esiste
-     alcun Team Leader attivo non si va oltre finche' non se ne crea uno.
-     E' la condizione che rende sempre possibile rinnovare un PIN smarrito.
-     Non c'e' combinazione di stati che chiuda fuori l'utente.
-     ═══════════════════════════════════════════════════════════════════ */
   _gateOpen: false,
 
   async _openIdentityGate({ initial = false, reason = '' } = {}) {
@@ -575,9 +468,6 @@ const App = {
     const op = this._loginSelectedId ? Store.getOperator(this._loginSelectedId) : null;
     if (!op) return err('Seleziona il tuo nominativo.');
 
-    /* Scheda importata dallo storico: iniziali sì, tutto il resto no.
-       Prima di lavorare va completata — è il momento giusto per chiederlo,
-       non un promemoria che nessuno leggerà. */
     if (!op.pin_hash) { this._renderCompleteProfile(op); return; }
 
     const pin = document.getElementById('loginPin')?.value || '';
@@ -587,9 +477,6 @@ const App = {
       err('Nominativo o PIN non corretti.');   // messaggio generico: non si dice quale dei due
       const input = document.getElementById('loginPin');
       if (input) input.value = '';
-      /* Dopo tre tentativi il campo si blocca qualche secondo. Non ferma
-         nessuno che abbia tempo, ma rende inutile provare a tentoni con il
-         terminale incustodito per un minuto. */
       if (this._loginFails >= 3) {
         const wait = Math.min(20, 2 ** (this._loginFails - 2));
         if (input) { input.disabled = true; }
@@ -654,10 +541,6 @@ const App = {
     this._activateOperator(op);
     this._closeIdentityGate();
 
-    /* Un carrello di prelievo, resi o spedizioni aperto da un'altra persona
-       non si eredita: le righe raccolte finora sono responsabilita' di chi
-       le ha raccolte. Se rientra lo stesso operatore invece si riprende
-       esattamente da dove si era interrotto. */
     if (changed && this._hasOpenCart()) {
       this.cancelMov();
       if (this.currentView === 'movimenta') this.renderMovimenta();
@@ -738,13 +621,6 @@ const App = {
     }
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.8.0 [H4] — I BACKUP OPFS DIVENTANO RIPRISTINABILI
-     Esistevano dalla v2.4: scritti ogni settimana e mai piu' guardati,
-     perche' listOPFSBackups() e readOPFSBackup() non erano richiamati da
-     nessuna parte dell'interfaccia. Un backup che non si sa ripristinare
-     non e' un backup: e' spazio occupato.
-     ═══════════════════════════════════════════════════════════════════ */
   async showOPFSBackups() {
     const list = await Store.listOPFSBackups();
     if (!list.length) {
@@ -825,19 +701,12 @@ const App = {
 
   async _checkStorageQuota() {
     const est = await Store.estimateUsage();
-    /* v1.1.0 [N6] — `pct != null` esplicito: contro il servizio dati la
-       percentuale non esiste, e `undefined > 80` sarebbe falso per caso,
-       non per ragionamento. Un avviso sulla quota del browser non ha
-       comunque senso quando il database sta su un disco. */
     if (est && est.pct != null && est.pct > 80) {
       this.toast(`⚠ Spazio DB al ${est.pct.toFixed(0)}% — considera un export e cleanup`, 'warning');
     }
   },
 
   // ── Routing views ──
-  /* v2.7.0 [G1][G2] — 'search' non e' piu' una vista: la ricerca vive nella
-     barra e i suoi risultati in un pannello a tendina. L'ingranaggio non e' un
-     .nav-btn ma partecipa allo stesso stato attivo (data-view). */
   switchView(view) {
     this.currentView = view;
     if (view === 'dashboard') this._showRegistry = false;
@@ -864,16 +733,6 @@ const App = {
     }
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G4] — COLLASSO DELLA COLONNA SITI E ZONE
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Su schermo di reparto la mappa e' cio' che conta e 260 pixel di elenco
-     sono 260 pixel in meno di scaffalatura visibile. Lo stato e' preferenza di
-     DISPOSITIVO, non dato aziendale: sta in localStorage e non entra ne' nel
-     database ne' negli export. Sotto i 900px la regola non si applica — li'
-     la colonna e' gia' fuori dal flusso e il collasso non significa nulla.
-     ═══════════════════════════════════════════════════════════════════ */
   _SIDEBAR_KEY: 'wm_sidebar_collapsed',
 
   toggleSidebar(force = null) {
@@ -882,9 +741,6 @@ const App = {
       : Boolean(force);
     document.body.classList.toggle('sidebar-collapsed', collapsed);
     try { localStorage.setItem(this._SIDEBAR_KEY, collapsed ? '1' : '0'); } catch {}
-    /* La mappa dimensiona le celle sulla larghezza disponibile: dopo la
-       transizione della griglia va ridisegnata, o resta tarata sul vecchio
-       ingombro fino al primo cambio di zona. */
     if (this.currentView === 'map' && this.currentSite) {
       setTimeout(() => this.renderMap(), 240);
     }
@@ -898,11 +754,6 @@ const App = {
     } catch { /* localStorage disabilitato → colonna aperta, che e' il default */ }
   },
 
-  /* v2.7.0 [G3] — Pubblica l'altezza reale della barra come variabile CSS, cosi'
-     il pannello di dettaglio puo' partire esattamente sotto di essa senza che
-     nessuno debba indovinare un numero. Cambia con il breakpoint (le etichette
-     delle schede spariscono, il marchio si accorcia), quindi va rimisurata al
-     ridimensionamento. */
   _syncHeaderHeight() {
     const h = document.querySelector('.app-header')?.offsetHeight;
     if (h) document.documentElement.style.setProperty('--hdr-h', `${h}px`);
@@ -965,9 +816,6 @@ const App = {
     const el = document.getElementById('viewDashboard');
     if (this._showRegistry) {
       el.innerHTML = this._renderMovRegistry();
-      /* v2.8.0 [H2] — Le righe non arrivano piu' dalla memoria ma da una
-         interrogazione dell'archivio: si disegna il telaio e si lascia che
-         _filterRegistry() lo riempia quando il database ha risposto. */
       this._filterRegistry();
       return;
     }
@@ -976,9 +824,6 @@ const App = {
     const kpi = Store.computeKPIs();
     const meta = Store.getMeta();
 
-    /* v2.4.2 [G1] — sparkline a curva morbida (interpolazione cubica monotona).
-       Il colore passa da attributo di presentazione a proprieta' di stile: i
-       valori var() non sono ammessi negli attributi di presentazione SVG. */
     const sparkline = (vals, w = 80, h = 22, color = 'var(--md-sys-color-primary)') => {
       if (!vals.length || vals.every(v => v === 0)) return `<svg class="kpi-sparkline" width="${w}" height="${h}"></svg>`;
       const max = Math.max(...vals, 1);
@@ -1097,20 +942,6 @@ const App = {
     el.innerHTML = html;
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.4.5 [Q1] — SCORCIATOIE OPERAZIONI PRINCIPALI
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-     ═══════════════════════════════════════════════════════════════════ */
-
-  /* Apre direttamente un'operazione dalla dashboard.
-     switchView() e' sincrona (renderMovimenta() popola il DOM nella stessa
-     chiamata), quindi startMov() puo' essere invocata subito. Il controllo
-     su movFormArea e' un ripiego prudenziale: se per qualunque motivo il
-     contenitore non fosse ancora presente, il comando viene ritentato al
-     ciclo successivo invece di fallire in silenzio. */
-  /* v3.0.0 [M1] — Per la card unica di carico e scarico `sub` non e' un
-     sotto-modulo ma la DIREZIONE ('in' | 'out'): la scorciatoia deve poter
-     dire quale delle due facce aprire, non solo quale card. */
   _goOp(mode, sub = null) {
     this.switchView('movimenta');
     const run = () => {
@@ -1122,18 +953,8 @@ const App = {
     else setTimeout(run, 50);
   },
 
-  /* Barra scorciatoie. I tre comandi coprono le operazioni piu' frequenti;
-     le altre (smaltimento, inventario, quarantena, resi, spedizioni)
-     restano nella vista Movimenta, dove la scelta consapevole conta piu'
-     della rapidita'. Una barra di scorciatoie che le contenesse tutte non
-     sarebbe piu' una scorciatoia. */
   _renderQuickActions() {
     const ops = [
-      /* v3.0.0 [M1] — L'etichetta segue la funzione: la card non si chiama
-         piu' Posiziona, e una scorciatoia che porta a un nome diverso da
-         quello che si legge all'arrivo e' una scorciatoia che si smette di
-         usare. Apre in CARICO, che e' il verso piu' frequente; da li' il
-         selettore in testa porta allo scarico. */
       { mode: 'io',   sub: 'in',         color: 'var(--ct-cat-in)',   icon: '\u{1F4E6}',
         title: 'Carico / Scarico', sub_txt: 'Posiziona e smaltisci', key: 'F2' },
       { mode: 'pick', sub: 'cambio',     color: 'var(--ct-cat-move)', icon: '\u{1F504}',
@@ -1153,33 +974,6 @@ const App = {
       </button>`).join('');
     return `<nav class="qa-bar" aria-label="Scorciatoie operazioni principali">${btns}</nav>`;
   },
-
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.4.3 [S1] — SEZIONI OPERATIVE DELLA DASHBOARD
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-     Quattro elenchi che portano in dashboard cio' che prima richiedeva di
-     entrare nelle singole viste: ultimi movimenti, ordini di produzione
-     prelevati, documenti di uscita pendenti, item in quarantena.
-
-     Sono viste di SOLA LETTURA con le sole azioni di stampa e di
-     navigazione. Nessuna azione distruttiva (evasione, rilascio
-     quarantena, storno) e' raggiungibile da qui: quelle restano nei
-     rispettivi flussi, dove esistono le conferme e i controlli di
-     disponibilita'. Una dashboard e' un cruscotto, non una plancia.
-
-     Le funzioni di stampa gia' esistenti vengono RIUSATE cosi' come sono
-     (_printDDT, _printDisposal, _printNCCard); per gli ordini di produzione,
-     che finora si potevano stampare solo a fine prelievo dal carrello in
-     memoria, e' stata aggiunta _printProdOrderFromLog().
-
-     v2.5.1 — _printProdOrderFromLog() non ricostruisce piu' il report: lo
-     RILEGGE dall'archivio `pick_archive` e lo ripassa allo stesso
-     template della chiusura, cosi' il foglio ristampato coincide con
-     quello emesso a fine prelievo. La ricostruzione dal registro
-     movimenti sopravvive come solo ripiego, per gli ordini prelevati
-     prima di questa versione, e su quel foglio e' dichiarata.
-     ═══════════════════════════════════════════════════════════════════ */
 
   /* Etichette compatte per la colonna tipo: i nomi estesi non stanno in
      68px e troncati diventano ambigui ("Prelievo Pro...", "Posizioname..."). */
@@ -1228,18 +1022,6 @@ const App = {
   },
 
   /* ── B) Ordini di produzione prelevati ───────────────────────────── */
-  /* I prelievi di produzione sono registrati come movimenti PICK con il
-     numero d'ordine in doc_ref: l'ordine si ricompone raggruppando su quel
-     campo. I movimenti senza doc_ref (prelievi antecedenti l'obbligo del
-     numero d'ordine) sono raccolti sotto "senza numero" invece di essere
-     scartati: nasconderli darebbe un conteggio dei colli non quadrato.
-
-     v2.8.0 [H2] — Il raggruppamento avviene sulla FINESTRA in memoria, non
-     sull'intero archivio. E' un riquadro di cruscotto: elencare gli ordini
-     di produzione degli ultimi sei anni non servirebbe a nessuno, e a un
-     milione di movimenti bloccherebbe il disegno della pagina. Gli ordini
-     piu' vecchi restano raggiungibili dal Registro e dall'archivio di
-     stampa (Store.getPickReportByOdp). */
   _groupProdOrders() {
     const map = new Map();
     for (const m of Store.getMovLog()) {
@@ -1287,44 +1069,12 @@ const App = {
     return `<div class="card">${head}<div class="dl-list">${rows}</div>${foot}</div>`;
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.5.1 — RISTAMPA DAL REGISTRO DEGLI ORDINI PRELEVATI
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Due strade, una sola destinazione: _emitPickReport() con lo stesso
-     template della chiusura.
-
-     1) STRADA NORMALE — esiste lo snapshot in `pick_archive`. Il foglio
-        ristampato e' identico all'originale riga per riga: stesso DOC ID,
-        stessi tempi, stesse righe fuori percorso, stessi avvisi. L'unica
-        differenza e' la fascia che dichiara la ristampa.
-
-     2) RIPIEGO — ordini prelevati prima della v2.5.1, per i quali lo
-        snapshot non e' mai esistito. Si ricostruisce dal registro
-        movimenti e il foglio DICHIARA in testa che numero di tappa, kg
-        d'ordine, righe fuori percorso e segnalazioni non sono
-        disponibili. Non e' un report equivalente e non deve sembrarlo:
-        un documento che tace su cio' che non sa e' peggio di un
-        documento che non esiste.
-     ═══════════════════════════════════════════════════════════════════ */
   async _printProdOrderFromLog(encodedRef) {
     const ref = decodeURIComponent(encodedRef);
 
-    /* 1) Snapshot d'archivio: ristampa conforme.
-       "(senza numero)" e' l'etichetta con cui la dashboard raggruppa i
-       prelievi privi di numero d'ordine. Non e' una chiave: sotto quella
-       voce cadono prelievi diversi, e restituire "uno qualsiasi" dei loro
-       report sarebbe peggio che non restituirne nessuno. Quel caso passa
-       direttamente al ripiego, che almeno mostra i movimenti realmente
-       raggruppati. */
     const snap = ref === '(senza numero)' ? null : Store.getPickReportByOdp(ref);
     if (snap) return this._emitPickReport(snap, { reprint: true });
 
-    /* 2) Ripiego dal registro movimenti.
-       v2.8.0 [H2] — Si interroga l'ARCHIVIO, non la finestra in memoria: la
-       ristampa di un ordine di due anni fa e' proprio il caso in cui la
-       finestra non basta, ed e' anche l'unico in cui questo ripiego serve
-       davvero. */
     const res = await Store.queryMovements({ type: MOV.PICK, limit: 100000 });
     const movs = res.rows
       .filter(m => (m.doc_ref || '(senza numero)') === ref)
@@ -1335,16 +1085,6 @@ const App = {
   },
 
   /* ── C) DDT di uscita pendenti ───────────────────────────────────── */
-  /* La sezione alert gia' presente mostra SOLO gli urgenti. Qui compaiono
-     tutti i documenti aperti, ordinati per urgenza di ritiro, perche' la
-     domanda operativa e' "che cosa devo ancora far uscire", non "che cosa
-     e' in ritardo".
-
-     v3.0.0 [M3] — Un elenco solo: dopo il merge non esistono piu' due
-     famiglie di documenti, esiste il DDT e la sua causale. L'etichetta
-     colorata continua a distinguere resi e spedizioni perche' quella
-     distinzione resta VERA — cambia solo che ora viene dalla causale
-     invece che dal modulo che ha emesso il documento. */
   _renderPendingDocs() {
     const docs = Store.getPendingOutbound()
       .map(d => ({ d, a: pickupAlertStatus(d) }))
@@ -1376,11 +1116,6 @@ const App = {
     return `<div class="card">${head}<div class="dl-list">${rows}</div></div>`;
   },
 
-  /* ── C-bis) Verbali di smaltimento ──────────────────────────────────
-     v3.0.0 [M2] — Sola lettura e sola ristampa, come tutte le sezioni
-     documentali del cruscotto: uno smaltimento non si annulla da qui.
-     Se ne mostrano gli ultimi, non l'archivio: per il resto c'è il
-     Registro, che sa cercare per articolo, lotto e intervallo di date. */
   _renderDisposalDocs(limit = 20) {
     const all = Store.getDisposals();
     const list = all.slice(0, limit);
@@ -1407,13 +1142,6 @@ const App = {
     return `<div class="card">${head}<div class="dl-list">${rows}</div></div>`;
   },
 
-  /* ── Helper di lettura della causale ─────────────────────────────────
-     v3.0.0 [M3] — Un documento porta con sé la descrizione della causale
-     che aveva al momento dell'emissione (causale_label): cancellarla
-     dalla configurazione non deve rendere illeggibile un DDT già emesso.
-     I DDT registrati prima della v3.0.0 non hanno causale: si deducono
-     dal `kind`, che è esattamente l'informazione che la causale ha
-     sostituito. */
   _docCausaleLabel(d) {
     if (d.causale_label) return d.causale_label;
     const c = d.causale_id ? Store.getCausale(d.causale_id) : null;
@@ -1458,29 +1186,6 @@ const App = {
     return `<div class="card">${head}<div class="dl-list">${rows}</div></div>`;
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.4.2 [G1] — MOTORI GRAFICI DASHBOARD (Material Design 3)
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-     Scelta tecnica: SVG generato a mano, NON una libreria di charting.
-     Motivi: (1) nessuna dipendenza CDN aggiuntiva, coerente con l'uso
-     offline del gestionale; (2) i token MD3 restano l'unica sorgente di
-     colore, senza doverli risolvere a runtime per un canvas; (3) la
-     dashboard viene ri-renderizzata a ogni cambio vista e una libreria a
-     canvas imporrebbe la distruzione esplicita delle istanze, con rischio
-     concreto di perdita di memoria.
-
-     Nota SVG: i valori var() NON sono ammessi negli attributi di
-     presentazione (fill="var(--x)"); vanno espressi come proprieta' di
-     stile (style="fill:var(--x)") oppure via classe CSS. Tutti i motori
-     qui sotto seguono questa regola.
-     ═══════════════════════════════════════════════════════════════════ */
-
-  /* Interpolazione cubica MONOTONA (Fritsch–Carlson).
-     Rispetto alla spline di Catmull-Rom non produce sovraelongazioni: una
-     curva che scende sotto lo zero su una serie di conteggi mostrerebbe
-     movimenti negativi, che non esistono. La morbidezza non deve mai
-     introdurre valori che i dati non contengono. */
   _smoothPath(pts) {
     const n = pts.length;
     if (n === 0) return '';
@@ -1510,10 +1215,6 @@ const App = {
     return d;
   },
 
-  /* Palette categoriale dei tipi di movimento (token --ct-cat-*, layer CSS).
-     Il colore di ogni tipo e' definito in un unico punto ed e' lo stesso in
-     tutti i grafici. Vedi la nota nel layer CSS sul perche' non si riusano
-     direttamente i colori semantici di stato. */
   _MOV_COLORS: {
     IN:    'var(--ct-cat-in)',
     PICK:  'var(--ct-cat-pick)',
@@ -1530,12 +1231,6 @@ const App = {
   },
   _movColor(type) { return this._MOV_COLORS[type] || 'var(--md-sys-color-outline)'; },
 
-  /* Ciambella MD3 generica.
-     segments: [{ label, value, color }] — restituisce SVG + legenda.
-     Il totale al centro e' l'informazione principale; gli spicchi sono la
-     scomposizione. Ogni spicchio porta un <title> nativo per il puntamento
-     e la legenda riporta comunque valore e percentuale, cosi' il grafico
-     resta leggibile anche a chi non distingue le tinte. */
   _svgDonut(segments, opts = {}) {
     const {
       size = 196, thickness = 30, centerLabel = 'TOTALE',   // v2.4.4 [N1] — riquadro condiviso
@@ -1587,10 +1282,6 @@ const App = {
     return `<div class="chart-wrap ct-anim">${svg}<div class="ct-legend">${legend}</div></div>`;
   },
 
-  /* ── Andamento 14 giorni: area + linea a curva morbida ──
-     Sostituisce le barre verticali precedenti. Su 14 colonne le barre
-     erano larghe pochi pixel e l'andamento andava ricostruito a occhio;
-     una serie continua rende immediata la direzione del periodo. */
   _renderDailyBars(trend) {
     if (!trend?.length) return '<div class="ct-empty">Nessun dato disponibile.</div>';
     const totalSum = trend.reduce((s, d) => s + d.total, 0);
@@ -1598,10 +1289,6 @@ const App = {
       return '<div class="ct-empty">Nessun movimento registrato negli ultimi 14 giorni.</div>';
     }
 
-    /* Geometria: viewBox dimensionato sul riquadro condiviso (--ct-size).
-       v2.4.4 [N1] — l'altezza 196 coincide con quella della ciambella, e il
-       rapporto 440x196 e' quello dichiarato in .chart--area: il grafico e'
-       percio' reso 1:1 e i px qui sotto sono px effettivi a schermo. */
     const W = 440, H = 196;
     const padL = 30, padR = 16, padT = 14, padB = 30;
     const plotW = W - padL - padR, plotH = H - padT - padB;
@@ -1625,11 +1312,6 @@ const App = {
     const line = this._smoothPath(pts);
     const area = `${line} L${pts[pts.length - 1].x.toFixed(2)},${yOf(0).toFixed(2)} L${pts[0].x.toFixed(2)},${yOf(0).toFixed(2)} Z`;
 
-    /* Etichette asse X a giorni alterni: 14 date affiancate sono illeggibili.
-       La cadenza si conta A RITROSO da oggi, non dall'inizio: contandola in
-       avanti su un numero pari di giorni l'ultima etichetta finiva adiacente
-       alla penultima e le due si sovrapponevano. Le etichette agli estremi
-       sono ancorate a inizio/fine per non uscire dal riquadro. */
     const lastIdx = trend.length - 1;
     let xLabels = '', dots = '';
     trend.forEach((d, i) => {
@@ -1671,10 +1353,6 @@ const App = {
     </div>`;
   },
 
-  /* ── Ripartizione per tipo: ciambella ──
-     Le barre precedenti mettevano in fila percentuali senza mostrare il
-     rapporto con l'insieme. La ripartizione dei tipi di movimento e' una
-     scomposizione di un totale, che e' esattamente il caso della ciambella. */
   _renderTypeCounts(counts, total) {
     if (!total) return '<div class="ct-empty">Nessun movimento registrato.</div>';
     const segments = Object.entries(counts)
@@ -1691,11 +1369,6 @@ const App = {
     });
   },
 
-  /* ── Occupazione per sito: anelli di riempimento ──
-     Ogni sito e' un rapporto occupate/totali, cioe' una parte di un intero:
-     l'anello permette il confronto immediato fra i sei magazzini, che con
-     le barre sottili precedenti richiedeva di leggere le percentuali una
-     per una. */
   _renderSiteOccupancy(sites) {
     const cells = sites.map(site => {
       const st = Store.getSiteStats(site.id);
@@ -1728,11 +1401,6 @@ const App = {
     return `<div class="ct-gauge-grid ct-anim">${cells}</div>`;
   },
 
-  /* ── Classifica articoli: barre orizzontali MD3 ──
-     Qui la ciambella sarebbe la scelta sbagliata: si tratta di un confronto
-     fra grandezze ordinate, non della scomposizione di un totale (i "top"
-     sono un estratto, non l'insieme). Le barre restano, portate a forma e
-     colore MD3 con la posizione in classifica esplicitata. */
   _renderTopArticles(topArticles) {
     if (!topArticles?.length) return '<div class="ct-empty">Nessun movimento registrato.</div>';
     const max = Math.max(...topArticles.map(a => a.count), 1);
@@ -1751,11 +1419,6 @@ const App = {
     }).join('');
     return `<div class="chart-wrap ct-anim">${rows}</div>`;
   },
-
-  // ═══════════════════════════════════════════════════════════════════
-  // v2.0.0+ — Dashboard widgets per DDT pendenti uscita
-  // © Andrea Sacchetti — Dietopack S.r.l.
-  // ═══════════════════════════════════════════════════════════════════
 
   /* KPI card "DDT Pendenti" con conteggio totale e breakdown urgenti.
      Rosso se ci sono scaduti, arancio se urgenti, neutro altrimenti. */
@@ -1801,16 +1464,6 @@ const App = {
     </div>`;
   },
 
-  /* Sezione alert "DDT in Scadenza" — visibile solo se ci sono DDT urgenti
-     (overdue / today / tomorrow). Mostra elenco compatto con bottoni rapidi
-     per evadere o stampare. Lista ordinata: scaduti per primi, poi oggi, poi domani. */
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.0.1 [A-3] — Sezione dashboard "DDT non allineati alla giacenza"
-     © Andrea Sacchetti — Dietopack S.r.l.
-     Visibile SOLO se esiste almeno un documento pendente con righe che non
-     trovano più riscontro in giacenza (merce spostata, prelevata o rettificata
-     dopo la registrazione del DDT). Sono i documenti non evadibili così come sono.
-     ═══════════════════════════════════════════════════════════════════ */
   /* v2.0.1 — Deep-link a un DDT pendente: apre la tab Movimenta, il modulo
      corretto (Resi o Spedizioni) e scrolla al documento espandendolo. */
   _gotoPendingDoc(doc_id, kind) {
@@ -1900,25 +1553,7 @@ const App = {
     </div>`;
   },
 
-
   /* Registro movimenti completo */
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.8.0 [H2] — IL REGISTRO INTERROGA L'ARCHIVIO
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     PRIMA. La vista prendeva Store.getMovLog(), cioe' l'intero registro che
-     stava in memoria, lo filtrava in JavaScript e ne disegnava le prime 100
-     righe. Funzionava perche' l'intero registro ci stava, in memoria.
-
-     ORA la ricerca ha un INTERVALLO DI DATE, che e' il modo in cui si cerca
-     davvero in un registro di sei anni ("cos'e' successo a marzo", non
-     "mostrami tutto"). L'intervallo va all'indice ts del database; tipo e
-     testo filtrano il sottoinsieme gia' ristretto.
-
-     Il valore predefinito e' 30 giorni: e' cio' che si guarda nel 90% dei
-     casi, e apre la vista in una frazione di secondo qualunque sia lo
-     storico accumulato.
-     ═══════════════════════════════════════════════════════════════════ */
   _regRange: null,     // { from: 'AAAA-MM-GG', to: 'AAAA-MM-GG' }
 
   _regDefaultRange() {
@@ -1982,9 +1617,6 @@ const App = {
   _regQuickRange(days) {
     const iso = (d) => d.toISOString().slice(0, 10);
     const to = new Date();
-    /* "Tutto" parte dal 2020: prima di quella data l'applicativo non esisteva,
-       e una data d'inizio concreta rende la query indicizzata invece che una
-       scansione completa. */
     const from = days === 0 ? new Date('2020-01-01T00:00:00') : new Date(to.getTime() - days * 86400000);
     this._regRange = { from: iso(from), to: iso(to) };
     const f = document.getElementById('regFrom'); if (f) f.value = this._regRange.from;
@@ -1992,10 +1624,6 @@ const App = {
     this._filterRegistry();
   },
 
-  /* Refactor DOM-safe.
-     Ritorna il chrome (header tabella) come stringa per inserimento via innerHTML;
-     le righe vengono popolate separatamente via _populateRegistryRows() con
-     DocumentFragment + textContent (zero rischio XSS, singolo reflow). */
   _buildRegistryTable(log, maxRows = 200, totale = null) {
     if (!log.length) return '<div class="empty-state" style="padding:2rem"><p>Nessuna movimentazione nell’intervallo selezionato</p></div>';
     const tot = totale === null ? log.length : totale;
@@ -2063,11 +1691,6 @@ const App = {
     this._regDebounce();
   },
 
-  /* Interroga il database e ridisegna. Asincrona per forza di cose: legge da
-     IndexedDB. Il riquadro di stato dice quanti record sono stati attraversati
-     e quanti hanno corrisposto — su un archivio di sei anni sapere che una
-     ricerca ha guardato 15.000 righe e non 900.000 e' la differenza fra
-     fidarsi del risultato e non capire cosa si sta guardando. */
   async _filterRegistry() {
     const wrap = document.getElementById('regTableWrap');
     const status = document.getElementById('regStatus');
@@ -2374,20 +1997,6 @@ const App = {
     if (!items.length) {
       html += '<div class="empty-state" style="padding:0.75rem"><p>Nessun item</p></div>';
     } else {
-      /* ═══════════════════════════════════════════════════════════════
-         v2.7.0 [G5] — DA QUI SI LAVORA
-         © Andrea Sacchetti — Dietopack S.r.l.
-
-         Modifica, Sposta e Quarantena su ogni item: le tre operazioni che
-         prima costringevano ad andare in Movimenta e a riscansionare
-         articolo e lotto che il sistema aveva gia' davanti.
-
-         La crocetta di rimozione NON c'e' piu'. L'uscita di giacenza e' un
-         atto deliberato con una causale, e passa da Movimenta -> Smaltire:
-         un pulsante rosso accanto a "modifica" invita all'errore proprio
-         nell'operazione che non si puo' annullare. App.confirmRemoveItem()
-         resta nel file — la usano altri flussi — ma non piu' da qui.
-         ═══════════════════════════════════════════════════════════════ */
       html += '<div class="item-list">';
       for (const item of items) {
         const qty = item.qty || 1;
@@ -2428,11 +2037,6 @@ const App = {
     document.getElementById('detailBody').innerHTML = html;
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G5] — SPOSTAMENTO DALLA SCHEDA UBICAZIONE
-     L'item e' gia' identificato: si chiede solo dove va e quanti colli.
-     L'esecuzione e' _moveItemCore(), la stessa del form di Movimenta.
-     ═══════════════════════════════════════════════════════════════════ */
   showMoveItemModal(locationCode, itemKey) {
     const item = Store.getItemsAtLocation(locationCode).find(i => i.item_key === itemKey);
     if (!item) return this.toast('Item non trovato', 'error');
@@ -2497,12 +2101,6 @@ const App = {
     this.renderDetail(locationCode);
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G5] — QUARANTENA DALLA SCHEDA UBICAZIONE
-     Nessuna scansione di articolo e lotto: si sa gia' di quale item si
-     parla. Restano da raccogliere le informazioni che rendono difendibile
-     il blocco in sede di audit — motivo, chi lo dispone, quale reparto.
-     ═══════════════════════════════════════════════════════════════════ */
   showQuarantineItemModal(locationCode, itemKey) {
     const item = Store.getItemsAtLocation(locationCode).find(i => i.item_key === itemKey);
     if (!item) return this.toast('Item non trovato', 'error');
@@ -2791,10 +2389,6 @@ const App = {
     this._refreshSessionLog?.();
   },
 
-  // ═══════════════════════════════════════════════════════════════════
-  // MOVIMENTA 
-  // ═══════════════════════════════════════════════════════════════════
-
   renderMovimenta() {
     const el = document.getElementById('viewMovimenta');
     const logCount = this._movSessionLog.length;
@@ -2834,12 +2428,6 @@ const App = {
     </div>`;
   },
 
-  /* v3.0.0 [M1] — `io` è la card unica di carico e scarico; `dir` dice in
-     quale delle due direzioni aprirla (F2 carico, F6 scarico). Le vecchie
-     chiavi 'in' e 'out' restano accettate e tradotte, perché sopravvivono
-     in chiamate sparse e nelle scorciatoie che qualcuno ha in memoria.
-     v3.0.0 [M3] — 'returns' confluisce in 'shipping': i resi non sono più
-     una funzione a sé, sono una causale di trasporto. */
   startMov(mode, dir = null) {
     if (mode === 'in')  { dir = 'in';  mode = 'io'; }
     if (mode === 'out') { dir = 'out'; mode = 'io'; }
@@ -2864,25 +2452,12 @@ const App = {
     this._moveSelection = null;
     this._qState = null;
     this._qStage = 'search';          // v1.1.0 [N4] — tappa di quarantena a metà: non sopravvive
-    /* v3.0.0 [M3] — Un solo carrello di uscita da azzerare: testata
-       compresa, perché una testata orfana del suo carrello resterebbe
-       ad aspettare righe che non arriveranno. */
     this._shipResetHeader();
-    /* v2.7.0 [G6] — Guardia sul nodo. Fino alla v2.6.0 cancelMov() veniva
-       chiamata solo dalla vista Movimenta, dove movFormArea esiste sempre.
-       Il blocco per inattivita' la chiama da qualunque vista: senza questa
-       guardia l'azzeramento del carrello esploderebbe a meta', lasciando lo
-       stato ripulito solo per meta'. */
     const fa = document.getElementById('movFormArea');
     if (fa) fa.innerHTML = '';
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
   },
 
-  /* Log movimenti (persistente + sessione)
-     v1.6.0: se user non viene esplicitamente passato, viene popolato automaticamente
-     con App.currentOperator (tracciabilità GMP per default).
-     v1.7.0: aggiunti parametri opzionali qtyBefore / qtyDelta / qtyAfter per tracciare
-     prelievi/posizionamenti parziali. Se non passati restano null (movimento atomico). */
   async _logMov(type, art, desc, lot, loc, destLoc = null, user = '', notes = '', docRef = '', qtyBefore = null, qtyDelta = null, qtyAfter = null) {
     const effectiveUser = user || Store.getCurrentIdentity().initials;
     const entry = {
@@ -2893,11 +2468,6 @@ const App = {
     };
     this._movSessionLog.unshift(entry);
     if (this._movSessionLog.length > 100) this._movSessionLog.length = 100;
-    /* v2.8.0 [H3] — La registrazione a log e' l'ULTIMO passo di operazioni che
-       hanno gia' mosso la giacenza. Se fallisce, il magazzino e' cambiato e il
-       registro non lo sa: e' l'unico caso in cui il sistema mente. Non si puo'
-       lasciar propagare l'eccezione (interromperebbe il chiamante a merce gia'
-       spostata) ne' ingoiarla. Si mette al sicuro e si urla. */
     try {
       await Store.logMovement(entry);
     } catch (err) {
@@ -2905,20 +2475,6 @@ const App = {
     }
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.8.0 [H3] — CODA DI RECUPERO DEI MOVIMENTI NON REGISTRATI
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Un movimento che non riesce ad andare a registro finisce qui, in
-     localStorage — che e' un'area separata da IndexedDB e quindi ha buone
-     probabilita' di funzionare proprio quando IndexedDB non funziona piu'
-     (disco pieno, database bloccato da un'altra scheda, corruzione).
-
-     Non e' una soluzione: e' un salvagente. Al riavvio successivo la coda
-     viene ritentata prima di ogni altra cosa, e finche' non si svuota
-     l'operatore lo vede scritto a schermo. La cosa che NON deve accadere e'
-     che il magazzino cambi e nessuno se ne accorga.
-     ═══════════════════════════════════════════════════════════════════ */
   _MOVQUEUE_KEY: 'wm_mov_recovery_queue',
 
   _queueFailedMovement(entry, err) {
@@ -2955,14 +2511,6 @@ const App = {
     this._renderRecoveryBanner();
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.8.0 [H6] — SOLA LETTURA QUANDO NON SI COMANDA
-     La fascia non e' un avviso di cortesia: e' l'unica cosa che impedisce a
-     chi guarda questa finestra di credere che i numeri sullo schermo siano
-     quelli veri. La presa di comando ricarica la cache dal disco, perche'
-     assumere il controllo con dati vecchi in mano sarebbe peggio che non
-     assumerlo affatto.
-     ═══════════════════════════════════════════════════════════════════ */
   _onReadOnlyChange(readOnly) {
     let el = document.getElementById('readonlyBanner');
     if (!readOnly) { el?.remove(); return; }
@@ -3119,49 +2667,6 @@ const App = {
     return html;
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v3.0.0 [M1] — 1. CARICO / SCARICO
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-     Posizionare e smaltire sono la stessa operazione con il segno
-     invertito. Fino alla v2.8.0 erano due card, due colori, due moduli e
-     due flussi di scansione diversi, e l'operatore pagava due volte
-     l'apprendimento di un gesto solo.
-
-     ORA UNA CARD SOLA, con un selettore in testa.
-
-     ⊕ CARICO. Invariato riga per riga rispetto a Posiziona: UBICAZIONE →
-       ARTICOLO → LOTTO → COLLI, ubicazione che resta fissa per i
-       posizionamenti in serie, guardia sulla doppia scansione, storno per
-       centoventi secondi. Chi lo usava non deve reimparare niente.
-
-     ⊖ SCARICO. Eredita la disciplina del carico — la merce non si tocca
-       finche' ubicazione, articolo e lotto non sono stati scansionati —
-       arrivandoci per la strada che gli e' propria, perche' chi smaltisce
-       non sa in partenza dove sia la merce:
-
-         ① RICERCA        articolo + lotto
-         ② SELEZIONE      fra le ubicazioni in giacenza, ordinate FEFO,
-                          con i colli disponibili e quelli impegnati su DDT
-         ③ TAPPA GUIDATA  verso l'ubicazione scelta
-         ④ VERIFICA       tripla scansione a scaffale: UBICAZIONE,
-                          ARTICOLO, LOTTO devono corrispondere
-         ⑤ CONFERMA       colli + MOTIVAZIONE, obbligatoria
-
-     Il passo ④ e' la differenza sostanziale con la v2.8.0, dove per
-     smaltire bastava premere "Rimuovi" in un elenco: nessuno doveva
-     dimostrare di essere davanti alla merce giusta. Il motore della tappa
-     e della verifica non e' nuovo — e' lo stesso del percorso di prelievo
-     da ordine, sblocco motivato compreso (_scanBlock).
-
-     LA MOTIVAZIONE. Fino alla v2.8.0 un movimento di smaltimento andava a
-     registro con le note VUOTE: mesi dopo il registro sapeva che dodici
-     colli erano usciti e non perche'. Ora si sceglie fra le motivazioni
-     configurate — di serie NON CONFORME e SCADUTO/OBSOLETO — oppure si
-     scrive un motivo esteso, e senza una delle due cose la conferma non
-     fa niente.
-     ═══════════════════════════════════════════════════════════════════ */
-
   _formCaricoScarico(el) {
     const isOut = this._ioMode === 'out';
     el.innerHTML = `<div class="mov-form-card">
@@ -3204,9 +2709,6 @@ const App = {
     else this._formPosiziona(el);
   },
 
-  // ── 1A. CARICO ──────────────────────────────────────────────────────
-  // Corpo invariato dalla v2.8.0. La card e il pulsante di chiusura sono
-  // ora del contenitore: qui resta solo il modulo.
   _formPosiziona(el) {
     el.innerHTML = `
       <div class="wf-instructions">
@@ -3315,10 +2817,6 @@ const App = {
     }
     const effectiveDesc = existingArt?.description || desc;
 
-    /* v2.1.0 — GUARDIA DOPPIA SCANSIONE
-       Nella v2.0.2 la stessa scansione ripetuta a distanza di un istante
-       sommava i colli senza avvisare: l'operatore che non vedeva il riscontro
-       d'angolo ripeteva la scansione e raddoppiava la giacenza. */
     const signature = `IN|${loc}|${art}|${lot}`;
     const elapsed = ScanGuard.check(signature);
     if (elapsed !== null) {
@@ -3399,10 +2897,6 @@ const App = {
     this.setPrimaryScanField('mOutArt');
   },
 
-  /* Ricerca per ARTICOLO + LOTTO, entrambi obbligatori (v1.8.0).
-     L'esito e' l'elenco delle ubicazioni in cui quella merce si trova,
-     ordinato FEFO: la prima riga e' quella che andrebbe smaltita per
-     prima, e viene marcata. */
   _searchOut() {
     const art = Validate.clean(document.getElementById('mOutArt')?.value, true);
     const lot = Validate.clean(document.getElementById('mOutLot')?.value);
@@ -3424,17 +2918,6 @@ const App = {
       return;
     }
 
-    /* v1.1.0 [N2] — La quarantena si toglie dall'ELENCO, non dalla ricerca.
-       PRIMA bastava un collo bloccato in una qualsiasi ubicazione per
-       rifiutare l'intera ricerca: la v2.0.1 [B4] escludeva l'articolo#lotto
-       dallo smaltimento ovunque si trovasse. Con il blocco parziale quella
-       regola immobilizzerebbe merce conforme — cinque colli ammaccati in
-       area NC renderebbero non smaltibili le altre trentacinque casse
-       scadute in corsia, che e' l'opposto di cio' che serve.
-       Le ubicazioni bloccate spariscono dalle righe selezionabili e vengono
-       DICHIARATE sotto l'elenco: chi cerca deve sapere che esistono, senza
-       poterle toccare da qui. Il divieto resta intero — passa per il
-       flusso di rilascio, dove e' documentato. */
     const itemsRaw = tutte.filter(it => !Store.isItemQuarantined(it.item_key, it.location_code));
     const bloccate = tutte.filter(it => Store.isItemQuarantined(it.item_key, it.location_code));
     const avvisoNC = bloccate.length ? `<div class="mov-preview mov-preview-err" style="margin:0.4rem 0">
@@ -3475,11 +2958,6 @@ const App = {
     el.innerHTML = html + '</div>';
   },
 
-  /* ② → ③ Selezione dell'ubicazione: si apre la tappa guidata.
-     Le altre ubicazioni con lo stesso articolo e lotto restano a
-     disposizione come alternative, esattamente come nel percorso di
-     prelievo: se l'operatore si trova davanti a una di quelle, la tappa
-     si sposta invece di respingerlo. */
   _dispSelect(loc, key) {
     const bucket = Store.getItemsAtLocation(loc);
     const item = bucket.find(i => i.item_key === key);
@@ -3518,9 +2996,6 @@ const App = {
     this._renderIoSub();
   },
 
-  /* ③+④ TAPPA GUIDATA E VERIFICA — stessa forma della tappa del percorso
-     di prelievo, perche' e' lo stesso gesto: raggiungere un'ubicazione e
-     dimostrare di esserci. */
   _dispRenderVerify(el) {
     const d = this._dispState;
     const site = d.site_id ? Store.getSite(d.site_id) : null;
@@ -3614,9 +3089,6 @@ const App = {
     this._renderIoSub();
   },
 
-  /* Motivazione: i pulsanti e il campo libero sono alternativi. Sceglierne
-     uno azzera l'altro, perche' due motivazioni contemporanee sul foglio
-     non si saprebbe quale leggere. */
   _dispPickReason(id) {
     const d = this._dispState;
     if (!d) return;
@@ -3672,9 +3144,6 @@ const App = {
     });
   },
 
-  /* Lo scarico si sposta su un'altra ubicazione con la stessa merce.
-     La quantita' disponibile va ricalcolata: l'altra ubicazione puo'
-     averne meno, e il campo colli deve seguirla. */
   _dispSwitchToAlternative(alt) {
     const d = this._dispState;
     const old = d.location_code;
@@ -3758,10 +3227,6 @@ const App = {
     });
   },
 
-  /* ⑤ CONFERMA — v3.0.0 [M1][M2]
-     Ordine dei controlli: prima la tripla scansione, poi la motivazione,
-     poi la quantità, poi FEFO. Il primo blocco che l'operatore incontra
-     deve essere quello che gli costa meno tornare indietro. */
   async _execSmaltire() {
     if (!this._requireOperator('lo smaltimento')) return;   // v2.0.1 [B7]
     const d = this._dispState;
@@ -3847,9 +3312,6 @@ const App = {
     const removed = await Store.removeItem(loc, key, qtyOut);
     if (!removed) return this.toast('Rimozione fallita', 'error');
 
-    /* Le note del movimento portano la motivazione, e l'eventuale
-       forzatura di scansione appesa in coda: sono due informazioni
-       diverse e vanno lette entrambe. */
     const notes = `SMALTIMENTO [${reasonLabel}]` + (d.forced_note ? ` · ${d.forced_note}` : '');
     const operator = Store.getCurrentIdentity().initials;
     const verbale = Store.nextDisposalSeq();
@@ -3861,9 +3323,6 @@ const App = {
       [{ op: 'add', loc, art: removed.article_code, desc: removed.article_description,
          lot: removed.lot_code, exp: removed.expiry_date || '', notes: removed.notes || '', qty: qtyOut }]);
 
-    /* v3.0.0 [M2] — Il verbale si archivia SEMPRE, anche se l'operatore
-       rinvia la stampa: stampare è una sua decisione, l'esistenza del
-       documento no. È la stessa regola dei report di prelievo (v2.5.1). */
     const snap = {
       doc_id: verbale,
       created_at: Date.now(),
@@ -3899,39 +3358,6 @@ const App = {
     this._renderIoSub();
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     IMPIANTO COMUNE DEI DOCUMENTI SU CARTA
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-     Ogni foglio che esce da questo applicativo — documento di trasporto,
-     verbale di smaltimento, report di prelievo, cartello di non
-     conformita' — ha la STESSA testata e lo STESSO piede, e cambia solo
-     nel mezzo. Sono documenti della stessa azienda: devono sembrarlo da
-     lontano, prima ancora che uno li legga.
-
-     LE TRE FASCE, sull'area stampabile (A4 meno 12mm di margine, quindi
-     186 x 273mm):
-
-       · testata  20%  — marchio, mittente, natura e numero del documento,
-                         piu' un blocco di identificazione che CAMBIA da
-                         documento a documento (le parti sul DDT, l'ordine
-                         sul report di prelievo, l'articolo bloccato sul
-                         cartello NC)
-       · corpo    70%  — cio' per cui il documento esiste
-       · piede    10%  — le firme e la riga di emissione
-
-     La testata e' fissa nella misura e nella forma; il blocco di
-     identificazione si prende il residuo della fascia. E' questo che
-     permette di conservare l'intestazione adattando il contenuto.
-
-     Il marchio e' un <use> sullo sprite #ncLogoSprite, che in stampa NON
-     e' nascosto — vedi la nota accanto allo sprite per il perche'.
-
-     `sender` si puo' passare da fuori: le ristampe da snapshot devono
-     riportare il mittente di ALLORA, non quello di oggi. Omesso, si
-     prende la configurazione corrente.
-     ═══════════════════════════════════════════════════════════════════ */
-
   /* Striscia d'identita': marchio e mittente a sinistra, natura e numero
      del documento a destra. Identica su ogni foglio. */
   _docHeadHTML({ kind, kindSub, numLabel = 'N°', num, dateLabel = 'del', dateVal, sender = null }) {
@@ -3964,9 +3390,6 @@ const App = {
       <div class="doc-hr"></div>`;
   },
 
-  /* Il foglio intero. Chi chiama porta il proprio blocco di
-     identificazione (`headExtra`), il proprio corpo e le proprie firme:
-     tutto il resto e' uguale per tutti. */
   _docPageHTML({ kind, kindSub, numLabel, num, dateLabel, dateVal, sender = null,
                  headExtra = '', body = '', signs = [], docId = '',
                  watermark = '', pageClass = '', printedLabel = 'stampato il' }) {
@@ -3998,13 +3421,6 @@ const App = {
 
   /* Emissione: riempie il contenitore, stampa, lo svuota. Il contenitore
      resta vuoto fuori dalla stampa. */
-  /* v1.1.0 [N1] — Il riscontro a schermo si spegne PRIMA di stampare.
-     La regola @media print lo toglie dal foglio, ma resterebbe sotto
-     l'anteprima di Chrome, che e' semitrasparente ai bordi: si vedrebbe
-     comunque un cartiglio dietro il documento. Spegnerlo qui costa una riga
-     e chiude il caso da entrambe le parti. Non e' una perdita di
-     informazione: cio' che conta e' scritto sul documento che si sta per
-     stampare, non in un messaggio che dura sei secondi. */
   _docPrint(html) {
     Feedback.clear();
     document.getElementById('printReport').innerHTML = html;
@@ -4012,9 +3428,6 @@ const App = {
     setTimeout(() => { document.getElementById('printReport').innerHTML = ''; }, 1500);
   },
 
-  /* Avviso di mittente incompleto, da anteporre al corpo. Stringa vuota
-     se non c'e' niente da segnalare. Vale per i documenti che escono
-     dall'azienda; quelli interni non lo mostrano. */
   _docWarnHTML() {
     const gaps = this._docSenderGaps();
     if (!gaps.length) return '';
@@ -4030,22 +3443,6 @@ const App = {
     return `<div class="doc-cell ${cls}"><div class="doc-cell-lbl">${this._esc(lbl)}</div><div class="doc-cell-val">${val ? this._esc(val) : '—'}</div></div>`;
   },
 
-
-  /* ═══════════════════════════════════════════════════════════════════
-     v3.0.0 [M2] — VERBALE DI SMALTIMENTO
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Si stampa dallo SNAPSHOT archiviato, mai dallo stato corrente del
-     magazzino: e' cio' che rende la ristampa a distanza di mesi identica
-     al foglio emesso il giorno dello smaltimento, ubicazione e saldi
-     compresi. La merce nel frattempo non c'e' piu' — ricostruire da li'
-     sarebbe impossibile, oltre che sbagliato.
-
-     Anche il MITTENTE viene dallo snapshot: se l'azienda cambia sede,
-     il verbale di tre anni fa deve continuare a riportare quella di
-     allora. Il ripiego sulla configurazione corrente serve solo ai
-     verbali emessi prima che questo campo esistesse.
-     ═══════════════════════════════════════════════════════════════════ */
   _printDisposal(doc_id) {
     const v = Store.getDisposal(doc_id);
     if (!v) return this.toast('Verbale non trovato in archivio', 'error');
@@ -4082,9 +3479,6 @@ const App = {
         ${this._docCell('Operatore', v.operator)}
       </div>`;
 
-    /* Il mittente viene dallo snapshot quando c'e'. Il ripiego sulla
-       configurazione corrente (sender: null) serve solo ai verbali
-       emessi prima che questo campo esistesse. */
     this._docPrint(this._docPageHTML({
       kind: 'VERBALE DI SMALTIMENTO',
       kindSub: 'Uscita definitiva dalla giacenza',
@@ -4098,7 +3492,6 @@ const App = {
       ]
     }));
   },
-
 
   // ═══ 3. PRELIEVO (3 sub-flussi) ═══
   _formPrelievo(el) {
@@ -4120,9 +3513,6 @@ const App = {
     this._pickCart = [];
     this._moveSelection = null;
     if (mode === 'produzione') this._prodPickStartTime = null;
-    /* v2.5.0 — Entrando nella scheda "Da Ordine" con una sessione gi\u00e0 attiva si
-       riprende direttamente il percorso: l'import ripartirebbe da zero e
-       l'operatore dovrebbe ritrovare a mano il punto in cui era. */
     if (mode === 'ordine') {
       this._routeStage = Store.getActivePickSession() ? 'run' : 'import';
     }
@@ -4190,9 +3580,6 @@ const App = {
       return;
     }
     const itemKey = `${art}#${lot}`;
-    // v2.0.1 [B4] — La merce in quarantena non è movimentabile con il cambio
-    // ubicazione: uscirebbe dall'area NC scavalcando il flusso di rilascio, che è
-    // l'unico punto in cui vengono registrati esecutore, responsabile e destinazione.
     if (Store.isItemQuarantined(itemKey)) {
       info.innerHTML = `<div class="mov-preview mov-preview-err" style="margin-top:0.3rem">
         🚫 <strong>Item in QUARANTENA</strong> — spostamento non consentito.<br>
@@ -4224,16 +3611,6 @@ const App = {
 
   _cambioSelectEnc(payload) { this._cambioSelect(JSON.parse(decodeURIComponent(payload))); },
   _cambioSelect(sel) {
-    /* v2.4.1 [F1] — FIX: i due chiamanti passavano OGGETTI DI FORMA DIVERSA.
-       - Percorso a ubicazione singola (_cambioLookup, matched.length === 1):
-         passa il record di inventario GREZZO -> location_code / item_key
-       - Percorso multi-ubicazione (_cambioSelectEnc): passa un payload
-         RIMAPPATO -> loc / key
-       Leggendo solo sel.loc/sel.key, il caso a ubicazione singola (quello
-       ordinario) risolveva undefined: getItemsAtLocation(undefined) tornava
-       array vuoto e il flusso si interrompeva con "Item non piu' disponibile"
-       anche a fronte di giacenza presente. Ora si accettano entrambe le forme.
-       Nessuna modifica ai chiamanti, nessun cambio di schema DB. */
     const locCode = sel.loc ?? sel.location_code;
     const keyCode = sel.key ?? sel.item_key;
     // Trova l'item completo per avere _id/placed_at per rollback
@@ -4248,25 +3625,6 @@ const App = {
     document.getElementById('pCambioDest')?.focus();
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G5] — IL CAMBIO UBICAZIONE HA UN SOLO CORPO
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Dalla v2.7.0 lo spostamento si puo' avviare da due posti: il form di
-     Movimenta (scansione articolo + lotto + destinazione) e la scheda di
-     un'ubicazione sulla mappa, dove l'item e' gia' identificato. Sono due
-     PORTE, non due implementazioni: entrambe entrano qui.
-
-     Cio' che questo metodo fa era gia' tutto in _execCambio della v2.6.0 —
-     validazione della destinazione, conferma sui DDT pendenti (v2.0.1 [A-3]),
-     rimozione, inserimento, rollback con metadati intatti (fix B1), log con
-     le quantita'. L'unica aggiunta e' il parametro qty, che permette di
-     spostare una PARTE dei colli: Store.removeItem() gestisce gia' il
-     decremento parziale dalla v2.0.1 [A3], non serviva inventare nulla.
-
-     Ritorna { ok:true, qtyMoved, mergeMsg, impactedDocs } oppure { ok:false }.
-     I messaggi d'errore li da' questo metodo: chi chiama non li duplica.
-     ═══════════════════════════════════════════════════════════════════ */
   async _moveItemCore({ item, dest, qty = null }) {
     const err = Validate.location(dest);
     if (err) { this.toast(err, 'error'); return { ok: false }; }
@@ -4282,17 +3640,6 @@ const App = {
     if (qtyToMove > qtyAvail) { this.toast(`In ${item.location_code} ci sono ${qtyAvail} Coll., non ${qtyToMove}`, 'error'); return { ok: false }; }
     const partial = qtyToMove < qtyAvail;
 
-    /* ═══════════════════════════════════════════════════════════════════
-       v2.0.1 [A-3] — SPOSTAMENTO DI MERCE IMPEGNATA SU DDT PENDENTI
-       © Andrea Sacchetti — Dietopack S.r.l.
-
-       Decisione A-3: lo spostamento è CONSENTITO, ma solo previa conferma
-       esplicita che elenca i documenti impattati. Il DDT registrato NON viene
-       riscritto in automatico: modificare di nascosto un documento già emesso
-       sarebbe la peggiore delle tre opzioni in sede di audit. Il disallineamento
-       viene invece segnalato (Store.checkPendingDocIntegrity) sulla card del DDT
-       e in dashboard, e l'operatore decide se modificarlo o annullarlo.
-       ═══════════════════════════════════════════════════════════════════ */
     const impactedDocs = Store.getPendingDocsForItem(item.location_code, item.item_key);
     if (impactedDocs.length) {
       const elenco = impactedDocs
@@ -4319,9 +3666,6 @@ const App = {
     // Add in destinazione preservando metadati e quantità
     const res = await Store.addItem(dest, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', qtyToMove);
     if (!res.ok) {
-      /* ROLLBACK. Sul record intero si ripristina lo snapshot con metadati
-         identici (fix B1); sul parziale il record in origine non e' mai
-         sparito, quindi i colli tolti vanno semplicemente rimessi. */
       if (partial) await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', qtyToMove);
       else await Store.restoreItem(backup);
       this.toast('Conflitto destinazione — rollback eseguito', 'error');
@@ -4343,9 +3687,6 @@ const App = {
     return { ok: true, qtyMoved: qtyToMove, mergeMsg, impactedDocs, partial };
   },
 
-  /* Fix B1: rollback preserva metadati originali.
-     v2.7.0 [G5]: il corpo e' in _moveItemCore(); qui resta la porta d'ingresso
-     del form di Movimenta — lettura dei campi, riscontro a video, reset. */
   async _execCambio() {
     if (!this._requireOperator('il cambio ubicazione')) return;   // v2.0.1 [B7]
     if (!this._moveSelection) return this.toast('Scansiona prima un articolo', 'error');
@@ -4403,11 +3744,6 @@ const App = {
     this.setPrimaryScanField('pProdArt');
   },
 
-  /* v2.1.0 — Il carrello e i comandi di conferma vivono in una sezione
-     autonoma: aggiungere una riga NON ridisegna piu' l'intero modulo.
-     Il ridisegno totale della v2.0.2 causava lampeggio, perdita del fuoco e,
-     soprattutto, la perdita dei caratteri sparati dal lettore durante il
-     rifacimento del DOM. */
   _prodCartZoneHTML() {
     const n = this._pickCart.length;
     const totalColli = this._pickCart.reduce((s, it) => s + (it.qty_pick || 1), 0);
@@ -4447,9 +3783,6 @@ const App = {
     this._prodOperator = Validate.clean(document.getElementById('pProdOperator')?.value) || this._prodOperator;
     const all = Store.findItemLocations(art);
     const allForLot = all.filter(it => it.lot_code === lot);
-    // v2.0.1 [A1] — si prelevano solo le ubicazioni con quantità DISPONIBILE > 0:
-    // la merce già impegnata su un DDT pendente è fisicamente presente ma non
-    // prelevabile, altrimenti all'arrivo del vettore il DDT non è evadibile.
     const itemsRaw = allForLot
       .filter(it => !Store.isItemQuarantined(it.item_key, it.location_code))
       .filter(it => Store.getAvailableQty(it.location_code, it.item_key) > 0);
@@ -4513,10 +3846,6 @@ const App = {
         })) return;
       }
     }
-    // v2.0.1 [A1] — il massimo prelevabile è il DISPONIBILE (fisico − impegnato su
-    // DDT pendenti), non la giacenza fisica. Si sottrae anche quanto già messo nel
-    // carrello per la stessa coppia ubicazione/item, altrimenti due righe di
-    // carrello potrebbero insieme superare il disponibile.
     const qtyPhys = item.qty || 1;
     const qtyReserved = Store.getPendingQtyForItem(item.location_code, item.item_key);
     const qtyInCart = this._pickCart
@@ -4595,9 +3924,6 @@ const App = {
     }).join('');
   },
 
-  /* Fix B3+B5: validazioni + transazione + reset timer
-     v1.7.0: prelievo supporta quantità parziale (qty_pick per item nel carrello).
-     Se qty_pick < qty_avail → decremento parziale (item resta in giacenza con saldo ridotto). */
   async _execProduzione() {
     if (!this._requireOperator('il prelievo di produzione')) return;   // v2.0.1 [B7]
     if (!this._pickCart.length) return this.toast('Carrello vuoto', 'error');
@@ -4682,13 +4008,6 @@ const App = {
     this.toast(`✓ Prelevati ${results.length} lotti (${totalColli} Coll.) per ord. ${this._prodOrderNum}`, 'success');
     this.updateSyncIndicator();
 
-    /* v2.5.1 — Il documento dell'ordine nasce QUI, a movimenti scritti, e
-       viene archiviato SEMPRE: anche se l'operatore risponde "Non ora"
-       alla stampa. Legare l'archiviazione alla scelta di stampare
-       significherebbe che un rinvio degrada per sempre la ristampa di
-       quell'ordine, che ricadrebbe sulla ricostruzione dal registro
-       movimenti. Stampare adesso e' una decisione dell'operatore;
-       l'esistenza del documento non lo e'. */
     const prodSnap  = this._prodCartSnapshot(results, { partial: false });
     const prodSaved = await Store.archivePickReport(prodSnap);
     if (await Dialog.confirm({
@@ -4704,23 +4023,6 @@ const App = {
     this._refreshSessionLog();
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.5.1 — Report del flusso a carrello: stesso template di tutti gli
-     altri. Prima aveva un layout proprio, con firme e senza colonna
-     Tappa; ora costruisce lo snapshot e lo passa al motore comune.
-
-     La colonna Tappa resta vuota: il carrello non stabilisce un ordine
-     di visita, e riempirla con un progressivo lascerebbe intendere un
-     percorso che nessuno ha mai calcolato.
-
-     ANTEPRIMA, NON DOCUMENTO. Il pulsante 🖨 accanto al carrello stampa
-     prima che il prelievo sia confermato: quella carta descrive
-     un'intenzione, non un fatto avvenuto. Esce quindi marcata come
-     parziale e NON viene archiviata — se lo fosse, la ristampa
-     dell'ordine potrebbe restituire il foglio delle intenzioni al posto
-     di quello dei prelievi effettivi. Il documento vero nasce in
-     _execProduzione(), a movimenti scritti.
-     ═══════════════════════════════════════════════════════════════════ */
   _prodCartSnapshot(cart, opt = {}) {
     this._prodOrderNum = Validate.clean(document.getElementById('pProdOrder')?.value) || this._prodOrderNum;
     this._prodOperator = Validate.clean(document.getElementById('pProdOperator')?.value) || this._prodOperator;
@@ -4739,23 +4041,6 @@ const App = {
     if (!cart.length) return this.toast('Niente da stampare', 'error');
     this._emitPickReport(this._prodCartSnapshot(cart, { partial: true }), { reprint: false });
   },
-
-
-
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.5.0 — PRELIEVO GUIDATO DA ORDINE DI PRODUZIONE
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Tre schermate in sequenza dentro la stessa sotto-scheda:
-       1. IMPORT   — caricamento XLSX, esito del parsing, ordine dei siti
-       2. PERCORSO — esecuzione guidata tappa per tappa
-       3. CHIUSURA — coda residua e report
-
-     La protezione del lavoro vive su due livelli, come da analisi [P5]:
-     il commit atomico per tappa (_routeConfirmStop) e la sessione
-     ripristinabile su `pick_session`. La UI non conserva nulla di proprio:
-     ogni ridisegno legge da Store.getActivePickSession().
-     ═══════════════════════════════════════════════════════════════════ */
 
   _routeStage: 'import',        // 'import' | 'run'
   _routeParsed: null,           // esito OdpParser, vivo solo fra import e avvio
@@ -4855,13 +4140,6 @@ const App = {
     const bySite = {};
     for (const s of p.stops) (bySite[s.site_id] = bySite[s.site_id] || []).push(s);
 
-    /* v2.5.1 — BLOCCO DI TESTA: MATERIALE NON REPERIBILE A MAGAZZINO.
-       Sale in cima, subito sotto la testata dell'ordine e PRIMA del pulsante
-       di avvio. È l'informazione che l'operatore deve avere prima di muoversi:
-       una riga assente va verificata su Sage o con l'Ufficio Produzione, non
-       scoperta a metà percorso con il muletto già in corsia.
-       Ordinata per gravità: prima ciò che non esiste a sistema, poi ciò che
-       esiste ma è bloccato. */
     const SEV = { not_mapped: 0, lot_absent_other_lots: 1, no_lot_in_odp: 2, all_blocked: 3 };
     const blockers = [...p.offroute].sort((a, b) => (SEV[a.reason] ?? 9) - (SEV[b.reason] ?? 9));
     const alertHTML = blockers.length ? `
@@ -5070,10 +4348,6 @@ const App = {
       confirmLabel: 'Chiudi percorso', danger: true, icon: '\u26A0'
     });
     if (!ok) return;
-    /* v2.5.1 — anche la chiusura anticipata emette un documento definitivo:
-       le tappe non percorse finiscono in coda con il proprio motivo, e il
-       foglio va archiviato come qualunque altro. Se non e' stata prelevata
-       nemmeno una riga non c'e' nulla da documentare. */
     if (done) await this._emitFinalPickReport(s);
     await Store.endPickSession();
     this._routeStage = 'import';
@@ -5127,9 +4401,6 @@ const App = {
     }
   },
 
-  /* Tappa corrente: tripla scansione UBICAZIONE → ARTICOLO → LOTTO.
-     I campi restano abilitati in sequenza; l'inserimento manuale è ammesso
-     perché il campo è lo stesso, come richiesto per le etichette illeggibili. */
   _routeCurrentHTML(st) {
     const site = Store.getSite(st.site_id);
     return `
@@ -5309,10 +4580,6 @@ const App = {
       });
   },
 
-  /* v3.0.0 [M1] — La logica sta ora in _scanBlock, che non sa niente di
-     percorsi. La stessa disciplina serve alla verifica a scaffale dello
-     scarico, e riscriverla sarebbe stato il modo migliore per farle
-     divergere alla prima correzione. Qui resta solo la firma di prima. */
   async _routeBlock(fieldId, title, message, onForce) {
     return this._scanBlock({
       fieldId, title, message, onForce,
@@ -5321,20 +4588,6 @@ const App = {
     });
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v3.0.0 [M1] — VERIFICA DI SCANSIONE, MOTORE COMUNE
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Una scansione che non corrisponde a cio' che il sistema si aspetta e'
-     un BLOCCO, non un avviso. Lo si supera in due passaggi deliberati —
-     confermare di voler forzare, poi scrivere perche' — e il testo scritto
-     finisce nelle note del movimento, dove sopravvive alla sessione.
-
-     Vale per le tappe del percorso di prelievo (v2.5.0) e per la verifica
-     a scaffale dello scarico (v3.0.0): sono lo stesso gesto, e ora sono
-     anche lo stesso codice. Chi chiama dice solo su quale campo si e'
-     inceppato, dove scrivere il riscontro e cosa ridisegnare dopo.
-     ═══════════════════════════════════════════════════════════════════ */
   async _scanBlock({ fieldId, title, message, onForce, fbId, onUnlocked }) {
     Feedback.signal('error', title, message);
     this._scanFb(fbId, 'error', `${title} — ${message}`);
@@ -5382,24 +4635,6 @@ const App = {
     if (s) await Store.savePickSession(s);
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     LIVELLO 1 DELLA PROTEZIONE — COMMIT ATOMICO PER TAPPA
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Scarico giacenza, record a registro e avanzamento della tappa vivono in
-     UNA transazione Dexie sulle tre tabelle coinvolte. O passa tutto, o non
-     passa nulla: non esiste lo stato intermedio in cui la merce risulta
-     scaricata ma il movimento non registrato, o viceversa.
-
-     Conseguenza pratica: ci\u00f2 che l'operatore ha confermato \u00e8 su IndexedDB
-     nell'istante della conferma, non in memoria. Scheda chiusa, batteria
-     scarica o crash del tablet non lo toccano.
-
-     I re-check prima della scrittura ripetono quelli di _execProduzione():
-     tra la costruzione del percorso e questo istante possono essere passati
-     minuti, e nel frattempo la merce pu\u00f2 essere finita in quarantena o
-     essere stata impegnata su un DDT.
-     ═══════════════════════════════════════════════════════════════════ */
   async _routeConfirmStop() {
     const session = Store.getActivePickSession();
     const st = this._routeCurrentStop();
@@ -5446,10 +4681,6 @@ const App = {
     let removed = null;
 
     try {
-      /* v2.6.0 [F1-1] — La scrittura atomica (scarico giacenza + movimento
-         + stato della tappa) e' passata a Store.commitPickStop(). Qui
-         restano i controlli, il dialogo e il riscontro all'operatore: App
-         non conosce piu' il nome delle tabelle. */
       removed = await Store.commitPickStop({
         session,
         stop: st,
@@ -5469,9 +4700,6 @@ const App = {
       });
     } catch (err) {
       console.error('[WM] _routeConfirmStop:', err);
-      /* Il riallineamento della cache al disco lo ha gia' fatto
-         commitPickStop(): qui resta da riportare la tappa allo stato di
-         partenza e da dirlo all'operatore. */
       st.status = 'pending'; st.qty_picked = 0; st.done_at = null;
       return this.toast(`Prelievo non registrato \u00b7 ${err.message} \u2014 nessuna modifica applicata`, 'error');
     }
@@ -5496,9 +4724,6 @@ const App = {
     this._refreshSessionLog();
   },
 
-  /* "Non trovato": la tappa esce dal percorso e confluisce in coda con un
-     motivo proprio, distinto da quello dei fuori mappatura. Nessun movimento
-     viene registrato — non è successo nulla a magazzino. */
   async _routeMarkMissing() {
     const session = Store.getActivePickSession();
     const st = this._routeCurrentStop();
@@ -5570,9 +4795,6 @@ const App = {
   async _routeClose() {
     const s = Store.getActivePickSession();
     if (!s) return;
-    /* v2.5.1 — il report definitivo viene archiviato prima di essere
-       stampato: da qui in avanti la ristampa dal registro degli ordini
-       prelevati restituisce esattamente questo foglio. */
     await this._emitFinalPickReport(s);
     await Store.endPickSession();
     this._routeStage = 'import';
@@ -5624,52 +4846,8 @@ const App = {
     return `${d}/${m}/${y}`;
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.5.1 — REPORT DI PRELIEVO: UN SOLO TEMPLATE
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-     PROBLEMA RISOLTO. Fino alla v2.5.0 esistevano tre stampe diverse per
-     lo stesso fatto aziendale ("questo ordine e' stato prelevato"): quella
-     di chiusura del percorso guidato, quella del vecchio flusso a
-     carrello e quella ricostruita dal registro. Tre layout, tre insiemi di
-     colonne, tre modi di calcolare la durata. Il foglio ristampato non
-     coincideva con l'originale, e in un fascicolo di produzione due
-     documenti che dovrebbero essere lo stesso documento e non lo sono
-     valgono meno di niente: costringono a chiedersi quale dei due sia
-     quello buono.
-
-     COME E' FATTO ORA. Il template e' UNO SOLO — _buildPickReportHTML() —
-     e legge esclusivamente uno SNAPSHOT normalizzato. Chi produce quello
-     snapshot non lo riguarda: puo' venire dalla sessione di prelievo
-     guidato (_pickSnapFromSession), dal carrello (_pickSnapFromCart) o,
-     per gli ordini prelevati prima di questa versione, dal registro
-     movimenti (_pickSnapFromLog). Aggiungere domani una quarta origine
-     significa scrivere un quarto normalizzatore, non un quarto layout.
-
-     PERCHE' LO SNAPSHOT VIENE ARCHIVIATO. Le durate e il tempo medio si
-     calcolano dai timestamp CONGELATI nello snapshot, mai da "adesso".
-     E' la ragione per cui la ristampa di un ordine chiuso tre mesi fa
-     riporta gli stessi minuti dell'originale invece di ricalcolarli su
-     una realta' che nel frattempo e' cambiata.
-
-     COSA CAMBIA SUL FOGLIO rispetto alla v2.5.0:
-       · banda TEMPI in evidenza: inizio, fine, durata, tempo medio
-       · righe prelevate: # · Tappa · Codice · Descrizione · Lotto ·
-         Ubicazione · Kg ordine · Colli prelevati (via la colonna Note:
-         le note confluiscono nelle Segnalazioni, dove si leggono per
-         intero invece di essere schiacciate in una colonna da 3 cm)
-       · fuori percorso: colonna con casella da barrare a conferma del
-         recupero — la riga esce dal foglio solo quando qualcuno l'ha
-         materialmente recuperata
-       · zona firme eliminata
-       · ristampa marcata come tale, ma per il resto identica
-     ═══════════════════════════════════════════════════════════════════ */
-
   _PICK_REPORT_VER: '1.0',
 
-  /* ── Formattatori dei tempi. Vivono qui e solo qui: la durata scritta
-        nella banda e quella scritta altrove devono essere la stessa
-        stringa, non due arrotondamenti che si somigliano. ── */
   _fmtDurLong(sec) {
     if (!Number.isFinite(sec) || sec < 0) return '—';
     const s = Math.round(sec);
@@ -5689,9 +4867,6 @@ const App = {
     return ts ? new Date(ts).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) : '';
   },
 
-  /* Identificativo del documento. Generato UNA VOLTA, all'emissione, e da
-     quel momento appartiene al foglio: la ristampa lo riporta invariato,
-     altrimenti la stessa operazione avrebbe due numeri di protocollo. */
   _pickDocId(prefix, odpNum, ts) {
     const core = String(odpNum || 'NA').replace(/[^A-Za-z0-9]/g, '').toUpperCase() || 'NA';
     return `${prefix}-${core}-${ts.toString(36).toUpperCase().slice(-6)}`;
@@ -5731,10 +4906,6 @@ const App = {
         qty_picked: x.qty_picked || 0,
         done_at: x.done_at || null
       })),
-      /* La coda raccoglie tre casi distinti sotto un'unica intestazione,
-         perche' per chi deve andare a recuperare la merce sono lo stesso
-         lavoro; il motivo resta scritto riga per riga, cosi' la
-         distinzione non si perde. */
       tail: [
         ...missing.map(x => ({
           article_code: x.article_code, description: x.article_description || '',
@@ -5764,9 +4935,6 @@ const App = {
   },
 
   /* ─── NORMALIZZATORE B) flusso a carrello ────────────────────────── */
-  /* Il carrello non conosce un percorso: la colonna Tappa resta vuota
-     invece di essere riempita con un progressivo inventato, che darebbe
-     l'impressione di un ordine di visita che nessuno ha mai stabilito. */
   _pickSnapFromCart(cart, meta = {}) {
     const endTs = meta.ended_at || Date.now();
     return {
@@ -5799,12 +4967,6 @@ const App = {
   },
 
   /* ─── NORMALIZZATORE C) registro movimenti (solo ripiego) ────────── */
-  /* Usato unicamente per gli ordini chiusi PRIMA della v2.5.1, per i
-     quali non esiste snapshot d'archivio. Il registro non conosce il
-     numero di tappa, i kg d'ordine, le righe rimaste fuori percorso ne'
-     gli avvisi d'import: il foglio lo dichiara apertamente, invece di
-     lasciar credere che quelle sezioni siano vuote perche' non c'era
-     nulla da segnalare. */
   _pickSnapFromLog(movs, ref) {
     const start = movs[0].ts, end = movs[movs.length - 1].ts;
     const notes = [...new Set(movs.map(m => m.notes).filter(Boolean))];
@@ -5854,9 +5016,6 @@ const App = {
     const totColli   = snap.rows.reduce((a, r) => a + (r.qty_picked || 0), 0);
     const uniqueLocs = new Set(snap.rows.map(r => r.location_code).filter(Boolean)).size;
 
-    /* ── Kg d'ordine: il numero, e l'unita' solo se non e' quella attesa.
-          Ripetere "KG" in ogni cella di una colonna intitolata "Kg
-          ordine" e' rumore; stampare "PZ" senza dirlo e' un errore. ── */
     const kgCell = (kg, um) => {
       if (kg == null || kg === '') return '<span style="color:#999">—</span>';
       const u = String(um || '').trim().toUpperCase();
@@ -5894,11 +5053,6 @@ const App = {
       <td>${E(n.label)}${n.detail ? ' — ' + E(n.detail) : ''}</td>
     </tr>`).join('');
 
-    /* ── Fasce di avvertenza. Una copia deve dichiararsi copia, un
-          documento ricostruito deve dichiarare di essere ricostruito e un
-          report parziale deve dire che il percorso era ancora aperto.
-          Sono le uniche differenze ammesse fra originale e ristampa: il
-          resto del foglio coincide riga per riga. ── */
     const bands = [
       reprint ? `<div class="pr-reprint">
         <strong>RISTAMPA — COPIA CONFORME</strong>
@@ -6038,9 +5192,6 @@ const App = {
     });
   },
 
-  /* Emissione: riempie il contenitore di stampa, stampa, lo svuota. Il
-     contenitore resta vuoto fuori dalla stampa, come per gli altri
-     documenti dell'applicativo. */
   _emitPickReport(snap, opt = {}) {
     Feedback.clear();   // v1.1.0 [N1] — vedi _docPrint: niente riscontri sopra il foglio
     document.getElementById('printReport').innerHTML =
@@ -6050,9 +5201,6 @@ const App = {
   },
 
   /* ─── REPORT PARZIALE (percorso ancora aperto) ───────────────────── */
-  /* Non viene archiviato: non e' il documento dell'ordine, e' una
-     fotografia di servizio. Archiviarlo significherebbe che una ristampa
-     potrebbe restituire il foglio a meta' invece di quello definitivo. */
   _printRouteReport(sess = null) {
     const s = sess || Store.getActivePickSession();
     if (!s) return this.toast('Nessun percorso da stampare', 'error');
@@ -6062,12 +5210,6 @@ const App = {
   },
 
   /* ─── REPORT DEFINITIVO DI CHIUSURA ──────────────────────────────── */
-  /* Unico punto in cui nasce il documento dell'ordine: costruisce lo
-     snapshot, lo archivia e lo stampa. L'archiviazione precede la stampa
-     perche' e' cio' che rende possibile la ristampa conforme; se
-     fallisce, la stampa avviene ugualmente — il foglio in mano
-     all'operatore viene prima — e l'utente viene avvisato che la copia
-     conforme non sara' disponibile. */
   async _emitFinalPickReport(s) {
     const snap = this._pickSnapFromSession(s, Date.now(), { partial: false });
     const saved = await Store.archivePickReport(snap);
@@ -6317,35 +5459,6 @@ const App = {
 
   // ═══ 5. QUARANTENA ═══
   // v1.8.0: richiede scansione ARTICOLO + LOTTO (doppia identificazione obbligatoria)
-  /* ═══════════════════════════════════════════════════════════════════
-     v1.1.0 [N4] — LA QUARANTENA PRENDE LA FORMA DEGLI ALTRI FLUSSI
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Era rimasta l'unica operazione di magazzino che NON chiedeva di
-     dimostrare di essere davanti alla merce. Bastavano articolo e lotto —
-     due campi che si compilano benissimo da seduti in ufficio — e il
-     sistema spostava un bancale in area NC. L'ubicazione non veniva mai
-     scansionata: se quel lotto stava in una sola ubicazione l'operatore
-     non la vedeva nemmeno passare.
-
-     Ora segue la strada dello scarico e del percorso di prelievo:
-
-       ① ARTICOLO e ② LOTTO per cercare
-       ③ l'elenco delle ubicazioni che lo contengono, ordinato FEFO
-       ④ la TAPPA: raggiungi quell'ubicazione e dimostralo, con la
-          tripla scansione e lo stesso motore di sblocco motivato che
-          usano gli altri flussi (_scanBlock)
-       ⑤ COLLI da bloccare, motivo, chi lo dispone e per quale reparto
-
-     Non e' uniformita' per il gusto dell'uniformita'. Il blocco qualita'
-     e' l'operazione in cui sbagliare bancale costa di piu': la merce
-     sbagliata sparisce dalla disponibilita' e quella davvero non conforme
-     resta in giro a farsi prelevare.
-
-     Le ubicazioni GIA' in quarantena per lo stesso articolo e lotto non
-     compaiono fra le selezionabili: quella merce e' gia' bloccata, e
-     bloccarla due volte creerebbe due cartelli per lo stesso bancale.
-     ═══════════════════════════════════════════════════════════════════ */
   _formQuarantena(el) {
     if (!this._qStage) this._qStage = 'search';
     if (this._qStage === 'verify' && this._qState) { this._qRenderVerify(el); return; }
@@ -6433,11 +5546,6 @@ const App = {
     items.forEach((it, idx) => {
       const isFEFO = idx === 0;
       const expiryLabel = it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : '';
-      /* Si mostra il FISICO, non il disponibile: un blocco qualita' deve
-         poter colpire anche colli gia' impegnati su un DDT. Quel documento
-         diventera' non evadibile, ed e' giusto che sia cosi' — la merce
-         non conforme non parte. La prenotazione si dichiara comunque, per
-         far sapere all'operatore che qualcuno la sta aspettando. */
       const qtyPhys = it.qty || 1;
       const qtyAvail = Store.getAvailableQty(it.location_code, it.item_key);
       const reserved = qtyPhys - qtyAvail;
@@ -6455,10 +5563,6 @@ const App = {
     el.innerHTML = html + '</div>';
   },
 
-  /* ③ → ④ Selezione dell'ubicazione: si apre la tappa guidata.
-     Le altre ubicazioni con la stessa merce restano a disposizione come
-     alternative, come nello scarico: se l'operatore si trova davanti a una
-     di quelle, la tappa si sposta invece di respingerlo. */
   _qSelect(loc, key) {
     const bucket = Store.getItemsAtLocation(loc);
     const item = bucket.find(i => i.item_key === key);
@@ -6637,9 +5741,6 @@ const App = {
     });
   },
 
-  /* Il blocco si sposta su un'altra ubicazione con la stessa merce. I colli
-     vanno ricalcolati: l'altra ubicazione puo' averne di meno, e il campo
-     deve seguirla o si chiederebbe di bloccarne piu' di quanti ce ne sono. */
   _qSwitchToAlternative(alt) {
     const d = this._qState;
     const old = d.location_code;
@@ -6727,50 +5828,12 @@ const App = {
     });
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G5] — IL BLOCCO QUALITA' HA UN SOLO CORPO
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Come per il cambio ubicazione: due porte, un solo corpo. Il form di
-     Movimenta identifica l'item scansionando articolo e lotto; la scheda
-     dell'ubicazione ce l'ha gia' in mano. Da qui in giu' e' identico alla
-     v2.6.0, decisione 3-c compresa: lo spostamento in area NC viene SEMPRE
-     tentato e blocked_location riporta sempre la posizione REALE.
-
-     Ritorna { ok:true, record, blockedLoc, moved } oppure { ok:false }.
-
-     ─────────────────────────────────────────────────────────────────────
-     v1.1.0 [N2][N3] — QUANTITA' E AREA NC OBBLIGATORIA
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     `qty` blocca una PARTE dei colli. Omessa, si blocca tutto, che e' il
-     comportamento di prima e resta quello di chi non passa il parametro.
-
-     L'AREA NC ORA E' OBBLIGATORIA, e questo e' un cambio di
-     comportamento dichiarato. Fino alla v3.0.0, in mancanza di
-     un'ubicazione bloccata la merce restava dov'era e veniva bloccata
-     l'ubicazione INTERA (decisione 3-c). Con il blocco parziale quella
-     via non regge piu': bloccare l'ubicazione per cinque colli su quaranta
-     immobilizzerebbe trentacinque colli conformi, cioe' farebbe
-     esattamente il danno che il blocco parziale esiste per evitare.
-     E dividere la giacenza dentro la stessa ubicazione — cinque colli
-     bloccati e trentacinque liberi allo stesso indirizzo — darebbe un
-     record che nessuno puo' verificare a scaffale: davanti c'e' un
-     bancale solo, e non ha un'etichetta che dica quali cinque.
-
-     Si preferisce quindi fermarsi e chiederlo. Un'ubicazione BLOCCATA si
-     configura in Mappa in un minuto; una giacenza che dichiara il falso
-     dura sei anni.
-     ═══════════════════════════════════════════════════════════════════ */
   async _quarantineItemCore(item, { reason, operator, refDept, refPerson = '', nearest = undefined, qty = null }) {
     const errs = [Validate.reason(reason), Validate.operator(operator), Validate.refDept(refDept)].filter(Boolean);
     if (errs.length) { this.toast(errs[0], 'error'); return { ok: false }; }
     if (nearest === undefined) nearest = Store.findNearestBlockedLocation(item.location_code);
     const backup = { ...item };
 
-    /* v1.1.0 [N3] — Senza area NC non si parte. Il messaggio dice cosa
-       manca e dove si crea: un divieto che non spiega come toglierlo e'
-       un divieto che l'operatore aggira. */
     if (!nearest) {
       await Dialog.alert({
         title: 'Nessuna ubicazione BLOCCATA configurata',
@@ -6782,10 +5845,6 @@ const App = {
       return { ok: false };
     }
 
-    /* La quantita' da bloccare, ricontrollata sul fisico di adesso.
-       Non si usa il disponibile: la quarantena e' un blocco qualita' e
-       deve poter colpire anche colli gia' impegnati su un DDT — quel DDT
-       diventera' non evadibile, ed e' giusto che sia cosi'. */
     const qtyPhys = item.qty || 1;
     let qtyToMove = qty == null ? qtyPhys : Number(qty);
     if (!Number.isInteger(qtyToMove) || qtyToMove < 1) {
@@ -6798,24 +5857,6 @@ const App = {
     }
     const parziale = qtyToMove < qtyPhys;
 
-    /* ═══════════════════════════════════════════════════════════════════
-       v2.0.1 [B1] — COERENZA TRA UBICAZIONE DICHIARATA E POSIZIONE REALE
-       © Andrea Sacchetti — Dietopack S.r.l.
-
-       PRIMA: lo spostamento avveniva solo con `nearest && !nearest.hasItems`,
-       ma blocked_location veniva comunque valorizzata con nearest.code.
-       Se l'area NC era già occupata — cioè quasi sempre, in un magazzino reale —
-       il sistema dichiarava la merce in quarantena in un'ubicazione dove non era
-       mai arrivata, lasciandola di fatto in ubicazione produttiva. Il record
-       risultava formalmente corretto e sostanzialmente falso: il difetto più
-       grave dell'intera v2.0.0 in ottica audit.
-
-       ORA (decisione 3-c): l'ubicazione NC accoglie più item, quindi lo
-       spostamento viene SEMPRE tentato. Se non esiste alcuna ubicazione
-       bloccata configurata, la merce resta dov'è e blocked_location riporta
-       l'ubicazione REALE, che viene contestualmente marcata come bloccata.
-       In nessun caso il record dichiara una posizione diversa da quella vera.
-       ═══════════════════════════════════════════════════════════════════ */
     /* Lo spostamento in area NC ora avviene SEMPRE — `nearest` e' garantito
        dalla guardia qui sopra — e sposta solo i colli bloccati. */
     const blockedLoc = nearest.code;
@@ -6824,16 +5865,8 @@ const App = {
     try {
       const res = await Store.addItem(nearest.code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', 'QUARANTENA: ' + reason, qtyToMove);
       if (!res.ok) throw new Error('addItem non riuscito');
-      /* Convenzione dei MOV.MOVE invariata (colli mossi, delta 0): un
-         cambio ubicazione non altera la giacenza totale, e cambiarla qui
-         renderebbe i movimenti nuovi non confrontabili con i vecchi. */
       await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, nearest.code, operator, 'Spostamento in quarantena', '', qtyToMove, 0, qtyToMove);
     } catch (err) {
-      /* Rollback. La forma dipende da cosa ha fatto la rimozione: se ha
-         cancellato il record (blocco totale) si ripristina lo snapshot,
-         che conserva metadati e data di posizionamento [B4]; se lo ha solo
-         decrementato (blocco parziale) il record c'e' ancora e ripristinare
-         lo snapshot ne creerebbe un secondo — si rimettono i colli. */
       if (removed._mode === 'partial')
         await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', '', qtyToMove);
       else
@@ -6850,9 +5883,6 @@ const App = {
       lot_code: item.lot_code,
       original_location: item.location_code,
       blocked_location: blockedLoc,
-      /* v1.1.0 [N2] — quanti colli sono bloccati e quanti sono rimasti
-         conformi all'origine. Il cartello NC li stampa: chi lo trova
-         appeso deve sapere se il resto del bancale e' utilizzabile. */
       qty: qtyToMove,
       qty_at_origin_before: qtyPhys,
       qty_left_at_origin: qtyPhys - qtyToMove,
@@ -6864,10 +5894,6 @@ const App = {
       parziale ? `${reason} — blocco parziale ${qtyToMove}/${qtyPhys} Coll.` : reason,
       '', qtyPhys, -qtyToMove, qtyPhys - qtyToMove);
 
-    /* v1.1.0 [N1] — Un solo riscontro, e nessuno subito prima della stampa.
-       L'ordine di trasferire fisicamente la merce non e' un messaggio da
-       sei secondi: e' un'istruzione che deve sopravvivere all'operazione,
-       e ora e' scritta sul cartello NC, che segue la merce. */
     this.updateSyncIndicator();
     this._printNCCardFromRecord(qRecord);
     this._refreshSessionLog();
@@ -6878,15 +5904,6 @@ const App = {
     return { ok: true, record: qRecord, blockedLoc, moved: true, qty: qtyToMove, partial: parziale };
   },
 
-  /* Fix B4: rollback preserva metadati.
-     v2.7.0 [G5]: il corpo e' in _quarantineItemCore(); qui resta la porta
-     d'ingresso del form di Movimenta — lettura dei campi e reset.
-
-     v1.1.0 [N4] — Ordine dei controlli identico allo scarico, e per la
-     stessa ragione: il primo blocco che l'operatore incontra dev'essere
-     quello che gli costa meno tornare indietro. Prima la tripla scansione
-     (e' li' davanti, la rifa' in tre secondi), poi i colli, poi le
-     informazioni da compilare. */
   async _execQuarantena() {
     if (!this._requireOperator('la messa in quarantena')) return;   // v2.0.1 [B7]
     const d = this._qState;
@@ -6922,9 +5939,6 @@ const App = {
       return this.toast(`In ${d.location_code} ci sono ${qtyPhys} Coll.`, 'error');
     }
 
-    /* La nota di sblocco scansione entra nel motivo del blocco: e' il posto
-       dove sopravvive alla sessione e finisce sul cartello, esattamente
-       come fa sul verbale di smaltimento. */
     const reasonBase = Validate.clean(document.getElementById('qReason')?.value);
     const reason = d.forced_note ? `${reasonBase} [Sblocco scansione: ${d.forced_note}]` : reasonBase;
 
@@ -7065,26 +6079,6 @@ const App = {
     const srcItem = srcItems.find(i => i.item_key === itemKey);
 
     if (srcItem) {
-      /* ═══════════════════════════════════════════════════════════════
-         v1.1.0 [N2] — SI RILASCIANO I COLLI DI QUESTO RECORD, NON TUTTI
-         © Andrea Sacchetti — Dietopack S.r.l.
-
-         PRIMA si spostava `srcItem.qty`, cioe' tutto cio' che si trovava
-         nell'ubicazione NC. Finche' la quarantena era per forza totale
-         quella quantita' coincideva sempre con la quantita' bloccata.
-
-         Con il blocco parziale non e' piu' vero: due blocchi parziali
-         dello stesso articolo e lotto finiscono nella stessa area NC e li'
-         si sommano, perche' addItem() accorpa per item_key. Rilasciarne
-         uno solo porterebbe fuori anche i colli dell'altro — merce ancora
-         bloccata, rimessa in circolo da un'operazione che dichiarava di
-         riguardare altro.
-
-         Si sposta quindi la quantita' del RECORD, limitata a cio' che c'e'
-         davvero. Il ripiego a `srcItem.qty` vale per i record scritti prima
-         che questo campo esistesse, dove il blocco era per definizione
-         totale. Nessuna migrazione.
-         ═══════════════════════════════════════════════════════════════ */
       const inNC = srcItem.qty || 1;
       const qtyToMove = Math.min(rec.qty || inNC, inNC);
       const backup = { ...srcItem };
@@ -7095,9 +6089,6 @@ const App = {
           moved = true;
           await this._logMov(MOV.MOVE, srcItem.article_code, srcItem.article_description, srcItem.lot_code, currentLoc, dest, relOperator, 'Rilascio quarantena → riposizionamento conforme', rec.q_id, qtyToMove, 0, qtyToMove);   // v2.0.1 [B6]
         } else {
-          /* Rollback della stessa forma di quello della messa in
-             quarantena, e per la stessa ragione: un decremento non si
-             annulla ricreando il record, o se ne creano due. */
           if (removed._mode === 'partial')
             await Store.addItem(currentLoc, srcItem.article_code, srcItem.article_description, srcItem.lot_code, srcItem.expiry_date || '', '', qtyToMove);
           else
@@ -7130,11 +6121,6 @@ const App = {
     if (rec) this._printNCCardFromRecord(rec);
   },
 
-  /* Cartello di non conformita'.
-     Stessa testata degli altri documenti — il cartello viene appeso alla
-     merce, e chi lo trova deve riconoscere da lontano da dove esce.
-     Il corpo pero' e' l'opposto di un DDT: pochissimi dati, grandissimi,
-     e un divieto che si legge a due metri. */
   _printNCCardFromRecord(rec) {
     const fmtDate = (d) => new Date(d).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
 
@@ -7193,35 +6179,6 @@ const App = {
       ]
     }));
   },
-  /* ═══════════════════════════════════════════════════════════════════
-     v3.0.0 [M3][M4] — SPEDIZIONI (DDT DI USCITA)
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-     Sostituisce i moduli Resi e Spedizioni della v2.0.0, che erano due
-     copie della stessa cosa: stessa card, stessa modale di modifica,
-     stessa stampa, e come unica differenza vera una parola — "fornitore"
-     invece di "cliente".
-
-     LA DIFFERENZA STA NELLA CAUSALE. È così che funziona sulla carta e
-     ora è così anche qui: la causale di trasporto, configurabile, decide
-     se il documento è un reso o una spedizione e di conseguenza quale
-     tipo di movimento andrà a registro (MOV.RET o MOV.SHIP). Cruscotto,
-     grafici ed export continuano a distinguerli, e i movimenti scritti
-     prima di questa versione restano confrontabili con quelli scritti
-     dopo.
-
-     I DDT DI RESO RIMASTI PENDENTI all'aggiornamento non vengono toccati
-     né migrati: compaiono nella lista unica e si evadono come sempre.
-     Non hanno causale — non esisteva — e la loro natura si deduce dal
-     campo `kind`, che è esattamente l'informazione che la causale ha
-     sostituito (_docIsReturn).
-
-     IL FLUSSO A DUE STATI RESTA QUELLO DELLA v2.0.0, che funzionava:
-       STATO 1 — REGISTRAZIONE: testata + righe → DDT pendente. La merce
-                 RIMANE in giacenza ma diventa prenotata per l'uscita.
-       STATO 2 — EVASIONE: all'arrivo del vettore → scarico fisico,
-                 movimenti a registro, documento chiuso.
-     ═══════════════════════════════════════════════════════════════════ */
 
   _formSpedizioni(el) {
     const pending = Store.getPendingOutbound();
@@ -7469,11 +6426,6 @@ const App = {
     if (!cart.length && !pending.length) document.getElementById('pShipCustomer')?.focus();
   },
 
-  /* Un destinatario già usato porta con sé il suo indirizzo: riscriverlo
-     ogni volta è il modo più sicuro per averlo diverso su due documenti
-     dello stesso cliente. I campi già compilati NON vengono sovrascritti:
-     se l'operatore ha appena corretto un indirizzo, quella correzione è
-     più recente dello storico e va rispettata. */
   _shipRecipientPicked() {
     const name = Validate.clean(document.getElementById('pShipCustomer')?.value);
     this._shipCustomer = name;
@@ -7496,10 +6448,6 @@ const App = {
     this.toast(`Anagrafica di ${name} ripresa dall'ultimo DDT`, 'info');
   },
 
-  /* Peso netto e pezzi calcolati sulle righe in carrello [M4].
-     `missing` elenca gli articoli senza peso in anagrafica: il totale in
-     quel caso sarebbe una somma parziale spacciata per completa, e si
-     preferisce dichiarare che non si sa. */
   _shipComputeWeights(lines = null) {
     const rows = lines || this._shipCart;
     if (!rows.length) return { net: null, pieces: null, missing: [] };
@@ -7535,10 +6483,6 @@ const App = {
     return sorted.map(d => this._renderPendingDocCard(d)).join('');
   },
 
-  /* Card DDT pendente. Il tema cromatico segue la NATURA del documento —
-     resi in verde acqua, spedizioni in arancio — che ora viene dalla
-     causale invece che dal modulo emittente.
-     v2.0.0+ — Integra badge alert per data ritiro prevista e bordo colorato per urgenza. */
   _renderPendingDocCard(doc) {
     const isRet = this._docIsReturn(doc);
     const themeColor = isRet ? 'var(--sx-teal)' : 'var(--sx-orange)';
@@ -7722,10 +6666,6 @@ const App = {
     this.setPrimaryScanField('pShipArt');
   },
 
-  /* La testata vive nello stato dell'App, non nel DOM: il carrello si
-     ridisegna a ogni riga aggiunta e i campi non ancora salvati
-     sparirebbero. Le date restano ISO nello stato (pickupAlertStatus le
-     vuole così) e gg/mm/aaaa a video. */
   _persistShipHeader() {
     const g = id => Validate.clean(document.getElementById(id)?.value);
     const sel = id => document.getElementById(id)?.value;
@@ -7817,9 +6757,6 @@ const App = {
     }).join('');
   },
 
-  /* Azzera la testata dopo il salvataggio. Il numero di DDT NON viene
-     riproposto qui: lo ricalcola _formSpedizioni al prossimo disegno,
-     partendo dall'ultimo effettivamente emesso. */
   _shipResetHeader() {
     this._shipCart = [];
     this._shipStartTime = null;
@@ -7853,10 +6790,6 @@ const App = {
     if (!this._shipCustomer) { document.getElementById('pShipCustomer')?.focus(); return this.toast('Destinatario obbligatorio', 'error'); }
     if (!this._shipCausale) return this.toast('Causale del trasporto obbligatoria', 'error');
 
-    /* v3.0.0 [M4] — Duplicato di numero: si segnala, non si impedisce.
-       Il numero può arrivare dal gestionale e un ciclo di numerazione
-       ripetuto è una possibilità reale; è l'operatore a sapere se quel
-       numero è davvero lo stesso documento. */
     const dupe = Store._cache.pendingOut.find(d =>
       d.status !== 'cancelled' &&
       String(d.ddt_num || '').trim().toUpperCase() === this._shipDdtNum.trim().toUpperCase());
@@ -7918,9 +6851,6 @@ const App = {
 
     try {
       const doc = await Store.savePendingOutbound({
-        /* `kind` resta scritto perché è indicizzato e perché i documenti
-           pre-v3.0.0 lo usano: qui lo si deriva dalla causale, così i due
-           campi non possono raccontare storie diverse. */
         kind: causale?.mov === 'RET' ? 'RES' : 'SHIP',
         causale_id: this._shipCausale,
         causale_label: causale?.label || '',
@@ -7961,12 +6891,6 @@ const App = {
     }
   },
 
-  /* STATO 2 — EVASIONE: il vettore ritira la merce.
-     Per ogni riga: removeItem dalla giacenza + movimento a registro.
-     In caso di errore: rollback e documento che resta pendente.
-
-     v3.0.0 [M3] — Il TIPO di movimento lo decide la causale: le causali
-     di reso scrivono MOV.RET, le altre MOV.SHIP. */
   async _evadiSpedizione(doc_id) {
     if (!this._requireOperator("l'evasione del DDT")) return;   // v2.0.1 [B7]
     const doc = Store.getPendingDoc(doc_id);
@@ -8064,38 +6988,6 @@ const App = {
     this._formSpedizioni(document.getElementById('movFormArea'));
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v3.0.0 [M4][M5] — IL DOCUMENTO DI TRASPORTO
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-     Sostituisce _printOutboundReport, che stampava una ricevuta interna
-     con il nome di DDT: numero, destinatario, vettore, data di ritiro, e
-     nient'altro. Nessun mittente, nessuna partita IVA, nessuna causale,
-     nessun luogo di destinazione, nessun peso. Su un automezzo fermato
-     non sarebbe stato un documento di trasporto.
-
-     COSA PORTA ORA, e perché ciascuna cosa:
-       · numero e data del documento
-       · mittente completo, dal documento se congelato, altrimenti dalla
-         configurazione corrente (i DDT pre-v3.0.0 non ce l'hanno)
-       · destinatario con indirizzo e partita IVA
-       · luogo di destinazione, se diverso dalla sede del destinatario
-       · causale del trasporto
-       · natura, qualità e quantità dei beni — con LOTTO e SCADENZA, che
-         per un alimentare non sono un vezzo ma la tracciabilità che il
-         Reg. CE 178/2002 pretende sia ricostruibile
-       · numero colli, aspetto esteriore, peso lordo e netto
-       · vettore, trasporto a cura di chi, porto
-       · data e ora di inizio del trasporto
-       · annotazioni e firme
-
-     UNA SOLA COPIA per stampa: l'operatore ne tira quante gliene servono
-     dalla finestra di stampa del browser.
-
-     FILIGRANA. Finché il DDT è pendente la merce non è partita, e il
-     foglio non deve poter essere scambiato per il documento che
-     accompagna il trasporto. All'evasione sparisce.
-     ═══════════════════════════════════════════════════════════════════ */
   _printDDT(doc_id) {
     const doc = Store.getPendingDoc(doc_id);
     if (!doc) return this.toast('Documento non trovato', 'error');
@@ -8113,10 +7005,6 @@ const App = {
       ? new Date(ms).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
       : '—';
 
-    /* Pesi: quello scritto a mano nel documento vince; in mancanza si
-       ricalcola dalle righe. Se nemmeno quello è possibile, la cella
-       resta vuota — un peso inventato su un documento di trasporto è
-       peggio di un peso assente. */
     const w = this._shipComputeWeights(doc.lines);
     const pesoNetto = doc.peso_netto || (w.net != null ? this._fmtKg(w.net) : '');
     const pesoLordo = doc.peso_lordo || '';
@@ -8239,17 +7127,6 @@ const App = {
     window.print();
     setTimeout(() => { document.getElementById('printReport').innerHTML = ''; }, 1500);
   },
-
-  // © Andrea Sacchetti — fine modulo Spedizioni v3.0.0
-
-  // ═══════════════════════════════════════════════════════════════════
-  // ═══ 8. MODIFICA DDT PENDENTI (v2.0.0+) ═══
-  // © Andrea Sacchetti — Dietopack S.r.l.
-  // Editing di DDT pendenti già registrati: testata, righe (qty/notes/rimozione),
-  // aggiunta nuove righe. Apre un modal con form completo. Solo doc 'pending'.
-  // Lo stato di editing è temporaneo (state-machine in _editState) e applicato
-  // tramite Store.updatePendingDoc() solo al salvataggio finale.
-  // ═══════════════════════════════════════════════════════════════════
 
   /* Apre il modal di edit per un DDT pendente. Crea uno snapshot mutabile in
      this._editState (NO mutazione diretta del cache fino al salvataggio). */
@@ -8654,43 +7531,17 @@ const App = {
     document.getElementById('editPendingModal')?.remove();
   },
 
-  // © Andrea Sacchetti — fine modulo Edit DDT v2.0.0+
-
-  // ═══════════════════════════════════════════════════════════════════
-  // UTILITY CONDIVISE
-  // ═══════════════════════════════════════════════════════════════════
-
   /* HTML escape contro XSS */
   _esc(str) {
     if (str === null || str === undefined) return '';
     return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.0.1 [C5] — Serializzazione sicura dei payload negli attributi onclick
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     encodeURIComponent() NON codifica l'apostrofo: fa parte del set di caratteri
-     lasciati intatti (A-Z a-z 0-9 - _ . ! ~ * ' ( ) ). Un apostrofo dentro una
-     descrizione articolo o una nota chiudeva anticipatamente la stringa
-     dell'attributo onclick="...('PAYLOAD')", rompendo l'handler.
-     Via d'ingresso reale: il campo `reason` della quarantena, unico input
-     testuale libero privo di controllo caratteri (vedi Validate.reason).
-     ═══════════════════════════════════════════════════════════════════ */
   _payload(obj) {
     return encodeURIComponent(JSON.stringify(obj)).replace(/'/g, '%27');
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.0.1 [B7] — Operatore obbligatorio su ogni scrittura di giacenza
-     Nessun movimento può entrare a registro senza operatore identificato.
-     Prima le rettifiche inventariali (FIX+/FIX−) e il rilascio quarantena
-     venivano loggati con user vuoto: record non attribuibili.
-     Ritorna true se si può procedere, altrimenti avvisa e apre il prompt. */
   _requireOperator(azione = 'questa operazione') {
-    /* v2.8.0 [H6] — Questa guardia precede ogni scrittura di giacenza del
-       file: e' il punto giusto per fermare anche una finestra in sola
-       lettura, senza doverlo ripetere in venti chiamanti. */
     if (this._blockedByReadOnly()) return false;
     if (this.currentOperator) return true;
     this.toast(`Operatore non identificato — impossibile registrare ${azione}`, 'error');
@@ -8724,18 +7575,6 @@ const App = {
       .catch(() => null);
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.3.0 [D1] — CAMPI DATA IN FORMATO ITALIANO gg/mm/aaaa
-     © Andrea Sacchetti — Dietopack S.r.l.
-     L'operatore digita SOLO cifre: le barre si inseriscono da sole.
-     Sono accettate 6 cifre (ggmmaa → anno espanso a 20aa) oppure 8 cifre
-     (ggmmaaaa). Lo STORAGE resta ISO yyyy-mm-dd: il FEFO ordina le scadenze
-     per confronto lessicografico ISO (vedi sortByFEFO) e non va toccato.
-     Le scadenze legacy salvate come yyyy-mm (vecchio input type=month della
-     v2.2.x) vengono mostrate come 01/mm/aaaa: il giorno 01 è la scelta
-     conservativa per il FEFO (il lotto risulta in scadenza "prima").
-     ═══════════════════════════════════════════════════════════════════ */
-
   /* Maschera live: rimuove i non-numerici e inserisce le barre durante la digitazione */
   _dateMaskInput(el) {
     const digits = el.value.replace(/\D/g, '').slice(0, 8);
@@ -8752,9 +7591,6 @@ const App = {
     if (iso) el.value = this._dateISOtoIT(iso);
   },
 
-  /* gg/mm/aaaa (o sole cifre ggmmaa / ggmmaaaa) → ISO yyyy-mm-dd.
-     Ritorna: '' se vuoto · ISO se valida · null se incompleta o non valida
-     (con toast di avviso se warnLabel è valorizzato). */
   _dateITtoISO(value, warnLabel = null) {
     const digits = String(value || '').replace(/\D/g, '');
     if (!digits) return '';
@@ -8856,24 +7692,6 @@ const App = {
     html += '</div>';
     this.showModal('📍 Seleziona Ubicazione', html);
   },
-
-  // ═══════════════════════════════════════════════════════════════════
-  // SEARCH 
-  // ═══════════════════════════════════════════════════════════════════
-
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G2] — LA RICERCA ESCE DALLA SUA VISTA
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     PRIMA. Una vista intera per cercare: si abbandonava la mappa, si digitava,
-     si cliccava un risultato e si tornava alla mappa. Tre cambi di contesto per
-     rispondere a "dov'e' questo lotto".
-
-     ORA. Campo in barra, risultati in un pannello a tendina. I CRITERI DI
-     RICERCA SONO GLI STESSI: _searchAll() e' il corpo di _doSearch() della
-     v2.6.0, spostato di peso e reso puro. Se un giorno cambieranno, cambieranno
-     in un posto solo — e la vista non c'e' piu' a fare da secondo posto.
-     ═══════════════════════════════════════════════════════════════════ */
 
   _searchLimits: { items: 50, locs: 30, arts: 30 },
   _searchHits: [],        // risultati appiattiti nell'ordine di visualizzazione
@@ -9038,11 +7856,6 @@ const App = {
     }
     if (!locsHtml) locsHtml = '<div class="search-pop-empty">Nessuna ubicazione</div>';
 
-    /* ── Articoli in anagrafica ──
-       v2.7.0: prima erano righe inerti. Un codice trovato in anagrafica e'
-       una domanda a meta': "esiste" senza "dov'e'". Ora la riga porta alla
-       giacenza, e se le ubicazioni sono piu' d'una la ricerca si restringe
-       da sola su quel codice invece di scegliere al posto dell'operatore. */
     let artsHtml = '';
     for (const a of arts.slice(0, L.arts)) {
       const where = Store.findItemLocations(a.code).filter(it => it.article_code === a.code);
@@ -9101,10 +7914,6 @@ const App = {
     this.toast(`${hit.code} presente in ${hit.count} ubicazioni — scegli quale aprire`, 'info');
   },
 
-  /* v2.7.0 [G2] — La "scheda" chiesta dai risultati di ricerca: zona e livello
-     giusti, cella evidenziata, pannello di dettaglio gia' aperto. Non una
-     finestra nuova del browser: due istanze sullo stesso IndexedDB si
-     scrivono addosso, e da file:// spesso nemmeno lo condividono. */
   goToLocation(code) {
     const parts = code.split('-');
     const siteId = parts[0];
@@ -9145,35 +7954,6 @@ const App = {
     }
   },
 
-  // ═══════════════════════════════════════════════════════════════════
-  // CONFIG 
-  // ═══════════════════════════════════════════════════════════════════
-
-  /* ═══════════════════════════════════════════════════════════════════
-     v1.1.0 [N5] — ARCHIVIO DOCUMENTI
-     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-     Un solo posto da cui ristampare qualunque foglio l'applicativo abbia
-     emesso, per tutti i sei anni di conservazione.
-
-     NON AGGIUNGE NESSUNA STAMPA. Le quattro funzioni esistevano gia' e
-     funzionavano — _printDDT, _printDisposal, _printNCCard,
-     _emitPickReport — e sono usate qui tali e quali. Mancava solo il modo
-     di raggiungerle: gli elenchi dell'applicativo mostrano il LAVORO DA
-     FARE, quindi filtrano sui documenti aperti, e un DDT evaso o un
-     cartello NC rilasciato sparivano dalla vista pur restando a
-     database. Il record c'era, il pulsante no.
-
-     E' anche il motivo per cui questa vista e' di SOLA LETTURA e di sola
-     stampa: nessuna evasione, nessun rilascio, nessuna modifica. Quelle
-     stanno nei flussi operativi, dove esistono le conferme e i controlli
-     di disponibilita'. Vale qui la regola gia' scritta per le sezioni
-     della dashboard: un archivio e' un archivio, non una plancia.
-
-     Le ristampe partono dallo SNAPSHOT archiviato, mai dallo stato
-     corrente del magazzino (convenzione 9.5): un documento si rilegge,
-     non si ricostruisce.
-     ═══════════════════════════════════════════════════════════════════ */
   _arcType: 'all',
   _arcText: '',
   _arcFrom: '',
@@ -9342,9 +8122,6 @@ const App = {
       </div>`;
   },
 
-  /* Il campo di ricerca non puo' passare da renderArchive(): ridisegnare
-     l'intera vista a ogni carattere toglierebbe il fuoco dall'input dopo
-     la prima lettera. Si ridisegna solo l'elenco. */
   _arcRedraw() {
     clearTimeout(this._arcTimer);
     this._arcTimer = setTimeout(() => {
@@ -9364,9 +8141,6 @@ const App = {
     this.renderArchive();
   },
 
-  /* Ristampa di un report di prelievo dallo snapshot d'archivio. Passa dal
-     doc_id e non dal numero d'ordine: due prelievi possono portare lo
-     stesso ODP, e in archivio si sta indicando UNA riga precisa. */
   _printPickArchive(doc_id) {
     const snap = Store.getPickReports().find(p => p.doc_id === doc_id);
     if (!snap) return this.toast('Report non trovato in archivio', 'error');
@@ -9395,22 +8169,6 @@ const App = {
     else if (this._configTab === 'session') this._renderConfigSession(content);
     else this._renderConfigData(content);
   },
-
-  /* ═══════════════════════════════════════════════════════════════════
-     v3.0.0 [M4] — CONFIGURAZIONE → DDT E DOCUMENTI
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Quattro blocchi: il mittente, le causali di trasporto, le motivazioni
-     di smaltimento, la numerazione.
-
-     IL MITTENTE E' IL BLOCCO CHE CONTA. Senza ragione sociale, indirizzo e
-     partita IVA un documento di trasporto non e' un documento di
-     trasporto, ed e' la ragione per cui questa scheda esiste invece di
-     avere quei dati scritti dentro il file. Finche' i campi obbligatori
-     sono vuoti la scheda lo dice in cima, e il DDT stampato lo ripete:
-     meglio un foglio che dichiara cosa gli manca di un foglio che sembra
-     a posto e non lo e'.
-     ═══════════════════════════════════════════════════════════════════ */
 
   /* Campi del mittente senza i quali il DDT non e' conforme. Il resto
      (REA, telefono, email, sede operativa) e' utile ma non dirimente. */
@@ -9617,9 +8375,6 @@ const App = {
     this.renderConfig();
   },
 
-  /* Le liste si salvano a ogni modifica: sono poche righe, e un pulsante
-     "salva" separato per una tabella che si edita in linea e' solo un modo
-     per perdere le modifiche cambiando scheda. */
   async _docCausaleEdit(i, field, value) {
     const cfg = Store.getDocConfig();
     if (!cfg.causali[i]) return;
@@ -9641,10 +8396,6 @@ const App = {
     this.renderConfig();
   },
 
-  /* Una causale usata da DDT gia' emessi non si cancella alla leggera: il
-     documento resterebbe con un riferimento cieco. Si avverte e si lascia
-     decidere, perche' impedirlo bloccherebbe anche la pulizia legittima
-     di una causale creata per sbaglio. */
   async _docCausaleRemove(i) {
     const cfg = Store.getDocConfig();
     const c = cfg.causali[i];
@@ -9701,15 +8452,6 @@ const App = {
     this.renderConfig();
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G6] — CONFIGURAZIONE → OPERATORI
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Anagrafica, non elenco di sigle. Nessun pulsante di eliminazione: chi ha
-     firmato un movimento resta, si disattiva. E nessuna operazione qui e'
-     libera — creare, modificare, cambiare ruolo, disattivare e rinnovare un
-     PIN passano tutte dal PIN di un Team Leader.
-     ═══════════════════════════════════════════════════════════════════ */
   _renderConfigOperators(el) {
     const ops = Store.getOperators();
     const leaders = Store.getActiveLeaders();
@@ -9761,9 +8503,6 @@ const App = {
     </div>`;
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G6] — CONFIGURAZIONE → SESSIONE
-     ═══════════════════════════════════════════════════════════════════ */
   _renderConfigSession(el) {
     const min = Session.getTimeoutMinutes();
     el.innerHTML = `<div class="config-card">
@@ -9903,9 +8642,6 @@ const App = {
     const role  = document.getElementById('opRole')?.value === 'leader' ? 'leader' : 'operator';
     if (!first || !last) return err('Nome e cognome sono obbligatori.');
     if (!/^[A-Z0-9]{2,4}$/.test(init)) return err('Iniziali non valide: 2-4 caratteri, lettere maiuscole o cifre.');
-    /* [G7] — Retrocedere l'ultimo Team Leader attivo chiuderebbe tutti fuori
-       dal rinnovo dei PIN. Il wizard lo rimedierebbe, ma prevenire e' meglio
-       che far apparire una schermata di emergenza. */
     if (op.role === 'leader' && role !== 'leader' && Store.getActiveLeaders().length <= 1) {
       return err('È l’unico Team Leader attivo: nominane un altro prima di retrocederlo.');
     }
@@ -9954,19 +8690,6 @@ const App = {
     this.toast(`Operatore ${op.initials} ${disabling ? 'disattivato' : 'riattivato'}`, 'success');
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.7.0 [G6] — RINNOVO DEL PIN SMARRITO
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Un PIN perduto non si recupera: sul disco c'e' solo la sua impronta, e
-     questo e' esattamente il comportamento desiderato. Si sostituisce, e la
-     sostituzione la autorizza un Team Leader con il proprio PIN — due
-     passaggi in un solo dialogo, come al banco: prima chi autorizza, poi il
-     codice nuovo.
-
-     L'evento va a registro come PINRESET. Il PIN no: ne' in chiaro ne' come
-     impronta. Del rinnovo deve restare traccia; del segreto, no.
-     ═══════════════════════════════════════════════════════════════════ */
   showRenewPinModal(opId) {
     const op = Store.getOperator(opId);
     if (!op) return this.toast('Operatore non trovato', 'error');
@@ -10033,10 +8756,6 @@ const App = {
     }
   },
 
-  /* Autorizzazione puntuale di un Team Leader. Ritorna il record del leader
-     che ha autorizzato, oppure null se l'operazione e' stata abbandonata.
-     Non stabilisce alcuna "sessione da amministratore": ogni operazione
-     sensibile chiede di nuovo, perche' il terminale e' condiviso. */
   _requireLeaderAuth(azione) {
     const leaders = Store.getUsableLeaders();
     if (!leaders.length) {
@@ -10127,9 +8846,6 @@ const App = {
     el.innerHTML = html;
   },
 
-  /* Filtro articoli con debounce 300ms.
-     Necessario perché _renderConfigArticles ricostruisce l'intera tabella DOM
-     (anche con 11k+ righe), che a ogni keystroke sarebbe insostenibile. */
   _onArtFilterInput(value) {
     if (!this._artFilterDebounced) {
       this._artFilterDebounced = debounce((v) => {
@@ -10140,10 +8856,6 @@ const App = {
     this._artFilterDebounced(value);
   },
 
-  /* Refactor DOM-safe.
-     Il "chrome" (intestazioni, controlli) resta su template literal per leggibilità,
-     ma le 11k+ righe della tabella vengono costruite via DOM API + textContent +
-     DocumentFragment per: (1) sicurezza XSS automatica, (2) inserimento singolo nel DOM. */
   _renderConfigArticles(el) {
     let articles = Store.getArticles();
     const total = articles.length;
@@ -10232,11 +8944,6 @@ const App = {
     if (fi && q) { fi.focus(); try { fi.setSelectionRange(q.length, q.length); } catch {} }
   },
 
-  /* v1.1.0 [N6] — Un solo modo di scrivere lo spazio occupato, per i tre
-     punti che lo mostrano. Prima erano tre espressioni copiate, tutte e tre
-     convinte che esistesse sempre una quota da riempire: contro il servizio
-     dati la quota non esiste, e la divisione trovava undefined.
-     Qui si distingue "non applicabile" da "zero per cento". */
   _fmtUsage(est) {
     if (!est) return 'Non disponibile';
     const mb = (b) => ((b || 0) / 1048576).toFixed(1);
@@ -10369,27 +9076,13 @@ const App = {
         <span id="fbVolumeLabel" class="dlg-chip">${Math.round(Feedback.getPrefs().volume * 100)}%</span>
       </div>
     </div>`;
-    /* v2.8.0 — Il riquadro sulla tenuta dei dati va in testa, perche' e' la
-       prima cosa da guardare quando si apre questa scheda. Si disegna dopo
-       perche' deve interrogare permessi e cartelle, che sono asincroni. */
     this._renderResilienzaCard();
   },
 
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.8.0 [H4][H5] — RESILIENZA DEI DATI
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Un solo riquadro che risponde a una sola domanda: se domani questa
-     macchina non c'e' piu', i sei anni di tracciabilita' dove sono?
-     Niente rassicurazioni generiche: stato reale, con i suoi "no".
-     ═══════════════════════════════════════════════════════════════════ */
   async _renderResilienzaCard() {
     const host = document.getElementById('resilienzaCard');
     if (!host) return;
 
-    /* v1.1.0 [N6] — Dove vive il database decide meta' del contenuto di
-       questa scheda: quota, persistenza e copie OPFS sono fatti del
-       browser, e con il servizio dati non descrivono piu' niente. */
     const remoto = Persistence.kind === 'remote';
     const persist = await Store.storagePersistenceState();
     const est = await Store.estimateUsage();
@@ -10400,9 +9093,6 @@ const App = {
     const win = Store.getMovLogWindowInfo();
     const fmt = (ts) => ts ? new Date(ts).toLocaleString('it-IT') : 'mai';
 
-    /* Semaforo complessivo: verde solo se esiste una copia fuori macchina
-       aggiornata. Tutto il resto e' giallo o rosso, perche' tutto il resto
-       sta sullo stesso disco. */
     const copiaEsternaFresca = vaultLast && (Date.now() - vaultLast) < 48 * 3600 * 1000;
     const livello = copiaEsternaFresca ? 'ok' : (vaultPerm === 'granted' ? 'warn' : 'bad');
     const bordo = livello === 'ok' ? 'var(--sx-success)' : livello === 'warn' ? 'var(--sx-warning)' : 'var(--sx-danger)';
@@ -10751,9 +9441,6 @@ const App = {
   },
 
   async confirmDeleteSite(siteId) {
-    /* v2.2.1 [F2] — migrato da confirm() nativo a Dialog (danger = click
-       obbligatorio, l'Enter dello scanner non conferma). Doppia conferma
-       preservata come nella versione precedente. */
     if (!await Dialog.confirm({
       title: 'Eliminare il sito?',
       message: 'Tutti i dati di inventario associati saranno rimossi. Operazione irreversibile.',
@@ -11119,21 +9806,6 @@ const App = {
     this.toast(`Articolo ${code} eliminato`, 'success');
   },
 
-  // ═══════════════════════════════════════════════════════════════════
-  // IMPORT / EXPORT
-  // ═══════════════════════════════════════════════════════════════════
-
-  /* ═══════════════════════════════════════════════════════════════════
-     v2.0.1 [B8] — PURGE MANUALE DEL REGISTRO STORICO (decisione B-2)
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Sostituisce la cancellazione automatica silenziosa della v2.0.0.
-     Vincoli non aggirabili:
-       1. export JSON completo obbligatorio PRIMA della cancellazione
-       2. doppia conferma, la seconda con digitazione esplicita
-       3. i record di quarantena NON vengono mai toccati
-       4. l'operazione è registrata a sua volta nel registro (MOV.PURGE)
-     ═══════════════════════════════════════════════════════════════════ */
   async purgeOldLogsManual() {
     if (!this._requireOperator('la purge del registro')) return;   // v2.0.1 [B7]
     const cutoffTs = Date.now() - LOG_RETENTION_MS;
@@ -11215,14 +9887,6 @@ const App = {
 
   importData() { document.getElementById('fileImport').click(); },
 
-  /* Forza checkpoint dati su IndexedDB.
-     Riscrive l'intero cache in transazione atomica + aggiorna timestamp salvataggio.
-     Utile per garantire la persistenza prima di chiudere il browser o esportare.
-
-     v2.7.0 [G3] — Il corpo dell'operazione (checkpoint, riscontro, ridisegno)
-     e' stato estratto in _saveCheckpoint(): lo condividono questo pulsante e
-     l'indicatore in barra, che decora se stesso in modo diverso. Il
-     comportamento visto da qui non cambia di una virgola. */
   async forceSave() {
     const btn = event?.target?.closest('button');
     const originalLabel = btn?.innerHTML;
@@ -11244,10 +9908,6 @@ const App = {
       if (this.currentView === 'dashboard') this.renderDashboard();
       else if (this.currentView === 'config' && this._configTab === 'data') this.renderConfig();
 
-      /* v2.8.0 [H1] — Una divergenza fra memoria e disco non e' un dettaglio
-         da nascondere in un messaggio verde: e' il sintomo di una scrittura
-         che non e' andata a buon fine. Va detta, e va detta in modo che
-         qualcuno la legga. */
       if (result.divergenze?.length) {
         const elenco = result.divergenze
           .map(d => `  • ${d.collection}: ${d.memoria} in memoria, ${d.disco} nel database`)
@@ -11277,12 +9937,6 @@ const App = {
       const text = await file.text();
       const data = JSON.parse(text);
 
-      /* ═══════════════════════════════════════════════════════════════
-         v2.8.0 [H7] — SI VERIFICA PRIMA DI SCRIVERE
-         Dalla v2.8.0 gli export portano i conteggi per collezione. Se il
-         file ne contiene meno di quanti ne dichiara e' troncato, e
-         importarlo in sovrascrittura significherebbe sostituire dati buoni
-         con dati incompleti. Il momento per accorgersene e' adesso. */
       const check = Store.verifyExportPackage(data);
       if (!check.ok) {
         const proceed = await Dialog.confirm({
@@ -11296,42 +9950,6 @@ const App = {
         if (proceed !== true) { this.toast('Import annullato', 'info'); event.target.value = ''; return; }
       }
 
-      /* v2.2.1 [F2][F3] — migrato da confirm() nativo a Dialog: il vecchio
-         dialogo metteva la SOVRASCRITTURA sul tasto OK/Enter (confermabile
-         anche dal ritorno a capo dello scanner). Ora il percorso proposto è
-         il MERGE (non distruttivo); la sovrascrittura richiede un secondo
-         dialogo danger con click esplicito. Logica di importAll invariata. */
-      /* ═══════════════════════════════════════════════════════════════
-         v1.1.0 [N7] — SU UN DATABASE VUOTO IL MERGE NON E' LA SCELTA
-         PRUDENTE: E' QUELLA CHE PERDE I DATI
-         © Andrea Sacchetti — Dietopack S.r.l.
-
-         Il MERGE importa QUATTRO collezioni: siti, zone, articoli e
-         giacenze. Tutto il resto del pacchetto — registro movimenti,
-         quarantene, DDT, verbali, report di prelievo, ANAGRAFICA
-         OPERATORI e configurazione del mittente — viene ignorato, in
-         silenzio, e il riscontro finale dice comunque "importati".
-
-         Sul database pieno per cui il merge e' nato quel comportamento e'
-         giusto: si stanno aggiungendo ubicazioni o articoli a un magazzino
-         che gia' lavora, e il resto non si vuole toccare.
-
-         Ma il caso piu' frequente di questo pulsante e' l'opposto: un
-         database VUOTO in cui si travasa un magazzino — la migrazione da
-         file locale a servizio dati, o il ripristino su una macchina
-         nuova. Li' il merge portava giacenze e articoli e lasciava fuori
-         gli OPERATORI: nessuno poteva piu' entrare, e nessun movimento
-         poteva piu' essere registrato, perche' ogni movimento vuole la
-         sigla di un operatore identificato. Il magazzino sembrava
-         importato ed era inutilizzabile — lo stesso stato di esclusione
-         del §6.1, raggiunto per un'altra strada.
-
-         Su un database vuoto la sovrascrittura NON e' distruttiva: non
-         c'e' niente da distruggere. Diventa quindi lei il percorso
-         proposto. La disciplina anti-scanner [F2][F3] resta rispettata —
-         il titolo del dialogo dichiara che il database e' vuoto, quindi un
-         Invio accidentale non innesca nessuna perdita.
-         ═══════════════════════════════════════════════════════════════ */
       const destinazioneVuota = Store.getSites().length === 0
                              && Store.getInventoryCount() === 0
                              && Store.getOperators().length === 0
@@ -11363,9 +9981,6 @@ const App = {
           }) === true) mode = 'merge';
         }
       } else {
-        /* v2.2.1 [F2][F3] — Su un database che gia' lavora il percorso
-           proposto resta il MERGE (non distruttivo); la sovrascrittura
-           richiede un secondo dialogo danger con click esplicito. */
         const mergeChoice = await Dialog.confirm({
           title: 'Importa dati da JSON',
           message: 'Modalità MERGE (consigliata su un database già in uso): aggiunge solo siti, zone, articoli e giacenze non già presenti, senza toccare i dati esistenti.\n\n' +
@@ -11397,10 +10012,6 @@ const App = {
   },
 
   /* Export Registro Movimenti completo in Excel (4 fogli) */
-  /* v2.8.0 [H2] — L'export Excel prende TUTTO l'archivio dal database, non la
-     finestra in memoria: un registro esportato a meta' sarebbe peggio di un
-     registro non esportato. La lettura e' a blocchi, quindi non si materializza
-     mai piu' di 5.000 record per volta oltre al risultato finale. */
   async exportMovLogExcel() {
     if (typeof XLSX === 'undefined') return this.toast('Libreria Excel non disponibile', 'error');
     const totale = Store.getMovLogTotal();
@@ -11488,10 +10099,6 @@ const App = {
     this.toast(`📊 Esportato: ${fn} (${log.length} record, 4 fogli)`, 'success');
   },
 
-  /* v1.7.0 — Export Giacenze per Area/Ubicazione
-     Multi-foglio: 1 foglio per Site + 1 foglio Riepilogo + 1 foglio Pivot Articoli.
-     Ogni riga = 1 lotto in 1 ubicazione con qty (Colli).
-     © Andrea Sacchetti — Warehouse Mapper v2.0.0 */
   exportGiacenzeExcel() {
     if (typeof XLSX === 'undefined') return this.toast('Libreria Excel non disponibile', 'error');
     const inventory = Store.getInventorySnapshot();
@@ -11632,9 +10239,6 @@ const App = {
           supplier: Validate.clean(row['Fornitore']),
           unit: Validate.clean(row['UM'], true) || 'PZ',
           weight: row['Peso'], length: row['Lunghezza'], width: row['Larghezza'], height: row['Altezza'],
-          /* v3.0.0 [M4] — Colonne facoltative: un foglio preparato per una
-             versione precedente non le ha e l'articolo entra lo stesso, con
-             i due valori a zero. */
           weight_net_kg: row['Peso_Netto_Collo'], pieces_per_pack: row['Pezzi_Per_Collo'],
           min_stock: row['Stock_Min'], max_stock: row['Stock_Max'],
           notes: Validate.clean(row['Note'])
@@ -11685,9 +10289,6 @@ const App = {
   },
 
   async confirmResetData() {
-    /* v2.2.1 [F1][F2] — migrato da confirm() nativo a Dialog (danger = click
-       obbligatorio); il testo cita ora anche i DDT pendenti, inclusi nel
-       reset dal bugfix F1. Doppia conferma preservata. */
     if (!await Dialog.confirm({
       title: '\u26A0 Reset completo database',
       message: 'Tutti i dati (siti, zone, articoli, inventario, movimenti, quarantene, DDT pendenti) saranno eliminati.',
@@ -11711,9 +10312,6 @@ const App = {
   },
 
   // ═══ Sync indicator + toast ═══
-  /* v2.7.0 [G3] — L'indicatore riporta anche QUANDO si e' salvato l'ultima
-     volta. "Salvato" da solo non dice nulla a chi torna al terminale dopo
-     mezz'ora: l'ora sta nel title, dove non ruba spazio alla barra. */
   updateSyncIndicator() {
     const meta = Store.getMeta();
     const dot = document.getElementById('syncDot');
@@ -11736,14 +10334,6 @@ const App = {
     }
   },
 
-  /* v2.7.0 [G3] — SALVATAGGIO MANUALE DALL'INDICATORE
-     © Andrea Sacchetti — Dietopack S.r.l.
-
-     Il checkpoint non e' una novita': Store.forceSave() esiste dalla v1.x ed e'
-     lo stesso che eseguiva il pulsante "Salva ora" in dashboard. Cambia il
-     posto in cui si preme, non cio' che accade. L'indicatore resta disabilitato
-     per tutta la durata dell'operazione: due checkpoint sovrapposti riscrivono
-     le stesse tabelle e non hanno alcun senso. */
   _saving: false,
   async manualSave() {
     if (this._saving) return;
@@ -11767,12 +10357,6 @@ const App = {
     }
   },
 
-  /* v2.1.0 — Il riscontro non compare piu' nell'angolo in alto a destra ma al
-     CENTRO dello schermo, con suono e vibrazione differenziati per esito e
-     durata proporzionata alla gravita' (vedi Feedback.DURATIONS).
-     La firma toast(message, type) e' invariata: nessuna delle ~180 chiamate
-     esistenti e' stata toccata. Il messaggio viene spezzato in titolo e
-     dettaglio al primo separatore " · " gia' usato nei messaggi dell'app. */
   toast(message, type = 'info') {
     const kindMap = { success: 'ok', error: 'error', warning: 'warn', info: 'info' };
     const kind = kindMap[type] || 'info';
@@ -11782,13 +10366,6 @@ const App = {
     const detail = sep > 0 ? msg.slice(sep + 3).trim() : '';
     Feedback.signal(kind, title, detail);
   },
-
-  // ═══════════════════════════════════════════════════════════════════
-  // v2.1.0 — ANNULLA ULTIMA OPERAZIONE (storno tracciato)
-  // Finestra di 120 secondi. Lo storno NON cancella nulla: esegue il
-  // movimento inverso e lo registra a log come rettifica FIX+/FIX- con
-  // causale esplicita, cosi' la tracciabilita' GMP resta integra.
-  // ═══════════════════════════════════════════════════════════════════
 
   UNDO_WINDOW_MS: 120000,
   _undoEntry: null,
@@ -11877,13 +10454,6 @@ const App = {
     }
   },
 
-  // ═══════════════════════════════════════════════════════════════════
-  // v2.1.0 — FOCUS KEEPER
-  // Se nessun campo ha il fuoco (tipico dopo un dialogo o un click a vuoto)
-  // i caratteri sparati dal lettore andrebbero persi. Qui vengono dirottati
-  // sul campo di scansione primario del modulo aperto.
-  // ═══════════════════════════════════════════════════════════════════
-
   _primaryScanField: null,
 
   setPrimaryScanField(id) {
@@ -11909,11 +10479,6 @@ const App = {
     target.value += e.key;
   },
 
-  // ═══════════════════════════════════════════════════════════════════
-  // v2.1.0 — SCORCIATOIE DA TASTIERA
-  // Cambiare modulo senza mouse: fondamentale con un carrello in mano.
-  // ═══════════════════════════════════════════════════════════════════
-
   _shortcuts(e) {
     if (Dialog.isOpen) return;
     /* v2.7.0 [G6] — Il gate di identita' e' un blocco: finche' e' aperto
@@ -11922,9 +10487,6 @@ const App = {
     const ae = document.activeElement;
     const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
 
-    /* v2.7.0 [G2] — Ctrl+F porta al campo di ricerca in barra. Sovrascrive la
-       ricerca nativa del browser di proposito: dentro l'applicativo cercare
-       significa cercare in magazzino, non nel testo della pagina. */
     if (e.ctrlKey && (e.key === 'f' || e.key === 'F')) {
       e.preventDefault();
       const input = document.getElementById('hdrSearchInput');
@@ -11945,9 +10507,6 @@ const App = {
       this.toast('Operazione annullata', 'info');
       return;
     }
-    /* v3.0.0 [M1][M3] — I tasti restano quelli che le dita conoscono: F2 e F6
-       aprono la stessa card, ma nella direzione giusta; F8 non ha più i Resi
-       da aprire e porta alle Spedizioni, dove i resi adesso vivono. */
     const fnMap = {
       F2: ['io', 'in'], F3: ['pick', null], F4: ['inv', null],
       F6: ['io', 'out'], F7: ['quarantine', null], F8: ['shipping', null]

@@ -1,16 +1,3 @@
-/* ═══════════════════════════════════════════════════════════════════
-   PATHFINDER — collaudo del percorso a serpentina
-   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-
-   COSA COLLAUDA, E PERCHÉ PROPRIO QUESTO.
-   Il comparatore a serpentina decide in che ordine un operatore attraversa
-   il magazzino: è la differenza fra un giro e un avanti-e-indietro. Fino a
-   oggi si verificava aprendo l'applicativo, caricando un ODP e guardando
-   l'elenco — cioè si verificava quando qualcuno aveva tempo.
-
-   È anche il candidato ideale: non tocca il database, non tocca la rete,
-   non tocca il DOM. Prende coordinate e restituisce un ordine.
-   ═══════════════════════════════════════════════════════════════════ */
 import { describe, it, expect } from 'vitest';
 import { PickRoute } from '../src/modules/pickRoute';
 
@@ -39,10 +26,6 @@ describe('serpentina', () => {
       ['A2-C3', 'DP', 0, 2, 3, 0],
     ]);
 
-    /* Il senso di tutto: si entra nella corsia 1 dalla campata 1 e si esce
-       dalla 3; si entra nella 2 dalla 3 — che è dove ci si trova — e si esce
-       dalla 1. Se l'ordine fosse 1,2,3 anche sulla corsia pari, l'operatore
-       tornerebbe indietro a vuoto per tutta la lunghezza della corsia. */
     expect(ordina(['A2-C2', 'A1-C3', 'A2-C1', 'A1-C1', 'A2-C3', 'A1-C2'], geo))
       .toEqual(['A1-C1', 'A1-C2', 'A1-C3', 'A2-C3', 'A2-C2', 'A2-C1']);
   });
@@ -76,9 +59,6 @@ describe('serpentina', () => {
   });
 
   it('un’ubicazione senza geometria finisce in coda invece di far fallire l’ordinamento', () => {
-    /* Succede quando una zona viene rimossa dopo che la merce era già lì.
-       La riga non deve sparire e non deve far esplodere il percorso: deve
-       finire in fondo, dove l'operatore la vede. */
     const geo = geometria([['A1-C1', 'DP', 0, 1, 1, 0]]);
     expect(ordina(['ZONA-SPARITA', 'A1-C1'], geo)).toEqual(['A1-C1', 'ZONA-SPARITA']);
   });
