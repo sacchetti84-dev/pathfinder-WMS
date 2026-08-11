@@ -1292,7 +1292,7 @@ const Store = {
   },
 
   // ═══════════════════════════════════════════════════════════════════
-  // © Andrea Sacchetti — Dietopack S.r.l. — Pathfinder 1.1
+  // © Andrea Sacchetti — Dietopack S.r.l. — Pathfinder 1.2
   // Da qui in giu' Store non nomina mai Dexie: ogni scrittura passa per
   // Persistence, ogni mutazione di cache per _applyToCache.
   // ═══════════════════════════════════════════════════════════════════
@@ -2263,9 +2263,13 @@ const Store = {
        chiave e' una OMISSIONE ("di questo non parlo") e la lascia stare.
        Le due cose si scrivono quasi uguali e finiscono in modi opposti. */
     const data = {
+      /* `_format` NON cambia con la versione dell'applicativo: descrive la
+         forma del pacchetto, che è la stessa, e un file esportato dalla 1.1
+         deve continuare a rientrare. `_appVersion` invece dice chi lo ha
+         scritto, ed è l'unica delle due a muoversi. */
       _format: 'warehouse-mapper-v1.5',
       _author: 'Andrea Sacchetti',
-      _appVersion: '1.1.0',
+      _appVersion: '1.2.0',
       _exported: new Date().toISOString(),
       sites: this._cache.sites.map(s => { const { zones, ...p } = s; return p; }),
       zones: this._cache.zones,

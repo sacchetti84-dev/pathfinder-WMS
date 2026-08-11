@@ -3989,7 +3989,7 @@ const App = {
       <footer class="doc-zone-foot">
         ${firme}
         <div class="pr-footer">
-          <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder 1.1 — Dietopack S.r.l. / Naturacare Group</span>
+          <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder 1.2 — Dietopack S.r.l. / Naturacare Group</span>
           <span>${this._esc(docId)} — ${this._esc(printedLabel)} ${this._esc(fmt)}</span>
         </div>
       </footer>
