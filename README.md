@@ -295,7 +295,11 @@ Invoke-RestMethod http://127.0.0.1:4199/api/health | Select-Object file, revisio
 ## 8. Aggiornare a una versione nuova
 
 1. **Backup prima.** Sempre, anche per una modifica piccola (§7).
-2. Copia il file nuovo dell'applicativo nella cartella `MAPPER`.
+2. Copia il file nuovo dell'applicativo nella cartella `MAPPER`, prendendolo
+   da `Pathfinder 1.2\` (§10). In radice ci sta **il file che il servizio
+   serve**, ed è la ragione per cui non lo si punta direttamente dentro la
+   cartella di consegna: quella la build la riscrive, e un rilascio deve
+   essere un gesto, non un effetto collaterale di `npm run build`.
 3. Punta `PATHFINDER_APP` al file nuovo, se il nome è cambiato.
 4. **Riavvia il servizio.** Node carica il codice all'avvio: dopo una
    modifica ai file di `server/`, senza riavvio continua a rispondere col
@@ -373,8 +377,31 @@ Il sorgente è modulare; ciò che si distribuisce è un file solo. Sono due
 momenti diversi, non due scelte in conflitto.
 
 ```
-src/  ~25 moduli  ──build──>  dist/pathfinder-1.2.html  (un file, si copia)
+src/  28 file  ──build──>  Pathfinder 1.2/  (la cartella che si copia)
 ```
+
+### Dove sta cosa
+
+Aprendo `MAPPER` si vedono tre cose diverse, e non vanno confuse.
+
+| | Cos'è | Chi la tocca |
+|---|---|---|
+| **`Pathfinder 1.2/`** | **La consegna.** L'applicativo in un file solo più queste istruzioni. È ciò che si copia sul PC di magazzino | Nessuno a mano: la **produce** `npm run build` e la **svuota** a ogni giro |
+| `src/` `test/` `index.html` e i file di configurazione | Il cantiere | Chi sviluppa |
+| `server/` | Il servizio dati, in funzione | Si installa una volta (§4), poi ci pensa Windows |
+| `ARCHIVIO/` | Versioni precedenti, file di prova, marchi, stampa etichette | Nessuno, di norma |
+| `HANDOFF/` | La memoria del progetto: perché le cose stanno come stanno | Si legge prima di metterci le mani |
+
+> **Nella cartella di consegna non si scrive a mano.** È interamente prodotta
+> dalla build, che la azzera ogni volta: un file lasciato lì sparisce al primo
+> `npm run build`. Per lo stesso motivo non sta nel repository — ciò che la
+> compone, il sorgente e il README, c'è già.
+
+> **`server/` non si sposta.** L'attività pianificata registrata da
+> `installa-servizio.ps1` contiene il percorso *assoluto* di
+> `pathfinder-server.js`: spostare la cartella non dà errore subito, dà un
+> magazzino fermo al riavvio successivo. Se un giorno va spostata, si rilancia
+> l'installazione dalla posizione nuova (§4).
 
 ### Comandi
 
@@ -382,7 +409,7 @@ src/  ~25 moduli  ──build──>  dist/pathfinder-1.2.html  (un file, si cop
 |---|---|
 | `npm install` | Dipendenze del client |
 | `npm run dev` | Sviluppo con ricarica automatica su `localhost:5173` |
-| `npm run build` | Produce `dist/pathfinder-1.2.html` |
+| `npm run build` | Rifà `Pathfinder 1.2/`: l'applicativo e una copia di queste istruzioni |
 | `npm run check` | Controllo dei tipi, client **e** servizio |
 | `npm test` | Collaudi automatici (serpentina, FEFO, geometria, parser ODP) — ~1 secondo |
 | `cd server && npm test` | 29 prove sul servizio, con database usa-e-getta |
@@ -397,18 +424,30 @@ npm run dev
 ### Struttura
 
 ```
-src/
-├─ main.js              ingresso: stili, avvio, errori globali
-├─ types/       .ts     i contratti, condivisi col servizio
-├─ core/        .ts     costanti · schema · persistence/ …  ma store.js no
-├─ modules/     .ts     auth · odpParser · pickRoute · session · vault · …
-├─ ui/          .js     app · dialog · feedback · tabs
-└─ styles/              i 5 fogli, nell'ordine della cascata
-test/                   geometria · serpentina · FEFO · parser ODP
-server/
-├─ pathfinder-server.js  gli endpoint
-├─ lib/{db,schema}.js    SQLite e lo schema
-└─ test/collaudo.js      29 prove
+MAPPER/
+├─ Pathfinder 1.2/       ← PRODOTTA dalla build, si copia in magazzino
+│  ├─ pathfinder-1.2.html
+│  └─ README.md
+├─ index.html            l'ingresso: testata, marchi, scheletro della pagina
+├─ src/
+│  ├─ main.js            avvio, stili, rete globale sugli errori
+│  ├─ types/     .ts     i contratti, condivisi col servizio
+│  ├─ core/      .ts     costanti · schema · persistence/ …  ma store.js no
+│  ├─ modules/   .ts     auth · odpParser · pickRoute · session · vault · …
+│  ├─ ui/        .js     app · dialog · feedback · tabs
+│  └─ styles/            i 5 fogli, nell'ordine della cascata
+├─ test/                 geometria · serpentina · FEFO · parser ODP
+├─ server/               NON SI SPOSTA (vedi sopra)
+│  ├─ pathfinder-server.js  gli endpoint
+│  ├─ installa-servizio.ps1 · backup-serale.ps1
+│  ├─ lib/{db,schema}.js    SQLite e lo schema
+│  └─ test/collaudo.js      29 prove
+├─ HANDOFF/              i passaggi di consegne, dal 1.0 in poi
+└─ ARCHIVIO/
+   ├─ VERSIONI PRECEDENTI/    1.1 e 2.8.0, intatte
+   ├─ BACKUP E FILE DI TEST/  export veri: fuori dal repository
+   ├─ LOGHI/                  i marchi, materiale sorgente
+   └─ stampa etichette/       il tool per le etichette d'ubicazione
 ```
 
 **Perché due estensioni.** La conversione a TypeScript va avanti un file per

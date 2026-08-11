@@ -14,19 +14,32 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 import fs from 'node:fs';
 import path from 'node:path';
 
+/* La cartella di consegna: quella che si copia sul PC di magazzino. Si chiama
+   come la versione perché il nome della cartella è la prima cosa che si legge,
+   e deve dire cosa c'è dentro senza aprirla. */
+const CONSEGNA = 'Pathfinder 1.2';
+
 /* Vite chiama il suo prodotto index.html, perché così si chiama l'ingresso.
    In magazzino il nome del file è l'identità della versione: è quello che si
-   legge nella cartella per sapere cosa gira. */
-function nomeDelRilascio(nome) {
+   legge nella cartella per sapere cosa gira.
+
+   Insieme al file viene messo il README. NON è una seconda copia da tenere
+   allineata a mano: è una copia che la build rifà ogni volta, e l'originale
+   resta uno solo in radice. Serve perché la cartella di consegna deve poter
+   viaggiare da sola — chi la riceve ha in mano l'applicativo e le istruzioni
+   per installarlo, senza dover chiedere altro. */
+function cartellaDiConsegna(nome) {
   return {
-    name: 'pathfinder-nome-del-rilascio',
+    name: 'pathfinder-cartella-di-consegna',
     closeBundle() {
-      const da = path.resolve('dist/index.html');
-      const a = path.resolve('dist', nome);
+      const da = path.resolve(CONSEGNA, 'index.html');
+      const a = path.resolve(CONSEGNA, nome);
       if (!fs.existsSync(da)) return;
       fs.renameSync(da, a);
+      fs.copyFileSync(path.resolve('README.md'), path.resolve(CONSEGNA, 'README.md'));
       const mb = (fs.statSync(a).size / 1024 / 1024).toFixed(2);
-      console.log(`\n  ${nome} — ${mb} MB — un file solo, pronto da copiare\n`);
+      console.log(`\n  ${CONSEGNA}/${nome} — ${mb} MB — un file solo, pronto da copiare`);
+      console.log(`  ${CONSEGNA}/README.md — le istruzioni, copiate dalla radice\n`);
     },
   };
 }
@@ -34,10 +47,16 @@ function nomeDelRilascio(nome) {
 export default defineConfig({
   plugins: [
     viteSingleFile(),
-    nomeDelRilascio('pathfinder-1.2.html'),
+    cartellaDiConsegna('pathfinder-1.2.html'),
   ],
 
   build: {
+    /* Non `dist`: la cartella di consegna ha il nome della versione, e chi
+       apre MAPPER capisce a colpo d'occhio qual è la roba da portare in
+       magazzino e quale è il cantiere. `emptyOutDir` resta acceso — è la
+       stessa cartella che la build possiede per intero, e un file rimasto lì
+       da un rilascio precedente sarebbe peggio di uno mancante. */
+    outDir: CONSEGNA,
     /* I terminali di magazzino montano Chrome recenti, ma non c'è ragione di
        chiedere più di quello che il codice usa davvero. */
     target: 'es2020',

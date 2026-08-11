@@ -17,12 +17,16 @@ server/data/
 
 # Esportazioni e file di prova: contengono movimenti reali e sigle operatore.
 # Gli HANDOFF in .md dentro la stessa cartella invece restano — sono memoria di progetto.
-BACKUP E FILE DI TEST/*.json
-BACKUP E FILE DI TEST/*.xlsx
-BACKUP E FILE DI TEST/movimenti/
+ARCHIVIO/BACKUP E FILE DI TEST/*.json
+ARCHIVIO/BACKUP E FILE DI TEST/*.xlsx
+ARCHIVIO/BACKUP E FILE DI TEST/movimenti/
 
-# Output di build: si rigenera con "npm run build".
-dist/
+# La cartella di consegna e' PRODOTTA, non scritta: la build la possiede per
+# intero e la svuota a ogni giro. Dentro non ci va niente a mano, perche' al
+# primo "npm run build" sparirebbe. Si rigenera in tre secondi, ed e' il
+# motivo per cui non sta nel repository: cio' che la compone - il sorgente e
+# il README - c'e' gia'.
+Pathfinder 1.2/
 
 # Rumore di Windows e degli editor.
 Thumbs.db

@@ -175,10 +175,12 @@ Invoke-RestMethod -Uri http://127.0.0.1:4173/api/backup -Method Post `
 ```
 
 ```powershell
-# 2. La 1.1 va in archivio, la 1.2 prende posto in radice.
+# 2. La 1.2 prende posto in radice, accanto alla 1.1 che resta.
+#    In radice sta IL FILE CHE IL SERVIZIO SERVE: si copia dalla cartella di
+#    consegna invece di puntarci dentro, perche' quella la build la riscrive e
+#    un rilascio dev'essere un gesto, non un effetto di "npm run build".
 cd "C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER"
-Move-Item pathfinder-1.1.html "VERSIONI PRECEDENTI\pathfinder-1.1.html" -Force
-Copy-Item dist\pathfinder-1.2.html pathfinder-1.2.html
+Copy-Item "Pathfinder 1.2\pathfinder-1.2.html" pathfinder-1.2.html
 ```
 
 ```powershell
@@ -201,10 +203,11 @@ Invoke-RestMethod http://127.0.0.1:4173/api/app-info
 Se `app_file` non è la 1.2 o `mtime` non è quello del file appena copiato, il
 servizio sta servendo un'altra cartella: non insistere, leggere il README §9.
 
-**Il ritorno indietro è il punto 3 all'incontrario**, più un riavvio: la 1.1
-resta in `VERSIONI PRECEDENTI` e il database non viene toccato da nessuno di
-questi cinque passi. Vale la pena tenere la 1.1 raggiungibile per il primo
-turno.
+**Il ritorno indietro è il punto 3 all'incontrario**, più un riavvio:
+`pathfinder-1.1.html` resta in radice — non viene spostato da nessuno di
+questi passi, proprio per questo — e il database non viene toccato. Quando la
+1.2 avrà fatto qualche turno, la 1.1 si toglie dalla radice: una copia è già
+in `ARCHIVIO\VERSIONI PRECEDENTI`.
 
 > Perché non l'ho fatto io: sono comandi che fermano il servizio del
 > magazzino e cambiano una variabile di macchina. Vanno dati da chi può
@@ -227,15 +230,32 @@ turno.
 | 5 | Fase 4: collaudi su **`Store._applyToCache`** — è il punto dove ogni mutazione entra nella cache, quattordici collezioni con cinque forme diverse (lista, mappa, insieme, singolo, chiave/valore), e non ha una prova | medio |
 | 6 | Aperti dell'HANDOFF 1.0 ancora validi: §7.3 schede grafico che tagliano ~6px, §7.4 causali di trasporto da validare, §7.6 `weight_net_kg` e `pieces_per_pack` in anagrafica | vari |
 
-### Riordino minore, ancora in sospeso
+### Riordino — fatto, e cosa resta
 
-- `pathfinder-1.1.html` sta sia in radice sia in `VERSIONI PRECEDENTI`: si
-  risolve da sé al primo dei cinque comandi qui sopra.
-- `LOGHI/` contiene nomi generati automaticamente accanto a quelli veri, e due
-  file identici byte per byte (`commodore.svg` e `gemini-svg.svg`, 4.252 byte
-  entrambi). **Non ci ho messo mano**: sono materiali di progetto e quale
-  tenere lo decide chi li ha fatti. Nessuno di questi file è usato a runtime —
-  i marchi nell'applicativo sono `<svg>` in linea dentro `index.html`.
+**Fatto.** La radice di `MAPPER` era diventata illeggibile: consegna,
+cantiere, archivi e strumenti scollegati tutti allo stesso livello. Adesso
+sono quattro cose separate, e il README §10 ha una tabella che dice quale è
+quale e chi la tocca.
+
+- **`Pathfinder 1.2/`** è la consegna, ed è **prodotta**: `npm run build` la
+  azzera e la rifà con l'applicativo e una copia del README. Dentro non si
+  scrive a mano — sparirebbe al primo giro — e per lo stesso motivo non sta
+  nel repository.
+- **`ARCHIVIO/`** ha inghiottito `VERSIONI PRECEDENTI`, `BACKUP E FILE DI
+  TEST`, `LOGHI` e `stampa etichette`.
+- **`server/` è rimasto dov'era**, e non è una svista: l'attività pianificata
+  registrata da `installa-servizio.ps1` contiene il percorso *assoluto* di
+  `pathfinder-server.js`. Spostarlo non darebbe errore subito — darebbe un
+  magazzino fermo al riavvio successivo. Se un giorno va spostato, si rilancia
+  l'installazione dalla posizione nuova, da amministratore, e conviene farlo
+  nella stessa finestra dei cinque comandi qui sopra invece che in una sua.
+
+**Resta:** `ARCHIVIO/LOGHI/` contiene nomi generati automaticamente accanto a
+quelli veri, e due file **identici byte per byte** (`commodore.svg` e
+`gemini-svg.svg` — stesso SHA-256, verificato). Non ci ho messo mano: sono
+materiali di progetto e quale tenere lo decide chi li ha fatti. Nessuno di
+questi file è usato a runtime — i marchi nell'applicativo sono `<svg>` in
+linea dentro `index.html`.
 
 ---
 
