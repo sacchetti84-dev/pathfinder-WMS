@@ -1159,6 +1159,58 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
 .fp-sub { font-size: var(--md-sys-typescale-label-small-size); opacity: 0.85; }
 .fp-badge { position: absolute; top: 2px; right: 2px; background: var(--sx-primary); color: #fff; font-size: var(--md-sys-typescale-label-small-size); padding: 0 3px; border-radius: 99px; }
 
+/* ════ 1.4.0 — Verifica di stoccaggio ════
+   La cella fuori posto NON cambia colore: il colore dice gia' se e' vuota,
+   occupata o bloccata, e sovrascriverlo perderebbe quell'informazione. Prende
+   un filetto e un segno d'angolo, che si sommano invece di sostituire. */
+.grid-cell.conf-ko, .front-cell.conf-ko, .floor-pallet.conf-ko {
+  outline: 2px solid var(--sx-danger); outline-offset: -2px;
+}
+.grid-cell.conf-warn, .front-cell.conf-warn, .floor-pallet.conf-warn {
+  outline: 2px dashed var(--sx-warning); outline-offset: -2px;
+}
+.conf-mark {
+  position: absolute; top: -2px; left: 2px;
+  font-weight: 900; font-size: 0.7rem; line-height: 1;
+  color: var(--sx-danger); pointer-events: none;
+}
+.conf-warn .conf-mark { color: var(--sx-warning); }
+
+.conf-bar {
+  display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
+  margin-top: 0.4rem; padding: 0.45rem 0.75rem; width: 100%;
+  border-radius: var(--radius);
+  font-size: var(--md-sys-typescale-body-small-size);
+}
+.conf-bar--alta { background: var(--sx-danger-soft); color: var(--sx-danger); }
+.conf-bar--media { background: var(--sx-warning-soft); color: var(--sx-warning); }
+.conf-bar--muta { background: var(--sx-bg-alt); color: var(--sx-text-muted); }
+.conf-bar-nota { margin-left: auto; color: var(--sx-text-muted); font-size: var(--md-sys-typescale-label-small-size); }
+
+.conf-riepilogo { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.7rem; }
+.conf-chip {
+  padding: 0.2rem 0.6rem; border-radius: 99px;
+  background: var(--sx-danger-soft); color: var(--sx-danger);
+  font-size: var(--md-sys-typescale-label-small-size);
+}
+.conf-chip--muta { background: var(--sx-bg-alt); color: var(--sx-text-muted); }
+.conf-riga-alta td:first-child { color: var(--sx-danger); }
+.conf-vai {
+  background: none; border: none; padding: 0; cursor: pointer;
+  font: inherit; color: var(--sx-primary); text-decoration: underline;
+}
+
+/* Caselle degli allergeni nella maschera articolo */
+.all-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); gap: 0.25rem; }
+.all-chip {
+  display: flex; align-items: center; gap: 0.4rem;
+  padding: 0.28rem 0.5rem; border-radius: var(--radius);
+  border: 1px solid var(--sx-border); cursor: pointer;
+  font-size: var(--md-sys-typescale-label-small-size); line-height: 1.2;
+}
+.all-chip.on { border-color: var(--sx-accent); background: var(--sx-accent-soft); }
+.all-chip input { margin: 0; flex: none; }
+
 /* ════ Detail panel (destra) ════ */
 .detail-panel {
   position: fixed;
@@ -1705,6 +1757,12 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
 .dlg-kv { display: grid; grid-template-columns: auto 1fr; gap: 0.25rem 0.9rem; margin-top: 0.6rem; font-size: var(--md-sys-typescale-body-medium-size); }
 .dlg-kv dt { color: var(--sx-text-muted); font-weight: 600; }
 .dlg-kv dd { color: var(--sx-text); font-family: var(--mono); font-weight: 700; }
+/* 1.4.0 — referto dell'import anagrafica */
+.dlg-problemi { margin-top: 0.9rem; border-left: 3px solid var(--sx-danger); padding-left: 0.7rem; }
+.dlg-problemi-t { font-weight: 700; color: var(--sx-danger); margin-bottom: 0.3rem; }
+.dlg-problemi ul { margin: 0; padding-left: 1.1rem; max-height: 11rem; overflow-y: auto; }
+.dlg-problemi li { font-family: var(--mono); font-size: var(--md-sys-typescale-label-small-size); line-height: 1.5; }
+.dlg-nota { margin-top: 0.9rem; font-size: var(--md-sys-typescale-label-small-size); color: var(--sx-text-muted); }
 .dlg-actions {
   display: flex; justify-content: flex-end; gap: 0.6rem;
   padding: 0.9rem 1.6rem 1.3rem; flex-wrap: wrap;

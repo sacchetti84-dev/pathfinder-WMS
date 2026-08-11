@@ -14,6 +14,10 @@ import { Tabs } from './tabs.js';
 import { Store } from '../core/store.js';
 import { PickRoute } from '../modules/pickRoute.js';
 import { Vault } from '../modules/vault';
+import {
+  ALLERGENI, CLASSI_TEMPERATURA, leggiAllergeni, scriviAllergeni,
+  leggiClasseTemperatura, etichettaAllergene, etichettaClasse, fogliValoriAmmessi,
+} from '../modules/anagrafica';
 
 const App = {
   currentView: 'dashboard',
@@ -1733,6 +1737,7 @@ const App = {
     if (!site || !zone) return;
     const stats = Store.getZoneStats(this.currentSite, this.currentZone);
     const locs = Store.generateLocations(this.currentSite, this.currentZone);
+    this._aggiornaConformita();
 
     let toolbar = `
       <div class="map-toolbar">
@@ -1772,11 +1777,101 @@ const App = {
           <div class="legend-item"><div class="legend-dot" style="background:var(--sx-disabled)"></div>Disatt.</div>
           <div class="legend-item" style="margin-left:auto;color:var(--sx-text-muted)">💡 Tasto dx = Attiva/Disattiva</div>
         </div>
+        ${this._fasciaConformita(locs)}
       </div>`;
     document.getElementById('mapToolbar').innerHTML = toolbar;
 
     if (this.mapViewMode === 'frontal') this._renderMapFrontal(zone, locs);
     else this._renderMapPlan(zone, locs);
+  },
+
+  /* La fascia parla solo della zona che si sta guardando: un conteggio di
+     tutto il magazzino, sopra una corsia, non dice a nessuno cosa fare. */
+  _fasciaConformita(locs) {
+    const conf = this._conf;
+    if (!conf) return '';
+    const qui = new Set(locs.map(l => l.code));
+    const righe = conf.nonConformita.filter(n => qui.has(n.location_code));
+    const senzaAttributi = conf.articoliSenzaAttributi.size;
+
+    if (!righe.length) {
+      /* Silenzio ambiguo: zero segnalazioni perche' va tutto bene, o perche'
+         non c'e' ancora niente da verificare? Sono due cose diverse. */
+      if (!conf.verificabili && senzaAttributi) {
+        return `<div class="conf-bar conf-bar--muta">
+          🧭 Verifica di stoccaggio inattiva — <strong>${senzaAttributi}</strong> articoli
+          senza classe di temperatura né allergeni. Si popolano da Configurazione → Articoli → Export/Import Excel.
+        </div>`;
+      }
+      return '';
+    }
+
+    const alte = righe.filter(n => n.gravita === 'alta').length;
+    return `<div class="conf-bar ${alte ? 'conf-bar--alta' : 'conf-bar--media'}">
+      <span>⚠ <strong>${righe.length}</strong> ${righe.length === 1 ? 'giacenza fuori posto' : 'giacenze fuori posto'} in questa zona${alte ? ` — <strong>${alte}</strong> ${alte === 1 ? 'grave' : 'gravi'}` : ''}</span>
+      <button class="btn btn-sm" onclick="App.mostraNonConformita()">Vedi elenco</button>
+      ${senzaAttributi ? `<span class="conf-bar-nota">${senzaAttributi} articoli non ancora classificati, non verificati</span>` : ''}
+    </div>`;
+  },
+
+  /* L'elenco completo, di tutto il magazzino: da qui si va all'ubicazione. */
+  mostraNonConformita() {
+    const conf = this._conf || this._aggiornaConformita();
+    if (!conf || !conf.nonConformita.length) {
+      return this.toast('Nessuna giacenza fuori posto', 'success');
+    }
+    const perTipo = new Map();
+    for (const n of conf.nonConformita) perTipo.set(n.tipo, (perTipo.get(n.tipo) || 0) + 1);
+
+    const righe = conf.nonConformita.slice(0, 300).map(n => `
+      <tr class="${n.gravita === 'alta' ? 'conf-riga-alta' : ''}">
+        <td>${n.gravita === 'alta' ? '⛔' : '⚠'}</td>
+        <td class="mono"><button class="conf-vai" onclick="App.closeModal();App.goToLocation('${this._esc(n.location_code)}')">${this._esc(n.location_code)}</button></td>
+        <td class="mono">${this._esc(n.article_code)}</td>
+        <td>${this._esc(n.article_description || '')}</td>
+        <td class="mono">${this._esc(n.lot_code || '')}</td>
+        <td>${this._esc(n.messaggio)}</td>
+      </tr>`).join('');
+
+    this.showModal(`Giacenze fuori posto — ${conf.nonConformita.length}`, `
+      <div class="conf-riepilogo">
+        ${[...perTipo].map(([t, n]) => `<span class="conf-chip">${this._esc(this._etichettaTipoNC(t))}: <strong>${n}</strong></span>`).join('')}
+        <span class="conf-chip conf-chip--muta">verificate ${conf.verificabili} di ${conf.righe} giacenze</span>
+      </div>
+      <div style="overflow-x:auto;max-height:56vh">
+        <table class="sx-table">
+          <thead><tr><th style="width:34px"></th><th>Ubicazione</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Perché</th></tr></thead>
+          <tbody>${righe}</tbody>
+        </table>
+      </div>
+      ${conf.nonConformita.length > 300 ? `<div class="dlg-nota">Mostrate le prime 300 di ${conf.nonConformita.length}. L'export Excel le porta tutte.</div>` : ''}
+    `, `<button class="btn" onclick="App.closeModal()">Chiudi</button>
+        <button class="btn btn-accent" onclick="App.esportaNonConformita()">📊 Esporta Excel</button>`);
+  },
+
+  _etichettaTipoNC(tipo) {
+    return {
+      TEMPERATURA: 'Temperatura',
+      ALLERGENE_FUORI_ZONA: 'Allergeni fuori zona',
+      ALLERGENE_NON_AMMESSO: 'Allergene non ammesso',
+      PULITO_IN_ZONA_ALLERGENI: 'Senza allergeni in zona riservata',
+    }[tipo] || tipo;
+  },
+
+  esportaNonConformita() {
+    const conf = this._conf || this._aggiornaConformita();
+    if (!conf?.nonConformita.length) return this.toast('Niente da esportare', 'warning');
+    const data = conf.nonConformita.map(n => ({
+      'Gravità': n.gravita === 'alta' ? 'ALTA' : 'MEDIA',
+      'Tipo': this._etichettaTipoNC(n.tipo),
+      'Ubicazione': n.location_code, 'Articolo': n.article_code,
+      'Descrizione': n.article_description || '', 'Lotto': n.lot_code || '',
+      'Colli': n.qty ?? '', 'Motivo': n.messaggio,
+    }));
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Fuori posto');
+    XLSX.writeFile(wb, `giacenze-fuori-posto-${new Date().toISOString().slice(0,10)}.xlsx`);
+    this.toast('✓ Excel esportato', 'success');
   },
 
   setMapView(mode) { this.mapViewMode = mode; this.renderMap(); },
@@ -1842,17 +1937,42 @@ const App = {
     document.getElementById('mapContainer').innerHTML = html;
   },
 
+  /* 1.4.0 — La verifica di conformita' si calcola UNA volta per disegnata e
+     si tiene qui: `_renderCell` viene chiamata una volta per cella, e su una
+     zona da duemila ubicazioni ricalcolarla ogni volta sarebbe duemila giri
+     sull'inventario. `renderMap` la rinfresca, il resto la legge. */
+  _conf: null,
+
+  _aggiornaConformita() {
+    try { this._conf = Store.verificaStoccaggio(); }
+    catch { this._conf = null; }
+    return this._conf;
+  },
+
+  /* Il marcatore di una cella: niente se e' a posto, o se non c'e' niente da
+     verificare. Restituisce classe e testo del title, non HTML. */
+  _segnoConformita(code) {
+    const nc = this._conf?.perUbicazione.get(code);
+    if (!nc) return { cls: '', title: '', badge: '' };
+    return {
+      cls: nc.gravita === 'alta' ? ' conf-ko' : ' conf-warn',
+      title: ` · ⚠ ${nc.n} fuori posto`,
+      badge: '<span class="conf-mark">!</span>',
+    };
+  },
+
   _renderCell(code, size) {
     const status = Store.getLocationStatus(code);
     const items = Store.getItemsAtLocation(code);
     const selected = this.selectedLocation === code;
     const short = code.split('-').pop();
-    return `<div class="grid-cell status-${status} ${selected ? 'selected' : ''}" style="width:${size}px;height:${size}px"
+    const nc = this._segnoConformita(code);
+    return `<div class="grid-cell status-${status}${nc.cls} ${selected ? 'selected' : ''}" style="width:${size}px;height:${size}px"
       data-loc="${code}"
       onclick="App.selectLocation('${code}')"
       oncontextmenu="event.preventDefault();App._mapToggleDisable('${code}')"
-      title="${code} — ${status}${items.length ? ' · '+items.length+' item' : ''}">
-      ${short}${items.length ? `<span class="item-count">${items.length}</span>` : ''}
+      title="${code} — ${status}${items.length ? ' · '+items.length+' item' : ''}${nc.title}">
+      ${short}${items.length ? `<span class="item-count">${items.length}</span>` : ''}${nc.badge}
     </div>`;
   },
 
@@ -1880,12 +2000,13 @@ const App = {
               const status = Store.getLocationStatus(loc.code);
               const items = Store.getItemsAtLocation(loc.code);
               const sel = this.selectedLocation === loc.code;
-              html += `<div class="front-cell s-${status} ${sel ? 'selected' : ''}"
+              const nc = this._segnoConformita(loc.code);
+              html += `<div class="front-cell s-${status}${nc.cls} ${sel ? 'selected' : ''}"
                 data-loc="${loc.code}"
                 onclick="App.selectLocation('${loc.code}')"
                 oncontextmenu="event.preventDefault();App._mapToggleDisable('${loc.code}')"
-                title="${loc.code} — ${status}${items.length ? ' · '+items.length+' item' : ''}">
-                ${String(b).padStart(2,'0')}${items.length ? `<span class="fc-badge">${items.length}</span>` : ''}
+                title="${loc.code} — ${status}${items.length ? ' · '+items.length+' item' : ''}${nc.title}">
+                ${String(b).padStart(2,'0')}${items.length ? `<span class="fc-badge">${items.length}</span>` : ''}${nc.badge}
               </div>`;
             }
           }
@@ -1910,14 +2031,15 @@ const App = {
             const items = Store.getItemsAtLocation(loc.code);
             const sel = this.selectedLocation === loc.code;
             const stLbl = status === 'empty' ? '—' : status === 'occupied' ? 'pallet' : status === 'blocked' ? 'BLOCK' : status === 'disabled' ? 'OFF' : 'RIS';
-            html += `<div class="floor-pallet fp-${status} ${sel ? 'selected' : ''}"
+            const nc = this._segnoConformita(loc.code);
+            html += `<div class="floor-pallet fp-${status}${nc.cls} ${sel ? 'selected' : ''}"
               data-loc="${loc.code}"
               onclick="App.selectLocation('${loc.code}')"
               oncontextmenu="event.preventDefault();App._mapToggleDisable('${loc.code}')"
-              title="${loc.code} — ${status}">
+              title="${loc.code} — ${status}${nc.title}">
               <span class="fp-code">P${String(c).padStart(2,'0')}</span>
               <span class="fp-sub">${stLbl}</span>
-              ${items.length ? `<span class="fp-badge">${items.length}</span>` : ''}
+              ${items.length ? `<span class="fp-badge">${items.length}</span>` : ''}${nc.badge}
             </div>`;
           }
         }
@@ -1931,13 +2053,14 @@ const App = {
         const status = Store.getLocationStatus(loc.code);
         const items = Store.getItemsAtLocation(loc.code);
         const sel = this.selectedLocation === loc.code;
-        html += `<div class="floor-pallet fp-${status} ${sel ? 'selected' : ''}"
+        const nc = this._segnoConformita(loc.code);
+        html += `<div class="floor-pallet fp-${status}${nc.cls} ${sel ? 'selected' : ''}"
           data-loc="${loc.code}"
           onclick="App.selectLocation('${loc.code}')"
           oncontextmenu="event.preventDefault();App._mapToggleDisable('${loc.code}')"
-          title="${loc.code} — ${status}">
+          title="${loc.code} — ${status}${nc.title}">
           <span class="fp-code">${String(loc.position).padStart(2,'0')}</span>
-          ${items.length ? `<span class="fp-badge">${items.length}</span>` : ''}
+          ${items.length ? `<span class="fp-badge">${items.length}</span>` : ''}${nc.badge}
         </div>`;
       }
       html += '</div></div>';
@@ -9534,6 +9657,56 @@ const App = {
     this.toast(`✓ Zona ${id} creata in ${siteId}`, 'success');
   },
 
+  /* 1.4.0 — La destinazione d'uso della zona: e' la meta' contro cui si
+     verificano gli attributi dell'articolo. Senza questa, nessuna
+     segnalazione puo' comparire sulla mappa, per quanti articoli si
+     classifichino. */
+  _campiDestinazioneZona(zone) {
+    const attuale = zone?.temp_class || '';
+    const riservata = zone?.allergen_zone === true;
+    const scelti = new Set(zone?.allergens || []);
+    const opzioni = CLASSI_TEMPERATURA.map(c =>
+      `<option value="${c.code}" ${attuale === c.code ? 'selected' : ''}>${this._esc(c.label)} — ${this._esc(c.range)}</option>`
+    ).join('');
+    const caselle = ALLERGENI.map(a =>
+      `<label class="all-chip ${scelti.has(a.code) ? 'on' : ''}">
+        <input type="checkbox" id="ezAll_${a.code}" ${scelti.has(a.code) ? 'checked' : ''}
+          onchange="this.parentElement.classList.toggle('on',this.checked)">
+        ${this._esc(a.label)}</label>`
+    ).join('');
+    return `
+      <div style="border-top:1px dashed var(--sx-border);margin:0.8rem 0 0.6rem;padding-top:0.7rem">
+        <div class="form-group" style="margin-bottom:0.5rem"><label>Classe di conservazione della zona</label>
+          <select class="input" id="ezTempClass">
+            <option value="">— non caratterizzata —</option>${opzioni}
+          </select></div>
+        <div class="form-group" style="margin-bottom:0.4rem">
+          <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;font-size: var(--md-sys-typescale-body-small-size)">
+            <input type="checkbox" id="ezAllergenZone" style="width:16px;height:16px;cursor:pointer" ${riservata ? 'checked' : ''}
+              onchange="document.getElementById('ezAllergenList').hidden=!this.checked">
+            <span>Zona riservata alla merce con allergeni</span>
+          </label></div>
+        <div class="form-group" id="ezAllergenList" ${riservata ? '' : 'hidden'}>
+          <label>Allergeni ammessi — nessuno spuntato = tutti</label>
+          <div class="all-grid">${caselle}</div></div>
+        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.3rem">
+          🧭 Lasciata non caratterizzata, la zona non segnala nulla.
+        </div>
+      </div>`;
+  },
+
+  _leggiDestinazioneZona() {
+    const riservata = document.getElementById('ezAllergenZone')?.checked === true;
+    const allergens = ALLERGENI
+      .filter(a => document.getElementById(`ezAll_${a.code}`)?.checked)
+      .map(a => a.code);
+    return {
+      temp_class: document.getElementById('ezTempClass')?.value || undefined,
+      allergen_zone: riservata,
+      allergens: riservata && allergens.length ? allergens : undefined,
+    };
+  },
+
   showEditZoneModal(siteId, zoneId) {
     const zone = Store.getZone(siteId, zoneId);
     if (!zone) return;
@@ -9565,6 +9738,7 @@ const App = {
         <input class="input" id="ezName" value="${this._esc(zone.name)}" maxlength="${Validate.MAX.ZONE_NAME}"></div>
       <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-warning);margin-bottom:0.5rem">⚠ Modificare le dimensioni può generare ubicazioni orfane per item già posizionati oltre la nuova griglia.</p>
       ${configFields}
+      ${this._campiDestinazioneZona(zone)}
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
         <button class="btn btn-primary" onclick="App.doEditZone('${siteId}','${zoneId}')">Salva</button>`);
   },
@@ -9588,6 +9762,7 @@ const App = {
       updates.positions = Math.max(1, Math.min(999, parseInt(document.getElementById('ezPositions').value) || 1));
       updates.grid_cols = Math.max(1, Math.min(20, parseInt(document.getElementById('ezCols').value) || 5));
     }
+    Object.assign(updates, this._leggiDestinazioneZona());
     await Store.updateZone(siteId, zoneId, updates);
     this.closeModal();
     this.renderSidebar(); this.renderDashboard(); this.renderConfig();
@@ -9703,6 +9878,7 @@ const App = {
       <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
         📄 Con questi il <strong>DDT</strong> calcola peso e pezzi. A zero si compilano a mano.
       </div>
+      ${this._campiAttributiArticolo(null, 'art')}
       <div class="form-group"><label>Note</label>
         <input class="input" id="artNotes" maxlength="${Validate.MAX.NOTES}"></div>
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
@@ -9724,13 +9900,54 @@ const App = {
       pieces_per_pack: document.getElementById('artPiecesPack').value,   // v3.0.0 [M4]
       min_stock: document.getElementById('artMinStock').value,
       max_stock: document.getElementById('artMaxStock').value,
-      notes: Validate.clean(document.getElementById('artNotes').value)
+      notes: Validate.clean(document.getElementById('artNotes').value),
+      ...this._leggiAttributiArticolo('art')
     });
     if (!ok) return this.toast('Codice articolo già presente', 'error');
     this.closeModal();
     this.renderConfig();
     this.updateSyncIndicator();
     this.toast(`✓ Articolo ${code} creato`, 'success');
+  },
+
+  /* 1.4.0 — i due attributi che il motore di stoccaggio usera' come vincoli
+     duri. Stessi controlli in creazione e in modifica: due maschere che
+     divergono sono due maschere che prima o poi si contraddicono. */
+  _campiAttributiArticolo(art, p) {
+    const attuale = art?.temp_class || '';
+    const scelti = new Set(art?.allergens || []);
+    const opzioni = CLASSI_TEMPERATURA.map(c =>
+      `<option value="${c.code}" ${attuale === c.code ? 'selected' : ''}>${this._esc(c.label)} — ${this._esc(c.range)}</option>`
+    ).join('');
+    const caselle = ALLERGENI.map(a =>
+      `<label class="all-chip ${scelti.has(a.code) ? 'on' : ''}">
+        <input type="checkbox" id="${p}All_${a.code}" value="${a.code}" ${scelti.has(a.code) ? 'checked' : ''}
+          onchange="this.parentElement.classList.toggle('on',this.checked)">
+        ${this._esc(a.label)}</label>`
+    ).join('');
+    return `
+      <div class="form-group" style="margin-bottom:0.5rem"><label>Classe di conservazione</label>
+        <select class="input" id="${p}TempClass">
+          <option value="">— non classificato —</option>${opzioni}
+        </select></div>
+      <div class="form-group" style="margin-bottom:0.3rem"><label>Allergeni (Reg. UE 1169/2011)</label>
+        <div class="all-grid">${caselle}</div></div>
+      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
+        🧭 Con questi la <strong>mappa</strong> segnala la merce fuori posto. Lasciati vuoti, l'articolo non viene verificato.
+      </div>`;
+  },
+
+  _leggiAttributiArticolo(p) {
+    const cls = document.getElementById(`${p}TempClass`)?.value || '';
+    const allergens = ALLERGENI
+      .filter(a => document.getElementById(`${p}All_${a.code}`)?.checked)
+      .map(a => a.code);
+    /* Nessuna casella spuntata qui vuol dire NON CLASSIFICATO, non «verificato,
+       non ne ha»: da una maschera non si distingue chi ha guardato da chi e'
+       passato oltre. Per dichiarare l'assenza c'e' NESSUNO nella colonna del
+       foglio Excel, che qualcuno ha dovuto scrivere apposta.
+       null cancella una classificazione messa per sbaglio. */
+    return { temp_class: cls || null, allergens: allergens.length ? allergens : null };
   },
 
   showEditArticleModal(code) {
@@ -9764,6 +9981,7 @@ const App = {
       <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
         📄 Con questi il <strong>DDT</strong> calcola peso e pezzi. A zero si compilano a mano.
       </div>
+      ${this._campiAttributiArticolo(art, 'ea')}
       <div class="form-group"><label>Note</label>
         <input class="input" id="eaNotes" value="${this._esc(art.notes || '')}" maxlength="${Validate.MAX.NOTES}"></div>
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
@@ -9784,7 +10002,8 @@ const App = {
       pieces_per_pack: document.getElementById('eaPiecesPack').value,    // v3.0.0 [M4]
       min_stock: document.getElementById('eaMinStock').value,
       max_stock: document.getElementById('eaMaxStock').value,
-      notes: Validate.clean(document.getElementById('eaNotes').value)
+      notes: Validate.clean(document.getElementById('eaNotes').value),
+      ...this._leggiAttributiArticolo('ea')
     });
     this.closeModal();
     this.renderConfig();
@@ -10219,6 +10438,13 @@ const App = {
 
   importArticlesExcel() { document.getElementById('fileImportExcel').click(); },
 
+  /* 1.4.0 — L'import legge SOLO le colonne che il foglio porta davvero, e
+     aggiorna gli articoli che gia' esistono invece di saltarli.
+
+     Prima non lo faceva: `addArticle` esce con false su un codice noto, e su
+     un'anagrafica gia' popolata l'import diceva «importati 0» senza spiegare
+     perche'. Chi arricchisce 11.000 articoli con due colonne nuove ha bisogno
+     esattamente del contrario. */
   async handleImportExcel(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -10226,30 +10452,146 @@ const App = {
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
-      const rows = XLSX.utils.sheet_to_json(ws);
-      let count = 0, skipped = 0;
-      for (const row of rows) {
-        const code = Validate.clean(row['Codice'], true);
-        const desc = Validate.clean(row['Descrizione']);
-        if (!code || !desc) { skipped++; continue; }
-        if (Validate.article(code) || Validate.articleDesc(desc, true)) { skipped++; continue; }
-        const ok = await Store.addArticle({
-          code, description: desc,
-          category: Validate.clean(row['Categoria'], true) || 'MP',
-          supplier: Validate.clean(row['Fornitore']),
-          unit: Validate.clean(row['UM'], true) || 'PZ',
-          weight: row['Peso'], length: row['Lunghezza'], width: row['Larghezza'], height: row['Altezza'],
-          weight_net_kg: row['Peso_Netto_Collo'], pieces_per_pack: row['Pezzi_Per_Collo'],
-          min_stock: row['Stock_Min'], max_stock: row['Stock_Max'],
-          notes: Validate.clean(row['Note'])
-        });
-        if (ok) count++;
+      const rows = XLSX.utils.sheet_to_json(ws, { defval: undefined });
+      const letto = this._leggiFoglioArticoli(rows);
+      if (!letto.righe.length && !letto.problemi.length) {
+        return this.toast('Il foglio non contiene articoli leggibili', 'warning');
       }
+      if (!await this._confermaImportArticoli(letto)) return;
+      const esito = await Store.upsertArticles(letto.righe);
       this.renderConfig();
       this.updateSyncIndicator();
-      this.toast(`✓ Importati ${count} articoli (${skipped} scartati)`, count > 0 ? 'success' : 'warning');
+      this.toast(`✓ ${esito.creati} creati · ${esito.modificati} aggiornati`,
+        esito.creati + esito.modificati > 0 ? 'success' : 'info');
     } catch (err) { this.toast(`Errore Excel: ${err.message}`, 'error'); }
     event.target.value = '';
+  },
+
+  /* Dal foglio alle righe da scrivere. Nessuna scrittura qui dentro: legge,
+     valida e racconta. Le colonne assenti restano `undefined`, che a valle
+     significa «non toccare», non «azzera». */
+  _leggiFoglioArticoli(rows) {
+    const righe = [];
+    const problemi = [];
+    let senzaCodice = 0;
+    const nuoviCodici = new Set();
+    let conAllergeni = 0, conTemperatura = 0;
+
+    rows.forEach((row, i) => {
+      const foglio = i + 2;                      // +1 intestazione, +1 base uno
+      const code = Validate.clean(row['Codice'], true);
+      if (!code) { senzaCodice++; return; }
+      const errCode = Validate.article(code);
+      if (errCode) { problemi.push(`Riga ${foglio} — codice "${code}": ${errCode}`); return; }
+
+      const esiste = !!Store.getArticle(code);
+      const rec = { code };
+      const testo = (col, campo, upper = false) => {
+        if (row[col] === undefined) return;
+        rec[campo] = Validate.clean(row[col], upper);
+      };
+      const numero = (col, campo) => { if (row[col] !== undefined) rec[campo] = row[col]; };
+
+      testo('Descrizione', 'description');
+      testo('Categoria', 'category', true);
+      testo('Fornitore', 'supplier');
+      testo('UM', 'unit', true);
+      testo('Note', 'notes');
+      numero('Peso', 'weight'); numero('Lunghezza', 'length');
+      numero('Larghezza', 'width'); numero('Altezza', 'height');
+      numero('Peso_Netto_Collo', 'weight_net_kg'); numero('Pezzi_Per_Collo', 'pieces_per_pack');
+      numero('Stock_Min', 'min_stock'); numero('Stock_Max', 'max_stock');
+
+      if (rec.description !== undefined) {
+        const errDesc = Validate.articleDesc(rec.description, !esiste);
+        if (errDesc) { problemi.push(`Riga ${foglio} — ${code}: ${errDesc}`); return; }
+      } else if (!esiste) {
+        problemi.push(`Riga ${foglio} — ${code}: articolo nuovo senza descrizione`);
+        return;
+      }
+
+      if (row['Temperatura'] !== undefined) {
+        const cls = leggiClasseTemperatura(row['Temperatura']);
+        if (cls === undefined) {
+          problemi.push(`Riga ${foglio} — ${code}: temperatura "${row['Temperatura']}" non prevista. Ammessi: ${CLASSI_TEMPERATURA.map(c => c.code).join(', ')}`);
+          return;
+        }
+        rec.temp_class = cls;
+        if (cls) conTemperatura++;
+      }
+
+      if (row['Allergeni'] !== undefined) {
+        const { codici, scarti } = leggiAllergeni(row['Allergeni']);
+        if (scarti.length) {
+          problemi.push(`Riga ${foglio} — ${code}: allergene non previsto ${scarti.map(s => `"${s}"`).join(', ')}`);
+          return;
+        }
+        rec.allergens = codici;
+        if (codici.length) conAllergeni++;
+      }
+
+      if (!esiste) nuoviCodici.add(code);
+      righe.push(rec);
+    });
+
+    return { righe, problemi, senzaCodice, nuovi: nuoviCodici.size, conAllergeni, conTemperatura };
+  },
+
+  async _confermaImportArticoli(letto) {
+    const aggiornati = letto.righe.length - letto.nuovi;
+    const wrap = document.createElement('div');
+
+    wrap.appendChild(Dialog.kv([
+      ['Articoli nuovi da creare', letto.nuovi],
+      ['Articoli esistenti da aggiornare', aggiornati],
+      ['Con classe di temperatura', letto.conTemperatura],
+      ['Con allergeni dichiarati', letto.conAllergeni],
+      ['Righe senza codice, ignorate', letto.senzaCodice || ''],
+    ]));
+
+    if (letto.problemi.length) {
+      /* Le righe con un problema NON vengono scritte: si vedono tutte prima,
+         si corregge il foglio e si reimporta. Scriverne meta' e' peggio che
+         non scriverne nessuna. */
+      const box = document.createElement('div');
+      box.className = 'dlg-problemi';
+      const t = document.createElement('div');
+      t.className = 'dlg-problemi-t';
+      t.textContent = `${letto.problemi.length} righe NON verranno importate`;
+      box.appendChild(t);
+      const ul = document.createElement('ul');
+      for (const p of letto.problemi.slice(0, 12)) {
+        const li = document.createElement('li');
+        li.textContent = p;
+        ul.appendChild(li);
+      }
+      if (letto.problemi.length > 12) {
+        const li = document.createElement('li');
+        li.textContent = `… e altre ${letto.problemi.length - 12}`;
+        ul.appendChild(li);
+      }
+      box.appendChild(ul);
+      wrap.appendChild(box);
+    }
+
+    const nota = document.createElement('p');
+    nota.className = 'dlg-nota';
+    nota.textContent = 'Le colonne assenti dal foglio non vengono toccate: un file con '
+      + 'solo Codice, Temperatura e Allergeni aggiorna quei due campi e lascia il resto com’è.';
+    wrap.appendChild(nota);
+
+    /* Niente da scrivere e solo problemi: non e' una conferma, e' un referto. */
+    if (!letto.righe.length) {
+      await Dialog.alert({ title: 'Nessuna riga importabile', icon: '⚠', details: wrap });
+      return false;
+    }
+
+    return Dialog.confirm({
+      title: 'Importare l’anagrafica?',
+      details: wrap,
+      confirmLabel: `Importa ${letto.righe.length} righe`,
+      danger: letto.problemi.length > 0,
+    });
   },
 
   exportArticlesExcel() {
@@ -10261,13 +10603,21 @@ const App = {
       'Peso': a.weight || 0, 'Lunghezza': a.length || 0, 'Larghezza': a.width || 0, 'Altezza': a.height || 0,
       // v3.0.0 [M4] — i due valori che alimentano il DDT
       'Peso_Netto_Collo': a.weight_net_kg || 0, 'Pezzi_Per_Collo': a.pieces_per_pack || 0,
-      'Stock_Min': a.min_stock || 0, 'Stock_Max': a.max_stock || 0, 'Note': a.notes || ''
+      'Stock_Min': a.min_stock || 0, 'Stock_Max': a.max_stock || 0,
+      // 1.4.0 — vuote finche' non le si compila: la cella vuota dice «non
+      // classificato», che e' un'informazione e non va confusa con «nessuno».
+      'Temperatura': a.temp_class || '', 'Allergeni': scriviAllergeni(a.allergens),
+      'Note': a.notes || ''
     }));
-    const ws = XLSX.utils.json_to_sheet(data);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Articoli');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Articoli');
+    /* Il secondo foglio e' la sorgente degli elenchi a discesa: la convalida
+       di Excel si costruisce puntando qui, e resta allineata al codice. */
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
+      fogliValoriAmmessi().map(v => ({ 'Colonna': v.colonna, 'Valore': v.valore, 'Significato': v.significato }))
+    ), 'Valori ammessi');
     XLSX.writeFile(wb, `anagrafica-articoli-${new Date().toISOString().slice(0,10)}.xlsx`);
-    this.toast('✓ Excel esportato', 'success');
+    this.toast('✓ Excel esportato — foglio «Valori ammessi» per la convalida', 'success');
   },
 
   async importArticlesCSV() {

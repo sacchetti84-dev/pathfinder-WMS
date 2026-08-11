@@ -1,4 +1,5 @@
 import type { MOV } from './contratto.js';
+import type { CodiceAllergene, ClasseTemperatura } from '../modules/anagrafica.js';
 
 /** Millisecondi dall'epoca, come li scrive `Date.now()`. */
 export type Istante = number;
@@ -27,6 +28,12 @@ export interface Zona {
   name: string;
   type?: 'rack' | 'floor' | 'bulk' | string;
   active?: boolean;
+  /** 1.4.0 — la destinazione d'uso della zona, contro cui si verifica la
+      merce. Assenti = zona non caratterizzata: non accusa nessuno. */
+  temp_class?: ClasseTemperatura;
+  allergen_zone?: boolean;
+  /** Se valorizzato, i soli allergeni ammessi. Vuoto su zona riservata = tutti. */
+  allergens?: CodiceAllergene[];
   [config: string]: unknown;
 }
 
@@ -40,6 +47,11 @@ export interface Articolo {
   /** v3.0.0 — servono a compilare peso e pezzi del DDT senza scriverli a mano. */
   weight_net_kg?: number;
   pieces_per_pack?: number;
+  /** 1.4.0 — vincoli duri del motore di stoccaggio. Assenti = articolo non
+      ancora classificato: la verifica di conformità lo salta invece di
+      dichiararlo a posto. */
+  allergens?: CodiceAllergene[];
+  temp_class?: ClasseTemperatura;
   active?: boolean;
 }
 

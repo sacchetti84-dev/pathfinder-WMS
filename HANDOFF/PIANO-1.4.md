@@ -310,6 +310,55 @@ davanti a un auditor.
 
 ---
 
+### 4.4bis — Verifica di stoccaggio · **fatta, 11/08**
+
+Il motore girato al contrario: invece di dire dove mettere una cosa, dice cosa è già
+in un posto sbagliato. Anticipata rispetto al calendario per una ragione pratica —
+finché gli attributi si popolano a mano, la mappa che si accende da sola è il modo
+di vedere se quello che si sta scrivendo in anagrafica ha senso.
+
+**Cosa c'è.**
+
+| Dove | Cosa |
+|---|---|
+| `modules/anagrafica.ts` | I 14 allergeni dell'Allegato II e le 3 classi. Tabelle chiuse, lettura stretta |
+| `modules/conformita.ts` | La verifica: funzione pura, come `pickRoute` |
+| `articles` | `allergens[]` e `temp_class`, facoltativi |
+| `zones` | `temp_class`, `allergen_zone`, `allergens[]` ammessi |
+| Maschere articolo e zona | I due attributi in creazione e modifica |
+| Export/import Excel | Colonne `Temperatura` e `Allergeni`, più il foglio **«Valori ammessi»** |
+| Mappa | Filetto rosso o tratteggiato giallo sulla cella, fascia di riepilogo, elenco, export |
+| Collaudi | **41 nuovi** — 22 sulle tabelle, 19 sulla verifica |
+
+**Le quattro regole.** Merce più calda di quanto chiede → **grave**; più fredda →
+media, è uno spreco, non un rischio. Merce con allergeni fuori dalla zona riservata
+→ **grave**. Allergene non ammesso in una zona che ne ammette solo alcuni → **grave**.
+Merce pulita dentro la zona allergeni → media: non è simmetrica alla seconda, perché
+lì a rischiare è il prodotto pulito.
+
+**La decisione che conta: il silenzio ha due significati.** Un articolo senza
+attributi non è conforme né difforme — è **ignoto**, e durante il popolamento sono la
+maggioranza. La verifica lo salta e lo conta a parte, e la fascia lo dice: «1.240
+articoli non ancora classificati, non verificati». Zero segnalazioni perché va tutto
+bene e zero perché non c'è niente da verificare sono due cose diverse, e confonderle
+sarebbe il modo di fidarsi di una mappa che tace per ignoranza.
+
+**Nella cella, il colore non si tocca.** Dice già se è vuota, occupata o bloccata;
+sovrascriverlo perderebbe quell'informazione. La segnalazione è un filetto più un
+segno d'angolo, che si sommano.
+
+**Due difetti chiusi per strada**, trovati leggendo:
+
+1. **L'import Excel non sapeva aggiornare.** `addArticle` esce con `false` su un
+   codice noto, e su un'anagrafica popolata l'import diceva «importati 0» senza
+   spiegare perché. Ora è un upsert che tocca **solo le colonne presenti nel foglio**
+   — un file con Codice, Temperatura e Allergeni non azzera descrizioni e pesi — con
+   un referto prima di scrivere e le righe difettose elencate e **non** importate.
+2. **Scriveva una riga per volta.** Su 11.000 articoli sono 11.000 richieste. Ora
+   nuovi e modificati partono in due chiamate, con `bulkAdd` e `bulkPut`.
+
+---
+
 ### 4.5 — WIP · 1.4.5
 
 **Cosa.** Gli items prelevati per un ODP finiscono in ubicazione WIP invece di
@@ -556,15 +605,15 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 
 | # | Cosa serve sapere | Entro | Blocca |
 |---|---|---|---|
-| A1 | **L'elenco degli allergeni** da segregare, e se la segregazione è per zona o per corsia | 21/11 | i vincoli duri del motore, §4.4 |
-| A2 | **Le classi di temperatura** che esistono davvero in Dietopack, e quali ubicazioni sono refrigerate | 21/11 | idem — senza, il motore ha una regola che non può verificare |
+| ~~A1~~ | ~~L'elenco degli allergeni~~ — **chiuso 11/08**: sono i 14 dell'Allegato II del Reg. UE 1169/2011, e la segregazione è per zona | — | — |
+| ~~A2~~ | ~~Le classi di temperatura~~ — **chiuso 11/08**: le tre della logistica, `SURG` −18 °C · `REFR` +4/+8 °C · `AMB` +18/+25 °C | — | — |
+| A2b | **Quali zone** sono refrigerate e quale è la zona allergeni. Si imposta da Configurazione → Zone; finché non lo si fa, la mappa non segnala nulla | quando puoi | la verifica di stoccaggio, §4.4bis |
 | A3 | **Prefisso aziendale GS1**: c'è? Chi lo sa? | 02/11 | solo le etichette UDC, §4.3. Prima si sa, meglio è |
 | A4 | **Chi può alzare la priorità** di un compito. Proposta: solo Team Leader | 21/09 | il modello dei permessi dello schedulatore, §4.1 |
 | A5 | Partita IVA e dati del mittente — aperto vecchio, ancora aperto | quando puoi | i DDT escono «non conformi» finché manca |
 
-A1 e A2 sono le uniche che vale la pena chiedere in giro adesso: sono le sole che
-dipendono da qualcuno che non sei tu, e arrivano tardi nel calendario — cioè quando
-non c'è più tempo per aspettarle.
+Le due che dipendevano da qualcun altro sono chiuse lo stesso giorno in cui il piano
+è stato scritto, e con loro è partito il primo pezzo di codice della 1.4.0 — §4.4bis.
 
 ---
 

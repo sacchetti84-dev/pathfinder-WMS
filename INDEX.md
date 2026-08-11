@@ -19,7 +19,7 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 11/08/2026
 | Ancora JavaScript | `core/store.js`, `main.js`, `ui/` |
 | Servizio | Node + Express + SQLite, porta **4173** |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive |
-| Collaudi | **57 client** (~1,2 s) + **29 servizio** — verdi |
+| Collaudi | **98 client** (~1,2 s) + **29 servizio** + 8 migrazione — verdi |
 | Tipi | `npm run check` client + servizio — 0 errori |
 
 ## 2. Comandi
@@ -51,6 +51,8 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `modules/vault.ts` | 308 | Backup su cartella locale (File System Access API) |
 | `modules/pickRoute.ts` | 251 | Percorso di prelievo a serpentina |
 | `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
+| `modules/anagrafica.ts` | 118 | I 14 allergeni del Reg. UE 1169/2011 e le 3 classi di conservazione. Lettura stretta, valori convalidati in Excel |
+| `modules/conformita.ts` | 155 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio girato al contrario |
 | `modules/validate.ts` | 104 | Validazioni di campo |
 | `modules/auth.ts` | 88 | PIN operatore, hash e verifica |
 | `modules/session.ts` | 69 | Sessione dell'operatore al terminale |
@@ -82,8 +84,8 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 
 ### Collaudi — `test/`
 
-`serpentina` · `fefo` · `geometria` (16) · `odp` (26) — 57 prove in tutto.
-`ambiente.js` è il preambolo comune.
+`serpentina` · `fefo` · `geometria` (16) · `odp` (26) · `anagrafica` (22) ·
+`conformita` (19) — **98 prove** in tutto. `ambiente.js` è il preambolo comune.
 
 ## 4. API del servizio
 
@@ -118,6 +120,7 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 | Versione | Cosa | Entro |
 |---|---|---|
 | **1.4.0** | Fondamenta invisibili: migrazione `ALTER TABLE`, schema mosso una volta, **`store.js` in TS**, collaudi su `_applyToCache`, export/import da `COLLEZIONI`, interruttori `feature.*` | 19/09 |
+| ↳ *fatto* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa** | 11/08 |
 | **1.4.1** | Schedulatore di attività — richieste, priorità, tempi | 10/10 |
 | **1.4.2** | Unità di misura PZ/MT/LT/KG/GR, split colli, collo incompleto | **31/10** |
 | **1.4.3** | UDC — contenitori, `moveUdc` transazionale, etichette | 21/11 |

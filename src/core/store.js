@@ -1,5 +1,6 @@
 import { MOV } from './costanti';
 import { Persistence } from './persistence/index';
+import { verificaConformita } from '../modules/conformita';
 import { App } from '../ui/app.js';
 
 const Store = {
@@ -504,6 +505,31 @@ const Store = {
   },
   getZone(siteId, zoneId) { return this.getZones(siteId).find(z => z.id === zoneId); },
 
+  /* 1.4.0 — Cosa e' stoccato dove non dovrebbe. Il calcolo e' puro e sta in
+     `modules/conformita`; qui si fornisce solo il magazzino.
+
+     Il risultato NON viene memorizzato: chi lo usa lo chiede una volta per
+     disegnata e se lo tiene. Con 2.000 celle, una chiamata per cella sarebbe
+     duemila giri sull'inventario. */
+  verificaStoccaggio() {
+    const geo = this.buildLocationGeometry();
+    const zone = new Map();
+    const zonaDi = (code) => {
+      if (zone.has(code)) return zone.get(code);
+      const g = geo.get(code);
+      const z = g ? this.getZone(g.site_id, g.zone_id) : null;
+      const attr = z ? {
+        zone_name: z.name,
+        temp_class: z.temp_class || null,
+        allergen_zone: z.allergen_zone === true,
+        allergens: Array.isArray(z.allergens) ? z.allergens : null,
+      } : null;
+      zone.set(code, attr);
+      return attr;
+    };
+    return verificaConformita(this._cache.inventory, (c) => this._artByCode.get(c), zonaDi);
+  },
+
   async addZone(siteId, zone) {
     const site = this.getSite(siteId);
     if (!site) return false;
@@ -884,6 +910,11 @@ const Store = {
       active: true,
       created: Date.now()
     };
+    /* 1.4.0 — allergeni e classe restano ASSENTI se non li si passa. Zero e
+       stringa vuota direbbero «verificato, non ne ha»; assente dice «non lo
+       sappiamo», ed e' l'unica delle due che e' vera prima del popolamento. */
+    if (Array.isArray(article.allergens)) rec.allergens = article.allergens;
+    if (article.temp_class) rec.temp_class = article.temp_class;
     const _id = await Persistence.add('articles', rec);
     const stored = { ...rec, _id };
     this._applyToCache('articles', 'put', stored);
@@ -891,18 +922,81 @@ const Store = {
     return true;
   },
 
+  /* L'elenco e' una lista bianca, non un filtro: un campo che non e' nominato
+     qui non si aggiorna MAI. E' il motivo per cui la maschera di modifica non
+     puo' cancellare per sbaglio allergeni e classe pur non mostrandoli. */
+  ARTICLE_TEXT_FIELDS: ['description', 'category', 'supplier', 'unit', 'notes'],
+  ARTICLE_NUM_FIELDS: ['weight', 'length', 'width', 'height', 'min_stock', 'max_stock',
+                       'weight_net_kg', 'pieces_per_pack'],
+  ARTICLE_ATTR_FIELDS: ['allergens', 'temp_class'],   // 1.4.0
+
   async updateArticle(code, updates) {
     const art = this._artByCode.get(code);
     if (!art) return false;
-    const fields = ['description', 'category', 'supplier', 'unit', 'notes'];
-    const numFields = ['weight', 'length', 'width', 'height', 'min_stock', 'max_stock',
-                       'weight_net_kg', 'pieces_per_pack'];   // v3.0.0 [M4]
-    for (const f of fields) if (updates[f] !== undefined) art[f] = updates[f];
-    for (const f of numFields) if (updates[f] !== undefined) art[f] = parseFloat(updates[f]) || 0;
+    this._applyArticleUpdates(art, updates);
     this._applyToCache('articles', 'put', art);
     await Persistence.put('articles', art);
     await this._touchMeta();
     return true;
+  },
+
+  _applyArticleUpdates(art, updates) {
+    for (const f of this.ARTICLE_TEXT_FIELDS) if (updates[f] !== undefined) art[f] = updates[f];
+    for (const f of this.ARTICLE_NUM_FIELDS) if (updates[f] !== undefined) art[f] = parseFloat(updates[f]) || 0;
+    for (const f of this.ARTICLE_ATTR_FIELDS) {
+      if (updates[f] === undefined) continue;
+      /* null cancella esplicitamente: serve a togliere una classificazione
+         sbagliata, che e' diverso dal non averla mai messa. */
+      if (updates[f] === null) delete art[f];
+      else art[f] = updates[f];
+    }
+    return art;
+  },
+
+  /* 1.4.0 — L'import dell'anagrafica scrive MIGLIAIA di righe: una per volta
+     sono migliaia di richieste, e su un'anagrafica vera non finisce. Qui le
+     nuove e le modificate partono in due chiamate sole.
+
+     Aggiorna SOLO i campi presenti in ciascuna riga: un foglio con codice e
+     allergeni non deve azzerare descrizioni e pesi di 11.000 articoli. */
+  async upsertArticles(righe) {
+    const nuovi = [], modificati = [];
+    for (const r of righe) {
+      const esistente = this._artByCode.get(r.code);
+      if (!esistente) { nuovi.push(r); continue; }
+      const prima = JSON.stringify(esistente);
+      const dopo = this._applyArticleUpdates({ ...esistente }, r);
+      if (JSON.stringify(dopo) !== prima) modificati.push(dopo);
+    }
+
+    const creati = [];
+    for (const r of nuovi) {
+      creati.push({
+        code: r.code, description: r.description || '', category: r.category || 'MP',
+        supplier: r.supplier || '', unit: r.unit || 'PZ',
+        weight: parseFloat(r.weight) || 0, weight_net_kg: parseFloat(r.weight_net_kg) || 0,
+        pieces_per_pack: parseInt(r.pieces_per_pack) || 0,
+        length: parseFloat(r.length) || 0, width: parseFloat(r.width) || 0, height: parseFloat(r.height) || 0,
+        min_stock: parseFloat(r.min_stock) || 0, max_stock: parseFloat(r.max_stock) || 0,
+        notes: r.notes || '', active: true, created: Date.now(),
+        ...(Array.isArray(r.allergens) ? { allergens: r.allergens } : {}),
+        ...(r.temp_class ? { temp_class: r.temp_class } : {}),
+      });
+    }
+
+    if (creati.length) {
+      const ids = await Persistence.bulkAdd('articles', creati);
+      creati.forEach((rec, i) => this._applyToCache('articles', 'put', { ...rec, _id: ids?.[i] }));
+    }
+    if (modificati.length) {
+      await Persistence.bulkPut('articles', modificati);
+      for (const rec of modificati) this._applyToCache('articles', 'put', rec);
+    }
+    if (creati.length || modificati.length) {
+      this._rebuildIndexes();
+      await this._touchMeta();
+    }
+    return { creati: creati.length, modificati: modificati.length };
   },
 
   async deleteArticle(code) {
