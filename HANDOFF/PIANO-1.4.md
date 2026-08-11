@@ -320,6 +320,30 @@ arriva, qualcuno lo digita in una casella e nessuno installa niente. È la stess
 forma della partita IVA: un dato dell'azienda non è una costante del sorgente.
 **A3 smette di essere una domanda aperta** e diventa un campo da compilare.
 
+**Il canale di stampa: print server di rete** (Andrea, 12/08). Le etichette non
+passano dalla finestra di stampa del browser come i DDT e i report: c'è una
+stampante di etichette raggiungibile in rete, e il prodotto le manda il lavoro
+direttamente.
+
+È una differenza che conta più di quanto sembri, e va detta adesso perché tocca
+tre cose:
+
+1. **Non è la stessa strada dei documenti.** `_docPrint` scrive dentro
+   `#printReport` e chiama `window.print()`. Qui invece serve una **rotta sul
+   servizio** — `POST /api/op/printLabel` o simile — perché il browser di un
+   terminale non parla ZPL a un indirizzo IP, e non deve nemmeno provarci: la
+   configurazione della stampante è un fatto della macchina, non della scheda.
+2. **Il formato è ZPL o simile, non HTML.** Cambia cosa si genera. Il layout
+   dell'etichetta smette di essere CSS in `mm` e diventa un template di comandi.
+3. **La decisione 1 dell'HANDOFF resta in piedi**: se il servizio non risponde,
+   l'applicativo si ferma e lo dice. Una stampa che fallisce non deve lasciare
+   una UDC creata senza etichetta — o si crea e si stampa, o non si crea.
+   L'operazione è **una sola**, e sta dentro la stessa transazione dell'`INSERT`.
+
+Serve, entro il 02/11: **indirizzo e modello della stampante**, e il linguaggio
+che parla. Con quelli il gradino 2 della scala §6 — il layout minimo — resta un
+ripiego reale e non un salto nel buio.
+
 ---
 
 ### 4.4 — Motore logico di stoccaggio · 1.4.4
@@ -667,6 +691,13 @@ ci scrivessimo dentro cinque collezioni e gli interruttori, la 1.4.0 sfora, e il
 primo gradino della scala qui sopra si scende a settembre invece che a novembre.
 Non è un allarme — è la ragione per cui la verifica del 31/10 esiste.
 
+**Deciso il 12/08 (D11): si tira dritto.** Nessun gradino si scende in anticipo per
+recuperare quella mezza settimana. È la scelta giusta a una condizione, che vale la
+pena scrivere perché fra sei settimane non sarà ovvia: **il segnale da guardare non
+è il 31 ottobre, è la fine della conversione di `store.js`.** Se il 19/09 la 1.4.0
+non è chiusa, il ritardo è già reale e il gradino 1 si scende lì, senza aspettare
+la verifica — che a quel punto confermerebbe soltanto una cosa già successa.
+
 ### La cosa da sapere prima di cominciare: non c'è slack
 
 5,5 + 3 + 3 + 3 + 2,5 + 1,5 = **18,5 settimane su 18,5 disponibili**. Ogni consegna è
@@ -769,6 +800,8 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 | D8 | **Le certificazioni sono il terzo attributo** dell'articolo (halal, kosher) | Elenco **non chiuso** — non è una norma — ma lettura stretta. §4.4ter |
 | D9 | **Temperatura, allergeni e certificazioni si vedono al prelievo, sul report e sul DDT** | Una sorgente sola per tre viste. Costo: ~mezza settimana fuori piano. §4.4ter, §6 |
 | D10 | **`storage_rules` nasce in Fase 0**, vuota | Lo schema non si muove una sesta volta a novembre. §3 |
+| D11 | **Si tira dritto: nessun gradino si scende adesso** | La mezza settimana degli avvisi non si recupera in anticipo. Si guardano i quattro fatti il 31/10, come deciso in D2. Se `store.js` sfora, il ritardo si vede a settembre e la scala è già pronta. §6 |
+| D12 | **Le etichette UDC escono da un print server di rete**, non dal browser | Rotta sul servizio, template a comandi invece che CSS, e creazione+stampa in una transazione sola: mai una UDC senza etichetta. Serve indirizzo, modello e linguaggio entro il 02/11. §4.3 |
 
 ### Aperte — bloccano la funzione, non l'inizio dei lavori
 
@@ -780,6 +813,7 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 | ~~A3~~ | ~~Prefisso aziendale GS1~~ — **chiuso 12/08 (D7)**: non c'è, e non serve che ci sia. Diventa un parametro di Configurazione | — | — |
 | ~~A4~~ | ~~Chi può alzare la priorità~~ — **chiuso 12/08 (D4)**: solo il Team Leader | — | — |
 | A5 | Partita IVA e dati del mittente — **Andrea la configura al momento opportuno**. Nessun lavoro di codice: la maschera c'è | quando puoi | i DDT escono «non conformi» finché manca |
+| A6 | **Indirizzo, modello e linguaggio della stampante di etichette.** Il canale è deciso (print server di rete, D12); manca il bersaglio | **02/11** | le etichette UDC, §4.3 |
 
 Le due che dipendevano da qualcun altro sono chiuse lo stesso giorno in cui il piano
 è stato scritto, e con loro è partito il primo pezzo di codice della 1.4.0 — §4.4bis.
