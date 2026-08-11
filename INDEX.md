@@ -6,7 +6,7 @@ quali trappole sono già state pagate. Il resto si apre quando serve davvero.
 Manutenzione: si aggiorna a ogni commit che sposta uno dei numeri o degli aperti.
 
 © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 11/08/2026
+Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 12/08/2026
 
 ---
 
@@ -14,13 +14,14 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 11/08/2026
 
 | Voce | Valore |
 |---|---|
-| In produzione | `pathfinder-1.1.html` — è il file che il servizio serve **adesso** |
-| Pronta | `Pathfinder 1.2/pathfinder-1.2.html` — prodotta da `npm run build`, non versionata |
-| Sorgente | 17 TypeScript · 6 JavaScript · 5 CSS · `index.html` |
+| In produzione | `pathfinder-1.2.html` — è il file che il servizio serve **adesso** |
+| In lavorazione | **1.4.0**: Fase 0 dentro, manca `core/store.js` in TypeScript |
+| Sorgente | 19 TypeScript · 6 JavaScript · 5 CSS · `index.html` |
 | Ancora JavaScript | `core/store.js`, `main.js`, `ui/` |
 | Servizio | Node + Express + SQLite, porta **4173** |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive |
-| Collaudi | **98 client** (~1,2 s) + **29 servizio** + 8 migrazione — verdi |
+| Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
+| Collaudi | **114 client** (~1,3 s) + **30 servizio** + 8 migrazione — verdi |
 | Tipi | `npm run check` client + servizio — 0 errori |
 
 ## 2. Comandi
@@ -52,7 +53,7 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `modules/vault.ts` | 308 | Backup su cartella locale (File System Access API) |
 | `modules/pickRoute.ts` | 251 | Percorso di prelievo a serpentina |
 | `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
-| `modules/anagrafica.ts` | 118 | I 14 allergeni del Reg. UE 1169/2011 e le 3 classi di conservazione. Lettura stretta, valori convalidati in Excel |
+| `modules/anagrafica.ts` | 158 | I 14 allergeni del Reg. UE 1169/2011, le 3 classi di conservazione e le certificazioni. Lettura stretta, valori convalidati in Excel |
 | `modules/conformita.ts` | 155 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio girato al contrario |
 | `modules/validate.ts` | 104 | Validazioni di campo |
 | `modules/auth.ts` | 88 | PIN operatore, hash e verifica |
@@ -67,7 +68,7 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `core/costanti.ts` | 44 | `MOV`, `MOV_LABELS`, ritenzione del registro |
 | `types/entita.ts` | 234 | Le entità: item, movimento, operatore, documento |
 | `types/contratto.ts` | 92 | L'interfaccia che i due adapter devono rispettare |
-| `types/collezioni.ts` | 41 | Le 14 collezioni, chiavi primarie, campi indicizzati |
+| `types/collezioni.ts` | 51 | Le 19 collezioni, chiavi primarie, campi indicizzati. **Sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono |
 | `main.js` | 46 | Avvio: importa gli stili, monta `App`, gancio globale |
 | `index.html` | 200 | Scheletro del DOM + i marchi `<svg>` in linea |
 
@@ -76,8 +77,8 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | File | Righe | Ruolo |
 |---|---:|---|
 | `pathfinder-server.js` | 378 | Express: rotte, SSE, TLS opzionale, avvio |
-| `lib/db.js` | 274 | Accesso SQLite, transazioni, operazioni composte |
-| `lib/schema.js` | 139 | Tabelle e indici |
+| `lib/db.js` | 315 | Accesso SQLite, transazioni, operazioni composte, **`_migra`** |
+| `lib/schema.js` | 191 | Tabelle e indici — **due funzioni separate**, con la migrazione in mezzo |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate. Da amministratore |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata serale |
 | `test/collaudo.js` | 231 | 29 prove sul servizio vero |
@@ -85,8 +86,8 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 
 ### Collaudi — `test/`
 
-`serpentina` · `fefo` · `geometria` (16) · `odp` (26) · `anagrafica` (22) ·
-`conformita` (19) — **98 prove** in tutto. `ambiente.js` è il preambolo comune.
+`serpentina` · `fefo` · `geometria` (16) · `odp` (26) · `anagrafica` (27) ·
+`conformita` (19) — **114 prove** in tutto. `ambiente.js` è il preambolo comune.
 
 ## 4. API del servizio
 
@@ -106,7 +107,7 @@ L'applicativo è servito su `/` e su `/app`.
 |---|---|
 | `PATHFINDER_PORT` | `4173` |
 | `PATHFINDER_DB` | `server/data/pathfinder.db` |
-| `PATHFINDER_APP` | `pathfinder-1.1.html` nella radice |
+| `PATHFINDER_APP` | **impostata**: `…\MAPPER\pathfinder-1.2.html`. Il ripiego nel codice resta `pathfinder-1.1.html`, che in radice non c'è più |
 | `PATHFINDER_TLS_CERT` / `_KEY` | assenti → HTTP |
 
 Si leggono **all'avvio**: cambiate senza riavvio non hanno effetto.
@@ -120,8 +121,9 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 
 | Versione | Cosa | Entro |
 |---|---|---|
-| **1.4.0** | Fondamenta invisibili: migrazione `ALTER TABLE`, schema mosso una volta, **`store.js` in TS**, collaudi su `_applyToCache`, export/import da `COLLEZIONI`, interruttori `feature.*` | 19/09 |
-| ↳ *fatto* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa**, deroga della cella Riservata | 11/08 |
+| **1.4.0** | ↓ *manca solo* ↓ — **`core/store.js` in TypeScript**, 1.974 righe, a blocchi | 19/09 |
+| ↳ *fatto 12/08* | Migrazione `ALTER TABLE` nel prodotto · schema mosso **una volta** (19 collezioni) · `_CACHE_SHAPE` a 19 · export/import da `COLLEZIONI` · interruttori `feature.*` spenti · certificazioni e **avvisi merceologici** a prelievo, report e DDT | — |
+| ↳ *fatto 11/08* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa**, deroga della cella Riservata | — |
 | **1.4.1** | Schedulatore di attività — richieste, priorità, tempi | 10/10 |
 | **1.4.2** | Unità di misura PZ/MT/LT/KG/GR, split colli, collo incompleto | **31/10** |
 | **1.4.3** | UDC — contenitori, `moveUdc` transazionale, etichette | 21/11 |
@@ -132,12 +134,13 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 > decisa di cosa togliere se anche uno solo è falso — PIANO-1.4 §6. Serve perché
 > 18,5 settimane di lavoro stanno in 18,5 settimane di calendario: **non c'è slack.**
 
-> **Bloccante, verificato.** Aggiungere un campo indicizzato a una collezione che
-> esiste già **non fa partire il servizio**: `CREATE TABLE IF NOT EXISTS` non aggiunge
-> la colonna, e il `CREATE INDEX` dopo muore in `PathfinderDB` (`db.js:18`). L'UDC ha
-> bisogno di `inventory.udc_id`. Si toglie in 1.4.0, prima di tutto. PIANO-1.4 §1.
+> **Il bloccante è tolto — 12/08.** `CREATE TABLE IF NOT EXISTS` non aggiunge una
+> colonna a una tabella che esiste già, e il `CREATE INDEX` dopo moriva nel
+> costruttore: il servizio non partiva affatto. Adesso c'è `PathfinderDB._migra`,
+> fra le tabelle e gli indici — **che per questo sono due passi e non uno.
+> Non rimetterli insieme.**
 
-Prototipo e collaudo scritti prima del codice:
+Collaudo sul codice vero:
 `node test/collaudo-migrazione-1.4.js` da `server/` — 8 prove, provano che ubicazione,
 articolo, lotto e colli sopravvivono al cambio di schema e che la 1.2 rilegge il
 database della 1.4. PIANO-1.4 §5bis.
@@ -145,28 +148,31 @@ database della 1.4. PIANO-1.4 §5bis.
 **Deciso l'11/08:** il WIP resta in calendario · verifica dell'andamento a fine
 ottobre · `store.js` in TypeScript entra in Fase 0.
 
-Restano cinque domande aperte — PIANO-1.4 §8. Le due da girare **subito** a chi le sa
-sono l'elenco degli allergeni da segregare e le classi di temperatura reali: servono
-al motore, che è a fine novembre, cioè quando non c'è più tempo per aspettarle.
+**Deciso il 12/08:** priorità solo al Team Leader · la UDC nasce su comando e muore
+vuota · l'etichetta si stampa alla creazione · il prefisso GS1 è un parametro, non
+un'attesa · le certificazioni sono il terzo attributo · gli avvisi si vedono a
+prelievo, report e DDT. PIANO-1.4 §8, D4-D10.
+
+Le domande aperte del piano **sono chiuse tutte.** Restano due cose da fare a mano
+in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 ## 6bis. Aperti
 
 | # | Cosa | Peso |
 |---|---|---|
-| 1 | **Portare la 1.2 in magazzino** — cinque comandi, HANDOFF 1.3 §6 | atto |
-| 2 | Nome DNS interno e certificato dalla CA aziendale — **IT** | esterno |
-| 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea** | esterno |
-| 4 | ~~`core/store.js` a TypeScript~~ — **deciso 11/08: entra in 1.4.0**, non è più un aperto | — |
+| 1 | **`core/store.js` in TypeScript** — è ciò che manca alla 1.4.0. A blocchi, mai nello stesso commit di `app.js` | **il prossimo** |
+| 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
+| 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea**. La maschera c'è: è un dato, non codice | esterno |
+| 4 | Nome DNS interno e certificato dalla CA — **IT**. Il codice è pronto e non aspetta niente: arriva a lavori finiti | non blocca |
 | 5 | `ui/` a TypeScript, per ultima — `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | grande |
-| 6 | Collaudi su `Store._applyToCache` — 14 collezioni oggi, 18 dopo la 1.4, nessuna prova. **Assorbito in 1.4.0** | medio |
-| 7 | `TODO F1-REVIEW` ×3: cache svuotata prima della conferma del supporto (`store.js`), riallineamento ridondante dopo `resetAll()` (`app.js`) | piccolo |
-| 8 | Schede grafico che tagliano ~6 px · causali di trasporto da validare · `weight_net_kg` in anagrafica. `pieces_per_pack` **diventa la UM-per-collo in 1.4.2** | vari |
-| 9 | `ARCHIVIO/LOGHI/`: `commodore.svg` e `gemini-svg.svg` identici byte per byte, più nomi generati. Quale tenere lo decide chi li ha fatti | banale |
-| 10 | `pathfinder-1.1.html` è nel repository **due volte** — radice e `ARCHIVIO/VERSIONI PRECEDENTI/`, 1,2 MB l'una. La copia in archivio si toglie quando la radice passa alla 1.2, non prima | banale |
+| 6 | `TODO F1-REVIEW` ×3: cache svuotata prima della conferma del supporto (`store.js`), riallineamento ridondante dopo `resetAll()` (`app.js`) | piccolo |
+| 7 | `weight_net_kg` da **compilare** in anagrafica — colonna `Peso_Netto_Collo`. Il campo è già cablato: maschere, import, export, peso del DDT | import Excel |
 
 ## 7. Cosa non fare
 
-- **Non toccare `pathfinder-1.1.html` in radice**: è il file servito in questo momento.
+- **Non toccare `pathfinder-1.2.html` in radice**: è il file servito in questo momento.
+- **Non riunire `createTableSQL` e `createIndexSQL`**: sono due funzioni perché fra i due passi sta `_migra`, e senza di lei il servizio non parte su un database che esiste già.
+- **Non installare una 1.4.x parziale**: si installa quando la 1.4.0 è chiusa, `store.js` compreso.
 - **Non convertire `store.js` e `app.js` nello stesso commit** — 12.500 righe insieme non sono verificabili.
 - **Non togliere i ponti verso Store** finché Store è JavaScript: senza, il compilatore deduce `never[]`. Cadono con la 1.4.0, non prima.
 - **Non scrivere a mano dentro `Pathfinder 1.2/`**: è prodotta, `npm run build` la azzera.
@@ -182,5 +188,6 @@ al motore, che è a fine novembre, cioè quando non c'è più tempo per aspettar
 | Installare, aggiornare, diagnosticare, backup | [README.md](README.md) |
 | **Dove siamo e da dove si riparte** — l'ultimo | [HANDOFF/HANDOFF-pathfinder-1.4.md](HANDOFF/HANDOFF-pathfinder-1.4.md) |
 | **Le cinque funzioni della 1.4** — disegno dei dati, calendario, decisioni | [HANDOFF/PIANO-1.4.md](HANDOFF/PIANO-1.4.md) |
+| Far lavorare degli agenti su questo progetto — ruoli e vincoli | [HANDOFF/PROMPT-workspace-multiagente-1.4.md](HANDOFF/PROMPT-workspace-multiagente-1.4.md) |
 | Cronaca delle versioni precedenti, e i piani ormai eseguiti o respinti | [ARCHIVIO/HANDOFF STORICI/](ARCHIVIO/HANDOFF%20STORICI/) — memoria, non istruzioni |
 | Versioni precedenti, loghi, etichette | `ARCHIVIO/` |

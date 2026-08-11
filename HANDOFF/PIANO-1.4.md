@@ -2,7 +2,7 @@
 
 **Cinque funzioni nuove su un magazzino che sta già lavorando**
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 11/08/2026 · Rev. 02 · **Scadenza del progetto: 31/12/2026**
+Data: 12/08/2026 · Rev. 03 · **Scadenza del progetto: 31/12/2026**
 Ultima installazione utile in magazzino: **19/12/2026** — poi c'è l'inventario
 
 > Qui dentro si cita più volte «§x dell'HANDOFF 1.0 / 1.2 / 1.3». Quei documenti
@@ -27,7 +27,13 @@ Prima di tutto, però, c'è un difetto verificato che ferma il servizio all'avvi
 
 ---
 
-## 1. Il blocco che viene prima di tutto
+## 1. Il blocco che viene prima di tutto — **tolto, 12/08**
+
+> **Fatto.** La migrazione è in `PathfinderDB._migra` (`server/lib/db.js`), fra le
+> tabelle e gli indici — che per questo sono diventati due passi e non uno.
+> Provata rompendola: tolta la chiamata, il collaudo muore con `SQLITE_ERROR` nel
+> costruttore, che è esattamente il difetto descritto qui sotto. Il resto della
+> sezione resta come memoria di **perché** esiste quel codice.
 
 Il servizio crea le tabelle con `CREATE TABLE IF NOT EXISTS`. Su un database
 **nuovo** funziona. Su un database **che esiste già** — cioè quello del magazzino —
@@ -94,7 +100,25 @@ E prima di tutti, una fase zero che non si vede.
 
 ---
 
-## 3. Fase 0 — Le fondamenta, invisibili
+## 3. Fase 0 — Le fondamenta, invisibili · **fatta, 12/08**
+
+> **Cosa è entrato**, oltre a ciò che era previsto qui sotto:
+>
+> - **`storage_rules` è la quinta collezione nuova, non la quarta.** Non era
+>   nell'elenco: doveva nascere con il motore, a novembre. Ma il motivo per cui la
+>   Fase 0 esiste è muovere lo schema una volta sola, e lasciarla fuori significava
+>   muoverlo una sesta volta proprio nella settimana più stretta del calendario.
+>   Nasce adesso, vuota, come le altre quattro.
+> - **`_CACHE_SHAPE` da 14 a 19 voci.** Era l'aperto #6. `_applyToCache` lavora per
+>   forma e non per nome, quindi una collezione nuova è costata una riga a testa.
+> - **`resetAll` e `importAll` derivano l'elenco da `COLLEZIONI`**, e non più da tre
+>   elenchi scritti a mano.
+> - I campi facoltativi dell'anagrafica, **certificazioni comprese** — §4.4ter.
+>
+> **Resta fuori: `core/store.js` in TypeScript.** È la parte grossa della 1.4.0 —
+> 1.974 righe — e non è cominciata. È il primo lavoro della prossima sessione.
+
+
 
 La cosa più pericolosa di questo piano non è scrivere le cinque funzioni: è
 **muovere lo schema cinque volte su un magazzino che lavora**. Cinque rilasci, cinque
@@ -165,7 +189,7 @@ schedulatore non aggiunge operazioni: aggiunge la *richiesta*, la *coda* e la
 |---|---|
 | `task_id` | chiave testuale |
 | `type` | `TRANSFER` · `PICK_SHIP` · `PICK_RET` · `QUARANTINE` · `SAMPLING` · `DISPOSAL` · `PUTAWAY` · `COUNT` |
-| `priority` | 1-4. La alza solo un Team Leader, altrimenti è urgente tutto |
+| `priority` | 1-4. **La alza solo un Team Leader** — deciso 12/08. Altrimenti è urgente tutto |
 | `status` | `requested` → `assigned` → `in_progress` → `done` / `cancelled` |
 | `requested_by` · `requested_at` | chi e quando |
 | `assigned_to` · `started_at` · `completed_at` | chi la fa, e i due istanti che servono |
@@ -239,9 +263,25 @@ viene riscritta all'installazione.
 un'ubicazione. Si sposta la UDC, e la merce le va dietro.
 
 **Modello.** Collezione `udc`: `udc_id`, `type`, `location_code`, `site_id`,
-`status` (`open` · `closed` · `shipped` · `empty`), `created_at`, `closed_at`,
-`operator`. E `inventory.udc_id` facoltativo: **assente = merce direttamente in
-ubicazione**, cioè il comportamento di oggi, per sempre.
+`status` (`open` · `closed` · `shipped` · `empty`), `sscc`, `created_at`,
+`created_by`, `closed_at`, `emptied_at`. E `inventory.udc_id` facoltativo:
+**assente = merce direttamente in ubicazione**, cioè il comportamento di oggi,
+per sempre.
+
+**Il ciclo di vita, deciso il 12/08.** Una UDC **nasce su comando** di un
+operatore o di un Team Leader — non si crea da sola quando qualcuno posa un
+collo — e **muore quando non ha più colli dentro**. Da cui due conseguenze che
+vale la pena scrivere adesso, perché a novembre sembreranno dettagli:
+
+1. **Lo svuotamento è automatico, la creazione no.** Il codice che toglie
+   l'ultimo collo è lo stesso che porta la UDC a `empty` e le toglie
+   l'ubicazione. Nessuno deve ricordarsi di chiudere niente: una UDC vuota che
+   resta appesa a uno scaffale è esattamente il genere di riga che poi qualcuno
+   riusa per sbaglio.
+2. **Il record non si cancella.** «Muore» vuol dire che sparisce dalle viste
+   operative, non dalla storia: la tracciabilità GMP non ammette che un
+   contenitore che ha trasportato un lotto svanisca, e `udc_id` non si riusa
+   mai — un codice riemesso rende ambiguo tutto ciò che è già stato scritto.
 
 **L'invariante da difendere.** Se una riga ha `udc_id`, il suo `location_code` deve
 essere quello della UDC. Due scrittori e i due valori divergono in un pomeriggio.
@@ -257,11 +297,28 @@ colli oggi sono 24 gesti; con la UDC è **uno**. Il collaudo di accettazione è
 esattamente quello: una UDC con dentro merce di tre articoli diversi si sposta con
 una scansione, e i tre saldi seguono.
 
-**Etichette.** Una UDC senza etichetta non è una UDC. Lo strumento c'è già —
-`ARCHIVIO/stampa etichette/` — e va ripreso dentro il prodotto. Sullo standard:
-l'SSCC è il codice giusto, ma richiede il **prefisso aziendale GS1**, che è una cosa
-da chiedere fuori come la partita IVA e il certificato. Proposta: codice interno
-adesso, campo `sscc` predisposto e vuoto, migrazione quando il prefisso arriva.
+**Etichette — parte della creazione, non un accessorio** (Andrea, 12/08). Una UDC
+senza etichetta non è una UDC, e la stampa **avviene alla creazione**: chi crea il
+contenitore esce con l'etichetta in mano, senza un secondo gesto da ricordare.
+Lo strumento c'è già — `ARCHIVIO/stampa etichette/` — e va ripreso dentro il
+prodotto.
+
+Questo **cambia la scala della §6**: le etichette non sono più un gradino da
+togliere. Cosa si toglie al loro posto sta lì.
+
+**Il prefisso GS1 diventa un parametro, non un'attesa** (Andrea, 12/08). L'SSCC è
+il codice giusto e richiede il prefisso aziendale GS1, che oggi non c'è. Invece di
+aspettarlo — e di rilasciare una versione il giorno che arriva — il prefisso entra
+in **Configurazione → Etichette** come parametro configurabile, vuoto alla
+consegna:
+
+- prefisso **assente** → si stampa il **codice interno**, ed è il caso di oggi;
+- prefisso **compilato** → il campo `sscc` si calcola e finisce in etichetta.
+
+Il codice per entrambi si scrive una volta sola in 1.4.3. Il giorno che il prefisso
+arriva, qualcuno lo digita in una casella e nessuno installa niente. È la stessa
+forma della partita IVA: un dato dell'azienda non è una costante del sorgente.
+**A3 smette di essere una domanda aperta** e diventa un campo da compilare.
 
 ---
 
@@ -376,6 +433,58 @@ segno d'angolo, che si sommano.
    un referto prima di scrivere e le righe difettose elencate e **non** importate.
 2. **Scriveva una riga per volta.** Su 11.000 articoli sono 11.000 richieste. Ora
    nuovi e modificati partono in due chiamate, con `bulkAdd` e `bulkPut`.
+
+---
+
+### 4.4ter — Avvisi merceologici · **fatto, 12/08**
+
+**Cosa.** Temperatura di conservazione, allergeni e **certificazioni** escono
+dall'anagrafica e compaiono dove la merce si tocca: sulla tappa del **prelievo
+guidato**, sul **report di prelievo** dell'ODP e sul **DDT**.
+
+**Perché non era già così.** Dall'11/08 quei dati esistono, ma vivono in
+Configurazione e sulla mappa. Chi ha in mano il collo davanti allo scaffale non
+apre la Configurazione per controllare, e un surgelato lasciato su un bancale a
+temperatura ambiente non torna indietro. Un attributo che nessuno legge al momento
+giusto è un attributo che non serve a niente.
+
+**Le certificazioni** (Andrea, 12/08) sono il terzo attributo, accanto ai due che
+c'erano: `HALAL`, `KOSHER`. Il loro elenco, **a differenza di quello degli
+allergeni, non è chiuso** — non è una norma, è una richiesta commerciale, e il
+giorno che arriva un cliente che chiede il BIO si aggiunge una riga in
+`CERTIFICAZIONI` e la convalida di Excel se la ritrova nel foglio «Valori ammessi»
+al primo export successivo. La **lettura resta stretta** come le altre due: un
+valore che non è esattamente uno dei codici previsti viene segnalato, non
+interpretato.
+
+| Dove | Cosa |
+|---|---|
+| `modules/anagrafica.ts` | La tabella `CERTIFICAZIONI` e `leggiCertificazioni` |
+| `articles` | `certifications[]`, facoltativo |
+| Maschere articolo | Le caselle, accanto a quelle degli allergeni |
+| Import/export Excel | Colonna `Certificazioni`, e il foglio «Valori ammessi» che la descrive |
+| Prelievo guidato | Una fascia sulla tappa, **sopra** i campi di scansione |
+| Report di prelievo | Una riga sotto la descrizione — righe prelevate e da recuperare |
+| DDT | La stessa riga, sotto la descrizione dell'articolo |
+
+**Una sorgente sola per tre viste** (`App._avvisiArticolo`). Tre elenchi scritti a
+mano divergono, e un avviso che compare al prelievo ma non sul DDT è peggio di
+nessun avviso: insegna a non fidarsi di quelli che restano.
+
+**Tre decisioni piccole che cambiano cosa si vede.**
+
+1. **La fascia sta sopra i campi di scansione**, non sotto. È l'ultima cosa che
+   l'operatore legge prima di mettere le mani sul collo.
+2. **L'allergene è l'unico in rosso.** È il solo dei tre che può fare male a
+   qualcuno; temperatura e certificazioni sono un danno economico e contrattuale.
+   Tre avvisi tutti rossi sono tre avvisi che nessuno legge.
+3. **In stampa niente sfondi, colore fisso.** La stampante può scartare i fondi, e
+   un avviso che sparisce in stampa è peggio di uno che non c'è mai stato.
+
+**E il silenzio continua a valere quanto vale.** Un articolo non classificato non
+produce avvisi — nessuna riga, nessun «—». Il silenzio qui vuol dire «non lo so»,
+non «è a posto», ed è la stessa decisione della §4.4bis: dove si conta chi manca è
+la Configurazione, non la tappa di prelievo.
 
 ---
 
@@ -535,6 +644,29 @@ Prima di ogni consegna: build, 57+ collaudi client, 29+ di servizio, `npm run ch
 a zero, e il confronto fra due istanze su porte diverse. Il metodo non cambia perché
 il calendario stringe — è quando stringe che serve.
 
+### Dove siamo davvero, al 12/08
+
+La 1.4.0 è **cominciata e non finita**, e vale la pena essere precisi su cosa manca.
+
+| Della 1.4.0 | Stato |
+|---|---|
+| Migrazione `ALTER TABLE` | fatta, con le 8 prove sul codice vero |
+| Schema mosso una volta — `udc_id` + 5 collezioni | fatto |
+| `_CACHE_SHAPE` a 19 voci (aperto #6) | fatto |
+| Export/import da `COLLEZIONI` + i due difetti | fatti |
+| Interruttori `feature.*` | fatti, tutti spenti |
+| **`core/store.js` in TypeScript** | **non cominciato** — 1.974 righe |
+
+E in più, fuori piano: le **certificazioni** e gli **avvisi merceologici** (§4.4ter).
+Non erano in calendario. Sono costati circa **mezza settimana**, e quella mezza
+settimana è uscita da un budget che alla §6 era già pieno al centimetro.
+
+**Questo è il primo morso allo slack che non c'era**, e va detto adesso e non il
+31 ottobre: se la conversione di `store.js` costa più di quanto costava prima che
+ci scrivessimo dentro cinque collezioni e gli interruttori, la 1.4.0 sfora, e il
+primo gradino della scala qui sopra si scende a settembre invece che a novembre.
+Non è un allarme — è la ragione per cui la verifica del 31/10 esiste.
+
 ### La cosa da sapere prima di cominciare: non c'è slack
 
 5,5 + 3 + 3 + 3 + 2,5 + 1,5 = **18,5 settimane su 18,5 disponibili**. Ogni consegna è
@@ -580,8 +712,11 @@ Si scende di un gradino per ogni settimana di ritardo, dal primo:
 
 1. **Il cruscotto dello schedulatore** → resta l'elenco per priorità. Costo: si vede
    peggio, funziona uguale.
-2. **Le etichette UDC** → si stampa il codice interno con lo strumento che c'è già in
-   `ARCHIVIO`, senza integrarlo nel prodotto. Costo: un passaggio a mano.
+2. ~~**Le etichette UDC**~~ — **non più disponibile, 12/08.** La stampa
+   dell'etichetta è parte della creazione della UDC, non un accessorio: §4.3.
+   Al suo posto si toglie il **layout ricco dell'etichetta** → si stampa quella
+   **minima** — codice, barcode, ubicazione — richiamando lo strumento che c'è già
+   in `ARCHIVIO`. Costo: un'etichetta più povera, non un passaggio a mano in più.
 3. **Il punteggio morbido del motore** → restano i vincoli duri, cioè allergeni,
    temperatura e magazzino imposto. Sparisce «gli articoli simili vicini», che torna
    nella 1.5. Costo: il motore propone un posto **giusto** invece del posto **migliore**.
@@ -605,7 +740,9 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 | `ui/app.js` in TypeScript | 10.529 righe. Fuori perimetro, resta alla 1.5 |
 | Due righe di giacenza per il collo incompleto | Rompe `[location_code+item_key]`, §4.2 |
 | Il vincolo del magazzino come campo dell'anagrafica | Sarebbe un rilascio a ogni cambio di politica, §4.4 |
-| SSCC vero sulle UDC | Serve il prefisso GS1, che è una richiesta esterna, §4.3 |
+| Aspettare il prefisso GS1 per fare le etichette | È un parametro configurabile, non un blocco. Vuoto = codice interno, §4.3 |
+| Cancellare il record di una UDC svuotata | Muore dalle viste, non dalla storia. `udc_id` non si riusa mai, §4.3 |
+| Un quindicesimo allergene | È una norma. Le certificazioni invece si allungano, §4.4ter |
 | Riscrivere dati esistenti all'installazione | §5 |
 | Accendere due funzioni nello stesso turno | Se qualcosa si muove, non si sa quale delle due |
 
@@ -621,19 +758,33 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 | D2 | **Verifica dell'andamento a fine ottobre** | Quattro fatti da guardare il 31/10, e una scala di cosa togliere già decisa. §6 |
 | D3 | **`store.js` in TypeScript dentro la Fase 0** | 1.4.0 passa da 4 a 5,5 settimane. Sparisce l'aperto #4, spariscono i due ponti verso Store. §3 |
 
+### Prese — 12/08/2026, Andrea
+
+| # | Decisione | Conseguenza |
+|---|---|---|
+| D4 | **La priorità di un compito la alza solo il Team Leader** | Chiude A4 con la proposta che c'era. §4.1 |
+| D5 | **La UDC nasce su comando** — operatore o Team Leader — **e muore quando è vuota** | Lo svuotamento è automatico, la creazione no. Il record resta come storia: GMP. §4.3 |
+| D6 | **L'etichetta si stampa alla creazione della UDC** | Le etichette escono dalla scala della §6. Al loro posto scende il layout ricco. §4.3, §6 |
+| D7 | **Il prefisso GS1 è un parametro configurabile**, non un'attesa | Chiude A3. Vuoto → codice interno; compilato → SSCC. Nessun rilascio il giorno che arriva. §4.3 |
+| D8 | **Le certificazioni sono il terzo attributo** dell'articolo (halal, kosher) | Elenco **non chiuso** — non è una norma — ma lettura stretta. §4.4ter |
+| D9 | **Temperatura, allergeni e certificazioni si vedono al prelievo, sul report e sul DDT** | Una sorgente sola per tre viste. Costo: ~mezza settimana fuori piano. §4.4ter, §6 |
+| D10 | **`storage_rules` nasce in Fase 0**, vuota | Lo schema non si muove una sesta volta a novembre. §3 |
+
 ### Aperte — bloccano la funzione, non l'inizio dei lavori
 
 | # | Cosa serve sapere | Entro | Blocca |
 |---|---|---|---|
 | ~~A1~~ | ~~L'elenco degli allergeni~~ — **chiuso 11/08**: sono i 14 dell'Allegato II del Reg. UE 1169/2011, e la segregazione è per zona | — | — |
 | ~~A2~~ | ~~Le classi di temperatura~~ — **chiuso 11/08**: le tre della logistica, `SURG` −18 °C · `REFR` +4/+8 °C · `AMB` +18/+25 °C | — | — |
-| A2b | **Quali zone** sono refrigerate e quale è la zona allergeni. Si imposta da Configurazione → Zone; finché non lo si fa, la mappa non segnala nulla | quando puoi | la verifica di stoccaggio, §4.4bis |
-| A3 | **Prefisso aziendale GS1**: c'è? Chi lo sa? | 02/11 | solo le etichette UDC, §4.3. Prima si sa, meglio è |
-| A4 | **Chi può alzare la priorità** di un compito. Proposta: solo Team Leader | 21/09 | il modello dei permessi dello schedulatore, §4.1 |
-| A5 | Partita IVA e dati del mittente — aperto vecchio, ancora aperto | quando puoi | i DDT escono «non conformi» finché manca |
+| A2b | **Caratterizzare le zone** — quali sono refrigerate, quale è la zona allergeni. Si imposta da Configurazione → Zone. **Andrea lo fa alla configurazione**; finché non è fatto la mappa non segnala nulla | quando puoi | la verifica di stoccaggio, §4.4bis |
+| ~~A3~~ | ~~Prefisso aziendale GS1~~ — **chiuso 12/08 (D7)**: non c'è, e non serve che ci sia. Diventa un parametro di Configurazione | — | — |
+| ~~A4~~ | ~~Chi può alzare la priorità~~ — **chiuso 12/08 (D4)**: solo il Team Leader | — | — |
+| A5 | Partita IVA e dati del mittente — **Andrea la configura al momento opportuno**. Nessun lavoro di codice: la maschera c'è | quando puoi | i DDT escono «non conformi» finché manca |
 
 Le due che dipendevano da qualcun altro sono chiuse lo stesso giorno in cui il piano
 è stato scritto, e con loro è partito il primo pezzo di codice della 1.4.0 — §4.4bis.
+Le due che restavano si sono chiuse il giorno dopo, e nessuna delle due aspettava
+davvero qualcuno: una era una scelta, l'altra un campo da aggiungere.
 
 ---
 

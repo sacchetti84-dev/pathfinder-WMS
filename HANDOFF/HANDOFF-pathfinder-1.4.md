@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 11/08/2026 · Rev. 02 — consolidato
+Data: 12/08/2026 · Rev. 03 — la 1.2 è in magazzino, la Fase 0 è dentro
 
 ---
 
@@ -25,17 +25,24 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Voce | Valore |
 |---|---|
-| In magazzino, **adesso** | `pathfinder-1.1.html` — verificato su `/api/app-info` |
-| Costruita e mai installata | 1.2, e da oggi contiene anche la verifica di stoccaggio |
+| In magazzino, **adesso** | `pathfinder-1.2.html` — verificato su `/api/app-info`, 1.486.348 byte |
+| In lavorazione | **1.4.0**, Fase 0 dentro. Manca `store.js` in TypeScript |
 | Sorgente | 25 file in `src/`: **19 TypeScript**, 6 JavaScript, più 5 CSS |
 | Ancora JavaScript | `core/store.js` · `main.js` · `ui/` (4 file) |
-| Collaudi | **109 client** · **29 servizio** · **8 migrazione** — tutti verdi |
+| Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
+| Collaudi | **114 client** · **30 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
-> **Un disallineamento che c'è già.** Il magazzino gira sulla **1.1**, ma tutto il
-> lavoro recente è nella 1.2 costruita. Nessuno vedrà la verifica di stoccaggio
-> finché la 1.2 non entra in servizio: sono i cinque comandi della §4, riga 1.
+> **Il disallineamento è finito.** Il magazzino gira sulla 1.2: i cinque comandi
+> sono stati impartiti l'11/08 e `/api/app-info` lo conferma. La verifica di
+> stoccaggio è in servizio, e `pathfinder-1.1.html` è uscito dalla radice — resta
+> in `ARCHIVIO/VERSIONI PRECEDENTI/`, identico byte per byte, per il ritorno
+> indietro.
+>
+> **Ma la 1.4.0 non è ancora in magazzino**: quello che c'è di 1.4 sta nel
+> sorgente, non nel file servito. Non si installa finché `store.js` non è
+> convertito e l'intera 1.4.0 non è chiusa — vedi §3.
 
 ---
 
@@ -43,6 +50,10 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| `05cfe74` | **Avvisi merceologici**: temperatura, allergeni e certificazioni al prelievo guidato, sul report ODP e sul DDT |
+| `ae1ec86` | **1.4.0 Fase 0**: migrazione `ALTER TABLE` nel prodotto, schema mosso una volta (19 collezioni), export/import da `COLLEZIONI`, interruttori `feature.*` |
+| `b104bc7` | La 1.2 entra in magazzino, `pathfinder-1.1.html` esce dalla radice |
+| `ccf249f` | Un handoff solo, e gli aperti smettono di trascinarsi |
 | `60ddceb` | **5.519 righe di commento** tolte da 39 file, provando che il bundle minificato resta identico byte per byte. Nasce `INDEX.md` |
 | `3127d79` | **PIANO-1.4**: le cinque funzioni riordinate per dipendenza, calendario, e il bloccante della §1 |
 | `2142031` | Il collaudo che dimostra che i dati sopravvivono al cambio di schema, più il prototipo della migrazione |
@@ -54,27 +65,38 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 ## 3. Da dove si riparte, in ordine
 
-### Prima cosa, e non è codice
+### Prima cosa, e non è codice — resta da fare
 
 **Caratterizzare le zone** in Configurazione → Zone: classe di conservazione e la
 spunta sulla zona allergeni. Finché non è fatto la mappa resta muta, per quanti
 articoli si classifichino: la verifica confronta due metà e una manca.
 
 Poi **esportare l'anagrafica** e costruire le tendine in Excel puntando al foglio
-**«Valori ammessi»** che l'export porta con sé.
+**«Valori ammessi»** che l'export porta con sé — che da oggi descrive anche la
+colonna `Certificazioni`.
 
-### Poi il codice della 1.4.0
+### Il codice della 1.4.0 — dove siamo
 
-| # | Cosa | Dove |
+| # | Cosa | Stato |
 |---|---|---|
-| 1 | **La migrazione `ALTER TABLE` dentro `PathfinderDB`**, fra `createSQL` e gli indici. Il prototipo e le 8 prove esistono già: si sposta `migra()` e si toglie da lì | `server/lib/db.js` · `server/test/collaudo-migrazione-1.4.js` |
-| 2 | **`core/store.js` in TypeScript**, a blocchi. Cache e `_applyToCache` per primi | PIANO-1.4 §3 |
-| 3 | **Collaudi su `_applyToCache`** — 14 collezioni oggi, 18 dopo | — |
-| 4 | Lo schema mosso **una volta**: `inventory.udc_id`, le collezioni `lots` `udc` `tasks` `wip` vuote, Dexie `version(8)` | PIANO-1.4 §3 |
-| 5 | Export/import letto da `COLLEZIONI` invece che da tre elenchi a mano | PIANO-1.4 §5bis |
-| 6 | Gli interruttori `feature.*` in `meta`, tutti spenti | PIANO-1.4 §3 |
+| 1 | La migrazione `ALTER TABLE` dentro `PathfinderDB` | **fatto** — `_migra`, `server/lib/db.js` |
+| 2 | **`core/store.js` in TypeScript**, a blocchi. Cache e `_applyToCache` per primi | **da fare — è il prossimo lavoro** |
+| 3 | `_CACHE_SHAPE` a 19 collezioni (aperto #6) | **fatto** |
+| 4 | Schema mosso una volta: `udc_id`, `lots` `udc` `tasks` `wip` `storage_rules`, Dexie `version(8)` | **fatto** |
+| 5 | Export/import da `COLLEZIONI` invece che da tre elenchi a mano | **fatto** |
+| 6 | Interruttori `feature.*` in `meta`, tutti spenti | **fatto** |
+
+**Il prossimo lavoro è il punto 2, e solo quello.** Vale la regola di sempre:
+`store.js` e `app.js` **non nello stesso commit**, `app.js` non si tocca affatto,
+conversione **a blocchi** con build e collaudo in mezzo a ognuno, e in coda
+spariscono i due ponti verso Store in cima a `pickRoute.ts` e `vault.ts`.
+
+Poi si costruisce, si installa la 1.4.0, e solo allora comincia la 1.4.1.
 
 Criterio di riuscita della 1.4.0: **si installa e non cambia niente a video.**
+Con una eccezione dichiarata: gli **avvisi merceologici** (PIANO §4.4ter) si
+vedono, ed è voluto — non passano da un interruttore perché non cambiano nessun
+comportamento, mostrano un dato che c'era già.
 
 ---
 
@@ -87,26 +109,24 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
-| 1 | **Portare la 1.2 in magazzino** — i cinque comandi sono qui sotto, procedura generale in [README §8](../README.md#8-aggiornare-a-una-versione-nuova) | 1.2 §6.6 · 1.3 §6 | Andrea |
-| 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica | nuovo | Andrea |
-| 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. Senza, i DDT escono «non conformi» | **1.0 §7.1** | Andrea |
-| 4 | **Nome DNS interno e certificato** dalla CA aziendale. Il servizio è già pronto: si accende con `PATHFINDER_TLS_CERT` e `_KEY` | **1.0 §7.2** · 1.2 §6.1 | IT |
-| 5 | **Schede grafico del cruscotto tagliano ~6 px** in fondo alla legenda. Non è una regressione: dipende dal ridimensionamento a codice degli SVG | **1.0 §7.3** | mezz'ora |
-| 6 | **Elenco causali di trasporto** mai validato con l'utente — nove di serie | **1.0 §7.4** | 5 min |
-| 7 | **`weight_net_kg` in anagrafica.** `pieces_per_pack` non è più un aperto a sé: diventa la UM-per-collo in 1.4.2 | **1.0 §7.6** | import Excel |
-| 8 | **`ui/` in TypeScript**, `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | 1.2 §6.4 · 1.3 §6.4 | grande |
-| 9 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.js` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
-| 10 | **Prefisso aziendale GS1**, per le etichette UDC di 1.4.3 | PIANO-1.4 §4.3 | da chiedere |
-| 11 | **Chi può alzare la priorità** di un compito. Proposta: solo Team Leader | PIANO-1.4 §4.1 | Andrea |
-| 12 | `pathfinder-1.1.html` è nel repository **due volte** (radice e `ARCHIVIO/VERSIONI PRECEDENTI`, 1,2 MB l'una). La copia in archivio si toglie quando la radice passa alla 1.2 | 1.2 §6 · 1.3 §6 | banale |
-| 13 | `ARCHIVIO/LOGHI/`: `commodore.svg` e `gemini-svg.svg` **identici byte per byte**, più nomi generati automaticamente | 1.2 §6 · 1.3 §6 | banale |
+| 1 | **`core/store.js` in TypeScript** — il pezzo che manca alla 1.4.0. 1.974 righe, a blocchi | PIANO-1.4 §3 | **prossimo lavoro** |
+| 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
+| 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare, non codice da scrivere | **1.0 §7.1** | Andrea, quando opportuno |
+| 4 | **Nome DNS interno e certificato** dalla CA aziendale. **Il codice è pronto e non aspetta niente**: due variabili e HTTPS si accende. Il certificato arriva a lavori finiti | **1.0 §7.2** · 1.2 §6.1 | IT — non blocca |
+| 5 | **`weight_net_kg` in anagrafica.** Il campo è cablato ovunque — maschere, import, export, calcolo peso del DDT: è **solo da compilare**, colonna `Peso_Netto_Collo`. `pieces_per_pack` diventa la UM-per-collo in 1.4.2 | **1.0 §7.6** | import Excel |
+| 6 | **`ui/` in TypeScript**, `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | 1.2 §6.4 · 1.3 §6.4 | grande |
+| 7 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.js` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
 
-### I cinque comandi dell'aperto 1
+### I cinque comandi — **impartiti l'11/08**, restano qui perché servono a ogni versione
 
 Da **PowerShell come amministratore** (il servizio gira come SYSTEM), **a fine
-turno** e **con un backup fresco davanti**. Oggi `PATHFINDER_APP` è **vuota** e il
-servizio ripiega sul nome scritto nel codice, `pathfinder-1.1.html`: è il motivo per
-cui il passo 3 non è facoltativo.
+turno** e **con un backup fresco davanti**. Si rifanno tali e quali per installare
+la 1.4.0, cambiando il nome del file.
+
+Prima dell'11/08 `PATHFINDER_APP` era **vuota** e il servizio ripiegava sul nome
+scritto nel codice, `pathfinder-1.1.html`: è il motivo per cui il passo 3 non era
+facoltativo. Adesso la variabile è impostata, e il passo 3 serve solo quando il
+nome del file cambia — cioè a ogni versione.
 
 ```powershell
 Invoke-RestMethod -Uri http://127.0.0.1:4173/api/backup -Method Post `
@@ -153,8 +173,14 @@ per questo — e il database non viene toccato.
 | La cartella `HANDSOFF` con la esse di troppo | 1.2 §6 | **Fatto** (1.3) |
 | Allergeni: quali tracciare | PIANO-1.4 A1 | **Chiuso**: i 14 dell'Allegato II, segregazione per zona |
 | Classi di temperatura | PIANO-1.4 A2 | **Chiuso**: `SURG` −18 · `REFR` +4/+8 · `AMB` +18/+25 |
-| `core/store.js` in TypeScript | 1.2 §6.3 · 1.3 §6.3 | **Programmato**: entra in 1.4.0 (§3) |
-| Collaudi su `_applyToCache` | 1.3 §6.5 | **Programmato**: entra in 1.4.0 (§3) |
+| Portare la 1.2 in magazzino | 1.2 §6.6 · 1.3 §6 | **Fatto 11/08**: cinque comandi, `/api/app-info` lo conferma |
+| `pathfinder-1.1.html` in radice e in archivio | 1.2 §6 · 1.3 §6 | **Fatto 12/08**: la radice serve la 1.2, la copia morta è uscita |
+| Schede grafico che tagliano ~6 px | 1.0 §7.3 | **Chiuso 12/08**: vanno bene così, non è un difetto da inseguire |
+| Elenco causali di trasporto | 1.0 §7.4 | **Chiuso 12/08**: le nove di serie sono validate |
+| Prefisso aziendale GS1 | PIANO-1.4 §4.3 | **Chiuso 12/08**: non è un'attesa, è un parametro di Configurazione (D7) |
+| Chi alza la priorità di un compito | PIANO-1.4 §4.1 | **Chiuso 12/08**: solo il Team Leader (D4) |
+| `ARCHIVIO/LOGHI/` — file doppi e nomi generati | 1.2 §6 · 1.3 §6 | **Fuori perimetro 12/08**: non è un compito del progetto |
+| Collaudi su `_applyToCache` | 1.3 §6.5 | **Fatto 12/08**: 19 collezioni dichiarate, `resetAll` le pulisce tutte |
 
 ---
 
@@ -193,6 +219,13 @@ Non si rimettono in discussione. Fonte fra parentesi.
 22. **Lettura stretta**, non tollerante: i valori arrivano convalidati da Excel.
 23. **La cella Riservata ammette allergeni** — deroga esplicita, contata ed elencabile. Sulla temperatura non deroga.
 24. **Ogni campo nuovo è facoltativo**, e assente significa «come nella 1.2».
+25. **La priorità di un compito la alza solo il Team Leader** (12/08, D4).
+26. **La UDC nasce su comando e muore quando è vuota**: lo svuotamento è automatico, la creazione no. Il record resta come storia, e `udc_id` non si riusa mai (12/08, D5).
+27. **L'etichetta si stampa alla creazione della UDC**, non dopo. Non è più una cosa che si può togliere dal calendario (12/08, D6).
+28. **Il prefisso GS1 è un parametro di Configurazione**: vuoto → codice interno, compilato → SSCC. Il giorno che arriva nessuno installa niente (12/08, D7).
+29. **Le certificazioni sono il terzo attributo dell'articolo.** Il loro elenco NON è chiuso — non è una norma, è una richiesta commerciale — ma la lettura resta stretta (12/08, D8).
+30. **Temperatura, allergeni e certificazioni si vedono dove la merce si tocca**: prelievo guidato, report ODP, DDT. Una sorgente sola per le tre viste (12/08, D9).
+31. **Gli interruttori `feature.*` sono una chiave per una in `meta`**, non un unico record: accenderne due nello stesso turno deve costare due gesti distinti.
 
 ---
 
@@ -209,7 +242,8 @@ Non si rimettono in discussione. Fonte fra parentesi.
 8. **I backtick nei messaggi di commit** vengono interpretati dalla shell: heredoc con apici (1.2 §4.5).
 
 ### Codice
-9. **`CREATE TABLE IF NOT EXISTS` non aggiunge colonne**, e il `CREATE INDEX` dopo muore nel costruttore: il servizio non parte affatto. È il bloccante della PIANO-1.4 §1.
+9. **`CREATE TABLE IF NOT EXISTS` non aggiunge colonne**, e il `CREATE INDEX` dopo muore nel costruttore: il servizio non parte affatto. Era il bloccante della PIANO-1.4 §1, **tolto il 12/08** con `PathfinderDB._migra`. Resta scritto qui perché la ragione per cui `createTableSQL` e `createIndexSQL` sono due funzioni e non una è esattamente questa: **non rimetterle insieme.**
+9bis. **Il collaudo della migrazione costruisce lo schema di ieri togliendo le aggiunte a `schema.COLLECTIONS`** e poi le rimette. Chi aggiunge una collezione alla 1.4 la aggiunga anche all'elenco `NUOVE` di `collaudo-migrazione-1.4.js`, se no la prova gira su due schemi identici e non prova niente.
 10. **`getLocationStatus`: uno stato esplicito vince su «occupata».** Una cella Riservata con merce dentro resta `reserved` — senza questo la deroga non scatterebbe mai.
 11. **`addArticle` esce con `false` su un codice noto.** Era il motivo per cui l'import diceva «importati 0». Ora c'è `upsertArticles`.
 12. **`Dialog.confirm` non accetta HTML**: vuole `message` (testo) e `details` (nodo DOM). È deliberato.
@@ -244,8 +278,8 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 ## 8. Cosa NON fare
 
-- **Non installare la 1.4.x prima della migrazione della §3.1**: il servizio non parte.
-- **Non toccare `pathfinder-1.1.html` in radice** finché è quello servito.
+- **Non installare una 1.4.x parziale.** La Fase 0 è dentro ma `store.js` è ancora JavaScript: si installa quando la 1.4.0 è chiusa per intero, non prima.
+- **Non toccare `pathfinder-1.2.html` in radice**: è quello servito adesso.
 - **Non convertire `store.js` e `app.js` nello stesso commit.**
 - **Non togliere i ponti verso Store** finché Store è JavaScript: cadono con la 1.4.0.
 - **Non togliere `window.App = App`** in coda a `main.js`: 366 punti chiamano `App` per nome e smetterebbero di funzionare **in silenzio**.
@@ -265,12 +299,12 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 ```bash
 npm run check                       # tsc client + servizio
-npm test                            # 109 prove client
+npm test                            # 114 prove client
 npm run build                       # produce "Pathfinder 1.2/"
 ```
 
 ```bash
-node test/collaudo.js               # 29 prove servizio, da server/
+node test/collaudo.js               # 30 prove servizio, da server/
 ```
 
 ```bash
@@ -292,7 +326,7 @@ servono per lavorare, perché tutto ciò che era ancora vivo sta nelle §4-§8.
 | `PIANO-AZIONE-Pathfinder-2.0.md` | Era già marcato **superato** dal suo stesso autore. Le fasi 0-4 sono state eseguite; le decisioni D3 (Entra) e Fase 6 (D365) sono state ribaltate |
 | `Pathfinder_Handoff_Valutazione_Tecnica_ES6 TYPESCRIPT.md` | **Eseguito**: è stata scelta l'Opzione C, TypeScript + Vite, ed è quello che gira |
 | `Pathfinder_Handoff_Infrastruttura_Azure_ERP_REDIS.md` | **Respinto**: Azure Static Web Apps, Redis e la coda offline su IndexedDB sono tutti esclusi dalle decisioni 5, 6 e 1 della §5 |
-| `PROMPT-workspace-multiagente.md` | Prompt per un esperimento archiviato (app Android multi-agente), senza vincoli sul core |
+| `PROMPT-workspace-multiagente.md` | Prompt per un esperimento archiviato (app Android multi-agente), senza vincoli sul core. **Rimpiazzato il 12/08** da [`PROMPT-workspace-multiagente-1.4.md`](PROMPT-workspace-multiagente-1.4.md), che parla del lavoro vero |
 
 ---
 
