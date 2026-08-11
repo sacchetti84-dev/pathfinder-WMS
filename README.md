@@ -384,7 +384,7 @@ src/  ~25 moduli  ──build──>  dist/pathfinder-1.2.html  (un file, si cop
 | `npm run dev` | Sviluppo con ricarica automatica su `localhost:5173` |
 | `npm run build` | Produce `dist/pathfinder-1.2.html` |
 | `npm run check` | Controllo dei tipi, client **e** servizio |
-| `npm test` | Collaudi automatici (serpentina, FEFO) — ~1 secondo |
+| `npm test` | Collaudi automatici (serpentina, FEFO, geometria, parser ODP) — ~1 secondo |
 | `cd server && npm test` | 29 prove sul servizio, con database usa-e-getta |
 
 In sviluppo il rimando alle API va puntato su un'istanza **di prova**:
@@ -399,16 +399,32 @@ npm run dev
 ```
 src/
 ├─ main.js              ingresso: stili, avvio, errori globali
-├─ types/               i contratti, condivisi col servizio
-├─ core/                costanti · schema · store · persistence/
-├─ modules/             auth · odpParser · pickRoute · quarantena · vault · …
-├─ ui/                  app · dialog · feedback · tabs
+├─ types/       .ts     i contratti, condivisi col servizio
+├─ core/        .ts     costanti · schema · persistence/ …  ma store.js no
+├─ modules/     .ts     auth · odpParser · pickRoute · session · vault · …
+├─ ui/          .js     app · dialog · feedback · tabs
 └─ styles/              i 5 fogli, nell'ordine della cascata
+test/                   geometria · serpentina · FEFO · parser ODP
 server/
 ├─ pathfinder-server.js  gli endpoint
 ├─ lib/{db,schema}.js    SQLite e lo schema
 └─ test/collaudo.js      29 prove
 ```
+
+**Perché due estensioni.** La conversione a TypeScript va avanti un file per
+volta, e un file che è passato non torna indietro: `checkJs` resta spento sul
+client, quindi il controllo è severo su ciò che è già `.ts` e assente sul
+resto. Accenderlo tutto insieme su 15.000 righe scritte prima che i tipi
+esistessero produce un elenco di segnalazioni che nessuno legge, e la prima
+cosa che si fa per farlo tacere è spegnerlo.
+
+Restano in JavaScript `core/store.js` e la cartella `ui/`: sono i due pezzi
+grossi, e vengono per ultimi perché sono quelli che tutto il resto usa. Dove
+un modulo `.ts` deve parlare con Store c'è un **ponte** dichiarato in cima al
+file — `pickRoute.ts` e `vault.ts` ne hanno uno — che elenca i metodi usati e
+la loro forma. Sono righe destinate a sparire il giorno in cui Store diventa
+`.ts`, e nel frattempo dicono a colpo d'occhio quanto quel modulo dipende dal
+magazzino.
 
 ### Le tre famiglie di endpoint
 
