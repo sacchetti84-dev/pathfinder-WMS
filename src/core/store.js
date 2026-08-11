@@ -1,6 +1,10 @@
 import { MOV } from './costanti';
 import { Persistence } from './persistence/index';
 import { COLLEZIONI, CHIAVE_PRIMARIA } from '../types/collezioni';
+import {
+  FORMA_CACHE, applicaAllaCache, bucketPut, bucketDelete,
+  indicizzaGiacenza, ricostruisciIndici, indiciVuoti, metaVuota,
+} from './cache';
 import { verificaConformita } from '../modules/conformita';
 import { App } from '../ui/app.js';
 
@@ -64,7 +68,9 @@ const Store = {
     tasks: [],             // 1.4.1 — coda delle attivita'
     wip: [],               // 1.4.5 — conti aperti verso la produzione
     storageRules: [],      // 1.4.4 — le regole del motore, come dato
-    meta: { lastModified: null, unsavedChanges: false }
+    /* Stessa forma che `_applyToCache('meta','clear')` rimette: una sola
+       definizione, se no l'avvio e l'azzeramento partono da due stati diversi. */
+    meta: metaVuota()
   },
 
   MOVLOG_WINDOW_KEY: 'wm_movlog_window_days',
@@ -103,10 +109,16 @@ const Store = {
     return d === 0 ? null : Date.now() - d * 24 * 60 * 60 * 1000;
   },
 
-  _locIndex: null,    // Set<location_code> → fast lookup
-  _invByLoc: null,    // Map<location_code → item[]>
-  _invByKey: null,    // Map<item_key → item[]>
-  _artByCode: null,   // Map<code → article>
+  _locIndex: null,    // Set<location_code> → fast lookup. Geometria: resta qui
+
+  /* Gli indici derivati vivono in `core/cache.ts` e ci stanno DENTRO un
+     oggetto, non sparsi: `applicaAllaCache` deve poterli sostituire su
+     `clear`, e tre riferimenti separati resterebbero appesi a Map morte.
+     I tre getter tengono in piedi i trenta punti che li leggono per nome. */
+  _indici: indiciVuoti(),
+  get _invByLoc()  { return this._indici.invByLoc; },   // Map<location_code → item[]>
+  get _invByKey()  { return this._indici.invByKey; },   // Map<item_key → item[]>
+  get _artByCode() { return this._indici.artByCode; },  // Map<code → article>
 
   async init() {
     await Persistence.open();
@@ -319,9 +331,6 @@ const Store = {
   /* Rebuild indici in-memory — O(n) ad ogni mutazione massiva */
   _rebuildIndexes() {
     this._locIndex = new Set();
-    this._invByLoc = new Map();
-    this._invByKey = new Map();
-    this._artByCode = new Map();
     // Ubicazioni valide: generate da tutte le zone attive
     for (const site of this._cache.sites) {
       if (!site.active) continue;
@@ -330,15 +339,7 @@ const Store = {
         for (const loc of this._genLocations(site.id, zone)) this._locIndex.add(loc.code);
       }
     }
-    for (const it of this._cache.inventory) {
-      if (!this._invByLoc.has(it.location_code)) this._invByLoc.set(it.location_code, []);
-      this._invByLoc.get(it.location_code).push(it);
-      if (!this._invByKey.has(it.item_key)) this._invByKey.set(it.item_key, []);
-      this._invByKey.get(it.item_key).push(it);
-    }
-    for (const a of this._cache.articles) {
-      if (a.active !== false) this._artByCode.set(a.code, a);
-    }
+    ricostruisciIndici(this._cache, this._indici);
   },
 
   /* ═══════════════════════════════════════════════════════════════════
@@ -375,135 +376,22 @@ const Store = {
      Tutti e tre terminano ricostruendo gli indici, quindi la cache resta
      coerente. Quando il server invieta' delta di massa, saranno questi
      tre a diventare un'operazione sola.
+
+     DA QUI IN POI STA IN TYPESCRIPT. L'implementazione e' in
+     `core/cache.ts` — primo blocco della conversione, PIANO-1.4 §3. Qui
+     restano il nome e la firma, che quarantasette punti di questo file e uno
+     di `vault.ts` chiamano: spostare il codice non doveva muovere nient'altro.
+     Il collaudo e' `test/cache.test.js`, e prima non c'era.
      ═══════════════════════════════════════════════════════════════════ */
 
-  _CACHE_SHAPE: {
-    sites:            { field: 'sites',       kind: 'list',   key: '_id',           insert: 'push' },
-    zones:            { field: 'zones',       kind: 'list',   key: '_id',           insert: 'push' },
-    articles:         { field: 'articles',    kind: 'list',   key: '_id',           insert: 'push' },
-    inventory:        { field: 'inventory',   kind: 'list',   key: '_id',           insert: 'push' },
-    mov_log:          { field: 'movLog',      kind: 'list',   key: '_id',           insert: 'unshift' },
-    quarantine:       { field: 'quarantine',  kind: 'list',   key: '_id',           insert: 'unshift' },
-    pending_outbound: { field: 'pendingOut',  kind: 'list',   key: 'doc_id',        insert: 'unshift' },
-    pick_archive:     { field: 'pickArchive', kind: 'list',   key: 'doc_id',        insert: 'unshift' },
-    disposal_archive: { field: 'disposalArchive', kind: 'list', key: 'doc_id',      insert: 'unshift' },
-    operators:        { field: 'operators',   kind: 'list',   key: 'op_id',         insert: 'push' },
-    loc_status:       { field: 'locStatus',   kind: 'map',    key: 'location_code' },
-    disabled:         { field: 'disabled',    kind: 'set',    key: 'location_code' },
-    pick_session:     { field: 'pickSession', kind: 'single' },
-    meta:             { field: 'meta',        kind: 'kv',     key: 'key' },
-    /* 1.4.0 — dichiarate, non programmate: `_applyToCache` lavora per FORMA
-       e non per nome, quindi una collezione nuova costa una riga qui. */
-    lots:             { field: 'lots',        kind: 'list',   key: '_id',      insert: 'push' },
-    udc:              { field: 'udc',         kind: 'list',   key: 'udc_id',   insert: 'push' },
-    tasks:            { field: 'tasks',       kind: 'list',   key: 'task_id',  insert: 'unshift' },
-    wip:              { field: 'wip',         kind: 'list',   key: 'wip_id',   insert: 'unshift' },
-    storage_rules:    { field: 'storageRules', kind: 'list',  key: 'rule_id',  insert: 'push' }
-  },
+  _CACHE_SHAPE: FORMA_CACHE,
 
-  _bucketPut(map, mapKey, rec) {
-    if (mapKey === undefined || mapKey === null) return;
-    let arr = map.get(mapKey);
-    if (!arr) { arr = []; map.set(mapKey, arr); }
-    const i = arr.findIndex(x => x._id === rec._id);
-    if (i >= 0) arr[i] = rec; else arr.push(rec);
-  },
-
-  _bucketDelete(map, mapKey, rec) {
-    const arr = map.get(mapKey);
-    if (!arr) return;
-    const i = arr.findIndex(x => x._id === rec._id);
-    if (i >= 0) arr.splice(i, 1);
-    if (!arr.length) map.delete(mapKey);
-  },
-
-  _indexInventory(prev, next) {
-    if (prev && prev !== next) {
-      if (prev.location_code !== next.location_code) this._bucketDelete(this._invByLoc, prev.location_code, prev);
-      if (prev.item_key !== next.item_key)           this._bucketDelete(this._invByKey, prev.item_key, prev);
-    }
-    this._bucketPut(this._invByLoc, next.location_code, next);
-    this._bucketPut(this._invByKey, next.item_key, next);
-  },
+  _bucketPut(map, mapKey, rec) { bucketPut(map, mapKey, rec); },
+  _bucketDelete(map, mapKey, rec) { bucketDelete(map, mapKey, rec); },
+  _indexInventory(prev, next) { indicizzaGiacenza(this._indici, prev, next); },
 
   _applyToCache(collection, op, record = null) {
-    const shape = this._CACHE_SHAPE[collection];
-    if (!shape) throw new Error(`Collection senza mappatura in cache: ${collection}`);
-    const C = this._cache;
-
-    if (op === 'clear') {
-      switch (shape.kind) {
-        case 'list':   C[shape.field] = []; break;
-        case 'map':    C[shape.field] = new Map(); break;
-        case 'set':    C[shape.field] = new Set(); break;
-        case 'single': C[shape.field] = null; break;
-        case 'kv':     C[shape.field] = { lastModified: null, unsavedChanges: false, lastAutoBackup: null, features: {} }; break;
-      }
-      if (collection === 'inventory') { this._invByLoc = new Map(); this._invByKey = new Map(); }
-      if (collection === 'articles')  { this._artByCode = new Map(); }
-      return;
-    }
-
-    if (op !== 'put' && op !== 'delete') throw new Error(`Operazione di cache non supportata: ${op}`);
-    if (!record) throw new Error(`Operazione ${op} su ${collection} senza record`);
-
-    switch (shape.kind) {
-
-      case 'list': {
-        const arr = C[shape.field];
-        const id = record[shape.key];
-        const i = arr.findIndex(x => x[shape.key] === id);
-        const prev = i >= 0 ? arr[i] : null;
-
-        if (op === 'delete') {
-          if (i >= 0) arr.splice(i, 1);
-          if (collection === 'inventory') {
-            this._bucketDelete(this._invByLoc, record.location_code, record);
-            this._bucketDelete(this._invByKey, record.item_key, record);
-          }
-          if (collection === 'articles') this._artByCode.delete(record.code);
-          return;
-        }
-
-        if (i >= 0) arr[i] = record;
-        else if (shape.insert === 'unshift') arr.unshift(record);
-        else arr.push(record);
-
-        if (collection === 'inventory') this._indexInventory(prev, record);
-        /* L'articolo disattivato esce dall'indice ma resta in cache: la
-           riga serve ancora a leggere le descrizioni dello storico. */
-        if (collection === 'articles') {
-          if (record.active === false) this._artByCode.delete(record.code);
-          else this._artByCode.set(record.code, record);
-        }
-        return;
-      }
-
-      case 'map': {
-        const k = record[shape.key];
-        if (op === 'delete') C[shape.field].delete(k);
-        else C[shape.field].set(k, record);
-        return;
-      }
-
-      case 'set': {
-        const k = record[shape.key];
-        if (op === 'delete') C[shape.field].delete(k);
-        else C[shape.field].add(k);
-        return;
-      }
-
-      case 'single': {
-        C[shape.field] = (op === 'delete') ? null : record;
-        return;
-      }
-
-      case 'kv': {
-        if (op === 'delete') delete C[shape.field][record.key];
-        else C[shape.field][record.key] = record.value;
-        return;
-      }
-    }
+    applicaAllaCache(this._cache, this._indici, collection, op, record);
   },
 
   /* Meta persistence (ultima modifica) */

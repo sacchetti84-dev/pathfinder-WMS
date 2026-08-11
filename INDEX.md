@@ -152,7 +152,7 @@ ottobre · `store.js` in TypeScript entra in Fase 0.
 vuota · l'etichetta si stampa alla creazione · il prefisso GS1 è un parametro, non
 un'attesa · le certificazioni sono il terzo attributo · gli avvisi si vedono a
 prelievo, report e DDT · **si tira dritto**, nessun gradino sceso in anticipo · le
-etichette escono da un **print server di rete**. PIANO-1.4 §8, D4-D12.
+etichette si stampano **dal browser**, `100 × 80 mm` su A4. PIANO-1.4 §8, D4-D12.
 
 > **Il segnale da guardare non è il 31/10, è il 19/09.** Se a quella data la 1.4.0
 > non è chiusa — cioè se `store.js` non è convertito — il ritardo è già reale e il
@@ -172,7 +172,6 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 | 5 | `ui/` a TypeScript, per ultima — `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | grande |
 | 6 | `TODO F1-REVIEW` ×3: cache svuotata prima della conferma del supporto (`store.js`), riallineamento ridondante dopo `resetAll()` (`app.js`) | piccolo |
 | 7 | `weight_net_kg` da **compilare** in anagrafica — colonna `Peso_Netto_Collo`. Il campo è già cablato: maschere, import, export, peso del DDT | import Excel |
-| 8 | Indirizzo, modello e linguaggio della **stampante di etichette**. Il canale è deciso (print server di rete); manca il bersaglio | entro 02/11 |
 
 ## 7. Cosa non fare
 

@@ -320,29 +320,27 @@ arriva, qualcuno lo digita in una casella e nessuno installa niente. È la stess
 forma della partita IVA: un dato dell'azienda non è una costante del sorgente.
 **A3 smette di essere una domanda aperta** e diventa un campo da compilare.
 
-**Il canale di stampa: print server di rete** (Andrea, 12/08). Le etichette non
-passano dalla finestra di stampa del browser come i DDT e i report: c'è una
-stampante di etichette raggiungibile in rete, e il prodotto le manda il lavoro
-direttamente.
+**Il canale di stampa: il browser, come tutto il resto** (Andrea, 12/08 — corretto
+in giornata: il print server di rete era una mia lettura sbagliata di come si
+stampa oggi). Le etichette escono da `window.print()` esattamente come i DDT e i
+report. **Formato 100 × 80 mm, su foglio A4.**
 
-È una differenza che conta più di quanto sembri, e va detta adesso perché tocca
-tre cose:
+Il che è la notizia buona, e va detto:
 
-1. **Non è la stessa strada dei documenti.** `_docPrint` scrive dentro
-   `#printReport` e chiama `window.print()`. Qui invece serve una **rotta sul
-   servizio** — `POST /api/op/printLabel` o simile — perché il browser di un
-   terminale non parla ZPL a un indirizzo IP, e non deve nemmeno provarci: la
-   configurazione della stampante è un fatto della macchina, non della scheda.
-2. **Il formato è ZPL o simile, non HTML.** Cambia cosa si genera. Il layout
-   dell'etichetta smette di essere CSS in `mm` e diventa un template di comandi.
-3. **La decisione 1 dell'HANDOFF resta in piedi**: se il servizio non risponde,
-   l'applicativo si ferma e lo dice. Una stampa che fallisce non deve lasciare
-   una UDC creata senza etichetta — o si crea e si stampa, o non si crea.
-   L'operazione è **una sola**, e sta dentro la stessa transazione dell'`INSERT`.
+- **Non serve niente di nuovo.** `_docPrint` scrive dentro `#printReport` e stampa;
+  l'etichetta è un `@page` in più e un blocco di CSS in `mm`, che è già la
+  convenzione dei documenti — «la carta non ha un rem», §7 dell'HANDOFF.
+- **Niente rotta sul servizio, niente template di comandi, niente ZPL.** Nessuna
+  infrastruttura, nessuna configurazione per macchina, e nessun aperto che aspetta
+  l'IT.
+- **Il gradino 2 della scala §6 resta reale**: l'etichetta minima è lo stesso
+  meccanismo con meno campi dentro, non una strada diversa.
 
-Serve, entro il 02/11: **indirizzo e modello della stampante**, e il linguaggio
-che parla. Con quelli il gradino 2 della scala §6 — il layout minimo — resta un
-ripiego reale e non un salto nel buio.
+Resta vero il vincolo di D6, e vale la pena ripeterlo perché è l'unico punto
+delicato: la stampa è **parte della creazione**. Chi crea la UDC esce con
+l'etichetta, e non c'è un secondo gesto da ricordare. Se l'anteprima non si apre,
+la UDC è comunque creata e l'etichetta si ristampa dall'elenco — come si fa già
+con i DDT (§9.5: *i documenti si rileggono, non si ricostruiscono*).
 
 ---
 
@@ -801,7 +799,7 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 | D9 | **Temperatura, allergeni e certificazioni si vedono al prelievo, sul report e sul DDT** | Una sorgente sola per tre viste. Costo: ~mezza settimana fuori piano. §4.4ter, §6 |
 | D10 | **`storage_rules` nasce in Fase 0**, vuota | Lo schema non si muove una sesta volta a novembre. §3 |
 | D11 | **Si tira dritto: nessun gradino si scende adesso** | La mezza settimana degli avvisi non si recupera in anticipo. Si guardano i quattro fatti il 31/10, come deciso in D2. Se `store.js` sfora, il ritardo si vede a settembre e la scala è già pronta. §6 |
-| D12 | **Le etichette UDC escono da un print server di rete**, non dal browser | Rotta sul servizio, template a comandi invece che CSS, e creazione+stampa in una transazione sola: mai una UDC senza etichetta. Serve indirizzo, modello e linguaggio entro il 02/11. §4.3 |
+| D12 | **Le etichette UDC si stampano dal browser**, `100 × 80 mm` su A4 | Stessa strada di DDT e report: `@page` e CSS in `mm`. Nessuna rotta nuova, nessun ZPL, nessuna configurazione per macchina. Chiude A6 prima ancora che diventasse un'attesa. §4.3 |
 
 ### Aperte — bloccano la funzione, non l'inizio dei lavori
 
@@ -813,7 +811,7 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 | ~~A3~~ | ~~Prefisso aziendale GS1~~ — **chiuso 12/08 (D7)**: non c'è, e non serve che ci sia. Diventa un parametro di Configurazione | — | — |
 | ~~A4~~ | ~~Chi può alzare la priorità~~ — **chiuso 12/08 (D4)**: solo il Team Leader | — | — |
 | A5 | Partita IVA e dati del mittente — **Andrea la configura al momento opportuno**. Nessun lavoro di codice: la maschera c'è | quando puoi | i DDT escono «non conformi» finché manca |
-| A6 | **Indirizzo, modello e linguaggio della stampante di etichette.** Il canale è deciso (print server di rete, D12); manca il bersaglio | **02/11** | le etichette UDC, §4.3 |
+| ~~A6~~ | ~~La stampante di etichette~~ — **chiuso 12/08 (D12)**: si stampa dal browser, `100 × 80 mm` su A4. Non c'era niente da aspettare | — | — |
 
 Le due che dipendevano da qualcun altro sono chiuse lo stesso giorno in cui il piano
 è stato scritto, e con loro è partito il primo pezzo di codice della 1.4.0 — §4.4bis.

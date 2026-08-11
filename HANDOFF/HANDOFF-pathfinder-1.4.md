@@ -116,7 +116,6 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 | 5 | **`weight_net_kg` in anagrafica.** Il campo è cablato ovunque — maschere, import, export, calcolo peso del DDT: è **solo da compilare**, colonna `Peso_Netto_Collo`. `pieces_per_pack` diventa la UM-per-collo in 1.4.2 | **1.0 §7.6** | import Excel |
 | 6 | **`ui/` in TypeScript**, `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | 1.2 §6.4 · 1.3 §6.4 | grande |
 | 7 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.js` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
-| 8 | **Indirizzo, modello e linguaggio della stampante di etichette.** Il canale è deciso (print server di rete); manca il bersaglio | PIANO-1.4 §4.3 | entro 02/11 |
 
 ### I cinque comandi — **impartiti l'11/08**, restano qui perché servono a ogni versione
 
@@ -227,7 +226,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 29. **Le certificazioni sono il terzo attributo dell'articolo.** Il loro elenco NON è chiuso — non è una norma, è una richiesta commerciale — ma la lettura resta stretta (12/08, D8).
 30. **Temperatura, allergeni e certificazioni si vedono dove la merce si tocca**: prelievo guidato, report ODP, DDT. Una sorgente sola per le tre viste (12/08, D9).
 31. **Gli interruttori `feature.*` sono una chiave per una in `meta`**, non un unico record: accenderne due nello stesso turno deve costare due gesti distinti.
-32. **Le etichette UDC escono da un print server di rete**, non dalla finestra di stampa del browser: rotta sul servizio, template a comandi, e creazione+stampa **nella stessa transazione** — mai una UDC senza etichetta (12/08, D12).
+32. **Le etichette UDC si stampano dal browser**, `100 × 80 mm` su foglio A4 — stessa strada di DDT e report, `@page` e CSS in `mm`. Niente rotta sul servizio, niente ZPL, niente configurazione per macchina (12/08, D12).
 33. **Non si scende nessun gradino della scala in anticipo** (12/08, D11). Ma il segnale da guardare è la **fine della conversione di `store.js`**, non il 31/10: se il 19/09 la 1.4.0 non è chiusa, il gradino 1 si scende lì.
 
 ---
