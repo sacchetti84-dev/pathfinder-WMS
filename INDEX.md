@@ -107,18 +107,40 @@ L'applicativo è servito su `/` e su `/app`.
 
 Si leggono **all'avvio**: cambiate senza riavvio non hanno effetto.
 
-## 6. Aperti
+## 6. In coda — 1.4, scadenza 31/12/2026
+
+Cinque funzioni nuove. Piano, disegno dei dati e calendario:
+**[HANDOFF/PIANO-1.4.md](HANDOFF/PIANO-1.4.md)**.
+
+| Versione | Cosa | Entro |
+|---|---|---|
+| **1.4.0** | Fondamenta invisibili: migrazione `ALTER TABLE`, schema mosso una volta, `store.js` in TS, collaudi su `_applyToCache`, interruttori `feature.*` | 12/09 |
+| **1.4.1** | Schedulatore di attività — richieste, priorità, tempi | 10/10 |
+| **1.4.2** | Unità di misura PZ/MT/LT/KG/GR, split colli, collo incompleto | 07/11 |
+| **1.4.3** | UDC — contenitori, `moveUdc` transazionale, etichette | 28/11 |
+| **1.4.4** | Motore logico di stoccaggio — attributi, regole come dato, motivazioni | 19/12 |
+| 1.5 | WIP — non entra nella 1.4, dipende dalle altre tre | Q1 2027 |
+
+> **Bloccante, verificato.** Aggiungere un campo indicizzato a una collezione che
+> esiste già **non fa partire il servizio**: `CREATE TABLE IF NOT EXISTS` non aggiunge
+> la colonna, e il `CREATE INDEX` dopo muore in `PathfinderDB` (`db.js:18`). L'UDC ha
+> bisogno di `inventory.udc_id`. Si toglie in 1.4.0, prima di tutto. PIANO-1.4 §1.
+
+Sei decisioni aspettano Andrea — PIANO-1.4 §8. Due bloccano il calendario:
+la strada per il WIP, e se `store.js` in TypeScript entra nella Fase 0.
+
+## 6bis. Aperti
 
 | # | Cosa | Peso |
 |---|---|---|
 | 1 | **Portare la 1.2 in magazzino** — cinque comandi, HANDOFF 1.3 §6 | atto |
 | 2 | Nome DNS interno e certificato dalla CA aziendale — **IT** | esterno |
 | 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea** | esterno |
-| 4 | `core/store.js` a TypeScript — 1.974 righe, tocca tutte le entità | grande |
-| 5 | `ui/` a TypeScript, per ultima — `app.js` da solo sono 10.529 righe | grande |
-| 6 | Collaudi su `Store._applyToCache` — 14 collezioni, 5 forme, nessuna prova | medio |
+| 4 | `core/store.js` a TypeScript — 1.974 righe, tocca tutte le entità. **Assorbito in 1.4.0** | grande |
+| 5 | `ui/` a TypeScript, per ultima — `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | grande |
+| 6 | Collaudi su `Store._applyToCache` — 14 collezioni oggi, 18 dopo la 1.4, nessuna prova. **Assorbito in 1.4.0** | medio |
 | 7 | `TODO F1-REVIEW` ×3: cache svuotata prima della conferma del supporto (`store.js`), riallineamento ridondante dopo `resetAll()` (`app.js`) | piccolo |
-| 8 | Schede grafico che tagliano ~6 px · causali di trasporto da validare · `weight_net_kg` e `pieces_per_pack` in anagrafica | vari |
+| 8 | Schede grafico che tagliano ~6 px · causali di trasporto da validare · `weight_net_kg` in anagrafica. `pieces_per_pack` **diventa la UM-per-collo in 1.4.2** | vari |
 | 9 | `ARCHIVIO/LOGHI/`: `commodore.svg` e `gemini-svg.svg` identici byte per byte, più nomi generati. Quale tenere lo decide chi li ha fatti | banale |
 | 10 | `pathfinder-1.1.html` è nel repository **due volte** — radice e `ARCHIVIO/VERSIONI PRECEDENTI/`, 1,2 MB l'una. La copia in archivio si toglie quando la radice passa alla 1.2, non prima | banale |
 
@@ -138,6 +160,7 @@ Si leggono **all'avvio**: cambiate senza riavvio non hanno effetto.
 | Serve | File |
 |---|---|
 | Installare, aggiornare, diagnosticare, backup | [README.md](README.md) |
+| **Le cinque funzioni della 1.4** — disegno dei dati, calendario, decisioni | [HANDOFF/PIANO-1.4.md](HANDOFF/PIANO-1.4.md) |
 | Dove siamo e perché — l'ultimo | [HANDOFF/HANDOFF-pathfinder-1.3.md](HANDOFF/HANDOFF-pathfinder-1.3.md) |
 | Metodo di lavoro e trappole | [HANDOFF/HANDOFF-pathfinder-1.2.md](HANDOFF/HANDOFF-pathfinder-1.2.md) |
 | Decisioni di fondo, vincolo GDPR | [HANDOFF/HANDOFF-pathfinder-1.0.md](HANDOFF/HANDOFF-pathfinder-1.0.md) |
