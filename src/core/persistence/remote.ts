@@ -45,20 +45,38 @@
       flusso di eventi e l'adapter riallinea. E' `supportsRealtime`.
    ═══════════════════════════════════════════════════════════════════ */
 
+import { CHIAVE_PRIMARIA, COLLEZIONI } from '../../types/collezioni.js';
+import type { Collezione } from '../../types/collezioni.js';
+import type { Criterio, OpzioniQuery } from '../../types/contratto.js';
+import type { Istante } from '../../types/entita.js';
+
+/* Un errore che viene dal servizio porta con sé lo stato HTTP e la
+   distinzione fra «il server ha detto di no» e «il server non ha risposto». */
+type ErroreServizio = Error & { status: number; isConflict: boolean };
+
+/* Una scrittura in attesa dentro una transazione. La forma dipende
+   dall'operazione — `add` porta un record, `clear` solo il nome della
+   collezione — ed è il server a rileggerla: qui è solo un pacco da
+   consegnare, e dichiararne quattordici varianti non aggiungerebbe nessun
+   controllo che il server non faccia già. */
+type ScritturaInAttesa = { op: string; [campo: string]: unknown };
+
+/* Lo stato interno della connessione, dichiarato in un posto solo. Prima
+   quattro di questi campi (`serverVersion`, `dbFile`, `revision`, `_es`)
+   nascevano dall'assegnazione, sparsi fra tre metodi: esistevano dopo
+   `open()` e non prima, e per saperlo bisognava leggere il file. */
 const RemotePersistence = {
-  /** @type {'remote'} */
-  kind: 'remote',
+  kind: 'remote' as const,
 
   supportsTransactions: true,
   supportsRealtime: true,
   supportsLocalBackup: false,   // il backup e' un compito del servizio
   supportsRemoteOps: true,      // le operazioni di dominio stanno sul server
 
-  COLLECTIONS: [
-    'sites', 'zones', 'articles', 'inventory', 'loc_status', 'disabled',
-    'mov_log', 'quarantine', 'pending_outbound', 'pick_session',
-    'pick_archive', 'disposal_archive', 'operators', 'meta'
-  ],
+  /* Come per l'adapter locale: l'elenco arriva da `types/collezioni.ts`.
+     Erano due copie della stessa riga in due file, e il compilatore non
+     poteva accorgersi se un giorno avessero smesso di combaciare. */
+  COLLECTIONS: COLLEZIONI,
 
   /* Base vuota = stessa origine da cui e' stata servita la pagina. E' il
      caso normale: il servizio serve sia l'applicativo sia i dati, quindi
@@ -71,14 +89,25 @@ const RemotePersistence = {
      cambiamento che abbiamo fatto noi. */
   clientId: 'PF-' + Math.random().toString(36).slice(2, 10).toUpperCase(),
 
-  _tx: null,          // buffer delle scritture dentro una transazione
+  _tx: null as { collections: Collezione[], ops: ScritturaInAttesa[] } | null,  // buffer delle scritture dentro una transazione
   _online: true,
-  _onOffline: null,   // callback verso App: il servizio non risponde
-  _onChange: null,    // callback verso App: qualcun altro ha scritto
+  _onOffline: null as ((err: unknown) => void) | null,   // callback verso App: il servizio non risponde
+  _onChange: null as ((ev: unknown) => void) | null,     // callback verso App: qualcun altro ha scritto
+  _es: null as EventSource | null,                       // il flusso di eventi aperto
+
+  /* Diagnostica: chi risponde e su quale file sta lavorando. Non entrano in
+     nessuna decisione — si leggono quando qualcosa non torna. */
+  serverVersion: null as string | null,
+  dbFile: null as string | null,
+  revision: null as number | null,
 
   // ── Trasporto ────────────────────────────────────────────────────
 
-  async _call(method, path, body, { raw = false } = {}) {
+  /* `Promise<any>`: di là c'è JSON, e la sua forma cambia da endpoint a
+     endpoint. Fingere un tipo qui vorrebbe dire dichiarare quattordici
+     risposte che nessuno verificherebbe — il controllo vero su quella forma
+     sta nei collaudi del servizio, dove i dati sono veri. */
+  async _call(method: string, path: string, body?: unknown, { raw = false }: { raw?: boolean } = {}): Promise<any> {
     let res;
     try {
       res = await fetch(this.base + path, {
@@ -100,7 +129,7 @@ const RemotePersistence = {
     if (!res.ok) {
       let msg = `Errore ${res.status}`;
       try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
-      const err = new Error(msg);
+      const err = new Error(msg) as ErroreServizio;
       err.status = res.status;
       /* 409 = il server ha detto di no per un motivo legittimo (giacenza
          insufficiente, chiave duplicata). Va distinto da un guasto:
@@ -112,10 +141,10 @@ const RemotePersistence = {
     return await res.json();
   },
 
-  _goOffline(err) {
+  _goOffline(err: unknown) {
     if (!this._online) return;
     this._online = false;
-    console.error('[pathfinder] servizio dati non raggiungibile:', err?.message || err);
+    console.error('[pathfinder] servizio dati non raggiungibile:', (err as Error)?.message || err);
     this._onOffline?.(err);
   },
 
@@ -134,7 +163,7 @@ const RemotePersistence = {
     return true;
   },
 
-  async loadAll({ movLogFrom = null } = {}) {
+  async loadAll({ movLogFrom = null }: { movLogFrom?: Istante | null } = {}) {
     const qs = movLogFrom == null ? '' : `?movLogFrom=${encodeURIComponent(movLogFrom)}`;
     const d = await this._call('GET', '/api/load' + qs);
     this.revision = d._revision;
@@ -153,63 +182,55 @@ const RemotePersistence = {
 
   // ── Scritture ────────────────────────────────────────────────────
 
-  /* Dentro una transazione le scritture non partono: si accodano. Fuori,
-     partono subito. E' l'unico punto in cui l'adapter si comporta in due
-     modi, ed e' il prezzo per non toccare i punti di chiamata. */
-  _write(op, payload, immediate) {
-    if (this._tx) { this._tx.ops.push({ op, ...payload }); return Promise.resolve(undefined); }
-    return immediate();
-  },
-
-  async add(collection, record) {
+  async add<T>(collection: Collezione, record: T) {
     if (this._tx) { this._tx.ops.push({ op: 'add', collection, record }); return undefined; }
     const r = await this._call('POST', `/api/c/${collection}`, record);
     return r.key;
   },
 
-  async put(collection, record) {
+  async put<T>(collection: Collezione, record: T) {
     if (this._tx) { this._tx.ops.push({ op: 'put', collection, record }); return undefined; }
-    const key = record[this._pk(collection)];
-    const r = await this._call('PUT', `/api/c/${collection}/${encodeURIComponent(key ?? '')}`, record);
+    const key = (record as Record<string, unknown>)[this._pk(collection)];
+    const r = await this._call('PUT', `/api/c/${collection}/${encodeURIComponent(String(key ?? ''))}`, record);
     return r.key;
   },
 
-  async update(collection, key, changes) {
+  async update(collection: Collezione, key: string | number, changes: Record<string, unknown>) {
     if (this._tx) { this._tx.ops.push({ op: 'update', collection, key, changes }); return undefined; }
     const r = await this._call('PATCH', `/api/c/${collection}/${encodeURIComponent(key)}`, changes);
     return r.changed;
   },
 
-  async delete(collection, key) {
+  async delete(collection: Collezione, key: string | number) {
     if (this._tx) { this._tx.ops.push({ op: 'delete', collection, key }); return undefined; }
     const r = await this._call('DELETE', `/api/c/${collection}/${encodeURIComponent(key)}`);
     return r.deleted;
   },
 
-  async bulkAdd(collection, records) {
+  async bulkAdd<T>(collection: Collezione, records: T[]) {
     if (this._tx) { this._tx.ops.push({ op: 'bulkAdd', collection, records }); return undefined; }
     const r = await this._call('POST', `/api/c/${collection}/bulk?mode=add`, records);
     return r.keys;
   },
 
-  async bulkPut(collection, records) {
+  async bulkPut<T>(collection: Collezione, records: T[]) {
     if (this._tx) { this._tx.ops.push({ op: 'bulkPut', collection, records }); return undefined; }
     const r = await this._call('POST', `/api/c/${collection}/bulk?mode=put`, records);
     return r.keys;
   },
 
-  async clear(collection) {
+  async clear(collection: Collezione) {
     if (this._tx) { this._tx.ops.push({ op: 'clear', collection }); return undefined; }
     const r = await this._call('DELETE', `/api/c/${collection}`);
     return r.deleted;
   },
 
-  async clearMany(collections) {
+  async clearMany(collections: Collezione[]) {
     if (this._tx) { this._tx.ops.push({ op: 'clearMany', collections }); return undefined; }
     await this._call('POST', '/api/clear', { collections });
   },
 
-  async deleteWhere(collection, criteria) {
+  async deleteWhere(collection: Collezione, criteria: Criterio) {
     if (this._tx) { this._tx.ops.push({ op: 'deleteWhere', collection, criteria }); return undefined; }
     const r = await this._call('POST', `/api/deleteWhere/${collection}`, criteria);
     return r.deleted;
@@ -217,26 +238,32 @@ const RemotePersistence = {
 
   // ── Letture ──────────────────────────────────────────────────────
 
-  async get(collection, key) {
+  async get<T>(collection: Collezione, key: string | number): Promise<T | undefined> {
     return await this._call('GET', `/api/c/${collection}/${encodeURIComponent(key)}`, undefined, { raw: true });
   },
 
-  async count(collection, criteria = null) {
+  async count(collection: Collezione, criteria: Criterio | null = null): Promise<number> {
     const qs = criteria ? `?criteria=${encodeURIComponent(JSON.stringify(criteria))}` : '';
     const r = await this._call('GET', `/api/c/${collection}/count${qs}`);
     return r.count;
   },
 
-  async countAll() {
+  async countAll(): Promise<Record<string, number>> {
     const s = await this._call('GET', '/api/health');
     return s.counts;
   },
 
-  async query(collection, { criteria = null, limit = null, offset = 0, reverse = false, orderBy = null } = {}) {
+  /* Le due conversioni esplicite su `limit` e `offset` sono l'unico punto
+     in cui questo file scrive `String(…)` dove prima non c'era, e non è la
+     stessa cosa dei cast usati altrove: lì il valore era già una stringa e a
+     essere larga era la dichiarazione; qui è davvero un numero, e a
+     convertirlo era la coercizione implicita di URLSearchParams. La riga ora
+     dice quello che succedeva comunque. */
+  async query<T>(collection: Collezione, { criteria = null, limit = null, offset = 0, reverse = false, orderBy = null }: OpzioniQuery = {}): Promise<T[]> {
     const p = new URLSearchParams();
     if (criteria) p.set('criteria', JSON.stringify(criteria));
-    if (limit != null) p.set('limit', limit);
-    if (offset) p.set('offset', offset);
+    if (limit != null) p.set('limit', String(limit));
+    if (offset) p.set('offset', String(offset));
     if (reverse) p.set('reverse', 'true');
     if (orderBy) p.set('orderBy', orderBy);
     const qs = p.toString();
@@ -244,14 +271,15 @@ const RemotePersistence = {
   },
 
   /** A blocchi, per non portare in memoria sei anni di registro. La
-     paginazione la fa il server con LIMIT/OFFSET: qui si scorre.
-     @param {import('../../types/collezioni.js').Collezione} collection
-     @param {{ criteria?: import('../../types/contratto.js').Criterio | null, chunkSize?: number }} [opzioni]
-     @param {(blocco: any[]) => void | Promise<void>} fn */
-  async eachChunk(collection, { criteria = null, chunkSize = 5000 } = {}, fn) {
+     paginazione la fa il server con LIMIT/OFFSET: qui si scorre. */
+  async eachChunk<T>(
+    collection: Collezione,
+    { criteria = null, chunkSize = 5000 }: { criteria?: Criterio | null, chunkSize?: number } = {},
+    fn: (blocco: T[]) => void | Promise<void>,
+  ): Promise<number> {
     let offset = 0, totale = 0;
     for (;;) {
-      const rows = await this.query(collection, { criteria, limit: chunkSize, offset });
+      const rows = await this.query<T>(collection, { criteria, limit: chunkSize, offset });
       if (!rows.length) break;
       await fn(rows);
       totale += rows.length;
@@ -266,7 +294,7 @@ const RemotePersistence = {
   /* Le scritture del callback si accodano e partono insieme. Se il
      callback solleva, la coda si butta e al server non arriva niente:
      una transazione fallita a meta' non esiste, ne' qui ne' li'. */
-  async transaction(collections, fn) {
+  async transaction<T>(collections: Collezione[], fn: () => Promise<T>): Promise<T> {
     if (this._tx) return await fn();          // annidata: si unisce a quella di fuori
     this._tx = { collections, ops: [] };
     let out;
@@ -287,7 +315,7 @@ const RemotePersistence = {
   /* Lettura, decisione e scrittura nello stesso lock del server. Store
      le usa al posto della sequenza locale quando supportsRemoteOps e'
      vero — vedi Store.removeItem. */
-  async op(nome, payload) {
+  async op<T>(nome: string, payload: unknown): Promise<T> {
     return await this._call('POST', `/api/op/${nome}`, payload);
   },
 
@@ -295,21 +323,27 @@ const RemotePersistence = {
 
   /* Un canale in sola lettura che il browser riapre da se' se cade.
      Quando un altro terminale scrive, qui si sa quali collezioni ha
-     toccato e si puo' riallineare invece di lavorare su dati vecchi. */
+     toccato e si puo' riallineare invece di lavorare su dati vecchi.
+
+     I due `as EventListener`: per un nome d'evento che il browser non
+     conosce in anticipo — 'hello' e 'change' sono nostri — la firma
+     dichiarata è quella generica, con un `Event` che non ha `data`. Il
+     dato c'è, ed è un MessageEvent: il cast dice al compilatore ciò che
+     il server garantisce. */
   _subscribe() {
     if (this._es) { try { this._es.close(); } catch {} }
     const es = new EventSource(`${this.base}/api/events?client=${encodeURIComponent(this.clientId)}`);
     this._es = es;
-    es.addEventListener('hello', (e) => {
+    es.addEventListener('hello', ((e: MessageEvent) => {
       try { this.revision = JSON.parse(e.data).rev; } catch {}
       this._goOnline();
-    });
-    es.addEventListener('change', (e) => {
+    }) as EventListener);
+    es.addEventListener('change', ((e: MessageEvent) => {
       let ev = null;
       try { ev = JSON.parse(e.data); } catch { return; }
       this.revision = ev.rev;
       this._onChange?.(ev);
-    });
+    }) as EventListener);
     /* EventSource riprova da solo. Si segnala l'interruzione perche'
        l'operatore sappia che sta guardando dati che potrebbero non
        essere piu' quelli veri. */
@@ -321,7 +355,7 @@ const RemotePersistence = {
   /* Il backup non e' piu' un compito del browser: lo fa il servizio, che
      sa copiare il database a caldo. supportsLocalBackup e' false e Store
      non prova nemmeno a passare da qui. */
-  isBackupSupported() { return false; },
+  isBackupSupported(): boolean { return false; },
 
   /* ═══════════════════════════════════════════════════════════════════
      v1.1.0 [N6] — LO SPAZIO SI DICHIARA CON LE PAROLE DEL CONTRATTO
@@ -348,17 +382,14 @@ const RemotePersistence = {
   },
 
   /* Chiave primaria per collezione. Serve a put(), che deve sapere quale
-     campo del documento e' la chiave. E' la stessa mappa dello schema
-     del server: le due devono coincidere, ed e' l'unico punto in cui
-     questa conoscenza e' duplicata. */
-  _PK: {
-    sites: '_id', zones: '_id', articles: '_id', inventory: '_id',
-    loc_status: '_id', disabled: '_id', mov_log: '_id', quarantine: '_id',
-    pending_outbound: 'doc_id', pick_session: 'session_id',
-    pick_archive: 'doc_id', disposal_archive: 'doc_id',
-    operators: 'op_id', meta: 'key'
-  },
-  _pk(collection) { return this._PK[collection] || '_id'; }
+     campo del documento e' la chiave.
+
+     Era una copia della mappa che sta nello schema del server, con scritto
+     accanto che le due dovevano coincidere e che questo era «l'unico punto
+     in cui questa conoscenza e' duplicata». Adesso non lo è più: la mappa
+     sta in `types/collezioni.ts`, e il servizio importa quel file. Restano
+     due letture della stessa riga, non due righe da tenere allineate. */
+  _pk(collection: Collezione): string { return CHIAVE_PRIMARIA[collection] || '_id'; }
 };
 
 export { RemotePersistence };

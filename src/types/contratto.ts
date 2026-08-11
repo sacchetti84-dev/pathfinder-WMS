@@ -81,6 +81,12 @@ export interface Capacita {
 export interface Persistenza extends Capacita {
   readonly kind: 'local' | 'remote';
 
+  /* L'elenco delle collezioni, che Store scorre per svuotare la cache e per
+     contare i record al checkpoint. Non era dichiarato qui pur essendo su
+     entrambi gli adapter: un membro del contratto che il contratto non
+     conosceva. Ora è uno solo, e viene da `COLLEZIONI`. */
+  readonly COLLECTIONS: readonly Collezione[];
+
   /* `Promise<unknown>` e non `Promise<void>` perché i due adapter non
      restituiscono la stessa cosa: quello locale niente, quello remoto `true`.
      Nessuno dei due valori viene letto — `Store.init()` fa `await

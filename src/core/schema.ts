@@ -10,12 +10,52 @@
    Le migrazioni non si cancellano nemmeno quando sembrano vecchie: un file
    fermo alla v4 in un backup di due anni fa deve poter ancora salire fino
    alla v7, e la scala si sale un gradino per volta.
+
+   FASE 3 — PERCHÉ QUESTO FILE È DIVENTATO .ts PRIMA DEGLI ADAPTER.
+   `new Dexie(nome)` restituisce un oggetto che non ha, per il compilatore,
+   né `db.sites` né `db.mov_log`: le tabelle nascono dalle stringhe passate a
+   `.stores()`, che sono testo e restano testo. Finché era così, l'adapter
+   locale non poteva essere controllato — ogni riga che tocca una tabella
+   sarebbe stata un errore, e l'unico modo di andare avanti sarebbe stato un
+   `as any` che spegne il controllo proprio dove serve.
+
+   La classe qui sotto dichiara le quattordici tabelle con le entità che ci
+   stanno dentro. Non aggiunge comportamento e non cambia una riga di
+   migrazione: mette in una forma leggibile dal compilatore ciò che le
+   stringhe di `.stores()` dicevano già. Da qui in avanti scrivere una
+   `Giacenza` dentro `db.articles` non compila.
    ═══════════════════════════════════════════════════════════════════ */
 
-import Dexie from 'dexie';
+import Dexie, { type Table } from 'dexie';
 import { DB_NAME } from './costanti';
+import type {
+  Sito, Zona, Articolo, Giacenza, StatoUbicazione, UbicazioneDisattivata,
+  Movimento, Quarantena, DocumentoUscita, SessionePrelievo, ReportPrelievo,
+  VerbaleSmaltimento, Operatore, Meta,
+} from '../types/entita.js';
 
-const db = new Dexie(DB_NAME);
+/* Il secondo parametro di `Table` è il tipo della CHIAVE PRIMARIA, e le due
+   famiglie non sono intercambiabili: `number` dove Dexie assegna un `++_id`,
+   `string` dove la chiave è naturale e il client la conosce prima di
+   scrivere il record (vedi il commento di CHIAVE_PRIMARIA in collezioni.ts). */
+class PathfinderDB extends Dexie {
+  sites!: Table<Sito, number>;
+  zones!: Table<Zona, number>;
+  articles!: Table<Articolo, number>;
+  inventory!: Table<Giacenza, number>;
+  loc_status!: Table<StatoUbicazione, number>;
+  disabled!: Table<UbicazioneDisattivata, number>;
+  mov_log!: Table<Movimento, number>;
+  quarantine!: Table<Quarantena, number>;
+  pending_outbound!: Table<DocumentoUscita, string>;
+  pick_session!: Table<SessionePrelievo, string>;
+  pick_archive!: Table<ReportPrelievo, string>;
+  disposal_archive!: Table<VerbaleSmaltimento, string>;
+  operators!: Table<Operatore, string>;
+  meta!: Table<Meta, string>;
+}
+
+const db = new PathfinderDB(DB_NAME);
 db.version(1).stores({
   sites:        '++_id, &id',                                   // unique by code
   zones:        '++_id, site_id, &[site_id+id]',                // unique per site

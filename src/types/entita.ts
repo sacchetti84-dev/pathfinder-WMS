@@ -90,6 +90,17 @@ export interface StatoUbicazione {
   updated_at?: Istante;
 }
 
+/* Un'ubicazione messa fuori uso. È una collezione a sé e non uno stato dentro
+   StatoUbicazione perché le due cose hanno vite diverse: «bloccata» e
+   «riservata» sono condizioni di lavoro che cambiano nel turno, «disattivata»
+   dice che quel posto in magazzino non c'è più — uno scaffale smontato, una
+   corsia chiusa. Il record non ha altro che il codice: non c'è niente da
+   sapere su un posto che non esiste. */
+export interface UbicazioneDisattivata {
+  _id?: number;
+  location_code: string;
+}
+
 /* ── Registro ────────────────────────────────────────────────────── */
 
 /* Ogni movimento porta la sigla di chi lo ha fatto: è il requisito GMP, e
