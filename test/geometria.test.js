@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Store } from '../src/core/store.js';
+import { codiciAttivi, costruisciGeometria } from '../src/core/geometria';
 
 /* Un magazzino finto, della stessa forma che _loadCache() costruisce:
    i siti portano le proprie zone appese. */
@@ -159,5 +160,57 @@ describe('geometria delle ubicazioni', () => {
   it('un magazzino non ancora configurato dà una mappa vuota, non un errore', () => {
     magazzino();
     expect(Store.buildLocationGeometry().size).toBe(0);
+  });
+});
+
+/* 1.4.0 — L'indice delle ubicazioni valide. Non aveva prove: è ciò contro cui
+   si valida una scansione, quindi un codice che manca qui è un operatore
+   fermo davanti a uno scaffale che esiste. */
+describe('indice delle ubicazioni valide', () => {
+  it('contiene tutto ciò che la configurazione genera', () => {
+    magazzino({ id: 'DP', zones: [
+      rack('A', { aisles: 2, bays_per_aisle: 1, levels: ['T'] }),
+      bulk('R', { positions: 2 }),
+    ] });
+    expect([...codiciAttivi(Store._cache.sites)].sort())
+      .toEqual(['DP-A-01-01-T', 'DP-A-02-01-T', 'DP-R-01', 'DP-R-02']);
+  });
+
+  it('un sito disattivato non porta dentro le sue ubicazioni', () => {
+    magazzino({ id: 'DP', active: false, zones: [bulk('R', { positions: 2 })] });
+    expect(codiciAttivi(Store._cache.sites).size).toBe(0);
+  });
+
+  it('una zona disattivata non porta dentro le sue ubicazioni', () => {
+    magazzino({ id: 'DP', zones: [
+      bulk('R', { positions: 1 }),
+      { id: 'X', type: 'BULK', positions: 5, active: false },
+    ] });
+    expect([...codiciAttivi(Store._cache.sites)]).toEqual(['DP-R-01']);
+  });
+
+  it('un magazzino non ancora configurato dà un indice vuoto, non un errore', () => {
+    magazzino();
+    expect(codiciAttivi(Store._cache.sites).size).toBe(0);
+  });
+
+  /* L'INVARIANTE CHE CONTA. Se i due divergessero, `locationExists` direbbe
+     di sì su una cella che la mappa non disegna — o il contrario. Sono due
+     funzioni diverse sulla stessa sorgente, e questo lo dimostra. */
+  it('coincide esattamente con le chiavi della geometria', () => {
+    magazzino(
+      { id: 'DP', zones: [
+        rack('A', { aisles: 3, bays_per_aisle: 2, levels: ['T', '1'] }),
+        floor('P', { rows: 2, positions_per_row: 3 }),
+        { id: 'X', type: 'BULK', positions: 9, active: false },
+      ] },
+      { id: 'MG', zones: [bulk('R', { positions: 4 })] },
+      { id: 'ZZ', active: false, zones: [bulk('R', { positions: 7 })] },
+    );
+    const indice = codiciAttivi(Store._cache.sites);
+    const geo = costruisciGeometria(Store._cache.sites);
+
+    expect(indice.size).toBe(3 * 2 * 2 + 2 * 3 + 4);
+    expect([...indice].sort()).toEqual([...geo.keys()].sort());
   });
 });

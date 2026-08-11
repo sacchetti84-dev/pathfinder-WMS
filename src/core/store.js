@@ -5,6 +5,7 @@ import {
   FORMA_CACHE, applicaAllaCache, bucketPut, bucketDelete,
   indicizzaGiacenza, ricostruisciIndici, indiciVuoti, metaVuota,
 } from './cache';
+import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { verificaConformita } from '../modules/conformita';
 import { App } from '../ui/app.js';
 
@@ -330,15 +331,7 @@ const Store = {
 
   /* Rebuild indici in-memory — O(n) ad ogni mutazione massiva */
   _rebuildIndexes() {
-    this._locIndex = new Set();
-    // Ubicazioni valide: generate da tutte le zone attive
-    for (const site of this._cache.sites) {
-      if (!site.active) continue;
-      for (const zone of (site.zones || [])) {
-        if (!zone.active) continue;
-        for (const loc of this._genLocations(site.id, zone)) this._locIndex.add(loc.code);
-      }
-    }
+    this._locIndex = codiciAttivi(this._cache.sites);
     ricostruisciIndici(this._cache, this._indici);
   },
 
@@ -539,31 +532,11 @@ const Store = {
     return true;
   },
 
-  // ═══ LOCATIONS (generate dinamicamente dalla config zona) ═══
-  _genLocations(siteId, zone) {
-    const locs = [];
-    const prefix = `${siteId}-${zone.id}`;
-    if (zone.type === 'RACK') {
-      for (let a = 1; a <= (zone.aisles || 1); a++) {
-        for (let b = 1; b <= (zone.bays_per_aisle || 1); b++) {
-          for (const lvl of (zone.levels || ['T'])) {
-            locs.push({ code: `${prefix}-${String(a).padStart(2,'0')}-${String(b).padStart(2,'0')}-${lvl}`, aisle: a, bay: b, level: lvl });
-          }
-        }
-      }
-    } else if (zone.type === 'FLOOR') {
-      for (let r = 1; r <= (zone.rows || 1); r++) {
-        for (let p = 1; p <= (zone.positions_per_row || 1); p++) {
-          locs.push({ code: `${prefix}-${String(r).padStart(2,'0')}-${String(p).padStart(2,'0')}`, row: r, position: p });
-        }
-      }
-    } else if (zone.type === 'BULK') {
-      for (let p = 1; p <= (zone.positions || 1); p++) {
-        locs.push({ code: `${prefix}-${String(p).padStart(2,'0')}`, position: p });
-      }
-    }
-    return locs;
-  },
+  /* ═══ UBICAZIONI ═══
+     Generate dalla configurazione della zona, mai scritte a database.
+     L'implementazione sta in `core/geometria.ts` — secondo blocco della
+     conversione. Qui resta il nome, che sei punti di questo file chiamano. */
+  _genLocations(siteId, zone) { return generaUbicazioni(siteId, zone); },
 
   generateLocations(siteId, zoneId) {
     const zone = this.getZone(siteId, zoneId);
@@ -1578,28 +1551,7 @@ const Store = {
       (a.destination || '').localeCompare(b.destination || '', 'it'));
   },
 
-  buildLocationGeometry() {
-    const geo = new Map();
-    for (const site of this.getSites()) {
-      const zones = this.getZones(site.id);
-      zones.forEach((zone, zoneIdx) => {
-        const levels = zone.levels || ['T'];
-        for (const loc of this._genLocations(site.id, zone)) {
-          geo.set(loc.code, {
-            site_id: site.id,
-            zone_id: zone.id,
-            zone_idx: zoneIdx,
-            type: zone.type,
-            aisle: loc.aisle ?? loc.row ?? 0,
-            bay: loc.bay ?? loc.position ?? 0,
-            level: loc.level ?? '',
-            level_idx: loc.level ? Math.max(0, levels.indexOf(loc.level)) : 0
-          });
-        }
-      });
-    }
-    return geo;
-  },
+  buildLocationGeometry() { return costruisciGeometria(this._cache.sites); },
 
   findNearestBlockedLocation(currentLocCode) {
     const parts = currentLocCode.split('-');

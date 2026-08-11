@@ -25,6 +25,9 @@ export interface Sito {
   active?: boolean;
   created_at?: Istante;
   updated_at?: Istante;
+  /** Riappeso in cache da `_loadCache`, non è una colonna: `zones` è una
+      collezione sua, e all'export questo campo viene tolto. */
+  zones?: Zona[];
 }
 
 export interface Zona {
