@@ -49,8 +49,18 @@ noi e la 1.4, e va tolto per primo.
 confrontare con `COLLECTIONS[nome].indexed`, emettere un `ALTER TABLE ADD COLUMN` per
 ciò che manca, e ripopolare la colonna dal JSON in `data` (che il dato ce l'ha già:
 è lì che vive tutto ciò che non è indicizzato). Poi gli indici. Una trentina di
-righe, e un collaudo che apre un database vecchio con lo schema nuovo — cioè
-esattamente la prova qui sopra, ma verde.
+righe.
+
+**Il prototipo e il collaudo esistono già**, scritti prima del codice come vuole la
+§5.1 dell'HANDOFF 1.3: `server/test/collaudo-migrazione-1.4.js`, che si lancia da
+solo e non entra nella suite finché la migrazione non è nel prodotto.
+
+```
+node test/collaudo-migrazione-1.4.js
+```
+
+Otto prove su un magazzino finto di 192 righe e 2.496 colli — vedi §5bis per cosa
+dimostrano.
 
 > **Una collezione nuova invece va già bene.** `CREATE TABLE IF NOT EXISTS` la crea
 > al primo avvio, senza che nessuno faccia niente. È solo l'aggiunta di una colonna
@@ -92,6 +102,8 @@ Quindi lo schema si muove **una volta sola, adesso, mentre non serve a nessuno**
   entrambi gli adapter e il servizio ad allinearsi o non compilare;
 - Dexie `version(8)` con le stesse aggiunte, sul ramo locale;
 - i campi nuovi dell'anagrafica articoli, tutti facoltativi;
+- l'elenco delle collezioni di export/import letto da `COLLEZIONI` invece che scritto
+  a mano in tre posti — §5bis;
 - gli interruttori: `feature.tasks`, `feature.uom`, `feature.udc`, `feature.putaway`,
   `feature.wip` in `meta`, **tutti spenti**.
 
@@ -344,6 +356,73 @@ Da cui tre conseguenze concrete:
 E l'interruttore per funzione. Cinque `feature.*` in `meta`, spenti alla consegna.
 Si accende una cosa alla volta, su un magazzino alla volta, a inizio turno. Un
 rilascio che si può spegnere non è un rilascio rischioso.
+
+---
+
+## 5bis. «I dati di oggi si salvano?» — provato, non promesso
+
+La risposta breve è che **non c'è niente da importare**: i dati restano dove sono.
+Ma è una risposta che vale poco se non la si misura, quindi
+`server/test/collaudo-migrazione-1.4.js` la misura.
+
+Costruisce un magazzino con lo schema di **oggi** — 192 righe di giacenza, 2.496
+colli, ubicazioni su tre zone — ne prende l'impronta di ciò che interessa salvare
+(`ubicazione|articolo|lotto|colli`, in SHA-256), applica lo schema della 1.4 con la
+migrazione, e riconta.
+
+```
+  base di partenza: 192 righe, 2496 colli, impronta 52bf7598d9b80b52
+  migrazione: inventory.udc_id (192 righe)
+
+  PASSA   ubicazione, articolo, lotto e colli identici — impronta 52bf7598d9b80b52
+  PASSA   nessuna riga persa — 192
+  PASSA   nessun collo perso — 2496
+  PASSA   inventory ha la colonna udc_id
+  PASSA   le quattro collezioni nuove esistono e sono vuote
+  PASSA   la 1.4 scrive e interroga udc_id sulle righe di ieri
+  PASSA   la 1.2 rilegge lo stesso magazzino dal database della 1.4
+  PASSA   loadAll della 1.2 non inciampa su colonne e tabelle che non conosce
+
+  8 passate, 0 fallite
+```
+
+Le ultime due sono il **ritorno indietro**, che nella §5 era un ragionamento e adesso
+è una misura: rimessa la 1.2 sopra un database già migrato, rilegge lo stesso
+magazzino, stessa impronta.
+
+Perché funziona: `ALTER TABLE ADD COLUMN` in SQLite tocca **i metadati, non le
+righe** — non riscrive niente, e su un database da 5 MB è istantaneo. E le colonne
+indicizzate sono **copie** materializzate: la sorgente è il JSON in `data`, che le ha
+già. Aggiungere la colonna e ripopolarla dal documento non è un travaso, è un indice
+che si ricostruisce.
+
+### Il travaso esiste comunque, se un giorno servisse
+
+Il pacchetto di export (`Store.exportAll`) resta leggibile in tutte e due le
+direzioni, perché **`_format` non si muove**: `warehouse-mapper-v1.5`, come deciso
+nell'HANDOFF 1.3 §5.4. Un export della 1.2 rientra in una 1.4 — i campi nuovi
+mancano, e mancanti significa «come nella 1.2». Un export della 1.4 rientra in una
+1.2 — i campi in più vengono ignorati.
+
+Se anche tutto il resto andasse perso, l'insieme minimo che chiedi — ubicazione,
+articolo, colli — sono **quattro campi di una collezione sola**, `inventory`, e
+nessuno dei quattro cambia nella 1.4. È il caso più facile che ci sia.
+
+> Aggiungerei `lot_code`: costa zero, è già lì, e senza di lui si perdono FEFO,
+> scadenze, quarantene e la tracciabilità che serve in GMP.
+
+### Due difetti dell'import trovati guardandolo, da chiudere in 1.4.0
+
+1. **`importAll` in modalità sovrascrittura svuota solo dodici collezioni**, scritte
+   a mano in un elenco (`store.js`). Le quattro nuove non ci sono, quindi
+   **sopravviverebbero a un ripristino**: UDC e conti WIP che puntano a righe di
+   giacenza appena sostituite. Vanno aggiunte all'elenco — o meglio, l'elenco va
+   preso da `COLLEZIONI` di `types/collezioni.ts`, che esiste apposta.
+2. **L'elenco delle collezioni da esportare è scritto in tre posti** — `exportAll`,
+   `_countsOf`, `importAll`. È la stessa forma del difetto già chiuso una volta per
+   `COLLECTIONS` (HANDOFF 1.3 §4.6): tre copie che combaciano perché qualcuno se n'è
+   ricordato. Con quattro collezioni in arrivo, dimenticarne una in uno dei tre
+   significa un backup che sembra completo e non lo è.
 
 ---
 

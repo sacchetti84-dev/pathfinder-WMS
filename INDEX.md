@@ -78,6 +78,7 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `installa-servizio.ps1` | — | Registra le due attività pianificate. Da amministratore |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata serale |
 | `test/collaudo.js` | 231 | 29 prove sul servizio vero |
+| `test/collaudo-migrazione-1.4.js` | 158 | 8 prove sul cambio di schema della 1.4. Fuori dalla suite: si lancia da solo |
 
 ### Collaudi — `test/`
 
@@ -125,6 +126,11 @@ Cinque funzioni nuove. Piano, disegno dei dati e calendario:
 > esiste già **non fa partire il servizio**: `CREATE TABLE IF NOT EXISTS` non aggiunge
 > la colonna, e il `CREATE INDEX` dopo muore in `PathfinderDB` (`db.js:18`). L'UDC ha
 > bisogno di `inventory.udc_id`. Si toglie in 1.4.0, prima di tutto. PIANO-1.4 §1.
+
+Prototipo e collaudo scritti prima del codice:
+`node test/collaudo-migrazione-1.4.js` da `server/` — 8 prove, provano che ubicazione,
+articolo, lotto e colli sopravvivono al cambio di schema e che la 1.2 rilegge il
+database della 1.4. PIANO-1.4 §5bis.
 
 Sei decisioni aspettano Andrea — PIANO-1.4 §8. Due bloccano il calendario:
 la strada per il WIP, e se `store.js` in TypeScript entra nella Fase 0.
