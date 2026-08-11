@@ -1,6 +1,18 @@
 // ═══════════════════════════════════════════════════════════════════
-// VALIDATE 
+// VALIDATE
 // ═══════════════════════════════════════════════════════════════════
+
+/* Ogni controllo risponde con il MOTIVO del rifiuto, oppure con null se il
+   valore va bene. È il contrario della convenzione più comune (true = ok), e
+   resta così perché quello che serve all'interfaccia è la frase da mostrare
+   sotto il campo: un booleano costringerebbe a tenere i messaggi da un'altra
+   parte, lontano dalla regola che li ha decisi. */
+type Esito = string | null;
+
+/* I campi arrivano da `document.getElementById(...)?.value`, che è
+   `string | undefined`: dichiararli solo `string` avrebbe costretto ogni
+   punto di chiamata a un controllo che questi metodi già fanno. */
+type Campo = string | null | undefined;
 
 const Validate = {
   // Lunghezze massime (enforced ovunque)
@@ -25,54 +37,54 @@ const Validate = {
     CATEGORY: /^[A-Z]{1,5}$/
   }),
 
-  siteId(v) {
+  siteId(v: Campo): Esito {
     if (!v) return 'Codice sito obbligatorio';
     if (v.length < 2 || v.length > this.MAX.SITE_ID) return `Lunghezza 2-${this.MAX.SITE_ID} caratteri`;
     if (!this.RE.SITE_ID.test(v)) return 'Solo lettere maiuscole e numeri';
     return null;
   },
-  siteName(v) {
+  siteName(v: Campo): Esito {
     if (!v || !v.trim()) return 'Nome obbligatorio';
     if (v.length > this.MAX.SITE_NAME) return `Max ${this.MAX.SITE_NAME} caratteri`;
     return null;
   },
-  zoneId(v) {
+  zoneId(v: Campo): Esito {
     if (!v) return 'Codice zona obbligatorio';
     if (v.length > this.MAX.ZONE_ID) return `Max ${this.MAX.ZONE_ID} caratteri`;
     if (!this.RE.ZONE_ID.test(v)) return 'Solo lettere maiuscole e numeri';
     return null;
   },
-  article(v) {
+  article(v: Campo): Esito {
     if (!v) return 'Codice articolo obbligatorio';
     if (v.length > this.MAX.ARTICLE_CODE) return `Max ${this.MAX.ARTICLE_CODE} caratteri`;
     if (!this.RE.ARTICLE.test(v)) return 'Caratteri ammessi: A-Z 0-9 - _ . /';
     return null;
   },
-  articleDesc(v, required = false) {
+  articleDesc(v: Campo, required = false): Esito {
     if (required && (!v || !v.trim())) return 'Descrizione obbligatoria';
     if (v && v.length > this.MAX.ARTICLE_DESC) return `Max ${this.MAX.ARTICLE_DESC} caratteri`;
     if (v && !this.RE.SAFE_TEXT.test(v)) return 'Caratteri non ammessi (<, >, ", \')';
     return null;
   },
-  lot(v) {
+  lot(v: Campo): Esito {
     if (!v) return 'Codice lotto obbligatorio';
     if (v.length > this.MAX.LOT_CODE) return `Max ${this.MAX.LOT_CODE} caratteri`;
     if (!this.RE.LOT.test(v)) return 'Caratteri ammessi: A-Z 0-9 - _ . /';
     return null;
   },
-  location(v) {
+  location(v: Campo): Esito {
     if (!v) return 'Ubicazione obbligatoria';
     if (v.length > this.MAX.LOC_CODE) return `Max ${this.MAX.LOC_CODE} caratteri`;
     if (!this.RE.LOC.test(v)) return 'Formato non valido (es: MOP1-A-01-01-T)';
     return null;
   },
-  notes(v) {
+  notes(v: Campo): Esito {
     if (!v) return null;
     if (v.length > this.MAX.NOTES) return `Max ${this.MAX.NOTES} caratteri`;
     if (!this.RE.SAFE_TEXT.test(v)) return 'Caratteri non ammessi';
     return null;
   },
-  reason(v) {
+  reason(v: Campo): Esito {
     if (!v || !v.trim()) return 'Motivo obbligatorio';
     if (v.length > this.MAX.REASON) return `Max ${this.MAX.REASON} caratteri`;
     // v2.0.1 [C5] — Era l'UNICO campo testuale libero privo di controllo caratteri.
@@ -81,24 +93,28 @@ const Validate = {
     if (!this.RE.SAFE_CHARS.test(v)) return 'Caratteri non ammessi (<, >, ", \')';
     return null;
   },
-  operator(v) {
+  operator(v: Campo): Esito {
     if (!v || !v.trim()) return 'Operatore obbligatorio';
     if (v.length > this.MAX.OPERATOR) return `Max ${this.MAX.OPERATOR} caratteri`;
     return null;
   },
-  refDept(v) {
+  refDept(v: Campo): Esito {
     if (!v || !v.trim()) return 'Reparto obbligatorio';
     if (v.length > this.MAX.REF_DEPT) return `Max ${this.MAX.REF_DEPT} caratteri`;
     return null;
   },
-  category(v) {
+  category(v: Campo): Esito {
     if (!v) return null;
     if (!this.RE.CATEGORY.test(v)) return 'Categoria: 1-5 lettere maiuscole';
     return null;
   },
 
-  /* Sanitize: rimuove caratteri pericolosi e normalizza */
-  clean(v, upper = false) {
+  /* Sanitize: rimuove caratteri pericolosi e normalizza.
+     `unknown` e non `Campo`: questo è l'unico metodo che accetta qualunque
+     cosa, ed è voluto — esiste proprio per essere il primo a toccare un
+     valore di cui non si sa niente. Restituisce sempre una stringa, quindi
+     chi lo chiama può concatenare senza controllare. */
+  clean(v: unknown, upper = false): string {
     if (v === null || v === undefined) return '';
     let s = String(v).trim().replace(/[\x00-\x1F\x7F]/g, '');
     if (upper) s = s.toUpperCase();

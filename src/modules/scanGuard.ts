@@ -12,17 +12,21 @@
 
 const ScanGuard = {
   WINDOW_MS: 3000,
-  _last: new Map(),
+
+  /* Firma dell'operazione → istante in cui è passata. La firma la compone
+     chi chiama, mettendo insieme ciò che rende una scansione «la stessa»:
+     ubicazione, articolo, lotto. */
+  _last: new Map<string, number>(),
 
   /* Ritorna i millisecondi trascorsi se la stessa firma e' recente, altrimenti null. */
-  check(signature) {
+  check(signature: string): number | null {
     const prev = this._last.get(signature);
     if (prev === undefined) return null;
     const elapsed = Date.now() - prev;
     return elapsed <= this.WINDOW_MS ? elapsed : null;
   },
 
-  mark(signature) {
+  mark(signature: string): void {
     this._last.set(signature, Date.now());
     // Pulizia opportunistica: la mappa non deve crescere per tutta la sessione
     if (this._last.size > 200) {
@@ -31,7 +35,7 @@ const ScanGuard = {
     }
   },
 
-  clear(signature = null) {
+  clear(signature: string | null = null): void {
     if (signature === null) this._last.clear();
     else this._last.delete(signature);
   }

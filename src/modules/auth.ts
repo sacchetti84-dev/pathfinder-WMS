@@ -1,4 +1,5 @@
 import { Persistence } from '../core/persistence/index';
+import type { Istante, Operatore } from '../types/entita.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // © Andrea Sacchetti — Dietopack S.r.l.
@@ -28,6 +29,20 @@ import { Persistence } from '../core/persistence/index';
 // Su http:// verso un host remoto non esiste, e in quel caso l'app lo dice
 // invece di far finta di verificare qualcosa.
 // ═══════════════════════════════════════════════════════════════════
+
+/* I tre campi che descrivono un PIN sul record operatore. Escono da
+   buildPinFields() e non se ne separano mai: scriverne due su tre lascia un
+   operatore che non può più entrare e che nessuno può reimpostare. */
+export interface CampiPin {
+  pin_salt: string;
+  pin_hash: string;
+  pin_set_at: Istante;
+}
+
+/* Il 429 del freno sui tentativi. `blocked` è la bandiera che distingue
+   «aspetta un minuto» da un guasto di rete, e viaggia sull'errore perché è
+   lì che chi chiama la va a cercare. */
+type ErroreTentativi = Error & { status?: number; blocked?: boolean };
 
 const Auth = {
   PIN_LENGTH: 6,
@@ -60,13 +75,13 @@ const Auth = {
      `_remoto()` decide caso per caso, non una volta per tutte: la stessa
      copia del file serve il terminale in rete e il portatile aperto col
      doppio clic. ═══════════════════════════════════════════════════ */
-  _remoto() {
+  _remoto(): boolean {
     return typeof Persistence !== 'undefined'
         && Persistence.kind === 'remote'
         && Persistence.supportsRemoteOps === true;
   },
 
-  available() {
+  available(): boolean {
     /* Col servizio la verifica e' sempre possibile: non dipende da cosa
        il browser concede a questa origine. */
     if (this._remoto()) return true;
@@ -74,7 +89,7 @@ const Auth = {
   },
 
   /* Ritorna null se il PIN va bene, altrimenti il motivo del rifiuto. */
-  validatePin(pin) {
+  validatePin(pin: unknown): string | null {
     const v = String(pin ?? '');
     if (!/^\d{6}$/.test(v)) return 'Il PIN deve essere di esattamente 6 cifre.';
     if (this._TRIVIAL.has(v)) return 'PIN troppo semplice: scegline uno non prevedibile.';
@@ -82,31 +97,31 @@ const Auth = {
     return null;
   },
 
-  _hex(buffer) {
+  _hex(buffer: ArrayBuffer): string {
     return [...new Uint8Array(buffer)].map(b => b.toString(16).padStart(2, '0')).join('');
   },
 
-  newSalt() {
+  newSalt(): string {
     const bytes = new Uint8Array(16);
     crypto.getRandomValues(bytes);
     return this._hex(bytes.buffer);
   },
 
-  async hashPin(pin, salt) {
+  async hashPin(pin: string, salt: string): Promise<string> {
     const data = new TextEncoder().encode(`${salt}:${pin}`);
     return this._hex(await crypto.subtle.digest('SHA-256', data));
   },
 
   /* Confronto a tempo costante. Su un applicativo locale il timing attack e'
      teorico, ma il costo di scriverlo bene e' due righe. */
-  _equal(a, b) {
+  _equal(a: unknown, b: unknown): boolean {
     if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
     let diff = 0;
     for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
     return diff === 0;
   },
 
-  async verifyPin(operator, pin) {
+  async verifyPin(operator: Operatore | null | undefined, pin: string): Promise<boolean> {
     if (this._remoto()) {
       /* Il server rilegge l'operatore dal database e confronta li'. Ha
          anche un freno sui tentativi ripetuti, che nel browser non
@@ -117,12 +132,18 @@ const Auth = {
          errore prima di restituire il corpo: va riconosciuto qui e
          ripresentato con il flag, altrimenti a chi chiama arriva un
          errore di rete qualunque e l'operatore legge "riprova" mentre
-         il vero motivo e' che deve aspettare un minuto. */
+         il vero motivo e' che deve aspettare un minuto.
+
+         Il punto esclamativo su `op` dice ciò che `_remoto()` ha appena
+         verificato: `op` è dichiarata facoltativa nel contratto perché
+         l'adapter locale non ce l'ha, e questo ramo si esegue solo quando
+         sotto c'è il servizio. */
       let r;
       try {
-        r = await Persistence.op('verifyPin', { op_id: operator?.op_id, pin });
+        r = await Persistence.op!<{ ok?: boolean }>('verifyPin', { op_id: operator?.op_id, pin });
       } catch (err) {
-        if (err?.status === 429) { err.blocked = true; throw err; }
+        const e = err as ErroreTentativi;
+        if (e?.status === 429) { e.blocked = true; throw e; }
         throw err;
       }
       return r?.ok === true;
@@ -138,8 +159,8 @@ const Auth = {
      Col servizio il calcolo lo fa lui e la firma resta questa: i quattro
      punti che impostano un PIN — wizard, completamento scheda, creazione
      operatore, rinnovo — non cambiano di una riga. */
-  async buildPinFields(pin) {
-    if (this._remoto()) return await Persistence.op('hashPin', { pin });
+  async buildPinFields(pin: string): Promise<CampiPin> {
+    if (this._remoto()) return await Persistence.op!<CampiPin>('hashPin', { pin });
     const salt = this.newSalt();
     return { pin_salt: salt, pin_hash: await this.hashPin(pin, salt), pin_set_at: Date.now() };
   }

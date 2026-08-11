@@ -153,6 +153,10 @@ export interface DocumentoUscita {
   ddt_num?: string;
   destination?: string;
   carrier?: string;
+  /** v2.0.0+ — La data in cui il vettore dovrebbe passare. È ciò che ordina
+      l'elenco dei documenti pendenti, dai più urgenti in giù: vedi
+      `pickupAlertStatus`. Vuota finché non la si concorda. */
+  expected_pickup_date?: Giorno;
   operator: string;
   status: 'pending' | 'evaded' | 'cancelled' | string;
   created_at: Istante;
