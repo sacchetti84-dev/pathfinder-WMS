@@ -1,8 +1,9 @@
 # INDEX — Pathfinder
 
-**Punto di partenza di ogni conversazione.** Dare questo file, e solo questo:
-il resto si apre quando serve davvero. Manutenzione: si aggiorna a ogni
-commit che sposta uno dei numeri o degli aperti qui sotto.
+**Punto di partenza di ogni conversazione.** Dare questo file più
+[HANDOFF 1.4](HANDOFF/HANDOFF-pathfinder-1.4.md), che dice da dove si riparte e
+quali trappole sono già state pagate. Il resto si apre quando serve davvero.
+Manutenzione: si aggiorna a ogni commit che sposta uno dei numeri o degli aperti.
 
 © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 11/08/2026
@@ -179,8 +180,9 @@ al motore, che è a fine novembre, cioè quando non c'è più tempo per aspettar
 | Serve | File |
 |---|---|
 | Installare, aggiornare, diagnosticare, backup | [README.md](README.md) |
+| **Dove siamo e da dove si riparte** — l'ultimo | [HANDOFF/HANDOFF-pathfinder-1.4.md](HANDOFF/HANDOFF-pathfinder-1.4.md) |
 | **Le cinque funzioni della 1.4** — disegno dei dati, calendario, decisioni | [HANDOFF/PIANO-1.4.md](HANDOFF/PIANO-1.4.md) |
-| Dove siamo e perché — l'ultimo | [HANDOFF/HANDOFF-pathfinder-1.3.md](HANDOFF/HANDOFF-pathfinder-1.3.md) |
+| Come si è arrivati alla 1.2 | [HANDOFF/HANDOFF-pathfinder-1.3.md](HANDOFF/HANDOFF-pathfinder-1.3.md) |
 | Metodo di lavoro e trappole | [HANDOFF/HANDOFF-pathfinder-1.2.md](HANDOFF/HANDOFF-pathfinder-1.2.md) |
 | Decisioni di fondo, vincolo GDPR | [HANDOFF/HANDOFF-pathfinder-1.0.md](HANDOFF/HANDOFF-pathfinder-1.0.md) |
 | Dove si vuole arrivare | [HANDOFF/PIANO-AZIONE-Pathfinder-2.0.md](HANDOFF/PIANO-AZIONE-Pathfinder-2.0.md) |
