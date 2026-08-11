@@ -1,5 +1,11 @@
 import type { MOV } from './contratto.js';
-import type { CodiceAllergene, ClasseTemperatura } from '../modules/anagrafica.js';
+import type {
+  CodiceAllergene, ClasseTemperatura, CodiceCertificazione,
+} from '../modules/anagrafica.js';
+
+/** 1.4.2 — l'unità in cui si contano i pezzi dentro il collo.
+    Assente sull'articolo = gestione a soli colli, cioè come nella 1.2. */
+export type UnitaMisura = 'PZ' | 'MT' | 'LT' | 'KG' | 'GR';
 
 /** Millisecondi dall'epoca, come li scrive `Date.now()`. */
 export type Istante = number;
@@ -52,6 +58,15 @@ export interface Articolo {
       dichiararlo a posto. */
   allergens?: CodiceAllergene[];
   temp_class?: ClasseTemperatura;
+  /** 1.4.0 — certificazioni di prodotto. Non è un vincolo di stoccaggio: è
+      un fatto che deve viaggiare fino all'operatore e fino al DDT. */
+  certifications?: CodiceCertificazione[];
+  /** 1.4.2 — l'unità dentro il collo. `uom_per_collo` assente legge
+      `pieces_per_pack`: una sorgente sola, con un ripiego. */
+  uom?: UnitaMisura;
+  uom_per_collo?: number;
+  /** 1.4.4 — punteggio morbido del motore: chi pesa sta in basso. */
+  stackable?: boolean;
   active?: boolean;
 }
 
@@ -71,6 +86,14 @@ export interface Giacenza {
   placed_at?: Istante;
   placed_by?: string;
   notes?: string;
+  /** 1.4.3 — assente = merce direttamente in ubicazione, cioè il
+      comportamento di oggi, per sempre. Se c'è, `location_code` DEVE essere
+      quello della UDC: l'invariante la difende `/api/op/moveUdc`, non la
+      disciplina di chi scrive. */
+  udc_id?: string;
+  /** 1.4.2 — UM totali nella riga, accanto a `qty` che resta i colli.
+      Il collo incompleto NON è una riga sua: si calcola. */
+  qty_uom?: number;
 }
 
 export interface StatoUbicazione {
@@ -233,6 +256,91 @@ export interface Operatore {
   active?: boolean;
   created_at?: Istante;
   updated_at?: Istante;
+}
+
+/* ── Le cinque della 1.4 ─────────────────────────────────────────── */
+
+/* Dichiarate in Fase 0, popolate quando si accende l'interruttore che le
+   riguarda. Una collezione vuota si comporta come la 1.2: non esiste. */
+
+/** 1.4.2 — la confezione, CONGELATA al primo posizionamento. È un fatto del
+    lotto e non della riga di giacenza: sopravvive all'ultimo collo che esce
+    e vale ancora per quello che rientra tre settimane dopo. */
+export interface Lotto {
+  _id?: number;
+  article_code: string;
+  lot_code: string;
+  uom?: UnitaMisura;
+  uom_per_collo?: number;
+  frozen_at?: Istante;
+}
+
+/** 1.4.3 — un contenitore che sta in un'ubicazione e si sposta intero.
+    Nasce su comando di un operatore o di un Team Leader, con la sua
+    etichetta; muore quando non ha più colli dentro. Il record resta:
+    la tracciabilità GMP non ammette che una UDC sparisca dallo storico. */
+export interface Udc {
+  udc_id: string;
+  type?: 'pallet' | 'cassone' | 'carrello' | string;
+  location_code?: string;
+  site_id?: string;
+  status: 'open' | 'closed' | 'shipped' | 'empty' | string;
+  /** Predisposto e vuoto finché non arriva il prefisso GS1, che è un
+      parametro di Configurazione e non una costante del sorgente. */
+  sscc?: string | null;
+  created_at: Istante;
+  created_by?: string;
+  closed_at?: Istante | null;
+  emptied_at?: Istante | null;
+}
+
+/** 1.4.1 — la richiesta di un'attività che l'applicativo sa già fare.
+    Da `requested_at → started_at → completed_at` escono le due misure che
+    servono davvero: quanto sta in coda, e quanto dura. */
+export interface Compito {
+  task_id: string;
+  type: 'TRANSFER' | 'PICK_SHIP' | 'PICK_RET' | 'QUARANTINE' | 'SAMPLING'
+      | 'DISPOSAL' | 'PUTAWAY' | 'COUNT' | string;
+  /** 1-4. La alza SOLO un Team Leader, altrimenti diventa urgente tutto. */
+  priority: number;
+  status: 'requested' | 'assigned' | 'in_progress' | 'done' | 'cancelled' | string;
+  requested_by: string;
+  requested_at: Istante;
+  assigned_to?: string | null;
+  started_at?: Istante | null;
+  completed_at?: Istante | null;
+  due_at?: Istante | null;
+  payload?: unknown;
+  source_ref?: string | null;
+}
+
+/** 1.4.5 — il conto aperto di ciò che è uscito verso la produzione.
+    Ciò che entra e non torna è il consumo reale: oggi quel numero non esiste. */
+export interface ContoWip {
+  wip_id: string;
+  odp_num: string;
+  item_key: string;
+  article_code?: string;
+  lot_code?: string;
+  qty: number;
+  qty_uom?: number;
+  status: 'open' | 'closed' | string;
+  opened_at: Istante;
+  closed_at?: Istante | null;
+}
+
+/** 1.4.4 — una regola del motore. È un DATO scritto in Configurazione, non
+    un rilascio: «`article_code` inizia per 700 → `site_id` = MAG2» cambia
+    quando cambia la politica, non quando cambia la versione. */
+export interface RegolaStoccaggio {
+  rule_id: string;
+  priority: number;
+  attiva: boolean;
+  quando: { campo: string; operatore: string; valore: unknown };
+  allora: Record<string, unknown>;
+  note?: string;
+  updated_at?: Istante;
+  updated_by?: string;
 }
 
 /* ── Chiave/valore ───────────────────────────────────────────────── */

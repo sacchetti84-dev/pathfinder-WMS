@@ -53,7 +53,8 @@ const LocalPersistence = {
       : db.mov_log.where('ts').aboveOrEqual(movLogFrom).reverse().toArray();
     const [sites, zones, articles, inventory, locStatus, disabled,
            movLog, movLogTotal, quarantine, pendingOut, meta, pickSession, pickArchive,
-           disposalArchive, operators] =
+           disposalArchive, operators,
+           lots, udc, tasks, wip, storageRules] =
       await Promise.all([
         db.sites.toArray(),
         db.zones.toArray(),
@@ -69,11 +70,18 @@ const LocalPersistence = {
         db.pick_session.toArray(),
         db.pick_archive.orderBy('closed_at').reverse().toArray(),
         db.disposal_archive.orderBy('created_at').reverse().toArray(),   // v3.0.0 [M2]
-        db.operators.toArray()                       // v2.7.0 [G6]
+        db.operators.toArray(),                      // v2.7.0 [G6]
+        /* 1.4.0 — vuote finche' non si accende l'interruttore che le riguarda. */
+        db.lots.toArray(),
+        db.udc.toArray(),
+        db.tasks.toArray(),
+        db.wip.toArray(),
+        db.storage_rules.toArray()
       ]);
     return { sites, zones, articles, inventory, locStatus, disabled,
              movLog, movLogTotal, quarantine, pendingOut, meta, pickSession, pickArchive,
-             disposalArchive, operators };
+             disposalArchive, operators,
+             lots, udc, tasks, wip, storageRules };
   },
 
   diskFull: false,

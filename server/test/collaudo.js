@@ -37,8 +37,17 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   // ── Salute ────────────────────────────────────────────────────────
   const salute = await call('GET', '/api/health');
   ok('Servizio risponde', salute.stato === 200 && salute.dati.ok);
-  ok('Quattordici collezioni dichiarate', salute.dati.collections.length === 14,
+  /* Quattordici fino alla 1.2, diciannove dalla 1.4.0: le cinque nuove
+     nascono vuote in Fase 0 perche' lo schema si muova una volta sola. Che
+     i nomi siano quelli che il client si aspetta lo prova il tipo in
+     `lib/schema.js`, non questo conteggio. */
+  const NUOVE_14 = ['lots', 'udc', 'tasks', 'wip', 'storage_rules'];
+  ok('Diciannove collezioni dichiarate', salute.dati.collections.length === 19,
      salute.dati.collections.length + '');
+  ok('le cinque collezioni della 1.4 ci sono e sono vuote',
+     NUOVE_14.every(c => salute.dati.collections.includes(c))
+       && NUOVE_14.every(c => (salute.dati.counts?.[c] ?? 0) === 0),
+     NUOVE_14.join(' · '));
 
   // ── Chiave autoincrementale ───────────────────────────────────────
   const a1 = await call('POST', '/api/c/articles',

@@ -1,9 +1,9 @@
 'use strict';
 
-/* PROVA PREPARATORIA — la migrazione della 1.4.0 non e' ancora nel prodotto.
-   Qui dentro c'e' il prototipo di `migra()` piu' il collaudo che dovra'
-   superare. Quando la migrazione entrera' in `PathfinderDB`, `migra()` si
-   toglie da qui e questo file resta come collaudo.
+/* La migrazione e' nel prodotto — `PathfinderDB._migra`, in `lib/db.js`.
+   Il prototipo che stava qui e' stato tolto: adesso questo file collauda il
+   codice vero, cioe' apre un database con lo schema di ieri usando il
+   costruttore di oggi e guarda cosa resta.
 
    Non fa parte di `node test/collaudo.js`: si lancia da solo.
      node test/collaudo-migrazione-1.4.js
@@ -14,7 +14,6 @@
 const path = require('path');
 const fs = require('fs');
 const crypto = require('crypto');
-const Database = require('better-sqlite3');
 
 const SRV = path.join(__dirname, '..');
 const file = path.join(require('os').tmpdir(), `pathfinder-migrazione-${process.pid}.db`);
@@ -31,29 +30,31 @@ function verifica(esito, testo) {
   if (!esito) falliti++;
 }
 
-/* ── La migrazione ────────────────────────────────────────────────────────
-   Va dentro `PathfinderDB`, fra `createSQL` e la creazione degli indici.
-   Senza, `CREATE TABLE IF NOT EXISTS` non aggiunge la colonna nuova e il
-   `CREATE INDEX` che segue muore: il servizio non parte affatto. */
-function migra(fileDb, COLLECTIONS) {
-  const raw = new Database(fileDb);
-  const fatte = [];
-  for (const [nome, col] of Object.entries(COLLECTIONS)) {
-    const esiste = raw.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(nome);
-    if (!esiste) continue;                       // ci pensa CREATE TABLE IF NOT EXISTS
-    const presenti = new Set(raw.prepare(`PRAGMA table_info(${nome})`).all().map(c => c.name));
-    for (const campo of col.indexed) {
-      if (campo === col.pk || presenti.has(campo)) continue;
-      const tipo = (col.numeric || []).includes(campo) ? 'INTEGER' : 'TEXT';
-      raw.exec(`ALTER TABLE ${nome} ADD COLUMN ${campo} ${tipo}`);
-      /* Il valore, se esiste, e' gia' nel documento: la colonna indicizzata
-         e' una copia materializzata, non la sorgente. */
-      const info = raw.prepare(`UPDATE ${nome} SET ${campo} = json_extract(data, '$.${campo}')`).run();
-      fatte.push(`${nome}.${campo} (${info.changes} righe)`);
-    }
+/* ── I due schemi ─────────────────────────────────────────────────────────
+   `lib/schema.js` oggi E' quello della 1.4. Per costruire un magazzino con
+   lo schema di ieri si tolgono le aggiunte, si scrive, e si rimettono: la
+   prova sta nel riaprire quel database con il costruttore di oggi. */
+const NUOVE = ['lots', 'udc', 'tasks', 'wip', 'storage_rules'];
+const messeDaParte = Object.fromEntries(NUOVE.map(c => [c, schema.COLLECTIONS[c]]));
+
+function rinomina() {
+  schema.NAMES.length = 0;
+  schema.NAMES.push(...Object.keys(schema.COLLECTIONS));
+}
+
+function schema12() {
+  for (const c of NUOVE) delete schema.COLLECTIONS[c];
+  schema.COLLECTIONS.inventory.indexed =
+    schema.COLLECTIONS.inventory.indexed.filter(f => f !== 'udc_id');
+  rinomina();
+}
+
+function schema14() {
+  for (const c of NUOVE) schema.COLLECTIONS[c] = messeDaParte[c];
+  if (!schema.COLLECTIONS.inventory.indexed.includes('udc_id')) {
+    schema.COLLECTIONS.inventory.indexed.push('udc_id');
   }
-  raw.close();
-  return fatte;
+  rinomina();
 }
 
 /* Cio' che va salvato a tutti i costi: ubicazione, articolo, lotto, colli. */
@@ -69,7 +70,8 @@ function impronta(db) {
 
 console.log('\n  Migrazione 1.4 — i dati di oggi sopravvivono?\n');
 
-/* ── 1. Un magazzino con lo schema di oggi ──────────────────────────────── */
+/* ── 1. Un magazzino con lo schema della 1.2 ────────────────────────────── */
+schema12();
 let DB = fresh();
 let db = new DB(file);
 let n = 0;
@@ -92,20 +94,11 @@ const prima = impronta(db);
 console.log(`  base di partenza: ${prima.righe} righe, ${prima.colli} colli, impronta ${prima.sha}`);
 db.close();
 
-/* ── 2. Lo schema della 1.4 ─────────────────────────────────────────────── */
-schema.COLLECTIONS.inventory.indexed.push('udc_id');
-schema.COLLECTIONS.lots  = { pk: '_id', pkType: 'auto', indexed: ['article_code', 'lot_code'], composite: [['article_code', 'lot_code']] };
-schema.COLLECTIONS.udc   = { pk: 'udc_id', pkType: 'text', indexed: ['location_code', 'status', 'site_id'] };
-schema.COLLECTIONS.tasks = { pk: 'task_id', pkType: 'text', indexed: ['type', 'status', 'priority', 'requested_at'], numeric: ['requested_at'] };
-schema.COLLECTIONS.wip   = { pk: 'wip_id', pkType: 'text', indexed: ['odp_num', 'item_key', 'status'] };
-schema.NAMES.length = 0;
-schema.NAMES.push(...Object.keys(schema.COLLECTIONS));
-
-const fatte = migra(file, schema.COLLECTIONS);
-console.log(`  migrazione: ${fatte.join(' · ') || '(niente da fare)'}\n`);
-
+/* ── 2. Lo stesso file, riaperto con lo schema della 1.4 ────────────────── */
+schema14();
 DB = fresh();
 db = new DB(file);
+console.log(`  migrazione: ${db.migrazioni.map(m => `${m.collezione}.${m.campo} (${m.righe} righe)`).join(' · ') || '(niente da fare)'}\n`);
 const dopo = impronta(db);
 
 verifica(dopo.sha === prima.sha, `ubicazione, articolo, lotto e colli identici — impronta ${dopo.sha}`);
@@ -113,8 +106,8 @@ verifica(dopo.righe === prima.righe, `nessuna riga persa — ${dopo.righe}`);
 verifica(dopo.colli === prima.colli, `nessun collo perso — ${dopo.colli}`);
 verifica(db.db.prepare('PRAGMA table_info(inventory)').all().some(c => c.name === 'udc_id'),
   'inventory ha la colonna udc_id');
-verifica(['lots', 'udc', 'tasks', 'wip'].every(c => db.count(c) === 0),
-  'le quattro collezioni nuove esistono e sono vuote');
+verifica(NUOVE.every(c => db.count(c) === 0),
+  `le ${NUOVE.length} collezioni nuove esistono e sono vuote`);
 
 const una = db.all('inventory')[0];
 db.put('inventory', { ...una, udc_id: 'UDC-000001' });
@@ -124,11 +117,7 @@ verifica(db.query('inventory', { criteria: { field: 'udc_id', op: 'equals', valu
 db.close();
 
 /* ── 3. Il ritorno indietro ─────────────────────────────────────────────── */
-for (const c of ['lots', 'udc', 'tasks', 'wip']) delete schema.COLLECTIONS[c];
-schema.COLLECTIONS.inventory.indexed = schema.COLLECTIONS.inventory.indexed.filter(f => f !== 'udc_id');
-schema.NAMES.length = 0;
-schema.NAMES.push(...Object.keys(schema.COLLECTIONS));
-
+schema12();
 DB = fresh();
 db = new DB(file);
 const indietro = impronta(db);

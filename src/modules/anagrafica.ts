@@ -18,6 +18,8 @@ export type CodiceAllergene =
 
 export type ClasseTemperatura = 'SURG' | 'REFR' | 'AMB';
 
+export type CodiceCertificazione = 'HALAL' | 'KOSHER';
+
 /* I 14 dell'Allegato II del Reg. UE 1169/2011. L'elenco è chiuso: è una
    norma, non una preferenza, e un quindicesimo non si aggiunge qui. */
 export const ALLERGENI: readonly { code: CodiceAllergene; label: string }[] = [
@@ -45,8 +47,19 @@ export const CLASSI_TEMPERATURA: readonly { code: ClasseTemperatura; label: stri
   { code: 'AMB', label: 'Ambiente', range: '+18/+25 °C' },
 ];
 
+/* Le certificazioni di prodotto. A differenza degli allergeni QUESTO ELENCO
+   NON È CHIUSO: non è una norma, è una richiesta commerciale, e il giorno
+   che arriva un cliente che chiede il BIO si aggiunge una riga qui e la
+   convalida di Excel se la ritrova nel foglio «Valori ammessi» al primo
+   export successivo. La lettura invece resta stretta come le altre due. */
+export const CERTIFICAZIONI: readonly { code: CodiceCertificazione; label: string }[] = [
+  { code: 'HALAL', label: 'Halal' },
+  { code: 'KOSHER', label: 'Kosher' },
+];
+
 const ALLERGENE_PER_CODICE = new Map(ALLERGENI.map(a => [a.code as string, a]));
 const CLASSE_PER_CODICE = new Map(CLASSI_TEMPERATURA.map(c => [c.code as string, c]));
+const CERTIFICAZIONE_PER_CODICE = new Map(CERTIFICAZIONI.map(c => [c.code as string, c]));
 
 /** Maiuscolo e senza spazi ai bordi. Non è interpretazione: è igiene. */
 function ripulisci(v: unknown): string {
@@ -71,9 +84,19 @@ export function classeValida(code: string | null | undefined): code is ClasseTem
   return !!code && CLASSE_PER_CODICE.has(code);
 }
 
+export function etichettaCertificazione(code: string): string {
+  return CERTIFICAZIONE_PER_CODICE.get(code)?.label ?? code;
+}
+
+export function certificazioneValida(code: string): code is CodiceCertificazione {
+  return CERTIFICAZIONE_PER_CODICE.has(code);
+}
+
 /** Cella → codici. Separatore `;`. Ciò che non è un codice finisce fra gli scarti. */
-export function leggiAllergeni(raw: unknown): { codici: CodiceAllergene[]; scarti: string[] } {
-  const codici: CodiceAllergene[] = [];
+function leggiElenco<T extends string>(
+  raw: unknown, ordine: readonly { code: T }[],
+): { codici: T[]; scarti: string[] } {
+  const codici: T[] = [];
   const scarti: string[] = [];
   if (raw === null || raw === undefined || raw === '') return { codici, scarti };
 
@@ -84,18 +107,29 @@ export function leggiAllergeni(raw: unknown): { codici: CodiceAllergene[]; scart
     /* «NESSUNO» è una risposta: vuol dire che qualcuno ha guardato l'articolo.
        La cella vuota vuol dire che non l'ha guardato nessuno. */
     if (v === 'NESSUNO') continue;
-    if (allergeneValido(v)) { if (!codici.includes(v)) codici.push(v); }
+    const i = ordine.findIndex(x => x.code === v);
+    if (i >= 0) { if (!codici.includes(v as T)) codici.push(v as T); }
     else scarti.push(pezzo.trim());
   }
   /* Ordine di tabella, non di digitazione: due articoli con gli stessi
-     allergeni devono risultare uguali anche a chi confronta le stringhe. */
-  codici.sort((a, b) => ALLERGENI.findIndex(x => x.code === a) - ALLERGENI.findIndex(x => x.code === b));
+     valori devono risultare uguali anche a chi confronta le stringhe. */
+  codici.sort((a, b) => ordine.findIndex(x => x.code === a) - ordine.findIndex(x => x.code === b));
   return { codici, scarti };
+}
+
+export function leggiAllergeni(raw: unknown): { codici: CodiceAllergene[]; scarti: string[] } {
+  return leggiElenco(raw, ALLERGENI);
+}
+
+export function leggiCertificazioni(raw: unknown): { codici: CodiceCertificazione[]; scarti: string[] } {
+  return leggiElenco(raw, CERTIFICAZIONI);
 }
 
 export function scriviAllergeni(codici: readonly string[] | null | undefined): string {
   return codici && codici.length ? codici.join(';') : '';
 }
+
+export const scriviCertificazioni = scriviAllergeni;
 
 /** Cella → classe. `null` se vuota, `undefined` se c'è scritto qualcosa di sconosciuto. */
 export function leggiClasseTemperatura(raw: unknown): ClasseTemperatura | null | undefined {
@@ -116,5 +150,9 @@ export function fogliValoriAmmessi(): { colonna: string; valore: string; signifi
       colonna: 'Allergeni', valore: a.code, significato: a.label,
     })),
     { colonna: 'Allergeni', valore: 'NESSUNO', significato: 'Verificato: non contiene allergeni da dichiarare' },
+    ...CERTIFICAZIONI.map(c => ({
+      colonna: 'Certificazioni', valore: c.code, significato: c.label,
+    })),
+    { colonna: 'Certificazioni', valore: 'NESSUNO', significato: 'Verificato: nessuna certificazione' },
   ];
 }

@@ -3,6 +3,7 @@ import {
   ALLERGENI, CLASSI_TEMPERATURA, leggiAllergeni, scriviAllergeni,
   leggiClasseTemperatura, etichettaAllergene, etichettaClasse,
   allergeneValido, classeValida, fogliValoriAmmessi,
+  CERTIFICAZIONI, leggiCertificazioni, certificazioneValida, etichettaCertificazione,
 } from '../src/modules/anagrafica';
 
 describe('tabelle', () => {
@@ -118,16 +119,56 @@ describe('validita\'', () => {
   });
 });
 
+describe('certificazioni', () => {
+  /* A differenza degli allergeni questo elenco NON e' chiuso: e' una
+     richiesta commerciale, non una norma. Il collaudo verifica la forma
+     della tabella, non la sua lunghezza. */
+  it('la tabella e\' coerente con se stessa', () => {
+    for (const c of CERTIFICAZIONI) {
+      expect(certificazioneValida(c.code)).toBe(true);
+      expect(etichettaCertificazione(c.code)).toBe(c.label);
+    }
+    expect(certificazioneValida('BIO')).toBe(false);
+    expect(etichettaCertificazione('BIO')).toBe('BIO');
+  });
+
+  it('legge i codici previsti e scarta il resto', () => {
+    expect(leggiCertificazioni('HALAL;KOSHER').codici).toEqual(['HALAL', 'KOSHER']);
+    expect(leggiCertificazioni(' halal ').codici).toEqual(['HALAL']);
+    const { codici, scarti } = leggiCertificazioni('HALAL;BIO');
+    expect(codici).toEqual(['HALAL']);
+    expect(scarti).toEqual(['BIO']);
+  });
+
+  it('ordine di tabella, non di digitazione', () => {
+    expect(leggiCertificazioni('KOSHER;HALAL').codici).toEqual(['HALAL', 'KOSHER']);
+  });
+
+  /* Cella vuota e «NESSUNO» sono due cose diverse: la prima vuol dire che
+     nessuno ha guardato l'articolo, la seconda che qualcuno l'ha guardato. */
+  it('cella vuota e NESSUNO danno entrambi elenco vuoto, senza scarti', () => {
+    expect(leggiCertificazioni('').codici).toEqual([]);
+    expect(leggiCertificazioni(null).codici).toEqual([]);
+    expect(leggiCertificazioni('NESSUNO')).toEqual({ codici: [], scarti: [] });
+  });
+
+  it('non duplica', () => {
+    expect(leggiCertificazioni('HALAL;HALAL').codici).toEqual(['HALAL']);
+  });
+});
+
 describe('foglio dei valori ammessi', () => {
-  it('contiene le tre classi, i 14 allergeni e NESSUNO', () => {
+  it('contiene le tre classi, i 14 allergeni, le certificazioni e NESSUNO', () => {
     const righe = fogliValoriAmmessi();
     expect(righe.filter(r => r.colonna === 'Temperatura')).toHaveLength(3);
     expect(righe.filter(r => r.colonna === 'Allergeni')).toHaveLength(15);
+    expect(righe.filter(r => r.colonna === 'Certificazioni')).toHaveLength(CERTIFICAZIONI.length + 1);
   });
 
   it('ogni valore del foglio e\' accettato da chi lo rilegge', () => {
     for (const r of fogliValoriAmmessi()) {
       if (r.colonna === 'Temperatura') expect(leggiClasseTemperatura(r.valore)).toBe(r.valore);
+      else if (r.colonna === 'Certificazioni') expect(leggiCertificazioni(r.valore).scarti).toEqual([]);
       else expect(leggiAllergeni(r.valore).scarti).toEqual([]);
     }
   });

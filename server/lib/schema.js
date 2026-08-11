@@ -35,7 +35,7 @@ const COLLECTIONS = {
   },
   inventory: {
     pk: '_id', pkType: 'auto',
-    indexed: ['location_code', 'item_key', 'article_code', 'lot_code'], unique: [],
+    indexed: ['location_code', 'item_key', 'article_code', 'lot_code', 'udc_id'], unique: [],
     composite: [['location_code', 'item_key']]
   },
   loc_status: {
@@ -82,6 +82,41 @@ const COLLECTIONS = {
   meta: {
     pk: 'key', pkType: 'text',
     indexed: [], unique: []
+  },
+
+  /* ── Le cinque della 1.4, create vuote in Fase 0 ────────────────────────
+     Nascono adesso, mentre non servono a nessuno, perche' lo schema si
+     muove UNA volta sola su un magazzino che sta lavorando. Finche' gli
+     interruttori `feature.*` sono spenti restano vuote, e una collezione
+     vuota si comporta esattamente come la 1.2: non esiste. */
+
+  /* La confezione e' un fatto del lotto, non della riga di giacenza: deve
+     sopravvivere quando l'ultimo collo esce e tre settimane dopo rientra. */
+  lots: {
+    pk: '_id', pkType: 'auto',
+    indexed: ['article_code', 'lot_code'], unique: [],
+    compositeUnique: [['article_code', 'lot_code']]
+  },
+  udc: {
+    pk: 'udc_id', pkType: 'text',
+    indexed: ['location_code', 'status', 'site_id'], unique: []
+  },
+  tasks: {
+    pk: 'task_id', pkType: 'text',
+    indexed: ['type', 'status', 'priority', 'requested_at', 'assigned_to'], unique: [],
+    numeric: ['priority', 'requested_at']
+  },
+  wip: {
+    pk: 'wip_id', pkType: 'text',
+    indexed: ['odp_num', 'item_key', 'status'], unique: []
+  },
+  /* Le regole del motore sono un DATO, non un rilascio: «700* va in MAG2»
+     e' un record che scrive il Team Leader. Nasce qui e non a novembre
+     perche' altrimenti lo schema si muoverebbe una sesta volta. */
+  storage_rules: {
+    pk: 'rule_id', pkType: 'text',
+    indexed: ['priority', 'attiva'], unique: [],
+    numeric: ['priority']
   }
 };
 
@@ -91,7 +126,7 @@ function colType(col, field) {
   return (col.numeric || []).includes(field) ? 'INTEGER' : 'TEXT';
 }
 
-function createSQL(name) {
+function createTableSQL(name) {
   const col = COLLECTIONS[name];
   const cols = [];
 
@@ -104,7 +139,16 @@ function createSQL(name) {
   }
   cols.push('data TEXT NOT NULL');
 
-  const stmts = [`CREATE TABLE IF NOT EXISTS ${name} (${cols.join(', ')})`];
+  return `CREATE TABLE IF NOT EXISTS ${name} (${cols.join(', ')})`;
+}
+
+/* TABELLE E INDICI SONO DUE PASSI, NON UNO.
+   Fra i due ci va la migrazione: `CREATE TABLE IF NOT EXISTS` non aggiunge
+   una colonna a una tabella che esiste gia', e il `CREATE INDEX` che segue
+   morirebbe nel costruttore. Vedi `PathfinderDB._migra`. */
+function createIndexSQL(name) {
+  const col = COLLECTIONS[name];
+  const stmts = [];
 
   for (const f of col.indexed) {
     if (f === col.pk) continue;
@@ -118,6 +162,10 @@ function createSQL(name) {
     stmts.push(`CREATE UNIQUE INDEX IF NOT EXISTS ux_${name}_${pair.join('_')} ON ${name}(${pair.join(', ')})`);
   }
   return stmts;
+}
+
+function createSQL(name) {
+  return [createTableSQL(name), ...createIndexSQL(name)];
 }
 
 /* Le colonne materializzate di un record, pronte per il bind. */
@@ -134,4 +182,6 @@ function materialize(name, record) {
   return out;
 }
 
-module.exports = { COLLECTIONS, NAMES, createSQL, materialize, colType };
+module.exports = {
+  COLLECTIONS, NAMES, createTableSQL, createIndexSQL, createSQL, materialize, colType,
+};

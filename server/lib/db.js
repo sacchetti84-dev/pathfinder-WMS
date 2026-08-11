@@ -3,7 +3,7 @@
 const Database = require('better-sqlite3');
 const path = require('path');
 const fs = require('fs');
-const { COLLECTIONS, NAMES, createSQL, materialize } = require('./schema');
+const { COLLECTIONS, NAMES, createTableSQL, createIndexSQL, materialize } = require('./schema');
 
 class PathfinderDB {
   constructor(file) {
@@ -15,7 +15,12 @@ class PathfinderDB {
     this.db.pragma('synchronous = NORMAL');
     this.db.pragma('foreign_keys = ON');
 
-    for (const name of NAMES) for (const sql of createSQL(name)) this.db.exec(sql);
+    /* Tre passi in quest'ordine, e l'ordine e' il punto.
+       Le tabelle che mancano si creano; le colonne indicizzate che mancano a
+       una tabella che esiste gia' si aggiungono; solo dopo gli indici. */
+    for (const name of NAMES) this.db.exec(createTableSQL(name));
+    this.migrazioni = this._migra();
+    for (const name of NAMES) for (const sql of createIndexSQL(name)) this.db.exec(sql);
 
     /* Il registro delle revisioni non e' una collezione dell'applicativo:
        e' un fatto del supporto, e sta in una tabella sua. */
@@ -29,6 +34,40 @@ class PathfinderDB {
     this._listeners = new Set();
     this._txDepth = 0;
     this._txTouched = null;
+  }
+
+  /* ── Migrazione dello schema ──────────────────────────────────────── */
+
+  /* PERCHE' ESISTE: `CREATE TABLE IF NOT EXISTS` su una tabella che c'e'
+     gia' non fa niente — nemmeno aggiungere una colonna nuova. Il
+     `CREATE INDEX` successivo cerca una colonna che non esiste, muore nel
+     costruttore, e il servizio non parte affatto: i terminali vedono bianco
+     e il magazzino si ferma. E' un difetto provato, non dedotto.
+
+     PERCHE' E' SICURA: la colonna indicizzata e' una COPIA materializzata,
+     non la sorgente. Il valore vero e' gia' nel JSON di `data`, quindi qui
+     non si travasa niente — si ricostruisce un indice. `ALTER TABLE ADD
+     COLUMN` in SQLite tocca i metadati, non le righe. */
+  _migra() {
+    const fatte = [];
+    for (const nome of NAMES) {
+      const col = COLLECTIONS[nome];
+      const esiste = this.db.prepare("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?").get(nome);
+      if (!esiste) continue;                       // ci ha appena pensato CREATE TABLE IF NOT EXISTS
+      const presenti = new Set(this.db.prepare(`PRAGMA table_info(${nome})`).all().map(c => c.name));
+      for (const campo of col.indexed) {
+        if (campo === col.pk || presenti.has(campo)) continue;
+        const tipo = (col.numeric || []).includes(campo) ? 'INTEGER' : 'TEXT';
+        this.db.exec(`ALTER TABLE ${nome} ADD COLUMN ${campo} ${tipo}`);
+        const info = this.db.prepare(`UPDATE ${nome} SET ${campo} = json_extract(data, '$.${campo}')`).run();
+        fatte.push({ collezione: nome, campo, righe: info.changes });
+      }
+    }
+    if (fatte.length) {
+      console.log('[pathfinder] migrazione schema:',
+        fatte.map(f => `${f.collezione}.${f.campo} (${f.righe} righe)`).join(' · '));
+    }
+    return fatte;
   }
 
   /* ── Revisione e notifica ─────────────────────────────────────────── */

@@ -90,7 +90,7 @@ const RemotePersistence = {
     const qs = movLogFrom == null ? '' : `?movLogFrom=${encodeURIComponent(movLogFrom)}`;
     const d = await this._call('GET', '/api/load' + qs);
     this.revision = d._revision;
-    /* Si restituisce la STESSA forma dell'adapter locale: dodici array
+    /* Si restituisce la STESSA forma dell'adapter locale: gli array
        piu' i due conteggi. Store non deve accorgersi di niente. */
     return {
       sites: d.sites, zones: d.zones, articles: d.articles, inventory: d.inventory,
@@ -99,7 +99,13 @@ const RemotePersistence = {
       quarantine: d.quarantine, pendingOut: d.pending_outbound,
       meta: d.meta, pickSession: d.pick_session,
       pickArchive: d.pick_archive, disposalArchive: d.disposal_archive,
-      operators: d.operators
+      operators: d.operators,
+      /* 1.4.0 — vuote finche' non si accende l'interruttore che le riguarda.
+         Il `?? []` non e' prudenza: e' il RITORNO INDIETRO. Un servizio 1.2
+         non manda queste chiavi, e un client 1.4 deve poterci parlare lo
+         stesso mentre si rimette la versione di prima. */
+      lots: d.lots ?? [], udc: d.udc ?? [], tasks: d.tasks ?? [],
+      wip: d.wip ?? [], storageRules: d.storage_rules ?? []
     };
   },
 

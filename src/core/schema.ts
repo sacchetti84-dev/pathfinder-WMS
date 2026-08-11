@@ -4,6 +4,7 @@ import type {
   Sito, Zona, Articolo, Giacenza, StatoUbicazione, UbicazioneDisattivata,
   Movimento, Quarantena, DocumentoUscita, SessionePrelievo, ReportPrelievo,
   VerbaleSmaltimento, Operatore, Meta,
+  Lotto, Udc, Compito, ContoWip, RegolaStoccaggio,
 } from '../types/entita.js';
 
 class PathfinderDB extends Dexie {
@@ -21,6 +22,11 @@ class PathfinderDB extends Dexie {
   disposal_archive!: Table<VerbaleSmaltimento, string>;
   operators!: Table<Operatore, string>;
   meta!: Table<Meta, string>;
+  lots!: Table<Lotto, number>;
+  udc!: Table<Udc, string>;
+  tasks!: Table<Compito, string>;
+  wip!: Table<ContoWip, string>;
+  storage_rules!: Table<RegolaStoccaggio, string>;
 }
 
 const db = new PathfinderDB(DB_NAME);
@@ -134,6 +140,34 @@ db.version(7).stores({
   meta:             'key'
 });
 
-/* schema IndexedDB atomic-ready */
+/* 1.4.0 — LO SCHEMA SI MUOVE UNA VOLTA SOLA, E QUESTA È QUELLA VOLTA.
+   Cinque collezioni nuove, vuote, e `udc_id` indicizzato su `inventory`.
+   Nessun `.upgrade()`: non c'è niente da riscrivere. Dexie aggiunge gli
+   store che mancano e l'indice che manca, e un indice su un campo che nessun
+   record possiede è un indice vuoto — non un errore.
+
+   Il ramo remoto fa la stessa cosa con `PathfinderDB._migra`, che è il posto
+   dove invece serviva scriverlo a mano: SQLite non ha `version()`. */
+db.version(8).stores({
+  sites:            '++_id, &id',
+  zones:            '++_id, site_id, &[site_id+id]',
+  articles:         '++_id, &code, category',
+  inventory:        '++_id, location_code, item_key, article_code, lot_code, udc_id, [location_code+item_key]',
+  loc_status:       '++_id, &location_code, status',
+  disabled:         '++_id, &location_code',
+  mov_log:          '++_id, ts, type, article_code, lot_code, location_code',
+  quarantine:       '++_id, &q_id, item_key, status, article_code, lot_code',
+  pending_outbound: '&doc_id, kind, status, ddt_num, created_at',
+  pick_session:     '&session_id, status, created_at',
+  pick_archive:     '&doc_id, odp_num, closed_at',
+  disposal_archive: '&doc_id, created_at, article_code, lot_code',
+  operators:        '&op_id, &initials, role, active',
+  meta:             'key',
+  lots:             '++_id, article_code, lot_code, &[article_code+lot_code]',
+  udc:              '&udc_id, location_code, status, site_id',
+  tasks:            '&task_id, type, status, priority, requested_at, assigned_to',
+  wip:              '&wip_id, odp_num, item_key, status',
+  storage_rules:    '&rule_id, priority, attiva'
+});
 
 export { db };

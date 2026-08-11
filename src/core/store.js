@@ -1,7 +1,34 @@
 import { MOV } from './costanti';
 import { Persistence } from './persistence/index';
+import { COLLEZIONI, CHIAVE_PRIMARIA } from '../types/collezioni';
 import { verificaConformita } from '../modules/conformita';
 import { App } from '../ui/app.js';
+
+/* L'ELENCO DELLE COLLEZIONI DA ESPORTARE STA IN UN POSTO SOLO.
+   Fino a ieri era scritto a mano in tre — `exportAll`, `_countsOf`,
+   `importAll` — e combaciavano perche' qualcuno se n'era ricordato. Con
+   cinque collezioni in arrivo, dimenticarne una in uno dei tre significa un
+   backup che sembra completo e non lo e', oppure un ripristino che azzera
+   le giacenze e lascia in piedi le UDC che ci puntavano.
+
+   Fuori restano due, ed entrambe per un motivo:
+     · `meta`         — non e' un elenco, e la parte che serve viaggia come
+                        `doc_config`;
+     · `pick_session` — e' la sessione APERTA su un terminale. Un backup non
+                        la deve riportare in vita. */
+const COLLEZIONI_EXPORT = COLLEZIONI.filter(c => c !== 'meta' && c !== 'pick_session');
+
+/* UN RILASCIO INSTALLATO NON E' UNA FUNZIONE ACCESA.
+   Le cinque della 1.4 entrano in magazzino a interruttore spento e si
+   accendono una alla volta, a inizio turno, su un magazzino alla volta. Se
+   qualcosa si muove nel verso sbagliato si spegne l'interruttore: non si
+   disinstalla niente e non si tocca il database.
+
+   Vivono in `meta` una chiave per una, e non in un unico record, proprio
+   perche' accenderne due nello stesso turno deve costare due gesti
+   distinti: se poi qualcosa si muove, si sa quale delle due e' stata. */
+const FEATURES = ['tasks', 'uom', 'udc', 'putaway', 'wip'];
+const CHIAVE_FEATURE = (nome) => `feature.${nome}`;
 
 const Store = {
   _assertPositiveInt(value, label = 'Quantità') {
@@ -29,6 +56,14 @@ const Store = {
     disposalArchive: [],   // v3.0.0 [M2] — verbali di smaltimento emessi, dal più recente
     operators: [],         // v2.7.0 — [{op_id, first_name, last_name, initials, role, pin_hash, pin_salt, pin_set_at, active, created_at, updated_at}]
     movLogTotal: 0,        // v2.8.0 — movimenti totali a DATABASE (movLog ne tiene solo la finestra)
+    /* 1.4.0 — le cinque nuove, VUOTE. Restano vuote finche' non si accende
+       l'interruttore `feature.*` che le riguarda: una collezione vuota si
+       comporta esattamente come nella 1.2, cioe' non esiste. */
+    lots: [],              // 1.4.2 — confezione congelata per articolo/lotto
+    udc: [],               // 1.4.3 — contenitori
+    tasks: [],             // 1.4.1 — coda delle attivita'
+    wip: [],               // 1.4.5 — conti aperti verso la produzione
+    storageRules: [],      // 1.4.4 — le regole del motore, come dato
     meta: { lastModified: null, unsavedChanges: false }
   },
 
@@ -192,7 +227,8 @@ const Store = {
        Vedi MOVLOG_WINDOW_DAYS per il perche' e per il come. */
     const { sites, zones, articles, inventory, locStatus: locStat, disabled,
             movLog, movLogTotal, quarantine, pendingOut, meta: metaRows,
-            pickSession: pickSessions, pickArchive, disposalArchive, operators } =
+            pickSession: pickSessions, pickArchive, disposalArchive, operators,
+            lots, udc, tasks, wip, storageRules } =
       await Persistence.loadAll({ movLogFrom: this.movLogWindowFrom() });
     // Riassembla zones dentro sites
     const zonesBySite = {};
@@ -213,18 +249,48 @@ const Store = {
       : null;
     this._cache.pickArchive = pickArchive;   // v2.5.1 — già ordinati dal più recente
     this._cache.disposalArchive = disposalArchive || [];   // v3.0.0 [M2] — verbali di smaltimento
+    /* 1.4.0 — il `|| []` regge il ritorno indietro: un servizio 1.2 non
+       manda queste chiavi, e il client non deve accorgersene. */
+    this._cache.lots = lots || [];
+    this._cache.udc = udc || [];
+    this._cache.tasks = tasks || [];
+    this._cache.wip = wip || [];
+    this._cache.storageRules = storageRules || [];
     /* v2.7.0 [G6] — Ordine alfabetico stabile: l'anagrafica si legge e si
        sceglie, non si scorre in ordine di inserimento. */
     this._cache.operators = (operators || []).sort((a, b) =>
       (a.last_name || a.initials || '').localeCompare(b.last_name || b.initials || '', 'it'));
     const metaObj = {};
     for (const m of metaRows) metaObj[m.key] = m.value;
+    const features = {};
+    for (const f of FEATURES) features[f] = metaObj[CHIAVE_FEATURE(f)] === true;
     this._cache.meta = {
       lastModified: metaObj.lastModified || null,
       unsavedChanges: metaObj.unsavedChanges || false,
       lastAutoBackup: metaObj.lastAutoBackup || null,
-      docConfig: metaObj.docConfig || null
+      docConfig: metaObj.docConfig || null,
+      features                                   // 1.4.0 — assente = spento
     };
+  },
+
+  /* ── Interruttori di funzione ───────────────────────────────────────── */
+
+  FEATURES,
+
+  /* Lettura sincrona: la chiama la UI a ogni render, e una funzione spenta
+     deve costare quanto costava non averla. */
+  isFeatureOn(nome) {
+    return this._cache.meta?.features?.[nome] === true;
+  },
+
+  async setFeature(nome, acceso) {
+    if (!FEATURES.includes(nome)) throw new Error(`Interruttore sconosciuto: ${nome}`);
+    const rec = { key: CHIAVE_FEATURE(nome), value: acceso === true };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    if (!this._cache.meta.features) this._cache.meta.features = {};
+    this._cache.meta.features[nome] = acceso === true;
+    return acceso === true;
   },
 
   /* Conteggio dei movimenti più vecchi della soglia di retention.
@@ -325,7 +391,14 @@ const Store = {
     loc_status:       { field: 'locStatus',   kind: 'map',    key: 'location_code' },
     disabled:         { field: 'disabled',    kind: 'set',    key: 'location_code' },
     pick_session:     { field: 'pickSession', kind: 'single' },
-    meta:             { field: 'meta',        kind: 'kv',     key: 'key' }
+    meta:             { field: 'meta',        kind: 'kv',     key: 'key' },
+    /* 1.4.0 — dichiarate, non programmate: `_applyToCache` lavora per FORMA
+       e non per nome, quindi una collezione nuova costa una riga qui. */
+    lots:             { field: 'lots',        kind: 'list',   key: '_id',      insert: 'push' },
+    udc:              { field: 'udc',         kind: 'list',   key: 'udc_id',   insert: 'push' },
+    tasks:            { field: 'tasks',       kind: 'list',   key: 'task_id',  insert: 'unshift' },
+    wip:              { field: 'wip',         kind: 'list',   key: 'wip_id',   insert: 'unshift' },
+    storage_rules:    { field: 'storageRules', kind: 'list',  key: 'rule_id',  insert: 'push' }
   },
 
   _bucketPut(map, mapKey, rec) {
@@ -364,7 +437,7 @@ const Store = {
         case 'map':    C[shape.field] = new Map(); break;
         case 'set':    C[shape.field] = new Set(); break;
         case 'single': C[shape.field] = null; break;
-        case 'kv':     C[shape.field] = { lastModified: null, unsavedChanges: false, lastAutoBackup: null }; break;
+        case 'kv':     C[shape.field] = { lastModified: null, unsavedChanges: false, lastAutoBackup: null, features: {} }; break;
       }
       if (collection === 'inventory') { this._invByLoc = new Map(); this._invByKey = new Map(); }
       if (collection === 'articles')  { this._artByCode = new Map(); }
@@ -1794,7 +1867,13 @@ const Store = {
       pick_archive: this._cache.pickArchive,      // v2.5.1 — report di prelievo emessi
       disposal_archive: this._cache.disposalArchive,   // v3.0.0 [M2] — verbali di smaltimento
       doc_config: this._cache.meta?.docConfig || null,
-      operators: this._cache.operators
+      operators: this._cache.operators,
+      // 1.4.0 — vuote finché non si accende l'interruttore che le riguarda
+      lots: this._cache.lots,
+      udc: this._cache.udc,
+      tasks: this._cache.tasks,
+      wip: this._cache.wip,
+      storage_rules: this._cache.storageRules
     };
     if (!includeMovLog) delete data.mov_log;     // omissione, non dichiarazione
     data._counts = this._countsOf(data);
@@ -1807,7 +1886,7 @@ const Store = {
 
   _countsOf(data) {
     const out = {};
-    for (const k of ['sites','zones','articles','inventory','loc_status','disabled','mov_log','quarantine','pending_outbound','pick_archive','disposal_archive','operators']) {
+    for (const k of COLLEZIONI_EXPORT) {
       out[k] = Array.isArray(data[k]) ? data[k].length : 0;
     }
     return out;
@@ -1839,28 +1918,24 @@ const Store = {
       throw new Error('Formato file non supportato. Richiesto: warehouse-mapper-v1.5.x');
     }
     if (mode === 'overwrite') {
-      const presenti = ['sites', 'zones', 'articles', 'inventory', 'loc_status', 'disabled',
-                        'mov_log', 'quarantine', 'pending_outbound', 'pick_archive',
-                        'disposal_archive', 'operators']
-                        .filter(c => Array.isArray(data[c]));
-      await Persistence.transaction([...presenti, 'meta'], async () => {
-        await Persistence.clearMany(presenti);
-        if (data.sites?.length) await Persistence.bulkAdd('sites', data.sites.map(({_id, zones, ...r}) => r));
-        if (data.zones?.length) await Persistence.bulkAdd('zones', data.zones.map(({_id, ...r}) => r));
-        if (data.articles?.length) await Persistence.bulkAdd('articles', data.articles.map(({_id, ...r}) => r));
-        if (data.inventory?.length) await Persistence.bulkAdd('inventory', data.inventory.map(({_id, ...r}) => r));
-        if (data.loc_status?.length) await Persistence.bulkAdd('loc_status', data.loc_status.map(({_id, ...r}) => r));
-        if (data.disabled?.length) await Persistence.bulkAdd('disabled', data.disabled.map(({_id, ...r}) => r));
-        if (data.mov_log?.length) await Persistence.bulkAdd('mov_log', data.mov_log.map(({_id, ...r}) => r));
-        if (data.quarantine?.length) await Persistence.bulkAdd('quarantine', data.quarantine.map(({_id, ...r}) => r));
-        // v2.0.0 — pending_outbound (campo opzionale, retro-compatibile con backup pre-v2.0)
-        if (data.pending_outbound?.length) await Persistence.bulkAdd('pending_outbound', data.pending_outbound);
-        // v2.5.1 — pick_archive (campo opzionale, retro-compatibile con backup pre-v2.5.1)
-        if (data.pick_archive?.length) await Persistence.bulkAdd('pick_archive', data.pick_archive);
-        // v3.0.0 [M2] — disposal_archive (campo opzionale: i backup pre-v3.0.0 non ce l'hanno)
-        if (data.disposal_archive?.length) await Persistence.bulkAdd('disposal_archive', data.disposal_archive);
+      /* SI SVUOTA TUTTO CIO' CHE SI PUO' RIEMPIRE, non solo cio' che il file
+         porta. Una collezione assente dal pacchetto ma piena a database
+         sopravviverebbe al ripristino: UDC e conti WIP che puntano a righe
+         di giacenza appena sostituite. Il ripristino deve lasciare il
+         magazzino nello stato del file, non in una miscela dei due. */
+      await Persistence.transaction([...COLLEZIONI_EXPORT, 'meta'], async () => {
+        await Persistence.clearMany(COLLEZIONI_EXPORT);
+        for (const c of COLLEZIONI_EXPORT) {
+          const righe = data[c];
+          if (!Array.isArray(righe) || !righe.length) continue;
+          /* `_id` lo assegna il supporto: si butta via e si riassegna. Su
+             `sites` cade anche `zones`, che in cache è ricostruito e non è
+             una colonna. */
+          let pulite = CHIAVE_PRIMARIA[c] === '_id' ? righe.map(({ _id, ...r }) => r) : righe;
+          if (c === 'sites') pulite = pulite.map(({ zones, ...r }) => r);
+          await Persistence.bulkAdd(c, pulite);
+        }
         if (data.doc_config) await Persistence.put('meta', { key: 'docConfig', value: data.doc_config });
-        if (data.operators?.length) await Persistence.bulkAdd('operators', data.operators.map(({_id, ...r}) => r));
       });
     } else { // merge
       await Persistence.transaction(['sites', 'zones', 'articles', 'inventory'], async () => {
@@ -1896,8 +1971,9 @@ const Store = {
   },
 
   async resetAll() {
-    await Persistence.transaction(['sites', 'zones', 'articles', 'inventory', 'loc_status', 'disabled', 'mov_log', 'quarantine', 'pending_outbound', 'pick_session', 'pick_archive', 'disposal_archive', 'operators', 'meta'], async () => {
-      await Persistence.clearMany(['sites', 'zones', 'articles', 'inventory', 'loc_status', 'disabled', 'mov_log', 'quarantine', 'pending_outbound', 'pick_session', 'pick_archive', 'disposal_archive', 'operators', 'meta']);
+    const tutte = [...COLLEZIONI];
+    await Persistence.transaction(tutte, async () => {
+      await Persistence.clearMany(tutte);
     });
     for (const c of Persistence.COLLECTIONS) this._applyToCache(c, 'clear');
     this._rebuildIndexes();
