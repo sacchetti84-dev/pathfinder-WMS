@@ -16,12 +16,12 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 12/08/2026
 |---|---|
 | In produzione | `pathfinder-1.2.html` — è il file che il servizio serve **adesso** |
 | In lavorazione | **1.4.0**: Fase 0 dentro, manca `core/store.js` in TypeScript |
-| Sorgente | 19 TypeScript · 6 JavaScript · 5 CSS · `index.html` |
+| Sorgente | 20 TypeScript · 6 JavaScript · 5 CSS · `index.html` |
 | Ancora JavaScript | `core/store.js`, `main.js`, `ui/` |
 | Servizio | Node + Express + SQLite, porta **4173** |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
-| Collaudi | **114 client** (~1,3 s) + **30 servizio** + 8 migrazione — verdi |
+| Collaudi | **151 client** (~1,4 s) + **30 servizio** + 8 migrazione — verdi |
 | Tipi | `npm run check` client + servizio — 0 errori |
 
 ## 2. Comandi
@@ -44,7 +44,8 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | File | Righe | Ruolo |
 |---|---:|---|
 | `ui/app.js` | 10.529 | Tutta l'interfaccia: viste, render, gestori. Il pezzo grosso |
-| `core/store.js` | 1.974 | Cache in memoria + mutazioni. Ogni scrittura passa di qui |
+| `core/store.js` | 2.035 | Mutazioni e regole. Ogni scrittura passa di qui. **In conversione**: la cache è già uscita, ma gli interruttori e l'export riscritto l'hanno fatta crescere lo stesso |
+| `core/cache.ts` | 271 | Il punto unico di mutazione della cache: le 5 forme, i 3 indici derivati. Primo blocco convertito |
 | `styles/01-base.css` | 2.630 | Base, temi, componenti |
 | `styles/02..05-*.css` | 705 | Grafici, sezioni e riquadri della dashboard, report di prelievo |
 | `ui/dialog.js` | 367 | Finestre modali (`confirm`, `prompt`, form) |
@@ -87,7 +88,8 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 ### Collaudi — `test/`
 
 `serpentina` · `fefo` · `geometria` (16) · `odp` (26) · `anagrafica` (27) ·
-`conformita` (19) — **114 prove** in tutto. `ambiente.js` è il preambolo comune.
+`conformita` (19) · **`cache` (37)** — **151 prove** in tutto.
+`ambiente.js` è il preambolo comune.
 
 ## 4. API del servizio
 
@@ -121,8 +123,8 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 
 | Versione | Cosa | Entro |
 |---|---|---|
-| **1.4.0** | ↓ *manca solo* ↓ — **`core/store.js` in TypeScript**, 1.974 righe, a blocchi | 19/09 |
-| ↳ *fatto 12/08* | Migrazione `ALTER TABLE` nel prodotto · schema mosso **una volta** (19 collezioni) · `_CACHE_SHAPE` a 19 · export/import da `COLLEZIONI` · interruttori `feature.*` spenti · certificazioni e **avvisi merceologici** a prelievo, report e DDT | — |
+| **1.4.0** | ↓ *manca solo* ↓ — **`core/store.js` in TypeScript**, i blocchi dopo la cache | 19/09 |
+| ↳ *fatto 12/08* | Migrazione `ALTER TABLE` nel prodotto · schema mosso **una volta** (19 collezioni) · export/import da `COLLEZIONI` · interruttori `feature.*` spenti · certificazioni e **avvisi merceologici** a prelievo, report e DDT · **`core/cache.ts`**, primo blocco della conversione, con 37 prove | — |
 | ↳ *fatto 11/08* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa**, deroga della cella Riservata | — |
 | **1.4.1** | Schedulatore di attività — richieste, priorità, tempi | 10/10 |
 | **1.4.2** | Unità di misura PZ/MT/LT/KG/GR, split colli, collo incompleto | **31/10** |
@@ -165,7 +167,7 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 | # | Cosa | Peso |
 |---|---|---|
-| 1 | **`core/store.js` in TypeScript** — è ciò che manca alla 1.4.0. A blocchi, mai nello stesso commit di `app.js` | **il prossimo** |
+| 1 | **`core/store.js` in TypeScript** — è ciò che manca alla 1.4.0. La cache è uscita il 12/08; restano i blocchi dopo. Mai nello stesso commit di `app.js` | **in corso** |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
 | 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea**. La maschera c'è: è un dato, non codice | esterno |
 | 4 | Nome DNS interno e certificato dalla CA — **IT**. Il codice è pronto e non aspetta niente: arriva a lavori finiti | non blocca |

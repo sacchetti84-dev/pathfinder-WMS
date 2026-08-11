@@ -30,7 +30,7 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Sorgente | 25 file in `src/`: **19 TypeScript**, 6 JavaScript, più 5 CSS |
 | Ancora JavaScript | `core/store.js` · `main.js` · `ui/` (4 file) |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
-| Collaudi | **114 client** · **30 servizio** · **8 migrazione** — tutti verdi |
+| Collaudi | **151 client** · **30 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
@@ -50,6 +50,9 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| `ec31913` | **`core/cache.ts`** — primo blocco della conversione di `store.js`, con le 37 prove che a `_applyToCache` non c'erano mai state |
+| `9dd99ff` | Le decisioni D11 e D12: si tira dritto, e le etichette si stampano dal browser |
+| `4e61c89` | I documenti allineati, gli aperti da tredici a sette |
 | `05cfe74` | **Avvisi merceologici**: temperatura, allergeni e certificazioni al prelievo guidato, sul report ODP e sul DDT |
 | `ae1ec86` | **1.4.0 Fase 0**: migrazione `ALTER TABLE` nel prodotto, schema mosso una volta (19 collezioni), export/import da `COLLEZIONI`, interruttori `feature.*` |
 | `b104bc7` | La 1.2 entra in magazzino, `pathfinder-1.1.html` esce dalla radice |
@@ -80,8 +83,8 @@ colonna `Certificazioni`.
 | # | Cosa | Stato |
 |---|---|---|
 | 1 | La migrazione `ALTER TABLE` dentro `PathfinderDB` | **fatto** — `_migra`, `server/lib/db.js` |
-| 2 | **`core/store.js` in TypeScript**, a blocchi. Cache e `_applyToCache` per primi | **da fare — è il prossimo lavoro** |
-| 3 | `_CACHE_SHAPE` a 19 collezioni (aperto #6) | **fatto** |
+| 2 | **`core/store.js` in TypeScript**, a blocchi | **in corso** — cache e `_applyToCache` sono usciti in `core/cache.ts`. Restano i blocchi dopo |
+| 3 | Collaudi su `_applyToCache` (aperto #6) | **fatto** — 37 prove in `test/cache.test.js` |
 | 4 | Schema mosso una volta: `udc_id`, `lots` `udc` `tasks` `wip` `storage_rules`, Dexie `version(8)` | **fatto** |
 | 5 | Export/import da `COLLEZIONI` invece che da tre elenchi a mano | **fatto** |
 | 6 | Interruttori `feature.*` in `meta`, tutti spenti | **fatto** |
@@ -90,6 +93,21 @@ colonna `Certificazioni`.
 `store.js` e `app.js` **non nello stesso commit**, `app.js` non si tocca affatto,
 conversione **a blocchi** con build e collaudo in mezzo a ognuno, e in coda
 spariscono i due ponti verso Store in cima a `pickRoute.ts` e `vault.ts`.
+
+> **Come si sta convertendo, visto che il primo blocco è fatto.** Non si rinomina
+> `store.js` in `store.ts` e poi si spengono duemila errori: si **estrae un blocco
+> per volta** in un `.ts` suo, tipizzato e collaudato, lasciando in `store.js` il
+> nome e la firma che i chiamanti conoscono. `core/cache.ts` è il modello.
+> Quando in `store.js` non resta che colla, quella si rinomina e finisce.
+>
+> Il vantaggio non è estetico: un blocco estratto **si collauda da fermo**, senza
+> `Persistence`, senza servizio e senza browser. È il motivo per cui
+> `_applyToCache` non aveva prove da tre versioni.
+>
+> I candidati, in ordine — sono le zone che dipendono meno dal resto:
+> `_genLocations` e la geometria · FEFO e le letture di giacenza · export/import.
+> Le mutazioni con transazione vengono per ultime: sono quelle che parlano con
+> `Persistence`, e vanno mosse quando tutto il resto è già fermo.
 
 Poi si costruisce, si installa la 1.4.0, e solo allora comincia la 1.4.1.
 
@@ -301,7 +319,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 ```bash
 npm run check                       # tsc client + servizio
-npm test                            # 114 prove client
+npm test                            # 151 prove client
 npm run build                       # produce "Pathfinder 1.2/"
 ```
 

@@ -115,8 +115,16 @@ E prima di tutti, una fase zero che non si vede.
 >   elenchi scritti a mano.
 > - I campi facoltativi dell'anagrafica, **certificazioni comprese** — §4.4ter.
 >
-> **Resta fuori: `core/store.js` in TypeScript.** È la parte grossa della 1.4.0 —
-> 1.974 righe — e non è cominciata. È il primo lavoro della prossima sessione.
+> **`core/store.js` in TypeScript è cominciato, non finito.** Il primo blocco —
+> cache e `_applyToCache` — è uscito in `core/cache.ts` il 12/08, con le 37 prove
+> che mancavano da tre versioni. Restano i blocchi dopo.
+>
+> Il metodo, adesso che c'è un modello: si **estrae un blocco per volta** in un
+> `.ts` suo, tipizzato e collaudato, lasciando in `store.js` il nome e la firma
+> che i chiamanti conoscono — quarantasette punti chiamavano `_applyToCache` e
+> nessuno se n'è accorto. Non si rinomina il file e poi si spengono duemila
+> errori: un blocco estratto **si collauda da fermo**, ed è precisamente il
+> motivo per cui l'aperto #6 è rimasto aperto tanto a lungo.
 
 
 
@@ -674,10 +682,10 @@ La 1.4.0 è **cominciata e non finita**, e vale la pena essere precisi su cosa m
 |---|---|
 | Migrazione `ALTER TABLE` | fatta, con le 8 prove sul codice vero |
 | Schema mosso una volta — `udc_id` + 5 collezioni | fatto |
-| `_CACHE_SHAPE` a 19 voci (aperto #6) | fatto |
+| Collaudi su `_applyToCache` (aperto #6) | fatti — 37 prove, `test/cache.test.js` |
 | Export/import da `COLLEZIONI` + i due difetti | fatti |
 | Interruttori `feature.*` | fatti, tutti spenti |
-| **`core/store.js` in TypeScript** | **non cominciato** — 1.974 righe |
+| **`core/store.js` in TypeScript** | **cominciato**: la cache è fuori. Restano i blocchi dopo |
 
 E in più, fuori piano: le **certificazioni** e gli **avvisi merceologici** (§4.4ter).
 Non erano in calendario. Sono costati circa **mezza settimana**, e quella mezza
