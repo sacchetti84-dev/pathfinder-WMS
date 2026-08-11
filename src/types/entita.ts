@@ -194,6 +194,32 @@ export interface Mittente {
   warehouse_address?: string;
 }
 
+/* ── Geometria ───────────────────────────────────────────────────── */
+
+/* Dove sta FISICAMENTE un'ubicazione. Non si deduce dal suo codice: la
+   costruisce `Store.buildLocationGeometry()` a partire dalla stessa funzione
+   che i codici li ha generati, perché interpretare la stringa a posteriori
+   vorrebbe dire dare per scontato che il separatore non compaia mai dentro
+   un id di sito o di zona — ipotesi che nessuno garantisce. */
+export interface Coordinate {
+  site_id: string;
+  zone_id: string;
+  /** Posizione della zona nell'ordine di configurazione, non alfabetico. */
+  zone_idx: number;
+  type: string;
+  /** A terra e alla rinfusa non ci sono corsie: la fila fa da corsia e la
+      posizione da campata, così il percorso attraversa zone di tipo diverso
+      senza sapere di che tipo sono. */
+  aisle: number;
+  bay: number;
+  level: string;
+  /** Posizione del livello nell'elenco configurato, dal basso verso l'alto. */
+  level_idx: number;
+}
+
+/** Codice ubicazione → dove si trova. È ciò su cui lavora la serpentina. */
+export type Geometria = Map<string, Coordinate>;
+
 /* ── Prelievo ────────────────────────────────────────────────────── */
 
 export interface SessionePrelievo {

@@ -1,4 +1,6 @@
-import { Store } from '../core/store.js';
+import { Store as StoreJS } from '../core/store.js';
+import type { Coordinate, Geometria, Giacenza, Sito } from '../types/entita.js';
+import type { RigaODP } from './odpParser';
 
 // ═══════════════════════════════════════════════════════════════════
 // © Andrea Sacchetti — Dietopack S.r.l.
@@ -19,15 +21,94 @@ import { Store } from '../core/store.js';
 //    presenza dei colli, i kg stanno su Sage.
 // ═══════════════════════════════════════════════════════════════════
 
+/* ═══════════════════════════════════════════════════════════════════
+   IL PONTE VERSO STORE, FINCHÉ STORE È JAVASCRIPT
+
+   `Store._cache` nasce da una manciata di array vuoti, e da un array vuoto
+   il compilatore deduce `never[]`: `Store.getSites()` risulta un elenco di
+   niente, e leggerne `.id` non compila. Non è un difetto di Store — è
+   quello che si vede di un file che i tipi non li ha ancora.
+
+   Invece di spargere un cast a ogni chiamata, il ponte sta qui: dichiara
+   che cosa questo modulo usa di Store e con che forma. Sono sei metodi su
+   novanta, ed è anche un elenco utile — dice esattamente quanto PickRoute
+   dipende dal magazzino. Quando `store.js` diventerà `store.ts` queste
+   quindici righe si cancellano e non resta niente da sistemare altrove.
+   ═══════════════════════════════════════════════════════════════════ */
+const Store = StoreJS as unknown as {
+  getSites(): Sito[];
+  getItemByKey(itemKey: string): Giacenza[];
+  getLotsForArticle(articleCode: string): string[];
+  isItemQuarantined(itemKey: string, locationCode?: string | null): boolean;
+  getAvailableQty(locationCode: string, itemKey: string, excludeDocId?: string | null): number;
+  buildLocationGeometry(): Geometria;
+};
+
+/** Perché una riga non è percorribile, o perché lo è ma con un avvertimento. */
+export type MotivoFuoriPercorso =
+  | 'not_mapped' | 'lot_absent_other_lots' | 'no_lot_in_odp' | 'all_blocked'
+  | 'quarantine' | 'pending_outbound' | 'marked_missing';
+
+/* Le tre uscite di build(), che sono tre cose diverse e non vanno confuse:
+   una tappa si percorre, una riga fuori percorso no, una segnalazione è
+   un'informazione su merce che esiste ma non si può prendere. */
+export interface RigaFuoriPercorso {
+  article_code: string;
+  description: string;
+  lot_code: string;
+  kg_required: number;
+  um: string;
+  reason: MotivoFuoriPercorso;
+  detail: string;
+  other_lots?: string[];
+  location_code?: string;
+}
+
+export interface Alternativa {
+  location_code: string;
+  item_key: string;
+  qty_available: number;
+}
+
+export interface Tappa {
+  /** Assegnato dopo l'ordinamento globale: è il numero che l'operatore legge. */
+  seq: number;
+  site_id: string;
+  location_code: string;
+  item_key: string;
+  article_code: string;
+  article_description: string;
+  lot_code: string;
+  expiry_iso: string;
+  kg_required: number;
+  um: string;
+  alternatives: Alternativa[];
+  qty_available: number;
+  status: string;
+  reason: string;
+  forced_note: string;
+  qty_picked: number;
+  done_at: number | null;
+}
+
+export interface Percorso {
+  stops: Tappa[];
+  offroute: RigaFuoriPercorso[];
+  notes: RigaFuoriPercorso[];
+}
+
+/** Al comparatore serve una sola cosa: dove sta la riga. */
+type Ordinabile = { location_code: string };
+
 const PickRoute = {
 
   SITE_ORDER_KEY: 'wm_pick_site_order',
 
   /* Ordine dei siti: preferenza dell'operatore, ripulita dai siti non più
      esistenti e completata con quelli nuovi in coda. */
-  getSiteOrder() {
+  getSiteOrder(): string[] {
     const existing = Store.getSites().map(s => s.id);
-    let saved = [];
+    let saved: string[] = [];
     try {
       const raw = localStorage.getItem(this.SITE_ORDER_KEY);
       if (raw) saved = JSON.parse(raw);
@@ -40,7 +121,7 @@ const PickRoute = {
     return ordered;
   },
 
-  setSiteOrder(order) {
+  setSiteOrder(order: string[]): void {
     try { localStorage.setItem(this.SITE_ORDER_KEY, JSON.stringify(order)); }
     catch (err) { console.warn('[WM] PickRoute: ordine siti non salvabile', err); }
   },
@@ -48,10 +129,10 @@ const PickRoute = {
   /* ─── COMPARATORE A SERPENTINA ────────────────────────────────────
      Opera su coordinate reali fornite da Store.buildLocationGeometry(),
      non sul testo del codice ubicazione.                                 */
-  _serpentineCompare(geo, siteRank) {
-    return (a, b) => {
-      const ga = geo.get(a.location_code);
-      const gb = geo.get(b.location_code);
+  _serpentineCompare(geo: Geometria, siteRank: Map<string, number>) {
+    return (a: Ordinabile, b: Ordinabile): number => {
+      const ga: Coordinate | undefined = geo.get(a.location_code);
+      const gb: Coordinate | undefined = geo.get(b.location_code);
       // Ubicazione priva di geometria (zona rimossa dopo il posizionamento):
       // in coda, senza far fallire l'ordinamento.
       if (!ga && !gb) return a.location_code.localeCompare(b.location_code);
@@ -78,14 +159,14 @@ const PickRoute = {
        offroute — righe che finiscono in coda al percorso
        notes    — segnalazioni conoscitive (quarantena, DDT pendenti)
      ───────────────────────────────────────────────────────────────── */
-  build(parsedLines) {
+  build(parsedLines: RigaODP[]): Percorso {
     const geo = Store.buildLocationGeometry();
     const siteOrder = this.getSiteOrder();
-    const siteRank = new Map(siteOrder.map((id, i) => [id, i]));
+    const siteRank = new Map(siteOrder.map((id, i) => [id, i] as const));
 
-    const stops = [];
-    const offroute = [];
-    const notes = [];
+    const stops: Tappa[] = [];
+    const offroute: RigaFuoriPercorso[] = [];
+    const notes: RigaFuoriPercorso[] = [];
 
     for (const line of parsedLines) {
       if (!line.lots.length) {
@@ -131,7 +212,7 @@ const PickRoute = {
 
         /* Quarantena e impegno su DDT: si escludono dalle ubicazioni
            percorribili, ma si dice all'operatore che la merce esiste. */
-        const usable = [];
+        const usable: Giacenza[] = [];
         for (const it of found) {
           if (Store.isItemQuarantined(it.item_key, it.location_code)) {
             notes.push({
@@ -165,7 +246,9 @@ const PickRoute = {
 
         const cmp = this._serpentineCompare(geo, siteRank);
         const sorted = [...usable].sort(cmp);
-        const chosen = sorted[0];
+        /* Il `!` sta in piedi sulla riga sopra: `usable` non è vuoto, quindi
+           `sorted` nemmeno, e il primo elemento c'è. */
+        const chosen = sorted[0]!;
         const g = geo.get(chosen.location_code);
 
         stops.push({
@@ -209,7 +292,7 @@ const PickRoute = {
     quarantine:            'In quarantena',
     pending_outbound:      'Impegnata su DDT',
     marked_missing:        'Non trovato dall\u2019operatore'
-  })
+  }) satisfies Record<MotivoFuoriPercorso, string>
 };
 
 export { PickRoute };

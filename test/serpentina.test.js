@@ -12,7 +12,7 @@
    non tocca il DOM. Prende coordinate e restituisce un ordine.
    ═══════════════════════════════════════════════════════════════════ */
 import { describe, it, expect } from 'vitest';
-import { PickRoute } from '../src/modules/pickRoute.js';
+import { PickRoute } from '../src/modules/pickRoute';
 
 /* Geometria finta ma della forma vera: quella che Store.buildLocationGeometry()
    produce leggendo siti e zone. Un magazzino con due corsie da tre campate. */

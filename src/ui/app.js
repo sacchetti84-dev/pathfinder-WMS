@@ -4,7 +4,7 @@ import { debounce, _h } from '../core/utils';
 import { Persistence } from '../core/persistence/index';
 import { Validate } from '../modules/validate';
 import { pickupAlertStatus } from '../modules/pickupAlert';
-import { OdpParser } from '../modules/odpParser.js';
+import { OdpParser } from '../modules/odpParser';
 import { ScanGuard } from '../modules/scanGuard';
 import { Auth } from '../modules/auth';
 import { Session } from '../modules/session';

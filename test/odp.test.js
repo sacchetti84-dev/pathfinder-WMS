@@ -25,7 +25,7 @@
    ═══════════════════════════════════════════════════════════════════ */
 import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
-import { OdpParser } from '../src/modules/odpParser.js';
+import { OdpParser } from '../src/modules/odpParser';
 
 /* Da matrice di celle a .xlsx a ArrayBuffer, che è ciò che il parser riceve
    dall'input file dell'interfaccia. */

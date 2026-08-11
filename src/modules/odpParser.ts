@@ -19,15 +19,61 @@ import * as XLSX from 'xlsx';
 // valori all'interno della riga.
 // ═══════════════════════════════════════════════════════════════════
 
+/* Una riga del foglio. `any` è la descrizione onesta: le celle arrivano da un
+   file che non abbiamo scritto noi e possono essere testo, numero o vuoto
+   nella stessa colonna di due righe consecutive — è tutto il motivo per cui
+   questo parser legge per ancore invece che per indice. */
+type Riga = any[];
+
+export interface LottoODP {
+  lot_code: string;
+  supplier_lot: string;
+  um: string;
+  qty: number;
+  /** Scadenza in AAAA-MM-GG, oppure '' se il foglio non la porta. */
+  expiry_iso: string;
+  state: string;
+}
+
+export interface RigaODP {
+  article_code: string;
+  category: string;
+  description: string;
+  um: string;
+  /** null quando la riga porta un numero solo: nessuna quantità unitaria. */
+  qty_per_unit: number | null;
+  total_qty: number;
+  lots: LottoODP[];
+}
+
+export interface TestataODP {
+  odp_num: string;
+  commessa: string;
+  article_code: string;
+  article_desc: string;
+  lot: string;
+  /** Resta testo: è ciò che il foglio dichiara, non un numero su cui contare. */
+  qty_planned: string;
+  um: string;
+}
+
+/* O il file è leggibile, e allora ci sono testata e righe; o non lo è, e
+   allora c'è un motivo da mostrare. Non esiste il caso a metà, ed è
+   dichiarato così perché a valle nessuno provi a leggere le righe di un file
+   rifiutato. */
+export type EsitoODP =
+  | { ok: false; error: string }
+  | { ok: true; header: TestataODP; lines: RigaODP[]; warnings: string[] };
+
 const OdpParser = {
 
   /* Etichette usate come ancore. Confronto normalizzato: maiuscolo, spazi
      multipli compressi, accenti irrilevanti perché mai in posizione utile. */
-  _norm(v) {
+  _norm(v: unknown): string {
     return String(v ?? '').replace(/\s+/g, ' ').trim().toUpperCase();
   },
 
-  _isBlank(v) {
+  _isBlank(v: unknown): boolean {
     return v === null || v === undefined || String(v).trim() === '';
   },
 
@@ -36,14 +82,14 @@ const OdpParser = {
      Si preferisce XLSX.SSF quando disponibile: è l'implementazione della
      libreria stessa e gestisce i casi limite meglio di un calcolo manuale.
      Ritorna '' se il valore non è una data plausibile. */
-  excelSerialToISO(v) {
+  excelSerialToISO(v: unknown): string {
     if (this._isBlank(v)) return '';
     // Già in forma testuale gg/mm/aaaa
     const txt = String(v).trim();
     const it = txt.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
     if (it) {
       const [, d, m, y] = it;
-      return `${y}-${m.padStart(2, '0')}-${d.padStart(2, '0')}`;
+      return `${y}-${m!.padStart(2, '0')}-${d!.padStart(2, '0')}`;
     }
     const n = Number(v);
     if (!Number.isFinite(n) || n < 1 || n > 2958465) return '';
@@ -65,8 +111,8 @@ const OdpParser = {
 
   /* Estrae dalla riga i valori numerici con la loro posizione, per poter
      ragionare su "l'ultimo numero della riga" senza dipendere dall'indice. */
-  _numericCells(row) {
-    const out = [];
+  _numericCells(row: Riga): { idx: number, value: number }[] {
+    const out: { idx: number, value: number }[] = [];
     row.forEach((cell, idx) => {
       if (typeof cell === 'number' && Number.isFinite(cell)) out.push({ idx, value: cell });
     });
@@ -75,29 +121,25 @@ const OdpParser = {
 
   /* ─────────────────────────────────────────────────────────────────
      PARSE PRINCIPALE
-     Riceve un ArrayBuffer, ritorna:
-       { ok, error?, header:{...}, lines:[...], warnings:[...] }
-     Ogni line: { article_code, category, description, um, qty_per_unit,
-                  total_qty, lots:[{lot_code, supplier_lot, um, qty,
-                  expiry_iso, state}] }
+     Riceve un ArrayBuffer, ritorna un EsitoODP.
      ───────────────────────────────────────────────────────────────── */
-  parse(arrayBuffer) {
+  parse(arrayBuffer: ArrayBuffer): EsitoODP {
     if (typeof XLSX === 'undefined') {
       return { ok: false, error: 'Libreria Excel non disponibile: ricaricare la pagina con connessione attiva.' };
     }
-    let rows;
+    let rows: Riga[];
     try {
       const wb = XLSX.read(arrayBuffer, { type: 'array' });
       const sheetName = wb.SheetNames[0];
       if (!sheetName) return { ok: false, error: 'Il file non contiene alcun foglio di lavoro.' };
-      rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { header: 1, raw: true, defval: '' });
+      rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName]!, { header: 1, raw: true, defval: '' });
     } catch (err) {
       console.error('[WM] OdpParser.parse:', err);
-      return { ok: false, error: 'File non leggibile come Excel: ' + err.message };
+      return { ok: false, error: 'File non leggibile come Excel: ' + (err as Error).message };
     }
     if (!rows?.length) return { ok: false, error: 'Il foglio di lavoro è vuoto.' };
 
-    const warnings = [];
+    const warnings: string[] = [];
     const header = this._parseHeader(rows, warnings);
     if (!header.odp_num) {
       return { ok: false, error: 'Numero ordine di produzione non trovato nel file. Verificare che sia l\u2019export dell\u2019ODP e non un altro documento.' };
@@ -115,12 +157,14 @@ const OdpParser = {
      Numero ordine e commessa si riconoscono dal loro stesso formato
      (ODP…/ODV…), più affidabile della posizione in un blocco di celle unite.
      L'articolo finito si legge dalla sezione "Articoli da Realizzare".      */
-  _parseHeader(rows, warnings) {
-    const h = { odp_num: '', commessa: '', article_code: '', article_desc: '', lot: '', qty_planned: '', um: '' };
+  _parseHeader(rows: Riga[], warnings: string[]): TestataODP {
+    const h: TestataODP = { odp_num: '', commessa: '', article_code: '', article_desc: '', lot: '', qty_planned: '', um: '' };
     const scanLimit = Math.min(rows.length, 30);
 
     for (let r = 0; r < scanLimit; r++) {
-      for (const cell of rows[r]) {
+      const row = rows[r];
+      if (!row) continue;
+      for (const cell of row) {
         const t = String(cell ?? '').trim();
         if (!h.odp_num && /^ODP\s*\d+$/i.test(t)) h.odp_num = t.toUpperCase();
         if (!h.commessa && /^ODV[\w\-_]+$/i.test(t)) h.commessa = t.toUpperCase();
@@ -130,9 +174,11 @@ const OdpParser = {
 
     // Sezione "Articoli da Realizzare": la riga utile è quella dopo l'intestazione
     for (let r = 0; r < scanLimit; r++) {
-      const first = this._norm(rows[r][0]);
+      const row = rows[r];
+      if (!row) continue;
+      const first = this._norm(row[0]);
       if (first !== 'ARTICOLO') continue;
-      const cols = rows[r].map(c => this._norm(c));
+      const cols = row.map(c => this._norm(c));
       if (!cols.includes('LOTTO')) continue;          // è l'altra intestazione (materiali)
       const next = rows[r + 1];
       if (!next) break;
@@ -140,7 +186,7 @@ const OdpParser = {
       h.article_desc = String(next[1] ?? '').trim();
       h.lot          = String(next[2] ?? '').trim();
       const nums = this._numericCells(next);
-      if (nums.length) h.qty_planned = String(nums[nums.length - 1].value);
+      if (nums.length) h.qty_planned = String(nums[nums.length - 1]!.value);
       const umCell = next.find(c => ['KG', 'GR', 'PZ', 'LT'].includes(this._norm(c)));
       h.um = umCell ? this._norm(umCell) : '';
       break;
@@ -152,20 +198,21 @@ const OdpParser = {
   /* ─── RIGHE MATERIALI E BLOCCHI LOTTO ─────────────────────────────
      Si parte dall'intestazione che contiene "CONSERVAZIONE" (esclusiva della
      sezione materiali) e si scorre fino ai blocchi di fine documento.        */
-  _parseLines(rows, warnings) {
+  _parseLines(rows: Riga[], warnings: string[]): RigaODP[] {
     const STOP = ['N°OPERAZIONE', 'N.OPERAZIONE', 'PRELIEVO CAMPIONI', 'QUANTITÀ PRODOTTA', 'QUANTITA PRODOTTA'];
     let start = -1;
     for (let r = 0; r < rows.length; r++) {
-      const cols = rows[r].map(c => this._norm(c));
+      const cols = (rows[r] ?? []).map(c => this._norm(c));
       if (cols[0] === 'ARTICOLO' && cols.some(c => c === 'CONSERVAZIONE')) { start = r + 1; break; }
     }
     if (start === -1) return [];
 
-    const lines = [];
-    let current = null;
+    const lines: RigaODP[] = [];
+    let current: RigaODP | null = null;
 
     for (let r = start; r < rows.length; r++) {
       const row = rows[r];
+      if (!row) continue;
       const first = this._norm(row[0]);
       if (STOP.includes(first)) break;
       if (row.every(c => this._isBlank(c))) continue;
@@ -183,7 +230,7 @@ const OdpParser = {
            La quantità precede l'etichetta "Scad.", la scadenza la segue.
            Si individua l'etichetta invece di fidarsi dell'ordine. */
         const scadIdx = row.findIndex(c => this._norm(c).startsWith('SCAD'));
-        let qty = null, expSerial = null;
+        let qty: number | null = null, expSerial: number | null = null;
         for (const n of nums) {
           if (scadIdx !== -1 && n.idx > scadIdx) { if (expSerial === null) expSerial = n.value; }
           else if (qty === null) qty = n.value;
@@ -208,8 +255,11 @@ const OdpParser = {
       const nums = this._numericCells(row);
       if (!nums.length) continue;
 
-      const total = nums[nums.length - 1].value;
-      const totalIdx = nums[nums.length - 1].idx;
+      /* I due `!`: la riga sopra ha appena verificato che l'elenco non è
+         vuoto, quindi l'ultimo elemento c'è. È l'unico modo di dirlo a un
+         compilatore che, giustamente, di un accesso per indice non si fida. */
+      const total = nums[nums.length - 1]!.value;
+      const totalIdx = nums[nums.length - 1]!.idx;
       /* Unità di misura del totale: l'etichetta immediatamente precedente. */
       let um = '';
       for (let c = totalIdx - 1; c >= 0; c--) {
@@ -217,7 +267,7 @@ const OdpParser = {
         if (['KG', 'GR', 'PZ', 'LT'].includes(t)) { um = t; break; }
         if (!this._isBlank(row[c])) break;
       }
-      const qtyPerUnit = nums.length > 1 ? nums[nums.length - 2].value : null;
+      const qtyPerUnit = nums.length > 1 ? nums[nums.length - 2]!.value : null;
 
       current = {
         article_code: code,
@@ -248,7 +298,7 @@ const OdpParser = {
      Resta il solo controllo che porta informazione utile: una riga senza
      alcun lotto assegnato non e' prelevabile e va risolta a monte.
      ───────────────────────────────────────────────────────────────── */
-  _checkMissingLots(lines, warnings) {
+  _checkMissingLots(lines: RigaODP[], warnings: string[]): void {
     for (const line of lines) {
       if (!line.lots.length) {
         warnings.push(`${line.article_code} — ${line.description}: nessun lotto assegnato nell\u2019ordine.`);
