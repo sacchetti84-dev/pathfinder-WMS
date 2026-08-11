@@ -1194,6 +1194,15 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
   font-size: var(--md-sys-typescale-label-small-size);
 }
 .conf-chip--muta { background: var(--sx-bg-alt); color: var(--sx-text-muted); }
+/* La deroga non e' un difetto e non deve vestirsi da difetto: prende il
+   giallo della riserva, che e' lo stesso colore della cella che la concede. */
+.conf-deroghe {
+  padding: 0.2rem 0.6rem; border-radius: 99px; cursor: pointer;
+  background: var(--sx-warning-soft); color: var(--sx-warning);
+  border: 1px solid var(--sx-warning); font: inherit;
+  font-size: var(--md-sys-typescale-label-small-size);
+}
+.conf-deroghe:hover { filter: brightness(0.96); }
 .conf-riga-alta td:first-child { color: var(--sx-danger); }
 .conf-vai {
   background: none; border: none; padding: 0; cursor: pointer;

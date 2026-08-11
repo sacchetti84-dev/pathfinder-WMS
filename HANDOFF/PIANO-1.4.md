@@ -328,13 +328,28 @@ di vedere se quello che si sta scrivendo in anagrafica ha senso.
 | Maschere articolo e zona | I due attributi in creazione e modifica |
 | Export/import Excel | Colonne `Temperatura` e `Allergeni`, più il foglio **«Valori ammessi»** |
 | Mappa | Filetto rosso o tratteggiato giallo sulla cella, fascia di riepilogo, elenco, export |
-| Collaudi | **41 nuovi** — 22 sulle tabelle, 19 sulla verifica |
+| Collaudi | **52 nuovi** — 22 sulle tabelle, 30 sulla verifica e sulla deroga |
 
 **Le quattro regole.** Merce più calda di quanto chiede → **grave**; più fredda →
 media, è uno spreco, non un rischio. Merce con allergeni fuori dalla zona riservata
 → **grave**. Allergene non ammesso in una zona che ne ammette solo alcuni → **grave**.
 Merce pulita dentro la zona allergeni → media: non è simmetrica alla seconda, perché
 lì a rischiare è il prodotto pulito.
+
+**La deroga della cella riservata** (Andrea, 11/08 — il grado di libertà in più).
+Un'ubicazione marcata **Riservata** ammette allergeni, ovunque si trovi e qualunque
+cosa dica la zona intorno: è una decisione presa da una persona su una cella precisa,
+e vale più di una regola generale. Le tre regole sugli allergeni non girano.
+
+**Sulla temperatura invece non deroga**, e non è un'incoerenza: riservare una cella è
+una scelta organizzativa, e una scelta organizzativa non raffredda una cella. Un
+surgelato a +20 resta un surgelato a +20 anche se qualcuno ha deciso che quel posto
+era suo.
+
+E le deroghe **si contano e si elencano**. Non sono difetti, ma non sono nemmeno
+niente: «dove tenete allergeni fuori dalla zona riservata» è una domanda che qualcuno
+farà, e la risposta è un pulsante — `🔓 N in deroga` sulla mappa, elenco ed export.
+Una deroga invisibile sarebbe un buco; una deroga contata è una scelta documentata.
 
 **La decisione che conta: il silenzio ha due significati.** Un articolo senza
 attributi non è conforme né difforme — è **ignoto**, e durante il popolamento sono la

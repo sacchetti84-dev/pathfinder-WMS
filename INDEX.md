@@ -120,7 +120,7 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 | Versione | Cosa | Entro |
 |---|---|---|
 | **1.4.0** | Fondamenta invisibili: migrazione `ALTER TABLE`, schema mosso una volta, **`store.js` in TS**, collaudi su `_applyToCache`, export/import da `COLLEZIONI`, interruttori `feature.*` | 19/09 |
-| ↳ *fatto* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa** | 11/08 |
+| ↳ *fatto* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa**, deroga della cella Riservata | 11/08 |
 | **1.4.1** | Schedulatore di attività — richieste, priorità, tempi | 10/10 |
 | **1.4.2** | Unità di misura PZ/MT/LT/KG/GR, split colli, collo incompleto | **31/10** |
 | **1.4.3** | UDC — contenitori, `moveUdc` transazionale, etichette | 21/11 |

@@ -1793,6 +1793,18 @@ const App = {
     const qui = new Set(locs.map(l => l.code));
     const righe = conf.nonConformita.filter(n => qui.has(n.location_code));
     const senzaAttributi = conf.articoliSenzaAttributi.size;
+    const deroghe = conf.deroghe.filter(d => qui.has(d.location_code)).length;
+    const nastroDeroghe = deroghe
+      ? `<button class="conf-deroghe" onclick="App.mostraDeroghe()" title="Allergeni ammessi per riserva della cella">
+          🔓 ${deroghe} in deroga</button>`
+      : '';
+
+    if (!righe.length && deroghe) {
+      return `<div class="conf-bar conf-bar--muta">
+        <span>✓ Nessuna giacenza fuori posto in questa zona</span>${nastroDeroghe}
+        ${senzaAttributi ? `<span class="conf-bar-nota">${senzaAttributi} articoli non ancora classificati, non verificati</span>` : ''}
+      </div>`;
+    }
 
     if (!righe.length) {
       /* Silenzio ambiguo: zero segnalazioni perche' va tutto bene, o perche'
@@ -1810,6 +1822,7 @@ const App = {
     return `<div class="conf-bar ${alte ? 'conf-bar--alta' : 'conf-bar--media'}">
       <span>⚠ <strong>${righe.length}</strong> ${righe.length === 1 ? 'giacenza fuori posto' : 'giacenze fuori posto'} in questa zona${alte ? ` — <strong>${alte}</strong> ${alte === 1 ? 'grave' : 'gravi'}` : ''}</span>
       <button class="btn btn-sm" onclick="App.mostraNonConformita()">Vedi elenco</button>
+      ${nastroDeroghe}
       ${senzaAttributi ? `<span class="conf-bar-nota">${senzaAttributi} articoli non ancora classificati, non verificati</span>` : ''}
     </div>`;
   },
@@ -1837,6 +1850,7 @@ const App = {
       <div class="conf-riepilogo">
         ${[...perTipo].map(([t, n]) => `<span class="conf-chip">${this._esc(this._etichettaTipoNC(t))}: <strong>${n}</strong></span>`).join('')}
         <span class="conf-chip conf-chip--muta">verificate ${conf.verificabili} di ${conf.righe} giacenze</span>
+        ${conf.deroghe.length ? `<button class="conf-deroghe" onclick="App.mostraDeroghe()">🔓 ${conf.deroghe.length} in deroga su celle riservate</button>` : ''}
       </div>
       <div style="overflow-x:auto;max-height:56vh">
         <table class="sx-table">
@@ -1847,6 +1861,51 @@ const App = {
       ${conf.nonConformita.length > 300 ? `<div class="dlg-nota">Mostrate le prime 300 di ${conf.nonConformita.length}. L'export Excel le porta tutte.</div>` : ''}
     `, `<button class="btn" onclick="App.closeModal()">Chiudi</button>
         <button class="btn btn-accent" onclick="App.esportaNonConformita()">📊 Esporta Excel</button>`);
+  },
+
+  /* Le eccezioni volute, in chiaro. Non sono difetti, ma sono la risposta a
+     «dove tenete allergeni fuori dalla zona riservata», che qualcuno chiedera'. */
+  mostraDeroghe() {
+    const conf = this._conf || this._aggiornaConformita();
+    const d = conf?.deroghe || [];
+    if (!d.length) return this.toast('Nessuna deroga attiva', 'info');
+
+    const righe = d.map(x => `
+      <tr>
+        <td class="mono"><button class="conf-vai" onclick="App.closeModal();App.goToLocation('${this._esc(x.location_code)}')">${this._esc(x.location_code)}</button></td>
+        <td class="mono">${this._esc(x.article_code)}</td>
+        <td>${this._esc(x.article_description || '')}</td>
+        <td class="mono">${this._esc(x.lot_code || '')}</td>
+        <td>${this._esc(x.allergens.map(etichettaAllergene).join(', '))}</td>
+      </tr>`).join('');
+
+    this.showModal(`Allergeni in deroga — ${d.length}`, `
+      <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-bottom:0.7rem">
+        Merce con allergeni stoccata fuori dalla zona riservata, ammessa perché
+        l'ubicazione è marcata <strong>Riservata</strong>. La deroga vale sugli
+        allergeni: sulla temperatura la verifica resta attiva.
+      </p>
+      <div style="overflow-x:auto;max-height:56vh">
+        <table class="sx-table">
+          <thead><tr><th>Ubicazione</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Allergeni ammessi</th></tr></thead>
+          <tbody>${righe}</tbody>
+        </table>
+      </div>
+    `, `<button class="btn" onclick="App.closeModal()">Chiudi</button>
+        <button class="btn btn-accent" onclick="App.esportaDeroghe()">📊 Esporta Excel</button>`);
+  },
+
+  esportaDeroghe() {
+    const d = (this._conf || this._aggiornaConformita())?.deroghe || [];
+    if (!d.length) return this.toast('Niente da esportare', 'warning');
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(x => ({
+      'Ubicazione': x.location_code, 'Articolo': x.article_code,
+      'Descrizione': x.article_description || '', 'Lotto': x.lot_code || '',
+      'Colli': x.qty ?? '', 'Allergeni': x.allergens.map(etichettaAllergene).join(', '),
+    }))), 'Deroghe');
+    XLSX.writeFile(wb, `allergeni-in-deroga-${new Date().toISOString().slice(0,10)}.xlsx`);
+    this.toast('✓ Excel esportato', 'success');
   },
 
   _etichettaTipoNC(tipo) {
@@ -9690,7 +9749,10 @@ const App = {
           <label>Allergeni ammessi — nessuno spuntato = tutti</label>
           <div class="all-grid">${caselle}</div></div>
         <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.3rem">
-          🧭 Lasciata non caratterizzata, la zona non segnala nulla.
+          🧭 Lasciata non caratterizzata, la zona non segnala nulla.<br>
+          🔓 Una singola ubicazione marcata <strong>Riservata</strong> ammette allergeni
+          comunque, ovunque si trovi — la deroga si vede in mappa e si elenca.
+          Sulla temperatura la verifica resta attiva.
         </div>
       </div>`;
   },

@@ -523,6 +523,10 @@ const Store = {
         temp_class: z.temp_class || null,
         allergen_zone: z.allergen_zone === true,
         allergens: Array.isArray(z.allergens) ? z.allergens : null,
+        /* Uno stato «Riservata» esplicito vince su «occupata» dentro
+           getLocationStatus, quindi una cella riservata CON merce dentro
+           resta riservata: senza quello, la deroga non scatterebbe mai. */
+        riservata: this.getLocationStatus(code) === 'reserved',
       } : null;
       zone.set(code, attr);
       return attr;

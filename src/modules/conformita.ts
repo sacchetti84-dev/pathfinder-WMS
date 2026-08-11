@@ -17,13 +17,18 @@ export interface AttributiArticolo {
   description?: string;
 }
 
-export interface AttributiZona {
+/* Cio' che si sa del posto: gli attributi della zona, piu' lo stato della
+   singola ubicazione. Sono due cose di livello diverso e il verificatore le
+   guarda insieme, perche' e' insieme che decidono. */
+export interface AttributiPosto {
   /** La zona è riservata alla merce con allergeni. */
   allergen_zone?: boolean;
   /** Se valorizzato, i soli allergeni ammessi qui. Vuoto su una zona riservata = tutti. */
   allergens?: readonly CodiceAllergene[] | null;
   temp_class?: ClasseTemperatura | null;
   zone_name?: string;
+  /** L'ubicazione è marcata «Riservata»: è una deroga, vedi `verificaConformita`. */
+  riservata?: boolean;
 }
 
 export interface RigaGiacenza {
@@ -50,10 +55,25 @@ export interface NonConformita {
   messaggio: string;
 }
 
+/** Una riga passata per la deroga della cella riservata. */
+export interface Deroga {
+  location_code: string;
+  item_key?: string;
+  article_code: string;
+  article_description?: string;
+  lot_code?: string;
+  qty?: number;
+  allergens: readonly CodiceAllergene[];
+}
+
 export interface Esito {
   nonConformita: NonConformita[];
   /** Per ubicazione: quante righe fuori posto, e la gravità peggiore. */
   perUbicazione: Map<string, { n: number; gravita: Gravita }>;
+  /* Le deroghe NON sono non conformità, ma non sono nemmeno niente: sono le
+     eccezioni volute, e vanno elencabili. «Dove tenete allergeni fuori dalla
+     zona riservata» è una domanda che qualcuno farà. */
+  deroghe: Deroga[];
   /** Copertura: quante righe si sono potute verificare davvero. */
   righe: number;
   verificabili: number;
@@ -64,19 +84,29 @@ export interface Esito {
    calda di quanto chiede è un rischio, più fredda è uno spreco. */
 const SCALA: Record<ClasseTemperatura, number> = { SURG: 0, REFR: 1, AMB: 2 };
 
+/* LA DEROGA DELLA CELLA RISERVATA.
+   Un'ubicazione marcata «Riservata» ammette allergeni, qualunque cosa dica la
+   zona intorno. E' una decisione presa da una persona su una cella precisa —
+   «qui ci metto quel lotto, e lo so» — e vale piu' di una regola generale.
+
+   Sulla temperatura invece NON deroga, e non e' un'incoerenza: riservare una
+   cella e' una scelta organizzativa, e una scelta organizzativa non scalda
+   una cella frigorifera. Un surgelato a +20 resta un surgelato a +20 anche se
+   qualcuno ha deciso che quel posto era suo. */
 export function verificaConformita(
   righe: readonly RigaGiacenza[],
   articolo: (code: string) => AttributiArticolo | null | undefined,
-  zonaDi: (location_code: string) => AttributiZona | null | undefined,
+  postoDi: (location_code: string) => AttributiPosto | null | undefined,
 ): Esito {
   const nonConformita: NonConformita[] = [];
   const perUbicazione = new Map<string, { n: number; gravita: Gravita }>();
+  const deroghe: Deroga[] = [];
   const articoliSenzaAttributi = new Set<string>();
   let verificabili = 0;
 
   for (const r of righe) {
     const art = articolo(r.article_code);
-    const zona = zonaDi(r.location_code);
+    const zona = postoDi(r.location_code);
 
     const allergeniArt = art?.allergens ?? [];
     const tempArt = art?.temp_class ?? null;
@@ -108,7 +138,13 @@ export function verificaConformita(
       });
     }
 
-    if (allergeniArt.length) {
+    /* La cella riservata è la deroga: sugli allergeni non si discute con chi
+       ha marcato quel posto apposta. Le tre regole sotto non girano. */
+    if (zona.riservata) {
+      /* Si annota solo se c'è davvero qualcosa da derogare: una cella
+         riservata con dentro merce senza allergeni non è un'eccezione. */
+      if (allergeniArt.length) deroghe.push({ ...base, allergens: allergeniArt });
+    } else if (allergeniArt.length) {
       if (!zona.allergen_zone) {
         trovate.push({
           ...base,
@@ -153,5 +189,7 @@ export function verificaConformita(
     (a.gravita === b.gravita ? 0 : a.gravita === 'alta' ? -1 : 1)
     || a.location_code.localeCompare(b.location_code));
 
-  return { nonConformita, perUbicazione, righe: righe.length, verificabili, articoliSenzaAttributi };
+  deroghe.sort((a, b) => a.location_code.localeCompare(b.location_code));
+
+  return { nonConformita, perUbicazione, deroghe, righe: righe.length, verificabili, articoliSenzaAttributi };
 }

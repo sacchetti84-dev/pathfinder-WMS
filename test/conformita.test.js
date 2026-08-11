@@ -89,6 +89,71 @@ describe('allergeni', () => {
   });
 });
 
+describe('la deroga della cella riservata', () => {
+  const riservata = (extra = {}) => () => ({ zone_name: 'Secco', temp_class: 'AMB', allergen_zone: false, riservata: true, ...extra });
+  const conRiserva = (righe, extra) => verificaConformita(righe, articolo, riservata(extra));
+
+  it('merce con allergeni in una cella riservata non si segnala', () => {
+    expect(conRiserva([riga('Z-01', 'CONLATTE')]).nonConformita).toEqual([]);
+  });
+
+  it('vale anche con piu\' allergeni insieme', () => {
+    expect(conRiserva([riga('Z-01', 'MISTO')]).nonConformita).toEqual([]);
+  });
+
+  it('deroga anche alla lista di una zona che ammette solo certi allergeni', () => {
+    const e = conRiserva([riga('Z-01', 'MISTO')], { allergen_zone: true, allergens: ['LATTE'] });
+    expect(e.nonConformita).toEqual([]);
+  });
+
+  it('deroga anche al pulito dentro la zona allergeni: la riserva e\' deliberata', () => {
+    const e = conRiserva([riga('Z-01', 'AMBIENTE')], { allergen_zone: true });
+    expect(e.nonConformita).toEqual([]);
+  });
+
+  it('sulla TEMPERATURA non deroga: riservare una cella non la raffredda', () => {
+    const e = conRiserva([riga('Z-01', 'GELATO')]);
+    expect(e.nonConformita).toHaveLength(1);
+    expect(e.nonConformita[0].tipo).toBe('TEMPERATURA');
+    expect(e.nonConformita[0].gravita).toBe('alta');
+  });
+
+  it('la riga resta verificabile: derogata non vuol dire ignorata', () => {
+    const e = conRiserva([riga('Z-01', 'CONLATTE')]);
+    expect(e.verificabili).toBe(1);
+    expect([...e.articoliSenzaAttributi]).toEqual([]);
+  });
+
+  it('la deroga viene annotata, con gli allergeni che copre', () => {
+    const e = conRiserva([riga('Z-01', 'MISTO')]);
+    expect(e.deroghe).toHaveLength(1);
+    expect(e.deroghe[0].location_code).toBe('Z-01');
+    expect(e.deroghe[0].article_code).toBe('MISTO');
+    expect(e.deroghe[0].allergens).toEqual(['GLUTINE', 'LATTE']);
+  });
+
+  it('una cella riservata con merce SENZA allergeni non e\' una deroga', () => {
+    expect(conRiserva([riga('Z-01', 'AMBIENTE')]).deroghe).toEqual([]);
+  });
+
+  it('una riga solo fuori temperatura in cella riservata non e\' una deroga', () => {
+    const e = conRiserva([riga('Z-01', 'GELATO')]);
+    expect(e.deroghe).toEqual([]);
+    expect(e.nonConformita).toHaveLength(1);
+  });
+
+  it('senza celle riservate non c\'e\' nessuna deroga', () => {
+    expect(verifica([riga('DP-A-01', 'CONLATTE')]).deroghe).toEqual([]);
+  });
+
+  it('senza riserva la stessa riga si segnala: e\' la riserva a fare la differenza', () => {
+    const senza = verificaConformita([riga('Z-01', 'CONLATTE')], articolo,
+      () => ({ zone_name: 'Secco', temp_class: 'AMB', allergen_zone: false }));
+    expect(senza.nonConformita).toHaveLength(1);
+    expect(senza.nonConformita[0].tipo).toBe('ALLERGENE_FUORI_ZONA');
+  });
+});
+
 describe('cosa NON si segnala', () => {
   it('un articolo senza attributi non e\' ne\' conforme ne\' difforme', () => {
     const e = verifica([riga('DP-S-01', 'IGNOTO')]);
