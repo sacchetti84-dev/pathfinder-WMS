@@ -27,7 +27,7 @@ viene ridetto: in particolare le decisioni e le trappole.
 | Pronta a partire | **1.2** — `dist/pathfinder-1.2.html`, verificata contro la 1.1 (§3) |
 | Sorgente | 28 file in `src/`: **17 TypeScript**, 6 JavaScript, 5 fogli di stile |
 | Ancora JavaScript | `core/store.js` (2.457 righe), `main.js` (81) e la cartella `ui/` (11.716) |
-| Servizio | `server/` — Node + Express + SQLite, **non toccato** in questa sessione |
+| Servizio | `server/` — Node + Express + SQLite. Due modifiche piccole, §4bis |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive |
 | Collaudi | **57 client** (~1,2 s) + **29 servizio**, tutti verdi |
 | Tipi | `npm run check` su client **e** servizio, 0 errori |
@@ -129,6 +129,38 @@ usando l'applicativo bene; è il motivo per cui i tipi servono.
    copie. Ora le leggono da lì, e il contratto ha guadagnato `COLLECTIONS` —
    un membro che entrambi gli adapter avevano e che il contratto non
    conosceva.
+
+---
+
+## 4bis. Le tre modifiche al servizio, e perché sono state necessarie
+
+Il servizio era rimasto fuori da tutto, di proposito. Poi il pacchetto ha
+dovuto stare in piedi da solo, e sono venute fuori tre cose che con il
+repository intorno non si vedevano.
+
+1. **`installa-servizio.ps1` adesso sa quale applicativo servire.** Prima non
+   ne sapeva niente: il servizio ripiegava su un nome scritto nel codice —
+   `pathfinder-1.1.html` — e finché il file si chiamava così e stava lì
+   funzionava. Nel pacchetto non c'è, e il risultato era un 404: pagina
+   bianca sui terminali. Ora l'installazione lo cerca accanto a sé e lo
+   dichiara in `PATHFINDER_APP`. **Se ne trova più di uno non sceglie**: si
+   ferma e li elenca. Quale versione vedano i terminali non è una cosa da
+   indovinare. E se `PATHFINDER_APP` è già impostata su una macchina in
+   servizio, non la cambia — chi reinstalla sta sistemando il servizio, non
+   rilasciando una versione.
+
+2. **Il servizio dice all'avvio se l'applicativo non c'è.** Tre righe. Non si
+   ferma — database e API funzionano lo stesso, e da lì si sistema senza
+   riavviare la macchina — ma non lascia scoprire la cosa al primo operatore
+   che apre l'indirizzo e vede il bianco.
+
+3. **Tolta la rotta `/loghi`.** Serviva una cartella di marchi che
+   l'applicativo non ha mai chiesto: i marchi sono `<svg>` in linea dentro la
+   pagina, verificato. Era anche l'ultima riga che legava il servizio a com'è
+   fatto il repository intorno, e puntava a una cartella che nel pacchetto non
+   c'è e non deve esserci.
+
+Le 29 prove restano verdi, e girano anche **da dentro il pacchetto**.
 
 ---
 
@@ -238,9 +270,33 @@ sono quattro cose separate, e il README §10 ha una tabella che dice quale è
 quale e chi la tocca.
 
 - **`Pathfinder 1.2/`** è la consegna, ed è **prodotta**: `npm run build` la
-  azzera e la rifà con l'applicativo e una copia del README. Dentro non si
-  scrive a mano — sparirebbe al primo giro — e per lo stesso motivo non sta
-  nel repository.
+  azzera e la rifà con l'applicativo, una copia del README e il servizio.
+  Dentro non si scrive a mano — sparirebbe al primo giro — e per lo stesso
+  motivo non sta nel repository.
+
+  **È autonoma**: si copia su una macchina nuova e si installa da lì, senza
+  il resto del progetto. Provato per davvero, non dedotto: copiata in una
+  cartella vuota, `npm install --omit=dev` (7 secondi, nessuna
+  compilazione), le 29 prove del servizio verdi da lì dentro, il servizio
+  avviato su una porta di prova con database usa-e-getta, e la pagina servita
+  con gli stessi 218 elementi e 869 regole.
+
+  Cosa del servizio entra è un **elenco**, non un filtro a esclusioni, e la
+  differenza non è di stile: `server/data/` contiene il database vero, con le
+  anagrafiche degli operatori. Con un filtro basterebbe una cartella nuova
+  perché finisca nel pacchetto senza che nessuno l'abbia deciso; con un
+  elenco, ciò che non è nominato resta fuori per costruzione. Fuori anche
+  `node_modules`: 29 MB con dentro un binario compilato per un Node preciso,
+  e l'installazione se li prende da sé.
+
+  **Trappola trovata provando**, e vale per il magazzino: su Windows il
+  percorso si ferma a 260 caratteri, e a sbatterci per prima è
+  l'installazione delle dipendenze, che scende in profondità dentro
+  `node_modules`. Il primo tentativo è fallito con un errore di MSBuild che
+  sembrava la trappola §5.5 dell'HANDOFF 1.0 (il binario da compilare) e non
+  lo era affatto: era il mio percorso di prova, lungo. In una cartella corta
+  l'installazione dura 7 secondi. Nel README §4 c'è scritto di installare in
+  `C:\Pathfinder\app`, non dentro dieci sottocartelle del Desktop.
 - **`ARCHIVIO/`** ha inghiottito `VERSIONI PRECEDENTI`, `BACKUP E FILE DI
   TEST`, `LOGHI` e `stampa etichette`.
 - **`server/` è rimasto dov'era**, e non è una svista: l'attività pianificata

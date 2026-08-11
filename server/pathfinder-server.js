@@ -471,7 +471,14 @@ const noCache = (res) => res.set('Cache-Control', 'no-cache');
 
 app.get('/', (req, res) => { noCache(res); res.sendFile(APP_FILE); });
 app.get('/app', (req, res) => { noCache(res); res.sendFile(APP_FILE); });
-app.use('/loghi', express.static(path.join(ROOT, 'LOGHI')));
+
+/* TOLTO: `app.use('/loghi', express.static(ROOT/LOGHI))`.
+   Serviva una cartella di marchi che l'applicativo non ha mai chiesto — i
+   marchi sono <svg> in linea dentro la pagina, verificato: nessun punto del
+   client nomina /loghi. Era anche l'ultima riga che legava il servizio a come
+   e' fatto il repository intorno, e adesso che il servizio viaggia dentro un
+   pacchetto che sta in piedi da solo quel legame e' un impiccio: puntava a
+   una cartella che nel pacchetto non c'e' e non deve esserci. */
 
 /* Quale versione sta servendo QUESTA macchina, e da quale file.
    Serve a rispondere in dieci secondi alla domanda "ho aggiornato ma non
@@ -526,6 +533,17 @@ const server = srv.listen(PORT, () => {
   console.log(`  applicativo ${schema}://localhost:${PORT}/`);
   for (const ip of lan) console.log(`  in rete     ${schema}://${ip}:${PORT}/`);
   if (schema === 'http') console.log('  ATTENZIONE  senza certificato il PIN viaggia in chiaro');
+  /* IL FILE CHE SI SERVE, DETTO ALL'AVVIO E NON AL PRIMO OPERATORE.
+     Se non c'e', finora se ne accorgeva il terminale: apriva l'indirizzo e
+     riceveva un 404 senza spiegazioni, cioe' una pagina bianca. Il servizio
+     lo sa gia' adesso, e adesso lo dice. Non si ferma - il database e le API
+     funzionano lo stesso, e da qui si puo' sistemare senza riavviare la
+     macchina - ma non lascia scoprire la cosa a chi sta per lavorare. */
+  if (!fs.existsSync(APP_FILE)) {
+    console.error(`  ATTENZIONE  l'applicativo NON esiste: ${APP_FILE}`);
+    console.error('              i terminali riceveranno una pagina vuota (404).');
+    console.error('              Indicare il file giusto in PATHFINDER_APP e riavviare.');
+  }
   console.log(`  revisione   ${db.currentRevision()}\n`);
 });
 

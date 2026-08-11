@@ -19,15 +19,40 @@ import path from 'node:path';
    e deve dire cosa c'è dentro senza aprirla. */
 const CONSEGNA = 'Pathfinder 1.2';
 
+/* ═══════════════════════════════════════════════════════════════════
+   COSA DEL SERVIZIO ENTRA NEL PACCHETTO — E PERCHÉ UN ELENCO, NON UN FILTRO
+
+   È un elenco di ciò che si copia, non di ciò che si esclude, e la
+   differenza è tutta qui: `server/data/` contiene il DATABASE VERO del
+   magazzino, con dentro le anagrafiche degli operatori. Con un filtro a
+   esclusioni basterebbe che un giorno nascesse una cartella nuova e
+   finirebbe nel pacchetto senza che nessuno l'abbia deciso; con un elenco,
+   ciò che non è nominato resta fuori per costruzione.
+
+   `node_modules` non c'è di proposito: sono 29 MB con dentro un binario
+   compilato per un Node preciso, e `installa-servizio.ps1` le dipendenze se
+   le installa da sé quando non le trova. Copiarle significherebbe portarsi
+   dietro un `better-sqlite3` costruito per la macchina di partenza.
+   ═══════════════════════════════════════════════════════════════════ */
+const DAL_SERVIZIO = [
+  'pathfinder-server.js',   // il servizio
+  'lib',                    // SQLite e lo schema
+  'installa-servizio.ps1',  // l'installazione, in un comando
+  'backup-serale.ps1',      // il backup che l'installazione registra
+  'test',                   // le 29 prove: si verifica l'installazione appena fatta
+  'package.json',
+  'package-lock.json',
+  'LEGGIMI.md',
+];
+
 /* Vite chiama il suo prodotto index.html, perché così si chiama l'ingresso.
    In magazzino il nome del file è l'identità della versione: è quello che si
    legge nella cartella per sapere cosa gira.
 
-   Insieme al file viene messo il README. NON è una seconda copia da tenere
-   allineata a mano: è una copia che la build rifà ogni volta, e l'originale
-   resta uno solo in radice. Serve perché la cartella di consegna deve poter
-   viaggiare da sola — chi la riceve ha in mano l'applicativo e le istruzioni
-   per installarlo, senza dover chiedere altro. */
+   Insieme al file entrano il README e il servizio, perché la cartella deve
+   poter essere COPIATA SU UNA MACCHINA NUOVA E INSTALLATA DA LÌ, senza il
+   resto del repository. Non sono seconde copie da tenere allineate a mano: le
+   rifà la build a ogni giro, e gli originali restano uno solo per parte. */
 function cartellaDiConsegna(nome) {
   return {
     name: 'pathfinder-cartella-di-consegna',
@@ -37,9 +62,23 @@ function cartellaDiConsegna(nome) {
       if (!fs.existsSync(da)) return;
       fs.renameSync(da, a);
       fs.copyFileSync(path.resolve('README.md'), path.resolve(CONSEGNA, 'README.md'));
+
+      const dentro = path.resolve(CONSEGNA, 'server');
+      fs.mkdirSync(dentro, { recursive: true });
+      for (const voce of DAL_SERVIZIO) {
+        const sorgente = path.resolve('server', voce);
+        if (!fs.existsSync(sorgente)) {
+          console.warn(`  ATTENZIONE: server/${voce} non trovato, non entra nel pacchetto`);
+          continue;
+        }
+        fs.cpSync(sorgente, path.resolve(dentro, voce), { recursive: true });
+      }
+
       const mb = (fs.statSync(a).size / 1024 / 1024).toFixed(2);
-      console.log(`\n  ${CONSEGNA}/${nome} — ${mb} MB — un file solo, pronto da copiare`);
-      console.log(`  ${CONSEGNA}/README.md — le istruzioni, copiate dalla radice\n`);
+      console.log(`\n  ${CONSEGNA}/${nome} — ${mb} MB — l'applicativo, un file solo`);
+      console.log(`  ${CONSEGNA}/README.md — le istruzioni, copiate dalla radice`);
+      console.log(`  ${CONSEGNA}/server/ — il servizio dati, ${DAL_SERVIZIO.length} voci`);
+      console.log(`\n  La cartella si copia su una macchina nuova e si installa da lì.\n`);
     },
   };
 }

@@ -94,7 +94,7 @@ database usa-e-getta.** Un collaudo che scrive nel database di lavoro è già
 costato un blocco d'accesso.
 
 ```powershell
-cd "C:\percorso\della\cartella\MAPPER\server"
+cd "<cartella>\server"
 npm install --omit=dev
 ```
 
@@ -103,40 +103,81 @@ Poi si avvia a mano, su una porta diversa da quella del magazzino:
 ```powershell
 $env:PATHFINDER_PORT = '4174'
 $env:PATHFINDER_DB   = "$env:TEMP\prova.db"
+$env:PATHFINDER_APP  = '..\pathfinder-1.2.html'
 node pathfinder-server.js
 ```
 
 L'applicativo è su `http://localhost:4174/`. Per fermarlo: `Ctrl+C`.
 
+> `PATHFINDER_APP` serve perché avviando **a mano** nessuno dice al servizio
+> quale file servire, e lui ripiega su un nome scritto nel codice. Se sbaglia
+> file lo dichiara all'avvio — `ATTENZIONE l'applicativo NON esiste` — invece
+> di lasciarlo scoprire al primo terminale, che vedrebbe una pagina bianca.
+> Passando da `installa-servizio.ps1` (§4) questo non serve: la variabile la
+> imposta lui.
+
 ---
 
 ## 4. Installazione sul PC di magazzino
 
-Una volta sola, da **PowerShell come amministratore** (tasto destro →
-*Esegui come amministratore*; nella barra del titolo deve comparire
-«Amministratore:»).
+**Serve solo la cartella `Pathfinder 1.2`** — quella prodotta da
+`npm run build` (§10). Dentro c'è tutto: l'applicativo, il servizio,
+l'installazione, il backup e queste istruzioni. Il resto del progetto sulla
+macchina di magazzino non serve.
+
+1. Copia la cartella sulla macchina. **Sceglila corta**: `C:\Pathfinder\app`
+   va bene, una decina di sottocartelle dentro Desktop no. Windows si ferma a
+   260 caratteri di percorso e l'installazione delle dipendenze, che scende in
+   profondità dentro `node_modules`, è la prima a sbatterci.
+2. Da **PowerShell come amministratore** (tasto destro → *Esegui come
+   amministratore*; nella barra del titolo deve comparire «Amministratore:»):
 
 ```powershell
-cd "C:\percorso\della\cartella\MAPPER\server"
+cd "C:\Pathfinder\app\Pathfinder 1.2\server"
 .\installa-servizio.ps1
 ```
 
-Lo script fa sei cose e le dichiara mentre le fa:
+Lo script fa sette cose e le dichiara mentre le fa:
 
 1. controlla Node e installa le dipendenze se mancano;
-2. rifiuta di partire se il database indicato sta dentro OneDrive (§11);
-3. rifiuta di far nascere un database vuoto se ne esiste uno nel percorso storico;
-4. apre la porta sul firewall per rete aziendale e privata;
-5. registra **due attività pianificate** — il servizio e il backup serale;
-6. verifica che il servizio abbia aperto **davvero** il database atteso, e prova subito il backup.
+2. **cerca l'applicativo** accanto a sé e lo dichiara in `PATHFINDER_APP`. Se
+   ne trova più di uno non sceglie: si ferma e li elenca — quale versione
+   vedano i terminali non è una cosa da indovinare;
+3. rifiuta di partire se il database indicato sta dentro OneDrive (§11);
+4. rifiuta di far nascere un database vuoto se ne esiste uno nel percorso storico;
+5. apre la porta sul firewall per rete aziendale e privata;
+6. registra **due attività pianificate** — il servizio e il backup serale;
+7. verifica che il servizio abbia aperto **davvero** il database atteso e stia
+   servendo **davvero** l'applicativo atteso, e prova subito il backup.
 
 Alla fine stampa l'indirizzo da mettere come pagina iniziale sui terminali.
+
+> **Le dipendenze del servizio arrivano da internet, una volta sola.** Sono
+> `express` e `better-sqlite3`, ~30 MB, e non stanno nella cartella di
+> consegna di proposito: `better-sqlite3` porta un pezzo compilato, e quello
+> giusto lo sceglie `npm` sulla macchina dove gira. Se il PC di magazzino non
+> ha linea, si esegue `npm install --omit=dev` altrove e si copia la cartella
+> `node_modules` prodotta — **da una macchina con lo stesso Windows e la
+> stessa versione maggiore di Node**.
 
 ### Con percorsi diversi da quelli predefiniti
 
 ```powershell
 .\installa-servizio.ps1 -Database 'D:\Pathfinder\data\pathfinder.db' -Porta 4173 -OraBackup '21:30'
 ```
+
+### Con più di un applicativo nella cartella
+
+Succede in fase di rilascio, quando la versione nuova e la vecchia convivono.
+Si dice quale servire:
+
+```powershell
+.\installa-servizio.ps1 -Applicativo '..\pathfinder-1.2.html'
+```
+
+Reinstallando su una macchina già in servizio, se `PATHFINDER_APP` è già
+impostata **non viene cambiata**: chi reinstalla sta sistemando il servizio,
+non rilasciando una versione.
 
 ### Per togliere il servizio
 
@@ -167,7 +208,8 @@ Get-ScheduledTask -TaskName "Pathfinder*" | Select-Object TaskName, State
 
 Il servizio non ha niente cablato: si sposta copiando due cose.
 
-1. **Copia** la cartella `MAPPER` sulla macchina nuova.
+1. **Copia** la cartella `Pathfinder 1.2` sulla macchina nuova (§4). Non
+   serve altro: dentro c'è applicativo, servizio e installazione.
 2. **Copia il database a caldo**, chiedendolo al servizio vecchio — mai con
    `Copy-Item` (§7 spiega perché):
 
@@ -200,7 +242,7 @@ anche quando gira come SYSTEM.
 |---|---|---|
 | `PATHFINDER_DB` | `C:\Pathfinder\data\pathfinder.db` | Il database. **Mai dentro una cartella sincronizzata** |
 | `PATHFINDER_PORT` | `4173` | La porta di ascolto |
-| `PATHFINDER_APP` | `<cartella MAPPER>\pathfinder-1.1.html` | Il file dell'applicativo da servire |
+| `PATHFINDER_APP` | la impostano `installa-servizio.ps1` (§4) e il rilascio di una versione nuova (§8). Solo se manca, il servizio ripiega su `<cartella accanto a server\>\pathfinder-1.1.html` e, se non c'è, **lo dichiara all'avvio** | Il file dell'applicativo da servire |
 | `PATHFINDER_TLS_CERT` | — | Certificato in formato PEM. Se c'è, il servizio parla `https` |
 | `PATHFINDER_TLS_KEY` | — | Chiave privata. Deve essere **leggibile da SYSTEM** |
 
@@ -386,7 +428,7 @@ Aprendo `MAPPER` si vedono tre cose diverse, e non vanno confuse.
 
 | | Cos'è | Chi la tocca |
 |---|---|---|
-| **`Pathfinder 1.2/`** | **La consegna.** L'applicativo in un file solo più queste istruzioni. È ciò che si copia sul PC di magazzino | Nessuno a mano: la **produce** `npm run build` e la **svuota** a ogni giro |
+| **`Pathfinder 1.2/`** | **La consegna, completa.** L'applicativo in un file solo, il servizio dati, l'installazione, il backup e queste istruzioni. Si copia su una macchina nuova e si installa da lì, **senza il resto del progetto** | Nessuno a mano: la **produce** `npm run build` e la **svuota** a ogni giro |
 | `src/` `test/` `index.html` e i file di configurazione | Il cantiere | Chi sviluppa |
 | `server/` | Il servizio dati, in funzione | Si installa una volta (§4), poi ci pensa Windows |
 | `ARCHIVIO/` | Versioni precedenti, file di prova, marchi, stampa etichette | Nessuno, di norma |
@@ -426,8 +468,10 @@ npm run dev
 ```
 MAPPER/
 ├─ Pathfinder 1.2/       ← PRODOTTA dalla build, si copia in magazzino
-│  ├─ pathfinder-1.2.html
-│  └─ README.md
+│  ├─ pathfinder-1.2.html   l'applicativo
+│  ├─ README.md             queste istruzioni
+│  └─ server/               il servizio, l'installazione, il backup
+│                           (senza node_modules: le installa lo script)
 ├─ index.html            l'ingresso: testata, marchi, scheletro della pagina
 ├─ src/
 │  ├─ main.js            avvio, stili, rete globale sugli errori

@@ -35,11 +35,23 @@
 #  eredita il servizio che gira come SYSTEM. Il giorno del trasloco su una
 #  macchina virtuale si cambia lì, in un posto solo.
 #
+#  QUALE FILE DELL'APPLICATIVO SERVIRE.
+#  Il servizio serve un file .html, e finora quale fosse era una sua
+#  convinzione: in mancanza di indicazioni ripiegava su un nome scritto nel
+#  codice. Funziona finché il file si chiama così e sta lì. Da qui in avanti
+#  l'installazione lo CERCA accanto a sé e lo dichiara in PATHFINDER_APP, che
+#  è la stessa variabile che si cambia a mano quando esce una versione nuova.
+#  Se ne trova più di uno non sceglie: si ferma e li elenca. Quale versione
+#  vedano i terminali non è una cosa da indovinare.
+#
 #  Si lancia UNA VOLTA, da PowerShell come amministratore:
 #      .\installa-servizio.ps1
 #
 #  Con percorsi diversi da quelli predefiniti:
 #      .\installa-servizio.ps1 -Database 'D:\Pathfinder\data\pathfinder.db'
+#
+#  Indicando esplicitamente l'applicativo da servire:
+#      .\installa-servizio.ps1 -Applicativo '..\pathfinder-1.2.html'
 #
 #  Per toglierlo (il database NON viene toccato):
 #      .\installa-servizio.ps1 -Disinstalla
@@ -51,7 +63,8 @@ param(
     [string]$Database = 'C:\Pathfinder\data\pathfinder.db',
     [string]$CartellaBackup = 'C:\Pathfinder\backup',
     [string]$OraBackup = '20:00',
-    [int]$GiorniDiConservazione = 0
+    [int]$GiorniDiConservazione = 0,
+    [string]$Applicativo = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -121,8 +134,53 @@ if (-not (Test-Path (Join-Path $Qui 'node_modules'))) {
     npm install --omit=dev --no-audit --no-fund
     Pop-Location
 }
-Write-Host "  Applicativo   $Script"
+Write-Host "  Servizio      $Script"
 Write-Host "  Porta         $Porta"
+
+# ── Quale applicativo servire ───────────────────────────────────────
+# L'html sta nella cartella che contiene questa, sia nel repository sia nel
+# pacchetto di consegna: e' l'unica posizione che le due hanno in comune.
+$Radice = Split-Path -Parent $Qui
+if ($Applicativo) {
+    if (-not (Test-Path $Applicativo)) {
+        Write-Host "  L'applicativo indicato non esiste: $Applicativo" -ForegroundColor Red
+        exit 1
+    }
+    $Applicativo = (Resolve-Path $Applicativo).Path
+} else {
+    $giaImpostato = [Environment]::GetEnvironmentVariable('PATHFINDER_APP', 'Machine')
+    $candidati = @(Get-ChildItem -Path $Radice -Filter 'pathfinder-*.html' -File -ErrorAction SilentlyContinue |
+                   Sort-Object Name)
+
+    if ($candidati.Count -eq 1) {
+        $Applicativo = $candidati[0].FullName
+    }
+    elseif ($giaImpostato -and (Test-Path $giaImpostato)) {
+        # Reinstallazione su una macchina gia' in servizio. Cambiare da soli
+        # la versione che i terminali vedono sarebbe la cosa peggiore: chi
+        # reinstalla sta sistemando il servizio, non rilasciando una versione.
+        $Applicativo = $giaImpostato
+        Write-Host "  Applicativo   invariato (PATHFINDER_APP era gia' impostata)" -ForegroundColor Yellow
+    }
+    elseif ($candidati.Count -gt 1) {
+        Write-Host ""
+        Write-Host "  Accanto al servizio c'e' piu' di un applicativo:" -ForegroundColor Red
+        foreach ($c in $candidati) { Write-Host "    $($c.Name)" }
+        Write-Host ""
+        Write-Host "  Quale versione vedano i terminali non e' una cosa da indovinare."
+        Write-Host "  Rilancia indicandolo:"
+        Write-Host "    .\installa-servizio.ps1 -Applicativo '..\$($candidati[-1].Name)'"
+        exit 1
+    }
+    else {
+        Write-Host ""
+        Write-Host "  Non trovo nessun file 'pathfinder-*.html' in $Radice" -ForegroundColor Red
+        Write-Host "  Il servizio serve l'applicativo: senza, i terminali aprono il vuoto."
+        Write-Host "  Copialo li' accanto, oppure indicalo con -Applicativo."
+        exit 1
+    }
+}
+Write-Host "  Applicativo   $Applicativo"
 
 # ── Il database ─────────────────────────────────────────────────────
 $cartellaDb = Split-Path -Parent $Database
@@ -163,9 +221,11 @@ if (-not (Test-Path $Database)) {
 }
 Write-Host "  Backup        $CartellaBackup  (ogni sera alle $OraBackup)"
 
-# Il percorso si dichiara qui, una volta, e lo eredita il servizio come SYSTEM.
-[Environment]::SetEnvironmentVariable('PATHFINDER_DB',   $Database, 'Machine')
-[Environment]::SetEnvironmentVariable('PATHFINDER_PORT', "$Porta",  'Machine')
+# I percorsi si dichiarano qui, una volta, e li eredita il servizio come SYSTEM.
+[Environment]::SetEnvironmentVariable('PATHFINDER_DB',   $Database,     'Machine')
+[Environment]::SetEnvironmentVariable('PATHFINDER_PORT', "$Porta",      'Machine')
+[Environment]::SetEnvironmentVariable('PATHFINDER_APP',  $Applicativo,  'Machine')
+$env:PATHFINDER_APP  = $Applicativo
 $env:PATHFINDER_DB   = $Database
 $env:PATHFINDER_PORT = "$Porta"
 
@@ -273,6 +333,19 @@ try {
         Write-Host "  aperto:  $($r.file)"
         Write-Host "  Riavviare la macchina e ricontrollare: PATHFINDER_DB viene letta"
         Write-Host "  all'avvio del processo, non al volo."
+        exit 1
+    }
+
+    # Stessa prova per l'applicativo: che risponda non basta, deve servire il
+    # file giusto. E' l'errore che da fuori sembra "l'aggiornamento non ha
+    # avuto effetto" e invece e' il servizio che guarda da un'altra parte.
+    $info = Invoke-RestMethod -Uri "http://127.0.0.1:$Porta/api/app-info" -TimeoutSec 5
+    Write-Host "  applicativo   $($info.app_file)"
+    if ($info.app_file -ne $Applicativo) {
+        Write-Host ""
+        Write-Host "  ATTENZIONE: il servizio sta servendo un altro applicativo." -ForegroundColor Red
+        Write-Host "  atteso:  $Applicativo"
+        Write-Host "  servito: $($info.app_file)"
         exit 1
     }
 
