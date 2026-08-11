@@ -182,8 +182,5 @@ al motore, che è a fine novembre, cioè quando non c'è più tempo per aspettar
 | Installare, aggiornare, diagnosticare, backup | [README.md](README.md) |
 | **Dove siamo e da dove si riparte** — l'ultimo | [HANDOFF/HANDOFF-pathfinder-1.4.md](HANDOFF/HANDOFF-pathfinder-1.4.md) |
 | **Le cinque funzioni della 1.4** — disegno dei dati, calendario, decisioni | [HANDOFF/PIANO-1.4.md](HANDOFF/PIANO-1.4.md) |
-| Come si è arrivati alla 1.2 | [HANDOFF/HANDOFF-pathfinder-1.3.md](HANDOFF/HANDOFF-pathfinder-1.3.md) |
-| Metodo di lavoro e trappole | [HANDOFF/HANDOFF-pathfinder-1.2.md](HANDOFF/HANDOFF-pathfinder-1.2.md) |
-| Decisioni di fondo, vincolo GDPR | [HANDOFF/HANDOFF-pathfinder-1.0.md](HANDOFF/HANDOFF-pathfinder-1.0.md) |
-| Dove si vuole arrivare | [HANDOFF/PIANO-AZIONE-Pathfinder-2.0.md](HANDOFF/PIANO-AZIONE-Pathfinder-2.0.md) |
+| Cronaca delle versioni precedenti, e i piani ormai eseguiti o respinti | [ARCHIVIO/HANDOFF STORICI/](ARCHIVIO/HANDOFF%20STORICI/) — memoria, non istruzioni |
 | Versioni precedenti, loghi, etichette | `ARCHIVIO/` |

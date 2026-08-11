@@ -14,7 +14,7 @@
 > target (§5), e l'elenco di ciò che non si fa (§6).
 >
 > **Per lo stato attuale e per installare, aggiornare o diagnosticare:
-> vedi [README.md](../README.md).**
+> vedi [README.md](../../README.md).**
 
 ---
 

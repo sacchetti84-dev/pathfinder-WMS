@@ -5,6 +5,11 @@ Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
 Data: 11/08/2026 · Rev. 02 · **Scadenza del progetto: 31/12/2026**
 Ultima installazione utile in magazzino: **19/12/2026** — poi c'è l'inventario
 
+> Qui dentro si cita più volte «§x dell'HANDOFF 1.0 / 1.2 / 1.3». Quei documenti
+> sono in **`ARCHIVIO/HANDOFF STORICI/`**: le citazioni restano valide, ma ciò che
+> era ancora vivo è già stato assorbito
+> nell'[HANDOFF 1.4](HANDOFF-pathfinder-1.4.md).
+
 ---
 
 ## 0. In tre righe

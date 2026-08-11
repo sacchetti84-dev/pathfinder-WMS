@@ -1,3 +1,11 @@
+> ## ⚠ ARCHIVIATO — memoria, non istruzioni
+>
+> Sostituito da **[HANDOFF 1.4](../../HANDOFF/HANDOFF-pathfinder-1.4.md)**, che ha
+> assorbito gli aperti ancora vivi, le decisioni permanenti, le trappole e i
+> vincoli di questo documento. Qui resta la cronaca della prima versione
+> client-server. **Non usarlo per lavorare**: alcuni aperti sono chiusi e alcune
+> decisioni sono state ribaltate.
+
 # HANDOFF — Pathfinder
 
 **Documento di passaggio di consegne per la prossima conversazione**

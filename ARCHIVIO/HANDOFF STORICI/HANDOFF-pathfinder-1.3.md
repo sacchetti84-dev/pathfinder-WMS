@@ -1,3 +1,10 @@
+> ## ⚠ ARCHIVIATO — memoria, non istruzioni
+>
+> Sostituito da **[HANDOFF 1.4](../../HANDOFF/HANDOFF-pathfinder-1.4.md)**, che ha
+> assorbito gli aperti ancora vivi, le decisioni e le trappole. Qui restano le sei
+> differenze fra ciò che il codice prometteva e ciò che faceva, e i cinque comandi
+> per portare la 1.2 in magazzino (§6), **che sono ancora da dare**.
+
 # HANDOFF — Pathfinder 1.3
 
 **Documento di passaggio di consegne per la prossima conversazione**
@@ -11,7 +18,7 @@ Data: 11/08/2026 · Rev. 01 — i moduli hanno i tipi, la 1.2 è pronta a partir
 Il progetto è su **GitHub, privato**: `sacchetti84-dev/pathfinder`, branch
 `main`. Niente vive solo in una conversazione.
 
-Alla prossima chat basta dare **questo file** e il **[README](../README.md)**.
+Alla prossima chat basta dare **questo file** e il **[README](../../README.md)**.
 Il README dice come si installa, si aggiorna e si diagnostica; questo dice
 dove siamo e cosa manca. L'[HANDOFF 1.2](HANDOFF-pathfinder-1.2.md) e
 l'[1.0](HANDOFF-pathfinder-1.0.md) restano validi per tutto ciò che qui non
