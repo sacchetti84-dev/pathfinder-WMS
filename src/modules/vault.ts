@@ -1,5 +1,6 @@
 import { Persistence } from '../core/persistence/index';
-import { Store } from '../core/store.js';
+import { Store as StoreJS } from '../core/store.js';
+import type { Istante, Movimento } from '../types/entita.js';
 
 // ═══════════════════════════════════════════════════════════════════
 // © Andrea Sacchetti — Dietopack S.r.l.
@@ -51,6 +52,70 @@ import { Store } from '../core/store.js';
 // fallire in silenzio.
 // ═══════════════════════════════════════════════════════════════════
 
+/* ═══════════════════════════════════════════════════════════════════
+   LE DUE COSE CHE IL BROWSER SA FARE MA LO STANDARD NON DICHIARA
+
+   `showDirectoryPicker` e la coppia queryPermission/requestPermission sulle
+   handle sono la File System Access API: implementata da Chrome ed Edge —
+   cioè dai due browser su cui questo applicativo gira — e non ancora nelle
+   definizioni standard del DOM.
+
+   Dichiararle qui non le rende disponibili: le rende DICHIARATE. È l'unico
+   punto del client che dipende da un'API non standard, e adesso è scritto
+   nero su bianco invece di essere una scoperta di chi un giorno lo aprirà
+   su un browser che non ce l'ha. `supported()` continua a controllarlo a
+   runtime, che è ciò che conta davvero.
+   ═══════════════════════════════════════════════════════════════════ */
+export type PermessoCartella = 'granted' | 'denied' | 'prompt';
+
+declare global {
+  interface FileSystemHandle {
+    queryPermission(opzioni?: { mode?: 'read' | 'readwrite' }): Promise<PermessoCartella>;
+    requestPermission(opzioni?: { mode?: 'read' | 'readwrite' }): Promise<PermessoCartella>;
+  }
+  interface Window {
+    showDirectoryPicker?(opzioni?: { mode?: 'read' | 'readwrite', id?: string }): Promise<FileSystemDirectoryHandle>;
+  }
+}
+
+/* Il ponte verso Store, come in pickRoute.ts: finché Store è JavaScript, la
+   sua cache nasce da array vuoti e il compilatore ne deduce `never[]`. Sono
+   i quattro metodi che il backup usa, e spariranno con la conversione di
+   Store. `_countsOf` e `_applyToCache` cominciano con l'underscore e restano
+   qui lo stesso: è il codice che li chiama, non il tipo che li invita. */
+const Store = StoreJS as unknown as {
+  exportAll(opzioni?: { includeMovLog?: boolean }): Promise<PacchettoDati>;
+  eachMovement(fn: (blocco: Movimento[]) => void | Promise<void>, chunkSize?: number): Promise<number>;
+  _applyToCache(collection: string, op: string, record?: unknown): void;
+  _countsOf(data: PacchettoDati): Record<string, number>;
+};
+
+/* Il pacchetto di export/import: un contenitore con dentro le collezioni e
+   qualche campo di servizio. Non se ne dichiara la forma per intero di
+   proposito — è la stessa ragione per cui il servizio tiene il documento in
+   una colonna JSON: un campo nuovo non deve costringere a una migrazione.
+
+   L'unica chiave che qui conta davvero è `mov_log`, e conta la differenza
+   fra il valore e l'ASSENZA: un array vuoto dichiara «il registro è vuoto»
+   e importAll azzera la tabella, la chiave mancante dice «di questo non
+   parlo» e la lascia stare. Sei anni di storico stanno in quella
+   distinzione, ed è per questo che è opzionale e non `Movimento[] | null`. */
+export interface PacchettoDati {
+  mov_log?: Movimento[];
+  _counts?: Record<string, number>;
+  _kind?: string;
+  _movFileMensili?: number;
+  [collezione: string]: unknown;
+}
+
+/** Ciò che runBackup() consegna a chi lo ha chiesto. */
+export interface EsitoBackup {
+  ts: Istante;
+  movimenti: number;
+  mesiScritti: number;
+  mesi: number;
+  statoBytes: number;
+}
 
 const Vault = {
   HANDLE_KEY: 'vaultDirHandle',      // in meta (IndexedDB: i handle sono clonabili)
@@ -59,26 +124,26 @@ const Vault = {
   INTERVAL_MS: 20 * 60 * 60 * 1000,  // ~1 volta al giorno
   MOV_SUBDIR: 'movimenti',
 
-  _handle: null,
+  _handle: null as FileSystemDirectoryHandle | null,
   _busy: false,
 
-  supported() {
+  supported(): boolean {
     return typeof window.showDirectoryPicker === 'function';
   },
 
   /* ── Handle della cartella ─────────────────────────────────────── */
-  async loadHandle() {
+  async loadHandle(): Promise<FileSystemDirectoryHandle | null> {
     if (this._handle) return this._handle;
     try {
-      const row = await Persistence.get('meta', this.HANDLE_KEY);
+      const row = await Persistence.get<{ value?: FileSystemDirectoryHandle }>('meta', this.HANDLE_KEY);
       this._handle = row?.value || null;
     } catch { this._handle = null; }
     return this._handle;
   },
 
-  async chooseFolder() {
+  async chooseFolder(): Promise<FileSystemDirectoryHandle> {
     if (!this.supported()) throw new Error('Il browser non consente di scegliere una cartella di destinazione.');
-    const handle = await window.showDirectoryPicker({ mode: 'readwrite', id: 'wm-vault' });
+    const handle = await window.showDirectoryPicker!({ mode: 'readwrite', id: 'wm-vault' });
     /* Verifica subito di poterci scrivere: scoprirlo al primo backup
        notturno significherebbe scoprirlo quando non serve a niente. */
     const perm = await handle.requestPermission({ mode: 'readwrite' });
@@ -88,13 +153,13 @@ const Vault = {
     return handle;
   },
 
-  async forgetFolder() {
+  async forgetFolder(): Promise<void> {
     this._handle = null;
     await Persistence.put('meta', { key: this.HANDLE_KEY, value: null });
   },
 
   /* 'granted' | 'prompt' | 'denied' | 'none' (nessuna cartella scelta) */
-  async permissionState() {
+  async permissionState(): Promise<PermessoCartella | 'none'> {
     const h = await this.loadHandle();
     if (!h) return 'none';
     try { return await h.queryPermission({ mode: 'readwrite' }); }
@@ -102,7 +167,7 @@ const Vault = {
   },
 
   /* Richiede il permesso. Va invocata da un gesto dell'utente. */
-  async requestPermission() {
+  async requestPermission(): Promise<PermessoCartella | 'none'> {
     const h = await this.loadHandle();
     if (!h) return 'none';
     try { return await h.requestPermission({ mode: 'readwrite' }); }
@@ -110,18 +175,18 @@ const Vault = {
   },
 
   /* ── Scrittura ─────────────────────────────────────────────────── */
-  async _writeFile(dirHandle, name, contents) {
+  async _writeFile(dirHandle: FileSystemDirectoryHandle, name: string, contents: string): Promise<void> {
     const fh = await dirHandle.getFileHandle(name, { create: true });
     const w = await fh.createWritable();
     try { await w.write(contents); } finally { await w.close(); }
   },
 
-  async _sha256(text) {
+  async _sha256(text: string): Promise<string> {
     const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
     return [...new Uint8Array(buf)].map(b => b.toString(16).padStart(2, '0')).join('');
   },
 
-  _monthKey(ts) {
+  _monthKey(ts: Istante): string {
     const d = new Date(ts);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
   },
@@ -129,7 +194,7 @@ const Vault = {
   /* Esegue il backup completo secondo la politica descritta in testa.
      `onProgress(testo)` serve a non lasciare l'operatore davanti a una
      finestra ferma mentre si scrivono decine di MB. */
-  async runBackup({ force = false, onProgress = null } = {}) {
+  async runBackup({ force = false, onProgress = null }: { force?: boolean, onProgress?: ((testo: string) => void) | null } = {}): Promise<EsitoBackup | null> {
     if (this._busy) throw new Error('Un backup è già in corso.');
     const dir = await this.loadHandle();
     if (!dir) throw new Error('Nessuna cartella di backup configurata.');
@@ -138,7 +203,7 @@ const Vault = {
     if (!force && !(await this.isDue())) return null;
 
     this._busy = true;
-    const say = (t) => { onProgress?.(t); };
+    const say = (t: string) => { onProgress?.(t); };
     try {
       const oggi = new Date().toISOString().slice(0, 10);
 
@@ -152,7 +217,7 @@ const Vault = {
       // ── 2. Movimenti, un file per mese ──
       say('Lettura del registro movimenti…');
       const movDir = await dir.getDirectoryHandle(this.MOV_SUBDIR, { create: true });
-      const perMese = new Map();
+      const perMese = new Map<string, Movimento[]>();
       let totMov = 0;
       await Store.eachMovement(rows => {
         for (const m of rows) {
@@ -169,7 +234,7 @@ const Vault = {
          stesso numero di righe. I mesi chiusi vengono cosi' scritti una
          volta sola nella vita del backup, e OneDrive non si vede passare
          sotto lo stesso identico file ogni notte. */
-      const attesi = {};
+      const attesi: Record<string, number> = {};
       let scritti = 0;
       for (const [mese, righe] of [...perMese.entries()].sort()) {
         attesi[mese] = righe.length;
@@ -217,8 +282,8 @@ const Vault = {
 
   /* Le fotografie sono ridondanti fra loro: ne bastano trenta per poter
      tornare indietro di un mese. I file dei movimenti non si toccano MAI. */
-  async _rotateStates(dir) {
-    const nomi = [];
+  async _rotateStates(dir: FileSystemDirectoryHandle): Promise<number> {
+    const nomi: string[] = [];
     for await (const [name, h] of dir.entries()) {
       if (h.kind === 'file' && /^wm-stato-\d{4}-\d{2}-\d{2}\.json$/.test(name)) nomi.push(name);
     }
@@ -229,14 +294,14 @@ const Vault = {
     return Math.max(0, nomi.length - this.STATE_KEEP);
   },
 
-  async lastBackupTs() {
+  async lastBackupTs(): Promise<Istante | null> {
     try {
-      const row = await Persistence.get('meta', this.LAST_KEY);
+      const row = await Persistence.get<{ value?: Istante }>('meta', this.LAST_KEY);
       return row?.value || null;
     } catch { return null; }
   },
 
-  async isDue() {
+  async isDue(): Promise<boolean> {
     const last = await this.lastBackupTs();
     return !last || (Date.now() - last) >= this.INTERVAL_MS;
   },
@@ -254,18 +319,18 @@ const Vault = {
   /* Ricompone un pacchetto di import completo dalla cartella: fotografia
      piu' scelta dei mesi. E' l'operazione inversa di runBackup, e l'unica
      ragione per cui il backup ha senso di esistere. */
-  async buildRestorePackage({ statoFile = null, onProgress = null } = {}) {
+  async buildRestorePackage({ statoFile = null, onProgress = null }: { statoFile?: string | null, onProgress?: ((testo: string) => void) | null } = {}): Promise<PacchettoDati> {
     const dir = await this.loadHandle();
     if (!dir) throw new Error('Nessuna cartella di backup configurata.');
-    const say = (t) => onProgress?.(t);
+    const say = (t: string) => onProgress?.(t);
 
-    let nome = statoFile;
+    let nome: string | undefined | null = statoFile;
     if (!nome) {
       const manifest = await this.readManifest();
       nome = manifest?.stato_file;
     }
     if (!nome) {
-      const nomi = [];
+      const nomi: string[] = [];
       for await (const [n, h] of dir.entries()) {
         if (h.kind === 'file' && /^wm-stato-\d{4}-\d{2}-\d{2}\.json$/.test(n)) nomi.push(n);
       }
@@ -276,14 +341,14 @@ const Vault = {
 
     say(`Lettura di ${nome}…`);
     const fh = await dir.getFileHandle(nome);
-    const data = JSON.parse(await (await fh.getFile()).text());
+    const data: PacchettoDati = JSON.parse(await (await fh.getFile()).text());
 
     say('Lettura dei movimenti…');
-    const mov = [];
+    const mov: Movimento[] = [];
     let fileMensili = 0;
     try {
       const movDir = await dir.getDirectoryHandle(this.MOV_SUBDIR);
-      const files = [];
+      const files: string[] = [];
       for await (const [n, h] of movDir.entries()) {
         if (h.kind === 'file' && /^wm-mov-\d{4}-\d{2}\.jsonl$/.test(n)) files.push(n);
       }
@@ -313,16 +378,16 @@ const Vault = {
       say('Nessun file mensile trovato: il registro esistente NON verrà toccato.');
     }
     data._counts = Store._countsOf(data);
-    if (fileMensili === 0) delete data._counts.mov_log;
+    if (fileMensili === 0) delete data._counts!.mov_log;
     data._movFileMensili = fileMensili;
     say(`Pacchetto pronto: ${mov.length.toLocaleString('it-IT')} movimenti da ${fileMensili} file mensili.`);
     return data;
   },
 
-  async listStates() {
+  async listStates(): Promise<{ name: string, size: number, modified: number }[]> {
     const dir = await this.loadHandle();
     if (!dir) return [];
-    const out = [];
+    const out: { name: string, size: number, modified: number }[] = [];
     for await (const [name, h] of dir.entries()) {
       if (h.kind === 'file' && /^wm-stato-\d{4}-\d{2}-\d{2}\.json$/.test(name)) {
         const f = await h.getFile();

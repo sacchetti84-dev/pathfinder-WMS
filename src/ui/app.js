@@ -13,7 +13,7 @@ import { Dialog } from './dialog.js';
 import { Tabs } from './tabs.js';
 import { Store } from '../core/store.js';
 import { PickRoute } from '../modules/pickRoute.js';
-import { Vault } from '../modules/vault.js';
+import { Vault } from '../modules/vault';
 
 const App = {
   currentView: 'dashboard',
