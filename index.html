@@ -108,6 +108,9 @@
         <button class="nav-btn active" data-view="dashboard" onclick="App.switchView('dashboard')" title="Dashboard"><span>🏠</span><span class="nav-lbl">Dashboard</span></button>
         <button class="nav-btn" data-view="map" onclick="App.switchView('map')" title="Mappa"><span>🗺</span><span class="nav-lbl">Mappa</span></button>
         <button class="nav-btn" data-view="movimenta" onclick="App.switchView('movimenta')" title="Movimenta"><span>📦</span><span class="nav-lbl">Movimenta</span></button>
+        <!-- 1.4.1 — compare solo a interruttore `feature.tasks` acceso: la classe
+             `hidden` la toglie App._syncFeatureNav(), non il foglio di stile. -->
+        <button class="nav-btn hidden" data-feature="tasks" data-view="tasks" onclick="App.switchView('tasks')" title="Attività"><span>📋</span><span class="nav-lbl">Attività</span></button>
         <button class="nav-btn" data-view="archive" onclick="App.switchView('archive')" title="Archivio documenti"><span>🗂</span><span class="nav-lbl">Archivio</span></button>
       </nav>
       <!-- v2.7.0 [G2] — Ricerca in barra: il campo resta, i risultati scendono -->
@@ -154,6 +157,7 @@
       <div class="map-container" id="mapContainer"></div>
     </section>
     <section class="view hidden" id="viewMovimenta"></section>
+    <section class="view hidden" id="viewTasks"></section>
     <section class="view hidden" id="viewArchive"></section>
     <section class="view hidden" id="viewConfig"></section>
   </main>
@@ -163,6 +167,7 @@
     <button class="mob-tab active" data-view="dashboard" onclick="App.switchView('dashboard')"><span>🏠</span>Dash</button>
     <button class="mob-tab" data-view="map" onclick="App.switchView('map')"><span>🗺</span>Mappa</button>
     <button class="mob-tab" data-view="movimenta" onclick="App.switchView('movimenta')"><span>📦</span>Movim.</button>
+    <button class="mob-tab hidden" data-feature="tasks" data-view="tasks" onclick="App.switchView('tasks')"><span>📋</span>Attività</button>
     <button class="mob-tab" data-view="archive" onclick="App.switchView('archive')"><span>🗂</span>Archivio</button>
     <button class="mob-tab" data-view="config" onclick="App.switchView('config')"><span>⚙</span>Conf.</button>
   </nav>

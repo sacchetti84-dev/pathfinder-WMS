@@ -20,6 +20,11 @@ import {
   leggiClasseTemperatura, etichettaAllergene, etichettaClasse,
   etichettaCertificazione, fogliValoriAmmessi,
 } from '../modules/anagrafica';
+import {
+  TIPI_COMPITO, PRIORITA_NORMALE, PRIORITA_MAX_OPERATORE,
+  etichettaTipo, iconaTipo, etichettaPriorita, etichettaStato,
+  eAperto, misure, inRitardo, durataUmana,
+} from '../modules/compiti';
 
 const App = {
   currentView: 'dashboard',
@@ -124,6 +129,7 @@ const App = {
     /* Si ridisegna solo cio' che si sta guardando. Un ridisegno completo
        durante una scansione sposterebbe il fuoco dal campo. */
     if (this.currentView === 'dashboard') this.renderDashboard();
+    else if (this.currentView === 'tasks') this.renderTasks();
     else if (this.currentView === 'map') { this.renderMap(); this.renderSidebar(); }
     else if (this.currentView === 'config') this.renderConfig();
     else if (this.currentView === 'archive') this.renderArchive();   // v1.1.0 [N5]
@@ -721,10 +727,11 @@ const App = {
     document.querySelectorAll('.nav-btn, .mob-tab, .hdr-icon-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.view === view);
     });
-    for (const id of ['Dashboard','Map','Movimenta','Archive','Config']) {
+    for (const id of ['Dashboard','Map','Movimenta','Tasks','Archive','Config']) {
       document.getElementById('view' + id)?.classList.toggle('hidden', view !== id.toLowerCase());
     }
     if (view === 'dashboard') this.renderDashboard();
+    else if (view === 'tasks') this.renderTasks();
     else if (view === 'movimenta') this.renderMovimenta();
     else if (view === 'archive') this.renderArchive();
     else if (view === 'config') this.renderConfig();
@@ -901,6 +908,8 @@ const App = {
       ${this._renderIntegrityAlertsSection()}
 
       ${this._renderPickupAlertsSection()}
+
+      ${Store.isFeatureOn('tasks') ? `<div class="panels-row">${this._renderTasksPanel()}</div>` : ''}
 
       <div class="panels-row">
         <!-- Andamento movimenti: serie temporale a curva morbida -->
@@ -1730,6 +1739,337 @@ const App = {
       wrap.innerHTML = '<div class="empty-state" style="padding:2rem"><p>Errore nella lettura dell’archivio</p></div>';
       if (status) status.textContent = `Errore: ${err.message || 'sconosciuto'}`;
     }
+  },
+
+  /* ═══ ATTIVITA' — 1.4.1 ════════════════════════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Nessuna delle otto attivita' nasce qui: il magazzino le fa gia' tutte.
+     Qui nascono la RICHIESTA, la CODA e la MISURA — le tre cose che oggi
+     vivono a voce, e che a voce non si contano.
+
+     La regola sta in `modules/compiti.ts`, che e' puro e collaudato; questa
+     e' la sua faccia, e non decide niente per conto suo. */
+
+  _taskAmbito: 'aperte',        // 'aperte' | 'mie' | 'tutte'
+  _taskTipo: '',
+
+  renderTasks() {
+    const el = document.getElementById('viewTasks');
+    if (!el) return;
+    if (!Store.isFeatureOn('tasks')) {
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div>
+        <p>Lo schedulatore di attività è spento.</p>
+        <button class="btn btn-sm btn-primary" style="margin-top:0.5rem"
+          onclick="App._configTab='features';App.switchView('config')">Vai agli interruttori</button></div>`;
+      return;
+    }
+    const io = Store.getCurrentIdentity();
+    const r = Store.getTasksSummary();
+    const coda = Store.getTaskQueue();
+    const elenco = this._taskAmbito === 'tutte'
+      ? [...coda, ...Store.getTasks().filter(t => !eAperto(t))]
+      : this._taskAmbito === 'mie'
+        ? coda.filter(t => t.assigned_to === io.initials)
+        : coda;
+    const righe = this._taskTipo ? elenco.filter(t => t.type === this._taskTipo) : elenco;
+
+    const opzioniTipo = Object.entries(TIPI_COMPITO).map(([k, v]) =>
+      `<option value="${k}" ${this._taskTipo === k ? 'selected' : ''}>${v.icona} ${this._esc(v.label)}</option>`).join('');
+
+    el.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem">
+        <div>
+          <h1 class="dash-h1">📋 Attività</h1>
+          <p class="dash-sub">Cosa c'è da fare, in che ordine, e da quanto aspetta</p>
+        </div>
+        <button class="btn btn-primary" onclick="App.showNewTaskModal()">+ Nuova attività</button>
+      </div>
+
+      ${this._renderTaskKpi(r)}
+
+      <div class="card" style="margin-bottom:0.8rem">
+        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
+          <div class="config-tabs" style="margin:0">
+            ${['aperte', 'mie', 'tutte'].map(a => `<button class="config-tab ${this._taskAmbito === a ? 'active' : ''}"
+              onclick="App._taskAmbito='${a}';App.renderTasks()">${a === 'aperte' ? 'In coda' : a === 'mie' ? `Le mie${io.initials ? ' (' + this._esc(io.initials) + ')' : ''}` : 'Tutte, anche chiuse'}</button>`).join('')}
+          </div>
+          <select class="select" style="max-width:230px" onchange="App._taskTipo=this.value;App.renderTasks()">
+            <option value="">Tutti i tipi</option>${opzioniTipo}
+          </select>
+          <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">${righe.length} attività</span>
+        </div>
+      </div>
+
+      ${righe.length ? this._renderTaskTable(righe, io) : `<div class="empty-state"><div class="empty-icon">✓</div>
+        <p>${this._taskAmbito === 'mie' ? 'Non hai attività in carico.' : 'Nessuna attività in coda.'}</p></div>`}`;
+  },
+
+  /* Le due misure che il piano chiede — quanto sta in coda, quanto dura —
+     piu' le due che dicono se la coda si sta ingrossando: gli urgenti e i
+     ritardi. «Il piu' vecchio» sta qui e non in fondo perche' e' la riga
+     che avvisa che lo schedulatore sta diventando una lista che invecchia. */
+  _renderTaskKpi(r) {
+    const vecchio = r.piuVecchio;
+    return `<div class="kpi-grid">
+      <div class="kpi-card">
+        <div class="kpi-label">Attività aperte</div>
+        <div class="kpi-value">${r.aperti}</div>
+        <div class="kpi-sub">${r.perStato.requested} in coda · ${r.perStato.assigned} assegnate · ${r.perStato.in_progress} in corso</div>
+      </div>
+      <div class="kpi-card ${r.urgenti ? 'k-danger' : ''}">
+        <div class="kpi-label">Urgenti aperte</div>
+        <div class="kpi-value">${r.urgenti}</div>
+        <div class="kpi-sub">${r.inRitardo} oltre la scadenza</div>
+      </div>
+      <div class="kpi-card k-warning">
+        <div class="kpi-label">Attesa media in coda</div>
+        <div class="kpi-value" style="font-size:1.4rem">${durataUmana(r.attesaMedia)}</div>
+        <div class="kpi-sub">${r.conclusi ? `su ${r.conclusi} attività conclus${r.conclusi === 1 ? 'a' : 'e'}` : 'nessuna attività conclusa finora'}</div>
+      </div>
+      <div class="kpi-card k-success">
+        <div class="kpi-label">Durata media</div>
+        <div class="kpi-value" style="font-size:1.4rem">${durataUmana(r.durataMedia)}</div>
+        <div class="kpi-sub">dalla presa in carico alla chiusura</div>
+      </div>
+      ${vecchio ? `<div class="kpi-card k-purple">
+        <div class="kpi-label">In coda da più tempo</div>
+        <div class="kpi-value" style="font-size:1.4rem">${durataUmana(r.attesaMassima)}</div>
+        <div class="kpi-sub">${iconaTipo(vecchio.type)} ${this._esc(etichettaTipo(vecchio.type))} · ${this._esc(vecchio.requested_by)}</div>
+      </div>` : ''}
+    </div>`;
+  },
+
+  _renderTaskTable(righe, io) {
+    const leader = io.role === 'leader';
+    const corpo = righe.map(t => {
+      const m = misure(t);
+      const tardi = inRitardo(t);
+      const aperto = eAperto(t);
+      const azioni = [];
+      if (aperto) {
+        if (t.status === 'requested') azioni.push(`<button class="btn btn-sm btn-accent" onclick="App.doTakeTask('${t.task_id}')">Prendo io</button>`);
+        if (t.status !== 'in_progress') azioni.push(`<button class="btn btn-sm" onclick="App.doStartTask('${t.task_id}')">▶ Avvia</button>`);
+        if (t.status === 'in_progress') azioni.push(`<button class="btn btn-sm btn-primary" onclick="App.doCompleteTask('${t.task_id}')">✓ Fatta</button>`);
+        azioni.push(`<button class="btn btn-sm btn-ghost" style="color:var(--sx-danger)" onclick="App.doCancelTask('${t.task_id}')" title="Annulla, con motivo">✕</button>`);
+      }
+      const prio = aperto && leader
+        ? `<select class="select" style="width:104px;padding:0.15rem 0.3rem" onchange="App.doSetTaskPriority('${t.task_id}',this.value)">
+             ${[4, 3, 2, 1].map(p => `<option value="${p}" ${t.priority === p ? 'selected' : ''}>${etichettaPriorita(p)}</option>`).join('')}
+           </select>`
+        : `<span class="badge ${this._taskPrioClasse(t.priority)}">${etichettaPriorita(t.priority)}</span>`;
+      return `<tr${tardi ? ' style="background:var(--sx-danger-soft)"' : ''}>
+        <td>${prio}</td>
+        <td style="white-space:nowrap"><span title="${this._esc(etichettaTipo(t.type))}">${iconaTipo(t.type)}</span> ${this._esc(etichettaTipo(t.type))}</td>
+        <td style="min-width:240px">${this._renderTaskPayload(t)}</td>
+        <td><span class="badge ${this._taskStatoClasse(t.status)}">${this._esc(etichettaStato(t.status))}</span></td>
+        <td class="mono">${this._esc(t.assigned_to || '—')}</td>
+        <td class="mono" style="white-space:nowrap">${this._esc(t.requested_by)}<br>
+            <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${new Date(t.requested_at).toLocaleString('it-IT')}</span></td>
+        <td style="white-space:nowrap">${t.due_at
+            ? `${tardi ? '⏰ ' : ''}${new Date(t.due_at).toLocaleString('it-IT')}`
+            : '<span style="color:var(--sx-text-muted)">—</span>'}</td>
+        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-body-small-size)">
+            coda ${durataUmana(m.attesa)}${m.durata !== null ? `<br>lavoro ${durataUmana(m.durata)}` : ''}</td>
+        <td style="min-width:190px"><div style="display:flex;gap:0.25rem;flex-wrap:wrap">${azioni.join('')}</div></td>
+      </tr>`;
+    }).join('');
+
+    /* La colonna «Cosa» e' l'unica che deve poter respirare: le altre sono
+       larghezze fisse, e senza un minimo qui il payload esce una parola per
+       riga. La tabella scorre in orizzontale invece di comprimersi. */
+    return `<div class="card" style="overflow-x:auto">
+      <table class="sx-table" style="min-width:1080px">
+        <thead><tr>
+          <th style="width:110px">Priorità</th><th>Tipo</th><th>Cosa</th><th style="width:110px">Stato</th>
+          <th style="width:70px">In carico</th><th style="width:130px">Richiesta</th>
+          <th style="width:130px">Scadenza</th><th style="width:110px">Tempi</th><th style="width:200px">Azioni</th>
+        </tr></thead>
+        <tbody>${corpo}</tbody>
+      </table>
+    </div>`;
+  },
+
+  _taskPrioClasse(p) { return p >= 4 ? 'badge-red' : p === 3 ? 'badge-amber' : p === 1 ? 'badge-muted' : 'badge-blue'; },
+  _taskStatoClasse(s) {
+    return s === 'in_progress' ? 'badge-amber' : s === 'done' ? 'badge-green'
+         : s === 'cancelled' ? 'badge-muted' : s === 'assigned' ? 'badge-teal' : 'badge-blue';
+  },
+
+  /* Il payload non ha uno schema, e non deve averlo: e' quello che rende
+     utile lo stesso compito a otto attivita' diverse. Qui si mostrano i
+     campi che si riconoscono, e il resto si legge nella nota. */
+  _renderTaskPayload(t) {
+    const p = (t.payload && typeof t.payload === 'object') ? t.payload : {};
+    const pezzi = [];
+    if (p.article_code) pezzi.push(`<span class="mono">${this._esc(p.article_code)}</span>`);
+    if (p.lot_code) pezzi.push(`lotto <span class="mono">${this._esc(p.lot_code)}</span>`);
+    if (p.qty) pezzi.push(`${this._esc(String(p.qty))} coll.`);
+    if (p.from) pezzi.push(`da <span class="mono">${this._esc(p.from)}</span>`);
+    if (p.to) pezzi.push(`a <span class="mono">${this._esc(p.to)}</span>`);
+    const testa = pezzi.length ? pezzi.join(' · ') : '<span style="color:var(--sx-text-muted)">—</span>';
+    const note = t.note ? `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">${this._esc(t.note)}</div>` : '';
+    const chiuso = t.cancel_reason ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-danger)">Annullata: ${this._esc(t.cancel_reason)}</div>` : '';
+    return testa + note + chiuso;
+  },
+
+  showNewTaskModal() {
+    const io = Store.getCurrentIdentity();
+    const leader = io.role === 'leader';
+    const operatori = Store.getOperators({ activeOnly: true });
+    this.showModal('📋 Nuova attività', `
+      <div class="form-row" style="margin-bottom:0.6rem">
+        <div class="form-group"><label>Tipo di attività <span class="req">*</span></label>
+          <select class="select" id="ntType">
+            ${Object.entries(TIPI_COMPITO).map(([k, v]) => `<option value="${k}">${v.icona} ${this._esc(v.label)}</option>`).join('')}
+          </select></div>
+        <div class="form-group"><label>Priorità</label>
+          <select class="select" id="ntPriority">
+            ${[1, 2, 3, 4].map(p => `<option value="${p}" ${p === PRIORITA_NORMALE ? 'selected' : ''} ${p > PRIORITA_MAX_OPERATORE && !leader ? 'disabled' : ''}>${etichettaPriorita(p)}${p > PRIORITA_MAX_OPERATORE && !leader ? ' — solo Team Leader' : ''}</option>`).join('')}
+          </select>
+          ${leader ? '' : '<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.2rem">Oltre Normale serve un Team Leader: se tutto è urgente, la coda torna a essere l\'ordine in cui si è chiesto.</div>'}
+        </div>
+      </div>
+      <div class="form-row" style="margin-bottom:0.6rem">
+        <div class="form-group"><label>Articolo</label>
+          <input class="input input-mono" id="ntArticle" maxlength="40" style="text-transform:uppercase" placeholder="Codice, se pertinente"></div>
+        <div class="form-group"><label>Lotto</label>
+          <input class="input input-mono" id="ntLot" maxlength="40" style="text-transform:uppercase"></div>
+        <div class="form-group" style="max-width:110px"><label>Colli</label>
+          <input class="input input-mono" id="ntQty" type="number" min="1" step="1"></div>
+      </div>
+      <div class="form-row" style="margin-bottom:0.6rem">
+        <div class="form-group"><label>Da (ubicazione)</label>
+          <input class="input input-mono" id="ntFrom" maxlength="30" style="text-transform:uppercase"></div>
+        <div class="form-group"><label>A (ubicazione)</label>
+          <input class="input input-mono" id="ntTo" maxlength="30" style="text-transform:uppercase"></div>
+      </div>
+      <div class="form-row" style="margin-bottom:0.6rem">
+        <div class="form-group"><label>Scadenza</label>
+          <input class="input" id="ntDue" type="datetime-local"></div>
+        <div class="form-group"><label>Assegna a</label>
+          <select class="select" id="ntAssign">
+            <option value="">Lascia in coda — la prende chi può</option>
+            ${operatori.map(o => `<option value="${this._esc(o.initials)}">${this._esc(o.initials)} — ${this._esc([o.first_name, o.last_name].filter(Boolean).join(' ') || 'dati incompleti')}</option>`).join('')}
+          </select></div>
+      </div>
+      <div class="form-group" style="margin-bottom:0.4rem"><label>Perché — lo legge chi la prende</label>
+        <input class="input" id="ntNote" maxlength="200" placeholder="Es: il cliente ritira giovedì mattina"></div>
+      <div id="ntError" class="gate-error"></div>`,
+      `<button class="btn" onclick="App.closeModal()">Annulla</button>
+       <button class="btn btn-primary" onclick="App.doCreateTask()">Apri l'attività</button>`);
+  },
+
+  async doCreateTask() {
+    const err = (m) => { const e = document.getElementById('ntError'); if (e) e.textContent = m; };
+    const val = (id) => (document.getElementById(id)?.value || '').trim();
+    const su = (id) => val(id).toUpperCase();
+    const payload = {};
+    if (su('ntArticle')) payload.article_code = su('ntArticle');
+    if (su('ntLot')) payload.lot_code = su('ntLot');
+    if (val('ntQty')) payload.qty = parseInt(val('ntQty'), 10);
+    if (su('ntFrom')) payload.from = su('ntFrom');
+    if (su('ntTo')) payload.to = su('ntTo');
+    const dovuto = val('ntDue');
+    try {
+      const rec = await Store.createTask({
+        type: val('ntType'),
+        priority: parseInt(val('ntPriority'), 10),
+        requested_by: Store.getCurrentIdentity().initials,
+        assigned_to: su('ntAssign') || null,
+        due_at: dovuto ? new Date(dovuto).getTime() : null,
+        note: val('ntNote'),
+        payload: Object.keys(payload).length ? payload : null,
+      });
+      this.closeModal();
+      this.toast(`📋 ${etichettaTipo(rec.type)} in coda — ${rec.task_id}`, 'success');
+      this.renderTasks();
+      if (this.currentView === 'dashboard') this.renderDashboard();
+    } catch (e) {
+      err(e.message);
+    }
+  },
+
+  /* I quattro gesti della coda. Uno per volta, e ognuno rilegge la vista:
+     due terminali sulla stessa attivita' sono la norma, non l'eccezione. */
+  async _taskAction(fn, messaggio) {
+    try {
+      await fn();
+      if (messaggio) this.toast(messaggio, 'success');
+      this.renderTasks();
+      if (this.currentView === 'dashboard') this.renderDashboard();
+    } catch (err) {
+      this.toast(err.message, 'error');
+    }
+  },
+
+  doTakeTask(taskId) {
+    const io = Store.getCurrentIdentity();
+    if (!io.initials) return this.toast('Identificati prima di prendere un\'attività', 'warning');
+    return this._taskAction(() => Store.assignTask(taskId, io.initials), `Attività in carico a ${io.initials}`);
+  },
+
+  doStartTask(taskId) {
+    return this._taskAction(() => Store.startTask(taskId), '▶ Attività avviata');
+  },
+
+  doCompleteTask(taskId) {
+    return this._taskAction(() => Store.completeTask(taskId), '✓ Attività completata');
+  },
+
+  async doCancelTask(taskId) {
+    const t = Store.getTask(taskId);
+    if (!t) return;
+    const motivo = await Dialog.reason({
+      title: `Annullare ${etichettaTipo(t.type).toLowerCase()}?`,
+      message: 'Un\'attività annullata resta nello storico con il suo motivo: fra un mese deve essere chiaro se era sbagliata o solo scomoda.',
+      placeholder: 'Perché non si fa più…',
+      /* Non «Annulla»: accanto al pulsante di uscita del dialogo sarebbero
+         due Annulla che fanno il contrario l'uno dell'altro. */
+      confirmLabel: '✕ Sì, annullala',
+      danger: true,
+    });
+    if (!motivo) return;
+    return this._taskAction(() => Store.cancelTask(taskId, motivo), 'Attività annullata');
+  },
+
+  doSetTaskPriority(taskId, priorita) {
+    return this._taskAction(() => Store.setTaskPriority(taskId, parseInt(priorita, 10)), 'Priorità aggiornata');
+  },
+
+  /* IL RIQUADRO IN DASHBOARD, dal primo giorno e non dalla versione dopo.
+     PIANO §4.1: «uno schedulatore che nessuno chiude e' una lista che
+     invecchia». Chi non apre la voce Attivita' deve comunque vedere che c'e'
+     qualcosa che aspetta da tre giorni. */
+  _renderTasksPanel() {
+    if (!Store.isFeatureOn('tasks')) return '';
+    const r = Store.getTasksSummary();
+    const coda = Store.getTaskQueue().slice(0, 6);
+    const righe = coda.map(t => {
+      const m = misure(t);
+      return `<tr${inRitardo(t) ? ' style="background:var(--sx-danger-soft)"' : ''}>
+        <td><span class="badge ${this._taskPrioClasse(t.priority)}">${etichettaPriorita(t.priority)}</span></td>
+        <td>${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</td>
+        <td class="mono">${this._esc(t.assigned_to || '—')}</td>
+        <td style="white-space:nowrap">${durataUmana(m.attesa)}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="card">
+      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+        <span>📋 Attività aperte</span>
+        <button class="btn btn-sm" onclick="App.switchView('tasks')">Apri la coda</button>
+      </div>
+      ${r.aperti ? `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.4rem">
+          <strong>${r.aperti}</strong> apert${r.aperti === 1 ? 'a' : 'e'}${r.urgenti ? ` · <strong style="color:var(--sx-danger)">${r.urgenti} urgent${r.urgenti === 1 ? 'e' : 'i'}</strong>` : ''}${r.inRitardo ? ` · ${r.inRitardo} oltre la scadenza` : ''}
+          ${r.attesaMassima !== null ? ` · la più vecchia aspetta da <strong>${durataUmana(r.attesaMassima)}</strong>` : ''}
+        </div>
+        <div style="overflow-x:auto"><table class="sx-table">
+          <thead><tr><th style="width:90px">Priorità</th><th>Tipo</th><th style="width:70px">In carico</th><th style="width:90px">In coda da</th></tr></thead>
+          <tbody>${righe}</tbody>
+        </table></div>
+        ${r.aperti > coda.length ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.35rem">altre ${r.aperti - coda.length} in coda</div>` : ''}`
+      : '<div class="ct-empty">Nessuna attività aperta.</div>'}
+    </div>`;
   },
 
   // ═══ MAPPA ═══
