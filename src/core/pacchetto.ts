@@ -67,6 +67,22 @@ export function componi(
   movLog: Movimento[],
   { includeMovLog = true }: { includeMovLog?: boolean } = {},
 ): Pacchetto {
+  /* IL PACCHETTO È UNA FOTOGRAFIA, NON UNA FINESTRA.
+     Fino alla 1.4.0 qui si scriveva `inventory: C.inventory` — cioè si
+     metteva nel pacchetto il RIFERIMENTO all'array della cache, non una
+     copia. Finché fra l'export e la serializzazione non succede niente
+     funziona; ma `Vault.runBackup` fra i due legge tutto il registro
+     movimenti, che su un magazzino vero è un'attesa lunga, e un backup si
+     fa proprio mentre qualcuno sta lavorando.
+
+     Il guaio non è che il file contenga una riga in più: è che `_counts`
+     viene calcolato SUBITO e il contenuto viene letto DOPO. I due divergono,
+     e il pacchetto fallisce la propria verifica — cioè il controllo che
+     esiste per accorgersi di un file troncato griderebbe al lupo su un
+     backup sano, che è il modo più veloce di insegnare a ignorarlo.
+
+     Una copia dell'elenco basta: `_counts` misura quante righe ci sono, e
+     l'appartenenza è ciò che si congela qui. */
   const data: Pacchetto = {
     _format: FORMATO,
     _author: 'Andrea Sacchetti',
@@ -75,24 +91,24 @@ export function componi(
     /* `zones` è riappeso in cache, non è una colonna: esce di qui, e la
        collezione `zones` viaggia per conto suo. */
     sites: C.sites.map(s => { const { zones, ...resto } = s; return resto; }),
-    zones: C.zones,
-    articles: C.articles,
-    inventory: C.inventory,
+    zones: [...C.zones],
+    articles: [...C.articles],
+    inventory: [...C.inventory],
     loc_status: [...C.locStatus.values()],
     disabled: [...C.disabled].map(code => ({ location_code: code })),
-    mov_log: movLog,
-    quarantine: C.quarantine,
-    pending_outbound: C.pendingOut,
-    pick_archive: C.pickArchive,
-    disposal_archive: C.disposalArchive,
+    mov_log: [...movLog],
+    quarantine: [...C.quarantine],
+    pending_outbound: [...C.pendingOut],
+    pick_archive: [...C.pickArchive],
+    disposal_archive: [...C.disposalArchive],
     doc_config: C.meta?.docConfig || null,
-    operators: C.operators,
+    operators: [...C.operators],
     /* 1.4.0 — vuote finché non si accende l'interruttore che le riguarda. */
-    lots: C.lots,
-    udc: C.udc,
-    tasks: C.tasks,
-    wip: C.wip,
-    storage_rules: C.storageRules,
+    lots: [...C.lots],
+    udc: [...C.udc],
+    tasks: [...C.tasks],
+    wip: [...C.wip],
+    storage_rules: [...C.storageRules],
   };
 
   /* Senza registro il campo SPARISCE, non resta a zero: un pacchetto che

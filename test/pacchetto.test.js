@@ -228,3 +228,41 @@ describe('andata e ritorno', () => {
     expect(righeDaScrivere('udc', p.udc)[0].udc_id).toBe('UDC-1');
   });
 });
+
+/* 1.4.0 — Il pacchetto è una FOTOGRAFIA, non una finestra sulla cache.
+   Fino a ieri conteneva il riferimento agli array veri: bastava che fra
+   l'export e la serializzazione qualcuno posizionasse un collo perché il file
+   cambiasse sotto i piedi di chi lo stava scrivendo. Il difetto è stato
+   trovato convertendo `store.js`, provando un ripristino sul dev server. */
+describe('il pacchetto non cambia sotto i piedi', () => {
+  it('non tiene i riferimenti agli elenchi della cache', () => {
+    const C = cache({ inventory: [{ _id: 1, location_code: 'DP-A-01', item_key: '700|L1', article_code: '700', lot_code: 'L1', qty: 1 }] });
+    const p = componi(C, []);
+    expect(p.inventory).not.toBe(C.inventory);
+    expect(p.articles).not.toBe(C.articles);
+    expect(p.udc).not.toBe(C.udc);
+  });
+
+  /* Il guaio vero non è la riga in più: è che `_counts` viene calcolato
+     subito e il contenuto letto dopo. Se divergono, il pacchetto fallisce la
+     PROPRIA verifica — e un controllo che grida al lupo su un backup sano è
+     un controllo che si impara a ignorare. */
+  it('una scrittura dopo l\'export non entra nel pacchetto né sfalsa i conteggi', () => {
+    const C = cache({ inventory: [{ _id: 1, location_code: 'DP-A-01', item_key: '700|L1', article_code: '700', lot_code: 'L1', qty: 1 }] });
+    const p = componi(C, []);
+
+    C.inventory.push({ _id: 2, location_code: 'DP-B-02', item_key: '700|L2', article_code: '700', lot_code: 'L2', qty: 99 });
+
+    expect(p.inventory).toHaveLength(1);
+    expect(p._counts.inventory).toBe(1);
+    expect(verifica(p).ok).toBe(true);
+  });
+
+  it('vale anche per il registro dei movimenti', () => {
+    const movimenti = [mov(100)];
+    const p = componi(cache(), movimenti);
+    movimenti.push(mov(200));
+    expect(p.mov_log).toHaveLength(1);
+    expect(p._counts.mov_log).toBe(1);
+  });
+});

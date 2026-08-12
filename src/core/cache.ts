@@ -167,6 +167,27 @@ export function indiciVuoti(): Indici {
   return { invByLoc: new Map(), invByKey: new Map(), artByCode: new Map() };
 }
 
+/* UNA SOLA DEFINIZIONE DELLA CACHE VUOTA.
+   La usano `Store` all'avvio e i tre file di collaudo che prima se la
+   riscrivevano ognuno per conto suo. Non è pulizia: una cache di prova che
+   diverge da quella vera è un collaudo che passa su un oggetto che in
+   produzione non esiste.
+
+   Serve anche a dare un TIPO al campo `_cache` di `Store`, che è un oggetto
+   letterale: senza, `sites: []` si deduce `never[]` e ogni lettura di quel
+   campo diventa un errore. */
+export function cacheVuota(): Cache {
+  return {
+    sites: [], zones: [], articles: [], inventory: [],
+    locStatus: new Map(), disabled: new Set(),
+    movLog: [], quarantine: [], pendingOut: [],
+    pickSession: null, pickArchive: [], disposalArchive: [], operators: [],
+    movLogTotal: 0,
+    lots: [], udc: [], tasks: [], wip: [], storageRules: [],
+    meta: metaVuota(),
+  };
+}
+
 export function metaVuota(): MetaCache {
   return { lastModified: null, unsavedChanges: false, lastAutoBackup: null, features: {} };
 }

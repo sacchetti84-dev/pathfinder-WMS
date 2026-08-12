@@ -1,15 +1,11 @@
-import { Store as StoreJS } from '../core/store.js';
-import type { Coordinate, Geometria, Giacenza, Sito } from '../types/entita.js';
+/* Il ponte verso Store è caduto con la 1.4.0: `core/store.ts` è TypeScript,
+   quindi i suoi tipi arrivano fin qui da soli. Stava qui perché senza una
+   dichiarazione a mano il compilatore deduceva `never[]` da un file `.js`
+   non controllato — ed era una promessa scritta a mano, che nessuno
+   verificava contro il codice vero. */
+import { Store } from '../core/store';
+import type { Coordinate, Geometria, Giacenza } from '../types/entita.js';
 import type { RigaODP } from './odpParser';
-
-const Store = StoreJS as unknown as {
-  getSites(): Sito[];
-  getItemByKey(itemKey: string): Giacenza[];
-  getLotsForArticle(articleCode: string): string[];
-  isItemQuarantined(itemKey: string, locationCode?: string | null): boolean;
-  getAvailableQty(locationCode: string, itemKey: string, excludeDocId?: string | null): number;
-  buildLocationGeometry(): Geometria;
-};
 
 /** Perché una riga non è percorribile, o perché lo è ma con un avvertimento. */
 export type MotivoFuoriPercorso =

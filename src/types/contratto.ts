@@ -1,5 +1,10 @@
 import type { Collezione } from './collezioni.js';
-import type { Istante } from './entita.js';
+import type {
+  Istante, Sito, Zona, Articolo, Giacenza, StatoUbicazione,
+  UbicazioneDisattivata, Movimento, Quarantena, DocumentoUscita,
+  SessionePrelievo, ReportPrelievo, VerbaleSmaltimento, Operatore, Meta,
+  Lotto, Udc, Compito, ContoWip, RegolaStoccaggio,
+} from './entita.js';
 
 /* ── Tipi di movimento ───────────────────────────────────────────── */
 
@@ -45,6 +50,44 @@ export interface Capacita {
   supportsRemoteOps?: boolean;
 }
 
+/* ── L'idratazione ───────────────────────────────────────────────── */
+
+/* CIÒ CHE I DUE ADAPTER RESTITUISCONO ALL'AVVIO, e che deve essere la stessa
+   cosa: Store non deve accorgersi se dietro c'è IndexedDB o il servizio.
+   Era dichiarato `Record<string, unknown>` — cioè non dichiarato — e la
+   conversione di `store.js` ha reso evidente quanto costava: venticinque
+   letture che il compilatore non poteva controllare.
+
+   I nomi non sono quelli delle collezioni: sono quelli che `Store._cache`
+   usa da sempre, e cambiarli sarebbe un lavoro senza guadagno. */
+export interface CaricamentoIniziale {
+  sites: Sito[];
+  zones: Zona[];
+  articles: Articolo[];
+  inventory: Giacenza[];
+  locStatus: StatoUbicazione[];
+  disabled: UbicazioneDisattivata[];
+  /** Una FINESTRA del registro, non il registro: vedi `MOVLOG_WINDOW_DAYS`. */
+  movLog: Movimento[];
+  /** Quanti ce ne sono davvero a database, finestra o non finestra. */
+  movLogTotal: number;
+  quarantine: Quarantena[];
+  pendingOut: DocumentoUscita[];
+  meta: Meta[];
+  /** Un elenco, non una sola: se ne trova più d'una vince la più recente. */
+  pickSession: SessionePrelievo[];
+  pickArchive: ReportPrelievo[];
+  disposalArchive: VerbaleSmaltimento[];
+  operators: Operatore[];
+  /* 1.4 — facoltative perché un servizio 1.2 non manda queste chiavi, e il
+     ritorno indietro deve restare possibile senza toccare il client. */
+  lots?: Lotto[];
+  udc?: Udc[];
+  tasks?: Compito[];
+  wip?: ContoWip[];
+  storageRules?: RegolaStoccaggio[];
+}
+
 /* ── Il contratto ────────────────────────────────────────────────── */
 
 export interface Persistenza extends Capacita {
@@ -53,7 +96,7 @@ export interface Persistenza extends Capacita {
   readonly COLLECTIONS: readonly Collezione[];
 
   open(): Promise<unknown>;
-  loadAll(opzioni?: { movLogFrom?: Istante | null }): Promise<Record<string, unknown>>;
+  loadAll(opzioni?: { movLogFrom?: Istante | null }): Promise<CaricamentoIniziale>;
 
   add<T>(collezione: Collezione, record: T): Promise<unknown>;
   put<T>(collezione: Collezione, record: T): Promise<unknown>;
@@ -86,5 +129,18 @@ export interface Persistenza extends Capacita {
   op?<T>(nome: string, payload: unknown): Promise<T>;
 
   isBackupSupported(): boolean;
+
+  /* IL BACKUP LOCALE È UN SERVIZIO DELL'ADAPTER, NON UN OBBLIGO.
+     Solo il ramo locale lo offre, su OPFS: il ramo remoto risponde `false` a
+     `isBackupSupported()` perché il backup lì è un compito del servizio, che
+     lo fa a caldo sul `.db`. Facoltativi per questo, e non per prudenza.
+
+     Erano già scritti e già usati: mancavano solo dal contratto. Li ha
+     chiesti il compilatore convertendo `store.js`. */
+  writeBackup?(filename: string, contents: string): Promise<{ filename: string; size: number }>;
+  listBackups?(prefix?: string): Promise<{ name: string; size: number; lastModified: number }[]>;
+  deleteBackup?(filename: string): Promise<boolean>;
+  readBackup?(filename: string): Promise<string>;
+
   estimateUsage(): Promise<unknown>;
 }

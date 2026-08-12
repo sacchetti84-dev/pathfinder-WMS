@@ -1,5 +1,5 @@
 import { Persistence } from '../core/persistence/index';
-import { Store as StoreJS } from '../core/store.js';
+import { Store } from '../core/store';
 import type { Istante, Movimento } from '../types/entita.js';
 
 export type PermessoCartella = 'granted' | 'denied' | 'prompt';
@@ -14,12 +14,8 @@ declare global {
   }
 }
 
-const Store = StoreJS as unknown as {
-  exportAll(opzioni?: { includeMovLog?: boolean }): Promise<PacchettoDati>;
-  eachMovement(fn: (blocco: Movimento[]) => void | Promise<void>, chunkSize?: number): Promise<number>;
-  _applyToCache(collection: string, op: string, record?: unknown): void;
-  _countsOf(data: PacchettoDati): Record<string, number>;
-};
+/* Il ponte verso Store è caduto con la 1.4.0: `core/store.ts` è TypeScript.
+   Vedi la nota in `pickRoute.ts` — stessa ragione, stesso momento. */
 
 export interface PacchettoDati {
   mov_log?: Movimento[];

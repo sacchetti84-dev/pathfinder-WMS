@@ -53,6 +53,16 @@ export interface Articolo {
   category?: string;
   supplier?: string;
   unit?: string;
+  /** Ingombro e peso unitari, e le soglie di scorta. Erano in anagrafica
+      dalla v1: mancavano solo da questo tipo — trovati convertendo `store.js`
+      in TypeScript, perché il compilatore li ha chiesti uno per uno. */
+  weight?: number;
+  length?: number;
+  width?: number;
+  height?: number;
+  min_stock?: number;
+  max_stock?: number;
+  notes?: string;
   /** v3.0.0 — servono a compilare peso e pezzi del DDT senza scriverli a mano. */
   weight_net_kg?: number;
   pieces_per_pack?: number;
@@ -71,7 +81,19 @@ export interface Articolo {
   /** 1.4.4 — punteggio morbido del motore: chi pesa sta in basso. */
   stackable?: boolean;
   active?: boolean;
+  /** Quando è stato creato. Si chiama `created` e non `created_at` come sui
+      siti: è così dalla v1 e rinominarlo vorrebbe dire riscrivere righe. */
+  created?: Istante;
+  /** L'anagrafica cresce: un campo aggiunto in Configurazione non deve far
+      fallire il compilatore prima ancora di essere usato. */
+  [extra: string]: unknown;
 }
+
+/** Un articolo come ARRIVA — da una maschera o da un foglio Excel — dove i
+    numeri sono spesso stringhe e i campi facoltativi mancano del tutto.
+    Non è pigrizia: è il confine dove il dato grezzo diventa dato, e la
+    conversione (`parseFloat`, `parseInt`) è il primo gesto di chi lo riceve. */
+export type IngressoArticolo = { code: string } & Record<string, any>;
 
 /* ── Giacenza ────────────────────────────────────────────────────── */
 
@@ -88,6 +110,9 @@ export interface Giacenza {
   qty?: number;
   placed_at?: Istante;
   placed_by?: string;
+  /** Ultima modifica della riga. Assente sulle giacenze mai toccate dalla
+      v1.8.1 in poi: si legge come «mai modificata dopo il posizionamento». */
+  last_updated_at?: Istante;
   notes?: string;
   /** 1.4.3 — assente = merce direttamente in ubicazione, cioè il
       comportamento di oggi, per sempre. Se c'è, `location_code` DEVE essere
@@ -97,6 +122,17 @@ export interface Giacenza {
   /** 1.4.2 — UM totali nella riga, accanto a `qty` che resta i colli.
       Il collo incompleto NON è una riga sua: si calcola. */
   qty_uom?: number;
+}
+
+/** Ciò che `removeItem` restituisce: la riga com'era, più il conto di che
+    cosa è uscito. Il trattino basso dice che questi quattro campi **non**
+    finiscono a database — servono a chi scrive il movimento subito dopo, che
+    altrimenti dovrebbe rileggere una riga che magari non esiste più. */
+export interface GiacenzaRimossa extends Giacenza {
+  _mode: 'full' | 'partial';
+  _qty_before: number;
+  _qty_after: number;
+  _qty_delta: number;
 }
 
 export interface StatoUbicazione {
@@ -128,6 +164,11 @@ export interface Movimento {
   user: string;
   notes?: string;
   doc_ref?: string;
+  /** v2.x — le quantità del movimento. `null` sui movimenti storici scritti
+      prima che esistessero: è un'assenza dichiarata, non uno zero. */
+  qty_delta?: number | null;
+  qty_before?: number | null;
+  qty_after?: number | null;
 }
 
 /* ── Quarantena ──────────────────────────────────────────────────── */
@@ -149,6 +190,9 @@ export interface Quarantena {
   reference_person?: string;
   created_at: Istante;
   released_at?: Istante | null;
+  released_by?: string;
+  released_ref_dept?: string;
+  released_ref_person?: string;
   status: 'blocked' | 'released' | string;
 }
 
@@ -165,8 +209,18 @@ export interface DocumentoUscita {
   operator: string;
   status: 'pending' | 'evaded' | 'cancelled' | string;
   created_at: Istante;
+  updated_at?: Istante;
   evaded_at?: Istante | null;
   cancelled_at?: Istante | null;
+  /** Il destinatario, congelato come il mittente: una ristampa fra due anni
+      deve dare lo stesso foglio anche se l'anagrafica è cambiata. */
+  dest_address?: string;
+  dest_zip?: string;
+  dest_city?: string;
+  dest_province?: string;
+  dest_vat?: string;
+  /** Dove va la merce, se diverso dalla sede del destinatario. */
+  ship_to?: string;
   /** Il mittente CONGELATO al momento dell'emissione: una ristampa fra due
       anni deve dare lo stesso foglio, anche se l'anagrafica è cambiata. */
   sender?: Mittente;

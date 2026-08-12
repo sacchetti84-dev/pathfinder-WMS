@@ -1,9 +1,17 @@
 import { MOV } from './costanti';
+import type { MOV as MovTipo, Criterio } from '../types/contratto';
 import { Persistence } from './persistence/index';
-import { COLLEZIONI } from '../types/collezioni';
+import { COLLEZIONI, type Collezione } from '../types/collezioni';
+import type {
+  StatoUbicazione, UbicazioneDisattivata,
+  Sito, Zona, Articolo, Giacenza, Movimento, Quarantena, DocumentoUscita,
+  RigaDocumento, SessionePrelievo, ReportPrelievo, VerbaleSmaltimento,
+  Operatore, Istante, Coordinate, GiacenzaRimossa, IngressoArticolo,
+} from '../types/entita';
 import {
   FORMA_CACHE, applicaAllaCache, bucketPut, bucketDelete,
-  indicizzaGiacenza, ricostruisciIndici, indiciVuoti, metaVuota,
+  indicizzaGiacenza, ricostruisciIndici, indiciVuoti, metaVuota, cacheVuota,
+  type Operazione,
 } from './cache';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
@@ -25,10 +33,10 @@ import { App } from '../ui/app.js';
    perche' accenderne due nello stesso turno deve costare due gesti
    distinti: se poi qualcosa si muove, si sa quale delle due e' stata. */
 const FEATURES = ['tasks', 'uom', 'udc', 'putaway', 'wip'];
-const CHIAVE_FEATURE = (nome) => `feature.${nome}`;
+const CHIAVE_FEATURE = (nome: string) => `feature.${nome}`;
 
 const Store = {
-  _assertPositiveInt(value, label = 'Quantità') {
+  _assertPositiveInt(value: unknown, label: string = 'Quantità') {
     const n = Number(value);
     if (!Number.isFinite(n)) throw new Error(`${label}: valore non numerico`);
     if (!Number.isInteger(n)) throw new Error(`${label}: sono ammessi solo numeri interi (ricevuto ${n})`);
@@ -37,40 +45,17 @@ const Store = {
   },
 
   /* Cache in-memory. Popolata all'init, aggiornata ad ogni mutazione.
-     Consente letture sincrone dal layer UI senza richiedere async. */
-  _cache: {
-    sites: [],             // [{id, name, type, address, notes, active, created_at, updated_at}]
-    zones: [],             // [{site_id, id, name, type, active, ...config}]
-    articles: [],          // [{code, description, category, supplier, unit, ...}]
-    inventory: [],         // [{_id, location_code, item_key, article_code, article_description, lot_code, expiry_date, placed_at, placed_by, notes}]
-    locStatus: new Map(),  // location_code → {status, blocked_reason, updated_at}
-    disabled: new Set(),   // set of location_code
-    movLog: [],            // [{_id, ts, type, article_code, article_description, lot_code, location_code, dest_location, user, notes, doc_ref}]
-    quarantine: [],        // [{_id, q_id, item_key, article_code, article_description, lot_code, original_location, blocked_location, reason, operator, reference_dept, reference_person, created_at, released_at, status}]
-    pendingOut: [],        // v2.0.0 — [{doc_id, kind, ddt_num, destination, carrier, operator, status, created_at, evaded_at, cancelled_at, lines:[...]}]
-    pickSession: null,     // v2.5.0 — sessione di prelievo in corso (una sola, o null)
-    pickArchive: [],       // v2.5.1 — snapshot dei report di prelievo emessi, dal più recente
-    disposalArchive: [],   // v3.0.0 [M2] — verbali di smaltimento emessi, dal più recente
-    operators: [],         // v2.7.0 — [{op_id, first_name, last_name, initials, role, pin_hash, pin_salt, pin_set_at, active, created_at, updated_at}]
-    movLogTotal: 0,        // v2.8.0 — movimenti totali a DATABASE (movLog ne tiene solo la finestra)
-    /* 1.4.0 — le cinque nuove, VUOTE. Restano vuote finche' non si accende
-       l'interruttore `feature.*` che le riguarda: una collezione vuota si
-       comporta esattamente come nella 1.2, cioe' non esiste. */
-    lots: [],              // 1.4.2 — confezione congelata per articolo/lotto
-    udc: [],               // 1.4.3 — contenitori
-    tasks: [],             // 1.4.1 — coda delle attivita'
-    wip: [],               // 1.4.5 — conti aperti verso la produzione
-    storageRules: [],      // 1.4.4 — le regole del motore, come dato
-    /* Stessa forma che `_applyToCache('meta','clear')` rimette: una sola
-       definizione, se no l'avvio e l'azzeramento partono da due stati diversi. */
-    meta: metaVuota()
-  },
+     Consente letture sincrone dal layer UI senza richiedere async.
+
+     La forma sta in `core/cache.ts`, insieme alle prove: chi la costruisce
+     qui e chi la costruisce in un collaudo partono dallo stesso oggetto. */
+  _cache: cacheVuota(),
 
   MOVLOG_WINDOW_KEY: 'wm_movlog_window_days',
   MOVLOG_WINDOW_DEFAULT: 120,
   MOVLOG_WINDOW_MIN: 7,
   MOVLOG_WINDOW_MAX: 3650,
-  _movLogWindowDays: null,
+  _movLogWindowDays: null as number | null,
 
   /* 0 = nessuna finestra, si carica tutto. Resta possibile per chi ha pochi
      movimenti e preferisce il comportamento della v2.7.0. */
@@ -88,8 +73,8 @@ const Store = {
     return v;
   },
 
-  setMovLogWindowDays(days) {
-    const n = parseInt(days, 10);
+  setMovLogWindowDays(days: number | string) {
+    const n = parseInt(String(days), 10);
     const v = !Number.isFinite(n) || n === 0 ? 0 : Math.min(this.MOVLOG_WINDOW_MAX, Math.max(this.MOVLOG_WINDOW_MIN, n));
     this._movLogWindowDays = v;
     try { localStorage.setItem(this.MOVLOG_WINDOW_KEY, String(v)); } catch {}
@@ -102,7 +87,10 @@ const Store = {
     return d === 0 ? null : Date.now() - d * 24 * 60 * 60 * 1000;
   },
 
-  _locIndex: null,    // Set<location_code> → fast lookup. Geometria: resta qui
+  /* `null` fino al primo `_rebuildIndexes()`: prima di allora nessuna
+     ubicazione esiste ancora, e `locationExists` deve dire di no invece di
+     rispondere su un insieme vuoto che sembra costruito. */
+  _locIndex: null as Set<string> | null,
 
   /* Gli indici derivati vivono in `core/cache.ts` e ci stanno DENTRO un
      oggetto, non sparsi: `applicaAllaCache` deve poterli sostituire su
@@ -145,7 +133,7 @@ const Store = {
   },
 
   getCurrentIdentity() {
-    const rec = (typeof App !== 'undefined' ? App.currentOperatorRecord : null) || null;
+    const rec = ((typeof App !== 'undefined' ? App.currentOperatorRecord : null) || null) as Operatore | null;
     return {
       id: rec?.op_id || null,
       initials: rec?.initials || (typeof App !== 'undefined' ? App.currentOperator : null) || '',
@@ -158,11 +146,11 @@ const Store = {
     return activeOnly ? all.filter(o => o.active !== false) : all.slice();
   },
 
-  getOperator(opId) {
+  getOperator(opId: string) {
     return this._cache.operators.find(o => o.op_id === opId) || null;
   },
 
-  getOperatorByInitials(initials) {
+  getOperatorByInitials(initials: string) {
     const v = String(initials ?? '').toUpperCase().trim();
     return this._cache.operators.find(o => o.initials === v) || null;
   },
@@ -176,7 +164,7 @@ const Store = {
       o.role === 'leader' && o.active !== false && !!o.pin_hash);
   },
 
-  async addOperator(rec) {
+  async addOperator(rec: Partial<Operatore> & { initials: string }) {
     const initials = String(rec.initials ?? '').toUpperCase().trim();
     if (this.getOperatorByInitials(initials)) {
       throw new Error(`Le iniziali ${initials} sono già assegnate a un altro operatore`);
@@ -201,7 +189,7 @@ const Store = {
     return record;
   },
 
-  async updateOperator(opId, changes) {
+  async updateOperator(opId: string, changes: Partial<Operatore>) {
     const cur = this.getOperator(opId);
     if (!cur) throw new Error('Operatore non trovato');
     if (changes.initials) {
@@ -217,7 +205,7 @@ const Store = {
     return updated;
   },
 
-  getLotsForArticle(articleCode) {
+  getLotsForArticle(articleCode: string) {
     const code = String(articleCode ?? '').toUpperCase().trim();
     if (!code) return [];
     return [...new Set(
@@ -236,21 +224,21 @@ const Store = {
             lots, udc, tasks, wip, storageRules } =
       await Persistence.loadAll({ movLogFrom: this.movLogWindowFrom() });
     // Riassembla zones dentro sites
-    const zonesBySite = {};
+    const zonesBySite: Record<string, Zona[]> = {};
     for (const z of zones) { (zonesBySite[z.site_id] = zonesBySite[z.site_id] || []).push(z); }
     for (const s of sites) { s.zones = zonesBySite[s.id] || []; }
     this._cache.sites = sites;
     this._cache.zones = zones;
     this._cache.articles = articles;
     this._cache.inventory = inventory;
-    this._cache.locStatus = new Map(locStat.map(l => [l.location_code, l]));
-    this._cache.disabled = new Set(disabled.map(d => d.location_code));
+    this._cache.locStatus = new Map(locStat.map((l: StatoUbicazione) => [l.location_code, l]));
+    this._cache.disabled = new Set(disabled.map((d: UbicazioneDisattivata) => d.location_code));
     this._cache.movLog = movLog;
     this._cache.movLogTotal = movLogTotal;   // v2.8.0 [H2] — quanti ce ne sono davvero
     this._cache.quarantine = quarantine;
     this._cache.pendingOut = pendingOut; // v2.0.0 — DDT pendenti di uscita
     this._cache.pickSession = pickSessions.length
-      ? pickSessions.sort((a, b) => (b.created_at || 0) - (a.created_at || 0))[0]
+      ? pickSessions.sort((a: SessionePrelievo, b: SessionePrelievo) => (b.created_at || 0) - (a.created_at || 0))[0] ?? null
       : null;
     this._cache.pickArchive = pickArchive;   // v2.5.1 — già ordinati dal più recente
     this._cache.disposalArchive = disposalArchive || [];   // v3.0.0 [M2] — verbali di smaltimento
@@ -263,11 +251,11 @@ const Store = {
     this._cache.storageRules = storageRules || [];
     /* v2.7.0 [G6] — Ordine alfabetico stabile: l'anagrafica si legge e si
        sceglie, non si scorre in ordine di inserimento. */
-    this._cache.operators = (operators || []).sort((a, b) =>
+    this._cache.operators = (operators || []).sort((a: Operatore, b: Operatore) =>
       (a.last_name || a.initials || '').localeCompare(b.last_name || b.initials || '', 'it'));
-    const metaObj = {};
+    const metaObj: Record<string, any> = {};
     for (const m of metaRows) metaObj[m.key] = m.value;
-    const features = {};
+    const features: Record<string, boolean> = {};
     for (const f of FEATURES) features[f] = metaObj[CHIAVE_FEATURE(f)] === true;
     this._cache.meta = {
       lastModified: metaObj.lastModified || null,
@@ -284,11 +272,11 @@ const Store = {
 
   /* Lettura sincrona: la chiama la UI a ogni render, e una funzione spenta
      deve costare quanto costava non averla. */
-  isFeatureOn(nome) {
+  isFeatureOn(nome: string) {
     return this._cache.meta?.features?.[nome] === true;
   },
 
-  async setFeature(nome, acceso) {
+  async setFeature(nome: string, acceso: boolean) {
     if (!FEATURES.includes(nome)) throw new Error(`Interruttore sconosciuto: ${nome}`);
     const rec = { key: CHIAVE_FEATURE(nome), value: acceso === true };
     await Persistence.put('meta', rec);
@@ -300,7 +288,7 @@ const Store = {
 
   /* Conteggio dei movimenti più vecchi della soglia di retention.
      Sola lettura: non cancella nulla. Usato dalla UI di Config. */
-  async countPurgeableMovements(cutoffTs) {
+  async countPurgeableMovements(cutoffTs: number) {
     try {
       return await Persistence.count('mov_log', { field: 'ts', op: 'below', value: cutoffTs });
     } catch (err) {
@@ -309,8 +297,8 @@ const Store = {
     }
   },
 
-  async purgeMovementsBefore(cutoffTs) {
-    const removed = await Persistence.deleteWhere('mov_log', { field: 'ts', op: 'below', value: cutoffTs });
+  async purgeMovementsBefore(cutoffTs: number) {
+    const removed = await Persistence.deleteWhere('mov_log', { field: 'ts', op: 'below', value: cutoffTs }) as number;
     if (removed > 0) {
       this._cache.movLog = this._cache.movLog.filter(m => m.ts >= cutoffTs);
       this._cache.movLogTotal = Math.max(0, this._cache.movLogTotal - removed);   // v2.8.0 [H2]
@@ -371,11 +359,11 @@ const Store = {
 
   _CACHE_SHAPE: FORMA_CACHE,
 
-  _bucketPut(map, mapKey, rec) { bucketPut(map, mapKey, rec); },
-  _bucketDelete(map, mapKey, rec) { bucketDelete(map, mapKey, rec); },
-  _indexInventory(prev, next) { indicizzaGiacenza(this._indici, prev, next); },
+  _bucketPut(map: Map<string, any[]>, mapKey: string, rec: any) { bucketPut(map, mapKey, rec); },
+  _bucketDelete(map: Map<string, any[]>, mapKey: string, rec: any) { bucketDelete(map, mapKey, rec); },
+  _indexInventory(prev: any, next: any) { indicizzaGiacenza(this._indici, prev, next); },
 
-  _applyToCache(collection, op, record = null) {
+  _applyToCache(collection: Collezione, op: Operazione, record: any = null) {
     applicaAllaCache(this._cache, this._indici, collection, op, record);
   },
 
@@ -396,9 +384,9 @@ const Store = {
 
   // ═══ SITES ═══
   getSites() { return this._cache.sites.filter(s => s.active); },
-  getSite(id) { return this._cache.sites.find(s => s.id === id); },
+  getSite(id: string) { return this._cache.sites.find(s => s.id === id); },
 
-  async addSite(site) {
+  async addSite(site: Partial<Sito> & { id: string }) {
     if (this._cache.sites.find(s => s.id === site.id)) return false;
     const now = Date.now();
     const rec = { ...site, active: true, created_at: now, updated_at: now };
@@ -408,7 +396,7 @@ const Store = {
     return true;
   },
 
-  async updateSite(id, updates) {
+  async updateSite(id: string, updates: Partial<Sito>) {
     const site = this.getSite(id);
     if (!site) return false;
     Object.assign(site, updates, { updated_at: Date.now() });
@@ -418,7 +406,7 @@ const Store = {
     return true;
   },
 
-  async deleteSite(id) {
+  async deleteSite(id: string) {
     const site = this.getSite(id);
     if (!site) return false;
     // Soft-delete: disattiva site + rimuovi inventory/status/disabled legati
@@ -445,11 +433,11 @@ const Store = {
   },
 
   // ═══ ZONES ═══
-  getZones(siteId) {
+  getZones(siteId: string) {
     const site = this.getSite(siteId);
     return site ? (site.zones || []).filter(z => z.active) : [];
   },
-  getZone(siteId, zoneId) { return this.getZones(siteId).find(z => z.id === zoneId); },
+  getZone(siteId: string, zoneId: string) { return this.getZones(siteId).find(z => z.id === zoneId); },
 
   /* 1.4.0 — Cosa e' stoccato dove non dovrebbe. Il calcolo e' puro e sta in
      `modules/conformita`; qui si fornisce solo il magazzino.
@@ -460,7 +448,7 @@ const Store = {
   verificaStoccaggio() {
     const geo = this.buildLocationGeometry();
     const zone = new Map();
-    const zonaDi = (code) => {
+    const zonaDi = (code: string) => {
       if (zone.has(code)) return zone.get(code);
       const g = geo.get(code);
       const z = g ? this.getZone(g.site_id, g.zone_id) : null;
@@ -480,13 +468,13 @@ const Store = {
     return verificaConformita(this._cache.inventory, (c) => this._artByCode.get(c), zonaDi);
   },
 
-  async addZone(siteId, zone) {
+  async addZone(siteId: string, zone: Partial<Zona> & { id: string }) {
     const site = this.getSite(siteId);
     if (!site) return false;
     if ((site.zones || []).find(z => z.id === zone.id)) return false;
     const rec = { ...zone, site_id: siteId, active: true };
     const _id = await Persistence.add('zones', rec);
-    const cached = { ...rec, _id };
+    const cached = { ...rec, _id } as Zona;
     site.zones = site.zones || [];
     site.zones.push(cached);
     this._applyToCache('zones', 'put', cached);
@@ -495,7 +483,7 @@ const Store = {
     return true;
   },
 
-  async updateZone(siteId, zoneId, updates) {
+  async updateZone(siteId: string, zoneId: string, updates: Partial<Zona>) {
     const zone = this.getZone(siteId, zoneId);
     if (!zone) return false;
     Object.assign(zone, updates);
@@ -505,7 +493,7 @@ const Store = {
     return true;
   },
 
-  async deleteZone(siteId, zoneId) {
+  async deleteZone(siteId: string, zoneId: string) {
     const zone = this.getZone(siteId, zoneId);
     if (!zone) return false;
     zone.active = false;
@@ -528,20 +516,20 @@ const Store = {
      Generate dalla configurazione della zona, mai scritte a database.
      L'implementazione sta in `core/geometria.ts` — secondo blocco della
      conversione. Qui resta il nome, che sei punti di questo file chiamano. */
-  _genLocations(siteId, zone) { return generaUbicazioni(siteId, zone); },
+  _genLocations(siteId: string, zone: Zona) { return generaUbicazioni(siteId, zone); },
 
-  generateLocations(siteId, zoneId) {
+  generateLocations(siteId: string, zoneId: string) {
     const zone = this.getZone(siteId, zoneId);
     return zone ? this._genLocations(siteId, zone) : [];
   },
 
-  locationExists(code) { return this._locIndex?.has(code) ?? false; },
+  locationExists(code: string) { return this._locIndex?.has(code) ?? false; },
 
-  getLocationStatus(code) { return statoUbicazione(this._cache, this._indici, code); },
+  getLocationStatus(code: string) { return statoUbicazione(this._cache, this._indici, code); },
 
-  getLocationMeta(code) { return this._cache.locStatus.get(code); },
+  getLocationMeta(code: string) { return this._cache.locStatus.get(code); },
 
-  async setLocationStatus(code, status, reason = '') {
+  async setLocationStatus(code: string, status: string, reason: string = '') {
     await Persistence.deleteWhere('loc_status', { field: 'location_code', op: 'equals', value: code });
     this._applyToCache('loc_status', 'delete', { location_code: code });
     if (this._cache.disabled.has(code)) {
@@ -556,9 +544,9 @@ const Store = {
     await this._touchMeta();
   },
 
-  isLocationDisabled(code) { return this._cache.disabled.has(code); },
+  isLocationDisabled(code: string) { return this._cache.disabled.has(code); },
 
-  async toggleLocationDisabled(code) {
+  async toggleLocationDisabled(code: string) {
     const items = this.getItemsAtLocation(code);
     if (items.length > 0 && !this._cache.disabled.has(code)) return false;
     if (this._cache.disabled.has(code)) {
@@ -578,18 +566,18 @@ const Store = {
   },
 
   // ═══ INVENTORY ═══
-  getItemsAtLocation(code) { return this._invByLoc.get(code) || []; },
-  getItemByKey(itemKey) { return this._invByKey.get(itemKey) || []; },
+  getItemsAtLocation(code: string) { return this._invByLoc.get(code) || []; },
+  getItemByKey(itemKey: string) { return this._invByKey.get(itemKey) || []; },
 
   /* ═══ LETTURE DELLA GIACENZA ═══
      FEFO e ricerca stanno in `core/giacenza.ts` — terzo blocco della
      conversione. Qui restano i nomi che l'interfaccia chiama. */
-  findItemLocations(query) { return cercaGiacenze(this._cache.inventory, this._invByKey, query); },
-  sortByFEFO(items) { return ordinaFEFO(items); },
-  getFEFOItemForArticle(articleCode) { return primoFEFO(this._cache.inventory, articleCode); },
-  isFEFOItem(item) { return eFEFO(this._cache.inventory, item); },
+  findItemLocations(query: string) { return cercaGiacenze(this._cache.inventory, this._invByKey, query); },
+  sortByFEFO(items: Giacenza[] | null | undefined) { return ordinaFEFO(items); },
+  getFEFOItemForArticle(articleCode: string) { return primoFEFO(this._cache.inventory, articleCode); },
+  isFEFOItem(item: Giacenza | null | undefined) { return eFEFO(this._cache.inventory, item); },
 
-  async addItem(locationCode, articleCode, articleDescription, lotCode, expiryDate = '', notes = '', qty = 1) {
+  async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1) {
     const qtyAdd = Store._assertPositiveInt(qty, 'Quantità da posizionare');
     const itemKey = `${articleCode}#${lotCode}`;
     const bucket = this._invByLoc.get(locationCode) || [];
@@ -605,7 +593,7 @@ const Store = {
       // Aggiorna metadati opzionali se passati
       if (expiryDate && !existing.expiry_date) existing.expiry_date = expiryDate;
       if (notes) existing.notes = (existing.notes ? existing.notes + ' | ' : '') + notes;
-      await Persistence.update('inventory', existing._id, {
+      await Persistence.update('inventory', existing._id!, {
         qty: qtyAfter,
         last_updated_at: now,
         expiry_date: existing.expiry_date,
@@ -642,7 +630,7 @@ const Store = {
   },
 
   /* restore esatto di un item preservando metadati incluso qty (per rollback) */
-  async restoreItem(item) {
+  async restoreItem(item: Giacenza) {
     const clean = { ...item };
     delete clean._id;
     if (typeof clean.qty !== 'number' || clean.qty < 1) clean.qty = 1;  // safety
@@ -653,16 +641,16 @@ const Store = {
     return stored;
   },
 
-  async removeItem(locationCode, itemKey, qtyRemove = null) {
+  async removeItem(locationCode: string, itemKey: string, qtyRemove: number | null = null) {
     if (qtyRemove !== null) qtyRemove = Store._assertPositiveInt(qtyRemove, 'Quantità da prelevare');
     const bucket = this._invByLoc.get(locationCode) || [];
     const idx = bucket.findIndex(i => i.item_key === itemKey);
     if (idx === -1) return null;
-    const item = bucket[idx];
+    const item = bucket[idx]!;
     const qtyBefore = item.qty || 1;
 
     if (Persistence.supportsRemoteOps) {
-      const removed = await Persistence.op('removeItem', {
+      const removed = await Persistence.op!<GiacenzaRimossa>('removeItem', {
         location_code: locationCode, item_key: itemKey,
         qty: qtyRemove === null ? qtyBefore : qtyRemove
       });
@@ -677,7 +665,7 @@ const Store = {
 
     // Caso 1: rimozione totale (qtyRemove null o >= qtyBefore)
     if (qtyRemove === null || qtyRemove >= qtyBefore) {
-      const removed = { ...item };
+      const removed = { ...item } as GiacenzaRimossa;
       /* TODO F1-REVIEW: la cache viene svuotata PRIMA che la cancellazione
          sia confermata dal supporto. Se la scrittura fallisce, memoria e
          disco divergono finche' qualcuno non chiama reloadCache() — ed e'
@@ -685,7 +673,7 @@ const Store = {
          Ordine mantenuto identico alla v2.5.1: centralizzare, non
          correggere. */
       this._applyToCache('inventory', 'delete', item);
-      await Persistence.delete('inventory', item._id);
+      await Persistence.delete('inventory', item._id!);
       await this._touchMeta();
       // Decoro il removed con info quantità per logging
       removed._mode = 'full';
@@ -700,10 +688,10 @@ const Store = {
     item.qty = qtyAfter;
     item.last_updated_at = Date.now();
     this._applyToCache('inventory', 'put', item);
-    await Persistence.update('inventory', item._id, { qty: qtyAfter, last_updated_at: item.last_updated_at });
+    await Persistence.update('inventory', item._id!, { qty: qtyAfter, last_updated_at: item.last_updated_at });
     await this._touchMeta();
     // Ritorno copia decorata (NON rimuovo dalla cache)
-    const removed = { ...item };
+    const removed = { ...item } as GiacenzaRimossa;
     removed._mode = 'partial';
     removed._qty_before = qtyBefore;
     removed._qty_after = qtyAfter;
@@ -714,7 +702,7 @@ const Store = {
   /* watermark mid-file v1.8.0 */
 
   // ═══ ITEM EDIT (v1.8.1) ═══
-  async updateItemFields(locationCode, itemKey, changes) {
+  async updateItemFields(locationCode: string, itemKey: string, changes: Record<string, any>) {
     const bucket = this._invByLoc.get(locationCode) || [];
     const item = bucket.find(i => i.item_key === itemKey);
     if (!item) return null;
@@ -755,25 +743,25 @@ const Store = {
 
     // Campi semplici: update diretto in DB e cache
     const now = Date.now();
-    const updates = { last_updated_at: now };
+    const updates: Record<string, any> = { last_updated_at: now };
     if (changes.article_description !== undefined) { updates.article_description = changes.article_description; item.article_description = changes.article_description; }
     if (changes.expiry_date !== undefined)         { updates.expiry_date = changes.expiry_date;             item.expiry_date = changes.expiry_date; }
     if (typeof changes.qty === 'number')            { updates.qty = changes.qty;                             item.qty = changes.qty; }
     if (changes.notes !== undefined)               { updates.notes = changes.notes;                          item.notes = changes.notes; }
     item.last_updated_at = now;
     this._applyToCache('inventory', 'put', item);
-    await Persistence.update('inventory', item._id, updates);
+    await Persistence.update('inventory', item._id!, updates);
     await this._touchMeta();
     return { ok: true, item, keyChanged: false };
   },
 
   // ═══ ARTICLES ═══
   getArticles() { return this._cache.articles.filter(a => a.active !== false); },
-  getArticle(code) { return this._artByCode.get(code) || null; },
+  getArticle(code: string) { return this._artByCode.get(code) || null; },
 
-  async addArticle(article) {
+  async addArticle(article: IngressoArticolo) {
     if (this._artByCode.has(article.code)) return false;
-    const rec = {
+    const rec: Articolo = {
       code: article.code,
       description: article.description,
       category: article.category || 'MP',
@@ -811,7 +799,7 @@ const Store = {
                        'weight_net_kg', 'pieces_per_pack'],
   ARTICLE_ATTR_FIELDS: ['allergens', 'temp_class'],   // 1.4.0
 
-  async updateArticle(code, updates) {
+  async updateArticle(code: string, updates: Partial<Articolo>) {
     const art = this._artByCode.get(code);
     if (!art) return false;
     this._applyArticleUpdates(art, updates);
@@ -821,7 +809,7 @@ const Store = {
     return true;
   },
 
-  _applyArticleUpdates(art, updates) {
+  _applyArticleUpdates(art: Articolo, updates: Record<string, any>): Articolo {
     for (const f of this.ARTICLE_TEXT_FIELDS) if (updates[f] !== undefined) art[f] = updates[f];
     for (const f of this.ARTICLE_NUM_FIELDS) if (updates[f] !== undefined) art[f] = parseFloat(updates[f]) || 0;
     for (const f of this.ARTICLE_ATTR_FIELDS) {
@@ -840,8 +828,8 @@ const Store = {
 
      Aggiorna SOLO i campi presenti in ciascuna riga: un foglio con codice e
      allergeni non deve azzerare descrizioni e pesi di 11.000 articoli. */
-  async upsertArticles(righe) {
-    const nuovi = [], modificati = [];
+  async upsertArticles(righe: IngressoArticolo[]) {
+    const nuovi: IngressoArticolo[] = [], modificati: Articolo[] = [];
     for (const r of righe) {
       const esistente = this._artByCode.get(r.code);
       if (!esistente) { nuovi.push(r); continue; }
@@ -850,7 +838,7 @@ const Store = {
       if (JSON.stringify(dopo) !== prima) modificati.push(dopo);
     }
 
-    const creati = [];
+    const creati: Articolo[] = [];
     for (const r of nuovi) {
       creati.push({
         code: r.code, description: r.description || '', category: r.category || 'MP',
@@ -866,7 +854,7 @@ const Store = {
     }
 
     if (creati.length) {
-      const ids = await Persistence.bulkAdd('articles', creati);
+      const ids = await Persistence.bulkAdd('articles', creati) as (number | undefined)[] | undefined;
       creati.forEach((rec, i) => this._applyToCache('articles', 'put', { ...rec, _id: ids?.[i] }));
     }
     if (modificati.length) {
@@ -880,7 +868,7 @@ const Store = {
     return { creati: creati.length, modificati: modificati.length };
   },
 
-  async deleteArticle(code) {
+  async deleteArticle(code: string) {
     const art = this._artByCode.get(code);
     if (!art) return false;
     art.active = false;
@@ -890,14 +878,14 @@ const Store = {
     return true;
   },
 
-  _guessCategory(code) {
+  _guessCategory(code: string) {
     const prefix = (code || '').substring(0, 2).toUpperCase();
-    const cats = { MP: 'MP', SL: 'SL', PF: 'PF', AC: 'AC', IM: 'IM' };
+    const cats: Record<string, string> = { MP: 'MP', SL: 'SL', PF: 'PF', AC: 'AC', IM: 'IM' };
     return cats[prefix] || 'MP';
   },
 
   // ═══ MOVEMENT LOG ═══
-  async logMovement(entry) {
+  async logMovement(entry: Partial<Movimento> & { type: MovTipo }) {
     const rec = {
       ts: Date.now(),
       type: entry.type,
@@ -940,16 +928,16 @@ const Store = {
   },
 
   async queryMovements({ from = null, to = null, type = '', text = '', limit = 2000 } = {}) {
-    let criteria = null;
+    let criteria: Criterio | null = null;
     if (from !== null && to !== null)      criteria = { field: 'ts', op: 'between', value: [from, to] };
     else if (from !== null)                criteria = { field: 'ts', op: 'aboveOrEqual', value: from };
     else if (to !== null)                  criteria = { field: 'ts', op: 'below', value: to };
 
-    const matched = [];
+    const matched: Movimento[] = [];
     let scanned = 0, truncated = false;
     const needle = String(text || '').toLowerCase().trim();
 
-    await Persistence.eachChunk('mov_log', { criteria, chunkSize: 5000 }, (rows) => {
+    await Persistence.eachChunk<Movimento>('mov_log', { criteria, chunkSize: 5000 }, (rows) => {
       scanned += rows.length;
       for (const m of rows) {
         if (type && m.type !== type) continue;
@@ -972,11 +960,11 @@ const Store = {
 
   /* Attraversa TUTTO l'archivio a blocchi, senza materializzarlo.
      Unici chiamanti legittimi: export Excel ed export JSON. */
-  async eachMovement(fn, chunkSize = 5000) {
+  async eachMovement(fn: (blocco: Movimento[]) => void | Promise<void>, chunkSize: number = 5000) {
     return await Persistence.eachChunk('mov_log', { chunkSize }, fn);
   },
 
-  async quarantineItem(entry) {
+  async quarantineItem(entry: Record<string, any>) {
     const q_id = 'Q-' + Date.now().toString(36).toUpperCase();
     const rec = {
       q_id,
@@ -1005,7 +993,7 @@ const Store = {
     return stored;
   },
 
-  async releaseQuarantine(q_id, attribution = {}) {
+  async releaseQuarantine(q_id: string, attribution: Record<string, any> = {}) {
     const rec = this._cache.quarantine.find(q => q.q_id === q_id);
     if (!rec) return null;
     rec.status = 'released';
@@ -1018,17 +1006,17 @@ const Store = {
     return rec;
   },
 
-  isItemQuarantined(itemKey, locationCode = null) {
+  isItemQuarantined(itemKey: string, locationCode: string | null = null) {
     return this._cache.quarantine.some(q =>
       q.status === 'active' && q.item_key === itemKey &&
       (locationCode == null || q.blocked_location === locationCode));
   },
 
-  isItemQuarantinedAnywhere(itemKey) {
+  isItemQuarantinedAnywhere(itemKey: string) {
     return this._cache.quarantine.some(q => q.status === 'active' && q.item_key === itemKey);
   },
 
-  quarantinedLocationsOf(itemKey) {
+  quarantinedLocationsOf(itemKey: string) {
     return this._cache.quarantine
       .filter(q => q.status === 'active' && q.item_key === itemKey)
       .map(q => q.blocked_location);
@@ -1037,7 +1025,7 @@ const Store = {
   getActiveQuarantine() { return this._cache.quarantine.filter(q => q.status === 'active'); },
   getQuarantineHistory() { return this._cache.quarantine; },
 
-  async savePendingOutbound(entry) {
+  async savePendingOutbound(entry: Record<string, any>) {
     // v2.0.1 [A2] — validazione nel dominio: nessun documento può impegnare
     // più merce di quella effettivamente disponibile.
     this._validateOutboundLines(entry.lines);
@@ -1082,7 +1070,7 @@ const Store = {
       created_at: Date.now(),
       evaded_at: null,
       cancelled_at: null,
-      lines: (entry.lines || []).map(l => ({
+      lines: (entry.lines || []).map((l: RigaDocumento) => ({
         article_code: l.article_code,
         article_description: l.article_description || '',
         lot_code: l.lot_code,
@@ -1102,7 +1090,7 @@ const Store = {
 
   /* Aggiorna stato di un documento pendente (evaded / cancelled).
      status: 'evaded' | 'cancelled' */
-  async updatePendingStatus(doc_id, status) {
+  async updatePendingStatus(doc_id: string, status: string) {
     const rec = this._cache.pendingOut.find(d => d.doc_id === doc_id);
     if (!rec) return null;
     rec.status = status;
@@ -1114,7 +1102,7 @@ const Store = {
     return rec;
   },
 
-  async updatePendingDoc(doc_id, patch) {
+  async updatePendingDoc(doc_id: string, patch: Record<string, any>) {
     const rec = this._cache.pendingOut.find(d => d.doc_id === doc_id);
     if (!rec) throw new Error('DDT non trovato');
     if (rec.status !== 'pending') throw new Error('Solo DDT pendenti possono essere modificati');
@@ -1127,7 +1115,7 @@ const Store = {
     if (patch.carrier !== undefined) rec.carrier = patch.carrier;
     if (patch.expected_pickup_date !== undefined) rec.expected_pickup_date = patch.expected_pickup_date;
     if (Array.isArray(patch.lines)) {
-      rec.lines = patch.lines.map(l => ({
+      rec.lines = patch.lines.map((l: RigaDocumento) => ({
         article_code: l.article_code,
         article_description: l.article_description || '',
         lot_code: l.lot_code,
@@ -1147,14 +1135,14 @@ const Store = {
   },
 
   /* Restituisce DDT pendenti per kind (RES | SHIP), ordinati dal più recente */
-  getPendingOutbound(kind) {
+  getPendingOutbound(kind: string) {
     return this._cache.pendingOut
       .filter(d => d.status === 'pending' && (kind == null || d.kind === kind))
       .sort((a, b) => b.created_at - a.created_at);
   },
 
   /* Restituisce un singolo documento per ID */
-  getPendingDoc(doc_id) {
+  getPendingDoc(doc_id: string) {
     return this._cache.pendingOut.find(d => d.doc_id === doc_id);
   },
 
@@ -1164,7 +1152,7 @@ const Store = {
 
   /* True se l'item (location_code + item_key) è prenotato in almeno un DDT pendente.
      Usato per impedire doppia prenotazione della stessa giacenza. */
-  isItemPendingOutbound(location_code, item_key) {
+  isItemPendingOutbound(location_code: string, item_key: string) {
     return this._cache.pendingOut.some(d =>
       d.status === 'pending' &&
       d.lines.some(l => l.location_code === location_code && l.item_key === item_key)
@@ -1173,7 +1161,7 @@ const Store = {
 
   /* Restituisce qty totale prenotata per l'item dato (sommata su tutti i pending).
      v2.0.1: aggiunto excludeDocId per escludere il documento in corso di modifica. */
-  getPendingQtyForItem(location_code, item_key, excludeDocId = null) {
+  getPendingQtyForItem(location_code: string, item_key: string, excludeDocId: string | null = null) {
     let total = 0;
     for (const d of this._cache.pendingOut) {
       if (d.status !== 'pending') continue;
@@ -1185,13 +1173,13 @@ const Store = {
     return total;
   },
 
-  getPhysicalQty(location_code, item_key) {
+  getPhysicalQty(location_code: string, item_key: string) {
     const item = (this._invByLoc.get(location_code) || []).find(i => i.item_key === item_key);
     if (!item) return 0;
     return item.qty || 1;
   },
 
-  getAvailableQty(location_code, item_key, excludeDocId = null) {
+  getAvailableQty(location_code: string, item_key: string, excludeDocId: string | null = null) {
     const physical = this.getPhysicalQty(location_code, item_key);
     const reserved = this.getPendingQtyForItem(location_code, item_key, excludeDocId);
     return Math.max(0, physical - reserved);
@@ -1199,21 +1187,21 @@ const Store = {
 
   /* Elenco dei DDT pendenti che impegnano un dato item in una data ubicazione.
      Usato per la conferma esplicita in Cambio Ubicazione (decisione A-3). */
-  getPendingDocsForItem(location_code, item_key) {
+  getPendingDocsForItem(location_code: string, item_key: string) {
     return this._cache.pendingOut.filter(d =>
       d.status === 'pending' &&
       d.lines.some(l => l.location_code === location_code && l.item_key === item_key)
     );
   },
 
-  checkPendingDocIntegrity(doc) {
-    const issues = [];
+  checkPendingDocIntegrity(doc: DocumentoUscita | null | undefined) {
+    const issues: { lineIndex: number; level: string; message: string }[] = [];
     if (!doc || !Array.isArray(doc.lines)) return { ok: true, issues };
-    doc.lines.forEach((l, idx) => {
-      const physical = this.getPhysicalQty(l.location_code, l.item_key);
+    doc.lines.forEach((l: RigaDocumento, idx: number) => {
+      const physical = this.getPhysicalQty(l.location_code || '', String(l.item_key || ''));
       if (physical === 0) {
         // La merce non è più nell'ubicazione indicata: spostata, prelevata o rettificata.
-        const elsewhere = (this._invByKey.get(l.item_key) || []).map(i => i.location_code);
+        const elsewhere = (this._invByKey.get(String(l.item_key || '')) || []).map(i => i.location_code);
         issues.push({
           lineIndex: idx,
           level: 'error',
@@ -1232,7 +1220,7 @@ const Store = {
     return { ok: issues.length === 0, issues };
   },
 
-  _validateOutboundLines(lines, excludeDocId = null) {
+  _validateOutboundLines(lines: RigaDocumento[], excludeDocId: string | null = null) {
     if (!Array.isArray(lines) || !lines.length) throw new Error('Il documento non contiene righe');
     // Somma le righe che insistono sullo stesso item nello stesso documento
     const perItem = new Map();
@@ -1263,7 +1251,7 @@ const Store = {
     return this._cache.pickSession || null;
   },
 
-  async startPickSession(session) {
+  async startPickSession(session: Partial<SessionePrelievo> & { session_id: string }) {
     try {
       await Persistence.transaction(['pick_session'], async () => {
         await Persistence.clear('pick_session');
@@ -1274,11 +1262,11 @@ const Store = {
       return session;
     } catch (err) {
       console.error('[WM] startPickSession:', err);
-      throw new Error('Impossibile salvare la sessione di prelievo: ' + err.message);
+      throw new Error('Impossibile salvare la sessione di prelievo: ' + (err as Error).message);
     }
   },
 
-  async savePickSession(session) {
+  async savePickSession(session: SessionePrelievo) {
     if (!session?.session_id) throw new Error('Sessione di prelievo priva di identificativo');
     session.updated_at = Date.now();
     await Persistence.put('pick_session', session);
@@ -1297,7 +1285,7 @@ const Store = {
     await this._touchMeta();
   },
 
-  async commitPickStop({ session, stop, qty, movement }) {
+  async commitPickStop({ session, stop, qty, movement }: { session: SessionePrelievo; stop: Record<string, any>; qty: number; movement: Partial<Movimento> & { type: MovTipo } }) {
     if (!session?.session_id) throw new Error('Sessione di prelievo priva di identificativo');
     if (!stop) throw new Error('Tappa non identificata');
 
@@ -1334,7 +1322,7 @@ const Store = {
     return removed;
   },
 
-  async archivePickReport(snap) {
+  async archivePickReport(snap: Partial<ReportPrelievo> & { doc_id: string }) {
     if (!snap?.doc_id) return null;
     try {
       await Persistence.put('pick_archive', snap);
@@ -1347,8 +1335,8 @@ const Store = {
     }
   },
 
-  getPickReportByOdp(odpNum) {
-    const norm = v => String(v ?? '').trim().toUpperCase().replace(/\s+/g, '');
+  getPickReportByOdp(odpNum: string) {
+    const norm = (v: unknown) => String(v ?? '').trim().toUpperCase().replace(/\s+/g, '');
     const key = norm(odpNum);
     if (!key) return null;
     return this._cache.pickArchive
@@ -1358,7 +1346,7 @@ const Store = {
 
   getPickReports() { return this._cache.pickArchive; },
 
-  async archiveDisposal(snap) {
+  async archiveDisposal(snap: Partial<VerbaleSmaltimento> & { doc_id: string }) {
     if (!snap?.doc_id) return null;
     try {
       await Persistence.put('disposal_archive', snap);
@@ -1378,7 +1366,7 @@ const Store = {
     return limit ? all.slice(0, limit) : all;
   },
 
-  getDisposal(doc_id) {
+  getDisposal(doc_id: string) {
     return this._cache.disposalArchive.find(d => d.doc_id === doc_id) || null;
   },
 
@@ -1422,7 +1410,7 @@ const Store = {
   /* Lettura sempre fusa con i default: una configurazione salvata da una
      versione precedente non deve far mancare le chiavi aggiunte dopo. */
   getDocConfig() {
-    const saved = this._cache.meta?.docConfig || {};
+    const saved = (this._cache.meta?.docConfig || {}) as Record<string, any>;
     const D = this.DOC_CONFIG_DEFAULTS;
     return {
       sender: { ...D.sender, ...(saved.sender || {}) },
@@ -1433,7 +1421,7 @@ const Store = {
     };
   },
 
-  async saveDocConfig(cfg) {
+  async saveDocConfig(cfg: Record<string, any>) {
     const merged = { ...this.getDocConfig(), ...cfg };
     await Persistence.put('meta', { key: 'docConfig', value: merged });
     this._applyToCache('meta', 'put', { key: 'docConfig', value: merged });
@@ -1442,12 +1430,12 @@ const Store = {
     return merged;
   },
 
-  getCausale(id) {
+  getCausale(id: string) {
     const list = this.getDocConfig().causali;
-    return list.find(c => c.id === id) || null;
+    return list.find((c: { id: string }) => c.id === id) || null;
   },
 
-  movTypeForCausale(id) {
+  movTypeForCausale(id: string) {
     const c = this.getCausale(id);
     return c && c.mov === 'RET' ? MOV.RET : MOV.SHIP;
   },
@@ -1457,14 +1445,14 @@ const Store = {
     if (!last) return '';
     const m = last.match(/^(.*?)(\d+)(\D*)$/);
     if (!m) return '';
-    const [, prefix, digits, suffix] = m;
+    const [, prefix, digits, suffix] = m as unknown as [string, string, string, string];
     const next = String(parseInt(digits, 10) + 1).padStart(digits.length, '0');
     return `${prefix}${next}${suffix}`;
   },
 
   /* Memorizza l'ultimo numero effettivamente usato, cosi' la proposta
      successiva riparte da li' anche se l'operatore l'aveva sovrascritto. */
-  async rememberDdtNumber(num) {
+  async rememberDdtNumber(num: string) {
     const clean = String(num || '').trim();
     if (!clean) return;
     const cfg = this.getDocConfig();
@@ -1496,9 +1484,9 @@ const Store = {
 
   buildLocationGeometry() { return costruisciGeometria(this._cache.sites); },
 
-  findNearestBlockedLocation(currentLocCode) {
+  findNearestBlockedLocation(currentLocCode: string) {
     const parts = currentLocCode.split('-');
-    const siteId = parts[0];
+    const siteId = parts[0] || '';
     const currentZone = parts[1] || '';
     const site = this.getSite(siteId);
     if (!site) return null;
@@ -1521,12 +1509,12 @@ const Store = {
      Contare gli stati e comporre il cruscotto stanno in
      `core/statistiche.ts` — quinto blocco della conversione, e l'ultimo che
      si stacca senza toccare il supporto. */
-  getSiteStats(siteId) {
+  getSiteStats(siteId: string) {
     const codici = this.getZones(siteId).flatMap(z => generaUbicazioni(siteId, z).map(l => l.code));
     return contaStati(this._cache, this._indici, codici);
   },
 
-  getZoneStats(siteId, zoneId) {
+  getZoneStats(siteId: string, zoneId: string) {
     return contaStati(this._cache, this._indici, this.generateLocations(siteId, zoneId).map(l => l.code));
   },
 
@@ -1537,7 +1525,7 @@ const Store = {
      quarto blocco della conversione. Qui resta cio' che parla col supporto:
      leggere il registro, e la transazione di ripristino. */
   async exportAll({ includeMovLog = true } = {}) {
-    const movLog = [];
+    const movLog: Movimento[] = [];
     if (includeMovLog) {
       await this.eachMovement(rows => { for (const r of rows) movLog.push(r); });
       movLog.sort((a, b) => b.ts - a.ts);
@@ -1545,11 +1533,11 @@ const Store = {
     return componiPacchetto(this._cache, movLog, { includeMovLog });
   },
 
-  _countsOf(data) { return contaPacchetto(data); },
+  _countsOf(data: Record<string, unknown>) { return contaPacchetto(data); },
 
-  verifyExportPackage(data) { return verificaPacchetto(data); },
+  verifyExportPackage(data: unknown) { return verificaPacchetto(data); },
 
-  async importAll(data, mode = 'overwrite') {
+  async importAll(data: Record<string, any>, mode: string = 'overwrite') {
     if (!data._format?.startsWith(FORMATO_PACCHETTO)) {
       throw new Error(`Formato file non supportato. Richiesto: ${FORMATO_PACCHETTO}.x`);
     }
@@ -1687,7 +1675,7 @@ const Store = {
     const ts = new Date();
     const stamp = ts.toISOString().slice(0, 10) + '_' + ts.toTimeString().slice(0, 8).replace(/:/g, '');
     const filename = `${this.BACKUP_PREFIX}${stamp}.json`;
-    await Persistence.writeBackup(filename, json);
+    await Persistence.writeBackup!(filename, json);
     // Aggiorna meta lastAutoBackup
     const now = Date.now();
     this._applyToCache('meta', 'put', { key: 'lastAutoBackup', value: now });
@@ -1699,7 +1687,7 @@ const Store = {
   /* Elenca i backup, dal più recente al più vecchio. */
   async listOPFSBackups() {
     if (!this.isOPFSSupported()) return [];
-    return await Persistence.listBackups(this.BACKUP_PREFIX);
+    return await Persistence.listBackups!(this.BACKUP_PREFIX);
   },
 
   /* Mantiene solo gli ultimi BACKUP_KEEP file. */
@@ -1709,15 +1697,15 @@ const Store = {
     const toDelete = list.slice(this.BACKUP_KEEP);
     let removed = 0;
     for (const f of toDelete) {
-      if (await Persistence.deleteBackup(f.name)) removed++;
+      if (await Persistence.deleteBackup!(f.name)) removed++;
     }
     return removed;
   },
 
   /* Legge il contenuto di un backup specifico (per restore manuale). */
-  async readOPFSBackup(filename) {
+  async readOPFSBackup(filename: string) {
     if (!this.isOPFSSupported()) throw new Error('OPFS non supportato');
-    return await Persistence.readBackup(filename);
+    return await Persistence.readBackup!(filename);
   },
 
   async requestPersistentStorage() {
@@ -1727,7 +1715,7 @@ const Store = {
       const ok = await navigator.storage.persist();
       return { granted: ok, reason: ok ? '' : this._persistDenialReason() };
     } catch (err) {
-      return { granted: false, reason: `Richiesta non riuscita: ${err.message}` };
+      return { granted: false, reason: `Richiesta non riuscita: ${(err as Error).message}` };
     }
   },
 
