@@ -189,7 +189,25 @@ dichiara, non si programma.
 
 ## 4. Le cinque, una per una
 
-### 4.1 — Schedulatore di attività · 1.4.1
+### 4.1 — Schedulatore di attività · 1.4.1 · **costruita, 12/08**
+
+> **Fatta e provata, non ancora installata.** `modules/compiti.ts` (52 prove),
+> le attività in `Store` (4 prove nuove sul servizio), la vista **Attività**
+> con la coda e i quattro gesti, il **riquadro in Dashboard** — che è la
+> trappola qui sotto, chiusa il primo giorno e non nella versione dopo — e il
+> **campionamento** con le sue tre cose: quantità, per chi, riserva.
+>
+> Più una che non era in questa sezione ma senza la quale la funzione non si
+> accende: **Configurazione → Funzioni**, da cui si alzano i cinque
+> interruttori col PIN di un Team Leader. Finché non c'è quella scheda, un
+> interruttore in `meta` è un interruttore che nessuno può toccare.
+>
+> **Due decisioni prese scrivendo**, che il modello qui sotto non fissava:
+> la priorità cresce col numero e un operatore non supera Normale — la D4
+> chiude il varco della modifica, il tetto alla creazione chiude l'altro — e
+> da uno stato chiuso non esce nessuna transizione, come per i movimenti.
+>
+> Resta un gesto solo, e non è codice: installare, e il turno dopo accendere.
 
 **Cosa.** Un operatore chiede un'attività — trasferimento fra magazzini, prelievo per
 spedizione o reso, blocco di quarantena, campionamento, smaltimento — e la richiesta
@@ -672,7 +690,7 @@ Sei consegne, `store.js` in TypeScript dentro la prima, e il WIP dentro l'ultima
 | Versione | Cosa | Da → a | Sett. |
 |---|---|---|---|
 | **1.4.0** | Fondamenta: migrazione §1, schema mosso una volta, **`store.js` in TS**, collaudi su `_applyToCache`, export/import da `COLLEZIONI`, interruttori. **Invisibile** | 11/08 → 19/09 | 5,5 |
-| **1.4.1** | Schedulatore sulle attività che esistono già | 21/09 → 10/10 | 3 |
+| **1.4.1** | Schedulatore sulle attività che esistono già. **Costruita il 12/08**, da installare | 21/09 → 10/10 | 3 |
 | **1.4.2** | Unità di misura, split colli, collo incompleto | 12/10 → **31/10** | 3 |
 | **1.4.3** | UDC, `moveUdc` transazionale, etichette | 02/11 → 21/11 | 3 |
 | **1.4.4** | Motore di stoccaggio: attributi, regole come dato, punteggio, motivazioni | 23/11 → 09/12 | 2,5 |
@@ -743,7 +761,7 @@ Cade alla fine della 1.4.2, e non è una riunione: sono quattro fatti da guardar
 | # | Deve essere vero il 31/10 |
 |---|---|
 | 1 | **1.4.0 in magazzino da almeno quattro settimane, senza un ritorno indietro** |
-| 2 | **1.4.1 in magazzino, e gli operatori ci hanno aperto dei compiti davvero** — non installato: usato |
+| 2 | **1.4.1 in magazzino, e gli operatori ci hanno aperto dei compiti davvero** — non installato: usato. **Il codice è finito dal 12/08**: quello che pesa su questo fatto non è più scriverlo, è installarlo e accenderlo presto |
 | 3 | **1.4.2 costruita e verificata**, pronta da installare |
 | 4 | Il file di prova del **motore** esiste e gira, anche se il motore no |
 

@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 12/08/2026 · Rev. 05 — la 1.4.0 è in magazzino, comincia la 1.4.1
+Data: 12/08/2026 · Rev. 06 — la 1.4.1 è costruita e provata, resta da installare
 
 ---
 
@@ -26,12 +26,12 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Voce | Valore |
 |---|---|
 | In magazzino, **adesso** | `pathfinder-1.4.0.html` — verificato su `/api/app-info`, 1.493.517 byte |
-| **1.4.0** | **installata il 12/08** — cinque settimane prima del 19/09 |
-| Ritorno indietro | `pathfinder-1.2.html`, in radice, intatto: si rimette `PATHFINDER_APP` su di lui e si riavvia |
-| Sorgente | 30 file in `src/`: **25 TypeScript**, 5 JavaScript, più 5 CSS |
+| **1.4.1** | **costruita e provata il 12/08**: `Pathfinder 1.4/pathfinder-1.4.1.html`, 1.526.393 byte. **Non installata** |
+| Ritorno indietro | Oggi `pathfinder-1.2.html`; il giorno che si installa la 1.4.1 diventa `pathfinder-1.4.0.html`, che resta in radice |
+| Sorgente | 31 file in `src/`: **26 TypeScript**, 5 JavaScript, più 5 CSS |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
-| Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
-| Collaudi | **208 client** · **30 servizio** · **8 migrazione** — tutti verdi |
+| Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` si popola a interruttore acceso |
+| Collaudi | **260 client** · **34 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
@@ -39,13 +39,17 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 > contro una copia del database vero, e installata con i cinque comandi della §4.
 > `/api/app-info` risponde `pathfinder-1.4.0.html`, 1.493.517 byte.
 >
-> **Il criterio era «si installa e non cambia niente a video», ed è rispettato**:
-> a cambiare sono il numero di versione — titolo, schermata di avvio, targhetta
-> `1.4.0`, i due piè di pagina — e gli avvisi merceologici, che erano l'eccezione
-> dichiarata. Nient'altro si muove: le cinque funzioni sono dentro a interruttore
-> spento, e `feature.*` assente vale spento (`store.ts:259`).
+> **La 1.4.1 è pronta e non è ancora installata**, ed è una distinzione che
+> conta: il file esiste, è provato, e finché nessuno esegue i cinque comandi
+> della §4 il magazzino non lo vede. Il gesto è di chi installa — a fine turno,
+> con un backup fresco davanti — ed è **un gesto diverso dall'accendere la
+> funzione**, che si fa il turno dopo da Configurazione → Funzioni.
 >
-> **Adesso comincia la 1.4.1**, lo schedulatore di attività, entro il 10/10.
+> **Anche installata, non cambia niente a video.** `feature.tasks` nasce spento:
+> la voce «Attività» in barra non compare, e in Dashboard non compare il suo
+> riquadro. Provato ricaricando su un database vergine. Ciò che si vede
+> comunque è la scheda **Configurazione → Funzioni**, che è il posto da cui la
+> si accende — e prima non esisteva.
 
 ---
 
@@ -53,6 +57,12 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| `5365f14` | **La 1.4.1 prende il suo numero e diventa un file**: i cinque punti che scrivono la versione, e la prova sul file consegnato invece che sul sorgente |
+| `c04d7d5` | **Il campionamento**, l'unica delle otto attività che oggi non esiste: quantità, per chi, campione di riserva |
+| `6d50353` | **La coda si vede e si tocca**: voce Attività, i quattro gesti, la maschera di richiesta, il riquadro in Dashboard |
+| `2353334` | **Configurazione → Funzioni**: gli interruttori si alzano da qualche parte, col PIN di un Team Leader |
+| `8c5f0cc` | **Lo schedulatore che scrive**: le attività in Store, `_moveTask`, e quattro prove nuove sul servizio vero |
+| `2a54ec0` | **`modules/compiti.ts`**: ciclo di vita, coda, misure e riepilogo — 52 prove scritte prima del modulo |
 | `0adbfb5` | **La 1.4.0 va in magazzino**: i numeri di versione portati a 1.4.0 nei sette punti che li scrivono, la consegna diventa `Pathfinder 1.4/pathfinder-1.4.0.html`, prova nel browser su una copia del database vero, installazione e verifica |
 | `321aeb2` | La 1.4.0 è chiusa, e i documenti lo dicono |
 | `459dac3` | **`store.js` è TypeScript**: sesto blocco, i due ponti caduti, e i due difetti trovati solo nel browser |
@@ -100,11 +110,37 @@ colonna `Certificazioni`.
 | 6 | Interruttori `feature.*` in `meta`, tutti spenti | **fatto** |
 | 7 | **Costruire e installare la 1.4.0** | **fatto 12/08** — `/api/app-info` risponde `pathfinder-1.4.0.html` |
 
-**Il prossimo atto è la 1.4.1**, lo schedulatore: PIANO-1.4 §4.1, entro il 10/10.
-La collezione `tasks` esiste già, vuota, e l'interruttore `feature.tasks` è
-dichiarato in `store.ts:35`. Quello che manca è tutto sopra: la maschera di
-richiesta, la coda, il cruscotto delle attività aperte — `tasks` non compare
-ancora una sola volta in `ui/app.js`.
+### La 1.4.1 — cosa c'è, e cosa resta da fare
+
+| # | Cosa | Stato |
+|---|---|---|
+| 1 | `modules/compiti.ts` — ciclo di vita, coda, attesa e durata, riepilogo | **fatto** — 52 prove, provate rompendo il modulo |
+| 2 | Le attività in `Store`: apertura, presa in carico, avvio, chiusura, annullamento, priorità | **fatto** — più 4 prove sul servizio vero |
+| 3 | **Configurazione → Funzioni**: gli interruttori si alzano col PIN di un Team Leader | **fatto** — prima non c'era modo di accenderne uno |
+| 4 | La vista **Attività**: coda, filtri, i quattro gesti, la maschera di richiesta | **fatto** |
+| 5 | Il **riquadro in Dashboard** — la trappola del piano, chiusa il primo giorno | **fatto** |
+| 6 | Il **campionamento**: quantità, per chi, campione di riserva | **fatto** |
+| 7 | **Installare la 1.4.1** e poi **accendere `feature.tasks`** | **da fare** — i cinque comandi della §4, e il turno dopo l'interruttore |
+
+**Due decisioni prese scrivendo, che il piano non fissava** — e che vale la
+pena conoscere prima di rimetterle in discussione:
+
+1. **La priorità cresce col numero, e l'operatore arriva a Normale.** La D4
+   dice che la priorità la alza solo il Team Leader; senza un tetto **alla
+   creazione** quella regola sarebbe una frase, perché il varco non è la
+   modifica. Provata forzandola: la tendina disabilita le due priorità alte, e
+   passando 4 a mano Store risponde di no. Vale in due punti, non in uno.
+2. **Da uno stato chiuso non esce nessuna freccia.** Un compito concluso è un
+   fatto, e i tempi che ne escono sono la misura di questa versione: se si è
+   sbagliato se ne apre un altro. Come per i movimenti, la storia non si
+   riscrive.
+
+**Il prossimo atto è la 1.4.2** — unità di misura, split colli, collo
+incompleto: PIANO-1.4 §4.2, entro il **31/10**, che è anche la data della
+verifica dell'andamento (§6 del piano). Dei quattro fatti da guardare quel
+giorno, il secondo — *«1.4.1 in magazzino, e gli operatori ci hanno aperto dei
+compiti davvero»* — dipende da quanto presto si installa e si accende: non
+dalla scrittura del codice, che è finita.
 
 > **Cosa ha richiesto il rilascio, oltre alla build.** Il sorgente era chiuso ma
 > non rilasciabile: `package.json`, `vite.config.js`, `index.html`, `main.js`,
@@ -165,7 +201,8 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
-| 1 | **La 1.4.1** — lo schedulatore di attività, PIANO-1.4 §4.1, entro il 10/10 | nuovo | il prossimo lavoro |
+| 1 | **Installare la 1.4.1**, e il turno dopo accendere `feature.tasks`. Il codice è finito e provato | 12/08 | Andrea, a fine turno |
+| 1bis | **La 1.4.2** — unità di misura, split colli, collo incompleto, entro il **31/10** | nuovo | il prossimo lavoro |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
 | 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare, non codice da scrivere | **1.0 §7.1** | Andrea, quando opportuno |
 | 4 | **Nome DNS interno e certificato** dalla CA aziendale. **Il codice è pronto e non aspetta niente**: due variabili e HTTPS si accende. Il certificato arriva a lavori finiti | **1.0 §7.2** · 1.2 §6.1 | IT — non blocca |
@@ -209,13 +246,23 @@ Start-ScheduledTask -TaskName 'Pathfinder - Servizio dati'
 Invoke-RestMethod http://127.0.0.1:4173/api/app-info
 ```
 
-Se `app_file` non è la 1.4.0, o `bytes` non è **1.493.517**, il servizio sta
+Se `app_file` non è la versione attesa, o `bytes` non corrisponde, il servizio sta
 servendo un'altra cartella: non insistere, leggere il README §9.
 
-**Il ritorno indietro è il punto 3 all'incontrario, più un riavvio.**
-`pathfinder-1.2.html` resta in radice — nessuno di questi passi lo sposta, proprio
-per questo — e il database non viene toccato. La 1.2 rilegge il database della
+| Versione | `app_file` | `bytes` |
+|---|---|---|
+| 1.4.0 — in magazzino adesso | `pathfinder-1.4.0.html` | 1.493.517 |
+| **1.4.1** — pronta, da installare | `pathfinder-1.4.1.html` | **1.526.393** |
+
+**Il ritorno indietro è il punto 3 all'incontrario, più un riavvio.** Il file
+precedente resta in radice — nessuno di questi passi lo sposta, proprio per
+questo — e il database non viene toccato. La 1.2 rilegge il database della
 1.4: lo provano le 8 prove di `collaudo-migrazione-1.4.js`, non una speranza.
+
+> **E se la 1.4.1 desse fastidio, prima di tornare indietro c'è un gesto più
+> piccolo: spegnere `feature.tasks`.** Un rilascio si disinstalla, una
+> funzione si spegne — e le due cose si confondono solo se si accendono
+> insieme. Per questo si installa un turno e si accende quello dopo.
 
 ### Chiusi — non riaprirli
 
@@ -270,6 +317,18 @@ Non si rimettono in discussione. Fonte fra parentesi.
 16. **Un collaudo si prova rompendo il codice** e vedendolo fallire (1.2 §4.1 · 1.3 §5.2).
 17. **I documenti si rileggono, non si ricostruiscono**: le ristampe partono dallo snapshot archiviato (1.0 §9.5).
 
+### 1.4.1 (12/08)
+34. **La priorità di un compito cresce col numero — 1 Bassa, 4 Urgente — e un
+    operatore non supera Normale.** La D4 chiude il varco della modifica; il
+    tetto alla creazione chiude l'altro. Senza, si aprirebbe tutto a 4.
+35. **Da uno stato chiuso — `done`, `cancelled` — non esce nessuna
+    transizione.** Un compito concluso è un fatto: se si è sbagliato se ne
+    apre un altro.
+36. **Un annullamento pretende il motivo.** Un compito che sparisce senza
+    ragione, fra un mese, non dice se era sbagliato o solo scomodo.
+37. **Le durate non contano gli annullati**, l'attesa sì: in coda ci sono
+    stati davvero, ma non li ha lavorati nessuno.
+
 ### 1.4
 18. **Il WIP resta nella 1.4** (1.4.5, installato il 19/12 a interruttore spento).
 19. **Verifica dell'andamento il 31/10**, con la scala di cosa togliere già decisa.
@@ -308,6 +367,18 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 20. **Un modulo importato con due specificatori diversi è due moduli.** Rinominato `store.js` in `store.ts`, Vite ha continuato a servire anche `/src/core/store.js` — risolvendolo, ma sotto un id diverso. In pagina c'erano **due Store**: la dashboard leggeva quello che nessuno scriveva. Tsc verde, 208 collaudi verdi, applicativo sbagliato. Gli import di un modulo TypeScript si scrivono **senza estensione**, come fanno già `./cache`, `./geometria`, `./persistence/index` (12/08).
 21. **Il pacchetto di export era una finestra sulla cache, non una fotografia.** Conteneva il riferimento agli array veri: `Vault.runBackup` fra `exportAll()` e la serializzazione legge tutto il registro, e un backup si fa mentre qualcuno lavora. `_counts` si calcola subito e il contenuto si legge dopo — quindi il pacchetto falliva la **propria** verifica. Ora `componi` copia gli elenchi (12/08).
+22. **`meta` non è un sacco: `_loadCache` la ricostruisce campo per campo.**
+    Scrivere una chiave nuova con `Persistence.put('meta', …)` funziona, e
+    funziona anche in cache — finché qualcuno non ricarica. Al primo
+    `reloadCache` la chiave sparisce, perché `_loadCache` monta l'oggetto
+    `meta` con i campi che conosce e ignora gli altri. È successo con
+    `featureLog` (12/08): chi aggiunge una chiave a `meta` la aggiunga anche
+    lì, o avrà scritto un dato che il database ha e la pagina no.
+23. **Una maschera che chiede l'identità in fondo la chiede troppo tardi.**
+    La richiesta di attività si apriva anche senza operatore identificato, e
+    moriva con «manca la sigla di chi richiede» a modulo già compilato. Vale
+    ovunque si scriva una sigla: la si pretende prima di aprire la maschera,
+    come fa la presa in carico.
 10. **`getLocationStatus`: uno stato esplicito vince su «occupata».** Una cella Riservata con merce dentro resta `reserved` — senza questo la deroga non scatterebbe mai.
 11. **`addArticle` esce con `false` su un codice noto.** Era il motivo per cui l'import diceva «importati 0». Ora c'è `upsertArticles`.
 12. **`Dialog.confirm` non accetta HTML**: vuole `message` (testo) e `details` (nodo DOM). È deliberato.
