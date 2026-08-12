@@ -36,8 +36,15 @@ export const PRIORITA: Record<number, string> = {
   1: 'Bassa', 2: 'Normale', 3: 'Alta', 4: 'Urgente',
 };
 export const PRIORITA_NORMALE = 2;
+export const PRIORITA_URGENTE = 4;
 /* Oltre questa, serve un Team Leader — decisione D4 del 12/08. */
 export const PRIORITA_MAX_OPERATORE = 2;
+
+/* 1.4.2.1 — sotto questa distanza dalla scadenza la coda tratta un compito
+   come urgente. È un PARAMETRO e non una costante: quante ore prima una
+   cosa diventi urgente è una politica di magazzino, e le politiche
+   cambiano senza che cambi la versione — stessa forma del prefisso GS1. */
+export const ORE_URGENZA_DEFAULT = 4;
 
 export const STATI: Record<string, string> = {
   requested: 'In coda', assigned: 'Assegnato', in_progress: 'In corso',
@@ -59,11 +66,19 @@ export const etichettaStato = (s: string): string => STATI[s] ?? String(s);
 /* Da uno stato CHIUSO non esce nessuna freccia, e non è una dimenticanza:
    un compito concluso è un fatto, e i tempi che ne escono sono la misura di
    questa versione. Se si è sbagliato se ne apre un altro — la storia non si
-   riscrive, come per i movimenti. */
+   riscrive, come per i movimenti.
+
+   1.4.2.1 — `in_progress → assigned` è la freccia dell'AVVIO CHE NON HA
+   PRODOTTO NIENTE: l'operatore apre la maschera dell'operazione e la chiude
+   senza confermare. Non è una lavorazione, è un ripensamento, e con lei
+   `started_at` torna a `null`. È l'unico punto del progetto in cui si
+   cancella un istante già scritto, ed è deliberato: un avvio che non ha
+   mosso un collo non è storia. Non porta a `requested` — chi l'aveva in
+   mano ce l'ha ancora. */
 const TRANSIZIONI: Record<string, readonly string[]> = {
   requested:   ['assigned', 'in_progress', 'cancelled'],
   assigned:    ['requested', 'in_progress', 'cancelled'],
-  in_progress: ['done', 'cancelled'],
+  in_progress: ['assigned', 'done', 'cancelled'],
   done:        [],
   cancelled:   [],
 };
@@ -74,6 +89,42 @@ export function transizioneAmmessa(da: string, a: string): boolean {
 
 export function eAperto(c: Pick<Compito, 'status'> | null | undefined): boolean {
   return !!c && (STATI_APERTI as readonly string[]).includes(c.status);
+}
+
+/* ── L'urgenza che matura ───────────────────────────────────────────── */
+
+/** Vera quando è la SCADENZA a rendere urgente un compito, non chi l'ha
+    chiesto. Serve a scriverlo a video — «scade fra 3 h» — senza far credere
+    che qualcuno abbia alzato la priorità. */
+export function inScadenza(
+  c: Partial<Compito> | null | undefined,
+  adesso: Istante = Date.now(),
+  oreSoglia: number = ORE_URGENZA_DEFAULT,
+): boolean {
+  if (!c?.due_at || !eAperto(c as Compito)) return false;
+  return c.due_at - adesso <= oreSoglia * 3_600_000;
+}
+
+/* LA PRIORITÀ CON CUI LA CODA TRATTA UN COMPITO ADESSO — e il record non si
+   tocca. Sotto la soglia una scadenza vale quanto un'urgenza, perché una
+   promessa fatta a qualcuno per le sedici, alle dodici, è urgente comunque
+   l'abbia classificata chi l'ha chiesta.
+
+   È un CALCOLO e non una scrittura, e la ragione è la decisione D4: «la
+   priorità la alza solo il Team Leader». Se il sistema alzasse il campo, fra
+   un mese quel record direbbe 4 senza che nessuno l'abbia chiesto, e la
+   regola diventerebbe «solo il Team Leader, e il sistema». Così invece resta
+   vera: il numero scritto è quello di chi l'ha chiesta, l'ordine della coda
+   è quello che serve a chi lavora.
+
+   Non ABBASSA mai: un compito nato urgente resta urgente. */
+export function prioritaEffettiva(
+  c: Partial<Compito> | null | undefined,
+  adesso: Istante = Date.now(),
+  oreSoglia: number = ORE_URGENZA_DEFAULT,
+): number {
+  const p = Number(c?.priority) || PRIORITA_NORMALE;
+  return inScadenza(c, adesso, oreSoglia) ? Math.max(p, PRIORITA_URGENTE) : p;
 }
 
 /* ── La richiesta ───────────────────────────────────────────────────── */
@@ -143,11 +194,89 @@ export function componiCompito(r: Richiesta, task_id: string, adesso: Istante = 
    dell'anzianità perché è una promessa fatta a qualcuno; l'anzianità è
    l'ultima parola, ed è ciò che impedisce a un compito senza scadenza di
    restare in fondo per sempre. */
-export function ordinaCoda(compiti: readonly Compito[] | null | undefined): Compito[] {
+export function ordinaCoda(
+  compiti: readonly Compito[] | null | undefined,
+  adesso: Istante = Date.now(),
+  oreSoglia: number = ORE_URGENZA_DEFAULT,
+): Compito[] {
   return (compiti ?? []).filter(eAperto).slice().sort((a, b) =>
-    (b.priority || 0) - (a.priority || 0)
+    prioritaEffettiva(b, adesso, oreSoglia) - prioritaEffettiva(a, adesso, oreSoglia)
     || (a.due_at ?? Infinity) - (b.due_at ?? Infinity)
     || (a.requested_at || 0) - (b.requested_at || 0));
+}
+
+/* ── Che cosa apre ogni tipo, e le tre eccezioni ────────────────────── */
+
+/* 1.4.2.1 — DA QUI LO SCHEDULATORE SMETTE DI AFFIANCARE IL LAVORO E LO APRE.
+   Ogni tipo dice quale funzione di Movimenta lanciare, precompilata coi dati
+   del compito. La tabella sta qui e non nella UI perché è una regola, non un
+   dettaglio di resa: chi aggiunge un tipo deve dire cosa apre, e il collaudo
+   glielo chiede. */
+export const OPERAZIONE = {
+  TRANSFER:   { modo: 'move' },
+  PICK_SHIP:  { modo: 'shipping', kind: 'shipment' },
+  PICK_RET:   { modo: 'shipping', kind: 'return' },
+  QUARANTINE: { modo: 'quarantine' },
+  SAMPLING:   { modo: 'sampling' },
+  DISPOSAL:   { modo: 'io', dir: 'out' },
+  PUTAWAY:    { modo: 'io', dir: 'in' },
+  COUNT:      { modo: 'inv' },
+} as const satisfies Record<TipoCompito, { modo: string; dir?: string; kind?: string }>;
+
+export type Operazione = { modo: string; dir?: string; kind?: string };
+
+/** `null` su un tipo sconosciuto: meglio non aprire niente che aprire la
+    maschera sbagliata a chi ha in mano un carrello. */
+export function operazioneDi(t: string): Operazione | null {
+  return (OPERAZIONE as Record<string, Operazione>)[t] ?? null;
+}
+
+/* La Conta è l'unica delle otto che può concludersi senza muovere un collo:
+   un inventario che torna giusto non produce nessuna riga di registro, e
+   senza il gesto a mano quel compito non si chiuderebbe mai. */
+export function chiudeAMano(t: string): boolean {
+  return t === 'COUNT';
+}
+
+/** I colli servono ovunque si muova merce: senza, il movimento non si
+    precompila e il compito non sa quando è finito. Si conta ciò che c'è. */
+export function vuoleColli(t: string): boolean {
+  return t !== 'COUNT';
+}
+
+/** Il Posizionamento riguarda merce che a magazzino non c'è ancora:
+    cercarla fra le giacenze non la troverebbe mai. */
+export function daGiacenza(t: string): boolean {
+  return t !== 'PUTAWAY';
+}
+
+/* ── Il residuo ─────────────────────────────────────────────────────── */
+
+/* 12 colli chiesti, 5 mossi: ne restano 7, e il compito resta aperto.
+   Ciò che è stato CHIESTO sta nel payload e non cambia mai — è la richiesta,
+   ed è storia; ciò che è stato FATTO cresce a ogni movimento confermato. */
+
+export function quantitaRichiesta(c: Partial<Compito> | null | undefined): number | null {
+  const q = Number((c?.payload as Record<string, unknown> | null)?.qty);
+  return Number.isFinite(q) && q > 0 ? q : null;
+}
+
+export function quantitaFatta(c: Partial<Compito> | null | undefined): number {
+  const q = Number(c?.qty_done);
+  return Number.isFinite(q) && q > 0 ? q : 0;
+}
+
+/** `null` = compito senza quantità, che non si esaurisce da solo. */
+export function residuo(c: Partial<Compito> | null | undefined): number | null {
+  const chiesto = quantitaRichiesta(c);
+  return chiesto === null ? null : Math.max(0, chiesto - quantitaFatta(c));
+}
+
+/** Vero quando non resta più niente da muovere: è il momento in cui il
+    compito si chiude da solo. Un movimento più grosso del richiesto lo
+    esaurisce e basta — non esistono meno di zero colli da spostare. */
+export function esaurito(c: Partial<Compito> | null | undefined): boolean {
+  return residuo(c) === 0;
 }
 
 /* ── Le misure ──────────────────────────────────────────────────────── */
@@ -211,6 +340,7 @@ export interface Riepilogo {
 export function riepilogo(
   compiti: readonly Compito[] | null | undefined,
   adesso: Istante = Date.now(),
+  oreSoglia: number = ORE_URGENZA_DEFAULT,
 ): Riepilogo {
   const tutti = compiti ?? [];
   const perStato: Record<string, number> = {
@@ -227,7 +357,9 @@ export function riepilogo(
     if (eAperto(c)) {
       aperti++;
       perTipo[c.type] = (perTipo[c.type] ?? 0) + 1;
-      if (c.priority >= 4) urgenti++;
+      /* Gli urgenti sono quelli che la CODA vede come urgenti: una Bassa che
+         scade fra un'ora, nel cruscotto, è un urgente. */
+      if (prioritaEffettiva(c, adesso, oreSoglia) >= PRIORITA_URGENTE) urgenti++;
       if (inRitardo(c, adesso)) ritardi++;
       const attesa = misure(c, adesso).attesa;
       if (attesa !== null && (attesaMassima === null || attesa > attesaMassima)) {

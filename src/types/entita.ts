@@ -386,6 +386,14 @@ export interface Compito {
       un'operazione, e un'operazione porta la sigla di chi l'ha fatta. */
   completed_by?: string | null;
   cancel_reason?: string;
+  /** 1.4.2.1 — quanti colli sono stati mossi finora. Il richiesto sta nel
+      payload e non cambia mai: questo cresce a ogni movimento confermato, e
+      quando il residuo arriva a zero il compito si chiude da solo. */
+  qty_done?: number;
+  /** 1.4.2.1 — i movimenti che hanno lavorato questo compito, per `_id`.
+      È il legame che il registro delle attività legge per dire con che cosa
+      un compito è stato chiuso. */
+  mov_ids?: number[];
 }
 
 /** 1.4.5 — il conto aperto di ciò che è uscito verso la produzione.

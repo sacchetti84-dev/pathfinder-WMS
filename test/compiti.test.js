@@ -4,6 +4,9 @@ import {
   etichettaTipo, etichettaPriorita, etichettaStato,
   transizioneAmmessa, eAperto, componiCompito, validaRichiesta,
   prioritaConsentita, ordinaCoda, misure, inRitardo, riepilogo,
+  ORE_URGENZA_DEFAULT, OPERAZIONE, prioritaEffettiva, inScadenza,
+  operazioneDi, chiudeAMano, vuoleColli, daGiacenza,
+  quantitaRichiesta, quantitaFatta, residuo, esaurito,
 } from '../src/modules/compiti';
 
 const T0 = Date.parse('2026-09-21T08:00:00Z');
@@ -331,8 +334,12 @@ describe('riepilogo', () => {
     expect(r.perTipo).toEqual({ TRANSFER: 3, COUNT: 1 });
   });
 
-  it('conta gli urgenti aperti e i ritardi', () => {
-    expect(r.urgenti).toBe(1);
+  /* Erano 1 fino alla 1.4.1, quando urgente voleva dire «priorità 4». Dalla
+     1.4.2.1 sono 2: il compito 6 è scaduto un'ora fa, e un compito scaduto
+     la coda lo tratta come urgente comunque l'abbia classificato chi l'ha
+     chiesto. Il suo record dice ancora Normale — la D4 regge. */
+  it('conta gli urgenti aperti come li vede la coda, e i ritardi', () => {
+    expect(r.urgenti).toBe(2);
     expect(r.inRitardo).toBe(1);
   });
 
@@ -361,5 +368,209 @@ describe('riepilogo', () => {
     const v = riepilogo([compito()], T0);
     expect(v.attesaMedia).toBe(null);
     expect(v.durataMedia).toBe(null);
+  });
+});
+
+/* ══════════════════════════════════════════════════════════════════════
+   1.4.2.1 — LO SCHEDULATORE LANCIA IL LAVORO
+   Fin qui il compito era una richiesta che affiancava l'operazione. Da qui
+   la apre, e si chiude solo perche' un movimento e' stato confermato.
+   ══════════════════════════════════════════════════════════════════════ */
+
+/* ── L'urgenza che matura, senza toccare il record ──────────────────── */
+
+describe('prioritaEffettiva', () => {
+  const conScadenza = (ore, extra = {}) =>
+    compito({ due_at: T0 + ore * ORA, priority: 1, ...extra });
+
+  it('lontana dalla scadenza vale la priorita\' che le hanno dato', () => {
+    expect(prioritaEffettiva(conScadenza(48), T0)).toBe(1);
+  });
+
+  it('dentro la soglia la coda la tratta come urgente', () => {
+    expect(prioritaEffettiva(conScadenza(3), T0)).toBe(4);
+  });
+
+  it('la soglia e\' inclusiva: a quattro ore esatte e\' gia\' urgente', () => {
+    expect(prioritaEffettiva(conScadenza(ORE_URGENZA_DEFAULT), T0)).toBe(4);
+  });
+
+  it('scaduta e ancora aperta resta urgente, non torna indietro', () => {
+    expect(prioritaEffettiva(conScadenza(-5), T0)).toBe(4);
+  });
+
+  /* IL PUNTO DI TUTTA LA SCELTA: il record non cambia. La D4 dice che la
+     priorita' la alza solo il Team Leader, e continua a essere vera. */
+  it('il record NON viene toccato: e\' un calcolo, non una scrittura', () => {
+    const c = conScadenza(1);
+    prioritaEffettiva(c, T0);
+    expect(c.priority).toBe(1);
+  });
+
+  it('senza scadenza non matura niente', () => {
+    expect(prioritaEffettiva(compito({ priority: 2, due_at: null }), T0)).toBe(2);
+  });
+
+  it('un compito chiuso non e\' piu\' urgente di niente', () => {
+    expect(prioritaEffettiva(conScadenza(-5, { status: 'done' }), T0)).toBe(1);
+    expect(prioritaEffettiva(conScadenza(-5, { status: 'cancelled' }), T0)).toBe(1);
+  });
+
+  it('non ABBASSA mai: un urgente resta urgente anche se la scadenza e\' lontana', () => {
+    expect(prioritaEffettiva(compito({ priority: 4, due_at: T0 + 100 * ORA }), T0)).toBe(4);
+  });
+
+  it('la soglia si puo\' cambiare: e\' un parametro, non una costante', () => {
+    expect(prioritaEffettiva(conScadenza(6), T0, 8)).toBe(4);
+    expect(prioritaEffettiva(conScadenza(6), T0, 2)).toBe(1);
+  });
+});
+
+describe('inScadenza', () => {
+  it('dice se e\' la scadenza a renderla urgente, non chi l\'ha chiesta', () => {
+    expect(inScadenza(compito({ due_at: T0 + 2 * ORA }), T0)).toBe(true);
+    expect(inScadenza(compito({ due_at: T0 + 40 * ORA }), T0)).toBe(false);
+    expect(inScadenza(compito({ due_at: null }), T0)).toBe(false);
+  });
+
+  it('un compito nato urgente senza scadenza non e\' in scadenza', () => {
+    expect(inScadenza(compito({ priority: 4, due_at: null }), T0)).toBe(false);
+  });
+});
+
+describe('ordinaCoda con la scadenza che matura', () => {
+  it('una Bassa che scade fra un\'ora passa davanti a una Alta senza scadenza', () => {
+    const bassa = compito({ task_id: 'B', priority: 1, due_at: T0 + ORA });
+    const alta  = compito({ task_id: 'A', priority: 3, due_at: null });
+    expect(ordinaCoda([alta, bassa], T0).map(c => c.task_id)).toEqual(['B', 'A']);
+  });
+
+  it('senza scadenze vicine l\'ordine e\' quello di sempre', () => {
+    const bassa = compito({ task_id: 'B', priority: 1, due_at: T0 + 90 * ORA });
+    const alta  = compito({ task_id: 'A', priority: 3, due_at: null });
+    expect(ordinaCoda([bassa, alta], T0).map(c => c.task_id)).toEqual(['A', 'B']);
+  });
+});
+
+/* ── Il compito abbandonato torna indietro ──────────────────────────── */
+
+describe('transizioni — l\'avvio che non ha prodotto niente', () => {
+  /* Chiudere la maschera senza confermare non e' una lavorazione: e' un
+     ripensamento. La freccia esiste per quello, e per niente altro. */
+  it('da in corso si torna in carico', () => {
+    expect(transizioneAmmessa('in_progress', 'assigned')).toBe(true);
+  });
+
+  it('ma non si torna in coda saltando l\'assegnazione', () => {
+    expect(transizioneAmmessa('in_progress', 'requested')).toBe(false);
+  });
+
+  it('e da chiuso non si torna comunque da nessuna parte', () => {
+    expect(transizioneAmmessa('done', 'assigned')).toBe(false);
+    expect(transizioneAmmessa('cancelled', 'assigned')).toBe(false);
+  });
+});
+
+/* ── Quale operazione apre quale attivita' ──────────────────────────── */
+
+describe('operazioneDi', () => {
+  it('tutti e otto i tipi sanno cosa aprire', () => {
+    for (const t of Object.keys(TIPI_COMPITO)) expect(operazioneDi(t)).toBeTruthy();
+    expect(Object.keys(OPERAZIONE).sort()).toEqual(Object.keys(TIPI_COMPITO).sort());
+  });
+
+  it('i due prelievi vanno tutti e due sulle spedizioni', () => {
+    expect(operazioneDi('PICK_SHIP').modo).toBe('shipping');
+    expect(operazioneDi('PICK_RET').modo).toBe('shipping');
+  });
+
+  it('carico e scarico sono la stessa vista con due direzioni', () => {
+    expect(operazioneDi('PUTAWAY').modo).toBe('io');
+    expect(operazioneDi('PUTAWAY').dir).toBe('in');
+    expect(operazioneDi('DISPOSAL').modo).toBe('io');
+    expect(operazioneDi('DISPOSAL').dir).toBe('out');
+  });
+
+  it('un tipo ignoto non apre niente invece di aprire la cosa sbagliata', () => {
+    expect(operazioneDi('BOH')).toBe(null);
+  });
+});
+
+describe('le tre eccezioni per tipo', () => {
+  /* La Conta che torna giusta non produce nessun movimento: senza il gesto
+     a mano non si chiuderebbe mai. */
+  it('solo la Conta si chiude a mano', () => {
+    expect(chiudeAMano('COUNT')).toBe(true);
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      if (t !== 'COUNT') expect(chiudeAMano(t), t).toBe(false);
+    }
+  });
+
+  it('i colli servono ovunque si muova merce, non alla Conta', () => {
+    expect(vuoleColli('COUNT')).toBe(false);
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      if (t !== 'COUNT') expect(vuoleColli(t), t).toBe(true);
+    }
+  });
+
+  /* Il Posizionamento riguarda merce che a magazzino non c'e' ancora:
+     cercarla fra le giacenze non la troverebbe mai. */
+  it('si cerca fra le giacenze tranne che per il Posizionamento', () => {
+    expect(daGiacenza('PUTAWAY')).toBe(false);
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      if (t !== 'PUTAWAY') expect(daGiacenza(t), t).toBe(true);
+    }
+  });
+});
+
+/* ── Il residuo: 12 chiesti, 5 mossi, ne restano 7 ───────────────────── */
+
+describe('residuo', () => {
+  const conColli = (qty, fatti) => compito({ payload: { qty }, qty_done: fatti });
+
+  it('quanto e\' stato chiesto sta nel payload, e non cambia mai', () => {
+    expect(quantitaRichiesta(conColli(12, 5))).toBe(12);
+  });
+
+  it('quanto e\' stato fatto parte da zero', () => {
+    expect(quantitaFatta(compito({ payload: { qty: 12 } }))).toBe(0);
+  });
+
+  it('12 chiesti e 5 mossi fanno 7 di residuo', () => {
+    expect(residuo(conColli(12, 5))).toBe(7);
+  });
+
+  it('a residuo zero l\'attivita\' e\' esaurita', () => {
+    expect(esaurito(conColli(12, 12))).toBe(true);
+    expect(esaurito(conColli(12, 5))).toBe(false);
+  });
+
+  /* Un movimento piu' grosso del richiesto non lascia un residuo negativo:
+     non ci sono meno di zero colli da spostare. */
+  it('muoverne piu\' del richiesto esaurisce e basta', () => {
+    expect(residuo(conColli(12, 20))).toBe(0);
+    expect(esaurito(conColli(12, 20))).toBe(true);
+  });
+
+  it('senza quantita\' richiesta non c\'e\' residuo da calcolare', () => {
+    expect(quantitaRichiesta(compito({ payload: null }))).toBe(null);
+    expect(residuo(compito({ payload: null }))).toBe(null);
+  });
+
+  /* La Conta non porta colli: non e' esaurita, si chiude a mano. */
+  it('un compito senza quantita\' non e\' mai esaurito da solo', () => {
+    expect(esaurito(compito({ payload: null }))).toBe(false);
+  });
+});
+
+describe('riepilogo — gli urgenti li conta come li vede la coda', () => {
+  it('una Bassa che scade fra un\'ora e\' un urgente nel cruscotto', () => {
+    const r = riepilogo([compito({ priority: 1, due_at: T0 + ORA })], T0);
+    expect(r.urgenti).toBe(1);
+  });
+
+  it('e una Bassa senza scadenza no', () => {
+    const r = riepilogo([compito({ priority: 1, due_at: null })], T0);
+    expect(r.urgenti).toBe(0);
   });
 });
