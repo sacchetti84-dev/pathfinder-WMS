@@ -977,7 +977,10 @@ const Store = {
       unit: article.unit || 'PZ',
       weight: parseFloat(article.weight) || 0,
       weight_net_kg: parseFloat(article.weight_net_kg) || 0,
-      pieces_per_pack: parseInt(article.pieces_per_pack) || 0,
+      /* 1.4.2 — `parseFloat` e non piu' `parseInt`: da quando questo campo e'
+         anche la UM-per-collo, un collo da 12,5 kg esiste. Sui pezzi non
+         cambia niente, e il DDT legge lo stesso numero di prima. */
+      pieces_per_pack: parseFloat(article.pieces_per_pack) || 0,
       length: parseFloat(article.length) || 0,
       width: parseFloat(article.width) || 0,
       height: parseFloat(article.height) || 0,
@@ -1052,7 +1055,7 @@ const Store = {
         code: r.code, description: r.description || '', category: r.category || 'MP',
         supplier: r.supplier || '', unit: r.unit || 'PZ',
         weight: parseFloat(r.weight) || 0, weight_net_kg: parseFloat(r.weight_net_kg) || 0,
-        pieces_per_pack: parseInt(r.pieces_per_pack) || 0,
+        pieces_per_pack: parseFloat(r.pieces_per_pack) || 0,   // 1.4.2 — vedi addArticle
         length: parseFloat(r.length) || 0, width: parseFloat(r.width) || 0, height: parseFloat(r.height) || 0,
         min_stock: parseFloat(r.min_stock) || 0, max_stock: parseFloat(r.max_stock) || 0,
         notes: r.notes || '', active: true, created: Date.now(),

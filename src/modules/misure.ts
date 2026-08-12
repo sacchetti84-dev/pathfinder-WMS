@@ -119,10 +119,20 @@ export interface Configurazione {
 
     DUE CAMPI CHE ESISTEVANO GIÀ, E CHE QUI SI FINISCONO INVECE DI DOPPIARE.
 
-    `uom_per_collo` assente legge `pieces_per_pack`, che esiste dalla v3.0.0
-    ed è già la UM-per-collo — è il ripiego che il piano §4.2 chiede a parole.
-    Lo zero è l'assenza, perché è così che Store lo ha sempre scritto,
+    La quantità per collo è `pieces_per_pack`, che esiste dalla v3.0.0 ed è
+    già la UM-per-collo: è il campo che la maschera dell'anagrafica modifica
+    e che la colonna `Pezzi_Per_Collo` dell'import riempie. Lo zero è
+    l'assenza, perché è così che Store lo ha sempre scritto,
     `parseInt(...) || 0`.
+
+    `uom_per_collo` — il nome che il piano §4.2 dà al campo — si legge solo
+    quando l'altro manca, ed è l'inverso di come il piano lo scriveva. La
+    ragione è che l'ordine opposto è una BUGIA A VIDEO: nessuna maschera e
+    nessuna colonna Excel scrivono `uom_per_collo`, quindi un articolo che
+    se lo porta dietro da un foglio si comporterebbe in un modo e ne
+    mostrerebbe un altro nella maschera che si apre per correggerlo. Fatto
+    così, chi importa vince sempre sull'ultimo che ha digitato — che è
+    l'ordine giusto per un'anagrafica di duemila righe.
 
     `uom` assente legge `unit`, e questo il piano NON lo diceva: `unit` esiste
     dalla v1, è già etichettato «UM» nella maschera dell'anagrafica e nella
@@ -142,8 +152,8 @@ export function configurazione(art: Record<string, any> | null | undefined): Con
   if (propria === undefined) return null;
   const uom = propria ?? leggiUnita(art?.unit);
   if (!uom) return null;
-  const proprio = numero(art?.uom_per_collo);
-  const ripiego = numero(art?.pieces_per_pack);
+  const proprio = numero(art?.pieces_per_pack);
+  const ripiego = numero(art?.uom_per_collo);
   const per = (proprio && proprio > 0) ? proprio : ((ripiego && ripiego > 0) ? ripiego : null);
   return { uom, per_collo: per === null ? null : arrotonda(per, decimali(uom)) };
 }

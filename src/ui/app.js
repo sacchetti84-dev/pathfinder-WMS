@@ -25,6 +25,10 @@ import {
   etichettaTipo, iconaTipo, etichettaPriorita, etichettaStato,
   eAperto, misure, inRitardo, durataUmana,
 } from '../modules/compiti';
+import {
+  UNITA_MISURA, etichettaUnita, formattaQuantita, descrivi as descriviColli,
+  validaConfigurazione, valoriAmmessi as valoriAmmessiUM,
+} from '../modules/misure';
 
 const App = {
   currentView: 'dashboard',
@@ -2560,6 +2564,7 @@ const App = {
           </div>
           <div class="item-desc">${this._esc(item.article_description || '—')}</div>
           <div class="item-lot">Lotto: ${this._esc(item.lot_code)}</div>
+          ${this._rigaUM(item)}
           <div class="item-meta">
             ${item.placed_at ? `<span>📅 ${new Date(item.placed_at).toLocaleDateString('it-IT')}</span>` : ''}
             ${item.expiry_date ? `<span>⏱ Scad: ${this._esc(item.expiry_date)}</span>` : ''}
@@ -3008,13 +3013,18 @@ const App = {
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
   },
 
-  async _logMov(type, art, desc, lot, loc, destLoc = null, user = '', notes = '', docRef = '', qtyBefore = null, qtyDelta = null, qtyAfter = null) {
+  async _logMov(type, art, desc, lot, loc, destLoc = null, user = '', notes = '', docRef = '', qtyBefore = null, qtyDelta = null, qtyAfter = null, qtyUomDelta = null) {
     const effectiveUser = user || Store.getCurrentIdentity().initials;
+    /* 1.4.2 — l'unita' viene dal lotto, non dal chiamante: e' l'unico posto
+       dove non puo' essere sbagliata, e i chiamanti sono trentotto. */
+    const cfgMov = Store.getUomConfig(art, lot);
     const entry = {
       type, article_code: art, article_description: desc, lot_code: lot,
       location_code: loc, dest_location: destLoc, user: effectiveUser,
       notes, doc_ref: docRef, ts: Date.now(),
-      qty_before: qtyBefore, qty_delta: qtyDelta, qty_after: qtyAfter
+      qty_before: qtyBefore, qty_delta: qtyDelta, qty_after: qtyAfter,
+      qty_uom_delta: typeof qtyUomDelta === 'number' ? qtyUomDelta : null,
+      ...(cfgMov ? { uom: cfgMov.uom } : {})
     };
     this._movSessionLog.unshift(entry);
     if (this._movSessionLog.length > 100) this._movSessionLog.length = 100;
@@ -3277,20 +3287,24 @@ const App = {
       <div class="form-group" style="margin-bottom:0.5rem">
         <label>② Codice Articolo <span class="req">*</span></label>
         <input class="input input-mono" id="mInArtCode" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+          oninput="App._anteprimaUmIn()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._autoLookupArticle('mInArtCode','mInArtInfo','mInArtDesc');document.getElementById('mInLot').focus();}">
         <div id="mInArtInfo" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem"></div>
       </div>
       <div class="form-group" style="margin-bottom:0.5rem">
         <label>③ Codice Lotto <span class="req">*</span></label>
         <input class="input input-mono" id="mInLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
+          oninput="App._anteprimaUmIn()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('mInQty').focus();document.getElementById('mInQty').select();}">
       </div>
       <div class="form-group" style="margin-bottom:0.5rem">
         <label>④ Colli <span class="req">*</span></label>
         <input class="input input-mono" id="mInQty" type="number" min="1" step="1" value="1" style="max-width:120px;text-align:center;font-weight:700"
+          oninput="App._anteprimaUmIn()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._execPosiziona();}">
         <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">Se il lotto è già in ubicazione, i colli si sommano.</div>
       </div>
+      ${this._campoUmIngresso()}
       <details id="mInDetails" style="margin-bottom:0.5rem">
         <summary style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);cursor:pointer">▾ Descrizione · Scadenza · Note</summary>
         <div style="padding-top:0.4rem">
@@ -3311,6 +3325,57 @@ const App = {
         <span class="kbd">F9</span><span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">annulla l'ultima operazione</span>
       </div>`;
     this.setPrimaryScanField('mInLoc');
+  },
+
+  /* 1.4.2 — IL COLLO INCOMPLETO ENTRA DA QUI, E DA NESSUN'ALTRA PARTE.
+     Lasciato vuoto, il campo dice «N colli PIENI», che e' il novantanove per
+     cento dei posizionamenti e non chiede niente in piu' a chi scansiona. Si
+     compila solo quando l'ultimo collo non e' pieno — ed e' l'unico momento
+     in cui qualcuno ha la merce in mano e lo sa davvero.
+
+     A interruttore spento il campo non c'e': la maschera e' quella di ieri. */
+  _campoUmIngresso() {
+    if (!Store.isFeatureOn('uom')) return '';
+    return `
+      <div class="form-group" style="margin-bottom:0.5rem" id="mInUmBox" hidden>
+        <label>Quantità totale in <span id="mInUmSigla" class="mono"></span> <span style="font-weight:400;color:var(--sx-text-muted)">— solo se l'ultimo collo non è pieno</span></label>
+        <input class="input input-mono" id="mInUmQty" type="number" min="0" step="0.001" placeholder="vuoto = colli pieni"
+          style="max-width:180px;text-align:center" oninput="App._anteprimaUmIn()">
+        <div id="mInUmPrev" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem"></div>
+      </div>`;
+  },
+
+  /* Il campo compare solo per l'articolo/lotto che ha una confezione, e la
+     confezione la si conosce solo dopo che sono stati digitati tutti e due:
+     per questo l'anteprima si ricalcola a ogni tasto invece che una volta. */
+  _anteprimaUmIn() {
+    const box = document.getElementById('mInUmBox');
+    if (!box) return;
+    const art = Validate.clean(document.getElementById('mInArtCode')?.value, true);
+    const lot = Validate.clean(document.getElementById('mInLot')?.value);
+    const cfg = art ? Store.getUomConfig(art, lot) : null;
+    if (!cfg?.per_collo) { box.hidden = true; return; }
+    box.hidden = false;
+    document.getElementById('mInUmSigla').textContent = cfg.uom;
+    const colli = parseInt(document.getElementById('mInQty')?.value) || 0;
+    const raw = document.getElementById('mInUmQty')?.value;
+    const tot = raw === '' || raw === undefined || raw === null
+      ? colli * cfg.per_collo : Number(String(raw).replace(',', '.'));
+    const prev = document.getElementById('mInUmPrev');
+    prev.textContent = `⚖ ${descriviColli(tot, cfg.per_collo, cfg.uom)} — ${formattaQuantita(tot, cfg.uom)} ${cfg.uom} in tutto`;
+  },
+
+  /* 1.4.2 — QUANTE UM SI SONO MOSSE DAVVERO, per rimetterle dall'altra parte.
+
+     Ogni spostamento in questo file e' un `removeItem` seguito da un
+     `addItem`, e senza questo numero il secondo dei due DERIVA dai colli
+     pieni: spostare 11 colli da 10.100 pz ne riscriverebbe 11.000, e il
+     magazzino guadagnerebbe 900 pezzi nel passaggio da uno scaffale
+     all'altro. Vale per gli spostamenti, per le quarantene e per ogni
+     ripristino dopo un errore — cioe' ovunque ci sia un `addItem` che
+     rimette a posto qualcosa che era appena uscito. */
+  _umMossa(removed) {
+    return typeof removed?._qty_uom_delta === 'number' ? -removed._qty_uom_delta : null;
   },
 
   _cbPickIn() { setTimeout(() => { App._previewLoc('mInLoc','mInLocPrev'); document.getElementById('mInArtCode')?.focus(); }, 30); },
@@ -3387,10 +3452,21 @@ const App = {
     }
     ScanGuard.mark(signature);
 
-    const res = await Store.addItem(loc, art, effectiveDesc, lot, exp, notes, qty);
+    /* 1.4.2 — vuoto vuol dire «colli pieni», e Store lo deriva dalla
+       confezione: qui si passa un numero solo quando qualcuno lo ha digitato,
+       cioe' quando ha in mano un collo che pieno non e'. */
+    const umRaw = document.getElementById('mInUmQty')?.value;
+    const qtyUom = umRaw === undefined || umRaw === null || String(umRaw).trim() === ''
+      ? null : Number(String(umRaw).replace(',', '.'));
+    let res;
+    try {
+      res = await Store.addItem(loc, art, effectiveDesc, lot, exp, notes, qty, qtyUom);
+    } catch (err) {
+      return this.toast(err.message || 'Errore posizionamento', 'error');
+    }
     if (!res.ok) return this.toast('Errore posizionamento', 'error');
     // v1.7.0 — log con qty info
-    await this._logMov(MOV.IN, art, effectiveDesc, lot, loc, null, '', '', '', res.qty_before, qty, res.qty_after);
+    await this._logMov(MOV.IN, art, effectiveDesc, lot, loc, null, '', '', '', res.qty_before, qty, res.qty_after, res.qty_uom_delta);
 
     const fb = document.getElementById('mInFeedback');
     const modeLabel = res.mode === 'incremented' ? `<span style="color:var(--sx-warning)">⊕ INCREMENTATO</span>` : '';
@@ -3399,15 +3475,16 @@ const App = {
     this.toast(`✓ Posizionato: ${art}#${lot} → ${loc} · +${qty} Coll.${incrSuffix}`, 'success');
     this.updateSyncIndicator();
     // Reset campi articolo ma lascia loc; reset qty al default 1
-    for (const id of ['mInArtCode','mInArtDesc','mInLot','mInExp','mInNotes']) { const e = document.getElementById(id); if (e) e.value = ''; }
+    for (const id of ['mInArtCode','mInArtDesc','mInLot','mInExp','mInNotes','mInUmQty']) { const e = document.getElementById(id); if (e) e.value = ''; }
     const qtyEl = document.getElementById('mInQty'); if (qtyEl) qtyEl.value = '1';
+    this._anteprimaUmIn();
     document.getElementById('mInArtInfo').innerHTML = '';
     document.getElementById('mInDetails')?.removeAttribute('open');
     this._previewLoc('mInLoc','mInLocPrev');
     this._refreshSessionLog();
     // v2.1.0 — storno disponibile per 120 secondi
     this._pushUndo(`Posizionamento ${art}#${lot} → ${loc} (${qty} Coll.)`,
-      [{ op: 'remove', loc, art, desc: effectiveDesc, lot, qty }]);
+      [{ op: 'remove', loc, art, desc: effectiveDesc, lot, qty, qty_uom: res.qty_uom_delta ?? null }]);
     this.setPrimaryScanField('mInArtCode');
   },
 
@@ -3866,12 +3943,13 @@ const App = {
     const operator = Store.getCurrentIdentity().initials;
     const verbale = Store.nextDisposalSeq();
     await this._logMov(MOV.OUT, removed.article_code, removed.article_description, removed.lot_code,
-      loc, null, operator, notes, verbale, removed._qty_before, removed._qty_delta, removed._qty_after);
+      loc, null, operator, notes, verbale, removed._qty_before, removed._qty_delta, removed._qty_after, removed._qty_uom_delta);
 
     // v2.1.0 — storno disponibile per 120 secondi
     this._pushUndo(`Smaltimento ${removed.article_code}#${removed.lot_code} da ${loc} (${qtyOut} Coll.)`,
       [{ op: 'add', loc, art: removed.article_code, desc: removed.article_description,
-         lot: removed.lot_code, exp: removed.expiry_date || '', notes: removed.notes || '', qty: qtyOut }]);
+         lot: removed.lot_code, exp: removed.expiry_date || '', notes: removed.notes || '', qty: qtyOut,
+         qty_uom: this._umMossa(removed) }]);
 
     const snap = {
       doc_id: verbale,
@@ -4214,9 +4292,10 @@ const App = {
     const removed = await Store.removeItem(item.location_code, item.item_key, partial ? qtyToMove : null);
     if (!removed) { this.toast('Rimozione dall\'origine fallita', 'error'); return { ok: false }; }
     // Add in destinazione preservando metadati e quantità
-    const res = await Store.addItem(dest, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', qtyToMove);
+    const umMossa = this._umMossa(removed);   // 1.4.2 — il collo incompleto si sposta con la merce
+    const res = await Store.addItem(dest, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', qtyToMove, umMossa);
     if (!res.ok) {
-      if (partial) await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', qtyToMove);
+      if (partial) await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', qtyToMove, umMossa);
       else await Store.restoreItem(backup);
       this.toast('Conflitto destinazione — rollback eseguito', 'error');
       return { ok: false };
@@ -4527,7 +4606,8 @@ const App = {
       // Rimozione parziale o totale a seconda di qtyPick
       const removed = await Store.removeItem(it.location_code, it.item_key, qtyPick);
       if (!removed) { failedAt = i; break; }
-      results.push({ ...it, _qty_before: removed._qty_before, _qty_delta: removed._qty_delta, _qty_after: removed._qty_after, _mode: removed._mode });
+      results.push({ ...it, _qty_before: removed._qty_before, _qty_delta: removed._qty_delta, _qty_after: removed._qty_after, _mode: removed._mode,
+                     _qty_uom_delta: removed._qty_uom_delta ?? null });
     }
     if (failedAt !== -1) {
       // Rollback: per ogni item processato, se era partial → reincrementa, se era full → restoreItem
@@ -4536,7 +4616,8 @@ const App = {
         const mode = results[j]?._mode;
         if (mode === 'partial') {
           // ripristina addItem con qty_delta (re-incrementa)
-          await Store.addItem(b.location_code, b.article_code, b.article_description, b.lot_code, b.expiry_date || '', b.notes || '', Math.abs(results[j]._qty_delta));
+          // 1.4.2 — e con le UM che erano uscite, se no il rollback ne inventa
+          await Store.addItem(b.location_code, b.article_code, b.article_description, b.lot_code, b.expiry_date || '', b.notes || '', Math.abs(results[j]._qty_delta), this._umMossa(results[j]));
         } else {
           await Store.restoreItem(b);
         }
@@ -4545,7 +4626,7 @@ const App = {
     }
     // Log tutti i movimenti (con order_num in doc_ref, operator in user, qty info)
     for (const it of results) {
-      await this._logMov(MOV.PICK, it.article_code, it.article_description, it.lot_code, it.location_code, null, this._prodOperator, '', this._prodOrderNum, it._qty_before, it._qty_delta, it._qty_after);
+      await this._logMov(MOV.PICK, it.article_code, it.article_description, it.lot_code, it.location_code, null, this._prodOperator, '', this._prodOrderNum, it._qty_before, it._qty_delta, it._qty_after, it._qty_uom_delta);
     }
     // v2.1.0 — storno del batch entro la finestra temporale
     this._pushUndo(`Prelievo produzione ord. ${this._prodOrderNum} (${results.length} lotti)`,
@@ -4553,7 +4634,8 @@ const App = {
         op: 'add', loc: it.location_code, art: it.article_code,
         desc: it.article_description, lot: it.lot_code,
         exp: it.expiry_date || '', notes: it.notes || '',
-        qty: Math.abs(it._qty_delta || it.qty_pick || 1)
+        qty: Math.abs(it._qty_delta || it.qty_pick || 1),
+        qty_uom: this._umMossa(it)          // 1.4.2 — vedi _umMossa
       })));
     this.toast(`✓ Prelevati ${results.length} lotti (${totalColli} Coll.) per ord. ${this._prodOrderNum}`, 'success');
     this.updateSyncIndicator();
@@ -6414,13 +6496,14 @@ const App = {
     const blockedLoc = nearest.code;
     const removed = await Store.removeItem(item.location_code, item.item_key, qtyToMove);
     if (!removed) { this.toast('Item non più disponibile — operazione annullata', 'error'); return { ok: false }; }
+    const umNC = this._umMossa(removed);   // 1.4.2 — vedi _umMossa
     try {
-      const res = await Store.addItem(nearest.code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', 'QUARANTENA: ' + reason, qtyToMove);
+      const res = await Store.addItem(nearest.code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', 'QUARANTENA: ' + reason, qtyToMove, umNC);
       if (!res.ok) throw new Error('addItem non riuscito');
       await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, nearest.code, operator, 'Spostamento in quarantena', '', qtyToMove, 0, qtyToMove);
     } catch (err) {
       if (removed._mode === 'partial')
-        await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', '', qtyToMove);
+        await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', '', qtyToMove, umNC);
       else
         await Store.restoreItem(backup);
       this.toast(`Spostamento in area NC fallito (${err.message || 'errore'}) — operazione annullata, nessuna quarantena registrata`, 'error');
@@ -6636,13 +6719,14 @@ const App = {
       const backup = { ...srcItem };
       const removed = await Store.removeItem(currentLoc, itemKey, qtyToMove);
       if (removed) {
-        const res = await Store.addItem(dest, srcItem.article_code, srcItem.article_description, srcItem.lot_code, srcItem.expiry_date || '', (srcItem.notes || '').replace(/^QUARANTENA:\s*/i, '').trim(), qtyToMove);
+        const umRil = this._umMossa(removed);   // 1.4.2 — vedi _umMossa
+        const res = await Store.addItem(dest, srcItem.article_code, srcItem.article_description, srcItem.lot_code, srcItem.expiry_date || '', (srcItem.notes || '').replace(/^QUARANTENA:\s*/i, '').trim(), qtyToMove, umRil);
         if (res.ok) {
           moved = true;
           await this._logMov(MOV.MOVE, srcItem.article_code, srcItem.article_description, srcItem.lot_code, currentLoc, dest, relOperator, 'Rilascio quarantena → riposizionamento conforme', rec.q_id, qtyToMove, 0, qtyToMove);   // v2.0.1 [B6]
         } else {
           if (removed._mode === 'partial')
-            await Store.addItem(currentLoc, srcItem.article_code, srcItem.article_description, srcItem.lot_code, srcItem.expiry_date || '', '', qtyToMove);
+            await Store.addItem(currentLoc, srcItem.article_code, srcItem.article_description, srcItem.lot_code, srcItem.expiry_date || '', '', qtyToMove, umRil);
           else
             await Store.restoreItem(backup);
           moveErr = `Impossibile posizionare in ${dest} — item ripristinato in ${currentLoc}`;
@@ -10411,8 +10495,10 @@ const App = {
         <div class="form-group"><label>Fornitore</label>
           <input class="input" id="artSupplier" maxlength="80"></div>
         <div class="form-group"><label>UM</label>
-          <input class="input input-mono" id="artUnit" value="PZ" maxlength="5" style="text-transform:uppercase"></div>
+          <input class="input input-mono" id="artUnit" value="PZ" maxlength="5" style="text-transform:uppercase"
+            list="umAmmesse" oninput="App._aggiornaNotaUM('art')"></div>
       </div>
+      ${this._datalistUM()}
       <div class="form-row-3" style="margin-bottom:0.6rem">
         <div class="form-group"><label>Peso unitario (kg)</label><input class="input" id="artWeight" type="number" step="0.001" min="0" value="0"></div>
         <div class="form-group"><label>Stock Min</label><input class="input" id="artMinStock" type="number" step="1" min="0" value="0"></div>
@@ -10421,16 +10507,20 @@ const App = {
       <!-- v3.0.0 [M4] — i due campi che finiscono sul DDT -->
       <div class="form-row" style="margin-bottom:0.3rem">
         <div class="form-group"><label>Peso netto per collo (kg)</label><input class="input" id="artWeightColl" type="number" step="0.001" min="0" value="0"></div>
-        <div class="form-group"><label>Pezzi per collo</label><input class="input" id="artPiecesPack" type="number" step="1" min="0" value="0"></div>
+        <div class="form-group"><label>Quantità per collo (UM)</label><input class="input" id="artPiecesPack" type="number" step="0.001" min="0" value="0" oninput="App._aggiornaNotaUM('art')"></div>
       </div>
       <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
         📄 Con questi il <strong>DDT</strong> calcola peso e pezzi. A zero si compilano a mano.
       </div>
+      ${this._notaUM('art')}
       ${this._campiAttributiArticolo(null, 'art')}
       <div class="form-group"><label>Note</label>
         <input class="input" id="artNotes" maxlength="${Validate.MAX.NOTES}"></div>
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
         <button class="btn btn-primary" onclick="App.doAddArticle()">Crea</button>`);
+    /* La nota dice cosa si sta configurando: deve dirlo gia' all'apertura,
+       non dal primo tasto. La maschera esiste solo dopo `showModal`. */
+    this._aggiornaNotaUM('art');
   },
 
   async doAddArticle() {
@@ -10511,6 +10601,68 @@ const App = {
   /* 1.4.0 — i due attributi che il motore di stoccaggio usera' come vincoli
      duri. Stessi controlli in creazione e in modifica: due maschere che
      divergono sono due maschere che prima o poi si contraddicono. */
+  /* 1.4.2 — LA COLONNA «UM» E' UNA SOLA, ED ESISTE DALLA v1.
+     `unit` e' gia' etichettato UM nella maschera, nella tabella articoli e
+     nella colonna dell'export: aggiungergliene accanto una seconda sarebbe
+     due campi con lo stesso nome. Qui non se ne aggiunge nessuna — si
+     suggeriscono le cinque unita' che il motore sa dividere, lasciando
+     scrivere qualunque cosa come ha sempre fatto. Cio' che non e' fra le
+     cinque si legge come «non gestita», e non succede niente. */
+  _datalistUM() {
+    return `<datalist id="umAmmesse">${UNITA_MISURA
+      .map(u => `<option value="${u.code}">${this._esc(u.label)}</option>`).join('')}</datalist>`;
+  },
+
+  /* La riga sotto «quantita' per collo» che dice cosa si sta configurando.
+     Non blocca niente: un'anagrafica a meta' e' il punto di partenza, non un
+     errore — e con l'interruttore spento questa riga non compare affatto. */
+  _notaUM(p) {
+    if (!Store.isFeatureOn('uom')) return '';
+    return `<div id="${p}NotaUM" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem"></div>`;
+  },
+
+  _aggiornaNotaUM(p) {
+    const box = document.getElementById(`${p}NotaUM`);
+    if (!box) return;
+    const um = document.getElementById(`${p}Unit`)?.value || '';
+    const per = document.getElementById(`${p}PiecesPack`)?.value || '';
+    const errori = validaConfigurazione(um, per);
+    if (errori.length) {
+      box.textContent = '⚖ ' + errori.join(' · ');
+      box.style.color = 'var(--sx-warning)';
+      return;
+    }
+    const n = Number(String(per).replace(',', '.'));
+    box.style.color = 'var(--sx-text-muted)';
+    box.textContent = n > 0
+      ? `⚖ Un collo pieno contiene ${formattaQuantita(n, um)} ${um} — ${etichettaUnita(um)}. Il collo incompleto si calcola.`
+      : '⚖ Nessuna unità: l\'articolo si gestisce a soli colli, come prima.';
+  },
+
+  /* COME SI LEGGE UNA RIGA DI GIACENZA DALLA 1.4.2: «10 × 1.000 + 1 × 100 PZ».
+     Vuota quando la riga e' a soli colli — cioe' sempre, finche' l'interruttore
+     resta spento e finche' nessuno compila la quantita' per collo. La stessa
+     riga vale a video, in etichetta e sul report: tre formattazioni dello
+     stesso numero, per chi legge, sono tre numeri diversi. */
+  _rigaUM(item) {
+    const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
+    if (!cfg?.per_collo) return '';
+    const s = Store.suddivisioneDi(item);
+    if (!s || !s.colli) return '';
+    const totale = s.pieni * cfg.per_collo + s.resto;
+    /* Lo SCARTO fra colli dichiarati e UM non si corregge da solo: si mostra.
+       Correggere un saldo senza che nessuno abbia guardato la merce e'
+       precisamente il modo di scriverne uno sbagliato ma plausibile. */
+    const v = Store.verificaUom(item);
+    const avviso = v && !v.ok
+      ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono alle UM: ne risulterebbero ${v.colliAttesi}">⚠ ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
+      : '';
+    const incompleto = s.incompleto
+      ? ' <span class="badge badge-muted" title="L\'ultimo collo non è pieno">collo incompleto</span>'
+      : '';
+    return `<div class="item-meta">⚖ ${this._esc(descriviColli(totale, cfg.per_collo, cfg.uom))}${incompleto}${avviso}</div>`;
+  },
+
   _campiAttributiArticolo(art, p) {
     const attuale = art?.temp_class || '';
     const scelti = new Set(art?.allergens || []);
@@ -10584,8 +10736,10 @@ const App = {
         <div class="form-group"><label>Fornitore</label>
           <input class="input" id="eaSupplier" value="${this._esc(art.supplier || '')}" maxlength="80"></div>
         <div class="form-group"><label>UM</label>
-          <input class="input input-mono" id="eaUnit" value="${this._esc(art.unit || 'PZ')}" maxlength="5" style="text-transform:uppercase"></div>
+          <input class="input input-mono" id="eaUnit" value="${this._esc(art.unit || 'PZ')}" maxlength="5" style="text-transform:uppercase"
+            list="umAmmesse" oninput="App._aggiornaNotaUM('ea')"></div>
       </div>
+      ${this._datalistUM()}
       <div class="form-row-3" style="margin-bottom:0.6rem">
         <div class="form-group"><label>Peso unitario (kg)</label><input class="input" id="eaWeight" type="number" step="0.001" min="0" value="${art.weight || 0}"></div>
         <div class="form-group"><label>Stock Min</label><input class="input" id="eaMinStock" type="number" step="1" min="0" value="${art.min_stock || 0}"></div>
@@ -10594,16 +10748,18 @@ const App = {
       <!-- v3.0.0 [M4] — i due campi che finiscono sul DDT -->
       <div class="form-row" style="margin-bottom:0.3rem">
         <div class="form-group"><label>Peso netto per collo (kg)</label><input class="input" id="eaWeightColl" type="number" step="0.001" min="0" value="${art.weight_net_kg || 0}"></div>
-        <div class="form-group"><label>Pezzi per collo</label><input class="input" id="eaPiecesPack" type="number" step="1" min="0" value="${art.pieces_per_pack || 0}"></div>
+        <div class="form-group"><label>Quantità per collo (UM)</label><input class="input" id="eaPiecesPack" type="number" step="0.001" min="0" value="${art.pieces_per_pack || 0}" oninput="App._aggiornaNotaUM('ea')"></div>
       </div>
       <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
         📄 Con questi il <strong>DDT</strong> calcola peso e pezzi. A zero si compilano a mano.
       </div>
+      ${this._notaUM('ea')}
       ${this._campiAttributiArticolo(art, 'ea')}
       <div class="form-group"><label>Note</label>
         <input class="input" id="eaNotes" value="${this._esc(art.notes || '')}" maxlength="${Validate.MAX.NOTES}"></div>
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
         <button class="btn btn-primary" onclick="App.doEditArticle('${this._esc(code)}')">Salva</button>`);
+    this._aggiornaNotaUM('ea');   // vedi showAddArticleModal
   },
 
   async doEditArticle(code) {
@@ -11246,7 +11402,11 @@ const App = {
     /* Il secondo foglio e' la sorgente degli elenchi a discesa: la convalida
        di Excel si costruisce puntando qui, e resta allineata al codice. */
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(
-      fogliValoriAmmessi().map(v => ({ 'Colonna': v.colonna, 'Valore': v.valore, 'Significato': v.significato }))
+      /* 1.4.2 — le cinque unita' entrano nello stesso foglio, sulla colonna
+         `UM` che l'export ha da sempre: non ce n'e' una seconda. Ogni modulo
+         porta i propri valori, e il foglio li mette in fila. */
+      [...fogliValoriAmmessi(), ...valoriAmmessiUM()]
+        .map(v => ({ 'Colonna': v.colonna, 'Valore': v.valore, 'Significato': v.significato }))
     ), 'Valori ammessi');
     XLSX.writeFile(wb, `anagrafica-articoli-${new Date().toISOString().slice(0,10)}.xlsx`);
     this.toast('✓ Excel esportato — foglio «Valori ammessi» per la convalida', 'success');
@@ -11410,14 +11570,17 @@ const App = {
     for (const a of entry.actions) {
       try {
         if (a.op === 'add') {
-          const r = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', a.qty);
+          /* 1.4.2 — lo storno rimette esattamente le UM che erano uscite.
+             `a.qty_uom` assente lascia derivare dai colli pieni, che e' il
+             caso di ogni storno registrato prima di questa versione. */
+          const r = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', a.qty, a.qty_uom ?? null);
           await this._logMov(MOV.FIX_IN, a.art, a.desc || '', a.lot, a.loc, null, '',
-            `STORNO — ${entry.label}`, '', r.qty_before, a.qty, r.qty_after);
+            `STORNO — ${entry.label}`, '', r.qty_before, a.qty, r.qty_after, r.qty_uom_delta);
         } else {
-          const r = await Store.removeItem(a.loc, `${a.art}#${a.lot}`, a.qty);
+          const r = await Store.removeItem(a.loc, `${a.art}#${a.lot}`, a.qty, a.qty_uom ?? null);
           if (!r) throw new Error('item non piu\u0300 presente');
           await this._logMov(MOV.FIX_OUT, a.art, a.desc || '', a.lot, a.loc, null, '',
-            `STORNO — ${entry.label}`, '', r._qty_before, r._qty_delta, r._qty_after);
+            `STORNO — ${entry.label}`, '', r._qty_before, r._qty_delta, r._qty_after, r._qty_uom_delta);
         }
         done++;
       } catch (err) {

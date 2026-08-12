@@ -11,7 +11,7 @@ import {
 const T0 = Date.parse('2026-10-05T07:30:00Z');
 
 /* L'articolo del piano §4.2: 1.000 pezzi per collo. */
-const art = (extra = {}) => ({ code: 'ART1', uom: 'PZ', uom_per_collo: 1000, ...extra });
+const art = (extra = {}) => ({ code: 'ART1', uom: 'PZ', pieces_per_pack: 1000, ...extra });
 
 /* ── Le tabelle ─────────────────────────────────────────────────────── */
 
@@ -104,33 +104,33 @@ describe('somma e sottrazione', () => {
 describe('configurazione', () => {
   it('senza `uom` l\'articolo si comporta come nella 1.2: a soli colli', () => {
     expect(configurazione({ code: 'ART1' })).toBe(null);
-    expect(configurazione({ code: 'ART1', uom_per_collo: 1000 })).toBe(null);
+    expect(configurazione({ code: 'ART1', pieces_per_pack: 1000 })).toBe(null);
     expect(configurazione(null)).toBe(null);
   });
 
   it('un\'unita\' che non e\' fra le cinque non configura niente', () => {
-    expect(configurazione({ code: 'ART1', uom: 'CT', uom_per_collo: 10 })).toBe(null);
+    expect(configurazione({ code: 'ART1', uom: 'CT', pieces_per_pack: 10 })).toBe(null);
   });
 
   /* `unit` esiste dalla v1 ed e' gia' etichettato «UM» nella maschera e nella
      colonna dell'export: una seconda colonna con lo stesso nome sarebbe la
      cosa che il piano vieta per i pezzi. */
   it('RIPIEGO: `unit` quando `uom` manca — la colonna UM e\' una sola', () => {
-    expect(configurazione({ code: 'ART1', unit: 'KG', uom_per_collo: 25 }))
+    expect(configurazione({ code: 'ART1', unit: 'KG', pieces_per_pack: 25 }))
       .toEqual({ uom: 'KG', per_collo: 25 });
   });
 
   it('`unit` e\' testo libero da sempre: cio\' che non e\' un\'unita\' non gestisce niente', () => {
-    expect(configurazione({ code: 'ART1', unit: 'CT', uom_per_collo: 10 })).toBe(null);
+    expect(configurazione({ code: 'ART1', unit: 'CT', pieces_per_pack: 10 })).toBe(null);
     expect(configurazione({ code: 'ART1', unit: 'BOT' })).toBe(null);
   });
 
   it('un `uom` scritto e non capito NON ripiega su `unit`: si indovinerebbe', () => {
-    expect(configurazione({ code: 'ART1', uom: 'CT', unit: 'KG', uom_per_collo: 25 })).toBe(null);
+    expect(configurazione({ code: 'ART1', uom: 'CT', unit: 'KG', pieces_per_pack: 25 })).toBe(null);
   });
 
   it('`uom` vince su `unit` quando ci sono tutti e due', () => {
-    expect(configurazione({ code: 'ART1', uom: 'LT', unit: 'KG', uom_per_collo: 5 }).uom).toBe('LT');
+    expect(configurazione({ code: 'ART1', uom: 'LT', unit: 'KG', pieces_per_pack: 5 }).uom).toBe('LT');
   });
 
   /* Il caso che riguarda mezza anagrafica: `unit` vale `PZ` di serie. Non
@@ -139,12 +139,15 @@ describe('configurazione', () => {
     expect(gestitaAUM(configurazione({ code: 'ART1', unit: 'PZ' }))).toBe(false);
   });
 
-  it('legge `uom_per_collo` quando c\'e\'', () => {
+  it('legge la quantita\' per collo, che e\' quella che la maschera modifica', () => {
     expect(configurazione(art())).toEqual({ uom: 'PZ', per_collo: 1000 });
   });
 
-  it('RIPIEGO: `pieces_per_pack` quando `uom_per_collo` manca — una sorgente sola', () => {
-    const a = { code: 'ART1', uom: 'PZ', pieces_per_pack: 250 };
+  /* L'ordine e' l'INVERSO di come lo scriveva il piano, ed e' voluto:
+     nessuna maschera e nessuna colonna Excel scrivono `uom_per_collo`, quindi
+     farlo vincere sarebbe una bugia a video — vedi il commento in misure.ts. */
+  it('RIPIEGO: `uom_per_collo` solo quando la quantita\' per collo manca', () => {
+    const a = { code: 'ART1', uom: 'PZ', uom_per_collo: 250 };
     expect(configurazione(a)).toEqual({ uom: 'PZ', per_collo: 250 });
   });
 
@@ -153,18 +156,18 @@ describe('configurazione', () => {
     expect(configurazione(a)).toEqual({ uom: 'PZ', per_collo: null });
   });
 
-  it('`uom_per_collo` vince sul ripiego quando ci sono entrambi', () => {
-    const a = { code: 'ART1', uom: 'PZ', uom_per_collo: 1000, pieces_per_pack: 250 };
+  it('chi importa vince sull\'alias: `pieces_per_pack` batte `uom_per_collo`', () => {
+    const a = { code: 'ART1', uom: 'PZ', uom_per_collo: 250, pieces_per_pack: 1000 };
     expect(configurazione(a).per_collo).toBe(1000);
   });
 
   it('numeri arrivati da Excel come stringhe restano numeri', () => {
-    expect(configurazione({ code: 'ART1', uom: 'kg', uom_per_collo: '12,5' }).per_collo).toBe(12.5);
-    expect(configurazione({ code: 'ART1', uom: 'PZ', uom_per_collo: '1000' }).per_collo).toBe(1000);
+    expect(configurazione({ code: 'ART1', uom: 'kg', pieces_per_pack: '12,5' }).per_collo).toBe(12.5);
+    expect(configurazione({ code: 'ART1', uom: 'PZ', pieces_per_pack: '1000' }).per_collo).toBe(1000);
   });
 
   it('un per-collo negativo non e\' un per-collo', () => {
-    expect(configurazione({ code: 'ART1', uom: 'PZ', uom_per_collo: -5 }).per_collo).toBe(null);
+    expect(configurazione({ code: 'ART1', uom: 'PZ', pieces_per_pack: -5 }).per_collo).toBe(null);
   });
 });
 
