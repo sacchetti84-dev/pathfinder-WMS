@@ -30,7 +30,7 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Sorgente | 25 file in `src/`: **19 TypeScript**, 6 JavaScript, più 5 CSS |
 | Ancora JavaScript | `core/store.js` · `main.js` · `ui/` (4 file) |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
-| Collaudi | **151 client** · **30 servizio** · **8 migrazione** — tutti verdi |
+| Collaudi | **205 client** · **30 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
@@ -50,6 +50,10 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| `ece6962` | **`core/statistiche.ts`** — quinto blocco: stati e cruscotto, verificati confrontando vecchia e nuova implementazione sulle 21 chiavi del risultato |
+| `fdd0552` | **`core/pacchetto.ts`** — quarto blocco: export e verifica, con la dimostrazione end-to-end che UDC e compiti non sopravvivono più a un ripristino |
+| `ed82fc8` | **`core/giacenza.ts`** — terzo blocco: FEFO e ricerca |
+| `2464160` | **`core/geometria.ts`** — secondo blocco: le ubicazioni |
 | `ec31913` | **`core/cache.ts`** — primo blocco della conversione di `store.js`, con le 37 prove che a `_applyToCache` non c'erano mai state |
 | `9dd99ff` | Le decisioni D11 e D12: si tira dritto, e le etichette si stampano dal browser |
 | `4e61c89` | I documenti allineati, gli aperti da tredici a sette |
@@ -83,7 +87,7 @@ colonna `Certificazioni`.
 | # | Cosa | Stato |
 |---|---|---|
 | 1 | La migrazione `ALTER TABLE` dentro `PathfinderDB` | **fatto** — `_migra`, `server/lib/db.js` |
-| 2 | **`core/store.js` in TypeScript**, a blocchi | **in corso** — cache e `_applyToCache` sono usciti in `core/cache.ts`. Restano i blocchi dopo |
+| 2 | **`core/store.js` in TypeScript**, a blocchi | **in corso** — cinque blocchi fuori. Restano **le mutazioni** |
 | 3 | Collaudi su `_applyToCache` (aperto #6) | **fatto** — 37 prove in `test/cache.test.js` |
 | 4 | Schema mosso una volta: `udc_id`, `lots` `udc` `tasks` `wip` `storage_rules`, Dexie `version(8)` | **fatto** |
 | 5 | Export/import da `COLLEZIONI` invece che da tre elenchi a mano | **fatto** |
@@ -94,20 +98,33 @@ colonna `Certificazioni`.
 conversione **a blocchi** con build e collaudo in mezzo a ognuno, e in coda
 spariscono i due ponti verso Store in cima a `pickRoute.ts` e `vault.ts`.
 
-> **Come si sta convertendo, visto che il primo blocco è fatto.** Non si rinomina
-> `store.js` in `store.ts` e poi si spengono duemila errori: si **estrae un blocco
-> per volta** in un `.ts` suo, tipizzato e collaudato, lasciando in `store.js` il
-> nome e la firma che i chiamanti conoscono. `core/cache.ts` è il modello.
-> Quando in `store.js` non resta che colla, quella si rinomina e finisce.
+> **Come si sta convertendo, e a che punto è.** Non si rinomina `store.js` in
+> `store.ts` per poi spegnere duemila errori: si **estrae un blocco per volta** in
+> un `.ts` suo, tipizzato e collaudato, lasciando in `store.js` il nome e la firma
+> che i chiamanti conoscono. Il vantaggio non è estetico — un blocco estratto **si
+> collauda da fermo**, senza `Persistence`, senza servizio e senza browser: è il
+> motivo per cui `_applyToCache` non aveva prove da tre versioni.
 >
-> Il vantaggio non è estetico: un blocco estratto **si collauda da fermo**, senza
-> `Persistence`, senza servizio e senza browser. È il motivo per cui
-> `_applyToCache` non aveva prove da tre versioni.
+> | # | Blocco | Dove | Prove |
+> |---|---|---|---|
+> | 1 | Cache e `_applyToCache` | `core/cache.ts` | 37 |
+> | 2 | Ubicazioni e geometria | `core/geometria.ts` | +5 |
+> | 3 | FEFO e ricerca | `core/giacenza.ts` | +10 |
+> | 4 | Pacchetto di export | `core/pacchetto.ts` | 24 |
+> | 5 | Stati e cruscotto | `core/statistiche.ts` | 15 |
+> | 6 | **Le mutazioni** | *da fare* — 1.778 righe | — |
 >
-> I candidati, in ordine — sono le zone che dipendono meno dal resto:
-> `_genLocations` e la geometria · FEFO e le letture di giacenza · export/import.
-> Le mutazioni con transazione vengono per ultime: sono quelle che parlano con
-> `Persistence`, e vanno mosse quando tutto il resto è già fermo.
+> **Il sesto è diverso dai primi cinque, e va affrontato sapendolo.** Quelli
+> leggevano; questo scrive, e ogni funzione parla con `Persistence` dentro una
+> transazione. Non si estrae in un modulo puro: si **tipizza sul posto**, e alla
+> fine il file si rinomina. La rete di sicurezza non sono più i collaudi da fermo
+> ma le 30 prove del servizio, che girano sotto contesa fra due terminali.
+>
+> Il metodo che regge: `_applyToCache` è già il **punto unico di mutazione della
+> cache** ed è collaudato, quindi la parte pericolosa — la cache che diverge dal
+> supporto — è già coperta. Resta l'ordine delle operazioni, che è ciò che il
+> `TODO F1-REVIEW` (aperto #7) segnala da due versioni: **si legge quello prima
+> di cominciare.**
 
 Poi si costruisce, si installa la 1.4.0, e solo allora comincia la 1.4.1.
 
@@ -319,7 +336,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 ```bash
 npm run check                       # tsc client + servizio
-npm test                            # 151 prove client
+npm test                            # 205 prove client
 npm run build                       # produce "Pathfinder 1.2/"
 ```
 

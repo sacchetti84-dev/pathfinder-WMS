@@ -115,16 +115,22 @@ E prima di tutti, una fase zero che non si vede.
 >   elenchi scritti a mano.
 > - I campi facoltativi dell'anagrafica, **certificazioni comprese** — §4.4ter.
 >
-> **`core/store.js` in TypeScript è cominciato, non finito.** Il primo blocco —
-> cache e `_applyToCache` — è uscito in `core/cache.ts` il 12/08, con le 37 prove
-> che mancavano da tre versioni. Restano i blocchi dopo.
+> **`core/store.js` in TypeScript è a metà.** Cinque blocchi sono usciti il
+> 12/08 — cache, geometria, giacenza, pacchetto, statistiche: **823 righe di
+> TypeScript collaudato**, e `store.js` da 2.035 a 1.778. Con loro sono arrivate
+> 91 prove nuove su codice che, per tre versioni, non ne aveva nessuna.
 >
-> Il metodo, adesso che c'è un modello: si **estrae un blocco per volta** in un
-> `.ts` suo, tipizzato e collaudato, lasciando in `store.js` il nome e la firma
-> che i chiamanti conoscono — quarantasette punti chiamavano `_applyToCache` e
-> nessuno se n'è accorto. Non si rinomina il file e poi si spengono duemila
-> errori: un blocco estratto **si collauda da fermo**, ed è precisamente il
-> motivo per cui l'aperto #6 è rimasto aperto tanto a lungo.
+> Il metodo: si **estrae un blocco per volta** in un `.ts` suo, lasciando in
+> `store.js` il nome e la firma che i chiamanti conoscono — quarantasette punti
+> chiamavano `_applyToCache` e nessuno se n'è accorto. Non si rinomina il file
+> per poi spegnere duemila errori: un blocco estratto **si collauda da fermo**,
+> ed è precisamente il motivo per cui l'aperto #6 è rimasto aperto tanto a lungo.
+>
+> **Resta il sesto, ed è di un'altra natura.** I cinque estratti leggevano; ciò
+> che resta scrive, e ogni funzione sta dentro una transazione con
+> `Persistence`. Non si estrae in un modulo puro: si tipizza sul posto, e alla
+> fine il file si rinomina. La rete di sicurezza cambia — non più i collaudi da
+> fermo, ma le 30 prove del servizio sotto contesa fra due terminali.
 
 
 
@@ -685,7 +691,7 @@ La 1.4.0 è **cominciata e non finita**, e vale la pena essere precisi su cosa m
 | Collaudi su `_applyToCache` (aperto #6) | fatti — 37 prove, `test/cache.test.js` |
 | Export/import da `COLLEZIONI` + i due difetti | fatti |
 | Interruttori `feature.*` | fatti, tutti spenti |
-| **`core/store.js` in TypeScript** | **cominciato**: la cache è fuori. Restano i blocchi dopo |
+| **`core/store.js` in TypeScript** | **a metà**: 5 blocchi su 6 fuori, 823 righe. Restano le mutazioni |
 
 E in più, fuori piano: le **certificazioni** e gli **avvisi merceologici** (§4.4ter).
 Non erano in calendario. Sono costati circa **mezza settimana**, e quella mezza
