@@ -1907,6 +1907,7 @@ const App = {
     if (p.qty) pezzi.push(`${this._esc(String(p.qty))} coll.`);
     if (p.from) pezzi.push(`da <span class="mono">${this._esc(p.from)}</span>`);
     if (p.to) pezzi.push(`a <span class="mono">${this._esc(p.to)}</span>`);
+    if (p.sample_for) pezzi.push(`campione per <strong>${this._esc(p.sample_for)}</strong>${p.sample_spare ? ' · riserva a magazzino' : ''}`);
     const testa = pezzi.length ? pezzi.join(' · ') : '<span style="color:var(--sx-text-muted)">—</span>';
     const note = t.note ? `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">${this._esc(t.note)}</div>` : '';
     const chiuso = t.cancel_reason ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-danger)">Annullata: ${this._esc(t.cancel_reason)}</div>` : '';
@@ -1915,12 +1916,15 @@ const App = {
 
   showNewTaskModal() {
     const io = Store.getCurrentIdentity();
+    /* Ogni compito porta la sigla di chi lo ha chiesto — e' la stessa regola
+       dei movimenti. Dirlo qui, non in fondo a una maschera compilata. */
+    if (!io.initials) return this.toast('Identificati prima di aprire un\'attività', 'warning');
     const leader = io.role === 'leader';
     const operatori = Store.getOperators({ activeOnly: true });
     this.showModal('📋 Nuova attività', `
       <div class="form-row" style="margin-bottom:0.6rem">
         <div class="form-group"><label>Tipo di attività <span class="req">*</span></label>
-          <select class="select" id="ntType">
+          <select class="select" id="ntType" onchange="App._ntTypeChanged()">
             ${Object.entries(TIPI_COMPITO).map(([k, v]) => `<option value="${k}">${v.icona} ${this._esc(v.label)}</option>`).join('')}
           </select></div>
         <div class="form-group"><label>Priorità</label>
@@ -1944,6 +1948,17 @@ const App = {
         <div class="form-group"><label>A (ubicazione)</label>
           <input class="input input-mono" id="ntTo" maxlength="30" style="text-transform:uppercase"></div>
       </div>
+      <!-- IL CAMPIONAMENTO È L'UNICA DELLE OTTO CHE OGGI NON ESISTE (PIANO §4.1),
+           e nasce qui con le tre cose che un campione deve portarsi dietro:
+           quanto se n'è preso, per chi, e se resta la riserva. Senza «per chi»
+           un campione è merce sparita dallo scaffale. -->
+      <div class="form-row" id="ntSamplingRow" style="margin-bottom:0.6rem;display:none">
+        <div class="form-group"><label>Campione per chi <span class="req">*</span></label>
+          <input class="input" id="ntSampleFor" maxlength="60" placeholder="Laboratorio interno, cliente, ente…"></div>
+        <div class="form-group" style="max-width:220px"><label>Campione di riserva</label>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-weight:400;padding-top:0.4rem">
+            <input type="checkbox" id="ntSampleSpare"> Ne resta uno a magazzino</label></div>
+      </div>
       <div class="form-row" style="margin-bottom:0.6rem">
         <div class="form-group"><label>Scadenza</label>
           <input class="input" id="ntDue" type="datetime-local"></div>
@@ -1960,11 +1975,21 @@ const App = {
        <button class="btn btn-primary" onclick="App.doCreateTask()">Apri l'attività</button>`);
   },
 
+  _ntTypeChanged() {
+    const riga = document.getElementById('ntSamplingRow');
+    if (riga) riga.style.display = document.getElementById('ntType')?.value === 'SAMPLING' ? '' : 'none';
+  },
+
   async doCreateTask() {
     const err = (m) => { const e = document.getElementById('ntError'); if (e) e.textContent = m; };
     const val = (id) => (document.getElementById(id)?.value || '').trim();
     const su = (id) => val(id).toUpperCase();
     const payload = {};
+    if (val('ntType') === 'SAMPLING') {
+      if (!val('ntSampleFor')) return err('Un campione senza destinatario è merce sparita dallo scaffale: dire per chi.');
+      payload.sample_for = val('ntSampleFor');
+      payload.sample_spare = !!document.getElementById('ntSampleSpare')?.checked;
+    }
     if (su('ntArticle')) payload.article_code = su('ntArticle');
     if (su('ntLot')) payload.lot_code = su('ntLot');
     if (val('ntQty')) payload.qty = parseInt(val('ntQty'), 10);
