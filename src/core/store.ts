@@ -863,6 +863,60 @@ const Store = {
     return removed;
   },
 
+  /* ═══════════════════════════════════════════════════════════════════
+     1.4.2.1 — IL CAMPIONAMENTO
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Un campione esce dal magazzino ma il collo resta a scaffale: cinquanta
+     grammi presi da un sacco da venticinque chili. I colli non calano,
+     cala la quantita' DENTRO — che e' esattamente cio' che la 1.4.2 ha
+     appena reso possibile scrivere.
+
+     Sugli articoli senza quantita' per collo non cala niente, e non e' un
+     difetto: oggi i prelievi di campione non li scarica nessuno, quindi
+     documentarli e basta e' gia' piu' di quel che c'e'. La condizione si
+     scioglie da sola man mano che l'anagrafica si popola.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  async sampleItem(locationCode: string, itemKey: string, qtyUom: number) {
+    this._assertUomOn();
+    const bucket = this._invByLoc.get(locationCode) || [];
+    const item = bucket.find(i => i.item_key === itemKey);
+    if (!item) return null;
+
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    if (!cfg) throw new Error(`${item.article_code} non ha un'unità di misura: il campione non si può quantificare`);
+    const prelevate = arrotondaUom(qtyUom, decimaliUom(cfg.uom));
+    if (prelevate === null || prelevate <= 0) throw new Error(`Quantità del campione in ${cfg.uom}: deve essere maggiore di zero`);
+
+    const prima = this._uomDiRiga(item, cfg);
+    if (prima === null) throw new Error(`${item.article_code} lotto ${item.lot_code}: manca la quantità per collo, il campione non si può scalare`);
+    /* `sottraiUom` fa saltare il campionamento se non ce n'e' abbastanza: e'
+       una quantita' DICHIARATA da chi ha la merce in mano, e le dichiarate
+       si convalidano — vedi il commento di `_uomInUscita`. */
+    const dopo = sottraiUom(prima, prelevate, cfg.uom);
+
+    if (Persistence.supportsRemoteOps) {
+      const esito = await Persistence.op!<{ qty_uom_before: number; qty_uom_after: number }>('sampleItem', {
+        location_code: locationCode, item_key: itemKey,
+        qty_uom: prelevate, qty_uom_before: prima,
+      });
+      item.qty_uom = esito.qty_uom_after;
+      item.last_updated_at = Date.now();
+      this._applyToCache('inventory', 'put', item);
+      return { ok: true, item, uom: cfg.uom, qty_uom_before: esito.qty_uom_before,
+               qty_uom_after: esito.qty_uom_after, qty_uom_delta: -prelevate };
+    }
+
+    item.qty_uom = dopo;
+    item.last_updated_at = Date.now();
+    this._applyToCache('inventory', 'put', item);
+    await Persistence.update('inventory', item._id!, { qty_uom: dopo, last_updated_at: item.last_updated_at });
+    await this._touchMeta();
+    return { ok: true, item, uom: cfg.uom, qty_uom_before: prima,
+             qty_uom_after: dopo, qty_uom_delta: -prelevate };
+  },
+
   /* Quante UM escono con N colli, e le due strade non si trattano uguale.
 
      DICHIARATE da chi ha la merce in mano: si convalidano, e se non ci sono

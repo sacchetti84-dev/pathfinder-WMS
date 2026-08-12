@@ -291,6 +291,63 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
      tappaUm.stato === 200 && movUm?.qty_uom_delta === -20 && l9.qty_uom === 80,
      `registro ${movUm?.qty_uom_delta} · saldo ${l9.qty_uom}`);
 
+
+  /* ── 1.4.2.1 — il campionamento: il collo resta, cala cio' che c'e' dentro ──
+     Un campione esce dal magazzino ma il sacco da 25 kg torna a scaffale: i
+     colli non calano. E' la ragione per cui questa rotta esiste separata da
+     removeItem, che una quantita' sotto l'uno la rifiuta — e fa bene. */
+  await call('POST', '/api/c/inventory/bulk', [
+    { location_code: 'DP-D-01-01', item_key: 'MP-4#C1', article_code: 'MP-4', lot_code: 'C1', qty: 11, qty_uom: 275 },
+    { location_code: 'DP-D-01-02', item_key: 'MP-4#C2', article_code: 'MP-4', lot_code: 'C2', qty: 4 }
+  ]);
+
+  const camp = await call('POST', '/api/op/sampleItem',
+    { location_code: 'DP-D-01-01', item_key: 'MP-4#C1', qty_uom: 0.05 });
+  const c1 = await leggiRiga('MP-4#C1');
+  ok('il campione cala dalle UM e NON dai colli',
+     camp.stato === 200 && c1.qty === 11 && c1.qty_uom === 274.95,
+     `${c1.qty} colli · ${c1.qty_uom} UM`);
+
+  ok('la rotta dichiara il prima, il dopo e quanto e\' uscito',
+     camp.dati.qty_uom_before === 275 && camp.dati.qty_uom_after === 274.95
+       && camp.dati.qty_uom_delta === -0.05);
+
+  /* Un campione piu' grosso di cio' che c'e' e' un numero sbagliato, e un
+     numero DICHIARATO da chi ha la merce in mano si convalida: si rifiuta. */
+  const troppoGrosso = await call('POST', '/api/op/sampleItem',
+    { location_code: 'DP-D-01-01', item_key: 'MP-4#C1', qty_uom: 9999 });
+  ok('un campione piu\' grande della giacenza viene respinto, non troncato',
+     troppoGrosso.stato === 409, troppoGrosso.dati.error);
+
+  const zero = await call('POST', '/api/op/sampleItem',
+    { location_code: 'DP-D-01-01', item_key: 'MP-4#C1', qty_uom: 0 });
+  ok('un campione da zero non e\' un campione', zero.stato === 400, 'stato ' + zero.stato);
+
+  /* La riga a soli colli non ha niente da cui prelevare: si dice, non si
+     inventa un saldo. */
+  const senzaUm = await call('POST', '/api/op/sampleItem',
+    { location_code: 'DP-D-01-02', item_key: 'MP-4#C2', qty_uom: 1 });
+  ok('senza quantita\' in UM il campione viene respinto con un motivo',
+     senzaUm.stato === 409, senzaUm.dati.error);
+
+  /* Il seme vale una volta, come per removeItem: la riga che un qty_uom non
+     lo ha mai avuto lo prende dal primo che la tocca. */
+  const conSeme = await call('POST', '/api/op/sampleItem',
+    { location_code: 'DP-D-01-02', item_key: 'MP-4#C2', qty_uom: 2, qty_uom_before: 100 });
+  const c2 = await leggiRiga('MP-4#C2');
+  ok('la riga senza UM le prende dal seme, e i colli restano quelli',
+     conSeme.stato === 200 && c2.qty_uom === 98 && c2.qty === 4,
+     `${c2.qty} colli · ${c2.qty_uom} UM`);
+
+  const [s1, s2] = await Promise.all([
+    call('POST', '/api/op/sampleItem', { location_code: 'DP-D-01-01', item_key: 'MP-4#C1', qty_uom: 0.5 }, 'TERMINALE-1'),
+    call('POST', '/api/op/sampleItem', { location_code: 'DP-D-01-01', item_key: 'MP-4#C1', qty_uom: 0.5 }, 'TERMINALE-2')
+  ]);
+  const c1bis = await leggiRiga('MP-4#C1');
+  ok('due campioni insieme scalano tutti e due, dentro la transazione',
+     s1.stato === 200 && s2.stato === 200 && c1bis.qty_uom === 273.95,
+     'saldo ' + c1bis.qty_uom);
+
   /* ── 1.4.1 — le attivita' passano dal servizio come tutto il resto ──
      Lo schedulatore non ha rotte sue: e' una collezione a chiave di testo,
      e le due domande che la coda fa davvero — «cosa e' aperto» e «cosa ho

@@ -227,6 +227,42 @@ app.post('/api/op/removeItem', wrap((req, res) => {
   res.json(out);
 }));
 
+/* 1.4.2.1 — IL CAMPIONAMENTO: i colli non calano, cala la quantita' dentro.
+   Ha una rotta sua e non un `qty: 0` su removeItem, perche' quella rotta ha
+   una guardia che rifiuta le quantita' sotto l'uno — e quella guardia e' la
+   ragione per cui removeItem non fa danni. Non la si allarga per far posto a
+   un caso che significa un'altra cosa.
+
+   Come ovunque, il saldo di partenza si legge dalla RIGA: `qty_uom_before`
+   e' solo il seme per la riga che un `qty_uom` non lo ha mai avuto. */
+app.post('/api/op/sampleItem', wrap((req, res) => {
+  const { location_code, item_key, qty_uom, qty_uom_before } = req.body || {};
+  const n = arrotondaUom(qty_uom);
+  if (!location_code || !item_key || n === null || n <= 0)
+    throw Object.assign(new Error('servono location_code, item_key e una quantita\' di campione valida'), { status: 400 });
+
+  const out = db.transaction(['inventory'], () => {
+    const rows = db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
+    const item = rows.find(r => r.item_key === item_key);
+    if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
+
+    const prima = arrotondaUom(item.qty_uom) ?? arrotondaUom(qty_uom_before);
+    if (prima === null)
+      throw Object.assign(new Error(`${item_key}: nessuna quantita' in UM da cui prelevare il campione`), { status: 409 });
+    if (n > prima)
+      throw Object.assign(new Error(`Restano ${prima} UM: un campione da ${n} non ci sta`), { status: 409 });
+
+    const dopo = arrotondaUom(prima - n);
+    item.qty_uom = dopo;
+    item.updated_at = Date.now();
+    db.put('inventory', item);
+    /* `qty` non compare in questo oggetto, ed e' il punto: il collo resta. */
+    return { ok: true, qty_uom_before: prima, qty_uom_after: dopo, qty_uom_delta: -n, qty: item.qty };
+  }, originOf(req));
+
+  res.json(out);
+}));
+
 app.post('/api/op/commitPickStop', wrap((req, res) => {
   const { location_code, item_key, qty, qty_uom, qty_uom_before, movement, session } = req.body || {};
   const n = Number(qty);

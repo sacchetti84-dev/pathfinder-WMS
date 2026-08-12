@@ -13,6 +13,7 @@ export type MOV =
   | 'FIX+' | 'FIX-'
   | 'QUAR' | 'QREL'
   | 'EDIT' | 'RET' | 'SHIP'
+  | 'SAMPLE'
   | 'PURGE' | 'PINRESET';
 
 /* ── Criteri di ricerca ──────────────────────────────────────────── */

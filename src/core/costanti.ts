@@ -23,6 +23,10 @@ const MOV = Object.freeze({
   EDIT: 'EDIT',       // Modifica dati item (v1.8.1)
   RET: 'RET',         // Reso — v2.0: ora è USCITA merce ritirata da vettore
   SHIP: 'SHIP',       // Spedizione (v2.0.0) — uscita merce verso cliente
+  /* 1.4.2.1 — il campionamento: i colli NON calano, cala la quantità dentro.
+     Ha una causale sua e non una nota su OUT perché il logbook che la
+     qualità legge è il registro filtrato su questa riga. */
+  SAMPLE: 'SAMPLE',
   PURGE: 'PURGE',     // v2.0.1 [B8] — Purge manuale registro storico (evento di audit)
   PINRESET: 'PINRESET'
 } as const satisfies Record<string, TipoMovimento>);
@@ -35,6 +39,7 @@ const MOV_LABELS = {
   EDIT: 'Modifica Dati Item',
   RET: 'Reso (Ritirato)',
   SHIP: 'Spedizione',
+  SAMPLE: 'Campionamento',            // 1.4.2.1
   PURGE: 'Purge Registro (manuale)',  // v2.0.1 [B8]
   PINRESET: 'Rinnovo PIN operatore'   // v2.7.0 [G6]
 } satisfies Record<TipoMovimento, string>;
