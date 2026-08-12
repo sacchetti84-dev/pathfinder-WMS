@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 12/08/2026 · Rev. 04 — la 1.2 è in magazzino, la 1.4.0 è chiusa nel sorgente
+Data: 12/08/2026 · Rev. 05 — la 1.4.0 è in magazzino, comincia la 1.4.1
 
 ---
 
@@ -25,8 +25,9 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Voce | Valore |
 |---|---|
-| In magazzino, **adesso** | `pathfinder-1.2.html` — verificato su `/api/app-info`, 1.486.348 byte |
-| **1.4.0** | **chiusa nel sorgente** — da costruire e installare |
+| In magazzino, **adesso** | `pathfinder-1.4.0.html` — verificato su `/api/app-info`, 1.493.517 byte |
+| **1.4.0** | **installata il 12/08** — cinque settimane prima del 19/09 |
+| Ritorno indietro | `pathfinder-1.2.html`, in radice, intatto: si rimette `PATHFINDER_APP` su di lui e si riavvia |
 | Sorgente | 30 file in `src/`: **25 TypeScript**, 5 JavaScript, più 5 CSS |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
@@ -34,15 +35,17 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
-> **Il disallineamento è finito.** Il magazzino gira sulla 1.2: i cinque comandi
-> sono stati impartiti l'11/08 e `/api/app-info` lo conferma. La verifica di
-> stoccaggio è in servizio, e `pathfinder-1.1.html` è uscito dalla radice — resta
-> in `ARCHIVIO/VERSIONI PRECEDENTI/`, identico byte per byte, per il ritorno
-> indietro.
+> **Il magazzino gira sulla 1.4.0, dal 12/08.** Costruita, provata nel browser
+> contro una copia del database vero, e installata con i cinque comandi della §4.
+> `/api/app-info` risponde `pathfinder-1.4.0.html`, 1.493.517 byte.
 >
-> **La 1.4.0 è chiusa nel sorgente e non è ancora in magazzino.** Il prossimo
-> atto non è codice: è costruirla e installarla — i cinque comandi della §4,
-> a fine turno e con un backup fresco davanti. Solo dopo comincia la 1.4.1.
+> **Il criterio era «si installa e non cambia niente a video», ed è rispettato**:
+> a cambiare sono il numero di versione — titolo, schermata di avvio, targhetta
+> `1.4.0`, i due piè di pagina — e gli avvisi merceologici, che erano l'eccezione
+> dichiarata. Nient'altro si muove: le cinque funzioni sono dentro a interruttore
+> spento, e `feature.*` assente vale spento (`store.ts:259`).
+>
+> **Adesso comincia la 1.4.1**, lo schedulatore di attività, entro il 10/10.
 
 ---
 
@@ -50,6 +53,8 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| *(questo)* | **La 1.4.0 va in magazzino**: i numeri di versione portati a 1.4.0 nei sette punti che li scrivono, la consegna diventa `Pathfinder 1.4/pathfinder-1.4.0.html`, prova nel browser su una copia del database vero, installazione e verifica |
+| `321aeb2` | La 1.4.0 è chiusa, e i documenti lo dicono |
 | `459dac3` | **`store.js` è TypeScript**: sesto blocco, i due ponti caduti, e i due difetti trovati solo nel browser |
 | `ece6962` | **`core/statistiche.ts`** — quinto blocco: stati e cruscotto, verificati confrontando vecchia e nuova implementazione sulle 21 chiavi del risultato |
 | `6ad3222` | **`core/pacchetto.ts`** — quarto blocco: export e verifica, con la dimostrazione end-to-end che UDC e compiti non sopravvivono più a un ripristino |
@@ -93,10 +98,24 @@ colonna `Certificazioni`.
 | 4 | Schema mosso una volta: `udc_id`, `lots` `udc` `tasks` `wip` `storage_rules`, Dexie `version(8)` | **fatto** |
 | 5 | Export/import da `COLLEZIONI` invece che da tre elenchi a mano | **fatto** |
 | 6 | Interruttori `feature.*` in `meta`, tutti spenti | **fatto** |
+| 7 | **Costruire e installare la 1.4.0** | **fatto 12/08** — `/api/app-info` risponde `pathfinder-1.4.0.html` |
 
-**Il prossimo atto non è codice: è installare la 1.4.0.** `npm run build`, poi i
-cinque comandi della §4 — a fine turno, con un backup fresco davanti. Solo dopo
-comincia la 1.4.1.
+**Il prossimo atto è la 1.4.1**, lo schedulatore: PIANO-1.4 §4.1, entro il 10/10.
+La collezione `tasks` esiste già, vuota, e l'interruttore `feature.tasks` è
+dichiarato in `store.ts:35`. Quello che manca è tutto sopra: la maschera di
+richiesta, la coda, il cruscotto delle attività aperte — `tasks` non compare
+ancora una sola volta in `ui/app.js`.
+
+> **Cosa ha richiesto il rilascio, oltre alla build.** Il sorgente era chiuso ma
+> non rilasciabile: `package.json`, `vite.config.js`, `index.html`, `main.js`,
+> `ui/app.js`, `core/pacchetto.ts` e `modules/vault.ts` dicevano tutti ancora
+> 1.2. I due che contano sono `VERSIONE_APP` e il manifesto del vault — sono
+> due posti apposta, e il commento di `pacchetto.ts:22` dice perché.
+>
+> **Il file porta tre numeri**, `pathfinder-1.4.0.html`, non due. La serie 1.4
+> sono sei rilasci che entrano in magazzino separatamente: con il nome a due
+> numeri si sovrascriverebbero, e il ritorno indietro dalla 1.4.1 non avrebbe
+> un file dove tornare. Vale per tutte e sei — vedi `vite.config.js`.
 
 > **Com'è stata fatta la conversione, e cosa se ne impara.** Sei blocchi. I primi
 > cinque **estratti** in un `.ts` loro, tipizzati e collaudati, lasciando in
@@ -146,24 +165,25 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
-| 1 | **Costruire e installare la 1.4.0** — `npm run build` piu' i cinque comandi qui sotto | nuovo | Andrea |
+| 1 | **La 1.4.1** — lo schedulatore di attività, PIANO-1.4 §4.1, entro il 10/10 | nuovo | il prossimo lavoro |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
 | 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare, non codice da scrivere | **1.0 §7.1** | Andrea, quando opportuno |
 | 4 | **Nome DNS interno e certificato** dalla CA aziendale. **Il codice è pronto e non aspetta niente**: due variabili e HTTPS si accende. Il certificato arriva a lavori finiti | **1.0 §7.2** · 1.2 §6.1 | IT — non blocca |
 | 5 | **`weight_net_kg` in anagrafica.** Il campo è cablato ovunque — maschere, import, export, calcolo peso del DDT: è **solo da compilare**, colonna `Peso_Netto_Collo`. `pieces_per_pack` diventa la UM-per-collo in 1.4.2 | **1.0 §7.6** | import Excel |
 | 6 | **`ui/` in TypeScript**, `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | 1.2 §6.4 · 1.3 §6.4 | grande |
-| 6 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.ts` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
+| 7 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.ts` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
+| 8 | **`service_version` è ancora `'1.1'`** in `pathfinder-server.js`, ma il servizio è cambiato: `_migra` e 19 collezioni. Da decidere se allinearla, sapendo che è la versione del *servizio* e non dell'applicativo | 12/08 | piccolo |
 
-### I cinque comandi — **impartiti l'11/08**, restano qui perché servono a ogni versione
+### I cinque comandi — **rifatti il 12/08 per la 1.4.0**, restano qui perché servono a ogni versione
 
 Da **PowerShell come amministratore** (il servizio gira come SYSTEM), **a fine
-turno** e **con un backup fresco davanti**. Si rifanno tali e quali per installare
-la 1.4.0, cambiando il nome del file.
+turno** e **con un backup fresco davanti**. Si rifanno tali e quali per la versione
+dopo, cambiando `1.4.0` con `1.4.1` in due punti: il passo 2 e il passo 3.
 
-Prima dell'11/08 `PATHFINDER_APP` era **vuota** e il servizio ripiegava sul nome
-scritto nel codice, `pathfinder-1.1.html`: è il motivo per cui il passo 3 non era
-facoltativo. Adesso la variabile è impostata, e il passo 3 serve solo quando il
-nome del file cambia — cioè a ogni versione.
+I passi 1 e 2 non cambiano niente per chi lavora: il file nuovo in radice non è
+servito finché `PATHFINDER_APP` non ci punta. **Il rilascio vero sono i passi 3 e
+4**, e servono privilegi di amministratore per entrambi — la variabile è di
+macchina e le attività girano come SYSTEM.
 
 ```powershell
 Invoke-RestMethod -Uri http://127.0.0.1:4173/api/backup -Method Post `
@@ -172,12 +192,12 @@ Invoke-RestMethod -Uri http://127.0.0.1:4173/api/backup -Method Post `
 
 ```powershell
 cd "C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER"
-Copy-Item "Pathfinder 1.2\pathfinder-1.2.html" pathfinder-1.2.html
+Copy-Item "Pathfinder 1.4\pathfinder-1.4.0.html" pathfinder-1.4.0.html
 ```
 
 ```powershell
 [Environment]::SetEnvironmentVariable('PATHFINDER_APP',
-  'C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\pathfinder-1.2.html','Machine')
+  'C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\pathfinder-1.4.0.html','Machine')
 ```
 
 ```powershell
@@ -189,12 +209,13 @@ Start-ScheduledTask -TaskName 'Pathfinder - Servizio dati'
 Invoke-RestMethod http://127.0.0.1:4173/api/app-info
 ```
 
-Se `app_file` non è la 1.2 o `mtime` non è quello del file appena copiato, il
-servizio sta servendo un'altra cartella: non insistere, leggere il README §9.
+Se `app_file` non è la 1.4.0, o `bytes` non è **1.493.517**, il servizio sta
+servendo un'altra cartella: non insistere, leggere il README §9.
 
 **Il ritorno indietro è il punto 3 all'incontrario, più un riavvio.**
-`pathfinder-1.1.html` resta in radice — nessuno di questi passi lo sposta, proprio
-per questo — e il database non viene toccato.
+`pathfinder-1.2.html` resta in radice — nessuno di questi passi lo sposta, proprio
+per questo — e il database non viene toccato. La 1.2 rilegge il database della
+1.4: lo provano le 8 prove di `collaudo-migrazione-1.4.js`, non una speranza.
 
 ### Chiusi — non riaprirli
 
@@ -218,6 +239,7 @@ per questo — e il database non viene toccato.
 | Chi alza la priorità di un compito | PIANO-1.4 §4.1 | **Chiuso 12/08**: solo il Team Leader (D4) |
 | `ARCHIVIO/LOGHI/` — file doppi e nomi generati | 1.2 §6 · 1.3 §6 | **Fuori perimetro 12/08**: non è un compito del progetto |
 | Collaudi su `_applyToCache` | 1.3 §6.5 | **Fatto 12/08**: 19 collezioni dichiarate, `resetAll` le pulisce tutte |
+| Portare la 1.4.0 in magazzino | 1.4 §4 | **Fatto 12/08**: build, prova nel browser su copia del database vero, cinque comandi, `/api/app-info` lo conferma |
 
 ---
 
@@ -321,11 +343,11 @@ Non si rimettono in discussione. Fonte fra parentesi.
 ## 8. Cosa NON fare
 
 - **Non reintrodurre `store.js`**: il file è `core/store.ts`, e gli import verso di lui si scrivono senza estensione — vedi trappola 20.
-- **Non toccare `pathfinder-1.2.html` in radice**: è quello servito adesso.
+- **Non toccare `pathfinder-1.4.0.html` in radice**: è quello servito adesso. E non spostare `pathfinder-1.2.html`, che gli sta accanto: è il ritorno indietro.
 - **Non convertire `ui/` sperando che basti il compilatore**: due difetti su due, in questa conversione, li ha presi solo la prova nel browser.
-- **Non togliere i ponti verso Store** finché Store è JavaScript: cadono con la 1.4.0.
+- **Non installare senza aver aperto la versione nuova in un browser**, contro una copia del database vero e su una porta sua. Tsc e i collaudi non hanno visto né la trappola 20 né la 21.
 - **Non togliere `window.App = App`** in coda a `main.js`: 366 punti chiamano `App` per nome e smetterebbero di funzionare **in silenzio**.
-- **Non scrivere a mano dentro `Pathfinder 1.2/`**: è prodotta, la build la azzera.
+- **Non scrivere a mano dentro `Pathfinder 1.4/`**: è prodotta, la build la azzera.
 - **Non versionare `server/data/`**: contiene i dati veri e le anagrafiche operatori.
 - **Non aggiornare `dexie` e `xlsx`**: versioni fisse, l'applicativo è collaudato con quelle.
 - **Non collaudare sul database di lavoro.** Mai. È già costato un blocco d'accesso (1.0 §5.6).
@@ -342,7 +364,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 ```bash
 npm run check                       # tsc client + servizio
 npm test                            # 208 prove client
-npm run build                       # produce "Pathfinder 1.2/"
+npm run build                       # produce "Pathfinder 1.4/"
 ```
 
 ```bash

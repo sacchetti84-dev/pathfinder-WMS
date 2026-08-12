@@ -14,8 +14,8 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 12/08/2026
 
 | Voce | Valore |
 |---|---|
-| In produzione | `pathfinder-1.2.html` — è il file che il servizio serve **adesso** |
-| **1.4.0** | **chiusa nel sorgente** — da costruire e installare |
+| In produzione | `pathfinder-1.4.0.html` — è il file che il servizio serve **adesso**, 1.493.517 byte |
+| **1.4.0** | **in magazzino dal 12/08** — verificata su `/api/app-info` |
 | Sorgente | **25 TypeScript** · 5 JavaScript · 5 CSS · `index.html` |
 | Ancora JavaScript | `main.js`, `ui/` (4 file) |
 | Servizio | Node + Express + SQLite, porta **4173** |
@@ -28,7 +28,7 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 12/08/2026
 
 ```bash
 npm run dev      # sviluppo, ricarica a caldo
-npm run build    # produce "Pathfinder 1.2/" (la azzera e la rifà)
+npm run build    # produce "Pathfinder 1.4/" (la azzera e la rifà)
 npm run check    # tsc client + servizio, nessun file emesso
 npm test         # vitest, 9 suite
 ```
@@ -113,7 +113,7 @@ L'applicativo è servito su `/` e su `/app`.
 |---|---|
 | `PATHFINDER_PORT` | `4173` |
 | `PATHFINDER_DB` | `server/data/pathfinder.db` |
-| `PATHFINDER_APP` | **impostata**: `…\MAPPER\pathfinder-1.2.html`. Il ripiego nel codice resta `pathfinder-1.1.html`, che in radice non c'è più |
+| `PATHFINDER_APP` | **impostata**: `…\MAPPER\pathfinder-1.4.0.html`. Il ripiego nel codice resta `pathfinder-1.1.html`, che in radice non c'è più |
 | `PATHFINDER_TLS_CERT` / `_KEY` | assenti → HTTP |
 
 Si leggono **all'avvio**: cambiate senza riavvio non hanno effetto.
@@ -127,7 +127,7 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 
 | Versione | Cosa | Entro |
 |---|---|---|
-| **1.4.0** | **chiusa il 12/08**, con un mese di margine sul 19/09. Da costruire e installare | 19/09 |
+| **1.4.0** | **in magazzino il 12/08**, con cinque settimane di margine sul 19/09 | 19/09 ✔ |
 | ↳ *fatto 12/08* | Migrazione `ALTER TABLE` nel prodotto · schema mosso **una volta** (19 collezioni) · export/import da `COLLEZIONI` · interruttori `feature.*` spenti · certificazioni e **avvisi merceologici** a prelievo, report e DDT · **`store.js` interamente in TypeScript** in sei blocchi, con 94 prove nuove e i due ponti caduti | — |
 | ↳ *fatto 11/08* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa**, deroga della cella Riservata | — |
 | **1.4.1** | Schedulatore di attività — richieste, priorità, tempi | 10/10 |
@@ -160,9 +160,10 @@ un'attesa · le certificazioni sono il terzo attributo · gli avvisi si vedono a
 prelievo, report e DDT · **si tira dritto**, nessun gradino sceso in anticipo · le
 etichette si stampano **dal browser**, `100 × 80 mm` su A4. PIANO-1.4 §8, D4-D12.
 
-> **Il segnale da guardare non è il 31/10, è il 19/09.** Se a quella data la 1.4.0
-> non è chiusa — cioè se `store.js` non è convertito — il ritardo è già reale e il
-> primo gradino della scala si scende lì, senza aspettare la verifica.
+> **Il primo segnale è passato, e bene.** Era il 19/09: se a quella data la 1.4.0
+> non fosse stata in magazzino il ritardo sarebbe stato reale. È entrata il 12/08,
+> con cinque settimane di margine, e nessun gradino della scala è stato sceso.
+> **Il prossimo segnale è il 31/10**, fine della 1.4.2.
 
 Le domande aperte del piano **sono chiuse tutte.** Restano due cose da fare a mano
 in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
@@ -171,23 +172,24 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 | # | Cosa | Peso |
 |---|---|---|
-| 1 | **Costruire e installare la 1.4.0** — `npm run build`, poi i cinque comandi (HANDOFF §4) | **il prossimo** |
+| 1 | **Cominciare la 1.4.1** — lo schedulatore di attività, entro il 10/10 | **il prossimo** |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
 | 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea**. La maschera c'è: è un dato, non codice | esterno |
 | 4 | Nome DNS interno e certificato dalla CA — **IT**. Il codice è pronto e non aspetta niente: arriva a lavori finiti | non blocca |
 | 5 | `ui/` a TypeScript, per ultima — `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | grande |
-| 6 | `TODO F1-REVIEW` ×3: cache svuotata prima della conferma del supporto (`store.js`), riallineamento ridondante dopo `resetAll()` (`app.js`) | piccolo |
+| 6 | `TODO F1-REVIEW` ×3: cache svuotata prima della conferma del supporto (`store.ts`), riallineamento ridondante dopo `resetAll()` (`app.js`) | piccolo |
 | 7 | `weight_net_kg` da **compilare** in anagrafica — colonna `Peso_Netto_Collo`. Il campo è già cablato: maschere, import, export, peso del DDT | import Excel |
+| 8 | `service_version` in `pathfinder-server.js` è ancora `'1.1'`, ma il servizio è cambiato: `_migra` e 19 collezioni. Da decidere se allinearla | piccolo |
 
 ## 7. Cosa non fare
 
-- **Non toccare `pathfinder-1.2.html` in radice**: è il file servito in questo momento.
+- **Non toccare `pathfinder-1.4.0.html` in radice**: è il file servito in questo momento. `pathfinder-1.2.html` gli sta accanto ed è il ritorno indietro: non si sposta.
+- **Il nome del file porta tre numeri**, `pathfinder-1.4.N.html`: la serie 1.4 sono sei rilasci distinti e ognuno resta in radice per fare da ritorno indietro al successivo.
 - **Gli import di un modulo TypeScript si scrivono senza estensione**: `../core/store`, non `../core/store.js`. Due specificatori diversi sono due moduli, e due Store in pagina — HANDOFF §6, trappola 20.
 - **Non riunire `createTableSQL` e `createIndexSQL`**: sono due funzioni perché fra i due passi sta `_migra`, e senza di lei il servizio non parte su un database che esiste già.
-- **Non installare una 1.4.x parziale**: si installa quando la 1.4.0 è chiusa, `store.js` compreso.
-- **Non convertire `store.js` e `app.js` nello stesso commit** — 12.500 righe insieme non sono verificabili.
-- **Non togliere i ponti verso Store** finché Store è JavaScript: senza, il compilatore deduce `never[]`. Cadono con la 1.4.0, non prima.
-- **Non scrivere a mano dentro `Pathfinder 1.2/`**: è prodotta, `npm run build` la azzera.
+- **Non installare una 1.4.x parziale**: si installa quando la versione è chiusa per intero.
+- **Non convertire `app.js` in un commit solo** — 10.529 righe insieme non sono verificabili. `store.js` ci è passato in sei blocchi.
+- **Non scrivere a mano dentro `Pathfinder 1.4/`**: è prodotta, `npm run build` la azzera.
 - **Non versionare `server/data/`**: contiene i dati veri e le anagrafiche operatori.
 - **Non aggiornare `dexie` e `xlsx`**: versioni fisse, l'applicativo è collaudato con quelle.
 - **Percorsi Windows oltre 260 caratteri**: `npm install` è il primo a romperlo. Installare in `C:\Pathfinder\app`.

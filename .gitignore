@@ -26,7 +26,10 @@ ARCHIVIO/BACKUP E FILE DI TEST/movimenti/
 # primo "npm run build" sparirebbe. Si rigenera in tre secondi, ed e' il
 # motivo per cui non sta nel repository: cio' che la compone - il sorgente e
 # il README - c'e' gia'.
-Pathfinder 1.2/
+# Il motivo generico: cambia nome a ogni versione, e chi rilascia non deve
+# ricordarsi di aggiungere una riga qui. L'applicativo in radice invece SI'
+# versiona - e' l'artefatto rilasciato, e serve per il ritorno indietro.
+Pathfinder 1.*/
 
 # Rumore di Windows e degli editor.
 Thumbs.db

@@ -3,7 +3,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const CONSEGNA = 'Pathfinder 1.2';
+const CONSEGNA = 'Pathfinder 1.4';
 
 const DAL_SERVIZIO = [
   'pathfinder-server.js',   // il servizio
@@ -49,7 +49,11 @@ function cartellaDiConsegna(nome) {
 export default defineConfig({
   plugins: [
     viteSingleFile(),
-    cartellaDiConsegna('pathfinder-1.2.html'),
+    /* Il nome porta i tre numeri, non due: la serie 1.4 sono sei rilasci
+       distinti (1.4.0 … 1.4.5) e ciascuno va in magazzino per conto suo. Il
+       ritorno indietro e' rimettere PATHFINDER_APP sul file precedente, che
+       resta in radice: senza il terzo numero i sei si sovrascriverebbero. */
+    cartellaDiConsegna('pathfinder-1.4.0.html'),
   ],
 
   build: {

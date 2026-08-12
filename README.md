@@ -108,7 +108,7 @@ Poi si avvia a mano, su una porta diversa da quella del magazzino:
 ```powershell
 $env:PATHFINDER_PORT = '4174'
 $env:PATHFINDER_DB   = "$env:TEMP\prova.db"
-$env:PATHFINDER_APP  = '..\pathfinder-1.2.html'
+$env:PATHFINDER_APP  = '..\pathfinder-1.4.0.html'
 node pathfinder-server.js
 ```
 
@@ -125,7 +125,7 @@ L'applicativo è su `http://localhost:4174/`. Per fermarlo: `Ctrl+C`.
 
 ## 4. Installazione sul PC di magazzino
 
-**Serve solo la cartella `Pathfinder 1.2`** — quella prodotta da
+**Serve solo la cartella `Pathfinder 1.4`** — quella prodotta da
 `npm run build` (§10). Dentro c'è tutto: l'applicativo, il servizio,
 l'installazione, il backup e queste istruzioni. Il resto del progetto sulla
 macchina di magazzino non serve.
@@ -138,7 +138,7 @@ macchina di magazzino non serve.
    amministratore*; nella barra del titolo deve comparire «Amministratore:»):
 
 ```powershell
-cd "C:\Pathfinder\app\Pathfinder 1.2\server"
+cd "C:\Pathfinder\app\Pathfinder 1.4\server"
 .\installa-servizio.ps1
 ```
 
@@ -177,7 +177,7 @@ Succede in fase di rilascio, quando la versione nuova e la vecchia convivono.
 Si dice quale servire:
 
 ```powershell
-.\installa-servizio.ps1 -Applicativo '..\pathfinder-1.2.html'
+.\installa-servizio.ps1 -Applicativo '..\pathfinder-1.4.0.html'
 ```
 
 Reinstallando su una macchina già in servizio, se `PATHFINDER_APP` è già
@@ -213,7 +213,7 @@ Get-ScheduledTask -TaskName "Pathfinder*" | Select-Object TaskName, State
 
 Il servizio non ha niente cablato: si sposta copiando due cose.
 
-1. **Copia** la cartella `Pathfinder 1.2` sulla macchina nuova (§4). Non
+1. **Copia** la cartella `Pathfinder 1.4` sulla macchina nuova (§4). Non
    serve altro: dentro c'è applicativo, servizio e installazione.
 2. **Copia il database a caldo**, chiedendolo al servizio vecchio — mai con
    `Copy-Item` (§7 spiega perché):
@@ -343,7 +343,7 @@ Invoke-RestMethod http://127.0.0.1:4199/api/health | Select-Object file, revisio
 
 1. **Backup prima.** Sempre, anche per una modifica piccola (§7).
 2. Copia il file nuovo dell'applicativo nella cartella `MAPPER`, prendendolo
-   da `Pathfinder 1.2\` (§10). In radice ci sta **il file che il servizio
+   da `Pathfinder 1.4\` (§10). In radice ci sta **il file che il servizio
    serve**, ed è la ragione per cui non lo si punta direttamente dentro la
    cartella di consegna: quella la build la riscrive, e un rilascio deve
    essere un gesto, non un effetto collaterale di `npm run build`.
@@ -424,7 +424,7 @@ Il sorgente è modulare; ciò che si distribuisce è un file solo. Sono due
 momenti diversi, non due scelte in conflitto.
 
 ```
-src/  28 file  ──build──>  Pathfinder 1.2/  (la cartella che si copia)
+src/  35 file  ──build──>  Pathfinder 1.4/  (la cartella che si copia)
 ```
 
 ### Dove sta cosa
@@ -433,7 +433,7 @@ Aprendo `MAPPER` si vedono tre cose diverse, e non vanno confuse.
 
 | | Cos'è | Chi la tocca |
 |---|---|---|
-| **`Pathfinder 1.2/`** | **La consegna, completa.** L'applicativo in un file solo, il servizio dati, l'installazione, il backup e queste istruzioni. Si copia su una macchina nuova e si installa da lì, **senza il resto del progetto** | Nessuno a mano: la **produce** `npm run build` e la **svuota** a ogni giro |
+| **`Pathfinder 1.4/`** | **La consegna, completa.** L'applicativo in un file solo, il servizio dati, l'installazione, il backup e queste istruzioni. Si copia su una macchina nuova e si installa da lì, **senza il resto del progetto** | Nessuno a mano: la **produce** `npm run build` e la **svuota** a ogni giro |
 | `src/` `test/` `index.html` e i file di configurazione | Il cantiere | Chi sviluppa |
 | `server/` | Il servizio dati, in funzione | Si installa una volta (§4), poi ci pensa Windows |
 | `ARCHIVIO/` | Versioni precedenti, file di prova, marchi, stampa etichette | Nessuno, di norma |
@@ -456,10 +456,10 @@ Aprendo `MAPPER` si vedono tre cose diverse, e non vanno confuse.
 |---|---|
 | `npm install` | Dipendenze del client |
 | `npm run dev` | Sviluppo con ricarica automatica su `localhost:5173` |
-| `npm run build` | Rifà `Pathfinder 1.2/`: l'applicativo e una copia di queste istruzioni |
+| `npm run build` | Rifà `Pathfinder 1.4/`: l'applicativo e una copia di queste istruzioni |
 | `npm run check` | Controllo dei tipi, client **e** servizio |
 | `npm test` | Collaudi automatici (serpentina, FEFO, geometria, parser ODP) — ~1 secondo |
-| `cd server && npm test` | 29 prove sul servizio, con database usa-e-getta |
+| `cd server && npm test` | 30 prove sul servizio, con database usa-e-getta |
 
 In sviluppo il rimando alle API va puntato su un'istanza **di prova**:
 
@@ -472,8 +472,8 @@ npm run dev
 
 ```
 MAPPER/
-├─ Pathfinder 1.2/       ← PRODOTTA dalla build, si copia in magazzino
-│  ├─ pathfinder-1.2.html   l'applicativo
+├─ Pathfinder 1.4/       ← PRODOTTA dalla build, si copia in magazzino
+│  ├─ pathfinder-1.4.0.html   l'applicativo
 │  ├─ README.md             queste istruzioni
 │  └─ server/               il servizio, l'installazione, il backup
 │                           (senza node_modules: le installa lo script)
@@ -481,7 +481,7 @@ MAPPER/
 ├─ src/
 │  ├─ main.js            avvio, stili, rete globale sugli errori
 │  ├─ types/     .ts     i contratti, condivisi col servizio
-│  ├─ core/      .ts     costanti · schema · persistence/ …  ma store.js no
+│  ├─ core/      .ts     costanti · schema · persistence/ · store · cache · …
 │  ├─ modules/   .ts     auth · odpParser · pickRoute · session · vault · …
 │  ├─ ui/        .js     app · dialog · feedback · tabs
 │  └─ styles/            i 5 fogli, nell'ordine della cascata
@@ -490,7 +490,7 @@ MAPPER/
 │  ├─ pathfinder-server.js  gli endpoint
 │  ├─ installa-servizio.ps1 · backup-serale.ps1
 │  ├─ lib/{db,schema}.js    SQLite e lo schema
-│  └─ test/collaudo.js      29 prove
+│  └─ test/collaudo.js      30 prove
 ├─ HANDOFF/              i passaggi di consegne, dal 1.0 in poi
 └─ ARCHIVIO/
    ├─ VERSIONI PRECEDENTI/    1.1 e 2.8.0, intatte
