@@ -26,8 +26,8 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Voce | Valore |
 |---|---|
 | In magazzino, **adesso** | `pathfinder-1.2.html` — verificato su `/api/app-info`, 1.486.348 byte |
-| In lavorazione | **1.4.0**, Fase 0 dentro. Manca `store.js` in TypeScript |
-| Sorgente | 25 file in `src/`: **19 TypeScript**, 6 JavaScript, più 5 CSS |
+| In lavorazione | **1.4.0**, Fase 0 dentro. Di `store.js` restano da convertire le mutazioni |
+| Sorgente | 30 file in `src/`: **24 TypeScript**, 6 JavaScript, più 5 CSS |
 | Ancora JavaScript | `core/store.js` · `main.js` · `ui/` (4 file) |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
 | Collaudi | **205 client** · **30 servizio** · **8 migrazione** — tutti verdi |
@@ -51,8 +51,8 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Commit | Cosa |
 |---|---|
 | `ece6962` | **`core/statistiche.ts`** — quinto blocco: stati e cruscotto, verificati confrontando vecchia e nuova implementazione sulle 21 chiavi del risultato |
-| `fdd0552` | **`core/pacchetto.ts`** — quarto blocco: export e verifica, con la dimostrazione end-to-end che UDC e compiti non sopravvivono più a un ripristino |
-| `ed82fc8` | **`core/giacenza.ts`** — terzo blocco: FEFO e ricerca |
+| `6ad3222` | **`core/pacchetto.ts`** — quarto blocco: export e verifica, con la dimostrazione end-to-end che UDC e compiti non sopravvivono più a un ripristino |
+| `50968eb` | **`core/giacenza.ts`** — terzo blocco: FEFO e ricerca |
 | `2464160` | **`core/geometria.ts`** — secondo blocco: le ubicazioni |
 | `ec31913` | **`core/cache.ts`** — primo blocco della conversione di `store.js`, con le 37 prove che a `_applyToCache` non c'erano mai state |
 | `9dd99ff` | Le decisioni D11 e D12: si tira dritto, e le etichette si stampano dal browser |
