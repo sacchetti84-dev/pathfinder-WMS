@@ -186,6 +186,111 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   const sess = await call('GET', '/api/c/pick_session/S1');
   ok('la sessione di prelievo e\' stata salvata nella stessa transazione', sess.dati?.session_id === 'S1');
 
+  /* ── 1.4.2 — le UM escono dentro la stessa transazione dei colli ────
+     La ragione per cui queste rotte composte esistono e' che due terminali
+     prelevano lo stesso lotto nello stesso pomeriggio. Dalla 1.4.2 i numeri
+     da tenere insieme sono due, e valgono le stesse regole: chi tocca l'uno
+     tocca l'altro, o nessuno dei due. */
+  const RIGA = (q) => '/api/c/inventory/query?criteria=' + encodeURIComponent(
+    JSON.stringify({ field: 'item_key', op: 'equals', value: q }));
+  const leggiRiga = async (k) => (await call('GET', RIGA(k))).dati[0];
+
+  await call('POST', '/api/c/inventory/bulk', [
+    /* L'esempio del piano §4.2: 10.100 pz da 1.000 per collo. */
+    { location_code: 'DP-C-01-01', item_key: 'MP-3#L4', article_code: 'MP-3', lot_code: 'L4', qty: 11, qty_uom: 10100 },
+    { location_code: 'DP-C-01-02', item_key: 'MP-3#L5', article_code: 'MP-3', lot_code: 'L5', qty: 11 },
+    { location_code: 'DP-C-01-03', item_key: 'MP-3#L6', article_code: 'MP-3', lot_code: 'L6', qty: 40, qty_uom: 40000 },
+    { location_code: 'DP-C-01-04', item_key: 'MP-3#L7', article_code: 'MP-3', lot_code: 'L7', qty: 10 },
+    { location_code: 'DP-C-01-05', item_key: 'MP-3#L8', article_code: 'MP-3', lot_code: 'L8', qty: 10, qty_uom: 0.3 },
+    { location_code: 'DP-C-01-06', item_key: 'MP-3#L9', article_code: 'MP-3', lot_code: 'L9', qty: 10, qty_uom: 100 }
+  ]);
+
+  /* Il caso di tutti i giorni finche' non si accende l'interruttore: una riga
+     a soli colli resta a soli colli. Il servizio non inventa un qty_uom. */
+  const soliColli = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-C-01-04', item_key: 'MP-3#L7', qty: 2 });
+  const l7 = await leggiRiga('MP-3#L7');
+  ok('senza UM il servizio non ne inventa: la riga resta a soli colli',
+     soliColli.dati._qty_uom_after === undefined && l7.qty === 8 && l7.qty_uom === undefined,
+     'qty ' + l7.qty);
+
+  const conUm = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-C-01-01', item_key: 'MP-3#L4', qty: 1, qty_uom: 1000, qty_uom_before: 10100 });
+  const l4 = await leggiRiga('MP-3#L4');
+  ok('colli e UM scendono insieme, nella stessa transazione',
+     l4.qty === 10 && l4.qty_uom === 9100 && conUm.dati._qty_uom_delta === -1000,
+     `${l4.qty} colli · ${l4.qty_uom} pz`);
+
+  /* Il seme: una riga posizionata prima della 1.4.2 non ha nessun qty_uom, e
+     il primo che la muove porta la propria derivazione. Vale UNA volta. */
+  const seme = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-C-01-02', item_key: 'MP-3#L5', qty: 1, qty_uom: 1000, qty_uom_before: 11000 });
+  const l5 = await leggiRiga('MP-3#L5');
+  ok('la riga che non ha mai avuto UM le prende dal primo che la muove',
+     l5.qty_uom === 10000 && seme.dati._qty_uom_before === 11000, 'saldo ' + l5.qty_uom);
+
+  /* LA PROVA CHE CONTA PIU' DI TUTTE: il servizio legge il PROPRIO saldo, non
+     quello che gli dice il client. Se cosi' non fosse, il secondo terminale
+     riscriverebbe il numero del primo con una fotografia vecchia. */
+  const bugia = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-C-01-01', item_key: 'MP-3#L4', qty: 1, qty_uom: 1000, qty_uom_before: 999999 });
+  const l4bis = await leggiRiga('MP-3#L4');
+  ok('il servizio legge il proprio saldo in UM, non quello del client',
+     bugia.dati._qty_uom_before === 9100 && l4bis.qty_uom === 8100, 'saldo ' + l4bis.qty_uom);
+
+  /* Un saldo negativo in un magazzino e' peggio di un prelievo rifiutato:
+     si tronca a cio' che c'e'. */
+  const troppeUm = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-C-01-02', item_key: 'MP-3#L5', qty: 1, qty_uom: 99999, qty_uom_before: 0 });
+  const l5bis = await leggiRiga('MP-3#L5');
+  ok('le UM non scendono mai sotto zero: si troncano a cio\' che c\'e\'',
+     l5bis.qty_uom === 0 && troppeUm.dati._qty_uom_delta === -10000, 'saldo ' + l5bis.qty_uom);
+
+  /* Lo scarico totale porta via tutto, e lo dichiara anche se il client non
+     ha mandato nessun numero: la riga sparisce, il conto no. */
+  const tuttoFuori = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-C-01-01', item_key: 'MP-3#L4', qty: 9 });
+  ok('lo scarico totale dichiara quante UM sono uscite',
+     tuttoFuori.dati._mode === 'full' && tuttoFuori.dati._qty_uom_delta === -8100
+       && tuttoFuori.dati._qty_uom_after === 0,
+     'uscite ' + tuttoFuori.dati._qty_uom_delta);
+
+  const [u1, u2] = await Promise.all([
+    call('POST', '/api/op/removeItem',
+      { location_code: 'DP-C-01-03', item_key: 'MP-3#L6', qty: 25, qty_uom: 25000 }, 'TERMINALE-1'),
+    call('POST', '/api/op/removeItem',
+      { location_code: 'DP-C-01-03', item_key: 'MP-3#L6', qty: 25, qty_uom: 25000 }, 'TERMINALE-2')
+  ]);
+  const l6 = await leggiRiga('MP-3#L6');
+  ok('contesa sulle UM: passa un terminale solo, e i due saldi restano coerenti',
+     [u1, u2].filter(r => r.stato === 200).length === 1 && l6.qty === 15 && l6.qty_uom === 15000,
+     `${l6.qty} colli · ${l6.qty_uom} UM`);
+
+  /* L'arrotondamento e' quello di modules/misure.ts, riscritto qui perche' il
+     servizio resta JavaScript. I numeri di questa prova NON sono a caso:
+     `0,3 − 0,1` in virgola mobile vale 0,19999999999999998, e un saldo cosi'
+     non si azzera mai. Quasi tutte le altre coppie di decimali cadono esatte
+     e non proverebbero niente — vedi trappola 17. */
+  await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-C-01-05', item_key: 'MP-3#L8', qty: 1, qty_uom: 0.1 });
+  const l8 = await leggiRiga('MP-3#L8');
+  ok('i decimali non lasciano code: 0,3 meno 0,1 fa 0,2 e non 0,19999999999999998',
+     l8.qty_uom === 0.2, 'saldo ' + l8.qty_uom);
+
+  const tappaUm = await call('POST', '/api/op/commitPickStop', {
+    location_code: 'DP-C-01-06', item_key: 'MP-3#L9', qty: 2, qty_uom: 20,
+    movement: { type: 'PICK', article_code: 'MP-3', lot_code: 'L9',
+                location_code: 'DP-C-01-06', user: 'ANDS', doc_ref: 'ODP-2' },
+    session: { session_id: 'S2', status: 'active', created_at: Date.now(), stops: [] }
+  });
+  const movUm = (await call('GET',
+    '/api/c/mov_log/query?criteria=' + encodeURIComponent(
+      JSON.stringify({ field: 'lot_code', op: 'equals', value: 'L9' })))).dati[0];
+  const l9 = await leggiRiga('MP-3#L9');
+  ok('la tappa di prelievo scrive il delta in UM nel registro, non solo i colli',
+     tappaUm.stato === 200 && movUm?.qty_uom_delta === -20 && l9.qty_uom === 80,
+     `registro ${movUm?.qty_uom_delta} · saldo ${l9.qty_uom}`);
+
   /* ── 1.4.1 — le attivita' passano dal servizio come tutto il resto ──
      Lo schedulatore non ha rotte sue: e' una collezione a chiave di testo,
      e le due domande che la coda fa davvero — «cosa e' aperto» e «cosa ho

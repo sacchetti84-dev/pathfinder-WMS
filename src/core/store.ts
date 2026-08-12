@@ -804,8 +804,10 @@ const Store = {
         location_code: locationCode, item_key: itemKey,
         qty: qtyRemove === null ? qtyBefore : qtyRemove,
         /* La transazione che arbitra fra due terminali deve muovere i due
-           numeri insieme: assente = riga a soli colli, cioe' la 1.4.1. */
-        ...(uomOut === null ? {} : { qty_uom: uomOut }),
+           numeri insieme: assente = riga a soli colli, cioe' la 1.4.1.
+           `qty_uom_before` serve solo alla riga che un `qty_uom` non lo ha
+           mai avuto — il servizio lo usa come seme e poi legge il proprio. */
+        ...(uomOut === null ? {} : { qty_uom: uomOut, qty_uom_before: uomBefore }),
       });
       if (removed._mode === 'full') this._applyToCache('inventory', 'delete', item);
       else {
@@ -1634,11 +1636,17 @@ const Store = {
         removed = await this.removeItem(stop.location_code, stop.item_key, qty);
         if (!removed) throw new Error('Scarico della giacenza non riuscito');
 
+        /* 1.4.2 — quanto e' uscito in UM. Fra sei anni il registro e' la sola
+           cosa che potra' dirlo: una riga che non lo porta non si ricostruisce
+           da nessun'altra parte. */
+        const cfgUscita = this.getUomConfig(removed.article_code, removed.lot_code);
         await this.logMovement({
           ...movement,
           qty_before: removed._qty_before,
           qty_delta: removed._qty_delta,
-          qty_after: removed._qty_after
+          qty_after: removed._qty_after,
+          qty_uom_delta: removed._qty_uom_delta ?? null,
+          ...(cfgUscita ? { uom: cfgUscita.uom } : {}),
         });
 
         stop.status = 'done';

@@ -24,6 +24,45 @@ app.use(express.json({ limit: '256mb' }));   // un import completo puo' pesare
 
 const originOf = (req) => req.get('X-Pathfinder-Client') || null;
 
+/* ── 1.4.2 · Le UM escono dentro la stessa transazione dei colli ──────────
+   Due scritture separate sono due numeri che divergono il primo pomeriggio in
+   cui due terminali prelevano lo stesso lotto. E' esattamente la ragione per
+   cui queste due rotte composte esistono, e vale per `qty_uom` come vale per
+   `qty`: chi tocca l'una tocca l'altra, o nessuna delle due.
+
+   L'arrotondamento e' quello di `src/modules/misure.ts` — DECIMALI_MAX. Qui
+   e' riscritto invece che importato perche' il servizio resta JavaScript e
+   non condivide moduli col client: se quella costante cambia, questa riga
+   cambia con lei. */
+const UOM_DECIMALI = 3;
+
+const arrotondaUom = (n) => {
+  const v = Number(n);
+  if (n === null || n === undefined || n === '' || !Number.isFinite(v)) return null;
+  const f = 10 ** UOM_DECIMALI;
+  const r = Math.round(v * f * (1 + Number.EPSILON)) / f;
+  return r === 0 ? 0 : r;
+};
+
+/* Quante UM restano dopo averne tolte `chieste`. `null` = riga a soli colli,
+   cioe' il comportamento della 1.4.1 e di tutto cio' che c'era prima.
+
+   `prima` si legge dalla RIGA, non da cio' che dice il client: e' il punto
+   di tutta la transazione. `atteso` serve solo alla riga che non ha mai
+   avuto un `qty_uom` — un dato che nessuno ha mai scritto — e appena uno dei
+   due terminali lo scrive, il secondo trova quello e ignora la propria
+   derivazione.
+
+   Non scende sotto zero: un saldo negativo in un magazzino e' peggio di un
+   prelievo rifiutato. */
+const scalaUom = (item, chieste, atteso, tutto) => {
+  const prima = arrotondaUom(item.qty_uom) ?? arrotondaUom(atteso);
+  if (prima === null || (!tutto && arrotondaUom(chieste) === null)) return null;
+  if (tutto) return { prima, dopo: 0, delta: -prima };
+  const out = Math.min(arrotondaUom(chieste), prima);
+  return { prima, dopo: arrotondaUom(prima - out), delta: -out };
+};
+
 const SQL_CONSTRAINT = {
   SQLITE_CONSTRAINT_UNIQUE:     'valore gia\' presente: il vincolo di unicita\' lo impedisce',
   SQLITE_CONSTRAINT_PRIMARYKEY: 'chiave gia\' esistente',
@@ -153,7 +192,7 @@ app.post('/api/tx', wrap((req, res) => {
 }));
 
 app.post('/api/op/removeItem', wrap((req, res) => {
-  const { location_code, item_key, qty } = req.body || {};
+  const { location_code, item_key, qty, qty_uom, qty_uom_before } = req.body || {};
   const n = Number(qty);
   if (!location_code || !item_key || !Number.isFinite(n) || n < 1)
     throw Object.assign(new Error('servono location_code, item_key e una quantita\' valida'), { status: 400 });
@@ -169,21 +208,27 @@ app.post('/api/op/removeItem', wrap((req, res) => {
 
     const after = have - n;
     const snapshot = { ...item };
+    const um = scalaUom(item, qty_uom, qty_uom_before, after <= 0);
+    const conti = um === null ? {}
+      : { _qty_uom_before: um.prima, _qty_uom_delta: um.delta, _qty_uom_after: um.dopo };
+
     if (after <= 0) {
       db.delete('inventory', item._id);
-      return { ...snapshot, _mode: 'full', _qty_before: have, _qty_delta: -n, _qty_after: 0 };
+      return { ...snapshot, _mode: 'full', _qty_before: have, _qty_delta: -n, _qty_after: 0, ...conti };
     }
     item.qty = after;
+    if (um !== null) item.qty_uom = um.dopo;
     item.updated_at = Date.now();
     db.put('inventory', item);
-    return { ...snapshot, qty: after, _mode: 'partial', _qty_before: have, _qty_delta: -n, _qty_after: after };
+    return { ...snapshot, qty: after, ...(um === null ? {} : { qty_uom: um.dopo }),
+             _mode: 'partial', _qty_before: have, _qty_delta: -n, _qty_after: after, ...conti };
   }, originOf(req));
 
   res.json(out);
 }));
 
 app.post('/api/op/commitPickStop', wrap((req, res) => {
-  const { location_code, item_key, qty, movement, session } = req.body || {};
+  const { location_code, item_key, qty, qty_uom, qty_uom_before, movement, session } = req.body || {};
   const n = Number(qty);
   if (!location_code || !item_key || !Number.isFinite(n) || n < 1 || !session?.session_id)
     throw Object.assign(new Error('parametri incompleti'), { status: 400 });
@@ -197,18 +242,29 @@ app.post('/api/op/commitPickStop', wrap((req, res) => {
       throw Object.assign(new Error(`In ${location_code} restano ${have} colli`), { status: 409 });
 
     const after = have - n;
+    const um = scalaUom(item, qty_uom, qty_uom_before, after <= 0);
     if (after <= 0) db.delete('inventory', item._id);
-    else { item.qty = after; item.updated_at = Date.now(); db.put('inventory', item); }
+    else {
+      item.qty = after;
+      if (um !== null) item.qty_uom = um.dopo;
+      item.updated_at = Date.now();
+      db.put('inventory', item);
+    }
 
+    /* Il movimento porta il delta in UM insieme a quello in colli: il
+       registro e' la sola cosa che, fra sei anni, dira' quanto e' uscito. */
     const mov = { ...movement, ts: movement?.ts || Date.now(),
-                  qty_before: have, qty_delta: -n, qty_after: after };
+                  qty_before: have, qty_delta: -n, qty_after: after,
+                  ...(um === null ? {} : { qty_uom_delta: um.delta }) };
     const movId = db.add('mov_log', mov);
 
     db.put('pick_session', session);
     db.put('meta', { key: 'lastModified', value: Date.now() });
 
     return { removed: { ...item, _mode: after <= 0 ? 'full' : 'partial',
-                        _qty_before: have, _qty_delta: -n, _qty_after: after },
+                        _qty_before: have, _qty_delta: -n, _qty_after: after,
+                        ...(um === null ? {}
+                          : { _qty_uom_before: um.prima, _qty_uom_delta: um.delta, _qty_uom_after: um.dopo }) },
              movement_id: movId };
   }, originOf(req));
 
