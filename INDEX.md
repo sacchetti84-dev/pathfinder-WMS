@@ -15,13 +15,13 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 12/08/2026
 | Voce | Valore |
 |---|---|
 | In produzione | `pathfinder-1.4.0.html` — è il file che il servizio serve **adesso**, 1.493.517 byte |
-| **1.4.1** | **costruita e provata il 12/08** — `Pathfinder 1.4/pathfinder-1.4.1.html`, 1.526.393 byte. **Non installata**: mancano i cinque comandi |
-| Sorgente | **26 TypeScript** · 5 JavaScript · 5 CSS · `index.html` |
+| **1.4.2** | **costruita e provata il 12/08** — `Pathfinder 1.4/pathfinder-1.4.2.html`, 1.541.133 byte. **Non installata**. Contiene anche la 1.4.1 |
+| Sorgente | **27 TypeScript** · 5 JavaScript · 5 CSS · `index.html` |
 | Ancora JavaScript | `main.js`, `ui/` (4 file) |
 | Servizio | Node + Express + SQLite, porta **4173** |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive |
-| Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` si popola a interruttore acceso |
-| Collaudi | **260 client** (~1,5 s) + **34 servizio** + 8 migrazione — verdi |
+| Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
+| Collaudi | **331 client** (~1,6 s) + **43 servizio** + 8 migrazione — verdi |
 | Tipi | `npm run check` client + servizio — 0 errori |
 
 ## 2. Comandi
@@ -43,9 +43,9 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 
 | File | Righe | Ruolo |
 |---|---:|---|
-| `ui/app.js` | 11.510 | Tutta l'interfaccia: viste, render, gestori. Il pezzo grosso |
-| `core/store.ts` | 1.918 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` — blocco 6, tipizzato sul posto |
-| `core/cache.ts` | 271 | Punto unico di mutazione della cache: 5 forme, 3 indici derivati — blocco 1 |
+| `ui/app.js` | 11.674 | Tutta l'interfaccia: viste, render, gestori. Il pezzo grosso |
+| `core/store.ts` | 2.114 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` — blocco 6, tipizzato sul posto |
+| `core/cache.ts` | 321 | Punto unico di mutazione della cache: 5 forme, 4 indici derivati — blocco 1 |
 | `core/statistiche.ts` | 181 | Stato di una cella, conteggi, cruscotto — blocco 5 |
 | `core/pacchetto.ts` | 154 | Export: composizione, conteggi, verifica — blocco 4 |
 | `core/geometria.ts` | 123 | Le ubicazioni, generate dalla configurazione della zona — blocco 2 |
@@ -61,6 +61,7 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `modules/anagrafica.ts` | 158 | I 14 allergeni del Reg. UE 1169/2011, le 3 classi di conservazione e le certificazioni. Lettura stretta, valori convalidati in Excel |
 | `modules/conformita.ts` | 155 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio girato al contrario |
 | `modules/compiti.ts` | 274 | **1.4.1** — ciclo di vita, coda, attesa e durata, riepilogo. Puro: non tocca Store né il DOM |
+| `modules/misure.ts` | 317 | **1.4.2** — le cinque unità, la suddivisione per collo, il collo incompleto. Puro come `compiti`: entrano numeri, escono suddivisioni |
 | `modules/validate.ts` | 104 | Validazioni di campo |
 | `modules/auth.ts` | 88 | PIN operatore, hash e verifica |
 | `modules/session.ts` | 69 | Sessione dell'operatore al terminale |
@@ -87,14 +88,15 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `lib/schema.js` | 191 | Tabelle e indici — **due funzioni separate**, con la migrazione in mezzo |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate. Da amministratore |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata serale |
-| `test/collaudo.js` | 267 | 34 prove sul servizio vero |
+| `test/collaudo.js` | 379 | 43 prove sul servizio vero |
 | `test/collaudo-migrazione-1.4.js` | 158 | 8 prove sul cambio di schema della 1.4. Fuori dalla suite: si lancia da solo |
 
 ### Collaudi — `test/`
 
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
-`conformita` (19) · `cache` (37) · `pacchetto` (27) · `statistiche` (15) ·
-`compiti` (52) — **260 prove** in tutto. `ambiente.js` è il preambolo comune.
+`conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
+`compiti` (52) · `misure` (65) — **331 prove** in tutto. `ambiente.js` è il
+preambolo comune.
 
 ## 4. API del servizio
 
@@ -131,9 +133,10 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 | **1.4.0** | **in magazzino il 12/08**, con cinque settimane di margine sul 19/09 | 19/09 ✔ |
 | ↳ *fatto 12/08* | Migrazione `ALTER TABLE` nel prodotto · schema mosso **una volta** (19 collezioni) · export/import da `COLLEZIONI` · interruttori `feature.*` spenti · certificazioni e **avvisi merceologici** a prelievo, report e DDT · **`store.js` interamente in TypeScript** in sei blocchi, con 94 prove nuove e i due ponti caduti | — |
 | ↳ *fatto 11/08* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa**, deroga della cella Riservata | — |
-| **1.4.1** | Schedulatore — **costruita e provata il 12/08**, resta da installare | 10/10 |
+| **1.4.1** | Schedulatore — **costruita e provata il 12/08**. Non installata: è dentro la 1.4.2 | 10/10 ✔ |
 | ↳ *fatto 12/08* | `modules/compiti.ts` con **52 prove** · le attività in Store, a interruttore spento non scrivono · **Configurazione → Funzioni**, gli interruttori si alzano col PIN del Team Leader · vista **Attività**, coda e quattro gesti · riquadro in Dashboard · il **campionamento**, che è l'unica delle otto che non esisteva | — |
-| **1.4.2** | Unità di misura PZ/MT/LT/KG/GR, split colli, collo incompleto | **31/10** |
+| **1.4.2** | Unità di misura — **costruita e provata il 12/08**, con dieci settimane di margine sul 31/10 | **31/10** ✔ |
+| ↳ *fatto 12/08* | `modules/misure.ts` con **65 prove** · l'indice `lotByKey` in cache · la confezione **congelata al primo posizionamento** · `qty_uom` su giacenza e registro · le UM che escono **dentro la stessa transazione** dei colli, con 9 prove nuove sul servizio · la riga «10 × 1.000 + 1 × 100 PZ» a video · il campo per il collo incompleto nel posizionamento | — |
 | **1.4.3** | UDC — contenitori, `moveUdc` transazionale, etichette | 21/11 |
 | **1.4.4** | Motore logico di stoccaggio — attributi, regole come dato, motivazioni | 09/12 |
 | **1.4.5** | WIP — installato a interruttore **spento**, si accende a gennaio | 19/12 |
@@ -165,29 +168,43 @@ etichette si stampano **dal browser**, `100 × 80 mm` su A4. PIANO-1.4 §8, D4-D
 > **Il primo segnale è passato, e bene.** Era il 19/09: se a quella data la 1.4.0
 > non fosse stata in magazzino il ritardo sarebbe stato reale. È entrata il 12/08,
 > con cinque settimane di margine, e nessun gradino della scala è stato sceso.
-> **Il prossimo segnale è il 31/10**, fine della 1.4.2.
+>
+> **Il secondo segnale è il 31/10**, fine della 1.4.2 — ed è il giorno della
+> verifica dell'andamento. Dei quattro fatti da guardare, il terzo — *«1.4.2
+> costruita e verificata, pronta da installare»* — è già vero il 12/08. Il
+> secondo — *«gli operatori hanno aperto dei compiti davvero»* — **non lo è, e
+> non dipende più dal codice**: dipende da quando qualcuno esegue i cinque
+> comandi e alza l'interruttore.
 
 Le domande aperte del piano **sono chiuse tutte.** Restano due cose da fare a mano
 in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
+
+> **La quantità per collo smette di essere solo un dato del DDT.** L'aperto #7 —
+> `Peso_Netto_Collo` e `Pezzi_Per_Collo` da compilare in anagrafica — era una
+> comodità: da adesso è la riga che decide se un articolo è gestito a UM oppure
+> no. Un articolo senza quella cella si comporta come nella 1.2, in tutto, anche
+> a interruttore acceso.
 
 ## 6bis. Aperti
 
 | # | Cosa | Peso |
 |---|---|---|
-| 1 | **Installare la 1.4.1** — i cinque comandi dell'HANDOFF §4, a fine turno. Poi **accendere `feature.tasks`** da Configurazione → Funzioni, a inizio turno e da solo | **il prossimo** |
-| 1bis | La 1.4.2 — unità di misura, split colli, collo incompleto, entro il **31/10**. È anche la verifica dell'andamento | dopo l'installazione |
+| 1 | **Installare la 1.4.2** — i cinque comandi dell'HANDOFF §4, a fine turno. Contiene anche la 1.4.1, che non è mai stata installata: il ritorno indietro è la 1.4.0, che resta in radice. Poi gli interruttori, **uno per turno**: prima `feature.tasks`, il turno dopo `feature.uom` | **il prossimo** |
+| 1bis | **Confermare due scelte del 12/08** che il piano non prevedeva: la colonna UM è `unit` — quella che c'è già — e la quantità per collo è `pieces_per_pack`. Vedi HANDOFF §5, decisione 41 | **prima di accendere `uom`** |
+| 1ter | La 1.4.3 — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | il prossimo lavoro |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
 | 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea**. La maschera c'è: è un dato, non codice | esterno |
 | 4 | Nome DNS interno e certificato dalla CA — **IT**. Il codice è pronto e non aspetta niente: arriva a lavori finiti | non blocca |
 | 5 | `ui/` a TypeScript, per ultima — `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | grande |
 | 6 | `TODO F1-REVIEW` ×3: cache svuotata prima della conferma del supporto (`store.ts`), riallineamento ridondante dopo `resetAll()` (`app.js`) | piccolo |
-| 7 | `weight_net_kg` da **compilare** in anagrafica — colonna `Peso_Netto_Collo`. Il campo è già cablato: maschere, import, export, peso del DDT | import Excel |
+| 7 | `weight_net_kg` e **`pieces_per_pack`** da compilare in anagrafica — colonne `Peso_Netto_Collo` e `Pezzi_Per_Collo`. I campi sono già cablati. Dalla 1.4.2 il secondo **decide se l'articolo è gestito a UM**: senza, resta a soli colli | import Excel |
 | 8 | `service_version` in `pathfinder-server.js` è ancora `'1.1'`, ma il servizio è cambiato: `_migra` e 19 collezioni. Da decidere se allinearla | piccolo |
 
 ## 7. Cosa non fare
 
-- **Non toccare `pathfinder-1.4.0.html` in radice**: è il file servito in questo momento, e dal giorno che si installa la 1.4.1 diventa il ritorno indietro. `pathfinder-1.2.html` gli sta accanto: non si sposta.
-- **Installare la 1.4.1 non è accenderla.** Il file in magazzino non cambia niente a video finché `feature.tasks` resta spento: sono due gesti in due momenti diversi, ed è così che si distingue un rilascio andato male da una funzione che non piace.
+- **Non toccare `pathfinder-1.4.0.html` in radice**: è il file servito in questo momento, e dal giorno che si installa la 1.4.2 diventa il ritorno indietro. `pathfinder-1.2.html` gli sta accanto: non si sposta.
+- **Installare non è accendere.** Il file in magazzino non cambia niente a video finché `feature.tasks` e `feature.uom` restano spenti: sono gesti in momenti diversi, ed è così che si distingue un rilascio andato male da una funzione che non piace. Provato sul file consegnato: a interruttore spento una riga di giacenza che ha già un `qty_uom` si legge come nella 1.4.1.
+- **Uno spostamento è un `removeItem` seguito da un `addItem`**, e il secondo deriva le UM dai colli pieni: senza passargli quante ne sono uscite, spostare 11 colli da 10.100 pz ne riscrive 11.000. Chi aggiunge un `addItem` che rimette a posto qualcosa passi da `App._umMossa` — HANDOFF §6, trappola 24.
 - **Il nome del file porta tre numeri**, `pathfinder-1.4.N.html`: la serie 1.4 sono sei rilasci distinti e ognuno resta in radice per fare da ritorno indietro al successivo.
 - **Gli import di un modulo TypeScript si scrivono senza estensione**: `../core/store`, non `../core/store.js`. Due specificatori diversi sono due moduli, e due Store in pagina — HANDOFF §6, trappola 20.
 - **Non riunire `createTableSQL` e `createIndexSQL`**: sono due funzioni perché fra i due passi sta `_migra`, e senza di lei il servizio non parte su un database che esiste già.

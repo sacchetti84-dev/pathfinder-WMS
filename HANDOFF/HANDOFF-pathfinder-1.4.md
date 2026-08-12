@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 12/08/2026 · Rev. 06 — la 1.4.1 è costruita e provata, resta da installare
+Data: 12/08/2026 · Rev. 07 — la 1.4.2 è costruita e provata, resta da installare
 
 ---
 
@@ -26,12 +26,12 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Voce | Valore |
 |---|---|
 | In magazzino, **adesso** | `pathfinder-1.4.0.html` — verificato su `/api/app-info`, 1.493.517 byte |
-| **1.4.1** | **costruita e provata il 12/08**: `Pathfinder 1.4/pathfinder-1.4.1.html`, 1.526.393 byte. **Non installata** |
-| Ritorno indietro | Oggi `pathfinder-1.2.html`; il giorno che si installa la 1.4.1 diventa `pathfinder-1.4.0.html`, che resta in radice |
-| Sorgente | 31 file in `src/`: **26 TypeScript**, 5 JavaScript, più 5 CSS |
+| **1.4.2** | **costruita e provata il 12/08**: `Pathfinder 1.4/pathfinder-1.4.2.html`, 1.541.133 byte. **Non installata**. Contiene anche la 1.4.1, che non è mai entrata |
+| Ritorno indietro | Oggi `pathfinder-1.2.html`; il giorno che si installa la 1.4.2 diventa `pathfinder-1.4.0.html`, che resta in radice |
+| Sorgente | 32 file in `src/`: **27 TypeScript**, 5 JavaScript, più 5 CSS |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
-| Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` si popola a interruttore acceso |
-| Collaudi | **260 client** · **34 servizio** · **8 migrazione** — tutti verdi |
+| Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
+| Collaudi | **331 client** · **43 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
@@ -39,17 +39,27 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 > contro una copia del database vero, e installata con i cinque comandi della §4.
 > `/api/app-info` risponde `pathfinder-1.4.0.html`, 1.493.517 byte.
 >
-> **La 1.4.1 è pronta e non è ancora installata**, ed è una distinzione che
-> conta: il file esiste, è provato, e finché nessuno esegue i cinque comandi
-> della §4 il magazzino non lo vede. Il gesto è di chi installa — a fine turno,
-> con un backup fresco davanti — ed è **un gesto diverso dall'accendere la
-> funzione**, che si fa il turno dopo da Configurazione → Funzioni.
+> **La 1.4.2 è pronta e non è ancora installata**, e con lei la 1.4.1 — che non
+> è mai entrata. Il file esiste, è provato, e finché nessuno esegue i cinque
+> comandi della §4 il magazzino non lo vede. Il gesto è di chi installa — a fine
+> turno, con un backup fresco davanti — ed è **un gesto diverso dall'accendere
+> le funzioni**, che si fanno dopo, da Configurazione → Funzioni, **una per
+> turno**: prima `feature.tasks`, il turno dopo `feature.uom`.
 >
-> **Anche installata, non cambia niente a video.** `feature.tasks` nasce spento:
-> la voce «Attività» in barra non compare, e in Dashboard non compare il suo
-> riquadro. Provato ricaricando su un database vergine. Ciò che si vede
-> comunque è la scheda **Configurazione → Funzioni**, che è il posto da cui la
-> si accende — e prima non esisteva.
+> **Che la 1.4.1 non sia mai entrata non è un problema, ed è meglio saperlo.**
+> La 1.4.2 la contiene per intero. L'unica conseguenza riguarda il ritorno
+> indietro: in radice non ci sarà nessun `pathfinder-1.4.1.html`, quindi si
+> torna alla **1.4.0**, che è ciò che gira adesso. La catena regge lo stesso —
+> quello che deve esistere è il file precedente *installato*, non tutti quelli
+> costruiti.
+>
+> **Anche installata, non cambia niente a video.** `feature.tasks` e
+> `feature.uom` nascono spenti: la voce «Attività» non compare, il riquadro in
+> Dashboard nemmeno, e sotto una riga di giacenza non compare la confezione —
+> **neanche su una riga che ha già un `qty_uom` scritto**. Provato sul file
+> consegnato, non sul sorgente, spegnendo l'interruttore su una copia con dei
+> dati dentro. Ciò che si vede comunque è la scheda **Configurazione →
+> Funzioni**, che è il posto da cui si accendono.
 
 ---
 
@@ -57,6 +67,11 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| *1.4.2 · quinto* | **La 1.4.2 prende il suo numero e diventa un file**, e i documenti dicono dov'è |
+| *1.4.2 · quarto* | **Le UM si vedono e si digitano**: la riga «10 × 1.000 + 1 × 100 PZ», il campo del collo incompleto, e i **900 pezzi che comparivano spostando un pallet** — trappola 24 |
+| *1.4.2 · terzo* | **Il servizio muove i due numeri insieme**: `qty_uom` dentro la stessa transazione di `qty`, 9 prove nuove, e una prova che passava anche col codice rotto |
+| *1.4.2 · secondo* | **Le UM in Store**, l'indice `lotByKey`, il congelamento della confezione al primo posizionamento |
+| *1.4.2 · primo* | **`modules/misure.ts`**: la suddivisione per collo, 65 prove scritte prima del modulo |
 | `5365f14` | **La 1.4.1 prende il suo numero e diventa un file**: i cinque punti che scrivono la versione, e la prova sul file consegnato invece che sul sorgente |
 | `c04d7d5` | **Il campionamento**, l'unica delle otto attività che oggi non esiste: quantità, per chi, campione di riserva |
 | `6d50353` | **La coda si vede e si tocca**: voce Attività, i quattro gesti, la maschera di richiesta, il riquadro in Dashboard |
@@ -120,7 +135,7 @@ colonna `Certificazioni`.
 | 4 | La vista **Attività**: coda, filtri, i quattro gesti, la maschera di richiesta | **fatto** |
 | 5 | Il **riquadro in Dashboard** — la trappola del piano, chiusa il primo giorno | **fatto** |
 | 6 | Il **campionamento**: quantità, per chi, campione di riserva | **fatto** |
-| 7 | **Installare la 1.4.1** e poi **accendere `feature.tasks`** | **da fare** — i cinque comandi della §4, e il turno dopo l'interruttore |
+| 7 | **Installare la 1.4.1** e accendere `feature.tasks` | **assorbito dalla 1.4.2**: si installa quella, che la contiene |
 
 **Due decisioni prese scrivendo, che il piano non fissava** — e che vale la
 pena conoscere prima di rimetterle in discussione:
@@ -135,12 +150,40 @@ pena conoscere prima di rimetterle in discussione:
    sbagliato se ne apre un altro. Come per i movimenti, la storia non si
    riscrive.
 
-**Il prossimo atto è la 1.4.2** — unità di misura, split colli, collo
-incompleto: PIANO-1.4 §4.2, entro il **31/10**, che è anche la data della
-verifica dell'andamento (§6 del piano). Dei quattro fatti da guardare quel
-giorno, il secondo — *«1.4.1 in magazzino, e gli operatori ci hanno aperto dei
-compiti davvero»* — dipende da quanto presto si installa e si accende: non
-dalla scrittura del codice, che è finita.
+### La 1.4.2 — cosa c'è, e cosa resta da fare
+
+| # | Cosa | Stato |
+|---|---|---|
+| 1 | `modules/misure.ts` — le cinque unità, la suddivisione, il collo incompleto, l'aritmetica che non deriva | **fatto** — 65 prove, provate rompendo il modulo in quattro punti |
+| 2 | L'indice `lotByKey` in `core/cache.ts` | **fatto** — 6 prove nuove, 43 in tutto |
+| 3 | La confezione **congelata al primo posizionamento**, e `qty_uom` su giacenza e registro | **fatto** |
+| 4 | Le UM che escono **dentro la stessa transazione** dei colli, sulle due rotte composte | **fatto** — 9 prove nuove sul servizio vero, 43 in tutto |
+| 5 | La riga «10 × 1.000 + 1 × 100 PZ» a video, e il campo per il collo incompleto | **fatto** |
+| 6 | **Installare la 1.4.2**, poi accendere gli interruttori uno per turno | **da fare** |
+| 7 | **Confermare le due scelte della §5.41**, che il piano non prevedeva | **da fare** — prima di accendere `feature.uom` |
+
+**Tre decisioni prese scrivendo**, oltre a quella da confermare:
+
+1. **Il collo incompleto non è una riga sua** — è la decisione del piano §4.2,
+   e regge tutto il resto. Una riga: `qty: 11`, `qty_uom: 10100`, e il resto si
+   calcola.
+2. **La confezione del lotto vince sull'anagrafica, sempre.** È un fatto già
+   successo: i colli a scaffale sono imballati come allora, anche se nel
+   frattempo qualcuno ha cambiato l'articolo.
+3. **Le UM dichiarate si convalidano, quelle derivate si troncano.** Un numero
+   digitato che non torna fa saltare il prelievo; una derivazione che non torna
+   può farlo solo su una riga già incoerente, e bloccare un prelievo fisico
+   perché un dato è vecchio è peggio del dato vecchio. Lo scarto lo mostra
+   `verificaUom`, che non corregge niente.
+
+**Il prossimo atto è la 1.4.3** — UDC, `moveUdc` transazionale, etichette:
+PIANO-1.4 §4.3, entro il **21/11**.
+
+**Il 31/10 resta la data della verifica dell'andamento** (§6 del piano). Dei
+quattro fatti da guardare, il terzo — *«1.4.2 costruita e verificata»* — è vero
+dal 12/08. Il secondo — *«gli operatori hanno aperto dei compiti davvero»* —
+**non dipende più dal codice, che è finito**: dipende da quando qualcuno esegue
+i cinque comandi e alza l'interruttore.
 
 > **Cosa ha richiesto il rilascio, oltre alla build.** Il sorgente era chiuso ma
 > non rilasciabile: `package.json`, `vite.config.js`, `index.html`, `main.js`,
@@ -201,12 +244,13 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
-| 1 | **Installare la 1.4.1**, e il turno dopo accendere `feature.tasks`. Il codice è finito e provato | 12/08 | Andrea, a fine turno |
-| 1bis | **La 1.4.2** — unità di misura, split colli, collo incompleto, entro il **31/10** | nuovo | il prossimo lavoro |
+| 1 | **Installare la 1.4.2** — contiene anche la 1.4.1, mai installata. Poi gli interruttori, **uno per turno**: prima `feature.tasks`, il turno dopo `feature.uom` | 12/08 | Andrea, a fine turno |
+| 1bis | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
+| 1ter | **La 1.4.3** — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | nuovo | il prossimo lavoro |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
 | 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare, non codice da scrivere | **1.0 §7.1** | Andrea, quando opportuno |
 | 4 | **Nome DNS interno e certificato** dalla CA aziendale. **Il codice è pronto e non aspetta niente**: due variabili e HTTPS si accende. Il certificato arriva a lavori finiti | **1.0 §7.2** · 1.2 §6.1 | IT — non blocca |
-| 5 | **`weight_net_kg` in anagrafica.** Il campo è cablato ovunque — maschere, import, export, calcolo peso del DDT: è **solo da compilare**, colonna `Peso_Netto_Collo`. `pieces_per_pack` diventa la UM-per-collo in 1.4.2 | **1.0 §7.6** | import Excel |
+| 5 | **`weight_net_kg` e `pieces_per_pack` in anagrafica.** I campi sono cablati ovunque — maschere, import, export, peso del DDT: sono **solo da compilare**, colonne `Peso_Netto_Collo` e `Pezzi_Per_Collo`. Dalla 1.4.2 il secondo **decide se un articolo è gestito a UM**: senza, resta a soli colli anche a interruttore acceso | **1.0 §7.6** | import Excel |
 | 6 | **`ui/` in TypeScript**, `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | 1.2 §6.4 · 1.3 §6.4 | grande |
 | 7 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.ts` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
 | 8 | **`service_version` è ancora `'1.1'`** in `pathfinder-server.js`, ma il servizio è cambiato: `_migra` e 19 collezioni. Da decidere se allinearla, sapendo che è la versione del *servizio* e non dell'applicativo | 12/08 | piccolo |
@@ -215,7 +259,7 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 Da **PowerShell come amministratore** (il servizio gira come SYSTEM), **a fine
 turno** e **con un backup fresco davanti**. Si rifanno tali e quali per la versione
-dopo, cambiando `1.4.0` con `1.4.1` in due punti: il passo 2 e il passo 3.
+dopo, cambiando `1.4.0` con `1.4.2` in due punti: il passo 2 e il passo 3.
 
 I passi 1 e 2 non cambiano niente per chi lavora: il file nuovo in radice non è
 servito finché `PATHFINDER_APP` non ci punta. **Il rilascio vero sono i passi 3 e
@@ -252,15 +296,16 @@ servendo un'altra cartella: non insistere, leggere il README §9.
 | Versione | `app_file` | `bytes` |
 |---|---|---|
 | 1.4.0 — in magazzino adesso | `pathfinder-1.4.0.html` | 1.493.517 |
-| **1.4.1** — pronta, da installare | `pathfinder-1.4.1.html` | **1.526.393** |
+| 1.4.1 — costruita, mai installata | `pathfinder-1.4.1.html` | 1.526.393 |
+| **1.4.2** — pronta, da installare | `pathfinder-1.4.2.html` | **1.541.133** |
 
 **Il ritorno indietro è il punto 3 all'incontrario, più un riavvio.** Il file
 precedente resta in radice — nessuno di questi passi lo sposta, proprio per
 questo — e il database non viene toccato. La 1.2 rilegge il database della
 1.4: lo provano le 8 prove di `collaudo-migrazione-1.4.js`, non una speranza.
 
-> **E se la 1.4.1 desse fastidio, prima di tornare indietro c'è un gesto più
-> piccolo: spegnere `feature.tasks`.** Un rilascio si disinstalla, una
+> **E se una delle due funzioni desse fastidio, prima di tornare indietro c'è
+> un gesto più piccolo: spegnere il suo interruttore.** Un rilascio si disinstalla, una
 > funzione si spegne — e le due cose si confondono solo se si accendono
 > insieme. Per questo si installa un turno e si accende quello dopo.
 
@@ -329,6 +374,43 @@ Non si rimettono in discussione. Fonte fra parentesi.
 37. **Le durate non contano gli annullati**, l'attesa sì: in coda ci sono
     stati davvero, ma non li ha lavorati nessuno.
 
+### 1.4.2 (12/08)
+38. **Il collo incompleto NON è una riga di giacenza sua.** `inventory` ha
+    l'indice composto `[location_code+item_key]` e tutto Store è scritto sopra
+    l'idea che quella coppia identifichi UNA riga: due righe sulla stessa
+    ubicazione per lo stesso articolo/lotto sono la strada più corta per un
+    saldo sbagliato ma plausibile. Una riga — `qty: 11`, `qty_uom: 10100` — e
+    il resto si calcola (piano §4.2).
+39. **La confezione del lotto vince sull'anagrafica, sempre.** Si congela al
+    primo posizionamento ed è un fatto già successo: i colli a scaffale sono
+    imballati come allora. L'anagrafica si legge solo per il lotto che non è
+    mai stato posizionato.
+40. **Le UM dichiarate si convalidano, quelle derivate si troncano.** Un numero
+    digitato che non torna fa saltare il prelievo; una derivazione che non
+    torna può esistere solo su una riga già incoerente, e bloccare un prelievo
+    fisico perché un dato è vecchio è peggio del dato vecchio. Lo scarto lo
+    mostra `verificaUom` — che non corregge niente, perché correggere un saldo
+    senza che nessuno abbia guardato la merce è il modo di scriverne uno
+    sbagliato ma plausibile.
+41. **UNA COLONNA UM SOLA, E UNA QUANTITÀ PER COLLO SOLA** — *da confermare, è
+    l'unica scelta di questa versione che il piano non prevedeva.* Il piano
+    §4.2 chiedeva due campi nuovi sull'articolo, `uom` e `uom_per_collo`. Ma
+    **`unit` esiste dalla v1 ed è già etichettato «UM»** nella maschera
+    dell'anagrafica, nella tabella articoli e nella colonna `UM` dell'export; e
+    `pieces_per_pack` esiste dalla v3.0.0 ed è già la quantità per collo, con
+    la sua colonna `Pezzi_Per_Collo`. Aggiungerne altri due sarebbe stato
+    quattro campi e due colonne con lo stesso nome — cioè la cosa che il piano
+    vieta due righe più su per i pezzi. Quindi: si leggono quelli, e i nomi del
+    piano restano come **alias** per chi li avesse già in un foglio. `unit` è
+    testo libero da sempre e ciò che non è una delle cinque unità si legge come
+    «non gestita»; il `PZ` predefinito di mezza anagrafica non scrive niente
+    finché nessuno compila la quantità per collo.
+42. **Le UM escono dentro la stessa transazione dei colli.** Le due rotte
+    composte del servizio arbitrano fra terminali: dalla 1.4.2 i numeri da
+    tenere insieme sono due. Il saldo di partenza si legge dalla RIGA, non da
+    ciò che manda il client — `qty_uom_before` è solo un seme per la riga che
+    un `qty_uom` non lo ha mai avuto, e vale una volta.
+
 ### 1.4
 18. **Il WIP resta nella 1.4** (1.4.5, installato il 19/12 a interruttore spento).
 19. **Verifica dell'andamento il 31/10**, con la scala di cosa togliere già decisa.
@@ -379,6 +461,32 @@ Non si rimettono in discussione. Fonte fra parentesi.
     moriva con «manca la sigla di chi richiede» a modulo già compilato. Vale
     ovunque si scriva una sigla: la si pretende prima di aprire la maschera,
     come fa la presa in carico.
+24. **UNO SPOSTAMENTO È UN `removeItem` SEGUITO DA UN `addItem`, e il secondo
+    inventa le UM.** `addItem` deriva il totale da colli PIENI: spostare 11
+    colli da 10.100 pz da uno scaffale all'altro ne riscriveva **11.000**.
+    Novecento pezzi comparsi dal nulla, senza un errore e senza un avviso, su
+    un movimento che l'operatore fa dieci volte al giorno — il saldo sbagliato
+    ma plausibile, in persona. Vale per gli spostamenti, le quarantene, il
+    rilascio, gli storni e **ogni `addItem` che rimette a posto qualcosa appena
+    uscito**: si passa da `App._umMossa(removed)`. Né `tsc` né 331 prove lo
+    avevano visto; l'ha visto la prova nel browser (12/08).
+25. **`Articolo.unit` è già la UM, e `pieces_per_pack` è già la quantità per
+    collo.** Prima di aggiungere un campo a un'anagrafica di trent'anni,
+    guardare come si chiamano le etichette della maschera: `unit` compare come
+    «UM» in tre posti diversi. Il piano chiedeva due campi nuovi; sarebbero
+    state due colonne con lo stesso nome nello stesso foglio Excel — §5.41.
+26. **Una maschera che modifica un campo diverso da quello che il codice legge
+    è una bugia a video.** `configurazione()` dava la precedenza a
+    `uom_per_collo`, che nessuna maschera e nessuna colonna Excel scrivono: un
+    articolo importato con quel campo si comportava in un modo e ne mostrava un
+    altro nella maschera che si apre per correggerlo. L'ordine è stato
+    invertito. Trovato aprendo la scheda di un articolo, non collaudandolo.
+27. **Un collaudo sui decimali che passa anche col codice rotto.** «5,5 meno
+    0,1 meno 0,2 fa 5,2» passa, ma passa anche togliendo del tutto
+    l'arrotondamento: quei tre numeri cadono esatti in virgola mobile. Il
+    numero che serve è `0,3 − 0,1`, che vale 0,19999999999999998. È la
+    trappola 17 arrivata addosso mentre la si applicava — **scegliere i valori
+    di prova guardando dove il difetto vive, non dove è comodo.**
 10. **`getLocationStatus`: uno stato esplicito vince su «occupata».** Una cella Riservata con merce dentro resta `reserved` — senza questo la deroga non scatterebbe mai.
 11. **`addArticle` esce con `false` su un codice noto.** Era il motivo per cui l'import diceva «importati 0». Ora c'è `upsertArticles`.
 12. **`Dialog.confirm` non accetta HTML**: vuole `message` (testo) e `details` (nodo DOM). È deliberato.
@@ -414,7 +522,9 @@ Non si rimettono in discussione. Fonte fra parentesi.
 ## 8. Cosa NON fare
 
 - **Non reintrodurre `store.js`**: il file è `core/store.ts`, e gli import verso di lui si scrivono senza estensione — vedi trappola 20.
-- **Non toccare `pathfinder-1.4.0.html` in radice**: è quello servito adesso. E non spostare `pathfinder-1.2.html`, che gli sta accanto: è il ritorno indietro.
+- **Non toccare `pathfinder-1.4.0.html` in radice**: è quello servito adesso, e dal giorno che si installa la 1.4.2 diventa il ritorno indietro. E non spostare `pathfinder-1.2.html`, che gli sta accanto.
+- **Non chiamare `addItem` per rimettere a posto della merce senza passargli le UM uscite**: le deriva da colli pieni e il saldo si gonfia in silenzio — trappola 24, e c'è `App._umMossa` apposta.
+- **Non aggiungere un campo all'anagrafica senza guardare come si chiamano le etichette che ci sono già**: `unit` è già «UM» in tre posti — trappola 25.
 - **Non convertire `ui/` sperando che basti il compilatore**: due difetti su due, in questa conversione, li ha presi solo la prova nel browser.
 - **Non installare senza aver aperto la versione nuova in un browser**, contro una copia del database vero e su una porta sua. Tsc e i collaudi non hanno visto né la trappola 20 né la 21.
 - **Non togliere `window.App = App`** in coda a `main.js`: 366 punti chiamano `App` per nome e smetterebbero di funzionare **in silenzio**.
@@ -434,12 +544,12 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 ```bash
 npm run check                       # tsc client + servizio
-npm test                            # 208 prove client
+npm test                            # 331 prove client
 npm run build                       # produce "Pathfinder 1.4/"
 ```
 
 ```bash
-node test/collaudo.js               # 30 prove servizio, da server/
+node test/collaudo.js               # 43 prove servizio, da server/
 ```
 
 ```bash

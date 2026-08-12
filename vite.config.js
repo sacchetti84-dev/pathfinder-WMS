@@ -53,7 +53,7 @@ export default defineConfig({
        distinti (1.4.0 … 1.4.5) e ciascuno va in magazzino per conto suo. Il
        ritorno indietro e' rimettere PATHFINDER_APP sul file precedente, che
        resta in radice: senza il terzo numero i sei si sovrascriverebbero. */
-    cartellaDiConsegna('pathfinder-1.4.1.html'),
+    cartellaDiConsegna('pathfinder-1.4.2.html'),
   ],
 
   build: {

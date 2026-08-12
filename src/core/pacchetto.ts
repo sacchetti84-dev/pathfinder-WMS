@@ -21,7 +21,7 @@ export const FORMATO = 'warehouse-mapper-v1.5';
 
 /** Si muove a ogni rilascio. È qui e in `modules/vault.ts`: due posti, perché
     il vault scrive il proprio manifesto senza passare da `Store`. */
-export const VERSIONE_APP = '1.4.1';
+export const VERSIONE_APP = '1.4.2';
 
 /* L'ELENCO DELLE COLLEZIONI DA ESPORTARE STA IN UN POSTO SOLO.
    Fino alla 1.4.0 era scritto a mano in tre — `exportAll`, `_countsOf`,
