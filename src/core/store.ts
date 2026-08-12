@@ -267,7 +267,8 @@ const Store = {
       unsavedChanges: metaObj.unsavedChanges || false,
       lastAutoBackup: metaObj.lastAutoBackup || null,
       docConfig: metaObj.docConfig || null,
-      features                                   // 1.4.0 — assente = spento
+      features,                                  // 1.4.0 — assente = spento
+      featureLog: metaObj.featureLog || []       // 1.4.1 — chi ha acceso cosa
     };
   },
 
@@ -288,7 +289,28 @@ const Store = {
     this._applyToCache('meta', 'put', rec);
     if (!this._cache.meta.features) this._cache.meta.features = {};
     this._cache.meta.features[nome] = acceso === true;
+    await this._logFeature(nome, acceso === true);
     return acceso === true;
+  },
+
+  /* CHI HA ACCESO COSA, E QUANDO.
+     Serve a rispondere alla domanda che si fa il giorno dopo — «da quando si
+     comporta così?» — e a far vedere a chi sta per accendere il secondo
+     interruttore che il primo è di stamattina. Un elenco corto: le ultime
+     cinquanta, che sono dieci volte gli interruttori che esistono. */
+  FEATURE_LOG_KEY: 'featureLog',
+
+  getFeatureLog(): { nome: string; acceso: boolean; at: Istante; by: string }[] {
+    const v = (this._cache.meta as Record<string, any>)[this.FEATURE_LOG_KEY];
+    return Array.isArray(v) ? v : [];
+  },
+
+  async _logFeature(nome: string, acceso: boolean) {
+    const voce = { nome, acceso, at: Date.now(), by: this.getCurrentIdentity().initials || '' };
+    const elenco = [voce, ...this.getFeatureLog()].slice(0, 50);
+    const rec = { key: this.FEATURE_LOG_KEY, value: elenco };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
   },
 
   /* Conteggio dei movimenti più vecchi della soglia di retention.

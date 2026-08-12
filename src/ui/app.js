@@ -203,6 +203,7 @@ const App = {
     this._syncHeaderHeight();                 // v2.7.0 [G3]
     window.addEventListener('resize', debounce(() => this._syncHeaderHeight(), 120));
     this.renderSidebar();
+    this._syncFeatureNav();                   // 1.4 — le voci che dipendono da un interruttore
     this._renderOperatorBadge();
     // Primo avvio con DB vuoto → porta direttamente alla configurazione
     if (Store.getSites().length === 0) {
@@ -8343,6 +8344,7 @@ const App = {
         <button class="config-tab ${this._configTab === 'operators' ? 'active' : ''}" onclick="App._configTab='operators';App.renderConfig()">Operatori</button>
         <button class="config-tab ${this._configTab === 'docs' ? 'active' : ''}" onclick="App._configTab='docs';App.renderConfig()">DDT e Documenti</button>
         <button class="config-tab ${this._configTab === 'session' ? 'active' : ''}" onclick="App._configTab='session';App.renderConfig()">Sessione</button>
+        <button class="config-tab ${this._configTab === 'features' ? 'active' : ''}" onclick="App._configTab='features';App.renderConfig()">Funzioni</button>
         <button class="config-tab ${this._configTab === 'data' ? 'active' : ''}" onclick="App._configTab='data';App.renderConfig()">Dati e Backup</button>
       </div>
       <div id="configContent"></div>
@@ -8353,7 +8355,122 @@ const App = {
     else if (this._configTab === 'operators') this._renderConfigOperators(content);
     else if (this._configTab === 'docs') this._renderConfigDocs(content);   // v3.0.0 [M4]
     else if (this._configTab === 'session') this._renderConfigSession(content);
+    else if (this._configTab === 'features') this._renderConfigFeatures(content);
     else this._renderConfigData(content);
+  },
+
+  /* ═══ INTERRUTTORI DI FUNZIONE — 1.4 ═══════════════════════════════
+     Le cinque funzioni della 1.4 entrano in magazzino spente e si accendono
+     una alla volta. Questa scheda e' l'unico posto da cui si alzano, e ogni
+     interruttore e' un gesto suo: accenderne due nello stesso turno deve
+     costare due volte, se no il giorno dopo non si sa quale delle due ha
+     mosso qualcosa.
+
+     La riga «Cosa cambia» non e' cortesia: chi alza l'interruttore deve
+     leggere cosa vedra' il turno dopo, prima e non dopo. */
+  _FUNZIONI: [
+    { nome: 'tasks', ver: '1.4.1', label: 'Schedulatore di attività', icona: '📋',
+      cosa: 'Le attività che il magazzino fa già — trasferimenti, prelievi, quarantene, campionamenti — diventano richieste con una coda, una priorità e dei tempi.',
+      cambia: 'Compare la voce «Attività» in barra e il riquadro delle attività aperte in Dashboard. Nessuna operazione cambia: cambia che si può chiedere prima di fare.',
+      pronta: true },
+    { nome: 'uom', ver: '1.4.2', label: 'Unità di misura e colli', icona: '⚖',
+      cosa: 'PZ, MT, LT, KG, GR accanto ai colli, con la suddivisione per collo e il collo incompleto.',
+      cambia: 'Non ancora costruita: l\'interruttore c\'è, la funzione arriva con la 1.4.2.', pronta: false },
+    { nome: 'udc', ver: '1.4.3', label: 'UDC — unità di carico', icona: '🟫',
+      cosa: 'Pallet, cassoni e carrelli che si spostano interi, con l\'etichetta stampata alla creazione.',
+      cambia: 'Non ancora costruita: arriva con la 1.4.3.', pronta: false },
+    { nome: 'putaway', ver: '1.4.4', label: 'Motore di stoccaggio', icona: '🎯',
+      cosa: 'Propone dove mettere la merce, e dice perché.',
+      cambia: 'Non ancora costruita: arriva con la 1.4.4.', pronta: false },
+    { nome: 'wip', ver: '1.4.5', label: 'WIP — conto di produzione', icona: '🏭',
+      cosa: 'Il prelievo di produzione diventa un trasferimento verso l\'ubicazione WIP, e ciò che non torna è il consumo reale.',
+      cambia: 'Non ancora costruita: arriva con la 1.4.5, e si accende a gennaio.', pronta: false },
+  ],
+
+  /* 12 ore: un turno, con il margine di chi accende a fine giornata. */
+  _TURNO_MS: 12 * 3600 * 1000,
+
+  _renderConfigFeatures(el) {
+    const log = Store.getFeatureLog();
+    const ultimaAccensione = log.find(v => v.acceso);
+    const recente = ultimaAccensione && (Date.now() - ultimaAccensione.at) < this._TURNO_MS
+      ? ultimaAccensione : null;
+
+    const righe = this._FUNZIONI.map(f => {
+      const on = Store.isFeatureOn(f.nome);
+      const voce = log.find(v => v.nome === f.nome);
+      return `<div class="config-card" style="margin-bottom:0.7rem;${on ? 'border-left:3px solid var(--sx-success)' : ''}">
+        <div style="display:flex;align-items:flex-start;gap:0.8rem;flex-wrap:wrap">
+          <div style="font-size:1.5rem;line-height:1.2">${f.icona}</div>
+          <div style="flex:1;min-width:240px">
+            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+              <strong>${this._esc(f.label)}</strong>
+              <span class="mono" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${f.ver}</span>
+              <span class="badge ${on ? 'badge-green' : 'badge-muted'}" style="font-size: var(--md-sys-typescale-label-small-size)">${on ? 'ACCESA' : 'spenta'}</span>
+              ${f.pronta ? '' : '<span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">non ancora costruita</span>'}
+            </div>
+            <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.6;margin-top:0.3rem">${this._esc(f.cosa)}</div>
+            <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);line-height:1.6;margin-top:0.2rem"><strong>Cosa cambia a video:</strong> ${this._esc(f.cambia)}</div>
+            ${voce ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.3rem">
+              Ultimo cambio: ${voce.acceso ? 'accesa' : 'spenta'} il ${new Date(voce.at).toLocaleString('it-IT')}${voce.by ? ` da ${this._esc(voce.by)}` : ''}</div>` : ''}
+          </div>
+          <button class="btn btn-sm ${on ? '' : 'btn-primary'}" ${f.pronta ? '' : 'disabled'}
+            onclick="App._toggleFeature('${f.nome}')">${on ? 'Spegni' : 'Accendi'}</button>
+        </div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div class="mov-preview" style="margin-bottom:0.8rem;line-height:1.6">
+        Le funzioni della <strong>1.4</strong> sono installate ma spente: il codice è in magazzino,
+        il comportamento no. Si accende <strong>una funzione alla volta, a inizio turno</strong>, e se
+        qualcosa si muove nel verso sbagliato si rispegne — senza disinstallare niente e
+        <strong>senza toccare il database</strong>.<br>
+        Alzare un interruttore richiede il <strong>PIN di un Team Leader</strong>.
+      </div>
+      ${recente ? `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.8rem;line-height:1.6">
+        ⚠ <strong>${this._esc(recente.nome)}</strong> è stata accesa
+        ${new Date(recente.at).toLocaleString('it-IT')}${recente.by ? ` da ${this._esc(recente.by)}` : ''}.
+        Accenderne una seconda adesso significa che, se qualcosa cambia, non si saprà quale delle due.
+        Meglio aspettare il turno dopo.
+      </div>` : ''}
+      ${righe}`;
+  },
+
+  async _toggleFeature(nome) {
+    const f = this._FUNZIONI.find(x => x.nome === nome);
+    if (!f) return;
+    const on = Store.isFeatureOn(nome);
+    const conferma = await Dialog.confirm({
+      title: on ? `Spegnere ${f.label}?` : `Accendere ${f.label}?`,
+      message: on
+        ? `La funzione sparisce dalle schermate al prossimo disegno. I dati già scritti restano dove sono: spegnere non cancella niente.`
+        : `${f.cambia}\n\nSi accende una funzione alla volta, a inizio turno. Se qualcosa si muove nel verso sbagliato, si rispegne da qui.`,
+      confirmLabel: on ? 'Spegni' : 'Accendi',
+      danger: on,
+    });
+    if (!conferma) return;
+    const leader = await this._requireLeaderAuth(`${on ? 'Spegnimento' : 'Accensione'} di «${f.label}»`);
+    if (!leader) return;
+    try {
+      await Store.setFeature(nome, !on);
+      this.toast(`${f.icona} ${f.label}: ${!on ? 'ACCESA' : 'spenta'}`, 'success');
+      this._syncFeatureNav();
+      this.renderConfig();
+    } catch (err) {
+      this.toast(`Interruttore non cambiato: ${err.message}`, 'error');
+    }
+  },
+
+  /* Le voci di barra che dipendono da un interruttore. Si chiama all'avvio e
+     ogni volta che un interruttore si muove: un pulsante che porta a una
+     funzione spenta e' peggio di un pulsante che non c'e'. */
+  _syncFeatureNav() {
+    const acceso = Store.isFeatureOn('tasks');
+    for (const el of document.querySelectorAll('[data-feature="tasks"]')) {
+      el.classList.toggle('hidden', !acceso);
+    }
+    if (!acceso && this.currentView === 'tasks') this.switchView('dashboard');
   },
 
   /* Campi del mittente senza i quali il DDT non e' conforme. Il resto
