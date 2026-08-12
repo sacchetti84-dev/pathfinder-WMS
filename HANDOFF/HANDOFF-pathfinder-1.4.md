@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 12/08/2026 · Rev. 08 — la 1.4.2 è in magazzino, a interruttori spenti
+Data: 13/08/2026 · Rev. 09 — la 1.4.2 è in magazzino; la 1.4.2.1 è a metà, tre blocchi su sei
 
 ---
 
@@ -31,7 +31,8 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Sorgente | 32 file in `src/`: **27 TypeScript**, 5 JavaScript, più 5 CSS |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
-| Collaudi | **331 client** · **43 servizio** · **8 migrazione** — tutti verdi |
+| **1.4.2.1** | **in lavorazione**: tre blocchi su sei, in locale e verdi. Vedi §3 |
+| Collaudi | **363 client** · **50 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
@@ -71,6 +72,10 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| `b62e65b` | **1.4.2.1 terzo blocco**: la maschera che pesca dalle giacenze — ricerca FEFO, lotto e Da automatici, 📍 ovunque, campi DDT, soglia in Configurazione |
+| `52ed689` | **1.4.2.1 secondo blocco**: il campionamento cala ciò che c'è dentro il collo — causale `SAMPLE`, rotta composta sua |
+| `dc4fb21` | **1.4.2.1 primo blocco**: l'urgenza calcolata, la freccia dell'avvio annullato, la tabella tipo→operazione, il residuo |
+| `b6c9ccf` | **La 1.4.2 entra in magazzino**: cinque comandi, revisione 22418 prima e dopo |
 | *1.4.2 · quinto* | **La 1.4.2 prende il suo numero e diventa un file**, e i documenti dicono dov'è |
 | *1.4.2 · quarto* | **Le UM si vedono e si digitano**: la riga «10 × 1.000 + 1 × 100 PZ», il campo del collo incompleto, e i **900 pezzi che comparivano spostando un pallet** — trappola 24 |
 | *1.4.2 · terzo* | **Il servizio muove i due numeri insieme**: `qty_uom` dentro la stessa transazione di `qty`, 9 prove nuove, e una prova che passava anche col codice rotto |
@@ -180,7 +185,61 @@ pena conoscere prima di rimetterle in discussione:
    perché un dato è vecchio è peggio del dato vecchio. Lo scarto lo mostra
    `verificaUom`, che non corregge niente.
 
-**Il prossimo atto è la 1.4.3** — UDC, `moveUdc` transazionale, etichette:
+### La 1.4.2.1 — lo schedulatore che lancia il lavoro
+
+**Non è nel PIANO-1.4.** Nasce il 12/08 sera, dalla prova sul campo della
+1.4.1: la coda c'era, ma «completare un'attività non muoveva i colli». Non
+era un difetto, era il disegno — il compito era una *richiesta* che
+affiancava l'operazione, e «Completa» una spunta. Da qui in poi **il compito
+apre il lavoro, e si chiude solo perché un movimento è stato confermato.**
+
+Va davanti alla 1.4.3 (UDC, che slitta di quanto serve) per una ragione
+sola: `feature.tasks` è ancora **spento**, quindi nessuno lo sta usando e
+non si rompe niente a nessuno. Accenderlo com'era avrebbe messo in mano agli
+operatori proprio la «lista che invecchia» che il piano §4.1 temeva.
+
+#### Cosa è stato deciso, e va eseguito così
+
+| | Deciso |
+|---|---|
+| **Creazione** | L'articolo si cerca **fra le giacenze** come nel campo di ricerca; le disponibilità si propongono in ordine **FEFO**, coi colli al netto degli impegni su DDT pendenti; la riga scelta compila **lotto** e **Da**. Il **Posizionamento** fa eccezione: articolo dall'anagrafica, lotto digitato, nessun Da |
+| **Colli** | Obbligatori dove si muove merce; liberi solo per la **Conta** |
+| **Scadenza** | Data+ora (c'era già). Sotto la soglia — **4 h di serie, parametro in Configurazione** — la coda tratta il compito come urgente |
+| **Escalation** | **Calcolata a video, MAI scritta.** Il record tiene la priorità di chi l'ha chiesta |
+| **«Perché»** | Diventa **Note** |
+| **Prelievi** | Aprono il flusso **DDT**, e destinatario/vettore/causale si chiedono **alla creazione**: li sa chi chiede, non chi preleva |
+| **Avvio** | Lo può fare **chiunque, e diventa suo** |
+| **Esecuzione** | L'avvio apre la funzione di Movimenta **precompilata**. Il movimento confermato **scala il residuo**: 12 chiesti, 5 mossi, restano 7 e il compito resta aperto |
+| **Abbandono** | Maschera chiusa senza confermare → **torna in carico**, `started_at` azzerato |
+| **«Completa» a mano** | Sopravvive **solo per la Conta**, che può concludersi senza movimento |
+| **Campionamento** | Causale nuova **`SAMPLE`**; il logbook è il **registro filtrato** su quella causale, nessuna collezione nuova; **i colli non calano, cala la quantità dentro** |
+| **Registro attività** | **Tutte** le attività mai aperte, coi tempi, e export Excel |
+| **Ubicazioni** | Il selettore 📍 **ovunque** si chieda un'ubicazione |
+
+#### Dove siamo — tre blocchi su sei
+
+| # | Blocco | Stato |
+|---|---|---|
+| 1 | `modules/compiti.ts`: urgenza calcolata, freccia `in_progress → assigned`, tabella tipo→operazione, le tre eccezioni per tipo, il residuo | **fatto** — 32 prove nuove, 84 in tutto |
+| 2 | La causale `SAMPLE`, `Store.sampleItem`, la rotta `/api/op/sampleItem` | **fatto** — 7 prove nuove sul servizio, 50 in tutto |
+| 3 | La maschera di creazione: ricerca dalle giacenze, autofill, 📍, campi DDT, soglia in Configurazione | **fatto** — provata nel browser |
+| 4 | **L'avvio che lancia il movimento** | **da fare** |
+| 5 | **Il registro attività** con export Excel | **da fare** |
+| 6 | Versione `1.4.2.1`, build, documenti, prova sul file consegnato | **da fare** |
+
+> **Il quarto blocco è il più delicato dei sei, e va affrontato da fresco.**
+> Tocca sette flussi di Movimenta già in produzione per farli tornare
+> indietro all'attività che li ha aperti, ed è il punto in cui un errore si
+> vede sui saldi. Ciò che serve c'è già tutto: `operazioneDi(tipo)` dice
+> quale maschera aprire, `residuo`/`esaurito` dicono quando il compito si
+> chiude, `qty_done` e `mov_ids` sono dichiarati sul tipo `Compito`, e la
+> freccia `in_progress → assigned` è aperta e collaudata.
+
+**Il file porterà quattro numeri**, `pathfinder-1.4.2.1.html`: gli serve un
+ritorno indietro suo, distinto dalla 1.4.2 che è in magazzino adesso.
+
+
+**Il prossimo atto dopo la 1.4.2.1 è la 1.4.3** — UDC, `moveUdc` transazionale, etichette:
 PIANO-1.4 §4.3, entro il **21/11**.
 
 **Il 31/10 resta la data della verifica dell'andamento** (§6 del piano). Dei
@@ -248,7 +307,8 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
-| 1 | **Accendere `feature.tasks`**, da Configurazione → Funzioni, col PIN di un Team Leader, a inizio turno e **da solo**. Il turno dopo, `feature.uom` | 12/08 | Andrea, a inizio turno |
+| 1 | **Finire la 1.4.2.1**: blocchi 4, 5 e 6 — vedi §3. Il quarto va affrontato da fresco | 13/08 | il prossimo lavoro |
+| 1bis | **Accendere gli interruttori**, ma DOPO la 1.4.2.1: accendere `feature.tasks` adesso metterebbe in mano agli operatori lo schedulatore a metà. Poi uno per turno, `feature.uom` il turno dopo | 12/08 | Andrea, quando la 1.4.2.1 è in magazzino |
 | 1bis | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
 | 1ter | **La 1.4.3** — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | nuovo | il prossimo lavoro |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
@@ -379,6 +439,35 @@ Non si rimettono in discussione. Fonte fra parentesi.
     ragione, fra un mese, non dice se era sbagliato o solo scomodo.
 37. **Le durate non contano gli annullati**, l'attesa sì: in coda ci sono
     stati davvero, ma non li ha lavorati nessuno.
+
+### 1.4.2.1 (12-13/08) — confermate da Andrea prima di scrivere una riga
+43. **Lo schedulatore LANCIA il lavoro, non lo affianca.** L'avvio apre la
+    funzione di Movimenta precompilata, e un compito si chiude solo perché
+    un movimento è stato confermato. Quello che nella 1.4.1 sembrava un
+    difetto — «completare non muove i colli» — era il disegno di allora.
+44. **L'urgenza della scadenza si CALCOLA, non si scrive.** Sotto la soglia
+    la coda tratta il compito come urgente; il record tiene la priorità di
+    chi l'ha chiesta. È l'unico modo di far maturare l'urgenza lasciando
+    vera la D4 — «la priorità la alza solo il Team Leader». La soglia è un
+    parametro di Configurazione, 4 ore di serie.
+45. **I parziali lasciano il residuo.** 12 chiesti, 5 mossi: ne restano 7 e
+    il compito resta aperto. Il richiesto sta nel payload e non cambia mai,
+    perché è la richiesta; `qty_done` cresce a ogni movimento.
+46. **Un avvio che non ha prodotto niente torna in carico**, e `started_at`
+    si azzera. È l'unico punto del progetto in cui si cancella un istante
+    già scritto: un avvio che non ha mosso un collo non è storia, è un
+    ripensamento.
+47. **Il campionamento non muove i colli: muove ciò che c'è dentro.**
+    Causale `SAMPLE`, la quindicesima; il logbook è il registro filtrato su
+    quella causale — nessuna collezione nuova. Sugli articoli senza quantità
+    per collo non cala niente, **e non è un problema**: oggi i prelievi di
+    campione non li scarica nessuno, quindi documentarli è già più di quel
+    che c'è, e la condizione si scioglie da sola man mano che l'operatività
+    popola l'anagrafica (Andrea, 13/08).
+48. **Una quantità DICHIARATA si convalida, una DERIVATA si tronca.** Un
+    campione più grande della giacenza viene respinto; un prelievo derivato
+    dai colli si adatta a ciò che c'è. È la stessa regola della 1.4.2,
+    applicata al campionamento.
 
 ### 1.4.2 (12/08)
 38. **Il collo incompleto NON è una riga di giacenza sua.** `inventory` ha
