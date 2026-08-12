@@ -15,13 +15,13 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 12/08/2026
 | Voce | Valore |
 |---|---|
 | In produzione | `pathfinder-1.2.html` — è il file che il servizio serve **adesso** |
-| In lavorazione | **1.4.0**: Fase 0 dentro, manca `core/store.js` in TypeScript |
-| Sorgente | 24 TypeScript · 6 JavaScript · 5 CSS · `index.html` |
-| Ancora JavaScript | `core/store.js`, `main.js`, `ui/` |
+| **1.4.0** | **chiusa nel sorgente** — da costruire e installare |
+| Sorgente | **25 TypeScript** · 5 JavaScript · 5 CSS · `index.html` |
+| Ancora JavaScript | `main.js`, `ui/` (4 file) |
 | Servizio | Node + Express + SQLite, porta **4173** |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
-| Collaudi | **205 client** (~1,5 s) + **30 servizio** + 8 migrazione — verdi |
+| Collaudi | **208 client** (~1,5 s) + **30 servizio** + 8 migrazione — verdi |
 | Tipi | `npm run check` client + servizio — 0 errori |
 
 ## 2. Comandi
@@ -30,7 +30,7 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 12/08/2026
 npm run dev      # sviluppo, ricarica a caldo
 npm run build    # produce "Pathfinder 1.2/" (la azzera e la rifà)
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest, 4 suite
+npm test         # vitest, 9 suite
 ```
 
 Collaudo del servizio: `node server/test/collaudo.js` (da `server/`).
@@ -44,7 +44,7 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | File | Righe | Ruolo |
 |---|---:|---|
 | `ui/app.js` | 10.529 | Tutta l'interfaccia: viste, render, gestori. Il pezzo grosso |
-| `core/store.js` | 1.778 | **Le mutazioni**, cioè ciò che scrive e parla con `Persistence`. È tutto quello che resta da convertire |
+| `core/store.ts` | 1.766 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` — blocco 6, tipizzato sul posto |
 | `core/cache.ts` | 271 | Punto unico di mutazione della cache: 5 forme, 3 indici derivati — blocco 1 |
 | `core/statistiche.ts` | 181 | Stato di una cella, conteggi, cruscotto — blocco 5 |
 | `core/pacchetto.ts` | 154 | Export: composizione, conteggi, verifica — blocco 4 |
@@ -55,8 +55,8 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `ui/dialog.js` | 367 | Finestre modali (`confirm`, `prompt`, form) |
 | `ui/feedback.js` | 181 | Toast, spinner, stato di sincronizzazione |
 | `ui/tabs.js` | 59 | Schede |
-| `modules/vault.ts` | 308 | Backup su cartella locale (File System Access API) |
-| `modules/pickRoute.ts` | 251 | Percorso di prelievo a serpentina |
+| `modules/vault.ts` | 303 | Backup su cartella locale (File System Access API) |
+| `modules/pickRoute.ts` | 246 | Percorso di prelievo a serpentina |
 | `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
 | `modules/anagrafica.ts` | 158 | I 14 allergeni del Reg. UE 1169/2011, le 3 classi di conservazione e le certificazioni. Lettura stretta, valori convalidati in Excel |
 | `modules/conformita.ts` | 155 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio girato al contrario |
@@ -68,11 +68,11 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `core/persistence/index.ts` | 15 | Sceglie l'adapter: servito → remoto, da file → locale |
 | `core/persistence/remote.ts` | 267 | Adapter HTTP verso il servizio |
 | `core/persistence/local.ts` | 262 | Adapter Dexie/IndexedDB |
-| `core/schema.ts` | 141 | Schema IndexedDB e migrazioni |
+| `core/schema.ts` | 173 | Schema IndexedDB e migrazioni |
 | `core/utils.ts` | 46 | `debounce`, `_h` (escape HTML) |
 | `core/costanti.ts` | 44 | `MOV`, `MOV_LABELS`, ritenzione del registro |
-| `types/entita.ts` | 234 | Le entità: item, movimento, operatore, documento |
-| `types/contratto.ts` | 92 | L'interfaccia che i due adapter devono rispettare |
+| `types/entita.ts` | 409 | Le entità: item, movimento, operatore, documento, e le cinque della 1.4 |
+| `types/contratto.ts` | 146 | L'interfaccia che i due adapter devono rispettare, e la forma dell'idratazione |
 | `types/collezioni.ts` | 51 | Le 19 collezioni, chiavi primarie, campi indicizzati. **Sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono |
 | `main.js` | 46 | Avvio: importa gli stili, monta `App`, gancio globale |
 | `index.html` | 200 | Scheletro del DOM + i marchi `<svg>` in linea |
@@ -86,14 +86,14 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `lib/schema.js` | 191 | Tabelle e indici — **due funzioni separate**, con la migrazione in mezzo |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate. Da amministratore |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata serale |
-| `test/collaudo.js` | 231 | 29 prove sul servizio vero |
+| `test/collaudo.js` | 238 | 30 prove sul servizio vero |
 | `test/collaudo-migrazione-1.4.js` | 158 | 8 prove sul cambio di schema della 1.4. Fuori dalla suite: si lancia da solo |
 
 ### Collaudi — `test/`
 
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
-`conformita` (19) · `cache` (37) · `pacchetto` (24) · `statistiche` (15) —
-**205 prove** in tutto. `ambiente.js` è il preambolo comune.
+`conformita` (19) · `cache` (37) · `pacchetto` (27) · `statistiche` (15) —
+**208 prove** in tutto. `ambiente.js` è il preambolo comune.
 
 ## 4. API del servizio
 
@@ -127,8 +127,8 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 
 | Versione | Cosa | Entro |
 |---|---|---|
-| **1.4.0** | ↓ *manca solo* ↓ — **le mutazioni di `store.js` in TypeScript**: 1.778 righe che parlano con `Persistence` | 19/09 |
-| ↳ *fatto 12/08* | Migrazione `ALTER TABLE` nel prodotto · schema mosso **una volta** (19 collezioni) · export/import da `COLLEZIONI` · interruttori `feature.*` spenti · certificazioni e **avvisi merceologici** a prelievo, report e DDT · **cinque blocchi di `store.js` convertiti** — cache, geometria, giacenza, pacchetto, statistiche — con 91 prove nuove | — |
+| **1.4.0** | **chiusa il 12/08**, con un mese di margine sul 19/09. Da costruire e installare | 19/09 |
+| ↳ *fatto 12/08* | Migrazione `ALTER TABLE` nel prodotto · schema mosso **una volta** (19 collezioni) · export/import da `COLLEZIONI` · interruttori `feature.*` spenti · certificazioni e **avvisi merceologici** a prelievo, report e DDT · **`store.js` interamente in TypeScript** in sei blocchi, con 94 prove nuove e i due ponti caduti | — |
 | ↳ *fatto 11/08* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa**, deroga della cella Riservata | — |
 | **1.4.1** | Schedulatore di attività — richieste, priorità, tempi | 10/10 |
 | **1.4.2** | Unità di misura PZ/MT/LT/KG/GR, split colli, collo incompleto | **31/10** |
@@ -171,7 +171,7 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 | # | Cosa | Peso |
 |---|---|---|
-| 1 | **`core/store.js` in TypeScript** — è ciò che manca alla 1.4.0. Cinque blocchi fuori il 12/08; restano **le mutazioni**. Mai nello stesso commit di `app.js` | **in corso** |
+| 1 | **Costruire e installare la 1.4.0** — `npm run build`, poi i cinque comandi (HANDOFF §4) | **il prossimo** |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
 | 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea**. La maschera c'è: è un dato, non codice | esterno |
 | 4 | Nome DNS interno e certificato dalla CA — **IT**. Il codice è pronto e non aspetta niente: arriva a lavori finiti | non blocca |
@@ -182,6 +182,7 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 ## 7. Cosa non fare
 
 - **Non toccare `pathfinder-1.2.html` in radice**: è il file servito in questo momento.
+- **Gli import di un modulo TypeScript si scrivono senza estensione**: `../core/store`, non `../core/store.js`. Due specificatori diversi sono due moduli, e due Store in pagina — HANDOFF §6, trappola 20.
 - **Non riunire `createTableSQL` e `createIndexSQL`**: sono due funzioni perché fra i due passi sta `_migra`, e senza di lei il servizio non parte su un database che esiste già.
 - **Non installare una 1.4.x parziale**: si installa quando la 1.4.0 è chiusa, `store.js` compreso.
 - **Non convertire `store.js` e `app.js` nello stesso commit** — 12.500 righe insieme non sono verificabili.

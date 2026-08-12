@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 12/08/2026 · Rev. 03 — la 1.2 è in magazzino, la Fase 0 è dentro
+Data: 12/08/2026 · Rev. 04 — la 1.2 è in magazzino, la 1.4.0 è chiusa nel sorgente
 
 ---
 
@@ -26,11 +26,11 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Voce | Valore |
 |---|---|
 | In magazzino, **adesso** | `pathfinder-1.2.html` — verificato su `/api/app-info`, 1.486.348 byte |
-| In lavorazione | **1.4.0**, Fase 0 dentro. Di `store.js` restano da convertire le mutazioni |
-| Sorgente | 30 file in `src/`: **24 TypeScript**, 6 JavaScript, più 5 CSS |
-| Ancora JavaScript | `core/store.js` · `main.js` · `ui/` (4 file) |
+| **1.4.0** | **chiusa nel sorgente** — da costruire e installare |
+| Sorgente | 30 file in `src/`: **25 TypeScript**, 5 JavaScript, più 5 CSS |
+| Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`, vuote |
-| Collaudi | **205 client** · **30 servizio** · **8 migrazione** — tutti verdi |
+| Collaudi | **208 client** · **30 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
@@ -40,9 +40,9 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 > in `ARCHIVIO/VERSIONI PRECEDENTI/`, identico byte per byte, per il ritorno
 > indietro.
 >
-> **Ma la 1.4.0 non è ancora in magazzino**: quello che c'è di 1.4 sta nel
-> sorgente, non nel file servito. Non si installa finché `store.js` non è
-> convertito e l'intera 1.4.0 non è chiusa — vedi §3.
+> **La 1.4.0 è chiusa nel sorgente e non è ancora in magazzino.** Il prossimo
+> atto non è codice: è costruirla e installarla — i cinque comandi della §4,
+> a fine turno e con un backup fresco davanti. Solo dopo comincia la 1.4.1.
 
 ---
 
@@ -50,6 +50,7 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| `459dac3` | **`store.js` è TypeScript**: sesto blocco, i due ponti caduti, e i due difetti trovati solo nel browser |
 | `ece6962` | **`core/statistiche.ts`** — quinto blocco: stati e cruscotto, verificati confrontando vecchia e nuova implementazione sulle 21 chiavi del risultato |
 | `6ad3222` | **`core/pacchetto.ts`** — quarto blocco: export e verifica, con la dimostrazione end-to-end che UDC e compiti non sopravvivono più a un ripristino |
 | `50968eb` | **`core/giacenza.ts`** — terzo blocco: FEFO e ricerca |
@@ -87,46 +88,47 @@ colonna `Certificazioni`.
 | # | Cosa | Stato |
 |---|---|---|
 | 1 | La migrazione `ALTER TABLE` dentro `PathfinderDB` | **fatto** — `_migra`, `server/lib/db.js` |
-| 2 | **`core/store.js` in TypeScript**, a blocchi | **in corso** — cinque blocchi fuori. Restano **le mutazioni** |
+| 2 | **`core/store.js` in TypeScript**, a blocchi | **fatto** — sei blocchi, e il file adesso è `core/store.ts` |
 | 3 | Collaudi su `_applyToCache` (aperto #6) | **fatto** — 37 prove in `test/cache.test.js` |
 | 4 | Schema mosso una volta: `udc_id`, `lots` `udc` `tasks` `wip` `storage_rules`, Dexie `version(8)` | **fatto** |
 | 5 | Export/import da `COLLEZIONI` invece che da tre elenchi a mano | **fatto** |
 | 6 | Interruttori `feature.*` in `meta`, tutti spenti | **fatto** |
 
-**Il prossimo lavoro è il punto 2, e solo quello.** Vale la regola di sempre:
-`store.js` e `app.js` **non nello stesso commit**, `app.js` non si tocca affatto,
-conversione **a blocchi** con build e collaudo in mezzo a ognuno, e in coda
-spariscono i due ponti verso Store in cima a `pickRoute.ts` e `vault.ts`.
+**Il prossimo atto non è codice: è installare la 1.4.0.** `npm run build`, poi i
+cinque comandi della §4 — a fine turno, con un backup fresco davanti. Solo dopo
+comincia la 1.4.1.
 
-> **Come si sta convertendo, e a che punto è.** Non si rinomina `store.js` in
-> `store.ts` per poi spegnere duemila errori: si **estrae un blocco per volta** in
-> un `.ts` suo, tipizzato e collaudato, lasciando in `store.js` il nome e la firma
-> che i chiamanti conoscono. Il vantaggio non è estetico — un blocco estratto **si
-> collauda da fermo**, senza `Persistence`, senza servizio e senza browser: è il
-> motivo per cui `_applyToCache` non aveva prove da tre versioni.
+> **Com'è stata fatta la conversione, e cosa se ne impara.** Sei blocchi. I primi
+> cinque **estratti** in un `.ts` loro, tipizzati e collaudati, lasciando in
+> `store.js` il nome e la firma che i chiamanti conoscevano — quarantasette punti
+> chiamavano `_applyToCache` e nessuno se n'è accorto. Il sesto **tipizzato sul
+> posto**, perché scrive: da 428 errori a zero, e poi il file rinominato.
 >
 > | # | Blocco | Dove | Prove |
 > |---|---|---|---|
 > | 1 | Cache e `_applyToCache` | `core/cache.ts` | 37 |
 > | 2 | Ubicazioni e geometria | `core/geometria.ts` | +5 |
 > | 3 | FEFO e ricerca | `core/giacenza.ts` | +10 |
-> | 4 | Pacchetto di export | `core/pacchetto.ts` | 24 |
+> | 4 | Pacchetto di export | `core/pacchetto.ts` | 24 + 3 |
 > | 5 | Stati e cruscotto | `core/statistiche.ts` | 15 |
-> | 6 | **Le mutazioni** | *da fare* — 1.778 righe | — |
+> | 6 | Le mutazioni | `core/store.ts`, 1.766 righe | le 30 del servizio |
 >
-> **Il sesto è diverso dai primi cinque, e va affrontato sapendolo.** Quelli
-> leggevano; questo scrive, e ogni funzione parla con `Persistence` dentro una
-> transazione. Non si estrae in un modulo puro: si **tipizza sul posto**, e alla
-> fine il file si rinomina. La rete di sicurezza non sono più i collaudi da fermo
-> ma le 30 prove del servizio, che girano sotto contesa fra due terminali.
+> **Perché estrarre paga**: un blocco estratto si collauda **da fermo**, senza
+> `Persistence`, senza servizio e senza browser. È il motivo per cui
+> `_applyToCache` non aveva prove da tre versioni — non perché nessuno ci
+> pensasse, ma perché per arrivarci serviva mezzo applicativo.
 >
-> Il metodo che regge: `_applyToCache` è già il **punto unico di mutazione della
-> cache** ed è collaudato, quindi la parte pericolosa — la cache che diverge dal
-> supporto — è già coperta. Resta l'ordine delle operazioni, che è ciò che il
-> `TODO F1-REVIEW` (aperto #7) segnala da due versioni: **si legge quello prima
-> di cominciare.**
-
-Poi si costruisce, si installa la 1.4.0, e solo allora comincia la 1.4.1.
+> **Cosa ha trovato il compilatore**, che è il guadagno vero: quindici campi che
+> il codice scrive da anni e che i tipi non dichiaravano — otto su `Articolo`,
+> `last_updated_at` su `Giacenza`, le tre quantità su `Movimento`, i campi del
+> destinatario su `DocumentoUscita` — più i quattro metodi di backup che
+> esistevano nell'adapter e non nel contratto. E `loadAll`, che era
+> `Record<string, unknown>`: cioè non dichiarata.
+>
+> **E cosa NON ha trovato**, che conta di più: due difetti veri li ha presi solo
+> la prova nel browser, con tsc e 208 collaudi tutti verdi. Vedi §6, trappole 20
+> e 21. **Il compilatore dice se il codice è coerente, non se l'applicativo
+> funziona.**
 
 Criterio di riuscita della 1.4.0: **si installa e non cambia niente a video.**
 Con una eccezione dichiarata: gli **avvisi merceologici** (PIANO §4.4ter) si
@@ -144,13 +146,13 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
-| 1 | **`core/store.js` in TypeScript** — il pezzo che manca alla 1.4.0. 1.974 righe, a blocchi | PIANO-1.4 §3 | **prossimo lavoro** |
+| 1 | **Costruire e installare la 1.4.0** — `npm run build` piu' i cinque comandi qui sotto | nuovo | Andrea |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
 | 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare, non codice da scrivere | **1.0 §7.1** | Andrea, quando opportuno |
 | 4 | **Nome DNS interno e certificato** dalla CA aziendale. **Il codice è pronto e non aspetta niente**: due variabili e HTTPS si accende. Il certificato arriva a lavori finiti | **1.0 §7.2** · 1.2 §6.1 | IT — non blocca |
 | 5 | **`weight_net_kg` in anagrafica.** Il campo è cablato ovunque — maschere, import, export, calcolo peso del DDT: è **solo da compilare**, colonna `Peso_Netto_Collo`. `pieces_per_pack` diventa la UM-per-collo in 1.4.2 | **1.0 §7.6** | import Excel |
 | 6 | **`ui/` in TypeScript**, `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | 1.2 §6.4 · 1.3 §6.4 | grande |
-| 7 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.js` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
+| 6 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.ts` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
 
 ### I cinque comandi — **impartiti l'11/08**, restano qui perché servono a ogni versione
 
@@ -262,7 +264,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 30. **Temperatura, allergeni e certificazioni si vedono dove la merce si tocca**: prelievo guidato, report ODP, DDT. Una sorgente sola per le tre viste (12/08, D9).
 31. **Gli interruttori `feature.*` sono una chiave per una in `meta`**, non un unico record: accenderne due nello stesso turno deve costare due gesti distinti.
 32. **Le etichette UDC si stampano dal browser**, `100 × 80 mm` su foglio A4 — stessa strada di DDT e report, `@page` e CSS in `mm`. Niente rotta sul servizio, niente ZPL, niente configurazione per macchina (12/08, D12).
-33. **Non si scende nessun gradino della scala in anticipo** (12/08, D11). Ma il segnale da guardare è la **fine della conversione di `store.js`**, non il 31/10: se il 19/09 la 1.4.0 non è chiusa, il gradino 1 si scende lì.
+33. **Non si scende nessun gradino della scala in anticipo** (12/08, D11). Il segnale era la fine della conversione di `store.js`, che è arrivata **il 12/08 invece che il 19/09**: la 1.4.0 chiude con un mese di margine, e la scala resta intatta.
 
 ---
 
@@ -281,6 +283,9 @@ Non si rimettono in discussione. Fonte fra parentesi.
 ### Codice
 9. **`CREATE TABLE IF NOT EXISTS` non aggiunge colonne**, e il `CREATE INDEX` dopo muore nel costruttore: il servizio non parte affatto. Era il bloccante della PIANO-1.4 §1, **tolto il 12/08** con `PathfinderDB._migra`. Resta scritto qui perché la ragione per cui `createTableSQL` e `createIndexSQL` sono due funzioni e non una è esattamente questa: **non rimetterle insieme.**
 9bis. **Il collaudo della migrazione costruisce lo schema di ieri togliendo le aggiunte a `schema.COLLECTIONS`** e poi le rimette. Chi aggiunge una collezione alla 1.4 la aggiunga anche all'elenco `NUOVE` di `collaudo-migrazione-1.4.js`, se no la prova gira su due schemi identici e non prova niente.
+
+20. **Un modulo importato con due specificatori diversi è due moduli.** Rinominato `store.js` in `store.ts`, Vite ha continuato a servire anche `/src/core/store.js` — risolvendolo, ma sotto un id diverso. In pagina c'erano **due Store**: la dashboard leggeva quello che nessuno scriveva. Tsc verde, 208 collaudi verdi, applicativo sbagliato. Gli import di un modulo TypeScript si scrivono **senza estensione**, come fanno già `./cache`, `./geometria`, `./persistence/index` (12/08).
+21. **Il pacchetto di export era una finestra sulla cache, non una fotografia.** Conteneva il riferimento agli array veri: `Vault.runBackup` fra `exportAll()` e la serializzazione legge tutto il registro, e un backup si fa mentre qualcuno lavora. `_counts` si calcola subito e il contenuto si legge dopo — quindi il pacchetto falliva la **propria** verifica. Ora `componi` copia gli elenchi (12/08).
 10. **`getLocationStatus`: uno stato esplicito vince su «occupata».** Una cella Riservata con merce dentro resta `reserved` — senza questo la deroga non scatterebbe mai.
 11. **`addArticle` esce con `false` su un codice noto.** Era il motivo per cui l'import diceva «importati 0». Ora c'è `upsertArticles`.
 12. **`Dialog.confirm` non accetta HTML**: vuole `message` (testo) e `details` (nodo DOM). È deliberato.
@@ -315,9 +320,9 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 ## 8. Cosa NON fare
 
-- **Non installare una 1.4.x parziale.** La Fase 0 è dentro ma `store.js` è ancora JavaScript: si installa quando la 1.4.0 è chiusa per intero, non prima.
+- **Non reintrodurre `store.js`**: il file è `core/store.ts`, e gli import verso di lui si scrivono senza estensione — vedi trappola 20.
 - **Non toccare `pathfinder-1.2.html` in radice**: è quello servito adesso.
-- **Non convertire `store.js` e `app.js` nello stesso commit.**
+- **Non convertire `ui/` sperando che basti il compilatore**: due difetti su due, in questa conversione, li ha presi solo la prova nel browser.
 - **Non togliere i ponti verso Store** finché Store è JavaScript: cadono con la 1.4.0.
 - **Non togliere `window.App = App`** in coda a `main.js`: 366 punti chiamano `App` per nome e smetterebbero di funzionare **in silenzio**.
 - **Non scrivere a mano dentro `Pathfinder 1.2/`**: è prodotta, la build la azzera.
@@ -336,7 +341,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 ```bash
 npm run check                       # tsc client + servizio
-npm test                            # 205 prove client
+npm test                            # 208 prove client
 npm run build                       # produce "Pathfinder 1.2/"
 ```
 

@@ -2,7 +2,7 @@
 
 **Cinque funzioni nuove su un magazzino che sta già lavorando**
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 12/08/2026 · Rev. 03 · **Scadenza del progetto: 31/12/2026**
+Data: 12/08/2026 · Rev. 04 · **Scadenza del progetto: 31/12/2026**
 Ultima installazione utile in magazzino: **19/12/2026** — poi c'è l'inventario
 
 > Qui dentro si cita più volte «§x dell'HANDOFF 1.0 / 1.2 / 1.3». Quei documenti
@@ -115,22 +115,24 @@ E prima di tutti, una fase zero che non si vede.
 >   elenchi scritti a mano.
 > - I campi facoltativi dell'anagrafica, **certificazioni comprese** — §4.4ter.
 >
-> **`core/store.js` in TypeScript è a metà.** Cinque blocchi sono usciti il
-> 12/08 — cache, geometria, giacenza, pacchetto, statistiche: **823 righe di
-> TypeScript collaudato**, e `store.js` da 2.035 a 1.778. Con loro sono arrivate
-> 91 prove nuove su codice che, per tre versioni, non ne aveva nessuna.
+> **`core/store.js` in TypeScript è fatto — il 12/08, con un mese di margine
+> sul 19/09.** Sei blocchi: i primi cinque **estratti** in moduli loro (cache,
+> geometria, giacenza, pacchetto, statistiche), il sesto **tipizzato sul posto**
+> perché scrive. Da 428 errori a zero, e poi il file rinominato in `store.ts`.
 >
-> Il metodo: si **estrae un blocco per volta** in un `.ts` suo, lasciando in
-> `store.js` il nome e la firma che i chiamanti conoscono — quarantasette punti
-> chiamavano `_applyToCache` e nessuno se n'è accorto. Non si rinomina il file
-> per poi spegnere duemila errori: un blocco estratto **si collauda da fermo**,
-> ed è precisamente il motivo per cui l'aperto #6 è rimasto aperto tanto a lungo.
+> Con lui cadono i **due ponti** verso Store in cima a `pickRoute.ts` e
+> `vault.ts`: erano dichiarazioni scritte a mano che nessuno verificava contro
+> il codice vero.
 >
-> **Resta il sesto, ed è di un'altra natura.** I cinque estratti leggevano; ciò
-> che resta scrive, e ogni funzione sta dentro una transazione con
-> `Persistence`. Non si estrae in un modulo puro: si tipizza sul posto, e alla
-> fine il file si rinomina. La rete di sicurezza cambia — non più i collaudi da
-> fermo, ma le 30 prove del servizio sotto contesa fra due terminali.
+> **Il guadagno non è il TypeScript in sé.** È che il compilatore ha chiesto,
+> campo per campo, quindici cose che il codice scrive da anni e che i tipi non
+> dichiaravano — otto su `Articolo`, le tre quantità su `Movimento`, i campi del
+> destinatario sul DDT — più i quattro metodi di backup che esistevano
+> nell'adapter e non nel contratto.
+>
+> **E il limite, che vale la pena ricordare a novembre**: due difetti veri li ha
+> presi solo la prova nel browser, con tsc e 208 collaudi tutti verdi. HANDOFF
+> §6, trappole 20 e 21.
 
 
 
@@ -691,7 +693,7 @@ La 1.4.0 è **cominciata e non finita**, e vale la pena essere precisi su cosa m
 | Collaudi su `_applyToCache` (aperto #6) | fatti — 37 prove, `test/cache.test.js` |
 | Export/import da `COLLEZIONI` + i due difetti | fatti |
 | Interruttori `feature.*` | fatti, tutti spenti |
-| **`core/store.js` in TypeScript** | **a metà**: 5 blocchi su 6 fuori, 823 righe. Restano le mutazioni |
+| **`core/store.js` in TypeScript** | **fatto**: sei blocchi. Il file adesso è `core/store.ts` |
 
 E in più, fuori piano: le **certificazioni** e gli **avvisi merceologici** (§4.4ter).
 Non erano in calendario. Sono costati circa **mezza settimana**, e quella mezza
