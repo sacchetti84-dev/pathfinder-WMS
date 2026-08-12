@@ -1,28 +1,18 @@
 import { MOV } from './costanti';
 import { Persistence } from './persistence/index';
-import { COLLEZIONI, CHIAVE_PRIMARIA } from '../types/collezioni';
+import { COLLEZIONI } from '../types/collezioni';
 import {
   FORMA_CACHE, applicaAllaCache, bucketPut, bucketDelete,
   indicizzaGiacenza, ricostruisciIndici, indiciVuoti, metaVuota,
 } from './cache';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
+import {
+  FORMATO as FORMATO_PACCHETTO, COLLEZIONI_EXPORT, righeDaScrivere,
+  componi as componiPacchetto, conta as contaPacchetto, verifica as verificaPacchetto,
+} from './pacchetto';
 import { verificaConformita } from '../modules/conformita';
 import { App } from '../ui/app.js';
-
-/* L'ELENCO DELLE COLLEZIONI DA ESPORTARE STA IN UN POSTO SOLO.
-   Fino a ieri era scritto a mano in tre — `exportAll`, `_countsOf`,
-   `importAll` — e combaciavano perche' qualcuno se n'era ricordato. Con
-   cinque collezioni in arrivo, dimenticarne una in uno dei tre significa un
-   backup che sembra completo e non lo e', oppure un ripristino che azzera
-   le giacenze e lascia in piedi le UDC che ci puntavano.
-
-   Fuori restano due, ed entrambe per un motivo:
-     · `meta`         — non e' un elenco, e la parte che serve viaggia come
-                        `doc_config`;
-     · `pick_session` — e' la sessione APERTA su un terminale. Un backup non
-                        la deve riportare in vita. */
-const COLLEZIONI_EXPORT = COLLEZIONI.filter(c => c !== 'meta' && c !== 'pick_session');
 
 /* UN RILASCIO INSTALLATO NON E' UNA FUNZIONE ACCESA.
    Le cinque della 1.4 entrano in magazzino a interruttore spento e si
@@ -1640,79 +1630,26 @@ const Store = {
     };
   },
 
-  // ═══ EXPORT / IMPORT ═══
+  /* ═══ EXPORT / IMPORT ═══
+     Comporre il pacchetto e verificarlo stanno in `core/pacchetto.ts` —
+     quarto blocco della conversione. Qui resta cio' che parla col supporto:
+     leggere il registro, e la transazione di ripristino. */
   async exportAll({ includeMovLog = true } = {}) {
     const movLog = [];
     if (includeMovLog) {
       await this.eachMovement(rows => { for (const r of rows) movLog.push(r); });
       movLog.sort((a, b) => b.ts - a.ts);
     }
-    const data = {
-      _format: 'warehouse-mapper-v1.5',
-      _author: 'Andrea Sacchetti',
-      _appVersion: '1.2.0',
-      _exported: new Date().toISOString(),
-      sites: this._cache.sites.map(s => { const { zones, ...p } = s; return p; }),
-      zones: this._cache.zones,
-      articles: this._cache.articles,
-      inventory: this._cache.inventory,
-      loc_status: [...this._cache.locStatus.values()],
-      disabled: [...this._cache.disabled].map(code => ({ location_code: code })),
-      mov_log: movLog,
-      quarantine: this._cache.quarantine,
-      pending_outbound: this._cache.pendingOut,   // v2.0.0
-      pick_archive: this._cache.pickArchive,      // v2.5.1 — report di prelievo emessi
-      disposal_archive: this._cache.disposalArchive,   // v3.0.0 [M2] — verbali di smaltimento
-      doc_config: this._cache.meta?.docConfig || null,
-      operators: this._cache.operators,
-      // 1.4.0 — vuote finché non si accende l'interruttore che le riguarda
-      lots: this._cache.lots,
-      udc: this._cache.udc,
-      tasks: this._cache.tasks,
-      wip: this._cache.wip,
-      storage_rules: this._cache.storageRules
-    };
-    if (!includeMovLog) delete data.mov_log;     // omissione, non dichiarazione
-    data._counts = this._countsOf(data);
-    if (!includeMovLog) delete data._counts.mov_log;
-    if (movLog.length) {
-      data._movRange = { from: movLog[movLog.length - 1].ts, to: movLog[0].ts };
-    }
-    return data;
+    return componiPacchetto(this._cache, movLog, { includeMovLog });
   },
 
-  _countsOf(data) {
-    const out = {};
-    for (const k of COLLEZIONI_EXPORT) {
-      out[k] = Array.isArray(data[k]) ? data[k].length : 0;
-    }
-    return out;
-  },
+  _countsOf(data) { return contaPacchetto(data); },
 
-  verifyExportPackage(data) {
-    const problemi = [];
-    if (!data || typeof data !== 'object') return { ok: false, problemi: ['File non leggibile o non JSON.'] };
-    if (!String(data._format || '').startsWith('warehouse-mapper-v1.5')) {
-      problemi.push(`Formato non riconosciuto: "${data._format || 'assente'}". Atteso warehouse-mapper-v1.5.x`);
-    }
-    if (data._counts) {
-      const reali = this._countsOf(data);
-      for (const [k, atteso] of Object.entries(data._counts)) {
-        if (reali[k] !== atteso) problemi.push(`${k}: il file dichiara ${atteso} record, ne contiene ${reali[k]}`);
-      }
-    } else {
-      problemi.push('Il file non porta i conteggi di controllo (backup anteriore alla v2.8.0): impossibile verificarne la completezza.');
-    }
-    /* Un pacchetto senza nessun dato di magazzino e' quasi sempre un file
-       sbagliato, non un magazzino vuoto. Vale la pena chiederlo. */
-    const totale = Object.values(this._countsOf(data)).reduce((s, n) => s + n, 0);
-    if (totale === 0) problemi.push('Il file non contiene alcun record.');
-    return { ok: problemi.length === 0, problemi };
-  },
+  verifyExportPackage(data) { return verificaPacchetto(data); },
 
   async importAll(data, mode = 'overwrite') {
-    if (!data._format?.startsWith('warehouse-mapper-v1.5')) {
-      throw new Error('Formato file non supportato. Richiesto: warehouse-mapper-v1.5.x');
+    if (!data._format?.startsWith(FORMATO_PACCHETTO)) {
+      throw new Error(`Formato file non supportato. Richiesto: ${FORMATO_PACCHETTO}.x`);
     }
     if (mode === 'overwrite') {
       /* SI SVUOTA TUTTO CIO' CHE SI PUO' RIEMPIRE, non solo cio' che il file
@@ -1725,12 +1662,7 @@ const Store = {
         for (const c of COLLEZIONI_EXPORT) {
           const righe = data[c];
           if (!Array.isArray(righe) || !righe.length) continue;
-          /* `_id` lo assegna il supporto: si butta via e si riassegna. Su
-             `sites` cade anche `zones`, che in cache è ricostruito e non è
-             una colonna. */
-          let pulite = CHIAVE_PRIMARIA[c] === '_id' ? righe.map(({ _id, ...r }) => r) : righe;
-          if (c === 'sites') pulite = pulite.map(({ zones, ...r }) => r);
-          await Persistence.bulkAdd(c, pulite);
+          await Persistence.bulkAdd(c, righeDaScrivere(c, righe));
         }
         if (data.doc_config) await Persistence.put('meta', { key: 'docConfig', value: data.doc_config });
       });
