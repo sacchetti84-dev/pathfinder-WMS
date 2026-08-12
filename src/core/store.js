@@ -11,6 +11,7 @@ import {
   FORMATO as FORMATO_PACCHETTO, COLLEZIONI_EXPORT, righeDaScrivere,
   componi as componiPacchetto, conta as contaPacchetto, verifica as verificaPacchetto,
 } from './pacchetto';
+import { statoUbicazione, contaStati, calcolaKPI } from './statistiche';
 import { verificaConformita } from '../modules/conformita';
 import { App } from '../ui/app.js';
 
@@ -536,12 +537,7 @@ const Store = {
 
   locationExists(code) { return this._locIndex?.has(code) ?? false; },
 
-  getLocationStatus(code) {
-    if (this._cache.disabled.has(code)) return 'disabled';
-    const s = this._cache.locStatus.get(code);
-    if (s) return s.status;
-    return (this._invByLoc.get(code)?.length ?? 0) > 0 ? 'occupied' : 'empty';
-  },
+  getLocationStatus(code) { return statoUbicazione(this._cache, this._indici, code); },
 
   getLocationMeta(code) { return this._cache.locStatus.get(code); },
 
@@ -1521,114 +1517,20 @@ const Store = {
     return candidates[0] || null;
   },
 
-  // ═══ STATS / KPI ═══
+  /* ═══ STATS / KPI ═══
+     Contare gli stati e comporre il cruscotto stanno in
+     `core/statistiche.ts` — quinto blocco della conversione, e l'ultimo che
+     si stacca senza toccare il supporto. */
   getSiteStats(siteId) {
-    const zones = this.getZones(siteId);
-    let total = 0, occupied = 0, blocked = 0, reserved = 0, disabled = 0;
-    for (const zone of zones) {
-      for (const loc of this._genLocations(siteId, zone)) {
-        total++;
-        const s = this.getLocationStatus(loc.code);
-        if (s === 'occupied') occupied++;
-        else if (s === 'blocked') blocked++;
-        else if (s === 'reserved') reserved++;
-        else if (s === 'disabled') disabled++;
-      }
-    }
-    return { total, occupied, blocked, reserved, disabled, empty: total - occupied - blocked - reserved - disabled };
+    const codici = this.getZones(siteId).flatMap(z => generaUbicazioni(siteId, z).map(l => l.code));
+    return contaStati(this._cache, this._indici, codici);
   },
 
   getZoneStats(siteId, zoneId) {
-    const locs = this.generateLocations(siteId, zoneId);
-    let total = 0, occupied = 0, blocked = 0, reserved = 0, disabled = 0;
-    for (const loc of locs) {
-      total++;
-      const s = this.getLocationStatus(loc.code);
-      if (s === 'occupied') occupied++;
-      else if (s === 'blocked') blocked++;
-      else if (s === 'reserved') reserved++;
-      else if (s === 'disabled') disabled++;
-    }
-    return { total, occupied, blocked, reserved, disabled, empty: total - occupied - blocked - reserved - disabled };
+    return contaStati(this._cache, this._indici, this.generateLocations(siteId, zoneId).map(l => l.code));
   },
 
-  computeKPIs() {
-    const now = Date.now();
-    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
-    const todayTs = todayStart.getTime();
-    const log = this._cache.movLog;
-    let totalLocs = 0, occupiedLocs = 0, blockedLocs = 0, reservedLocs = 0, disabledLocs = 0, totalItems = 0;
-    const zoneSummaries = [];
-    for (const site of this.getSites()) {
-      for (const zone of (site.zones || []).filter(z => z.active)) {
-        const locs = this._genLocations(site.id, zone);
-        let zOcc = 0, zItems = 0;
-        for (const loc of locs) {
-          totalLocs++;
-          const items = this._invByLoc.get(loc.code) || [];
-          totalItems += items.length; zItems += items.length;
-          const st = this.getLocationStatus(loc.code);
-          if (st === 'occupied') { occupiedLocs++; zOcc++; }
-          else if (st === 'blocked') blockedLocs++;
-          else if (st === 'reserved') reservedLocs++;
-          else if (st === 'disabled') disabledLocs++;
-        }
-        zoneSummaries.push({ siteId: site.id, siteName: site.name, zoneId: zone.id, zoneName: zone.name, type: zone.type, total: locs.length, occupied: zOcc, items: zItems });
-      }
-    }
-    const emptyLocs = totalLocs - occupiedLocs - blockedLocs - reservedLocs - disabledLocs;
-    const occPct = totalLocs ? Math.round(occupiedLocs / totalLocs * 100) : 0;
-    const typeCounts = {};
-    let todayMov = 0, todayPick = 0;
-    for (const m of log) {
-      typeCounts[m.type] = (typeCounts[m.type] || 0) + 1;
-      if (m.ts >= todayTs) { todayMov++; if (m.type === 'PICK') todayPick++; }
-    }
-    const dailyTrend = [];
-    for (let d = 13; d >= 0; d--) {
-      const dt = new Date(); dt.setHours(0, 0, 0, 0); dt.setDate(dt.getDate() - d);
-      const start = dt.getTime(), end = start + 86400000;
-      let count = 0, picks = 0;
-      for (const m of log) {
-        if (m.ts >= start && m.ts < end) { count++; if (m.type === 'PICK') picks++; }
-      }
-      dailyTrend.push({ label: dt.toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit' }), total: count, picks });
-    }
-    const hourlyDist = new Array(24).fill(0);
-    for (const m of log) if (m.ts >= todayTs) hourlyDist[new Date(m.ts).getHours()]++;
-    // Avg pick times (batch 5 min)
-    const pickEntries = log.filter(m => m.type === 'PICK').sort((a,b) => a.ts - b.ts);
-    const pickOrders = [];
-    let order = [];
-    for (const p of pickEntries) {
-      if (!order.length) { order.push(p); continue; }
-      if (p.ts - order[order.length-1].ts < 5*60*1000) order.push(p);
-      else { pickOrders.push(order); order = [p]; }
-    }
-    if (order.length) pickOrders.push(order);
-    let avgPickTimeOrder = 0, avgPickTimeItem = 0;
-    if (pickOrders.length) {
-      const durs = pickOrders.map(o => Math.max((o[o.length-1].ts - o[0].ts) / 1000, 10));
-      avgPickTimeOrder = Math.round(durs.reduce((s,d) => s+d, 0) / durs.length);
-      const totPicks = pickOrders.reduce((s,o) => s + o.length, 0);
-      const totTime = durs.reduce((s,d) => s+d, 0);
-      avgPickTimeItem = totPicks ? Math.round(totTime / totPicks) : 0;
-    }
-    const fixCount = (typeCounts['FIX+'] || 0) + (typeCounts['FIX-'] || 0);
-    const totalMovements = log.length;
-    const invChecks = fixCount + (typeCounts['IN'] || 0); // denominatore più realistico
-    const accuracyPct = invChecks > 0 ? Math.max(0, Math.round((1 - fixCount / invChecks) * 100)) : 100;
-    const artFreq = {};
-    for (const m of log) if (m.article_code) artFreq[m.article_code] = (artFreq[m.article_code] || 0) + 1;
-    const topArticles = Object.entries(artFreq).sort((a,b) => b[1]-a[1]).slice(0,8).map(([code,count]) => ({ code, count }));
-    return {
-      totalLocs, occupiedLocs, emptyLocs, blockedLocs, reservedLocs, disabledLocs, occPct,
-      totalItems, todayMov, todayPick,
-      typeCounts, dailyTrend, hourlyDist, zoneSummaries,
-      pickOrders: pickOrders.length, avgPickTimeOrder, avgPickTimeItem,
-      accuracyPct, fixCount, totalMovements, topArticles
-    };
-  },
+  computeKPIs() { return calcolaKPI(this._cache, this._indici); },
 
   /* ═══ EXPORT / IMPORT ═══
      Comporre il pacchetto e verificarlo stanno in `core/pacchetto.ts` —
