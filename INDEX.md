@@ -14,8 +14,9 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 12/08/2026
 
 | Voce | Valore |
 |---|---|
-| In produzione | `pathfinder-1.4.0.html` — è il file che il servizio serve **adesso**, 1.493.517 byte |
-| **1.4.2** | **costruita e provata il 12/08** — `Pathfinder 1.4/pathfinder-1.4.2.html`, 1.541.133 byte. **Non installata**. Contiene anche la 1.4.1 |
+| In produzione | `pathfinder-1.4.2.html` — è il file che il servizio serve **adesso**, 1.541.133 byte, **installato il 12/08** |
+| Ritorno indietro | `pathfinder-1.4.0.html`, fermo in radice. La 1.4.1 non è mai entrata: è dentro la 1.4.2 |
+| Interruttori | **tutti e cinque spenti**: in `meta` non c'è nessuna chiave `feature.*` |
 | Sorgente | **27 TypeScript** · 5 JavaScript · 5 CSS · `index.html` |
 | Ancora JavaScript | `main.js`, `ui/` (4 file) |
 | Servizio | Node + Express + SQLite, porta **4173** |
@@ -116,7 +117,7 @@ L'applicativo è servito su `/` e su `/app`.
 |---|---|
 | `PATHFINDER_PORT` | `4173` |
 | `PATHFINDER_DB` | `server/data/pathfinder.db` |
-| `PATHFINDER_APP` | **impostata**: `…\MAPPER\pathfinder-1.4.0.html`. Il ripiego nel codice resta `pathfinder-1.1.html`, che in radice non c'è più |
+| `PATHFINDER_APP` | **impostata**: `…\MAPPER\pathfinder-1.4.2.html`. Il ripiego nel codice resta `pathfinder-1.1.html`, che in radice non c'è più |
 | `PATHFINDER_TLS_CERT` / `_KEY` | assenti → HTTP |
 
 Si leggono **all'avvio**: cambiate senza riavvio non hanno effetto.
@@ -135,7 +136,7 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 | ↳ *fatto 11/08* | Attributi articolo (allergeni Reg. UE 1169/2011 + classe di conservazione), destinazione d'uso della zona, import/export Excel che **aggiorna** invece di saltare, **verifica di stoccaggio sulla mappa**, deroga della cella Riservata | — |
 | **1.4.1** | Schedulatore — **costruita e provata il 12/08**. Non installata: è dentro la 1.4.2 | 10/10 ✔ |
 | ↳ *fatto 12/08* | `modules/compiti.ts` con **52 prove** · le attività in Store, a interruttore spento non scrivono · **Configurazione → Funzioni**, gli interruttori si alzano col PIN del Team Leader · vista **Attività**, coda e quattro gesti · riquadro in Dashboard · il **campionamento**, che è l'unica delle otto che non esisteva | — |
-| **1.4.2** | Unità di misura — **costruita e provata il 12/08**, con dieci settimane di margine sul 31/10 | **31/10** ✔ |
+| **1.4.2** | Unità di misura — **in magazzino il 12/08**, con dieci settimane di margine sul 31/10 | **31/10** ✔ |
 | ↳ *fatto 12/08* | `modules/misure.ts` con **65 prove** · l'indice `lotByKey` in cache · la confezione **congelata al primo posizionamento** · `qty_uom` su giacenza e registro · le UM che escono **dentro la stessa transazione** dei colli, con 9 prove nuove sul servizio · la riga «10 × 1.000 + 1 × 100 PZ» a video · il campo per il collo incompleto nel posizionamento | — |
 | **1.4.3** | UDC — contenitori, `moveUdc` transazionale, etichette | 21/11 |
 | **1.4.4** | Motore logico di stoccaggio — attributi, regole come dato, motivazioni | 09/12 |
@@ -189,7 +190,7 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 | # | Cosa | Peso |
 |---|---|---|
-| 1 | **Installare la 1.4.2** — i cinque comandi dell'HANDOFF §4, a fine turno. Contiene anche la 1.4.1, che non è mai stata installata: il ritorno indietro è la 1.4.0, che resta in radice. Poi gli interruttori, **uno per turno**: prima `feature.tasks`, il turno dopo `feature.uom` | **il prossimo** |
+| 1 | **Accendere `feature.tasks`** da Configurazione → Funzioni, col PIN di un Team Leader, a inizio turno e **da solo**. Il turno dopo, `feature.uom` | **il prossimo** |
 | 1bis | **Confermare due scelte del 12/08** che il piano non prevedeva: la colonna UM è `unit` — quella che c'è già — e la quantità per collo è `pieces_per_pack`. Vedi HANDOFF §5, decisione 41 | **prima di accendere `uom`** |
 | 1ter | La 1.4.3 — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | il prossimo lavoro |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
@@ -202,8 +203,8 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 ## 7. Cosa non fare
 
-- **Non toccare `pathfinder-1.4.0.html` in radice**: è il file servito in questo momento, e dal giorno che si installa la 1.4.2 diventa il ritorno indietro. `pathfinder-1.2.html` gli sta accanto: non si sposta.
-- **Installare non è accendere.** Il file in magazzino non cambia niente a video finché `feature.tasks` e `feature.uom` restano spenti: sono gesti in momenti diversi, ed è così che si distingue un rilascio andato male da una funzione che non piace. Provato sul file consegnato: a interruttore spento una riga di giacenza che ha già un `qty_uom` si legge come nella 1.4.1.
+- **Non toccare `pathfinder-1.4.2.html` in radice**: è il file servito in questo momento. E non spostare `pathfinder-1.4.0.html`, che gli sta accanto: è il ritorno indietro. `pathfinder-1.2.html` nemmeno.
+- **Installare non è accendere.** La 1.4.2 è in magazzino dal 12/08 e non cambia niente a video finché `feature.tasks` e `feature.uom` restano spenti: sono gesti in momenti diversi, ed è così che si distingue un rilascio andato male da una funzione che non piace. Provato sul file consegnato: a interruttore spento una riga di giacenza che ha già un `qty_uom` si legge come nella 1.4.1.
 - **Uno spostamento è un `removeItem` seguito da un `addItem`**, e il secondo deriva le UM dai colli pieni: senza passargli quante ne sono uscite, spostare 11 colli da 10.100 pz ne riscrive 11.000. Chi aggiunge un `addItem` che rimette a posto qualcosa passi da `App._umMossa` — HANDOFF §6, trappola 24.
 - **Il nome del file porta tre numeri**, `pathfinder-1.4.N.html`: la serie 1.4 sono sei rilasci distinti e ognuno resta in radice per fare da ritorno indietro al successivo.
 - **Gli import di un modulo TypeScript si scrivono senza estensione**: `../core/store`, non `../core/store.js`. Due specificatori diversi sono due moduli, e due Store in pagina — HANDOFF §6, trappola 20.

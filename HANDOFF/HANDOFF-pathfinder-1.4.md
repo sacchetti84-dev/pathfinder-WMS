@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 12/08/2026 · Rev. 07 — la 1.4.2 è costruita e provata, resta da installare
+Data: 12/08/2026 · Rev. 08 — la 1.4.2 è in magazzino, a interruttori spenti
 
 ---
 
@@ -25,9 +25,9 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Voce | Valore |
 |---|---|
-| In magazzino, **adesso** | `pathfinder-1.4.0.html` — verificato su `/api/app-info`, 1.493.517 byte |
-| **1.4.2** | **costruita e provata il 12/08**: `Pathfinder 1.4/pathfinder-1.4.2.html`, 1.541.133 byte. **Non installata**. Contiene anche la 1.4.1, che non è mai entrata |
-| Ritorno indietro | Oggi `pathfinder-1.2.html`; il giorno che si installa la 1.4.2 diventa `pathfinder-1.4.0.html`, che resta in radice |
+| In magazzino, **adesso** | `pathfinder-1.4.2.html` — verificato su `/api/app-info`, **1.541.133 byte**, installato il 12/08 alle 21:47 |
+| Interruttori | **tutti e cinque spenti**: in `meta` non c'è nessuna chiave `feature.*` |
+| Ritorno indietro | `pathfinder-1.4.0.html`, fermo in radice. La 1.4.1 non è mai entrata: è dentro la 1.4.2 |
 | Sorgente | 32 file in `src/`: **27 TypeScript**, 5 JavaScript, più 5 CSS |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
@@ -35,31 +35,35 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
-> **Il magazzino gira sulla 1.4.0, dal 12/08.** Costruita, provata nel browser
-> contro una copia del database vero, e installata con i cinque comandi della §4.
-> `/api/app-info` risponde `pathfinder-1.4.0.html`, 1.493.517 byte.
+> **Il magazzino gira sulla 1.4.2, dal 12/08 sera.** Costruita, provata nel
+> browser sul file consegnato, e installata con i cinque comandi della §4.
+> `/api/app-info` risponde `pathfinder-1.4.2.html`, 1.541.133 byte.
 >
-> **La 1.4.2 è pronta e non è ancora installata**, e con lei la 1.4.1 — che non
-> è mai entrata. Il file esiste, è provato, e finché nessuno esegue i cinque
-> comandi della §4 il magazzino non lo vede. Il gesto è di chi installa — a fine
-> turno, con un backup fresco davanti — ed è **un gesto diverso dall'accendere
-> le funzioni**, che si fanno dopo, da Configurazione → Funzioni, **una per
-> turno**: prima `feature.tasks`, il turno dopo `feature.uom`.
+> **L'installazione non ha scritto una riga nel database**, e lo dice un numero:
+> la revisione del servizio era 22418 prima e 22418 dopo. Le cinque collezioni
+> della 1.4 sono a zero, i 11.180 articoli e le 18 zone sono dov'erano.
+>
+> **Ciò che resta da fare è accendere, ed è un gesto diverso.** In `meta` non
+> c'è nessuna chiave `feature.*`: tutti e cinque gli interruttori sono spenti,
+> e a video non è cambiato niente — la voce «Attività» non compare, il riquadro
+> in Dashboard nemmeno, e sotto una riga di giacenza non compare la confezione,
+> **neanche su una riga che ha già un `qty_uom` scritto**. Provato sul file
+> consegnato, spegnendo l'interruttore su una copia con dei dati dentro.
+> Si accendono da Configurazione → Funzioni, col PIN di un Team Leader, a
+> inizio turno e **uno per turno**: prima `feature.tasks`, il turno dopo
+> `feature.uom`.
 >
 > **Che la 1.4.1 non sia mai entrata non è un problema, ed è meglio saperlo.**
 > La 1.4.2 la contiene per intero. L'unica conseguenza riguarda il ritorno
-> indietro: in radice non ci sarà nessun `pathfinder-1.4.1.html`, quindi si
-> torna alla **1.4.0**, che è ciò che gira adesso. La catena regge lo stesso —
-> quello che deve esistere è il file precedente *installato*, non tutti quelli
-> costruiti.
+> indietro: in radice non c'è nessun `pathfinder-1.4.1.html`, quindi si torna
+> alla **1.4.0**. La catena regge lo stesso — quello che deve esistere è il file
+> precedente *installato*, non tutti quelli costruiti.
 >
-> **Anche installata, non cambia niente a video.** `feature.tasks` e
-> `feature.uom` nascono spenti: la voce «Attività» non compare, il riquadro in
-> Dashboard nemmeno, e sotto una riga di giacenza non compare la confezione —
-> **neanche su una riga che ha già un `qty_uom` scritto**. Provato sul file
-> consegnato, non sul sorgente, spegnendo l'interruttore su una copia con dei
-> dati dentro. Ciò che si vede comunque è la scheda **Configurazione →
-> Funzioni**, che è il posto da cui si accendono.
+> **Com'è andata l'installazione, per la prossima volta.** I passi 1 e 2 —
+> backup e copia in radice — girano da una shell qualunque. I passi 3 e 4 no:
+> la variabile è di macchina e l'attività gira come SYSTEM, quindi **servono i
+> privilegi di amministratore** e senza si viene respinti con «Accesso al
+> Registro di sistema non consentito». È scritto nella §4, ed è vero.
 
 ---
 
@@ -159,7 +163,7 @@ pena conoscere prima di rimetterle in discussione:
 | 3 | La confezione **congelata al primo posizionamento**, e `qty_uom` su giacenza e registro | **fatto** |
 | 4 | Le UM che escono **dentro la stessa transazione** dei colli, sulle due rotte composte | **fatto** — 9 prove nuove sul servizio vero, 43 in tutto |
 | 5 | La riga «10 × 1.000 + 1 × 100 PZ» a video, e il campo per il collo incompleto | **fatto** |
-| 6 | **Installare la 1.4.2**, poi accendere gli interruttori uno per turno | **da fare** |
+| 6 | **Installare la 1.4.2** | **fatto 12/08** — `/api/app-info` risponde `pathfinder-1.4.2.html`, 1.541.133 byte |
 | 7 | **Confermare le due scelte della §5.41**, che il piano non prevedeva | **da fare** — prima di accendere `feature.uom` |
 
 **Tre decisioni prese scrivendo**, oltre a quella da confermare:
@@ -244,7 +248,7 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
-| 1 | **Installare la 1.4.2** — contiene anche la 1.4.1, mai installata. Poi gli interruttori, **uno per turno**: prima `feature.tasks`, il turno dopo `feature.uom` | 12/08 | Andrea, a fine turno |
+| 1 | **Accendere `feature.tasks`**, da Configurazione → Funzioni, col PIN di un Team Leader, a inizio turno e **da solo**. Il turno dopo, `feature.uom` | 12/08 | Andrea, a inizio turno |
 | 1bis | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
 | 1ter | **La 1.4.3** — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | nuovo | il prossimo lavoro |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
@@ -255,11 +259,11 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 | 7 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.ts` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
 | 8 | **`service_version` è ancora `'1.1'`** in `pathfinder-server.js`, ma il servizio è cambiato: `_migra` e 19 collezioni. Da decidere se allinearla, sapendo che è la versione del *servizio* e non dell'applicativo | 12/08 | piccolo |
 
-### I cinque comandi — **rifatti il 12/08 per la 1.4.0**, restano qui perché servono a ogni versione
+### I cinque comandi — **rifatti il 12/08 per la 1.4.2**, restano qui perché servono a ogni versione
 
 Da **PowerShell come amministratore** (il servizio gira come SYSTEM), **a fine
 turno** e **con un backup fresco davanti**. Si rifanno tali e quali per la versione
-dopo, cambiando `1.4.0` con `1.4.2` in due punti: il passo 2 e il passo 3.
+dopo, cambiando `1.4.2` con `1.4.3` in due punti: il passo 2 e il passo 3.
 
 I passi 1 e 2 non cambiano niente per chi lavora: il file nuovo in radice non è
 servito finché `PATHFINDER_APP` non ci punta. **Il rilascio vero sono i passi 3 e
@@ -273,12 +277,12 @@ Invoke-RestMethod -Uri http://127.0.0.1:4173/api/backup -Method Post `
 
 ```powershell
 cd "C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER"
-Copy-Item "Pathfinder 1.4\pathfinder-1.4.0.html" pathfinder-1.4.0.html
+Copy-Item "Pathfinder 1.4\pathfinder-1.4.2.html" pathfinder-1.4.2.html
 ```
 
 ```powershell
 [Environment]::SetEnvironmentVariable('PATHFINDER_APP',
-  'C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\pathfinder-1.4.0.html','Machine')
+  'C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\pathfinder-1.4.2.html','Machine')
 ```
 
 ```powershell
@@ -295,9 +299,9 @@ servendo un'altra cartella: non insistere, leggere il README §9.
 
 | Versione | `app_file` | `bytes` |
 |---|---|---|
-| 1.4.0 — in magazzino adesso | `pathfinder-1.4.0.html` | 1.493.517 |
+| 1.4.0 — il ritorno indietro | `pathfinder-1.4.0.html` | 1.493.517 |
 | 1.4.1 — costruita, mai installata | `pathfinder-1.4.1.html` | 1.526.393 |
-| **1.4.2** — pronta, da installare | `pathfinder-1.4.2.html` | **1.541.133** |
+| **1.4.2** — in magazzino adesso | `pathfinder-1.4.2.html` | **1.541.133** |
 
 **Il ritorno indietro è il punto 3 all'incontrario, più un riavvio.** Il file
 precedente resta in radice — nessuno di questi passi lo sposta, proprio per
@@ -332,6 +336,8 @@ questo — e il database non viene toccato. La 1.2 rilegge il database della
 | `ARCHIVIO/LOGHI/` — file doppi e nomi generati | 1.2 §6 · 1.3 §6 | **Fuori perimetro 12/08**: non è un compito del progetto |
 | Collaudi su `_applyToCache` | 1.3 §6.5 | **Fatto 12/08**: 19 collezioni dichiarate, `resetAll` le pulisce tutte |
 | Portare la 1.4.0 in magazzino | 1.4 §4 | **Fatto 12/08**: build, prova nel browser su copia del database vero, cinque comandi, `/api/app-info` lo conferma |
+| Portare la 1.4.1 in magazzino | 1.4 §4 | **Assorbito**: non è mai entrata da sola, è dentro la 1.4.2 |
+| Portare la 1.4.2 in magazzino | 1.4 §4 | **Fatto 12/08, 21:47**: backup, copia in radice, variabile, riavvio, verifica. Revisione del database 22418 prima e dopo: l'installazione non ha scritto niente |
 
 ---
 
@@ -522,7 +528,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 ## 8. Cosa NON fare
 
 - **Non reintrodurre `store.js`**: il file è `core/store.ts`, e gli import verso di lui si scrivono senza estensione — vedi trappola 20.
-- **Non toccare `pathfinder-1.4.0.html` in radice**: è quello servito adesso, e dal giorno che si installa la 1.4.2 diventa il ritorno indietro. E non spostare `pathfinder-1.2.html`, che gli sta accanto.
+- **Non toccare `pathfinder-1.4.2.html` in radice**: è quello servito adesso. E non spostare `pathfinder-1.4.0.html`, che gli sta accanto: è il ritorno indietro. Nemmeno `pathfinder-1.2.html`.
 - **Non chiamare `addItem` per rimettere a posto della merce senza passargli le UM uscite**: le deriva da colli pieni e il saldo si gonfia in silenzio — trappola 24, e c'è `App._umMossa` apposta.
 - **Non aggiungere un campo all'anagrafica senza guardare come si chiamano le etichette che ci sono già**: `unit` è già «UM» in tre posti — trappola 25.
 - **Non convertire `ui/` sperando che basti il compilatore**: due difetti su due, in questa conversione, li ha presi solo la prova nel browser.
