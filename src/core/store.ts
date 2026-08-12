@@ -6,8 +6,13 @@ import type {
   StatoUbicazione, UbicazioneDisattivata,
   Sito, Zona, Articolo, Giacenza, Movimento, Quarantena, DocumentoUscita,
   RigaDocumento, SessionePrelievo, ReportPrelievo, VerbaleSmaltimento,
-  Operatore, Istante, Coordinate, GiacenzaRimossa, IngressoArticolo,
+  Operatore, Istante, Coordinate, GiacenzaRimossa, IngressoArticolo, Compito,
 } from '../types/entita';
+import {
+  PRIORITA_NORMALE, eAperto, ordinaCoda, componiCompito, validaRichiesta,
+  prioritaConsentita, transizioneAmmessa, etichettaPriorita, etichettaStato,
+  riepilogo as riepilogoCompiti, type Richiesta as RichiestaCompito,
+} from '../modules/compiti';
 import {
   FORMA_CACHE, applicaAllaCache, bucketPut, bucketDelete,
   indicizzaGiacenza, ricostruisciIndici, indiciVuoti, metaVuota, cacheVuota,
@@ -1024,6 +1029,131 @@ const Store = {
 
   getActiveQuarantine() { return this._cache.quarantine.filter(q => q.status === 'active'); },
   getQuarantineHistory() { return this._cache.quarantine; },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     1.4.1 — SCHEDULATORE DI ATTIVITA'
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Qui non nasce nessuna operazione: le otto attivita' l'applicativo le sa
+     gia' fare. Nasce la richiesta, e con lei i tre istanti da cui escono le
+     due misure che il responsabile aspetta — quanto sta in coda, quanto dura.
+
+     La regola del ciclo di vita sta in `modules/compiti.ts`, che e' puro e
+     collaudato da fermo; qui c'e' solo cio' che scrive.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* Un rilascio installato non e' una funzione accesa: a interruttore spento
+     lo schedulatore non scrive una riga. La UI non lo mostra nemmeno, ma la
+     guardia sta anche qui — l'interruttore e' una promessa sul database. */
+  _assertTasksOn() {
+    if (!this.isFeatureOn('tasks')) {
+      throw new Error('Lo schedulatore di attività è spento — si accende in Configurazione → Funzioni');
+    }
+  },
+
+  getTasks() { return this._cache.tasks; },
+  getTask(taskId: string) { return this._cache.tasks.find(t => t.task_id === taskId) || null; },
+  getOpenTasks() { return this._cache.tasks.filter(eAperto); },
+  /** La coda, nell'ordine in cui si prende il prossimo. */
+  getTaskQueue() { return ordinaCoda(this._cache.tasks); },
+  getTasksAssignedTo(initials: string) {
+    const v = String(initials ?? '').toUpperCase().trim();
+    return this.getTaskQueue().filter(t => t.assigned_to === v);
+  },
+  getTasksSummary(adesso: number = Date.now()) { return riepilogoCompiti(this._cache.tasks, adesso); },
+
+  async createTask(richiesta: RichiestaCompito) {
+    this._assertTasksOn();
+    const io = this.getCurrentIdentity();
+    const r: RichiestaCompito = { ...richiesta, requested_by: richiesta.requested_by || io.initials };
+    const errori = validaRichiesta(r);
+    if (errori.length) throw new Error(errori.join(' · '));
+    const priorita = Number(r.priority) || PRIORITA_NORMALE;
+    /* D4 — la priorita' la alza solo il Team Leader, e il varco da chiudere
+       e' la creazione: aperto a 4, un compito non ha bisogno di essere alzato. */
+    if (!prioritaConsentita(io.role, priorita)) {
+      throw new Error(`Priorità ${etichettaPriorita(priorita)}: la può chiedere solo un Team Leader`);
+    }
+    const now = Date.now();
+    const taskId = `TA-${now.toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const rec = componiCompito({ ...r, priority: priorita }, taskId, now);
+    await Persistence.add('tasks', rec);
+    this._applyToCache('tasks', 'put', rec);
+    await this._touchMeta();
+    return rec;
+  },
+
+  /* Il passaggio di stato passa tutto da qui: una transizione non ammessa
+     deve costare un errore in faccia a chi la chiede, non una riga strana
+     che qualcuno leggera' fra un mese. */
+  async _moveTask(taskId: string, nuovo: string, patch: Partial<Compito> = {}) {
+    this._assertTasksOn();
+    const cur = this.getTask(taskId);
+    if (!cur) throw new Error('Attività non trovata');
+    if (!transizioneAmmessa(cur.status, nuovo)) {
+      throw new Error(`Un'attività ${etichettaStato(cur.status).toLowerCase()} non può passare a ${etichettaStato(nuovo).toLowerCase()}`);
+    }
+    const rec: Compito = { ...cur, ...patch, status: nuovo };
+    await Persistence.put('tasks', rec);
+    this._applyToCache('tasks', 'put', rec);
+    await this._touchMeta();
+    return rec;
+  },
+
+  async assignTask(taskId: string, initials: string) {
+    const v = String(initials ?? '').toUpperCase().trim();
+    if (!v) throw new Error('Manca la sigla di chi prende l\'attività');
+    if (!this.getOperatorByInitials(v)) throw new Error(`Nessun operatore con le iniziali ${v}`);
+    return await this._moveTask(taskId, 'assigned', { assigned_to: v });
+  },
+
+  /** Rimette in coda un compito assegnato: la sigla se ne va con lui. */
+  async unassignTask(taskId: string) {
+    return await this._moveTask(taskId, 'requested', { assigned_to: null });
+  },
+
+  async startTask(taskId: string, initials: string = '') {
+    const v = String(initials || this.getCurrentIdentity().initials || '').toUpperCase().trim();
+    const cur = this.getTask(taskId);
+    return await this._moveTask(taskId, 'in_progress', {
+      assigned_to: cur?.assigned_to || v || null,
+      started_at: Date.now(),
+    });
+  },
+
+  async completeTask(taskId: string, initials: string = '') {
+    const v = String(initials || this.getCurrentIdentity().initials || '').toUpperCase().trim();
+    return await this._moveTask(taskId, 'done', { completed_at: Date.now(), completed_by: v || null });
+  },
+
+  /* Un annullamento senza motivo e' un compito che sparisce: fra un mese
+     nessuno sa se era sbagliato o solo scomodo. */
+  async cancelTask(taskId: string, motivo: string) {
+    const m = String(motivo ?? '').trim();
+    if (!m) throw new Error('Serve il motivo dell\'annullamento');
+    const v = String(this.getCurrentIdentity().initials || '').toUpperCase().trim();
+    return await this._moveTask(taskId, 'cancelled', {
+      completed_at: Date.now(), completed_by: v || null, cancel_reason: m,
+    });
+  },
+
+  async setTaskPriority(taskId: string, priorita: number) {
+    this._assertTasksOn();
+    const p = Number(priorita);
+    if (!Number.isInteger(p) || p < 1 || p > 4) throw new Error('La priorità è un numero da 1 a 4');
+    const io = this.getCurrentIdentity();
+    if (!prioritaConsentita(io.role, p)) {
+      throw new Error(`Priorità ${etichettaPriorita(p)}: la può assegnare solo un Team Leader`);
+    }
+    const cur = this.getTask(taskId);
+    if (!cur) throw new Error('Attività non trovata');
+    if (!eAperto(cur)) throw new Error('L\'attività è chiusa: la priorità non si tocca più');
+    const rec: Compito = { ...cur, priority: p };
+    await Persistence.put('tasks', rec);
+    this._applyToCache('tasks', 'put', rec);
+    await this._touchMeta();
+    return rec;
+  },
 
   async savePendingOutbound(entry: Record<string, any>) {
     // v2.0.1 [A2] — validazione nel dominio: nessun documento può impegnare

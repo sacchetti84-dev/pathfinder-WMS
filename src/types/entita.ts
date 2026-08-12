@@ -372,6 +372,10 @@ export interface Compito {
   /** Il perché della richiesta, in chiaro. Chi prende il compito legge questa
       riga prima di muoversi: il `payload` dice cosa, la nota dice perché. */
   note?: string;
+  /** Chi ha chiuso, e — se annullato — perché. Un compito concluso è
+      un'operazione, e un'operazione porta la sigla di chi l'ha fatta. */
+  completed_by?: string | null;
+  cancel_reason?: string;
 }
 
 /** 1.4.5 — il conto aperto di ciò che è uscito verso la produzione.

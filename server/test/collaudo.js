@@ -186,6 +186,35 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   const sess = await call('GET', '/api/c/pick_session/S1');
   ok('la sessione di prelievo e\' stata salvata nella stessa transazione', sess.dati?.session_id === 'S1');
 
+  /* ── 1.4.1 — le attivita' passano dal servizio come tutto il resto ──
+     Lo schedulatore non ha rotte sue: e' una collezione a chiave di testo,
+     e le due domande che la coda fa davvero — «cosa e' aperto» e «cosa ho
+     io» — devono poter girare su un indice e non su una scansione. */
+  const compito = {
+    task_id: 'TA-1', type: 'TRANSFER', priority: 4, status: 'requested',
+    requested_by: 'ANDS', requested_at: Date.now(), assigned_to: null,
+    payload: { article_code: 'MP-2', lot_code: 'L3', qty: 12, a: 'DP-A-01-02-T' }
+  };
+  const tc = await call('POST', '/api/c/tasks', compito);
+  ok('un\'attivita\' entra con la sua chiave di testo', tc.stato === 200 && tc.dati.key === 'TA-1',
+     'key=' + tc.dati.key);
+
+  const tcLetto = await call('GET', '/api/c/tasks/TA-1');
+  ok('il payload dell\'attivita\' rientra intero, senza schema',
+     tcLetto.dati?.payload?.qty === 12 && tcLetto.dati.payload.a === 'DP-A-01-02-T');
+
+  await call('POST', '/api/c/tasks', { ...compito, task_id: 'TA-2', priority: 2, status: 'done' });
+  const aperte = await call('GET',
+    '/api/c/tasks/query?criteria=' + encodeURIComponent(JSON.stringify({ field: 'status', op: 'equals', value: 'requested' })));
+  ok('la coda si interroga per stato su un indice', aperte.dati.length === 1 && aperte.dati[0].task_id === 'TA-1',
+     aperte.dati.length + ' aperte');
+
+  await call('PATCH', '/api/c/tasks/TA-1', { status: 'in_progress', assigned_to: 'ANDS', started_at: Date.now() });
+  const mie = await call('GET',
+    '/api/c/tasks/query?criteria=' + encodeURIComponent(JSON.stringify({ field: 'assigned_to', op: 'equals', value: 'ANDS' })));
+  ok('presa in carico: lo stato cambia e la sigla diventa interrogabile',
+     mie.dati.length === 1 && mie.dati[0].status === 'in_progress' && mie.dati[0].payload.qty === 12);
+
   // ── Notifica ai terminali ─────────────────────────────────────────
   const eventi = [];
   const es = await fetch(BASE + '/api/events?client=TERMINALE-2', { headers: { Accept: 'text/event-stream' } });
