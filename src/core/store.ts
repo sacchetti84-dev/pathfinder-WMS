@@ -10,7 +10,7 @@ import type {
   Lotto,
 } from '../types/entita';
 import {
-  PRIORITA_NORMALE, eAperto, ordinaCoda, componiCompito, validaRichiesta,
+  PRIORITA_NORMALE, ORE_URGENZA_DEFAULT, eAperto, ordinaCoda, componiCompito, validaRichiesta,
   prioritaConsentita, transizioneAmmessa, etichettaPriorita, etichettaStato,
   riepilogo as riepilogoCompiti, type Richiesta as RichiestaCompito,
 } from '../modules/compiti';
@@ -276,7 +276,10 @@ const Store = {
       lastAutoBackup: metaObj.lastAutoBackup || null,
       docConfig: metaObj.docConfig || null,
       features,                                  // 1.4.0 — assente = spento
-      featureLog: metaObj.featureLog || []       // 1.4.1 — chi ha acceso cosa
+      featureLog: metaObj.featureLog || [],      // 1.4.1 — chi ha acceso cosa
+      /* 1.4.2.1 — TRAPPOLA 22: una chiave di `meta` che non e' dichiarata qui
+         vive in cache finche' qualcuno non ricarica, e poi sparisce. */
+      oreUrgenza: metaObj.oreUrgenza ?? null
     };
   },
 
@@ -1320,13 +1323,43 @@ const Store = {
   getTasks() { return this._cache.tasks; },
   getTask(taskId: string) { return this._cache.tasks.find(t => t.task_id === taskId) || null; },
   getOpenTasks() { return this._cache.tasks.filter(eAperto); },
+
+  /* 1.4.2.1 — QUANTE ORE PRIMA DELLA SCADENZA UN COMPITO DIVENTA URGENTE.
+     Vive in `meta` come gli altri parametri di Configurazione, e non nel
+     sorgente: e' una politica di magazzino, e le politiche cambiano senza
+     che cambi la versione. Fuori dai limiti si torna al valore di serie —
+     una soglia di zero spegnerebbe la regola in silenzio. */
+  URGENZA_MIN_ORE: 1,
+  URGENZA_MAX_ORE: 72,
+
+  getOreUrgenza(): number {
+    const v = Number((this._cache.meta as Record<string, any>).oreUrgenza);
+    if (!Number.isFinite(v) || v < this.URGENZA_MIN_ORE || v > this.URGENZA_MAX_ORE) return ORE_URGENZA_DEFAULT;
+    return v;
+  },
+
+  async setOreUrgenza(ore: number | string) {
+    const v = Number(ore);
+    if (!Number.isFinite(v) || v < this.URGENZA_MIN_ORE || v > this.URGENZA_MAX_ORE) {
+      throw new Error(`La soglia di urgenza è un numero di ore fra ${this.URGENZA_MIN_ORE} e ${this.URGENZA_MAX_ORE}`);
+    }
+    const rec = { key: 'oreUrgenza', value: v };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    return v;
+  },
+
   /** La coda, nell'ordine in cui si prende il prossimo. */
-  getTaskQueue() { return ordinaCoda(this._cache.tasks); },
+  getTaskQueue(adesso: number = Date.now()) {
+    return ordinaCoda(this._cache.tasks, adesso, this.getOreUrgenza());
+  },
   getTasksAssignedTo(initials: string) {
     const v = String(initials ?? '').toUpperCase().trim();
     return this.getTaskQueue().filter(t => t.assigned_to === v);
   },
-  getTasksSummary(adesso: number = Date.now()) { return riepilogoCompiti(this._cache.tasks, adesso); },
+  getTasksSummary(adesso: number = Date.now()) {
+    return riepilogoCompiti(this._cache.tasks, adesso, this.getOreUrgenza());
+  },
 
   async createTask(richiesta: RichiestaCompito) {
     this._assertTasksOn();

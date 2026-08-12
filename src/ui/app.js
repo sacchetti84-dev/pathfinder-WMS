@@ -24,6 +24,9 @@ import {
   TIPI_COMPITO, PRIORITA_NORMALE, PRIORITA_MAX_OPERATORE,
   etichettaTipo, iconaTipo, etichettaPriorita, etichettaStato,
   eAperto, misure, inRitardo, durataUmana,
+  ORE_URGENZA_DEFAULT, prioritaEffettiva, inScadenza,
+  operazioneDi, chiudeAMano, vuoleColli, daGiacenza,
+  quantitaRichiesta, quantitaFatta, residuo, esaurito,
 } from '../modules/compiti';
 import {
   UNITA_MISURA, etichettaUnita, formattaQuantita, descrivi as descriviColli,
@@ -1938,19 +1941,47 @@ const App = {
           ${leader ? '' : '<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.2rem">Oltre Normale serve un Team Leader: se tutto è urgente, la coda torna a essere l\'ordine in cui si è chiesto.</div>'}
         </div>
       </div>
-      <div class="form-row" style="margin-bottom:0.6rem">
-        <div class="form-group"><label>Articolo</label>
-          <input class="input input-mono" id="ntArticle" maxlength="40" style="text-transform:uppercase" placeholder="Codice, se pertinente"></div>
+      <div class="form-row" style="margin-bottom:0.2rem">
+        <div class="form-group"><label>Articolo <span class="req" id="ntArtReq">*</span></label>
+          <input class="input input-mono" id="ntArticle" maxlength="40" style="text-transform:uppercase"
+            placeholder="Codice o descrizione — cerca a magazzino"
+            oninput="App._ntCercaArticolo()" autocomplete="off"></div>
         <div class="form-group"><label>Lotto</label>
-          <input class="input input-mono" id="ntLot" maxlength="40" style="text-transform:uppercase"></div>
-        <div class="form-group" style="max-width:110px"><label>Colli</label>
+          <input class="input input-mono" id="ntLot" maxlength="40" readonly
+            placeholder="dalla disponibilità scelta"></div>
+        <div class="form-group" style="max-width:110px"><label>Colli <span class="req" id="ntQtyReq">*</span></label>
           <input class="input input-mono" id="ntQty" type="number" min="1" step="1"></div>
       </div>
+      <!-- 1.4.2.1 — SI SCEGLIE UNA RIGA DI MAGAZZINO, NON SI DIGITA UN LOTTO.
+           Lotto e ubicazione di partenza vengono dalla merce che c'e' davvero:
+           un'attivita' aperta su un lotto che non esiste e' un giro a vuoto per
+           chi la prende in mano. Il Posizionamento fa eccezione, e per forza —
+           la sua merce a magazzino non c'e' ancora. -->
+      <div id="ntDisp" style="margin-bottom:0.6rem"></div>
       <div class="form-row" style="margin-bottom:0.6rem">
         <div class="form-group"><label>Da (ubicazione)</label>
-          <input class="input input-mono" id="ntFrom" maxlength="30" style="text-transform:uppercase"></div>
+          <div style="display:flex;gap:0.3rem">
+            <input class="input input-mono" id="ntFrom" maxlength="30" style="text-transform:uppercase" placeholder="dalla disponibilità scelta">
+            <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntFrom')" title="Sfoglia le ubicazioni">📍</button>
+          </div></div>
         <div class="form-group"><label>A (ubicazione)</label>
-          <input class="input input-mono" id="ntTo" maxlength="30" style="text-transform:uppercase"></div>
+          <div style="display:flex;gap:0.3rem">
+            <input class="input input-mono" id="ntTo" maxlength="30" style="text-transform:uppercase">
+            <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntTo')" title="Sfoglia le ubicazioni">📍</button>
+          </div></div>
+      </div>
+      <!-- Il DDT vuole destinatario, vettore e causale, e li sa chi CHIEDE la
+           spedizione: l'operatore che preleva non deve indovinarli. Compaiono
+           solo per i due prelievi, e per nessun altro tipo. -->
+      <div id="ntDdtRow" style="display:none;margin-bottom:0.6rem">
+        <div class="form-row" style="margin-bottom:0.4rem">
+          <div class="form-group"><label>Destinatario <span class="req">*</span></label>
+            <input class="input" id="ntDest" maxlength="120" placeholder="Ragione sociale"></div>
+          <div class="form-group" style="max-width:200px"><label>Vettore</label>
+            <input class="input" id="ntCarrier" maxlength="80"></div>
+        </div>
+        <div class="form-group"><label>Causale di trasporto</label>
+          <select class="select" id="ntCausale">${this._causaliDDT()}</select></div>
       </div>
       <!-- IL CAMPIONAMENTO È L'UNICA DELLE OTTO CHE OGGI NON ESISTE (PIANO §4.1),
            e nasce qui con le tre cose che un campione deve portarsi dietro:
@@ -1972,16 +2003,120 @@ const App = {
             ${operatori.map(o => `<option value="${this._esc(o.initials)}">${this._esc(o.initials)} — ${this._esc([o.first_name, o.last_name].filter(Boolean).join(' ') || 'dati incompleti')}</option>`).join('')}
           </select></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.4rem"><label>Perché — lo legge chi la prende</label>
+      <div class="form-group" style="margin-bottom:0.4rem"><label>Note — le legge chi la prende</label>
         <input class="input" id="ntNote" maxlength="200" placeholder="Es: il cliente ritira giovedì mattina"></div>
       <div id="ntError" class="gate-error"></div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
        <button class="btn btn-primary" onclick="App.doCreateTask()">Apri l'attività</button>`);
+    this._ntTypeChanged();
   },
 
+  /* Le nove causali di trasporto vivono in Configurazione → DDT dalla v2:
+     qui si leggono, non si riscrivono. */
+  _causaliDDT() {
+    const cfg = Store.getMeta()?.docConfig?.causali || [];
+    return cfg.map(c => `<option value="${this._esc(c.id)}">${this._esc(c.label)}</option>`).join('');
+  },
+
+  /* Ogni tipo di attività porta con sé le proprie regole — quali campi
+     servono, dove si cerca l'articolo, se i colli sono obbligatori — e le
+     regole stanno in `modules/compiti.ts`, non qui. Qui si accende e si
+     spegne ciò che l'operatore vede. */
   _ntTypeChanged() {
-    const riga = document.getElementById('ntSamplingRow');
-    if (riga) riga.style.display = document.getElementById('ntType')?.value === 'SAMPLING' ? '' : 'none';
+    const tipo = document.getElementById('ntType')?.value || '';
+    const mostra = (id, si) => { const e = document.getElementById(id); if (e) e.style.display = si ? '' : 'none'; };
+    mostra('ntSamplingRow', tipo === 'SAMPLING');
+    mostra('ntDdtRow', tipo === 'PICK_SHIP' || tipo === 'PICK_RET');
+    const req = (id, si) => { const e = document.getElementById(id); if (e) e.style.visibility = si ? '' : 'hidden'; };
+    req('ntQtyReq', vuoleColli(tipo));
+    req('ntArtReq', daGiacenza(tipo));
+    /* Il Posizionamento cerca in anagrafica e il lotto lo si digita: la
+       merce che deve arrivare non è ancora da nessuna parte. */
+    const lot = document.getElementById('ntLot');
+    const from = document.getElementById('ntFrom');
+    if (lot) {
+      lot.readOnly = daGiacenza(tipo);
+      lot.placeholder = daGiacenza(tipo) ? 'dalla disponibilità scelta' : 'da digitare';
+      if (!daGiacenza(tipo)) lot.value = lot.value || '';
+    }
+    if (from) from.disabled = !daGiacenza(tipo);
+    this._ntCercaArticolo();
+  },
+
+  /* ── La ricerca fra le giacenze, e la scelta della riga ──────────────
+     Il campo articolo si comporta come la ricerca del magazzino: si digita e
+     compaiono le righe che ci sono davvero, in ordine FEFO — prima scade,
+     prima si prende. I colli mostrati sono quelli DISPONIBILI, al netto di
+     ciò che è già impegnato su un DDT pendente: proporre merce promessa a
+     qualcun altro è il modo di aprire un'attività che fallira'. */
+  _ntCercaArticolo() {
+    const box = document.getElementById('ntDisp');
+    if (!box) return;
+    const tipo = document.getElementById('ntType')?.value || '';
+    const q = (document.getElementById('ntArticle')?.value || '').trim();
+    if (!daGiacenza(tipo)) {
+      box.innerHTML = q
+        ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">📥 Posizionamento: la merce non è ancora a magazzino — lotto e destinazione si digitano.</div>`
+        : '';
+      return;
+    }
+    if (q.length < 2) { box.innerHTML = ''; return; }
+
+    /* Una riga già scelta resta scelta: questa funzione la richiama anche il
+       cambio di tipo, e rimettere l'elenco al posto della conferma farebbe
+       credere che la scelta sia andata persa — mentre i campi ce l'hanno
+       ancora. Si torna all'elenco solo se si ridigita l'articolo. */
+    const lotto = document.getElementById('ntLot')?.value;
+    const da = document.getElementById('ntFrom')?.value;
+    if (lotto && da && q.toUpperCase() === (document.getElementById('ntArticle')?.value || '').toUpperCase()) {
+      const scelta = Store.getItemsAtLocation(da).find(i => i.item_key === `${q.toUpperCase()}#${lotto}`);
+      if (scelta) return this._ntConferma(scelta);
+    }
+
+    const righe = Store.findItemLocations(q)
+      .filter(it => (Store.getAvailableQty(it.location_code, it.item_key) || 0) > 0);
+    if (!righe.length) {
+      box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-warning)">⚠ Nessuna giacenza disponibile per «${this._esc(q)}»</div>`;
+      return;
+    }
+    const ordinate = Store.sortByFEFO(righe).slice(0, 12);
+    box.innerHTML = `<div style="max-height:190px;overflow-y:auto;border:1px solid var(--sx-border);border-radius:var(--radius-md)">${
+      ordinate.map(it => {
+        const disp = Store.getAvailableQty(it.location_code, it.item_key) || 0;
+        const um = Store.suddivisioneDi(it);
+        const cfg = Store.getUomConfig(it.article_code, it.lot_code);
+        const dettaglio = um && cfg?.per_collo
+          ? ` · ⚖ ${this._esc(descriviColli(um.pieni * cfg.per_collo + um.resto, cfg.per_collo, cfg.uom))}` : '';
+        return `<div class="search-result-item" onclick="App._ntScegli('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">
+          <span class="mono" style="font-weight:700">${this._esc(it.article_code)}</span>
+          <span class="mono" style="color:var(--sx-text-secondary)">${this._esc(it.lot_code)}</span>
+          <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${this._esc(it.location_code)}${it.expiry_date ? ' · scad ' + this._esc(it.expiry_date) : ''}${dettaglio}</span>
+          <span style="margin-left:auto;font-weight:700;color:var(--sx-accent)">${disp} Coll.</span>
+        </div>`;
+      }).join('')}</div>`;
+  },
+
+  /* La riga scelta compila lotto e ubicazione di partenza: sono fatti della
+     merce, non cose da ricordare a memoria. */
+  _ntScegli(loc, itemKey) {
+    const it = Store.getItemsAtLocation(loc).find(i => i.item_key === itemKey);
+    if (!it) return this.toast('Quella riga non è più a magazzino', 'warning');
+    const set = (id, v) => { const e = document.getElementById(id); if (e) e.value = v; };
+    set('ntArticle', it.article_code);
+    set('ntLot', it.lot_code);
+    set('ntFrom', it.location_code);
+    const disp = Store.getAvailableQty(it.location_code, it.item_key) || 0;
+    const qty = document.getElementById('ntQty');
+    if (qty) { qty.max = String(disp); if (!qty.value) qty.value = String(disp); }
+    this._ntConferma(it);
+    document.getElementById('ntQty')?.focus();
+  },
+
+  _ntConferma(it) {
+    const box = document.getElementById('ntDisp');
+    if (!box) return;
+    const disp = Store.getAvailableQty(it.location_code, it.item_key) || 0;
+    box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-success)">✓ ${this._esc(it.article_code)} lotto ${this._esc(it.lot_code)} in ${this._esc(it.location_code)} — ${disp} colli disponibili</div>`;
   },
 
   async doCreateTask() {
@@ -1994,11 +2129,26 @@ const App = {
       payload.sample_for = val('ntSampleFor');
       payload.sample_spare = !!document.getElementById('ntSampleSpare')?.checked;
     }
+    const tipo = val('ntType');
+    /* 1.4.2.1 — ciò che serve a precompilare il movimento è obbligatorio, e
+       lo si dice PRIMA: un'attività senza articolo o senza colli è un'attività
+       che chi la prende in mano non sa eseguire. Le regole per tipo stanno in
+       `modules/compiti.ts`. */
+    if (daGiacenza(tipo) && !su('ntArticle')) return err('Scegliere l\'articolo fra le giacenze: l\'attività deve dire su che cosa si lavora.');
+    if (daGiacenza(tipo) && !su('ntLot')) return err('Scegliere una delle disponibilità proposte: lotto e ubicazione di partenza vengono da lì.');
+    if (vuoleColli(tipo) && !(parseInt(val('ntQty'), 10) > 0)) return err('Quanti colli: senza, il movimento non si può preparare e l\'attività non sa quando è finita.');
+    if ((tipo === 'PICK_SHIP' || tipo === 'PICK_RET') && !val('ntDest')) return err('Un prelievo per spedizione vuole il destinatario: lo sa chi la chiede, non chi preleva.');
+
     if (su('ntArticle')) payload.article_code = su('ntArticle');
     if (su('ntLot')) payload.lot_code = su('ntLot');
     if (val('ntQty')) payload.qty = parseInt(val('ntQty'), 10);
     if (su('ntFrom')) payload.from = su('ntFrom');
     if (su('ntTo')) payload.to = su('ntTo');
+    if (tipo === 'PICK_SHIP' || tipo === 'PICK_RET') {
+      payload.destination = val('ntDest');
+      if (val('ntCarrier')) payload.carrier = val('ntCarrier');
+      if (val('ntCausale')) payload.causale = val('ntCausale');
+    }
     const dovuto = val('ntDue');
     try {
       const rec = await Store.createTask({
@@ -3659,9 +3809,12 @@ const App = {
 
         <div class="form-group" style="margin:0.6rem 0 0.4rem">
           <label>① Scansiona UBICAZIONE <span class="req">*</span></label>
+          <div style="display:flex;gap:0.3rem">
           <input class="input input-mono" id="dLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('dLoc')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('dLoc');App._dispCheckLoc();}">
+          <button class="btn btn-sm" type="button" onclick="App._pickLoc('dLoc','_dispCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
+          </div>
         </div>
         <div class="form-group" style="margin-bottom:0.4rem">
           <label>② Scansiona ARTICOLO <span class="req">*</span></label>
@@ -5064,9 +5217,12 @@ const App = {
 
         <div class="form-group" style="margin:0.6rem 0 0.4rem">
           <label>① Scansiona UBICAZIONE <span class="req">*</span></label>
+          <div style="display:flex;gap:0.3rem">
           <input class="input input-mono" id="rLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('rLoc')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('rLoc');App._routeCheckLoc();}">
+          <button class="btn btn-sm" type="button" onclick="App._pickLoc('rLoc','_routeCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
+          </div>
         </div>
         <div class="form-group" style="margin-bottom:0.4rem">
           <label>② Scansiona ARTICOLO <span class="req">*</span></label>
@@ -6283,9 +6439,12 @@ const App = {
 
         <div class="form-group" style="margin:0.6rem 0 0.4rem">
           <label>① Scansiona UBICAZIONE <span class="req">*</span></label>
+          <div style="display:flex;gap:0.3rem">
           <input class="input input-mono" id="qvLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('qvLoc')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('qvLoc');App._qCheckLoc();}">
+          <button class="btn btn-sm" type="button" onclick="App._pickLoc('qvLoc','_qCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
+          </div>
         </div>
         <div class="form-group" style="margin-bottom:0.4rem">
           <label>② Scansiona ARTICOLO <span class="req">*</span></label>
