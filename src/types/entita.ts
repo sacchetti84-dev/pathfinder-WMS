@@ -369,6 +369,9 @@ export interface Compito {
   due_at?: Istante | null;
   payload?: unknown;
   source_ref?: string | null;
+  /** Il perché della richiesta, in chiaro. Chi prende il compito legge questa
+      riga prima di muoversi: il `payload` dice cosa, la nota dice perché. */
+  note?: string;
 }
 
 /** 1.4.5 — il conto aperto di ciò che è uscito verso la produzione.
