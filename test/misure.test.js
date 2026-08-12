@@ -112,6 +112,33 @@ describe('configurazione', () => {
     expect(configurazione({ code: 'ART1', uom: 'CT', uom_per_collo: 10 })).toBe(null);
   });
 
+  /* `unit` esiste dalla v1 ed e' gia' etichettato «UM» nella maschera e nella
+     colonna dell'export: una seconda colonna con lo stesso nome sarebbe la
+     cosa che il piano vieta per i pezzi. */
+  it('RIPIEGO: `unit` quando `uom` manca — la colonna UM e\' una sola', () => {
+    expect(configurazione({ code: 'ART1', unit: 'KG', uom_per_collo: 25 }))
+      .toEqual({ uom: 'KG', per_collo: 25 });
+  });
+
+  it('`unit` e\' testo libero da sempre: cio\' che non e\' un\'unita\' non gestisce niente', () => {
+    expect(configurazione({ code: 'ART1', unit: 'CT', uom_per_collo: 10 })).toBe(null);
+    expect(configurazione({ code: 'ART1', unit: 'BOT' })).toBe(null);
+  });
+
+  it('un `uom` scritto e non capito NON ripiega su `unit`: si indovinerebbe', () => {
+    expect(configurazione({ code: 'ART1', uom: 'CT', unit: 'KG', uom_per_collo: 25 })).toBe(null);
+  });
+
+  it('`uom` vince su `unit` quando ci sono tutti e due', () => {
+    expect(configurazione({ code: 'ART1', uom: 'LT', unit: 'KG', uom_per_collo: 5 }).uom).toBe('LT');
+  });
+
+  /* Il caso che riguarda mezza anagrafica: `unit` vale `PZ` di serie. Non
+     succede niente finche' nessuno compila la quantita' per collo. */
+  it('il PZ predefinito di mezza anagrafica non gestisce niente da solo', () => {
+    expect(gestitaAUM(configurazione({ code: 'ART1', unit: 'PZ' }))).toBe(false);
+  });
+
   it('legge `uom_per_collo` quando c\'e\'', () => {
     expect(configurazione(art())).toEqual({ uom: 'PZ', per_collo: 1000 });
   });

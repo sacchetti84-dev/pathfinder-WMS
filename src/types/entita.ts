@@ -133,6 +133,11 @@ export interface GiacenzaRimossa extends Giacenza {
   _qty_before: number;
   _qty_after: number;
   _qty_delta: number;
+  /** 1.4.2 — gli stessi tre conti in UM. `null` su una riga a soli colli:
+      è un'assenza dichiarata, non uno zero. */
+  _qty_uom_before?: number | null;
+  _qty_uom_after?: number | null;
+  _qty_uom_delta?: number | null;
 }
 
 export interface StatoUbicazione {
@@ -169,6 +174,11 @@ export interface Movimento {
   qty_delta?: number | null;
   qty_before?: number | null;
   qty_after?: number | null;
+  /** 1.4.2 — quanto si è mosso in UM, e in quale unità. Assenti sui
+      movimenti storici esattamente come `qty_delta` lo era prima della v2:
+      un movimento senza queste due righe è un movimento a soli colli. */
+  qty_uom_delta?: number | null;
+  uom?: UnitaMisura;
 }
 
 /* ── Quarantena ──────────────────────────────────────────────────── */

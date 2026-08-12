@@ -7,6 +7,7 @@ import type {
   Sito, Zona, Articolo, Giacenza, Movimento, Quarantena, DocumentoUscita,
   RigaDocumento, SessionePrelievo, ReportPrelievo, VerbaleSmaltimento,
   Operatore, Istante, Coordinate, GiacenzaRimossa, IngressoArticolo, Compito,
+  Lotto,
 } from '../types/entita';
 import {
   PRIORITA_NORMALE, eAperto, ordinaCoda, componiCompito, validaRichiesta,
@@ -16,8 +17,14 @@ import {
 import {
   FORMA_CACHE, applicaAllaCache, bucketPut, bucketDelete,
   indicizzaGiacenza, ricostruisciIndici, indiciVuoti, metaVuota, cacheVuota,
-  type Operazione,
+  chiaveLotto, type Operazione,
 } from './cache';
+import {
+  configurazione as configurazioneUom, congela as congelaLotto, daLotto,
+  suddividi, uomDaColli, verifica as verificaUm,
+  sommaUom, sottraiUom, arrotonda as arrotondaUom, decimali as decimaliUom,
+  type Configurazione,
+} from '../modules/misure';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
 import {
@@ -105,6 +112,7 @@ const Store = {
   get _invByLoc()  { return this._indici.invByLoc; },   // Map<location_code → item[]>
   get _invByKey()  { return this._indici.invByKey; },   // Map<item_key → item[]>
   get _artByCode() { return this._indici.artByCode; },  // Map<code → article>
+  get _lotByKey()  { return this._indici.lotByKey; },   // Map<articolo#lotto → lotto>
 
   async init() {
     await Persistence.open();
@@ -604,12 +612,99 @@ const Store = {
   getFEFOItemForArticle(articleCode: string) { return primoFEFO(this._cache.inventory, articleCode); },
   isFEFOItem(item: Giacenza | null | undefined) { return eFEFO(this._cache.inventory, item); },
 
-  async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1) {
+  /* ═══════════════════════════════════════════════════════════════════
+     1.4.2 — UNITA' DI MISURA E COLLI
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     `qty` resta i colli, come dalla v1: qui accanto compare `qty_uom`, cioe'
+     cio' che c'e' dentro. Il collo incompleto NON e' una riga sua — si
+     calcola, e il perche' sta in testa a `modules/misure.ts`.
+
+     La regola pura sta li'; qui c'e' solo cio' che scrive.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* A interruttore spento non si scrive un `qty_uom`, non nasce un `lots` e
+     una giacenza si comporta esattamente come nella 1.4.1. */
+  _assertUomOn() {
+    if (!this.isFeatureOn('uom')) {
+      throw new Error('Le unità di misura sono spente — si accendono in Configurazione → Funzioni');
+    }
+  },
+
+  getLot(articleCode: string, lotCode: string) {
+    return this._lotByKey.get(chiaveLotto(articleCode, lotCode)) || null;
+  },
+
+  /* LA CONFEZIONE DEL LOTTO VINCE SU QUELLA DELL'ANAGRAFICA, sempre: e' un
+     fatto gia' successo, e i colli a scaffale sono imballati come allora.
+     L'anagrafica si legge solo per il lotto che non e' mai stato posizionato. */
+  getUomConfig(articleCode: string, lotCode: string): Configurazione | null {
+    if (!this.isFeatureOn('uom')) return null;
+    return daLotto(this.getLot(articleCode, lotCode))
+        ?? configurazioneUom(this.getArticle(articleCode));
+  },
+
+  /* IL CONGELAMENTO, AL PRIMO POSIZIONAMENTO.
+     Un lotto gia' a magazzino non ha un record in `lots`: nasce qui, al primo
+     movimento della 1.4.2, con l'unita' presa dall'anagrafica. Nessuna riga
+     viene riscritta all'installazione — e un articolo senza `uom` non congela
+     niente, cioe' si comporta come nella 1.2. */
+  async _congelaLotto(articleCode: string, lotCode: string, adesso: Istante = Date.now()) {
+    if (!this.isFeatureOn('uom')) return null;
+    const gia = this.getLot(articleCode, lotCode);
+    if (gia) return gia;
+    const rec = congelaLotto(this.getArticle(articleCode), articleCode, lotCode, adesso);
+    if (!rec) return null;
+    const _id = await Persistence.add('lots', rec);
+    const stored = { ...rec, _id } as Lotto;
+    this._applyToCache('lots', 'put', stored);
+    return stored;
+  },
+
+  /* Come si legge una riga di giacenza: «10 × 1.000 + 1 × 100 PZ», o niente
+     se il lotto non e' configurato. La usa la UI a ogni render, ed e' per
+     questo che `lotByKey` e' un indice e non un `find`. */
+  suddivisioneDi(item: Giacenza | null | undefined) {
+    if (!item) return null;
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    if (!cfg?.per_collo) return null;
+    return suddividi(item.qty_uom ?? uomDaColli(item.qty ?? 0, cfg.per_collo, cfg.uom), cfg.per_collo, cfg.uom);
+  },
+
+  /* Il conto fra i colli dichiarati e le UM: `null` quando non c'e' niente da
+     confrontare. Lo scarto lo mostra la UI — qui non si corregge niente,
+     perche' correggere un saldo senza che nessuno abbia guardato la merce e'
+     precisamente il modo di scriverne uno sbagliato ma plausibile. */
+  verificaUom(item: Giacenza | null | undefined) {
+    if (!item) return null;
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    if (!cfg?.per_collo) return null;
+    return verificaUm(item.qty ?? 0, item.qty_uom, cfg.per_collo, cfg.uom);
+  },
+
+  /* Le UM di una riga, anche quando `qty_uom` non c'e' ancora.
+     RETROCOMPATIBILITA': una giacenza posizionata prima della 1.4.2 si legge
+     come colli PIENI, che e' l'unica lettura onesta di un dato che nessuno ha
+     mai dichiarato. Il valore non viene scritto finche' qualcuno non muove
+     quella riga: all'installazione non si riscrive niente. */
+  _uomDiRiga(item: Giacenza, cfg: Configurazione | null): number | null {
+    if (!cfg?.per_collo) return null;
+    if (typeof item.qty_uom === 'number') return item.qty_uom;
+    return uomDaColli(item.qty ?? 0, cfg.per_collo, cfg.uom);
+  },
+
+  async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1, qtyUom: number | null = null) {
     const qtyAdd = Store._assertPositiveInt(qty, 'Quantità da posizionare');
     const itemKey = `${articleCode}#${lotCode}`;
     const bucket = this._invByLoc.get(locationCode) || [];
     const existing = bucket.find(i => i.item_key === itemKey);
     const now = Date.now();
+
+    /* 1.4.2 — la confezione si congela QUI, al primo posizionamento: da
+       questo momento e' un fatto del lotto e non segue piu' l'anagrafica. */
+    await this._congelaLotto(articleCode, lotCode, now);
+    const cfg = this.getUomConfig(articleCode, lotCode);
+    const uomAdd = this._uomInIngresso(qtyAdd, qtyUom, cfg);
 
     // Caso 1: item già presente in questa ubicazione → incrementa qty
     if (existing) {
@@ -620,19 +715,25 @@ const Store = {
       // Aggiorna metadati opzionali se passati
       if (expiryDate && !existing.expiry_date) existing.expiry_date = expiryDate;
       if (notes) existing.notes = (existing.notes ? existing.notes + ' | ' : '') + notes;
-      await Persistence.update('inventory', existing._id!, {
+      const updates: Record<string, any> = {
         qty: qtyAfter,
         last_updated_at: now,
         expiry_date: existing.expiry_date,
         notes: existing.notes
-      });
+      };
+      if (uomAdd !== null) {
+        existing.qty_uom = sommaUom(this._uomDiRiga(existing, cfg) ?? 0, uomAdd, cfg!.uom);
+        updates.qty_uom = existing.qty_uom;
+      }
+      await Persistence.update('inventory', existing._id!, updates);
       this._applyToCache('inventory', 'put', existing);
       await this._touchMeta();
-      return { ok: true, item: existing, mode: 'incremented', qty_before: qtyBefore, qty_after: qtyAfter };
+      return { ok: true, item: existing, mode: 'incremented', qty_before: qtyBefore, qty_after: qtyAfter,
+               qty_uom_delta: uomAdd, qty_uom_after: existing.qty_uom ?? null };
     }
 
     // Caso 2: nuovo item
-    const rec = {
+    const rec: Giacenza = {
       item_key: itemKey,
       article_code: articleCode,
       article_description: articleDescription || '',
@@ -645,6 +746,7 @@ const Store = {
       placed_by: 'operator',
       notes: notes || ''
     };
+    if (uomAdd !== null) rec.qty_uom = uomAdd;
     const _id = await Persistence.add('inventory', rec);
     const stored = { ...rec, _id };
     this._applyToCache('inventory', 'put', stored);
@@ -653,7 +755,22 @@ const Store = {
       await this.addArticle({ code: articleCode, description: articleDescription, category: this._guessCategory(articleCode) });
     }
     await this._touchMeta();
-    return { ok: true, item: stored, mode: 'created', qty_before: 0, qty_after: qtyAdd };
+    return { ok: true, item: stored, mode: 'created', qty_before: 0, qty_after: qtyAdd,
+             qty_uom_delta: uomAdd, qty_uom_after: uomAdd };
+  },
+
+  /* Quante UM entrano con N colli. Dichiarate da chi ha la merce in mano —
+     ed e' l'unico modo di far entrare un collo incompleto — oppure derivate
+     da colli PIENI, che e' cio' che si posiziona nel novantanove per cento
+     dei casi. `null` = riga a soli colli, cioe' il comportamento di sempre. */
+  _uomInIngresso(colli: number, dichiarate: number | null, cfg: Configurazione | null): number | null {
+    if (!cfg) return null;
+    if (dichiarate !== null && dichiarate !== undefined) {
+      const v = arrotondaUom(dichiarate, decimaliUom(cfg.uom));
+      if (v === null || v <= 0) throw new Error(`Quantità in ${cfg.uom}: deve essere maggiore di zero`);
+      return v;
+    }
+    return cfg.per_collo ? uomDaColli(colli, cfg.per_collo, cfg.uom) : null;
   },
 
   /* restore esatto di un item preservando metadati incluso qty (per rollback) */
@@ -668,7 +785,7 @@ const Store = {
     return stored;
   },
 
-  async removeItem(locationCode: string, itemKey: string, qtyRemove: number | null = null) {
+  async removeItem(locationCode: string, itemKey: string, qtyRemove: number | null = null, qtyUomRemove: number | null = null) {
     if (qtyRemove !== null) qtyRemove = Store._assertPositiveInt(qtyRemove, 'Quantità da prelevare');
     const bucket = this._invByLoc.get(locationCode) || [];
     const idx = bucket.findIndex(i => i.item_key === itemKey);
@@ -676,14 +793,24 @@ const Store = {
     const item = bucket[idx]!;
     const qtyBefore = item.qty || 1;
 
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    const uomBefore = this._uomDiRiga(item, cfg);
+    const totale = qtyRemove === null || qtyRemove >= qtyBefore;
+    const uomOut = totale ? uomBefore : this._uomInUscita(qtyRemove!, qtyUomRemove, uomBefore, cfg);
+    const uomAfter = uomBefore === null ? null : sottraiUom(uomBefore, uomOut ?? 0, cfg!.uom);
+
     if (Persistence.supportsRemoteOps) {
       const removed = await Persistence.op!<GiacenzaRimossa>('removeItem', {
         location_code: locationCode, item_key: itemKey,
-        qty: qtyRemove === null ? qtyBefore : qtyRemove
+        qty: qtyRemove === null ? qtyBefore : qtyRemove,
+        /* La transazione che arbitra fra due terminali deve muovere i due
+           numeri insieme: assente = riga a soli colli, cioe' la 1.4.1. */
+        ...(uomOut === null ? {} : { qty_uom: uomOut }),
       });
       if (removed._mode === 'full') this._applyToCache('inventory', 'delete', item);
       else {
         item.qty = removed._qty_after;
+        if (typeof removed._qty_uom_after === 'number') item.qty_uom = removed._qty_uom_after;
         item.last_updated_at = Date.now();
         this._applyToCache('inventory', 'put', item);
       }
@@ -707,6 +834,9 @@ const Store = {
       removed._qty_before = qtyBefore;
       removed._qty_after = 0;
       removed._qty_delta = -qtyBefore;
+      removed._qty_uom_before = uomBefore;
+      removed._qty_uom_after = uomBefore === null ? null : 0;
+      removed._qty_uom_delta = uomBefore === null ? null : -uomBefore;
       return removed;
     }
 
@@ -714,8 +844,10 @@ const Store = {
     const qtyAfter = qtyBefore - qtyRemove;
     item.qty = qtyAfter;
     item.last_updated_at = Date.now();
+    const updates: Record<string, any> = { qty: qtyAfter, last_updated_at: item.last_updated_at };
+    if (uomAfter !== null) { item.qty_uom = uomAfter; updates.qty_uom = uomAfter; }
     this._applyToCache('inventory', 'put', item);
-    await Persistence.update('inventory', item._id!, { qty: qtyAfter, last_updated_at: item.last_updated_at });
+    await Persistence.update('inventory', item._id!, updates);
     await this._touchMeta();
     // Ritorno copia decorata (NON rimuovo dalla cache)
     const removed = { ...item } as GiacenzaRimossa;
@@ -723,7 +855,32 @@ const Store = {
     removed._qty_before = qtyBefore;
     removed._qty_after = qtyAfter;
     removed._qty_delta = -qtyRemove;
+    removed._qty_uom_before = uomBefore;
+    removed._qty_uom_after = uomAfter;
+    removed._qty_uom_delta = uomOut === null ? null : -uomOut;
     return removed;
+  },
+
+  /* Quante UM escono con N colli, e le due strade non si trattano uguale.
+
+     DICHIARATE da chi ha la merce in mano: si convalidano, e se non ci sono
+     `sottraiUom` fa saltare il prelievo. Un numero digitato che non torna e'
+     un numero sbagliato, e va detto subito.
+
+     DERIVATE dai colli: si TRONCANO a cio' che c'e'. Sembra il contrario del
+     rigore, e non lo e': la deriva puo' esistere solo su una riga gia'
+     incoerente — un dato vecchio, un import a meta' — e bloccare un prelievo
+     fisico perche' un numero e' stale e' peggio del numero stale. Lo scarto
+     non sparisce: lo mostra `verificaUom`, che e' il posto giusto per dirlo. */
+  _uomInUscita(colli: number, dichiarate: number | null, disponibili: number | null, cfg: Configurazione | null): number | null {
+    if (!cfg || disponibili === null) return null;
+    if (dichiarate !== null && dichiarate !== undefined) {
+      const v = arrotondaUom(dichiarate, decimaliUom(cfg.uom));
+      if (v === null || v <= 0) throw new Error(`Quantità in ${cfg.uom}: deve essere maggiore di zero`);
+      return v;
+    }
+    if (!cfg.per_collo) return null;
+    return Math.min(uomDaColli(colli, cfg.per_collo, cfg.uom) ?? 0, disponibili);
   },
 
   /* watermark mid-file v1.8.0 */
@@ -744,7 +901,7 @@ const Store = {
       const snapshot = { ...item };
       const removed = await this.removeItem(locationCode, itemKey);
       if (!removed) return null;
-      const newRec = {
+      const newRec: Giacenza = {
         item_key: newKey,
         article_code: newArtCode,
         article_description: changes.article_description ?? snapshot.article_description,
@@ -757,6 +914,16 @@ const Store = {
         placed_by: snapshot.placed_by || 'operator',
         notes: changes.notes ?? snapshot.notes ?? ''
       };
+      /* 1.4.2 — la riga cambia articolo o lotto, quindi cambia CONFEZIONE: le
+         UM di prima descrivevano un'altra merce. Si ricalcolano sulla nuova,
+         e la nuova si congela adesso — e' un primo posizionamento a tutti gli
+         effetti. */
+      await this._congelaLotto(newArtCode, newLotCode, newRec.last_updated_at!);
+      const cfgNuova = this.getUomConfig(newArtCode, newLotCode);
+      const uomNuova = typeof changes.qty_uom === 'number'
+        ? this._uomInIngresso(newRec.qty!, changes.qty_uom, cfgNuova)
+        : this._uomInIngresso(newRec.qty!, null, cfgNuova);
+      if (uomNuova !== null) newRec.qty_uom = uomNuova;
       const _id = await Persistence.add('inventory', newRec);
       const stored = { ...newRec, _id };
       this._applyToCache('inventory', 'put', stored);
@@ -775,6 +942,18 @@ const Store = {
     if (changes.expiry_date !== undefined)         { updates.expiry_date = changes.expiry_date;             item.expiry_date = changes.expiry_date; }
     if (typeof changes.qty === 'number')            { updates.qty = changes.qty;                             item.qty = changes.qty; }
     if (changes.notes !== undefined)               { updates.notes = changes.notes;                          item.notes = changes.notes; }
+    /* 1.4.2 — la correzione a mano delle UM. Passa dall'arrotondamento
+       dell'unità come ogni altra scrittura, e non tocca i colli: sono due
+       numeri che chi corregge vede tutti e due, e `verificaUom` gli dice
+       subito se non tornano. */
+    if (changes.qty_uom !== undefined) {
+      const cfgRiga = this.getUomConfig(item.article_code, item.lot_code);
+      const v = cfgRiga === null ? null : arrotondaUom(changes.qty_uom, decimaliUom(cfgRiga.uom));
+      if (v !== null) {
+        if (v < 0) throw new Error(`Quantità in ${cfgRiga!.uom}: non può essere negativa`);
+        updates.qty_uom = v; item.qty_uom = v;
+      }
+    }
     item.last_updated_at = now;
     this._applyToCache('inventory', 'put', item);
     await Persistence.update('inventory', item._id!, updates);
@@ -927,7 +1106,13 @@ const Store = {
       // v1.7.0 — tracciamento quantità (Colli)
       qty_before: (typeof entry.qty_before === 'number') ? entry.qty_before : null,
       qty_delta:  (typeof entry.qty_delta  === 'number') ? entry.qty_delta  : null,
-      qty_after:  (typeof entry.qty_after  === 'number') ? entry.qty_after  : null
+      qty_after:  (typeof entry.qty_after  === 'number') ? entry.qty_after  : null,
+      /* 1.4.2 — quanto si è mosso in UM, e in quale unità. `null` e assente
+         sono la stessa cosa e vogliono dire «movimento a soli colli»: è la
+         stessa assenza dichiarata che `qty_delta` ha sui movimenti scritti
+         prima della v2. */
+      qty_uom_delta: (typeof entry.qty_uom_delta === 'number') ? entry.qty_uom_delta : null,
+      ...(entry.uom ? { uom: entry.uom } : {}),
     };
     const _id = await Persistence.add('mov_log', rec);
     this._applyToCache('mov_log', 'put', { ...rec, _id });

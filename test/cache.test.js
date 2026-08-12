@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { COLLEZIONI } from '../src/core/../types/collezioni';
 import {
   FORMA_CACHE, applicaAllaCache, ricostruisciIndici,
-  indiciVuoti, metaVuota, bucketPut, bucketDelete,
+  indiciVuoti, metaVuota, bucketPut, bucketDelete, chiaveLotto,
 } from '../src/core/cache';
 
 function cacheVuota() {
@@ -34,6 +34,8 @@ let C, I;
 const applica = (col, op, rec) => applicaAllaCache(C, I, col, op, rec);
 const giacenza = (_id, location_code, item_key, qty = 1) =>
   ({ _id, location_code, item_key, article_code: item_key.split('|')[0], lot_code: item_key.split('|')[1], qty });
+const lotto = (_id, article_code, lot_code, uom_per_collo = 1000) =>
+  ({ _id, article_code, lot_code, uom: 'PZ', uom_per_collo, frozen_at: 1 });
 
 beforeEach(() => { C = cacheVuota(); I = indiciVuoti(); });
 
@@ -167,14 +169,17 @@ describe('clear', () => {
     for (const c of COLLEZIONI) expect(() => applica(c, 'clear')).not.toThrow();
   });
 
-  it('azzerare inventory e articles butta via anche i loro indici', () => {
+  it('azzerare inventory, articles e lots butta via anche i loro indici', () => {
     applica('inventory', 'put', giacenza(1, 'DP-A-01', '700|L1'));
     applica('articles', 'put', { _id: 1, code: '700' });
+    applica('lots', 'put', lotto(1, '700', 'L1'));
     applica('inventory', 'clear');
     applica('articles', 'clear');
+    applica('lots', 'clear');
     expect(I.invByLoc.size).toBe(0);
     expect(I.invByKey.size).toBe(0);
     expect(I.artByCode.size).toBe(0);
+    expect(I.lotByKey.size).toBe(0);
   });
 });
 
@@ -255,6 +260,51 @@ describe('indice degli articoli', () => {
   });
 });
 
+/* 1.4.2 — la confezione congelata si legge a ogni riga di giacenza, e `lots`
+   cresce di un record per ogni lotto mai posizionato: senza indice sarebbe
+   una scansione per riga a schermata. */
+describe('indice dei lotti', () => {
+  it('indicizza per articolo#lotto, non per _id', () => {
+    applica('lots', 'put', lotto(1, '700', 'L1'));
+    expect(I.lotByKey.get('700#L1').uom_per_collo).toBe(1000);
+  });
+
+  it('la chiave alza il codice e lascia stare il lotto, come item_key', () => {
+    expect(chiaveLotto(' 700 ', ' l1 ')).toBe('700#l1');
+  });
+
+  it('ricongelare lo stesso lotto sostituisce, non accoda', () => {
+    applica('lots', 'put', lotto(1, '700', 'L1', 1000));
+    applica('lots', 'put', lotto(1, '700', 'L1', 500));
+    expect(C.lots).toHaveLength(1);
+    expect(I.lotByKey.get('700#L1').uom_per_collo).toBe(500);
+  });
+
+  /* Stessa ragione del `prev` sulla giacenza: senza, la chiave vecchia resta
+     appesa e due lotti diversi risponderebbero con la stessa confezione. */
+  it('cambiare articolo o lotto toglie la chiave di prima', () => {
+    applica('lots', 'put', lotto(1, '700', 'L1'));
+    applica('lots', 'put', lotto(1, '700', 'L2'));
+    expect(I.lotByKey.has('700#L1')).toBe(false);
+    expect(I.lotByKey.get('700#L2')._id).toBe(1);
+    expect(C.lots).toHaveLength(1);
+  });
+
+  it('cancellarlo lo toglie da tutti e due', () => {
+    applica('lots', 'put', lotto(1, '700', 'L1'));
+    applica('lots', 'delete', lotto(1, '700', 'L1'));
+    expect(I.lotByKey.has('700#L1')).toBe(false);
+    expect(C.lots).toEqual([]);
+  });
+
+  it('due lotti dello stesso articolo sono due confezioni', () => {
+    applica('lots', 'put', lotto(1, '700', 'L1', 1000));
+    applica('lots', 'put', lotto(2, '700', 'L2', 250));
+    expect(I.lotByKey.size).toBe(2);
+    expect(I.lotByKey.get('700#L2').uom_per_collo).toBe(250);
+  });
+});
+
 describe('ricostruzione degli indici', () => {
   /* Le tre eccezioni — idratazione, cancellazione per prefisso, purga —
      non passano da applicaAllaCache e finiscono qui. Se il risultato non
@@ -269,16 +319,20 @@ describe('ricostruzione degli indici', () => {
     for (const r of righe) applica('inventory', 'put', r);
     applica('articles', 'put', { _id: 1, code: '700' });
     applica('articles', 'put', { _id: 2, code: '701', active: false });
+    applica('lots', 'put', lotto(1, '700', 'L1'));
+    applica('lots', 'put', lotto(2, '701', 'L9', 250));
 
     const primaLoc = new Map([...I.invByLoc].map(([k, v]) => [k, v.map(r => r._id)]));
     const primaKey = new Map([...I.invByKey].map(([k, v]) => [k, v.map(r => r._id)]));
     const primaArt = [...I.artByCode.keys()];
+    const primaLot = [...I.lotByKey.keys()];
 
     ricostruisciIndici(C, I);
 
     expect(new Map([...I.invByLoc].map(([k, v]) => [k, v.map(r => r._id)]))).toEqual(primaLoc);
     expect(new Map([...I.invByKey].map(([k, v]) => [k, v.map(r => r._id)]))).toEqual(primaKey);
     expect([...I.artByCode.keys()]).toEqual(primaArt);
+    expect([...I.lotByKey.keys()]).toEqual(primaLot);
   });
 
   it('parte da zero: non somma agli indici che c\'erano', () => {

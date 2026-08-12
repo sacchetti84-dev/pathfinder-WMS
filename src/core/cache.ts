@@ -107,6 +107,19 @@ export interface Indici {
   invByLoc: Map<string, Giacenza[]>;
   invByKey: Map<string, Giacenza[]>;
   artByCode: Map<string, Articolo>;
+  /** 1.4.2 — la confezione congelata, per `articolo#lotto`. Serve un indice
+      e non un `find`: la si legge a ogni riga di ogni schermata di giacenza,
+      e `lots` cresce di un record per ogni lotto mai posizionato. */
+  lotByKey: Map<string, Lotto>;
+}
+
+/* La stessa forma di `item_key`, e non è un caso: le due chiavi descrivono
+   la stessa merce da due lati — la riga dov'è adesso, la confezione con cui
+   è stata imballata. Il lotto NON si alza a maiuscolo, perché `item_key`
+   nasce da `Validate.clean(lot)` senza `upper` e due chiavi diverse per la
+   stessa merce sono peggio di una chiave brutta. */
+export function chiaveLotto(articleCode: unknown, lotCode: unknown): string {
+  return `${String(articleCode ?? '').trim().toUpperCase()}#${String(lotCode ?? '').trim()}`;
 }
 
 /** Un record qualunque. Il tipo è volutamente largo: questa funzione lavora
@@ -152,6 +165,8 @@ export function ricostruisciIndici(C: Cache, indici: Indici): void {
   indici.invByLoc = new Map();
   indici.invByKey = new Map();
   indici.artByCode = new Map();
+  indici.lotByKey = new Map();
+  for (const l of C.lots) indici.lotByKey.set(chiaveLotto(l.article_code, l.lot_code), l);
   for (const it of C.inventory) {
     bucketPut(indici.invByLoc, it.location_code, it as Riga);
     bucketPut(indici.invByKey, it.item_key, it as Riga);
@@ -164,7 +179,10 @@ export function ricostruisciIndici(C: Cache, indici: Indici): void {
 }
 
 export function indiciVuoti(): Indici {
-  return { invByLoc: new Map(), invByKey: new Map(), artByCode: new Map() };
+  return {
+    invByLoc: new Map(), invByKey: new Map(),
+    artByCode: new Map(), lotByKey: new Map(),
+  };
 }
 
 /* UNA SOLA DEFINIZIONE DELLA CACHE VUOTA.
@@ -224,6 +242,7 @@ export function applicaAllaCache(
     }
     if (collezione === 'inventory') { indici.invByLoc = new Map(); indici.invByKey = new Map(); }
     if (collezione === 'articles') { indici.artByCode = new Map(); }
+    if (collezione === 'lots') { indici.lotByKey = new Map(); }
     return;
   }
 
@@ -246,6 +265,7 @@ export function applicaAllaCache(
           bucketDelete(indici.invByKey, record.item_key, record);
         }
         if (collezione === 'articles') indici.artByCode.delete(record.code);
+        if (collezione === 'lots') indici.lotByKey.delete(chiaveLotto(record.article_code, record.lot_code));
         return;
       }
 
@@ -259,6 +279,15 @@ export function applicaAllaCache(
       if (collezione === 'articles') {
         if (record.active === false) indici.artByCode.delete(record.code);
         else indici.artByCode.set(record.code, record as Articolo);
+      }
+      /* Una riga di `lots` che cambia articolo o lotto lascia la chiave
+         vecchia appesa: stessa ragione per cui la giacenza confronta `prev`. */
+      if (collezione === 'lots') {
+        if (prev) {
+          const vecchia = chiaveLotto(prev.article_code, prev.lot_code);
+          if (vecchia !== chiaveLotto(record.article_code, record.lot_code)) indici.lotByKey.delete(vecchia);
+        }
+        indici.lotByKey.set(chiaveLotto(record.article_code, record.lot_code), record as Lotto);
       }
       return;
     }

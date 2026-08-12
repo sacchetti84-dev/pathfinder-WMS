@@ -117,12 +117,30 @@ export interface Configurazione {
 /** L'unità e il per-collo di un articolo di anagrafica. `null` se l'articolo
     non ha unità: si comporta come nella 1.2, in tutto.
 
+    DUE CAMPI CHE ESISTEVANO GIÀ, E CHE QUI SI FINISCONO INVECE DI DOPPIARE.
+
     `uom_per_collo` assente legge `pieces_per_pack`, che esiste dalla v3.0.0
-    ed è già la UM-per-collo. Non se ne inventa un secondo: si finisce quello.
-    Lo zero è l'assenza, perché è così che Store lo ha sempre scritto —
-    `parseInt(...) || 0`. */
+    ed è già la UM-per-collo — è il ripiego che il piano §4.2 chiede a parole.
+    Lo zero è l'assenza, perché è così che Store lo ha sempre scritto,
+    `parseInt(...) || 0`.
+
+    `uom` assente legge `unit`, e questo il piano NON lo diceva: `unit` esiste
+    dalla v1, è già etichettato «UM» nella maschera dell'anagrafica e nella
+    colonna `UM` dell'export, e vale `PZ` di serie. Aggiungere una seconda
+    colonna con lo stesso nome sarebbe la cosa che il piano vieta due righe
+    più su per i pezzi. Il ripiego non apre nessuna porta da solo: `unit` è
+    testo libero da sempre, e ciò che non è una delle cinque unità viene
+    letto come «non gestita». Anche quando lo è — `PZ`, che è il valore
+    predefinito di mezza anagrafica — non succede niente finché nessuno
+    compila la quantità per collo, che è un gesto deliberato. */
 export function configurazione(art: Record<string, any> | null | undefined): Configurazione | null {
-  const uom = leggiUnita(art?.uom);
+  const propria = leggiUnita(art?.uom);
+  /* Un `uom` scritto e non capito NON ripiega su `unit`: chi ha compilato
+     quella cella intendeva qualcosa, e indovinare al posto suo è il modo di
+     dare un'unità sbagliata a della merce. Il ripiego vale per la cella
+     VUOTA, che è l'anagrafica di oggi. */
+  if (propria === undefined) return null;
+  const uom = propria ?? leggiUnita(art?.unit);
   if (!uom) return null;
   const proprio = numero(art?.uom_per_collo);
   const ripiego = numero(art?.pieces_per_pack);
