@@ -53,7 +53,7 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
-| *(questo)* | **La 1.4.0 va in magazzino**: i numeri di versione portati a 1.4.0 nei sette punti che li scrivono, la consegna diventa `Pathfinder 1.4/pathfinder-1.4.0.html`, prova nel browser su una copia del database vero, installazione e verifica |
+| `0adbfb5` | **La 1.4.0 va in magazzino**: i numeri di versione portati a 1.4.0 nei sette punti che li scrivono, la consegna diventa `Pathfinder 1.4/pathfinder-1.4.0.html`, prova nel browser su una copia del database vero, installazione e verifica |
 | `321aeb2` | La 1.4.0 è chiusa, e i documenti lo dicono |
 | `459dac3` | **`store.js` è TypeScript**: sesto blocco, i due ponti caduti, e i due difetti trovati solo nel browser |
 | `ece6962` | **`core/statistiche.ts`** — quinto blocco: stati e cruscotto, verificati confrontando vecchia e nuova implementazione sulle 21 chiavi del risultato |
