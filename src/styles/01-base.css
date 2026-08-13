@@ -1967,10 +1967,15 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
 .btn-icon { min-width: 40px; width: 40px; height: 40px; min-height: 40px; padding: 0; border-radius: var(--md-sys-shape-corner-full); }
 .btn-sm.btn-icon { min-width: 32px; width: 32px; height: 32px; min-height: 32px; }
 
+/* `background-color` e non `background`, qui e nelle tre regole di stato che
+   seguono: la scorciatoia azzera anche `background-image` e
+   `background-repeat`, e su `.select` quelle due portano la freccia del menu
+   a discesa. Con la scorciatoia la freccia si ripeteva per tutta la
+   larghezza del campo a riposo, e spariva al passaggio del mouse. */
 .input, .select, .textarea {
   border: none;
   border-radius: var(--md-sys-shape-corner-extra-small-top);
-  background: var(--md-sys-color-surface-container-highest);
+  background-color: var(--md-sys-color-surface-container-highest);
   color: var(--md-sys-color-on-surface);
   box-shadow: inset 0 -1px 0 var(--md-sys-color-on-surface-variant);
   padding: 0.55rem 0.75rem;
@@ -1981,23 +1986,26 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
               background var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
 }
 .input:hover:not(:focus), .select:hover:not(:focus), .textarea:hover:not(:focus) {
-  background: var(--md-sys-color-surface-container-high);
+  background-color: var(--md-sys-color-surface-container-high);
   box-shadow: inset 0 -1px 0 var(--md-sys-color-on-surface);
 }
 .input:focus, .select:focus, .textarea:focus {
   outline: none;
-  background: var(--md-sys-color-surface-container-highest);
+  background-color: var(--md-sys-color-surface-container-highest);
   box-shadow: inset 0 -2px 0 var(--md-sys-color-primary);
 }
 .input::placeholder, .textarea::placeholder { color: var(--md-sys-color-on-surface-variant); }
 .input:disabled, .select:disabled, .textarea:disabled {
-  background: rgba(23, 29, 26, 0.04);
+  background-color: rgba(23, 29, 26, 0.04);
   color: rgba(23, 29, 26, 0.38);
   box-shadow: inset 0 -1px 0 rgba(23, 29, 26, 0.38);
 }
-/* Freccia del menu a discesa ridisegnata sul ruolo on-surface-variant (#3F4944) */
+/* Freccia del menu a discesa ridisegnata sul ruolo on-surface-variant (#3F4944).
+   `background-repeat` va ripetuto anche qui: sta gia' nella regola della v1,
+   ma basta una scorciatoia `background` in mezzo per riportarlo a `repeat`. */
 .select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233F4944' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
   background-position: right 0.75rem center;
   padding-right: 2rem;
 }
