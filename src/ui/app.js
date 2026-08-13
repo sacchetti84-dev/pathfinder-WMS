@@ -1779,8 +1779,12 @@ const App = {
     const io = Store.getCurrentIdentity();
     const r = Store.getTasksSummary();
     const coda = Store.getTaskQueue();
-    const elenco = this._taskAmbito === 'tutte'
-      ? [...coda, ...Store.getTasks().filter(t => !eAperto(t))]
+    /* 1.4.2.1 — il terzo ambito e' il REGISTRO: tutte le attivita' mai
+       aperte, dalla piu' recente, coi tempi e con che cosa sono state
+       chiuse. E' la memoria dello schedulatore, e l'unico posto da cui
+       esce un foglio Excel. */
+    const elenco = this._taskAmbito === 'registro'
+      ? Store.getTasks().slice().sort((a, b) => (b.requested_at || 0) - (a.requested_at || 0))
       : this._taskAmbito === 'mie'
         ? coda.filter(t => t.assigned_to === io.initials)
         : coda;
@@ -1803,18 +1807,21 @@ const App = {
       <div class="card" style="margin-bottom:0.8rem">
         <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
           <div class="config-tabs" style="margin:0">
-            ${['aperte', 'mie', 'tutte'].map(a => `<button class="config-tab ${this._taskAmbito === a ? 'active' : ''}"
-              onclick="App._taskAmbito='${a}';App.renderTasks()">${a === 'aperte' ? 'In coda' : a === 'mie' ? `Le mie${io.initials ? ' (' + this._esc(io.initials) + ')' : ''}` : 'Tutte, anche chiuse'}</button>`).join('')}
+            ${['aperte', 'mie', 'registro'].map(a => `<button class="config-tab ${this._taskAmbito === a ? 'active' : ''}"
+              onclick="App._taskAmbito='${a}';App.renderTasks()">${a === 'aperte' ? 'In coda' : a === 'mie' ? `Le mie${io.initials ? ' (' + this._esc(io.initials) + ')' : ''}` : '📚 Registro'}</button>`).join('')}
           </div>
           <select class="select" style="max-width:230px" onchange="App._taskTipo=this.value;App.renderTasks()">
             <option value="">Tutti i tipi</option>${opzioniTipo}
           </select>
           <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">${righe.length} attività</span>
+          ${this._taskAmbito === 'registro' ? `<button class="btn btn-sm" style="margin-left:auto" onclick="App.exportTasksExcel()">📊 Esporta Excel</button>` : ''}
         </div>
       </div>
 
-      ${righe.length ? this._renderTaskTable(righe, io) : `<div class="empty-state"><div class="empty-icon">✓</div>
-        <p>${this._taskAmbito === 'mie' ? 'Non hai attività in carico.' : 'Nessuna attività in coda.'}</p></div>`}`;
+      ${righe.length
+        ? (this._taskAmbito === 'registro' ? this._renderTaskRegistro(righe) : this._renderTaskTable(righe, io))
+        : `<div class="empty-state"><div class="empty-icon">✓</div>
+        <p>${this._taskAmbito === 'mie' ? 'Non hai attività in carico.' : this._taskAmbito === 'registro' ? 'Non è stata ancora aperta nessuna attività.' : 'Nessuna attività in coda.'}</p></div>`}`;
   },
 
   /* Le due misure che il piano chiede — quanto sta in coda, quanto dura —
@@ -1905,6 +1912,130 @@ const App = {
         <tbody>${corpo}</tbody>
       </table>
     </div>`;
+  },
+
+  /* ═══ IL REGISTRO DELLE ATTIVITÀ — 1.4.2.1 ══════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Tutte le attività mai aperte, coi tempi e con che cosa sono state
+     chiuse. Non è la coda con un filtro in più: la coda dice cosa c'è da
+     fare, questo dice cosa è stato fatto — e sono le due domande di due
+     persone diverse. Le misure escono da `misure()`, le stesse del cruscotto:
+     tre formattazioni dello stesso numero, per chi legge, sono tre numeri. */
+
+  _tsBreve(ms) {
+    return ms ? new Date(ms).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
+  },
+
+  _renderTaskRegistro(righe) {
+    const corpo = righe.map(t => {
+      const m = misure(t);
+      const chiesto = quantitaRichiesta(t);
+      const fatti = quantitaFatta(t);
+      const movs = t.mov_ids?.length || 0;
+      const esito = t.status === 'cancelled'
+        ? `<span style="color:var(--sx-danger)">${this._esc(t.cancel_reason || 'annullata')}</span>`
+        : t.status === 'done'
+          ? `${movs ? `${movs} moviment${movs === 1 ? 'o' : 'i'}` : '<span style="color:var(--sx-text-muted)">chiusa a mano</span>'}`
+          : '<span style="color:var(--sx-text-muted)">—</span>';
+      return `<tr>
+        <td class="mono" style="white-space:nowrap;font-size: var(--md-sys-typescale-label-small-size)">${this._esc(t.task_id)}</td>
+        <td style="white-space:nowrap">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</td>
+        <td style="min-width:220px">${this._renderTaskPayload(t)}</td>
+        <td><span class="badge ${this._taskStatoClasse(t.status)}">${this._esc(etichettaStato(t.status))}</span></td>
+        <td style="white-space:nowrap">${chiesto === null ? '—' : `${fatti}/${chiesto}`}</td>
+        <td class="mono">${this._esc(t.requested_by)}</td>
+        <td class="mono">${this._esc(t.assigned_to || '—')}</td>
+        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-label-small-size)">${this._tsBreve(t.requested_at)}</td>
+        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-label-small-size)">${this._tsBreve(t.started_at)}</td>
+        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-label-small-size)">${this._tsBreve(t.completed_at)}</td>
+        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-body-small-size)">${durataUmana(m.attesa)}</td>
+        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-body-small-size)">${durataUmana(m.durata)}</td>
+        <td style="font-size: var(--md-sys-typescale-body-small-size)">${esito}</td>
+      </tr>`;
+    }).join('');
+    return `<div class="card" style="overflow-x:auto">
+      <table class="sx-table" style="min-width:1280px">
+        <thead><tr>
+          <th style="width:120px">Attività</th><th>Tipo</th><th>Cosa</th><th style="width:100px">Stato</th>
+          <th style="width:70px">Colli</th><th style="width:70px">Chiesta da</th><th style="width:70px">Svolta da</th>
+          <th style="width:110px">Richiesta</th><th style="width:110px">Avvio</th><th style="width:110px">Chiusura</th>
+          <th style="width:90px">In coda</th><th style="width:90px">Lavoro</th><th style="width:150px">Chiusa con</th>
+        </tr></thead>
+        <tbody>${corpo}</tbody>
+      </table>
+    </div>`;
+  },
+
+  /* Il foglio esce con quello che serve a rispondere alle domande di fine
+     mese — quante ne sono state aperte, da chi, quanto sono state ferme —
+     e con le durate in DUE forme: in chiaro per chi legge, in minuti per
+     chi ci fa una tabella pivot. */
+  exportTasksExcel() {
+    const tutte = Store.getTasks().slice().sort((a, b) => (b.requested_at || 0) - (a.requested_at || 0));
+    if (!tutte.length) return this.toast('Nessuna attività da esportare', 'error');
+    const min = (ms) => (ms === null || ms === undefined) ? '' : Math.round(ms / 60000);
+    const dt = (ms) => ms ? new Date(ms).toLocaleString('it-IT') : '';
+
+    const headers = ['Attività', 'Tipo', 'Priorità', 'Stato', 'Articolo', 'Lotto', 'Da', 'A',
+      'Colli chiesti', 'Colli fatti', 'Residuo', 'Chiesta da', 'Svolta da', 'Chiusa da',
+      'Richiesta', 'Avvio', 'Chiusura', 'Scadenza',
+      'In coda', 'In coda (min)', 'Lavoro', 'Lavoro (min)', 'Totale (min)',
+      'N° movimenti', 'Movimenti', 'Note', 'Motivo annullamento'];
+    const rows = tutte.map(t => {
+      const p = (t.payload && typeof t.payload === 'object') ? t.payload : {};
+      const m = misure(t);
+      const chiesto = quantitaRichiesta(t);
+      return [
+        t.task_id, etichettaTipo(t.type), etichettaPriorita(t.priority), etichettaStato(t.status),
+        p.article_code || '', p.lot_code || '', p.from || '', p.to || '',
+        chiesto ?? '', quantitaFatta(t), chiesto === null ? '' : (residuo(t) ?? ''),
+        t.requested_by || '', t.assigned_to || '', t.completed_by || '',
+        dt(t.requested_at), dt(t.started_at), dt(t.completed_at), dt(t.due_at),
+        durataUmana(m.attesa), min(m.attesa), durataUmana(m.durata), min(m.durata), min(m.totale),
+        t.mov_ids?.length || 0, (t.mov_ids || []).join(' '),
+        t.note || '', t.cancel_reason || '',
+      ];
+    });
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    ws['!cols'] = [{wch:18},{wch:16},{wch:10},{wch:12},{wch:18},{wch:14},{wch:16},{wch:16},
+      {wch:12},{wch:11},{wch:9},{wch:11},{wch:11},{wch:11},
+      {wch:18},{wch:18},{wch:18},{wch:18},
+      {wch:12},{wch:12},{wch:12},{wch:12},{wch:12},
+      {wch:12},{wch:22},{wch:30},{wch:30}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Registro attività');
+
+    /* Foglio 2 — le due misure per tipo. È la riga che dice se un tipo di
+       attività sta in coda troppo a lungo, e senza la quale il registro è
+       un elenco invece di una misura. */
+    const perTipo = {};
+    for (const t of tutte) {
+      const k = etichettaTipo(t.type);
+      if (!perTipo[k]) perTipo[k] = { tot: 0, aperte: 0, fatte: 0, annullate: 0, attesa: 0, durata: 0, conclusi: 0 };
+      const v = perTipo[k];
+      v.tot++;
+      if (eAperto(t)) v.aperte++;
+      else if (t.status === 'cancelled') v.annullate++;
+      else {
+        v.fatte++;
+        const m = misure(t);
+        if (m.attesa !== null && m.durata !== null) { v.attesa += m.attesa; v.durata += m.durata; v.conclusi++; }
+      }
+    }
+    const sum = [['Tipo', 'Totale', 'Aperte', 'Completate', 'Annullate', 'Attesa media (min)', 'Durata media (min)']];
+    for (const [k, v] of Object.entries(perTipo).sort((a, b) => b[1].tot - a[1].tot)) {
+      sum.push([k, v.tot, v.aperte, v.fatte, v.annullate,
+        v.conclusi ? Math.round(v.attesa / v.conclusi / 60000) : '',
+        v.conclusi ? Math.round(v.durata / v.conclusi / 60000) : '']);
+    }
+    const ws2 = XLSX.utils.aoa_to_sheet(sum);
+    ws2['!cols'] = [{wch:22},{wch:10},{wch:10},{wch:12},{wch:11},{wch:20},{wch:20}];
+    XLSX.utils.book_append_sheet(wb, ws2, 'Riepilogo Tipo');
+
+    const fn = `registro-attivita-${new Date().toISOString().slice(0, 10)}.xlsx`;
+    XLSX.writeFile(wb, fn);
+    this.toast(`📊 Esportato: ${fn} (${tutte.length} attività, 2 fogli)`, 'success');
   },
 
   _taskPrioClasse(p) { return p >= 4 ? 'badge-red' : p === 3 ? 'badge-amber' : p === 1 ? 'badge-muted' : 'badge-blue'; },
