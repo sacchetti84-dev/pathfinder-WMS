@@ -14,10 +14,10 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 13/08/2026
 
 | Voce | Valore |
 |---|---|
-| In produzione | `pathfinder-1.4.2.html` — è il file che il servizio serve **adesso**, 1.541.133 byte, **installato il 12/08** |
-| Ritorno indietro | `pathfinder-1.4.0.html`, fermo in radice. La 1.4.1 non è mai entrata: è dentro la 1.4.2 |
+| In produzione | **`pathfinder-1.4.2.1.html`** — è il file che il servizio serve **adesso**, 1.578.609 byte, **installato il 13/08 alle 03:0x** |
+| Ritorno indietro | **`pathfinder-1.4.2.html`**, fermo in radice, 1.541.133 byte. Sotto ci sono ancora la 1.4.0 e la 1.2 |
 | Interruttori | **tutti e cinque spenti**: in `meta` non c'è nessuna chiave `feature.*` |
-| **1.4.2.1** | **chiusa, costruita e provata il 13/08** — sei blocchi su sei, `Pathfinder 1.4/pathfinder-1.4.2.1.html`, 1.578.041 byte. Otto flussi verdi su copia del database vero. **Da installare.** HANDOFF §3 |
+| **1.4.2.1** | **in magazzino dal 13/08** — sei blocchi su sei, otto flussi provati su copia del database vero. Resta da **accendere**: gli interruttori sono ancora spenti. HANDOFF §3 |
 | ⚠ **Da chiudere** | `ANDS` è **l'unico Team Leader**. Il PIN del 13/08 è rientrato, ma un solo leader resta un punto singolo di rottura: il PIN non è recuperabile e il rinnovo lo autorizza un leader. **Promuoverne un secondo** — HANDOFF §4bis |
 | Sorgente | **27 TypeScript** · 5 JavaScript · 5 CSS · `index.html` |
 | Ancora JavaScript | `main.js`, `ui/` (4 file) |
@@ -197,8 +197,8 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 | # | Cosa | Peso |
 |---|---|---|
 | **0** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per qualche ora nessuno poteva creare un operatore né rinnovarne uno. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — HANDOFF §4bis | **prima di tutto** |
-| 1 | **Installare la 1.4.2.1** — i cinque comandi, a fine turno e con un backup fresco davanti. Codice chiuso, file costruito, **prova nel browser fatta il 13/08**: otto flussi su copia del database vero | **il prossimo** |
-| 1bis | **Accendere gli interruttori, ma DOPO che la 1.4.2.1 è in magazzino** — poi uno per turno | quando la 1.4.2.1 è in magazzino |
+| 1 | **Accendere `feature.tasks`** a inizio turno, col PIN del Team Leader. Finché è spento la 1.4.2.1 è installata ma invisibile — ed è voluto | **il prossimo** |
+| 1bis | **`feature.uom` il turno DOPO**, mai lo stesso giorno di `tasks`: due interruttori insieme e non si sa più quale ha fatto cosa | il turno dopo |
 | 1ter | **Confermare due scelte del 12/08** che il piano non prevedeva: la colonna UM è `unit` — quella che c'è già — e la quantità per collo è `pieces_per_pack`. Vedi HANDOFF §5, decisione 41 | **prima di accendere `uom`** |
 | 1quater | La 1.4.3 — UDC, `moveUdc` transazionale, etichette, entro il 21/11 | dopo |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |

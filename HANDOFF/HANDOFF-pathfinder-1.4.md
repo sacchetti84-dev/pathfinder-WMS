@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 13/08/2026 · Rev. 11 — la 1.4.2 è in magazzino; la **1.4.2.1 è chiusa, costruita e provata nel browser**. Manca solo installarla
+Data: 13/08/2026 · Rev. 12 — **la 1.4.2.1 è in magazzino**, provata e installata la notte del 13/08. Resta da accendere
 
 ---
 
@@ -25,13 +25,13 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Voce | Valore |
 |---|---|
-| In magazzino, **adesso** | `pathfinder-1.4.2.html` — verificato su `/api/app-info`, **1.541.133 byte**, installato il 12/08 alle 21:47 |
+| In magazzino, **adesso** | **`pathfinder-1.4.2.1.html`** — verificato su `/api/app-info`, **1.578.609 byte**, installato la notte del 13/08 |
 | Interruttori | **tutti e cinque spenti**: in `meta` non c'è nessuna chiave `feature.*` |
-| Ritorno indietro | `pathfinder-1.4.0.html`, fermo in radice. La 1.4.1 non è mai entrata: è dentro la 1.4.2 |
+| Ritorno indietro | **`pathfinder-1.4.2.html`**, fermo in radice, 1.541.133 byte. Sotto restano la 1.4.0 e la 1.2 |
 | Sorgente | 32 file in `src/`: **27 TypeScript**, 5 JavaScript, più 5 CSS |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
-| **1.4.2.1** | **costruita e PROVATA**: sei blocchi su sei, `Pathfinder 1.4/pathfinder-1.4.2.1.html`, **1.578.041 byte**. Otto flussi verdi su una copia del database vero. Non ancora installata — §3 |
+| **1.4.2.1** | **in magazzino**: sei blocchi su sei, otto flussi provati su una copia del database vero prima di installarla — §3 |
 | Collaudi | **377 client** · **54 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
@@ -228,9 +228,9 @@ operatori proprio la «lista che invecchia» che il piano §4.1 temeva.
 | 3 | La maschera di creazione: ricerca dalle giacenze, autofill, 📍, campi DDT, soglia in Configurazione | **fatto** — provata nel browser |
 | 4 | **L'avvio che lancia il movimento** | **fatto** — 11 prove nuove sul modulo, 4 sul servizio |
 | 5 | **Il registro attività** con export Excel | **fatto** |
-| 6 | Versione `1.4.2.1`, build, documenti | **fatto** — 1.578.041 byte |
+| 6 | Versione `1.4.2.1`, build, documenti | **fatto** — 1.578.609 byte |
 | 7 | **Prova nel browser sul file consegnato** | **fatta 13/08** — otto flussi su copia del database vero, porta 4199. Tre difetti trovati e chiusi, sotto |
-| 8 | **Installare la 1.4.2.1** — i cinque comandi | **da fare** |
+| 8 | **Installare la 1.4.2.1** | **fatto 13/08** — `/api/app-info` risponde `pathfinder-1.4.2.1.html`, 1.578.609 byte |
 
 #### Cosa ha trovato la prova nel browser, che tsc e 377 collaudi non vedevano
 
@@ -368,8 +368,7 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
 | **0** | **`ANDS` È L'UNICO TEAM LEADER, E IL 13/08 È COSTATO.** Per qualche ora il PIN si è smarrito, e con un solo `leader` questo vuol dire che **nessuno può più creare un operatore né rinnovarne uno**: il rinnovo lo autorizza un Team Leader col proprio PIN, e il cerchio si chiude su se stesso. Il PIN è rientrato; **la causa no.** Promuovere `DAPE` o creare una sigla di riserva — un minuto in Configurazione → Operatori, §4bis | **13/08** | **Andrea, prima di ogni altra cosa** |
-| 1 | **Installare la 1.4.2.1**: i cinque comandi, a fine turno, con un backup fresco davanti. Codice chiuso, file costruito, **prova nel browser fatta** — §3 | 13/08 | il prossimo lavoro |
-| 1bis | **Accendere gli interruttori**, ma DOPO che la 1.4.2.1 è in magazzino. Poi uno per turno, `feature.uom` il turno dopo | 12/08 | Andrea, quando la 1.4.2.1 è in magazzino |
+| 1 | **Accendere `feature.tasks`** a inizio turno, col PIN del Team Leader — e `feature.uom` il turno dopo, mai lo stesso giorno. Finché sono spenti la 1.4.2.1 è installata e invisibile, ed è voluto | 13/08 | Andrea, a inizio turno |
 | 1ter | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
 | 1quater | **La 1.4.3** — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | nuovo | il prossimo lavoro |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
@@ -465,10 +464,22 @@ servendo un'altra cartella: non insistere, leggere il README §9.
 
 | Versione | `app_file` | `bytes` |
 |---|---|---|
-| 1.4.0 — il ritorno indietro della 1.4.2 | `pathfinder-1.4.0.html` | 1.493.517 |
+| 1.4.0 | `pathfinder-1.4.0.html` | 1.493.517 |
 | 1.4.1 — costruita, mai installata | `pathfinder-1.4.1.html` | 1.526.393 |
-| **1.4.2** — in magazzino adesso, e ritorno indietro della 1.4.2.1 | `pathfinder-1.4.2.html` | **1.541.133** |
-| **1.4.2.1** — costruita e provata il 13/08 | `pathfinder-1.4.2.1.html` | **1.578.041** |
+| **1.4.2** — il ritorno indietro della 1.4.2.1 | `pathfinder-1.4.2.html` | 1.541.133 |
+| **1.4.2.1** — in magazzino adesso | `pathfinder-1.4.2.1.html` | **1.578.609** |
+
+> **La 1.4.2.1 è entrata in radice due volte la stessa notte, e i byte sono
+> cambiati con lei** — da 1.578.041 a 1.578.609. In mezzo una correzione sola,
+> tutta CSS: la freccia delle tendine si ripeteva per tutta la larghezza del
+> campo e spariva al passaggio del mouse. Si è potuto fare perché era notte,
+> gli interruttori erano spenti e la versione non l'aveva ancora usata nessuno.
+>
+> **Non è la strada normale, e non va presa per abitudine.** Sovrascrivere il
+> file servito lascia due contenuti diversi sotto lo stesso numero di versione,
+> e chi verifica un'installazione confronta `app_file` **e** `bytes`: da quel
+> momento vale solo l'ultimo, e un foglio stampato ieri dice il numero
+> sbagliato. Una correzione, anche di una riga di CSS, prende un numero suo.
 
 **Il ritorno indietro è il punto 3 all'incontrario, più un riavvio.** Il file
 precedente resta in radice — nessuno di questi passi lo sposta, proprio per
@@ -504,6 +515,7 @@ questo — e il database non viene toccato. La 1.2 rilegge il database della
 | Collaudi su `_applyToCache` | 1.3 §6.5 | **Fatto 12/08**: 19 collezioni dichiarate, `resetAll` le pulisce tutte |
 | Portare la 1.4.0 in magazzino | 1.4 §4 | **Fatto 12/08**: build, prova nel browser su copia del database vero, cinque comandi, `/api/app-info` lo conferma |
 | Portare la 1.4.1 in magazzino | 1.4 §4 | **Assorbito**: non è mai entrata da sola, è dentro la 1.4.2 |
+| Portare la 1.4.2.1 in magazzino | 1.4 §3 | **Fatto 13/08**: provata prima su una copia del database vero, poi i cinque comandi. Il ritorno indietro è la 1.4.2, che resta in radice |
 | Portare la 1.4.2 in magazzino | 1.4 §4 | **Fatto 12/08, 21:47**: backup, copia in radice, variabile, riavvio, verifica. Revisione del database 22418 prima e dopo: l'installazione non ha scritto niente |
 
 ---
