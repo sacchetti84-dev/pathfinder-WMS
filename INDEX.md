@@ -17,14 +17,14 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 13/08/2026
 | In produzione | `pathfinder-1.4.2.html` — è il file che il servizio serve **adesso**, 1.541.133 byte, **installato il 12/08** |
 | Ritorno indietro | `pathfinder-1.4.0.html`, fermo in radice. La 1.4.1 non è mai entrata: è dentro la 1.4.2 |
 | Interruttori | **tutti e cinque spenti**: in `meta` non c'è nessuna chiave `feature.*` |
-| **1.4.2.1** | **codice chiuso e costruita il 13/08** — sei blocchi su sei, `Pathfinder 1.4/pathfinder-1.4.2.1.html`, 1.576.719 byte. Manca la prova nel browser. HANDOFF §3 |
-| ⛔ **Bloccante** | **il PIN del Team Leader è smarrito**, e `ANDS` è l'unico `leader`: nessuno crea operatori né rinnova PIN. Ferma la prova e l'installazione. **HANDOFF §4bis** |
+| **1.4.2.1** | **chiusa, costruita e provata il 13/08** — sei blocchi su sei, `Pathfinder 1.4/pathfinder-1.4.2.1.html`, 1.578.041 byte. Otto flussi verdi su copia del database vero. **Da installare.** HANDOFF §3 |
+| ⚠ **Da chiudere** | `ANDS` è **l'unico Team Leader**. Il PIN del 13/08 è rientrato, ma un solo leader resta un punto singolo di rottura: il PIN non è recuperabile e il rinnovo lo autorizza un leader. **Promuoverne un secondo** — HANDOFF §4bis |
 | Sorgente | **27 TypeScript** · 5 JavaScript · 5 CSS · `index.html` |
 | Ancora JavaScript | `main.js`, `ui/` (4 file) |
 | Servizio | Node + Express + SQLite, porta **4173** |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
-| Collaudi | **374 client** (~1,8 s) + **54 servizio** + 8 migrazione — verdi |
+| Collaudi | **377 client** (~1,8 s) + **54 servizio** + 8 migrazione — verdi |
 | Tipi | `npm run check` client + servizio — 0 errori |
 
 ## 2. Comandi
@@ -98,7 +98,7 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
-`compiti` (95) · `misure` (65) — **374 prove** in tutto. `ambiente.js` è il
+`compiti` (98) · `misure` (65) — **377 prove** in tutto. `ambiente.js` è il
 preambolo comune.
 
 ## 4. API del servizio
@@ -196,11 +196,11 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 | # | Cosa | Peso |
 |---|---|---|
-| **0** | ⛔ **PIN del Team Leader smarrito, e `ANDS` è l'unico `leader`**: nessuno può più creare un operatore né rinnovare un PIN. Si esce dal dato — **HANDOFF §4bis** — e poi si promuove un secondo Team Leader, perché la causa è quella | **prima di tutto** |
-| 1 | **Provare la 1.4.2.1 nel browser** su una copia del database vero, poi i cinque comandi. Il codice è chiuso e il file è costruito | **il prossimo**, dopo lo 0 |
+| **0** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per qualche ora nessuno poteva creare un operatore né rinnovarne uno. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — HANDOFF §4bis | **prima di tutto** |
+| 1 | **Installare la 1.4.2.1** — i cinque comandi, a fine turno e con un backup fresco davanti. Codice chiuso, file costruito, **prova nel browser fatta il 13/08**: otto flussi su copia del database vero | **il prossimo** |
 | 1bis | **Accendere gli interruttori, ma DOPO che la 1.4.2.1 è in magazzino** — poi uno per turno | quando la 1.4.2.1 è in magazzino |
-| 1bis | **Confermare due scelte del 12/08** che il piano non prevedeva: la colonna UM è `unit` — quella che c'è già — e la quantità per collo è `pieces_per_pack`. Vedi HANDOFF §5, decisione 41 | **prima di accendere `uom`** |
-| 1ter | La 1.4.3 — UDC, `moveUdc` transazionale, etichette. Slitta di quanto serve alla 1.4.2.1 | dopo |
+| 1ter | **Confermare due scelte del 12/08** che il piano non prevedeva: la colonna UM è `unit` — quella che c'è già — e la quantità per collo è `pieces_per_pack`. Vedi HANDOFF §5, decisione 41 | **prima di accendere `uom`** |
+| 1quater | La 1.4.3 — UDC, `moveUdc` transazionale, etichette, entro il 21/11 | dopo |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
 | 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea**. La maschera c'è: è un dato, non codice | esterno |
 | 4 | Nome DNS interno e certificato dalla CA — **IT**. Il codice è pronto e non aspetta niente: arriva a lavori finiti | non blocca |
@@ -211,7 +211,7 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 ## 7. Cosa non fare
 
-- **Non toccare `pathfinder-1.4.2.html` in radice**: è il file servito in questo momento. E non spostare `pathfinder-1.4.0.html`, che gli sta accanto: è il ritorno indietro. `pathfinder-1.2.html` nemmeno.
+- **Non toccare `pathfinder-1.4.2.html` in radice**: è il file servito in questo momento, e dall'installazione della 1.4.2.1 diventa il suo ritorno indietro. Non spostare nemmeno `pathfinder-1.4.0.html` e `pathfinder-1.2.html`.
 - **Installare non è accendere.** La 1.4.2 è in magazzino dal 12/08 e non cambia niente a video finché `feature.tasks` e `feature.uom` restano spenti: sono gesti in momenti diversi, ed è così che si distingue un rilascio andato male da una funzione che non piace. Provato sul file consegnato: a interruttore spento una riga di giacenza che ha già un `qty_uom` si legge come nella 1.4.1.
 - **Uno spostamento è un `removeItem` seguito da un `addItem`**, e il secondo deriva le UM dai colli pieni: senza passargli quante ne sono uscite, spostare 11 colli da 10.100 pz ne riscrive 11.000. Chi aggiunge un `addItem` che rimette a posto qualcosa passi da `App._umMossa` — HANDOFF §6, trappola 24.
 - **Il nome del file porta tre numeri**, `pathfinder-1.4.N.html`: la serie 1.4 sono sei rilasci distinti e ognuno resta in radice per fare da ritorno indietro al successivo.

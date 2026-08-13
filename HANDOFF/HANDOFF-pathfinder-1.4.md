@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 13/08/2026 · Rev. 10 — la 1.4.2 è in magazzino; la **1.4.2.1 è chiusa e costruita**, sei blocchi su sei. Manca la prova nel browser, e manca perché il PIN del Team Leader è smarrito — §4, aperto 0
+Data: 13/08/2026 · Rev. 11 — la 1.4.2 è in magazzino; la **1.4.2.1 è chiusa, costruita e provata nel browser**. Manca solo installarla
 
 ---
 
@@ -31,8 +31,8 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Sorgente | 32 file in `src/`: **27 TypeScript**, 5 JavaScript, più 5 CSS |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
-| **1.4.2.1** | **costruita**: sei blocchi su sei, `Pathfinder 1.4/pathfinder-1.4.2.1.html`, **1.576.719 byte**. Non installata, e non installabile finché non è provata nel browser. Vedi §3 |
-| Collaudi | **374 client** · **54 servizio** · **8 migrazione** — tutti verdi |
+| **1.4.2.1** | **costruita e PROVATA**: sei blocchi su sei, `Pathfinder 1.4/pathfinder-1.4.2.1.html`, **1.578.041 byte**. Otto flussi verdi su una copia del database vero. Non ancora installata — §3 |
+| Collaudi | **377 client** · **54 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
@@ -228,8 +228,41 @@ operatori proprio la «lista che invecchia» che il piano §4.1 temeva.
 | 3 | La maschera di creazione: ricerca dalle giacenze, autofill, 📍, campi DDT, soglia in Configurazione | **fatto** — provata nel browser |
 | 4 | **L'avvio che lancia il movimento** | **fatto** — 11 prove nuove sul modulo, 4 sul servizio |
 | 5 | **Il registro attività** con export Excel | **fatto** |
-| 6 | Versione `1.4.2.1`, build, documenti | **fatto** — 1.576.719 byte |
-| 7 | **Prova nel browser sul file consegnato**, e installazione | **da fare** — bloccata, vedi §4 aperto 0 |
+| 6 | Versione `1.4.2.1`, build, documenti | **fatto** — 1.578.041 byte |
+| 7 | **Prova nel browser sul file consegnato** | **fatta 13/08** — otto flussi su copia del database vero, porta 4199. Tre difetti trovati e chiusi, sotto |
+| 8 | **Installare la 1.4.2.1** — i cinque comandi | **da fare** |
+
+#### Cosa ha trovato la prova nel browser, che tsc e 377 collaudi non vedevano
+
+Il banco: seconda istanza sulla **4199**, database una copia a caldo del
+vero, il file appena costruito, e le giacenze del backup del 07/08 caricate
+dentro. `feature.tasks` e `feature.uom` accesi **sulla sola copia**.
+
+| | Difetto | Perché non lo prendeva nessun collaudo |
+|---|---|---|
+| 1 | **La riga la sceglieva la ricerca, non il compito.** Con lo stesso lotto in due ubicazioni, `_cambioLookup` apre l'elenco delle partenze e non seleziona niente: maschera precompilata, nessuna merce sotto, e alla conferma «scansiona prima un articolo» | Serve un lotto **in due ubicazioni** e un compito che ne indichi una. Nessuna prova da fermo monta quella coincidenza |
+| 2 | **La Conta pretendeva un articolo**, e quindi non si poteva proprio aprire | La validazione stava nella maschera, non nel modulo puro. Adesso ci sono `vuoleArticolo` e `vuoleUbicazione`, con le loro prove |
+| 3 | **Evadere un DDT da fuori Movimenta lasciava un'eccezione**: `movFormArea` là non esiste e la maschera si ridisegnava su `null` | La merce usciva e il compito si chiudeva lo stesso: moriva l'ultima riga, in silenzio. **C'era già nella 1.2** — si evade anche dal riquadro in Dashboard |
+
+**Gli otto flussi, uno per uno, tutti verdi:**
+
+| Flusso | Cosa si è visto |
+|---|---|
+| Trasferimento **parziale** | 13 chiesti, 8 mossi → restano 5, compito **aperto**. Origine 5 coll./30 PZ, destinazione 8/48: nessun pezzo comparso dal nulla — trappola 24 |
+| Trasferimento, **il saldo** | «Riprendi» precompila **5**, non 13. Mossi, il compito si chiude **da solo**: `qty_done` 13, `mov_ids` [60, 61] |
+| **Abbandono** | Maschera chiusa senza confermare → torna ad **assegnato**, `started_at` **azzerato**, la sigla resta. Decisione 46 |
+| Posizionamento | Chiuso in un colpo, 7 coll. = 42 PZ |
+| Smaltimento | 3 su 7, verbale `SMA-2026-0001`, saldo 4 coll./24 PZ |
+| Quarantena | 4 coll. in area NC, 7 restano conformi, cartellino stampato |
+| **Conta** | Si apre su un vano **senza articolo**; la rettifica non la chiude — non ha colli — e resta il gesto a mano, che per lei sola sopravvive |
+| **Campionamento** | 13 colli restano **13**, dentro cala da 78 a 75 PZ. Causale `SAMPLE` a registro, `qty_delta` 0 e `qty_uom_delta` −3 |
+| **Prelievo → DDT** | Testata precompilata da chi ha chiesto. Registrato, il compito **resta in corso**. **Ricaricata la pagina** — sessione morta — e poi evaso: il compito si chiude lo stesso, perché il filo è `task_id` sul documento. Decisione 51 |
+| Registro + export | 9 attività coi tempi, foglio Excel a due pagine |
+
+> **La regola dei due lati.** «Fatta» a mano chiude la Conta e viene
+> **respinta** su un trasferimento in corso, con il messaggio giusto: provate
+> tutte e due, perché una regola verificata da un lato solo è una regola per
+> metà.
 
 **Il file porta quattro numeri**, `pathfinder-1.4.2.1.html`: gli serve un
 ritorno indietro suo, distinto dalla 1.4.2 che è in magazzino adesso.
@@ -334,12 +367,11 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
-| **0** | **IL PIN DEL TEAM LEADER È SMARRITO, E NON C'È UN MODO DI RECUPERARLO DALL'APPLICATIVO.** Blocca la prova nel browser della 1.4.2.1, e quindi l'installazione. Ma il fatto grosso è un altro: sul database VERO `ANDS` è **l'unico** `leader` — l'altro operatore, `DAPE`, è `operator`. Finché resta così, un PIN smarrito vuol dire che **nessuno può più creare un operatore né rinnovare un PIN**, e la maschera dice giustamente «il rinnovo lo autorizza un Team Leader con il proprio PIN». Sotto, in §4bis, come si esce e come si evita che ricapiti | **13/08** | **Andrea, prima di ogni altra cosa** |
-| 1 | **Provare la 1.4.2.1 nel browser** sul file consegnato, contro una copia del database vero e su una porta sua — poi i cinque comandi. Il codice è chiuso: manca solo questo | 13/08 | dopo l'aperto 0 |
+| **0** | **`ANDS` È L'UNICO TEAM LEADER, E IL 13/08 È COSTATO.** Per qualche ora il PIN si è smarrito, e con un solo `leader` questo vuol dire che **nessuno può più creare un operatore né rinnovarne uno**: il rinnovo lo autorizza un Team Leader col proprio PIN, e il cerchio si chiude su se stesso. Il PIN è rientrato; **la causa no.** Promuovere `DAPE` o creare una sigla di riserva — un minuto in Configurazione → Operatori, §4bis | **13/08** | **Andrea, prima di ogni altra cosa** |
+| 1 | **Installare la 1.4.2.1**: i cinque comandi, a fine turno, con un backup fresco davanti. Codice chiuso, file costruito, **prova nel browser fatta** — §3 | 13/08 | il prossimo lavoro |
 | 1bis | **Accendere gli interruttori**, ma DOPO che la 1.4.2.1 è in magazzino. Poi uno per turno, `feature.uom` il turno dopo | 12/08 | Andrea, quando la 1.4.2.1 è in magazzino |
-| 1quater | **Un secondo Team Leader**, per non ritrovarsi come il 13/08. Promuovere `DAPE` o creare una sigla di riserva: un minuto in Configurazione → Operatori. §4bis | **13/08** | Andrea, appena il PIN è rinnovato |
-| 1bis | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
-| 1ter | **La 1.4.3** — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | nuovo | il prossimo lavoro |
+| 1ter | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
+| 1quater | **La 1.4.3** — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | nuovo | il prossimo lavoro |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
 | 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare, non codice da scrivere | **1.0 §7.1** | Andrea, quando opportuno |
 | 4 | **Nome DNS interno e certificato** dalla CA aziendale. **Il codice è pronto e non aspetta niente**: due variabili e HTTPS si accende. Il certificato arriva a lavori finiti | **1.0 §7.2** · 1.2 §6.1 | IT — non blocca |
@@ -393,11 +425,11 @@ Operatori che lo segnala sarebbe piccola, e questo pomeriggio sarebbe
 servita. **Non è stata scritta**: è fuori dal perimetro della 1.4.2.1, e si
 decide a mente fredda.
 
-### I cinque comandi — **rifatti il 12/08 per la 1.4.2**, restano qui perché servono a ogni versione
+### I cinque comandi — **pronti per la 1.4.2.1**, e restano qui perché servono a ogni versione
 
 Da **PowerShell come amministratore** (il servizio gira come SYSTEM), **a fine
 turno** e **con un backup fresco davanti**. Si rifanno tali e quali per la versione
-dopo, cambiando `1.4.2` con `1.4.3` in due punti: il passo 2 e il passo 3.
+dopo, cambiando il numero in due punti: il passo 2 e il passo 3.
 
 I passi 1 e 2 non cambiano niente per chi lavora: il file nuovo in radice non è
 servito finché `PATHFINDER_APP` non ci punta. **Il rilascio vero sono i passi 3 e
@@ -411,12 +443,12 @@ Invoke-RestMethod -Uri http://127.0.0.1:4173/api/backup -Method Post `
 
 ```powershell
 cd "C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER"
-Copy-Item "Pathfinder 1.4\pathfinder-1.4.2.html" pathfinder-1.4.2.html
+Copy-Item "Pathfinder 1.4\pathfinder-1.4.2.1.html" pathfinder-1.4.2.1.html
 ```
 
 ```powershell
 [Environment]::SetEnvironmentVariable('PATHFINDER_APP',
-  'C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\pathfinder-1.4.2.html','Machine')
+  'C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\pathfinder-1.4.2.1.html','Machine')
 ```
 
 ```powershell
@@ -436,7 +468,7 @@ servendo un'altra cartella: non insistere, leggere il README §9.
 | 1.4.0 — il ritorno indietro della 1.4.2 | `pathfinder-1.4.0.html` | 1.493.517 |
 | 1.4.1 — costruita, mai installata | `pathfinder-1.4.1.html` | 1.526.393 |
 | **1.4.2** — in magazzino adesso, e ritorno indietro della 1.4.2.1 | `pathfinder-1.4.2.html` | **1.541.133** |
-| 1.4.2.1 — costruita il 13/08, da provare | `pathfinder-1.4.2.1.html` | 1.576.719 |
+| **1.4.2.1** — costruita e provata il 13/08 | `pathfinder-1.4.2.1.html` | **1.578.041** |
 
 **Il ritorno indietro è il punto 3 all'incontrario, più un riavvio.** Il file
 precedente resta in radice — nessuno di questi passi lo sposta, proprio per
@@ -761,7 +793,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 ```bash
 npm run check                       # tsc client + servizio
-npm test                            # 374 prove client
+npm test                            # 377 prove client
 npm run build                       # produce "Pathfinder 1.4/"
 ```
 
