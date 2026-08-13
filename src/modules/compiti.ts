@@ -250,6 +250,19 @@ export function daGiacenza(t: string): boolean {
   return t !== 'PUTAWAY';
 }
 
+/** La Conta si fa su un'UBICAZIONE, non su un articolo: si apre un vano e si
+    conta quello che c'è dentro — compreso quello che non dovrebbe esserci,
+    che è metà del motivo per cui si fa un inventario. Pretenderle un articolo
+    la renderebbe una verifica di ciò che il sistema già crede. */
+export function vuoleArticolo(t: string): boolean {
+  return t !== 'COUNT';
+}
+
+/** …e per la stessa ragione l'ubicazione, per lei sola, è obbligatoria. */
+export function vuoleUbicazione(t: string): boolean {
+  return t === 'COUNT';
+}
+
 /* ── Il residuo ─────────────────────────────────────────────────────── */
 
 /* 12 colli chiesti, 5 mossi: ne restano 7, e il compito resta aperto.

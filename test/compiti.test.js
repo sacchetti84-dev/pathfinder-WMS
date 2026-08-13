@@ -5,7 +5,7 @@ import {
   transizioneAmmessa, eAperto, componiCompito, validaRichiesta,
   prioritaConsentita, ordinaCoda, misure, inRitardo, riepilogo,
   ORE_URGENZA_DEFAULT, OPERAZIONE, prioritaEffettiva, inScadenza,
-  operazioneDi, chiudeAMano, vuoleColli, daGiacenza,
+  operazioneDi, chiudeAMano, vuoleColli, daGiacenza, vuoleArticolo, vuoleUbicazione,
   quantitaRichiesta, quantitaFatta, residuo, esaurito,
   avanzamento, avvioRitirabile,
 } from '../src/modules/compiti';
@@ -521,6 +521,30 @@ describe('le tre eccezioni per tipo', () => {
     for (const t of Object.keys(TIPI_COMPITO)) {
       if (t !== 'PUTAWAY') expect(daGiacenza(t), t).toBe(true);
     }
+  });
+
+  /* La Conta si fa su un vano, non su un articolo: chiederle un articolo la
+     ridurrebbe a verificare cio' che il sistema gia' crede, e meta' del senso
+     di un inventario e' trovare quello che non dovrebbe esserci. */
+  it('solo la Conta non vuole un articolo', () => {
+    expect(vuoleArticolo('COUNT')).toBe(false);
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      if (t !== 'COUNT') expect(vuoleArticolo(t), t).toBe(true);
+    }
+  });
+
+  it('e solo la Conta pretende l\'ubicazione', () => {
+    expect(vuoleUbicazione('COUNT')).toBe(true);
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      if (t !== 'COUNT') expect(vuoleUbicazione(t), t).toBe(false);
+    }
+  });
+
+  /* Le tre regole della Conta si tengono: niente colli, niente articolo,
+     e in cambio l'ubicazione. E' l'unica delle otto fatta cosi'. */
+  it('la Conta e\' l\'unica senza colli e senza articolo', () => {
+    expect([vuoleColli('COUNT'), vuoleArticolo('COUNT'), vuoleUbicazione('COUNT')])
+      .toEqual([false, false, true]);
   });
 });
 

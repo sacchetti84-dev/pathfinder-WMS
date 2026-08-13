@@ -25,7 +25,7 @@ import {
   etichettaTipo, iconaTipo, etichettaPriorita, etichettaStato,
   eAperto, misure, inRitardo, durataUmana,
   ORE_URGENZA_DEFAULT, prioritaEffettiva, inScadenza,
-  operazioneDi, chiudeAMano, vuoleColli, daGiacenza,
+  operazioneDi, chiudeAMano, vuoleColli, daGiacenza, vuoleArticolo, vuoleUbicazione,
   quantitaRichiesta, quantitaFatta, residuo, esaurito,
 } from '../modules/compiti';
 import {
@@ -2105,7 +2105,7 @@ const App = {
            la sua merce a magazzino non c'e' ancora. -->
       <div id="ntDisp" style="margin-bottom:0.6rem"></div>
       <div class="form-row" style="margin-bottom:0.6rem">
-        <div class="form-group"><label>Da (ubicazione)</label>
+        <div class="form-group"><label id="ntFromLabel">Da (ubicazione)</label>
           <div style="display:flex;gap:0.3rem">
             <input class="input input-mono" id="ntFrom" maxlength="30" style="text-transform:uppercase" placeholder="dalla disponibilità scelta">
             <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntFrom')" title="Sfoglia le ubicazioni">📍</button>
@@ -2175,7 +2175,18 @@ const App = {
     mostra('ntDdtRow', tipo === 'PICK_SHIP' || tipo === 'PICK_RET');
     const req = (id, si) => { const e = document.getElementById(id); if (e) e.style.visibility = si ? '' : 'hidden'; };
     req('ntQtyReq', vuoleColli(tipo));
-    req('ntArtReq', daGiacenza(tipo));
+    req('ntArtReq', vuoleArticolo(tipo));
+    /* La Conta chiede il vano e non l'articolo: l'asterisco si sposta, e
+       l'etichetta lo dice — «Da» su una conta non è una partenza, è il
+       posto che si va ad aprire. */
+    const daLbl = document.getElementById('ntFromLabel');
+    if (daLbl) daLbl.innerHTML = vuoleUbicazione(tipo)
+      ? 'Ubicazione da contare <span class="req">*</span>'
+      : 'Da (ubicazione)';
+    const art = document.getElementById('ntArticle');
+    if (art) art.placeholder = vuoleUbicazione(tipo)
+      ? 'non serve: la conta guarda tutto il vano'
+      : 'Codice o descrizione — cerca a magazzino';
     /* Il Posizionamento cerca in anagrafica e il lotto lo si digita: la
        merce che deve arrivare non è ancora da nessuna parte. */
     const lot = document.getElementById('ntLot');
@@ -2204,6 +2215,10 @@ const App = {
       box.innerHTML = q
         ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">📥 Posizionamento: la merce non è ancora a magazzino — lotto e destinazione si digitano.</div>`
         : '';
+      return;
+    }
+    if (vuoleUbicazione(tipo)) {
+      box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">🔢 Conta: si apre l'ubicazione e si conta quello che c'è — anche quello che non dovrebbe esserci. L'articolo non serve.</div>`;
       return;
     }
     if (q.length < 2) { box.innerHTML = ''; return; }
@@ -2280,8 +2295,12 @@ const App = {
        lo si dice PRIMA: un'attività senza articolo o senza colli è un'attività
        che chi la prende in mano non sa eseguire. Le regole per tipo stanno in
        `modules/compiti.ts`. */
-    if (daGiacenza(tipo) && !su('ntArticle')) return err('Scegliere l\'articolo fra le giacenze: l\'attività deve dire su che cosa si lavora.');
-    if (daGiacenza(tipo) && !su('ntLot')) return err('Scegliere una delle disponibilità proposte: lotto e ubicazione di partenza vengono da lì.');
+    /* La Conta è l'eccezione: si fa su un vano, e l'articolo non c'entra —
+       metà del senso di un inventario è trovare quello che lì non doveva
+       esserci. In cambio l'ubicazione, per lei sola, è obbligatoria. */
+    if (vuoleArticolo(tipo) && daGiacenza(tipo) && !su('ntArticle')) return err('Scegliere l\'articolo fra le giacenze: l\'attività deve dire su che cosa si lavora.');
+    if (vuoleArticolo(tipo) && daGiacenza(tipo) && !su('ntLot')) return err('Scegliere una delle disponibilità proposte: lotto e ubicazione di partenza vengono da lì.');
+    if (vuoleUbicazione(tipo) && !su('ntFrom')) return err('Quale ubicazione si conta: senza, non c\'è niente da aprire a chi la prende in mano.');
     if (vuoleColli(tipo) && !(parseInt(val('ntQty'), 10) > 0)) return err('Quanti colli: senza, il movimento non si può preparare e l\'attività non sa quando è finita.');
     if ((tipo === 'PICK_SHIP' || tipo === 'PICK_RET') && !val('ntDest')) return err('Un prelievo per spedizione vuole il destinatario: lo sa chi la chiede, non chi preleva.');
 
@@ -2403,7 +2422,16 @@ const App = {
     } else if (op.modo === 'move') {
       this._pickSub('cambio');
       set('pCambioArt', p.article_code); set('pCambioLot', p.lot_code);
-      if (p.article_code && p.lot_code) this._cambioLookup();
+      /* LA RIGA LA SCEGLIE IL COMPITO, NON LA RICERCA. Lo stesso lotto in due
+         ubicazioni fa comparire l'elenco delle partenze, e l'elenco non
+         seleziona niente: il modulo resterebbe precompilato ma senza merce
+         sotto, e alla conferma direbbe «scansiona prima un articolo». La
+         partenza il compito ce l'ha nel payload — si va diritti là. */
+      if (p.from && p.article_code && p.lot_code) {
+        this._cambioSelect({ loc: p.from, key: `${p.article_code}#${p.lot_code}` });
+      } else if (p.article_code && p.lot_code) {
+        this._cambioLookup();
+      }
       set('pCambioDest', p.to);
       this._previewLoc('pCambioDest', 'pCambioDestPrev');
       if (colli) set('pCambioQty', String(colli));
@@ -2425,7 +2453,11 @@ const App = {
       this._formSpedizioni(document.getElementById('movFormArea'));
       set('pShipArt', p.article_code); set('pShipLot', p.lot_code);
       if (p.article_code && p.lot_code) {
-        this._shipLookup();
+        /* Come per il trasferimento: se il compito dice da dove, si va là.
+           `_shipLookup` con lo stesso lotto in due ubicazioni apre l'elenco
+           e non seleziona niente. */
+        if (p.from) this._shipSelectItem({ location_code: p.from, item_key: `${p.article_code}#${p.lot_code}` });
+        else this._shipLookup();
         if (colli) set('pShipQty', String(colli));
       }
     } else if (op.modo === 'sampling') {
@@ -7553,6 +7585,13 @@ const App = {
   },
 
   _formSpedizioni(el) {
+    /* IL DDT SI EVADE ANCHE DA FUORI MOVIMENTA — dal riquadro in Dashboard, e
+       dalla 1.4.2.1 anche dalla coda delle attività. Là dentro `movFormArea`
+       non esiste, e la maschera si ridisegnava su `null`: la merce era già
+       uscita e il compito già chiuso, ma l'ultima riga della funzione moriva
+       e l'errore usciva in console senza che niente lo raccogliesse. Chi non
+       ha un posto dove disegnare non disegna. */
+    if (!el) return;
     const pending = Store.getPendingOutbound();
     const cart = this._shipCart;
     const cfg = Store.getDocConfig();
@@ -8350,6 +8389,11 @@ const App = {
       confirmLabel: 'Stampa', cancelLabel: 'Non ora', icon: '\u{1F5A8}'
     })) this._printDDT(doc_id);
     this._formSpedizioni(document.getElementById('movFormArea'));
+    /* Evaso da fuori Movimenta, la vista da rinfrescare è quella da cui si è
+       premuto: la Dashboard perde un DDT pendente, la coda può aver appena
+       chiuso il prelievo che quel documento portava. */
+    if (this.currentView === 'dashboard') this.renderDashboard();
+    else if (this.currentView === 'tasks') this.renderTasks();
     this._refreshSessionLog();
   },
 

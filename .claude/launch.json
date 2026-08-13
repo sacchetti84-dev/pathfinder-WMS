@@ -6,6 +6,12 @@
       "runtimeExecutable": "npm",
       "runtimeArgs": ["run", "dev"],
       "port": 5173
+    },
+    {
+      "name": "pathfinder-collaudo-1.4.2.1",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["C:\\Users\\sacch\\AppData\\Local\\Temp\\claude\\C--Users-sacch-OneDrive-Desktop-PROGETTI-E-CODING\\f5bfcea9-785b-4098-9fe7-086e1a50cf9a\\scratchpad\\prova1421\\avvia-collaudo.cjs"],
+      "port": 4199
     }
   ]
 }
