@@ -43,6 +43,11 @@ const App = {
   _showRegistry: false,
   _movMode: null,
   _movSessionLog: [],       // mov della sessione corrente per pannello "Registro Sessione"
+  /* 1.4.2.1 — il compito che ha aperto la maschera aperta adesso.
+     { task_id, type, payload, movs: [_id] } — `movs` si riempie da `_logMov`
+     e si svuota a ogni avanzamento registrato. Fuori da qui non esiste: e'
+     lo stato di UNA sessione di lavoro, non un dato. */
+  _taskRun: null,
   // === v3.0.0 [M1] — Carico / Scarico unificati ===
   _ioMode: 'in',            // 'in' (posiziona) | 'out' (smaltisci)
   _dispStage: 'search',     // 'search' | 'verify' — stadio del solo scarico
@@ -1856,8 +1861,13 @@ const App = {
       const azioni = [];
       if (aperto) {
         if (t.status === 'requested') azioni.push(`<button class="btn btn-sm btn-accent" onclick="App.doTakeTask('${t.task_id}')">Prendo io</button>`);
-        if (t.status !== 'in_progress') azioni.push(`<button class="btn btn-sm" onclick="App.doStartTask('${t.task_id}')">▶ Avvia</button>`);
-        if (t.status === 'in_progress') azioni.push(`<button class="btn btn-sm btn-primary" onclick="App.doCompleteTask('${t.task_id}')">✓ Fatta</button>`);
+        /* 1.4.2.1 — «Avvia» apre l'operazione, e resta disponibile anche su
+           un compito gia' in corso: e' come si riprende un parziale, o come
+           lo riapre chi ha ricaricato la pagina. */
+        azioni.push(`<button class="btn btn-sm" onclick="App.doStartTask('${t.task_id}')">${t.status === 'in_progress' ? '▶ Riprendi' : '▶ Avvia'}</button>`);
+        /* «Fatta» a mano sopravvive per la sola Conta: le altre sette si
+           chiudono perche' un movimento e' stato confermato — decisione 43. */
+        if (t.status === 'in_progress' && chiudeAMano(t.type)) azioni.push(`<button class="btn btn-sm btn-primary" onclick="App.doCompleteTask('${t.task_id}')">✓ Fatta</button>`);
         azioni.push(`<button class="btn btn-sm btn-ghost" style="color:var(--sx-danger)" onclick="App.doCancelTask('${t.task_id}')" title="Annulla, con motivo">✕</button>`);
       }
       const prio = aperto && leader
@@ -1911,7 +1921,12 @@ const App = {
     const pezzi = [];
     if (p.article_code) pezzi.push(`<span class="mono">${this._esc(p.article_code)}</span>`);
     if (p.lot_code) pezzi.push(`lotto <span class="mono">${this._esc(p.lot_code)}</span>`);
-    if (p.qty) pezzi.push(`${this._esc(String(p.qty))} coll.`);
+    /* 1.4.2.1 — il richiesto e il fatto sulla stessa riga: «5/12 coll.» dice
+       da solo che il compito e' a meta', e quanto ne resta. */
+    if (p.qty) {
+      const fatti = quantitaFatta(t);
+      pezzi.push(fatti ? `<strong>${fatti}/${this._esc(String(p.qty))}</strong> coll.` : `${this._esc(String(p.qty))} coll.`);
+    }
     if (p.from) pezzi.push(`da <span class="mono">${this._esc(p.from)}</span>`);
     if (p.to) pezzi.push(`a <span class="mono">${this._esc(p.to)}</span>`);
     if (p.sample_for) pezzi.push(`campione per <strong>${this._esc(p.sample_for)}</strong>${p.sample_spare ? ' · riserva a magazzino' : ''}`);
@@ -2188,10 +2203,225 @@ const App = {
     return this._taskAction(() => Store.assignTask(taskId, io.initials), `Attività in carico a ${io.initials}`);
   },
 
-  doStartTask(taskId) {
-    return this._taskAction(() => Store.startTask(taskId), '▶ Attività avviata');
+  /* ═══ 1.4.2.1 — L'AVVIO LANCIA IL LAVORO ═══════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Fino alla 1.4.1 «Avvia» segnava un'ora e «Completa» era una spunta: il
+     compito AFFIANCAVA l'operazione. Da qui l'avvio apre la funzione di
+     Movimenta precompilata, e il compito si chiude perche' un movimento e'
+     stato confermato — decisione 43.
+
+     Chi decide quale maschera aprire e' `operazioneDi(tipo)`, che sta nel
+     modulo puro: qui si esegue, non si sceglie. */
+
+  async doStartTask(taskId) {
+    const io = Store.getCurrentIdentity();
+    if (!io.initials) return this.toast('Identificati prima di avviare un\'attività', 'warning');
+    const t = Store.getTask(taskId);
+    if (!t) return this.toast('Attività non trovata', 'error');
+    const op = operazioneDi(t.type);
+    if (!op) return this.toast(`${etichettaTipo(t.type)}: nessuna operazione da aprire`, 'error');
+
+    /* Un avvio gia' in corso su un altro compito si abbandona prima: due
+       maschere precompilate da due compiti diversi sono il modo di scalare
+       il residuo di quello sbagliato. */
+    if (this._taskRun && this._taskRun.task_id !== taskId) {
+      const altro = Store.getTask(this._taskRun.task_id);
+      if (!await Dialog.confirm({
+        title: 'C’è già un’attività avviata',
+        message: `${etichettaTipo(altro?.type || '')} ${this._taskRun.task_id} è aperta in Movimenta. Avviandone un’altra, quella torna in carico senza aver mosso niente.`,
+        confirmLabel: 'Avvia questa', danger: true,
+      })) return;
+      await this._taskAbbandona({ silenzioso: true });
+    }
+
+    try {
+      if (t.status !== 'in_progress') await Store.startTask(taskId, io.initials);
+    } catch (err) {
+      return this.toast(err.message, 'error');
+    }
+    this._taskRun = { task_id: taskId, type: t.type, payload: (t.payload && typeof t.payload === 'object') ? t.payload : {}, movs: [] };
+    this.renderTasks();
+    this._taskLancia(Store.getTask(taskId), op);
   },
 
+  /* Apre la maschera e ci mette dentro cio' che il compito sa gia'. Ogni
+     tipo compila i campi che gli servono: la merce si identifica sempre a
+     scaffale, quindi le verifiche di scansione NON si saltano — quello che
+     si salta e' la ricerca, non il controllo. */
+  _taskLancia(t, op) {
+    this.switchView('movimenta');
+    this.startMov(op.modo, op.dir || null);
+    const p = (t.payload && typeof t.payload === 'object') ? t.payload : {};
+    const set = (id, v) => { const e = document.getElementById(id); if (e && v) e.value = v; };
+    const resta = residuo(t);
+    const colli = resta === null ? (p.qty || '') : resta;
+
+    if (op.modo === 'io' && op.dir === 'in') {
+      set('mInLoc', p.to); set('mInArtCode', p.article_code); set('mInLot', p.lot_code);
+      if (colli) set('mInQty', String(colli));
+      this._previewLoc('mInLoc', 'mInLocPrev');
+      this._autoLookupArticle('mInArtCode', 'mInArtInfo', 'mInArtDesc');
+      this._anteprimaUmIn();
+      this.setPrimaryScanField('mInLoc');
+    } else if (op.modo === 'io' && op.dir === 'out') {
+      if (p.from && p.article_code && p.lot_code) {
+        this._dispSelect(p.from, `${p.article_code}#${p.lot_code}`);
+        if (colli) set('dQty', String(colli));
+      }
+    } else if (op.modo === 'move') {
+      this._pickSub('cambio');
+      set('pCambioArt', p.article_code); set('pCambioLot', p.lot_code);
+      if (p.article_code && p.lot_code) this._cambioLookup();
+      set('pCambioDest', p.to);
+      this._previewLoc('pCambioDest', 'pCambioDestPrev');
+      if (colli) set('pCambioQty', String(colli));
+    } else if (op.modo === 'quarantine') {
+      if (p.from && p.article_code && p.lot_code) {
+        this._qSelect(p.from, `${p.article_code}#${p.lot_code}`);
+        if (colli) set('qQty', String(colli));
+      }
+    } else if (op.modo === 'inv') {
+      const loc = p.from || p.to;
+      if (loc) { set('mInvLoc', loc); this._previewLoc('mInvLoc', 'mInvLocPrev'); this._loadInv(); }
+    } else if (op.modo === 'shipping') {
+      /* Destinatario, vettore e causale li ha detti chi ha CHIESTO il
+         prelievo: qui si ritrovano in testata, e la riga entra da sola
+         nel carrello con i colli che restano. */
+      this._shipCustomer = p.destination || this._shipCustomer;
+      this._shipCarrier = p.carrier || this._shipCarrier;
+      if (p.causale) this._shipCausale = p.causale;
+      this._formSpedizioni(document.getElementById('movFormArea'));
+      set('pShipArt', p.article_code); set('pShipLot', p.lot_code);
+      if (p.article_code && p.lot_code) {
+        this._shipLookup();
+        if (colli) set('pShipQty', String(colli));
+      }
+    } else if (op.modo === 'sampling') {
+      this._campReset();
+      if (p.from && p.article_code && p.lot_code) this._campSelect(p.from, `${p.article_code}#${p.lot_code}`);
+    }
+    this._renderTaskBanner();
+    this.toast(`▶ ${etichettaTipo(t.type)} avviata — ${this._esc(t.task_id)}`, 'success');
+  },
+
+  /* La striscia sopra il modulo: quale compito si sta lavorando, quanto
+     resta, e la via d'uscita. Senza, chi apre Movimenta da una coda non ha
+     modo di sapere che la maschera davanti a lui e' precompilata. */
+  _renderTaskBanner() {
+    const area = document.getElementById('taskRunBanner');
+    if (!area) return;
+    if (!this._taskRun) { area.innerHTML = ''; return; }
+    const t = Store.getTask(this._taskRun.task_id);
+    if (!t || !eAperto(t)) { area.innerHTML = ''; return; }
+    const resta = residuo(t);
+    const fatti = quantitaFatta(t);
+    const p = this._taskRun.payload;
+    const dettaglio = [
+      p.article_code ? `<span class="mono">${this._esc(p.article_code)}</span>` : '',
+      p.lot_code ? `lotto <span class="mono">${this._esc(p.lot_code)}</span>` : '',
+      p.from ? `da <span class="mono">${this._esc(p.from)}</span>` : '',
+      p.to ? `a <span class="mono">${this._esc(p.to)}</span>` : '',
+    ].filter(Boolean).join(' · ');
+    area.innerHTML = `<div class="mov-preview" style="background:var(--sx-accent-soft);border-color:var(--sx-accent);margin-bottom:0.6rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
+      <span style="font-weight:700">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</span>
+      <span class="mono" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${this._esc(t.task_id)}</span>
+      <span style="font-size: var(--md-sys-typescale-body-small-size)">${dettaglio}</span>
+      ${resta === null ? '' : `<span class="badge badge-blue">restano ${resta} coll.${fatti ? ` · ${fatti} già mossi` : ''}</span>`}
+      ${t.note ? `<span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-secondary)">${this._esc(t.note)}</span>` : ''}
+      <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="App._taskLascia()">Lascia l'attività</button>
+    </div>`;
+  },
+
+  /* IL MOVIMENTO CONFERMATO SCALA IL RESIDUO — decisione 45.
+     La chiamano le sette maschere, una riga dopo il movimento riuscito:
+     e' l'unico punto in cui un compito avanza, e sta in chiaro in ognuna
+     invece che nascosto in `_logMov`, perche' quanti colli si siano mossi
+     lo sa la maschera e non il registro. */
+  async _taskAvanza(colli, tipi) {
+    if (!this._taskRun) return;
+    /* Ogni maschera dichiara quali tipi puo' servire: l'operatore puo'
+       cambiare scheda dentro Movimenta, e un posizionamento non deve poter
+       scalare il residuo di uno smaltimento. */
+    if (tipi && !tipi.includes(this._taskRun.type)) return;
+    const movs = this._taskRun.movs.slice();
+    this._taskRun.movs = [];
+    return await this._taskScala(this._taskRun.task_id, colli, movs);
+  },
+
+  /* Il prelievo si chiude quando la merce ESCE, e fra il DDT e il ritiro del
+     vettore possono passare dei giorni — anche a terminale spento. Il filo
+     e' `doc.task_id`, scritto alla registrazione: qui non serve nessuna
+     sessione aperta. */
+  async _taskAvanzaDoc(doc, colli, movs) {
+    if (!doc?.task_id || !Store.isFeatureOn('tasks')) return;
+    const t = Store.getTask(doc.task_id);
+    if (!t || !eAperto(t)) return;
+    /* Un DDT evaso da chi non l'aveva avviato chiude comunque il compito: e'
+       la merce che e' uscita, non la sessione. Se il compito non era in
+       corso lo si porta li' prima, se no `advanceTask` lo respinge. */
+    if (t.status !== 'in_progress') {
+      try { await Store.startTask(doc.task_id); } catch { return; }
+    }
+    if (this._taskRun?.task_id === doc.task_id) this._taskRun.movs = [];
+    return await this._taskScala(doc.task_id, colli, movs);
+  },
+
+  async _taskScala(taskId, colli, movs = []) {
+    let rec;
+    try {
+      rec = await Store.advanceTask(taskId, colli, movs);
+    } catch (err) {
+      /* Il movimento e' gia' andato: qui si perde solo il conto, e va detto
+         forte perche' il compito resta aperto con un residuo sbagliato. */
+      this.toast(`Movimento registrato, ma l'attività non è avanzata: ${err.message}`, 'error');
+      return;
+    }
+    if (!eAperto(rec)) {
+      this.toast(`✓ ${etichettaTipo(rec.type)} completata — ${rec.task_id}`, 'success');
+      if (this._taskRun?.task_id === rec.task_id) this._taskRun = null;
+    } else {
+      const resta = residuo(rec);
+      if (resta !== null) this.toast(`Restano ${resta} coll. su ${etichettaTipo(rec.type)} ${rec.task_id}`, 'info');
+    }
+    this._renderTaskBanner();
+    if (this.currentView === 'dashboard') this.renderDashboard();
+  },
+
+  /* Maschera chiusa senza aver confermato niente → il compito torna in
+     carico e `started_at` si azzera. Se invece qualcosa si e' mosso, l'avvio
+     e' storia: il compito resta in corso col suo residuo. */
+  async _taskAbbandona({ silenzioso = false } = {}) {
+    const run = this._taskRun;
+    this._taskRun = null;
+    if (!run) return;
+    try {
+      const prima = Store.getTask(run.task_id);
+      if (prima && eAperto(prima)) {
+        const dopo = await Store.abandonTask(run.task_id);
+        if (!silenzioso) {
+          this.toast(dopo.started_at === null
+            ? `Attività ${run.task_id} lasciata: torna in carico`
+            : `Attività ${run.task_id} resta in corso — ${residuo(dopo) ?? 0} coll. da fare`, 'info');
+        }
+      }
+    } catch (err) {
+      if (!silenzioso) this.toast(err.message, 'error');
+    }
+    this._renderTaskBanner();
+    if (this.currentView === 'tasks') this.renderTasks();
+  },
+
+  /* Il pulsante della striscia: si lascia l'attivita' E si chiude la
+     maschera, perche' una maschera precompilata da un compito che non si sta
+     piu' lavorando e' la piu' facile da confermare per sbaglio. */
+  _taskLascia() {
+    this.cancelMov();
+    this.renderMovimenta();
+  },
+
+  /* «Completa» a mano sopravvive per la sola Conta: le altre sette si
+     chiudono muovendo la merce, e Store lo pretende. */
   doCompleteTask(taskId) {
     return this._taskAction(() => Store.completeTask(taskId), '✓ Attività completata');
   },
@@ -3114,8 +3344,13 @@ const App = {
         ${this._movCard('inv', 'c-amber', '📋', 'Inventario', 'Verifica e rettifica · F4', 'var(--sx-warning)')}
         ${this._movCard('quarantine', 'c-purple', '🚫', 'Quarantena', 'Blocco qualità · NC · F7', 'var(--sx-purple)', Store.getActiveQuarantine().length)}
         ${this._movCard('shipping', 'c-orange', '🚚', 'Spedizioni', 'DDT · Resi e spedizioni · F8', 'var(--sx-orange)', pendRes + pendShip)}
+        ${/* 1.4.2.1 — l'ottava operazione, che prima non c'era. Compare con lo
+             schedulatore perché è lui che l'ha fatta nascere; quanto cala lo
+             decide `feature.uom`, dentro la maschera. */
+          Store.isFeatureOn('tasks') ? this._movCard('sampling', 'c-teal', '🧪', 'Campionamento', 'Il collo resta, cala ciò che c\'è dentro', 'var(--sx-teal)') : ''}
       </div>
       <div id="undoBarArea">${this._undoBarHTML()}</div>
+      <div id="taskRunBanner"></div>
       <div id="movFormArea"></div>
       <div id="movLogArea">${this._renderSessionLog()}</div>
     </div>`;
@@ -3140,10 +3375,11 @@ const App = {
     if (mode === 'io' && dir && dir !== this._ioMode) { this._ioMode = dir; this._dispReset(); }
     this._movMode = mode;
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
-    const map = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange' };
+    const map = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal' };
     document.querySelector(`.mov-action-card.${map[mode]}`)?.classList.add('active');
     const fa = document.getElementById('movFormArea');
-    const forms = { io: this._formCaricoScarico, pick: this._formPrelievo, inv: this._formInventario, quarantine: this._formQuarantena, shipping: this._formSpedizioni };
+    const forms = { io: this._formCaricoScarico, pick: this._formPrelievo, inv: this._formInventario,
+                    quarantine: this._formQuarantena, shipping: this._formSpedizioni, sampling: this._formCampionamento };
     forms[mode]?.call(this, fa);
   },
 
@@ -3157,7 +3393,12 @@ const App = {
     this._moveSelection = null;
     this._qState = null;
     this._qStage = 'search';          // v1.1.0 [N4] — tappa di quarantena a metà: non sopravvive
+    this._campReset();                // 1.4.2.1 — e nemmeno un campione a metà
     this._shipResetHeader();
+    /* 1.4.2.1 — chiudere la maschera senza aver confermato niente non e' una
+       lavorazione: il compito torna in carico. Se invece qualcosa si e'
+       mosso, `abandonTask` lo lascia dov'e' — decisione 46. */
+    if (this._taskRun) this._taskAbbandona();
     const fa = document.getElementById('movFormArea');
     if (fa) fa.innerHTML = '';
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
@@ -3179,9 +3420,15 @@ const App = {
     this._movSessionLog.unshift(entry);
     if (this._movSessionLog.length > 100) this._movSessionLog.length = 100;
     try {
-      await Store.logMovement(entry);
+      const _id = await Store.logMovement(entry);
+      /* 1.4.2.1 — se c'e' un compito avviato, questo movimento l'ha
+         lavorato: l'identificativo si accumula qui e lo raccoglie
+         `_taskAvanza`, che e' l'unico a sapere quanti colli si sono mossi. */
+      if (this._taskRun && typeof _id === 'number') this._taskRun.movs.push(_id);
+      return _id;
     } catch (err) {
       this._queueFailedMovement(entry, err);
+      return null;
     }
   },
 
@@ -3635,6 +3882,7 @@ const App = {
     // v2.1.0 — storno disponibile per 120 secondi
     this._pushUndo(`Posizionamento ${art}#${lot} → ${loc} (${qty} Coll.)`,
       [{ op: 'remove', loc, art, desc: effectiveDesc, lot, qty, qty_uom: res.qty_uom_delta ?? null }]);
+    await this._taskAvanza(qty, ['PUTAWAY']);   // 1.4.2.1
     this.setPrimaryScanField('mInArtCode');
   },
 
@@ -4127,6 +4375,7 @@ const App = {
     this.toast(`✓ Smaltito ${qtyOut} Coll. ${modeLabel}: ${removed.article_code}#${removed.lot_code} · ${verbale}`, 'success');
     this.updateSyncIndicator();
     this._refreshSessionLog();
+    await this._taskAvanza(qtyOut, ['DISPOSAL']);   // 1.4.2.1
 
     if (await Dialog.confirm({
       title: 'Stampare il verbale di smaltimento?',
@@ -4337,6 +4586,17 @@ const App = {
           </div>
           <div id="pCambioDestPrev"></div>
         </div>
+        ${/* 1.4.2.1 — il campo dei colli compare SOLO quando il cambio e' stato
+             aperto da un'attivita': fuori di li' il cambio ubicazione sposta il
+             lotto intero, ed e' cosi' da sempre. Un compito invece puo' chiederne
+             una parte, e i parziali lasciano il residuo — decisione 45. */
+          this._taskRun?.type === 'TRANSFER' ? `
+        <div class="form-group" style="margin-bottom:0.5rem">
+          <label>Colli da spostare <span class="req">*</span></label>
+          <input class="input input-mono" id="pCambioQty" type="number" min="1" step="1"
+            style="max-width:120px;text-align:center;font-weight:700">
+          <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">Spostarne meno lascia il resto in attività.</div>
+        </div>` : ''}
         <button class="btn btn-primary" style="width:100%;padding:0.55rem;font-weight:700" onclick="App._execCambio()">🔄 CONFERMA CAMBIO</button>
       </div>
       <div id="pCambioFeedback" style="margin-top:0.4rem"></div>`;
@@ -4466,6 +4726,7 @@ const App = {
     }
     this.updateSyncIndicator();
     this._refreshSessionLog();
+    await this._taskAvanza(qtyToMove, ['TRANSFER']);   // 1.4.2.1
     return { ok: true, qtyMoved: qtyToMove, mergeMsg, impactedDocs, partial };
   },
 
@@ -4474,7 +4735,13 @@ const App = {
     if (!this._moveSelection) return this.toast('Scansiona prima un articolo', 'error');
     const dest = Validate.clean(document.getElementById('pCambioDest')?.value, true).replace(/'/g, '-');
 
-    const out = await this._moveItemCore({ item: this._moveSelection, dest });
+    /* Il campo esiste solo sotto un'attivita': senza, `null` vuol dire «tutto
+       il lotto», che e' il cambio ubicazione di sempre. */
+    const qtyEl = document.getElementById('pCambioQty');
+    const qtyTask = qtyEl ? parseInt(qtyEl.value, 10) : null;
+    if (qtyEl && !(qtyTask > 0)) { qtyEl.focus(); return this.toast('Colli da spostare: valore non valido', 'error'); }
+
+    const out = await this._moveItemCore({ item: this._moveSelection, dest, qty: qtyEl ? qtyTask : null });
     if (!out.ok) return;
 
     const fb = document.getElementById('pCambioFeedback');
@@ -6242,6 +6509,11 @@ const App = {
     if (corrections === 0) this.toast('Nessuna correzione — inventario confermato ✓', 'info');
     else this.toast(`✓ ${corrections} correzion${corrections === 1 ? 'e applicata' : 'i applicate'}`, 'success');
     this.updateSyncIndicator();
+    /* 1.4.2.1 — la Conta non porta colli, quindi non si esaurisce da sola: qui
+       si registrano le rettifiche che ha prodotto, e a chiuderla resta il
+       gesto a mano — che per lei sopravvive apposta, perche' un inventario
+       che torna giusto non produce nessuna riga di registro. */
+    await this._taskAvanza(corrections, ['COUNT']);
     this._invState = null;
     this._loadInv();
     this._refreshSessionLog();
@@ -6691,6 +6963,7 @@ const App = {
     this.updateSyncIndicator();
     this._printNCCardFromRecord(qRecord);
     this._refreshSessionLog();
+    await this._taskAvanza(qtyToMove, ['QUARANTINE']);   // 1.4.2.1
     Feedback.signal('ok', `${item.article_code}#${item.lot_code} in QUARANTENA`,
       parziale
         ? `${qtyToMove} Coll. su ${qtyPhys} → ${blockedLoc}. In ${item.location_code} restano ${qtyPhys - qtyToMove} Coll. conformi.`
@@ -6973,6 +7246,179 @@ const App = {
         { role: `Resp. ${rec.reference_dept || 'reparto'}`, hint: 'Data e firma' }
       ]
     }));
+  },
+
+  /* ═══ 5bis. CAMPIONAMENTO — 1.4.2.1 ════════════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     È l'unica delle otto attività che a magazzino non esisteva: la 1.4.1 ne
+     aveva messo in coda la richiesta, ma non c'era nessuna maschera che la
+     eseguisse. Adesso c'è, ed è la sola operazione del progetto che NON
+     muove colli: cinquanta grammi presi da un sacco da venticinque chili
+     lasciano il sacco a scaffale. A calare è ciò che c'è dentro — che è
+     esattamente quello che la 1.4.2 ha reso scrivibile.
+
+     Su un articolo senza quantità per collo non cala niente, e il
+     campionamento si registra lo stesso: oggi quei prelievi non li scarica
+     nessuno, quindi documentarli è già più di quel che c'è — decisione 47. */
+
+  _campState: null,          // { location_code, item_key, article_code, lot_code }
+
+  _campReset() { this._campState = null; },
+
+  _formCampionamento(el) {
+    el.innerHTML = `<div class="mov-form-card">
+      <h3>🧪 <span style="color:var(--sx-teal)">Campionamento</span></h3>
+      <div class="wf-instructions">
+        <strong>Flusso:</strong> <span class="wf-step">① CERCA la merce</span> → <span class="wf-step">② scegli la riga</span> →
+        <span class="wf-step">③ quantità prelevata e per chi</span> → CONFERMA.
+        I colli non calano: cala la quantità dentro il collo.
+      </div>
+      <div class="form-group" style="margin-bottom:0.5rem">
+        <label>① Articolo <span class="req">*</span></label>
+        <input class="input input-mono" id="cpQuery" placeholder="Codice o descrizione — cerca a magazzino"
+          maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase" autocomplete="off"
+          oninput="App._campCerca()">
+      </div>
+      <div id="cpList" style="margin-bottom:0.5rem"></div>
+      <div id="cpDetails"></div>
+      <div style="margin-top:0.6rem"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+    </div>`;
+    if (this._campState) this._campRenderDettaglio();
+    else document.getElementById('cpQuery')?.focus();
+  },
+
+  _campCerca() {
+    const box = document.getElementById('cpList');
+    if (!box) return;
+    this._campState = null;
+    const det = document.getElementById('cpDetails'); if (det) det.innerHTML = '';
+    const q = (document.getElementById('cpQuery')?.value || '').trim();
+    if (q.length < 2) { box.innerHTML = ''; return; }
+    const righe = Store.findItemLocations(q).filter(it => (it.qty || 0) > 0);
+    if (!righe.length) {
+      box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-warning)">⚠ Nessuna giacenza per «${this._esc(q)}»</div>`;
+      return;
+    }
+    /* FEFO come ovunque: il campione si prende dal lotto che scade prima,
+       se non c'è una ragione per prenderne un altro. */
+    const ordinate = Store.sortByFEFO(righe).slice(0, 12);
+    box.innerHTML = `<div style="max-height:190px;overflow-y:auto;border:1px solid var(--sx-border);border-radius:var(--radius-md)">${
+      ordinate.map(it => `<div class="search-result-item" onclick="App._campSelect('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">
+          <span class="mono" style="font-weight:700">${this._esc(it.article_code)}</span>
+          <span class="mono" style="color:var(--sx-text-secondary)">${this._esc(it.lot_code)}</span>
+          <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${this._esc(it.location_code)}${it.expiry_date ? ' · scad ' + this._esc(it.expiry_date) : ''}</span>
+          <span style="margin-left:auto;font-weight:700;color:var(--sx-teal)">${it.qty || 0} Coll.</span>
+        </div>`).join('')}</div>`;
+  },
+
+  _campSelect(loc, itemKey) {
+    const it = Store.getItemsAtLocation(loc).find(i => i.item_key === itemKey);
+    if (!it) return this.toast('Quella riga non è più a magazzino', 'warning');
+    if (Store.isItemQuarantined(itemKey, loc)) return this.toast('🚫 Item in quarantena: il campione si preleva dal flusso di qualità', 'error');
+    this._campState = { location_code: loc, item_key: itemKey, article_code: it.article_code, lot_code: it.lot_code };
+    const box = document.getElementById('cpList'); if (box) box.innerHTML = '';
+    const q = document.getElementById('cpQuery'); if (q) q.value = it.article_code;
+    this._campRenderDettaglio();
+  },
+
+  _campRenderDettaglio() {
+    const el = document.getElementById('cpDetails');
+    const d = this._campState;
+    if (!el || !d) return;
+    const it = Store.getItemsAtLocation(d.location_code).find(i => i.item_key === d.item_key);
+    if (!it) { this._campReset(); el.innerHTML = ''; return; }
+    const cfg = Store.getUomConfig(it.article_code, it.lot_code);
+    const scalabile = Store.isFeatureOn('uom') && !!cfg?.per_collo;
+    const um = scalabile ? Store.suddivisioneDi(it) : null;
+    const dentro = um ? um.pieni * cfg.per_collo + um.resto : null;
+
+    el.innerHTML = `
+      <div class="mov-preview" style="background:var(--grad-soft-teal);border-color:var(--sx-teal);margin-bottom:0.5rem">
+        <strong class="mono" style="color:var(--sx-teal)">${this._esc(it.article_code)}</strong>
+        <span style="color:var(--sx-text-muted)">${this._esc(it.article_description || '')}</span><br>
+        <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">
+          Lotto <strong>${this._esc(it.lot_code)}</strong> · Ubic. <strong class="mono">${this._esc(it.location_code)}</strong> ·
+          <strong>${it.qty || 0} Coll.</strong>${dentro !== null ? ` · ⚖ ${this._esc(descriviColli(dentro, cfg.per_collo, cfg.uom))}` : ''}</span>
+      </div>
+      ${scalabile ? `
+      <div class="form-group" style="margin-bottom:0.5rem">
+        <label>② Quantità prelevata in <span class="mono">${this._esc(cfg.uom)}</span> <span class="req">*</span></label>
+        <input class="input input-mono" id="cpQty" type="number" min="0" step="0.001"
+          style="max-width:180px;text-align:center;font-weight:700"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();document.getElementById('cpFor')?.focus();}">
+        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">
+          I colli restano ${it.qty || 0}. Cala solo la quantità dentro.</div>
+      </div>`
+      : `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.5rem">
+          ⚠ <strong>${this._esc(it.article_code)} non ha una quantità per collo</strong>${Store.isFeatureOn('uom') ? '' : ' (e le unità di misura sono spente)'}:
+          il prelievo si registra a registro, ma nessuna quantità cala.
+          Si scioglie da sé compilando <span class="mono">Pezzi_Per_Collo</span> in anagrafica.
+        </div>`}
+      <div class="form-row" style="margin-bottom:0.5rem">
+        <div class="form-group"><label>③ Campione per chi <span class="req">*</span></label>
+          <input class="input" id="cpFor" maxlength="60" placeholder="Laboratorio interno, cliente, ente…"></div>
+        <div class="form-group" style="max-width:230px"><label>Campione di riserva</label>
+          <label style="display:flex;align-items:center;gap:0.4rem;font-weight:400;padding-top:0.4rem">
+            <input type="checkbox" id="cpSpare"> Ne resta uno a magazzino</label></div>
+      </div>
+      <div class="form-group" style="margin-bottom:0.5rem"><label>Note</label>
+        <input class="input" id="cpNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Opzionale"></div>
+      <button class="btn btn-primary" style="width:100%;padding:0.55rem;font-weight:700;background:var(--sx-teal);border-color:var(--sx-teal)"
+        onclick="App._execCampione()">🧪 REGISTRA IL CAMPIONE</button>
+      <div id="cpFeedback" style="margin-top:0.4rem"></div>`;
+    document.getElementById(scalabile ? 'cpQty' : 'cpFor')?.focus();
+  },
+
+  async _execCampione() {
+    if (!this._requireOperator('il campionamento')) return;
+    const d = this._campState;
+    if (!d) return this.toast('Scegli prima la merce da campionare', 'error');
+    const it = Store.getItemsAtLocation(d.location_code).find(i => i.item_key === d.item_key);
+    if (!it) { this._campReset(); return this.toast('Item non più presente — ricomincia la ricerca', 'error'); }
+
+    /* Un campione senza destinatario è merce sparita dallo scaffale: la
+       stessa regola della maschera di richiesta, e per la stessa ragione. */
+    const perChi = Validate.clean(document.getElementById('cpFor')?.value);
+    if (!perChi) { document.getElementById('cpFor')?.focus(); return this.toast('Dire per chi è il campione', 'error'); }
+    const riserva = !!document.getElementById('cpSpare')?.checked;
+    const note = Validate.clean(document.getElementById('cpNotes')?.value);
+    if (Validate.notes(note)) return this.toast(Validate.notes(note), 'error');
+
+    const cfg = Store.getUomConfig(it.article_code, it.lot_code);
+    const scalabile = Store.isFeatureOn('uom') && !!cfg?.per_collo;
+    let esito = null;
+    if (scalabile) {
+      const raw = document.getElementById('cpQty')?.value;
+      const qta = Number(String(raw ?? '').replace(',', '.'));
+      if (!(qta > 0)) { document.getElementById('cpQty')?.focus(); return this.toast(`Quantità del campione in ${cfg.uom}: deve essere maggiore di zero`, 'error'); }
+      try {
+        esito = await Store.sampleItem(d.location_code, d.item_key, qta);
+      } catch (err) {
+        return this.toast(err.message || 'Campionamento non riuscito', 'error');
+      }
+      if (!esito) return this.toast('Item non più presente', 'error');
+    }
+
+    const dettaglio = [`CAMPIONE per ${perChi}`, riserva ? 'riserva a magazzino' : '', note].filter(Boolean).join(' · ');
+    /* La causale nuova, la quindicesima. Il logbook dei campioni è il
+       registro filtrato su di lei: nessuna collezione in più. */
+    await this._logMov(MOV.SAMPLE, it.article_code, it.article_description, it.lot_code, d.location_code,
+      null, Store.getCurrentIdentity().initials, dettaglio, '',
+      it.qty || 0, 0, it.qty || 0, esito ? esito.qty_uom_delta : null);
+
+    const quanto = esito ? `${formattaQuantita(-esito.qty_uom_delta, esito.uom)} ${esito.uom}` : 'quantità non scalata';
+    this.toast(`🧪 Campione registrato: ${it.article_code}#${it.lot_code} — ${quanto}`, 'success');
+    const fb = document.getElementById('cpFeedback');
+    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><strong>✓ ${this._esc(it.article_code)}#${this._esc(it.lot_code)}</strong> — ${this._esc(quanto)}, per ${this._esc(perChi)}. I colli restano ${it.qty || 0}.</div>`;
+    this.updateSyncIndicator();
+    this._refreshSessionLog();
+    /* Un campione è UN gesto: vale un collo di residuo. Chi ne ha chiesti
+       tre passa di qui tre volte, ed è giusto così — sono tre prelievi
+       distinti, con tre righe di registro. */
+    await this._taskAvanza(1, ['SAMPLING']);
+    this._campReset();
+    this._formCampionamento(document.getElementById('movFormArea'));
   },
 
   _formSpedizioni(el) {
@@ -7674,6 +8120,11 @@ const App = {
         /* Il mittente viene congelato nel documento: un DDT ristampato fra
            due anni deve riportare la sede di allora [M4]. */
         sender: Store.getDocConfig().sender,
+        /* 1.4.2.1 — il compito che ha aperto questo prelievo resta scritto sul
+           documento: il residuo si scala quando la merce ESCE, e fra qui e il
+           ritiro del vettore possono passare dei giorni. */
+        task_id: (this._taskRun?.type === 'PICK_SHIP' || this._taskRun?.type === 'PICK_RET')
+          ? this._taskRun.task_id : null,
         lines: this._shipCart.slice()
       });
       await Store.rememberDdtNumber(doc.ddt_num);
@@ -7747,14 +8198,19 @@ const App = {
       return this.toast(`${failMsg} — rollback eseguito, DDT resta pendente`, 'error');
     }
     // Log movimenti
+    const movIds = [];
     for (let i = 0; i < doc.lines.length; i++) {
       const l = doc.lines[i];
       const p = performed[i];
       const itemNotes = l.notes ? `${reasonNotes} · ${l.notes}` : reasonNotes;
-      await this._logMov(movType, l.article_code, l.article_description, l.lot_code, l.location_code, null, doc.operator || Store.getCurrentIdentity().initials, itemNotes, doc.ddt_num, p.qty_before, -p.qty_removed, p.qty_after);
+      const _id = await this._logMov(movType, l.article_code, l.article_description, l.lot_code, l.location_code, null, doc.operator || Store.getCurrentIdentity().initials, itemNotes, doc.ddt_num, p.qty_before, -p.qty_removed, p.qty_after);
+      if (typeof _id === 'number') movIds.push(_id);
     }
     // Aggiorna status documento → evaded
     await Store.updatePendingStatus(doc_id, 'evaded');
+    /* 1.4.2.1 — la merce e' uscita: adesso il prelievo che ha aperto questo
+       DDT ha mosso i suoi colli, e sono quelli del documento. */
+    await this._taskAvanzaDoc(doc, totalColli, movIds);
     this.toast(`✓ DDT ${doc.ddt_num} evaso · ${doc.lines.length} righe · ${totalColli} Coll.`, 'success');
     this.updateSyncIndicator();
     if (await Dialog.confirm({

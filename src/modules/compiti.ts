@@ -279,6 +279,45 @@ export function esaurito(c: Partial<Compito> | null | undefined): boolean {
   return residuo(c) === 0;
 }
 
+/* ── L'avanzamento ──────────────────────────────────────────────────── */
+
+export interface Avanzamento {
+  /** Quanti colli risultano mossi DOPO questo movimento. */
+  qty_done: number;
+  /** Quanti ne restano, o `null` per un compito senza quantità. */
+  residuo: number | null;
+  /** Vero quando il movimento appena confermato chiude il compito. */
+  chiude: boolean;
+}
+
+/* 1.4.2.1 — IL MOVIMENTO CONFERMATO SCALA IL RESIDUO, E LA REGOLA STA QUI.
+   Entrano un compito e i colli che si sono mossi davvero, esce quanto è
+   fatto e se il compito è finito. Non tocca il record: chi scrive è Store,
+   e lo fa con questi tre numeri davanti.
+
+   I colli si troncano a interi non negativi: un movimento che non ha mosso
+   niente non fa avanzare niente, e mezzo collo non esiste. */
+export function avanzamento(
+  c: Partial<Compito> | null | undefined,
+  colli: number | null | undefined,
+): Avanzamento {
+  const n = Number(colli);
+  const mossi = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
+  const qty_done = quantitaFatta(c) + mossi;
+  const dopo = { ...(c ?? {}), qty_done } as Partial<Compito>;
+  return { qty_done, residuo: residuo(dopo), chiude: esaurito(dopo) };
+}
+
+/* UN AVVIO CHE NON HA PRODOTTO NIENTE TORNA IN CARICO — decisione 46.
+   È l'unico punto del progetto in cui si cancella un istante già scritto,
+   e vale solo finché non si è mosso un collo: dopo il primo movimento
+   quell'avvio è storia, e il compito resta in corso col suo residuo. */
+export function avvioRitirabile(c: Partial<Compito> | null | undefined): boolean {
+  return c?.status === 'in_progress'
+      && quantitaFatta(c) === 0
+      && !(c?.mov_ids?.length);
+}
+
 /* ── Le misure ──────────────────────────────────────────────────────── */
 
 export interface Misure {

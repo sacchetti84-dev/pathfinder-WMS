@@ -13,6 +13,7 @@ import {
   PRIORITA_NORMALE, ORE_URGENZA_DEFAULT, eAperto, ordinaCoda, componiCompito, validaRichiesta,
   prioritaConsentita, transizioneAmmessa, etichettaPriorita, etichettaStato,
   riepilogo as riepilogoCompiti, type Richiesta as RichiestaCompito,
+  avanzamento, avvioRitirabile, chiudeAMano,
 } from '../modules/compiti';
 import {
   FORMA_CACHE, applicaAllaCache, bucketPut, bucketDelete,
@@ -1181,6 +1182,10 @@ const Store = {
     this._cache.movLogTotal++;
     // v1.5.1 fix: aggiorna metadati syncIndicator anche su log movimenti
     await this._touchMeta();
+    /* 1.4.2.1 — l'identificativo torna al chiamante: e' il filo che lega un
+       compito ai movimenti che l'hanno lavorato, e senza di lui il registro
+       delle attivita' direbbe «chiuso» senza poter dire «con che cosa». */
+    return _id;
   },
 
   getMovLog() { return this._cache.movLog; },
@@ -1422,7 +1427,78 @@ const Store = {
 
   async completeTask(taskId: string, initials: string = '') {
     const v = String(initials || this.getCurrentIdentity().initials || '').toUpperCase().trim();
+    const cur = this.getTask(taskId);
+    /* 1.4.2.1 — «Completa» a mano sopravvive per la sola Conta, che puo'
+       concludersi senza muovere un collo. Sugli altri sette il compito si
+       chiude perche' un movimento e' stato confermato: chiuderlo a mano
+       vorrebbe dire dichiarare fatto del lavoro che nessuno ha registrato. */
+    if (cur && !chiudeAMano(cur.type) && !this._chiusuraAmmessa) {
+      throw new Error('Questa attività si chiude muovendo la merce: premere ▶ Avvia e confermare il movimento');
+    }
     return await this._moveTask(taskId, 'done', { completed_at: Date.now(), completed_by: v || null });
+  },
+
+  /* Alzata dalla sola `advanceTask`: e' la chiusura che arriva da un
+     movimento confermato, ed e' l'unica strada per gli altri sette tipi. */
+  _chiusuraAmmessa: false,
+
+  /* ═══════════════════════════════════════════════════════════════════
+     1.4.2.1 — IL MOVIMENTO CONFERMATO SCALA IL RESIDUO
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Fino alla 1.4.1 «Completa» era una spunta, e il compito affiancava il
+     lavoro invece di lanciarlo. Da qui un compito si chiude solo perche'
+     un movimento e' stato confermato: 12 chiesti, 5 mossi, ne restano 7 e
+     il compito resta aperto — decisione 45.
+
+     Il conto lo fa `avanzamento`, che e' puro e collaudato da fermo. Qui
+     c'e' solo cio' che scrive.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  async advanceTask(taskId: string, colli: number, movIds: number[] = []) {
+    this._assertTasksOn();
+    const cur = this.getTask(taskId);
+    if (!cur) throw new Error('Attività non trovata');
+    if (cur.status !== 'in_progress') {
+      throw new Error(`Un'attività ${etichettaStato(cur.status).toLowerCase()} non registra movimenti`);
+    }
+    const a = avanzamento(cur, colli);
+    /* Gli identificativi si accodano senza doppioni: lo stesso movimento
+       non deve poter comparire due volte nel registro di un compito. */
+    const ids = [...(cur.mov_ids ?? [])];
+    for (const id of movIds) if (typeof id === 'number' && !ids.includes(id)) ids.push(id);
+
+    if (a.chiude) {
+      const v = String(this.getCurrentIdentity().initials || '').toUpperCase().trim();
+      this._chiusuraAmmessa = true;
+      try {
+        return await this._moveTask(taskId, 'done', {
+          qty_done: a.qty_done, mov_ids: ids,
+          completed_at: Date.now(), completed_by: v || null,
+        });
+      } finally {
+        this._chiusuraAmmessa = false;
+      }
+    }
+    /* Un parziale non cambia stato: resta in corso, con meno da fare. */
+    const rec: Compito = { ...cur, qty_done: a.qty_done, mov_ids: ids };
+    await Persistence.put('tasks', rec);
+    this._applyToCache('tasks', 'put', rec);
+    await this._touchMeta();
+    return rec;
+  },
+
+  /* UN AVVIO CHE NON HA PRODOTTO NIENTE TORNA IN CARICO — decisione 46.
+     `started_at` torna a `null`, ed e' l'unico istante gia' scritto che
+     questo progetto cancella: un avvio che non ha mosso un collo non e'
+     storia, e' un ripensamento. Chi l'aveva in mano ce l'ha ancora, quindi
+     si torna ad «assegnato» e non in coda. */
+  async abandonTask(taskId: string) {
+    this._assertTasksOn();
+    const cur = this.getTask(taskId);
+    if (!cur) throw new Error('Attività non trovata');
+    if (!avvioRitirabile(cur)) return cur;
+    return await this._moveTask(taskId, 'assigned', { started_at: null });
   },
 
   /* Un annullamento senza motivo e' un compito che sparisce: fra un mese
@@ -1495,6 +1571,12 @@ const Store = {
          ristampato fra due anni deve riportare quella di allora. */
       sender: entry.sender || null,
       operator: entry.operator || '',
+      /* 1.4.2.1 — il compito che ha aperto questo DDT. Un prelievo si chiude
+         quando la merce ESCE, e fra il documento e il ritiro del vettore
+         possono passare dei giorni: senza questo filo il compito resterebbe
+         in corso per sempre, o si chiuderebbe su un documento che nessuno ha
+         ancora evaso. */
+      task_id: entry.task_id || null,
       status: 'pending',
       created_at: Date.now(),
       evaded_at: null,

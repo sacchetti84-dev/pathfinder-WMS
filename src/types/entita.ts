@@ -234,6 +234,10 @@ export interface DocumentoUscita {
   /** Il mittente CONGELATO al momento dell'emissione: una ristampa fra due
       anni deve dare lo stesso foglio, anche se l'anagrafica è cambiata. */
   sender?: Mittente;
+  /** 1.4.2.1 — il compito che ha aperto il documento, se ne aveva uno. Il
+      prelievo si chiude all'evasione, non alla registrazione: fra le due
+      può passare qualche giorno. */
+  task_id?: string | null;
   lines: RigaDocumento[];
 }
 

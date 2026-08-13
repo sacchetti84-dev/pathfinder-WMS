@@ -7,6 +7,7 @@ import {
   ORE_URGENZA_DEFAULT, OPERAZIONE, prioritaEffettiva, inScadenza,
   operazioneDi, chiudeAMano, vuoleColli, daGiacenza,
   quantitaRichiesta, quantitaFatta, residuo, esaurito,
+  avanzamento, avvioRitirabile,
 } from '../src/modules/compiti';
 
 const T0 = Date.parse('2026-09-21T08:00:00Z');
@@ -560,6 +561,82 @@ describe('residuo', () => {
   /* La Conta non porta colli: non e' esaurita, si chiude a mano. */
   it('un compito senza quantita\' non e\' mai esaurito da solo', () => {
     expect(esaurito(compito({ payload: null }))).toBe(false);
+  });
+});
+
+/* ── L'avanzamento: il movimento confermato scala il residuo ─────────── */
+
+describe('avanzamento', () => {
+  const conColli = (qty, fatti) => compito({ payload: { qty }, qty_done: fatti });
+
+  it('cinque colli mossi su dodici lasciano sette e non chiudono niente', () => {
+    const a = avanzamento(conColli(12, 0), 5);
+    expect(a.qty_done).toBe(5);
+    expect(a.residuo).toBe(7);
+    expect(a.chiude).toBe(false);
+  });
+
+  it('due movimenti si sommano, e il secondo chiude', () => {
+    const primo = avanzamento(conColli(12, 0), 5);
+    const secondo = avanzamento(conColli(12, primo.qty_done), 7);
+    expect(secondo.qty_done).toBe(12);
+    expect(secondo.residuo).toBe(0);
+    expect(secondo.chiude).toBe(true);
+  });
+
+  /* Muoverne piu' del richiesto chiude e basta: il residuo non va sotto zero
+     e `qty_done` resta il vero — quanto si e' mosso davvero. */
+  it('muoverne piu\' del richiesto chiude senza residuo negativo', () => {
+    const a = avanzamento(conColli(12, 0), 20);
+    expect(a.qty_done).toBe(20);
+    expect(a.residuo).toBe(0);
+    expect(a.chiude).toBe(true);
+  });
+
+  /* La Conta non porta colli: nessun movimento la chiude, si chiude a mano. */
+  it('un compito senza quantita\' non si chiude mai da solo', () => {
+    const a = avanzamento(compito({ payload: null }), 9);
+    expect(a.qty_done).toBe(9);
+    expect(a.residuo).toBe(null);
+    expect(a.chiude).toBe(false);
+  });
+
+  it('un movimento che non ha mosso niente non fa avanzare niente', () => {
+    for (const v of [0, -3, null, undefined, NaN, 'tre']) {
+      expect(avanzamento(conColli(12, 5), v).qty_done, String(v)).toBe(5);
+    }
+  });
+
+  it('mezzo collo non esiste: si tronca', () => {
+    expect(avanzamento(conColli(12, 0), 5.9).qty_done).toBe(5);
+  });
+
+  it('non tocca il compito che riceve', () => {
+    const c = conColli(12, 5);
+    avanzamento(c, 4);
+    expect(c.qty_done).toBe(5);
+  });
+});
+
+describe('avvioRitirabile — decisione 46', () => {
+  it('un avvio che non ha mosso un collo si puo\' ritirare', () => {
+    expect(avvioRitirabile(compito({ status: 'in_progress', started_at: T0 }))).toBe(true);
+  });
+
+  it('dopo il primo collo mosso l\'avvio e\' storia', () => {
+    expect(avvioRitirabile(compito({ status: 'in_progress', qty_done: 3 }))).toBe(false);
+  });
+
+  /* La Conta non muove colli, ma un movimento l'ha prodotto lo stesso: una
+     rettifica d'inventario e' un fatto, e da li' in poi l'avvio non si ritira. */
+  it('e nemmeno dopo un movimento senza colli', () => {
+    expect(avvioRitirabile(compito({ status: 'in_progress', mov_ids: [41] }))).toBe(false);
+  });
+
+  it('si ritira solo un avvio: non un compito in coda, assegnato o chiuso', () => {
+    for (const s of ['requested', 'assigned', 'done', 'cancelled']) {
+      expect(avvioRitirabile(compito({ status: s })), s).toBe(false);
+    }
   });
 });
 

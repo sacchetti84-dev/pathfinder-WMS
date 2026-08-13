@@ -377,6 +377,32 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   ok('presa in carico: lo stato cambia e la sigla diventa interrogabile',
      mie.dati.length === 1 && mie.dati[0].status === 'in_progress' && mie.dati[0].payload.qty === 12);
 
+  /* ── 1.4.2.1 — il residuo e i movimenti che l'hanno prodotto ──
+     `qty_done` e `mov_ids` non hanno una colonna: vivono nel documento JSON,
+     ed e' la ragione per cui un campo nuovo non e' una migrazione. Ma il
+     registro delle attivita' li rilegge, quindi devono tornare interi — un
+     array di numeri compreso. */
+  await call('PATCH', '/api/c/tasks/TA-1', { qty_done: 5, mov_ids: [101, 102] });
+  const parziale = await call('GET', '/api/c/tasks/TA-1');
+  ok('un parziale resta in corso e porta con se\' il conto',
+     parziale.dati?.qty_done === 5 && parziale.dati.status === 'in_progress'
+     && parziale.dati.payload.qty === 12,
+     'qty_done=' + parziale.dati?.qty_done);
+  ok('gli identificativi dei movimenti rientrano come array di numeri',
+     Array.isArray(parziale.dati?.mov_ids) && parziale.dati.mov_ids.length === 2
+     && parziale.dati.mov_ids[1] === 102);
+
+  await call('PATCH', '/api/c/tasks/TA-1', { qty_done: 12, mov_ids: [101, 102, 103], status: 'done', completed_at: Date.now() });
+  const chiuso = await call('GET', '/api/c/tasks/TA-1');
+  ok('a residuo zero il compito e\' chiuso, e dice con che cosa',
+     chiuso.dati?.status === 'done' && chiuso.dati.qty_done === 12 && chiuso.dati.mov_ids.length === 3);
+
+  /* La richiesta non cambia mai: `payload.qty` e' quello che si e' chiesto,
+     ed e' storia. Chi lo riscrivesse ai colli mossi cancellerebbe il perche'
+     di ogni parziale mai registrato. */
+  ok('il richiesto resta il richiesto anche a compito chiuso',
+     chiuso.dati?.payload?.qty === 12 && chiuso.dati.payload.article_code === 'MP-2');
+
   // ── Notifica ai terminali ─────────────────────────────────────────
   const eventi = [];
   const es = await fetch(BASE + '/api/events?client=TERMINALE-2', { headers: { Accept: 'text/event-stream' } });
