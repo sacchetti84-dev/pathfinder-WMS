@@ -17,13 +17,14 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 13/08/2026
 | In produzione | `pathfinder-1.4.2.html` — è il file che il servizio serve **adesso**, 1.541.133 byte, **installato il 12/08** |
 | Ritorno indietro | `pathfinder-1.4.0.html`, fermo in radice. La 1.4.1 non è mai entrata: è dentro la 1.4.2 |
 | Interruttori | **tutti e cinque spenti**: in `meta` non c'è nessuna chiave `feature.*` |
-| **1.4.2.1** | **in lavorazione** — lo schedulatore che lancia il lavoro: tre blocchi su sei, in locale e verdi. HANDOFF §3 |
+| **1.4.2.1** | **codice chiuso e costruita il 13/08** — sei blocchi su sei, `Pathfinder 1.4/pathfinder-1.4.2.1.html`, 1.576.719 byte. Manca la prova nel browser. HANDOFF §3 |
+| ⛔ **Bloccante** | **il PIN del Team Leader è smarrito**, e `ANDS` è l'unico `leader`: nessuno crea operatori né rinnova PIN. Ferma la prova e l'installazione. **HANDOFF §4bis** |
 | Sorgente | **27 TypeScript** · 5 JavaScript · 5 CSS · `index.html` |
 | Ancora JavaScript | `main.js`, `ui/` (4 file) |
 | Servizio | Node + Express + SQLite, porta **4173** |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
-| Collaudi | **363 client** (~1,8 s) + **50 servizio** + 8 migrazione — verdi |
+| Collaudi | **374 client** (~1,8 s) + **54 servizio** + 8 migrazione — verdi |
 | Tipi | `npm run check` client + servizio — 0 errori |
 
 ## 2. Comandi
@@ -32,7 +33,7 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 13/08/2026
 npm run dev      # sviluppo, ricarica a caldo
 npm run build    # produce "Pathfinder 1.4/" (la azzera e la rifà)
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest, 9 suite
+npm test         # vitest, 11 suite
 ```
 
 Collaudo del servizio: `node server/test/collaudo.js` (da `server/`).
@@ -45,8 +46,8 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 
 | File | Righe | Ruolo |
 |---|---:|---|
-| `ui/app.js` | 11.833 | Tutta l'interfaccia: viste, render, gestori. Il pezzo grosso |
-| `core/store.ts` | 2.201 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` — blocco 6, tipizzato sul posto |
+| `ui/app.js` | 12.420 | Tutta l'interfaccia: viste, render, gestori. Il pezzo grosso |
+| `core/store.ts` | 2.283 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` — blocco 6, tipizzato sul posto |
 | `core/cache.ts` | 321 | Punto unico di mutazione della cache: 5 forme, 4 indici derivati — blocco 1 |
 | `core/statistiche.ts` | 181 | Stato di una cella, conteggi, cruscotto — blocco 5 |
 | `core/pacchetto.ts` | 154 | Export: composizione, conteggi, verifica — blocco 4 |
@@ -62,7 +63,7 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
 | `modules/anagrafica.ts` | 158 | I 14 allergeni del Reg. UE 1169/2011, le 3 classi di conservazione e le certificazioni. Lettura stretta, valori convalidati in Excel |
 | `modules/conformita.ts` | 155 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio girato al contrario |
-| `modules/compiti.ts` | 406 | **1.4.1 · 1.4.2.1** — ciclo di vita, coda, misure, e da qui l'urgenza calcolata, la tabella tipo→operazione e il residuo. Puro: non tocca Store né il DOM |
+| `modules/compiti.ts` | 445 | **1.4.1 · 1.4.2.1** — ciclo di vita, coda, misure, e da qui l'urgenza calcolata, la tabella tipo→operazione, il residuo e **l'avanzamento**. Puro: non tocca Store né il DOM |
 | `modules/misure.ts` | 317 | **1.4.2** — le cinque unità, la suddivisione per collo, il collo incompleto. Puro come `compiti`: entrano numeri, escono suddivisioni |
 | `modules/validate.ts` | 104 | Validazioni di campo |
 | `modules/auth.ts` | 88 | PIN operatore, hash e verifica |
@@ -90,14 +91,14 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `lib/schema.js` | 191 | Tabelle e indici — **due funzioni separate**, con la migrazione in mezzo |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate. Da amministratore |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata serale |
-| `test/collaudo.js` | 429 | 50 prove sul servizio vero |
+| `test/collaudo.js` | 455 | 54 prove sul servizio vero |
 | `test/collaudo-migrazione-1.4.js` | 158 | 8 prove sul cambio di schema della 1.4. Fuori dalla suite: si lancia da solo |
 
 ### Collaudi — `test/`
 
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
-`compiti` (84) · `misure` (65) — **363 prove** in tutto. `ambiente.js` è il
+`compiti` (95) · `misure` (65) — **374 prove** in tutto. `ambiente.js` è il
 preambolo comune.
 
 ## 4. API del servizio
@@ -139,9 +140,10 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 | ↳ *fatto 12/08* | `modules/compiti.ts` con **52 prove** · le attività in Store, a interruttore spento non scrivono · **Configurazione → Funzioni**, gli interruttori si alzano col PIN del Team Leader · vista **Attività**, coda e quattro gesti · riquadro in Dashboard · il **campionamento**, che è l'unica delle otto che non esisteva | — |
 | **1.4.2** | Unità di misura — **in magazzino il 12/08**, con dieci settimane di margine sul 31/10 | **31/10** ✔ |
 | ↳ *fatto 12/08* | `modules/misure.ts` con **65 prove** · l'indice `lotByKey` in cache · la confezione **congelata al primo posizionamento** · `qty_uom` su giacenza e registro · le UM che escono **dentro la stessa transazione** dei colli, con 9 prove nuove sul servizio · la riga «10 × 1.000 + 1 × 100 PZ» a video · il campo per il collo incompleto nel posizionamento | — |
-| **1.4.2.1** | **Lo schedulatore lancia il lavoro** — fuori piano, davanti alla 1.4.3. Tre blocchi su sei | in corso |
+| **1.4.2.1** | **Lo schedulatore lancia il lavoro** — fuori piano, davanti alla 1.4.3. **Sei blocchi su sei, costruita** | da provare |
 | ↳ *fatto 12-13/08* | L'urgenza calcolata e la freccia dell'avvio annullato · la causale `SAMPLE` col campione che cala solo la quantità dentro il collo · la maschera che pesca dalle giacenze in FEFO | — |
-| ↳ *da fare* | L'avvio che apre la funzione di Movimenta precompilata e il movimento che chiude · il registro attività con export Excel · versione e build | — |
+| ↳ *fatto 13/08* | **L'avvio apre Movimenta precompilata e il movimento confermato scala il residuo**, su sei maschere · il prelievo si chiude all'evasione del DDT · **il campionamento ha finalmente la sua maschera**, l'ottava attività · il **registro attività** con export a due fogli · versione, build, documenti | — |
+| ↳ *da fare* | La prova nel browser sul file consegnato, poi i cinque comandi — **ferma sul PIN**, HANDOFF §4bis | — |
 | **1.4.3** | UDC — contenitori, `moveUdc` transazionale, etichette | 21/11, slitta |
 | **1.4.4** | Motore logico di stoccaggio — attributi, regole come dato, motivazioni | 09/12 |
 | **1.4.5** | WIP — installato a interruttore **spento**, si accende a gennaio | 19/12 |
@@ -194,8 +196,9 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 | # | Cosa | Peso |
 |---|---|---|
-| 1 | **Finire la 1.4.2.1** — blocchi 4, 5 e 6: l'avvio che lancia il movimento, il registro attività con export, versione e build. HANDOFF §3 | **il prossimo** |
-| 1bis | **Accendere gli interruttori, ma DOPO la 1.4.2.1.** Accendere `feature.tasks` adesso metterebbe in mano agli operatori lo schedulatore a metà — poi uno per turno | quando la 1.4.2.1 è in magazzino |
+| **0** | ⛔ **PIN del Team Leader smarrito, e `ANDS` è l'unico `leader`**: nessuno può più creare un operatore né rinnovare un PIN. Si esce dal dato — **HANDOFF §4bis** — e poi si promuove un secondo Team Leader, perché la causa è quella | **prima di tutto** |
+| 1 | **Provare la 1.4.2.1 nel browser** su una copia del database vero, poi i cinque comandi. Il codice è chiuso e il file è costruito | **il prossimo**, dopo lo 0 |
+| 1bis | **Accendere gli interruttori, ma DOPO che la 1.4.2.1 è in magazzino** — poi uno per turno | quando la 1.4.2.1 è in magazzino |
 | 1bis | **Confermare due scelte del 12/08** che il piano non prevedeva: la colonna UM è `unit` — quella che c'è già — e la quantità per collo è `pieces_per_pack`. Vedi HANDOFF §5, decisione 41 | **prima di accendere `uom`** |
 | 1ter | La 1.4.3 — UDC, `moveUdc` transazionale, etichette. Slitta di quanto serve alla 1.4.2.1 | dopo |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
@@ -214,8 +217,10 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 - **Il nome del file porta tre numeri**, `pathfinder-1.4.N.html`: la serie 1.4 sono sei rilasci distinti e ognuno resta in radice per fare da ritorno indietro al successivo.
 - **Gli import di un modulo TypeScript si scrivono senza estensione**: `../core/store`, non `../core/store.js`. Due specificatori diversi sono due moduli, e due Store in pagina — HANDOFF §6, trappola 20.
 - **Non riunire `createTableSQL` e `createIndexSQL`**: sono due funzioni perché fra i due passi sta `_migra`, e senza di lei il servizio non parte su un database che esiste già.
-- **Non installare una 1.4.x parziale**: si installa quando la versione è chiusa per intero. Vale adesso per la 1.4.2.1, che è a metà.
+- **Non installare una 1.4.x parziale**: si installa quando la versione è chiusa per intero. La 1.4.2.1 lo è dal 13/08, ma **prima va aperta in un browser** contro una copia del database vero: tsc e 374 collaudi non hanno visto né la trappola 20 né la 21.
 - **Non accendere `feature.tasks` finché la 1.4.2.1 non è in magazzino**: lo schedulatore com'è oggi mette in coda richieste che non aprono nessuna operazione — la «lista che invecchia» del piano §4.1.
+- **Non tenere un solo Team Leader.** Il PIN non è recuperabile per costruzione e il rinnovo lo autorizza un Team Leader: con uno solo, smarrirlo blocca la creazione di ogni operatore. È successo il 13/08 — HANDOFF §4bis.
+- **Non scrivere una `PATCH` a mano senza guardare la chiave vera della collezione**: `operators` è a `op_id`, non a `initials`, e una chiave che non esiste **crea un record** invece di dare errore.
 - **Non convertire `app.js` in un commit solo** — 10.529 righe insieme non sono verificabili. `store.js` ci è passato in sei blocchi.
 - **Non scrivere a mano dentro `Pathfinder 1.4/`**: è prodotta, `npm run build` la azzera.
 - **Non versionare `server/data/`**: contiene i dati veri e le anagrafiche operatori.

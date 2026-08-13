@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 13/08/2026 · Rev. 09 — la 1.4.2 è in magazzino; la 1.4.2.1 è a metà, tre blocchi su sei
+Data: 13/08/2026 · Rev. 10 — la 1.4.2 è in magazzino; la **1.4.2.1 è chiusa e costruita**, sei blocchi su sei. Manca la prova nel browser, e manca perché il PIN del Team Leader è smarrito — §4, aperto 0
 
 ---
 
@@ -31,8 +31,8 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 | Sorgente | 32 file in `src/`: **27 TypeScript**, 5 JavaScript, più 5 CSS |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
-| **1.4.2.1** | **in lavorazione**: tre blocchi su sei, in locale e verdi. Vedi §3 |
-| Collaudi | **363 client** · **50 servizio** · **8 migrazione** — tutti verdi |
+| **1.4.2.1** | **costruita**: sei blocchi su sei, `Pathfinder 1.4/pathfinder-1.4.2.1.html`, **1.576.719 byte**. Non installata, e non installabile finché non è provata nel browser. Vedi §3 |
+| Collaudi | **374 client** · **54 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
@@ -72,6 +72,9 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| *1.4.2.1 · sesto* | **La 1.4.2.1 prende il suo numero e diventa un file**: quattro numeri, non tre — le serve un ritorno indietro suo |
+| `24099b4` | **1.4.2.1 quinto blocco**: il registro delle attività, con l'export a due fogli e le durate in chiaro E in minuti |
+| `d29a274` | **1.4.2.1 quarto blocco**: l'avvio lancia il movimento — `advanceTask`, `abandonTask`, sei maschere che scalano il residuo, e il campionamento che finalmente ha una maschera |
 | `b62e65b` | **1.4.2.1 terzo blocco**: la maschera che pesca dalle giacenze — ricerca FEFO, lotto e Da automatici, 📍 ovunque, campi DDT, soglia in Configurazione |
 | `52ed689` | **1.4.2.1 secondo blocco**: il campionamento cala ciò che c'è dentro il collo — causale `SAMPLE`, rotta composta sua |
 | `dc4fb21` | **1.4.2.1 primo blocco**: l'urgenza calcolata, la freccia dell'avvio annullato, la tabella tipo→operazione, il residuo |
@@ -223,20 +226,44 @@ operatori proprio la «lista che invecchia» che il piano §4.1 temeva.
 | 1 | `modules/compiti.ts`: urgenza calcolata, freccia `in_progress → assigned`, tabella tipo→operazione, le tre eccezioni per tipo, il residuo | **fatto** — 32 prove nuove, 84 in tutto |
 | 2 | La causale `SAMPLE`, `Store.sampleItem`, la rotta `/api/op/sampleItem` | **fatto** — 7 prove nuove sul servizio, 50 in tutto |
 | 3 | La maschera di creazione: ricerca dalle giacenze, autofill, 📍, campi DDT, soglia in Configurazione | **fatto** — provata nel browser |
-| 4 | **L'avvio che lancia il movimento** | **da fare** |
-| 5 | **Il registro attività** con export Excel | **da fare** |
-| 6 | Versione `1.4.2.1`, build, documenti, prova sul file consegnato | **da fare** |
+| 4 | **L'avvio che lancia il movimento** | **fatto** — 11 prove nuove sul modulo, 4 sul servizio |
+| 5 | **Il registro attività** con export Excel | **fatto** |
+| 6 | Versione `1.4.2.1`, build, documenti | **fatto** — 1.576.719 byte |
+| 7 | **Prova nel browser sul file consegnato**, e installazione | **da fare** — bloccata, vedi §4 aperto 0 |
 
-> **Il quarto blocco è il più delicato dei sei, e va affrontato da fresco.**
-> Tocca sette flussi di Movimenta già in produzione per farli tornare
-> indietro all'attività che li ha aperti, ed è il punto in cui un errore si
-> vede sui saldi. Ciò che serve c'è già tutto: `operazioneDi(tipo)` dice
-> quale maschera aprire, `residuo`/`esaurito` dicono quando il compito si
-> chiude, `qty_done` e `mov_ids` sono dichiarati sul tipo `Compito`, e la
-> freccia `in_progress → assigned` è aperta e collaudata.
-
-**Il file porterà quattro numeri**, `pathfinder-1.4.2.1.html`: gli serve un
+**Il file porta quattro numeri**, `pathfinder-1.4.2.1.html`: gli serve un
 ritorno indietro suo, distinto dalla 1.4.2 che è in magazzino adesso.
+`package.json` porta `1.4.2.1`, che semver non è — npm lo accetta perché il
+pacchetto è privato e non si pubblica da nessuna parte.
+
+#### Com'è fatto il quarto blocco, che era il più delicato dei sei
+
+Il timore era giusto — tocca sei flussi già in produzione — ma il punto di
+attacco si è rivelato uno solo, e piccolo.
+
+**Il residuo si scala in chiaro dentro ogni maschera, non di nascosto in
+`_logMov`.** La tentazione era agganciare tutto al registro dei movimenti,
+che è già il collo di bottiglia da cui passano trentotto chiamanti: una riga
+sola e sei flussi serviti. Non regge, e la ragione è `MOV.MOVE` — su uno
+spostamento totale `qty_delta` vale **zero**, perché il record cambia
+ubicazione e non quantità. Quanti colli si siano mossi lo sa la maschera, non
+il registro. Quindi sei chiamate a `_taskAvanza(colli, tipi)`, una per
+flusso, ognuna con davanti il numero giusto.
+
+**Ogni maschera dichiara quali tipi di attività può servire**, ed è il
+secondo pezzo della stessa precauzione: dentro Movimenta si cambia scheda
+con un click, e un posizionamento non deve poter chiudere uno smaltimento.
+
+**Il prelievo si chiude all'EVASIONE, non alla registrazione del DDT.** È
+l'unico dei sei che non si chiude nella sessione che l'ha aperto: fra il
+documento e il ritiro del vettore passano dei giorni, e in mezzo ci sta un
+riavvio. Il filo è `task_id`, scritto sul documento — non una sessione
+aperta, che non sopravviverebbe alla notte.
+
+**Il campionamento ha finalmente una maschera.** Era l'ottava attività: la
+1.4.1 ne aveva messo in coda la richiesta e nessuno poteva eseguirla.
+`Store.sampleItem` c'era dal secondo blocco, ma senza niente che lo
+chiamasse.
 
 
 **Il prossimo atto dopo la 1.4.2.1 è la 1.4.3** — UDC, `moveUdc` transazionale, etichette:
@@ -307,8 +334,10 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
-| 1 | **Finire la 1.4.2.1**: blocchi 4, 5 e 6 — vedi §3. Il quarto va affrontato da fresco | 13/08 | il prossimo lavoro |
-| 1bis | **Accendere gli interruttori**, ma DOPO la 1.4.2.1: accendere `feature.tasks` adesso metterebbe in mano agli operatori lo schedulatore a metà. Poi uno per turno, `feature.uom` il turno dopo | 12/08 | Andrea, quando la 1.4.2.1 è in magazzino |
+| **0** | **IL PIN DEL TEAM LEADER È SMARRITO, E NON C'È UN MODO DI RECUPERARLO DALL'APPLICATIVO.** Blocca la prova nel browser della 1.4.2.1, e quindi l'installazione. Ma il fatto grosso è un altro: sul database VERO `ANDS` è **l'unico** `leader` — l'altro operatore, `DAPE`, è `operator`. Finché resta così, un PIN smarrito vuol dire che **nessuno può più creare un operatore né rinnovare un PIN**, e la maschera dice giustamente «il rinnovo lo autorizza un Team Leader con il proprio PIN». Sotto, in §4bis, come si esce e come si evita che ricapiti | **13/08** | **Andrea, prima di ogni altra cosa** |
+| 1 | **Provare la 1.4.2.1 nel browser** sul file consegnato, contro una copia del database vero e su una porta sua — poi i cinque comandi. Il codice è chiuso: manca solo questo | 13/08 | dopo l'aperto 0 |
+| 1bis | **Accendere gli interruttori**, ma DOPO che la 1.4.2.1 è in magazzino. Poi uno per turno, `feature.uom` il turno dopo | 12/08 | Andrea, quando la 1.4.2.1 è in magazzino |
+| 1quater | **Un secondo Team Leader**, per non ritrovarsi come il 13/08. Promuovere `DAPE` o creare una sigla di riserva: un minuto in Configurazione → Operatori. §4bis | **13/08** | Andrea, appena il PIN è rinnovato |
 | 1bis | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
 | 1ter | **La 1.4.3** — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | nuovo | il prossimo lavoro |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
@@ -318,6 +347,51 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 | 6 | **`ui/` in TypeScript**, `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | 1.2 §6.4 · 1.3 §6.4 | grande |
 | 7 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.ts` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
 | 8 | **`service_version` è ancora `'1.1'`** in `pathfinder-server.js`, ma il servizio è cambiato: `_migra` e 19 collezioni. Da decidere se allinearla, sapendo che è la versione del *servizio* e non dell'applicativo | 12/08 | piccolo |
+
+### 4bis. Il PIN del Team Leader smarrito — come si esce, e come si evita
+
+**Perché non c'è una via dall'applicativo, ed è voluto.** Il PIN non è
+conservato in chiaro da nessuna parte: sul disco resta l'impronta SHA-256 con
+un sale casuale, e lo stesso vale per i backup JSON — `modules/auth.ts`. Non
+è recuperabile perché non esiste da nessuna parte da recuperare. Il rinnovo
+lo autorizza un Team Leader col proprio PIN, e se il Team Leader è uno solo
+il cerchio si chiude su se stesso.
+
+**Si esce dal dato, che è l'unico posto dove il problema esiste.** Si scrive
+una nuova impronta sul record dell'operatore, usando la rotta del servizio
+che la calcola — così il sale e l'algoritmo restano quelli dell'applicativo
+e non se ne inventa un altro. Due passi, da fare **da Andrea**, scegliendo
+lui il PIN nuovo:
+
+```powershell
+$nuovo = Read-Host 'PIN nuovo a 6 cifre' -AsSecureString
+$pin = [Runtime.InteropServices.Marshal]::PtrToStringAuto([Runtime.InteropServices.Marshal]::SecureStringToBSTR($nuovo))
+$campi = Invoke-RestMethod -Uri http://127.0.0.1:4173/api/op/hashPin -Method Post -ContentType 'application/json' -Body (@{pin=$pin} | ConvertTo-Json)
+Invoke-RestMethod -Uri http://127.0.0.1:4173/api/c/operators/OP-MSNAWVON-NTZL -Method Patch -ContentType 'application/json' -Body ($campi | ConvertTo-Json)
+```
+
+> **La chiave di `operators` è `op_id`, non le iniziali** — `types/collezioni.ts`.
+> `OP-MSNAWVON-NTZL` è `ANDS` sul database di adesso, verificato il 13/08;
+> chi rifà l'operazione domani lo ricontrolli, perché un PATCH su una chiave
+> che non esiste **crea un record nuovo** invece di dare errore:
+> `Invoke-RestMethod http://127.0.0.1:4173/api/c/operators`.
+>
+> Il secondo comando scrive `pin_salt`, `pin_hash` e `pin_set_at`, e non
+> tocca nient'altro del record. Il PIN non passa mai da un file: `Read-Host
+> -AsSecureString` non lo lascia nella cronologia della shell.
+
+**E poi si toglie la causa, che è un'altra cosa dal sintomo: SERVE UN SECONDO
+TEAM LEADER.** Un solo `leader` su un applicativo che usa il PIN come unica
+identità è un punto singolo di rottura, e oggi ha rotto davvero. Promuovere
+`DAPE`, o creare una seconda sigla di riserva, costa un minuto e chiude
+l'aperto per sempre — da Configurazione → Operatori → ✏, col PIN appena
+rinnovato.
+
+**Vale la pena chiedersi se l'applicativo debba dirlo.** Oggi non avvisa
+nessuno che i Team Leader sono uno solo. Una riga in Configurazione →
+Operatori che lo segnala sarebbe piccola, e questo pomeriggio sarebbe
+servita. **Non è stata scritta**: è fuori dal perimetro della 1.4.2.1, e si
+decide a mente fredda.
 
 ### I cinque comandi — **rifatti il 12/08 per la 1.4.2**, restano qui perché servono a ogni versione
 
@@ -359,9 +433,10 @@ servendo un'altra cartella: non insistere, leggere il README §9.
 
 | Versione | `app_file` | `bytes` |
 |---|---|---|
-| 1.4.0 — il ritorno indietro | `pathfinder-1.4.0.html` | 1.493.517 |
+| 1.4.0 — il ritorno indietro della 1.4.2 | `pathfinder-1.4.0.html` | 1.493.517 |
 | 1.4.1 — costruita, mai installata | `pathfinder-1.4.1.html` | 1.526.393 |
-| **1.4.2** — in magazzino adesso | `pathfinder-1.4.2.html` | **1.541.133** |
+| **1.4.2** — in magazzino adesso, e ritorno indietro della 1.4.2.1 | `pathfinder-1.4.2.html` | **1.541.133** |
+| 1.4.2.1 — costruita il 13/08, da provare | `pathfinder-1.4.2.1.html` | 1.576.719 |
 
 **Il ritorno indietro è il punto 3 all'incontrario, più un riavvio.** Il file
 precedente resta in radice — nessuno di questi passi lo sposta, proprio per
@@ -468,6 +543,36 @@ Non si rimettono in discussione. Fonte fra parentesi.
     campione più grande della giacenza viene respinto; un prelievo derivato
     dai colli si adatta a ciò che c'è. È la stessa regola della 1.4.2,
     applicata al campionamento.
+
+### 1.4.2.1 — prese scrivendo i blocchi 4-6 (13/08)
+49. **Il residuo lo scala la MASCHERA, non il registro dei movimenti.**
+    `_logMov` è il collo di bottiglia da cui passano trentotto chiamanti, e
+    agganciarci l'avanzamento avrebbe servito sei flussi con una riga sola.
+    Non regge: su uno spostamento totale `MOV.MOVE` scrive `qty_delta: 0`,
+    perché a cambiare è l'ubicazione e non la quantità. Quanti colli si
+    siano mossi lo sa chi li ha mossi. Dal registro arrivano solo gli `_id`,
+    che è l'unica cosa che il registro sa davvero.
+50. **Ogni maschera dichiara quali tipi di attività può servire** —
+    `_taskAvanza(colli, ['PUTAWAY'])`. Dentro Movimenta si cambia scheda con
+    un click, e senza questa riga un posizionamento chiuderebbe uno
+    smaltimento avviato.
+51. **Il prelievo si chiude all'EVASIONE del DDT, non alla registrazione**, e
+    il filo è `task_id` sul documento. È l'unico dei sei che non si chiude
+    nella sessione che l'ha aperto: fra il documento e il ritiro del vettore
+    ci stanno dei giorni, e in mezzo un riavvio. Una sessione aperta non
+    sopravvive alla notte; un campo sul documento sì.
+52. **«Completa» a mano la vieta STORE, non solo la UI.** Nascondere il
+    pulsante sarebbe bastato a video e non sul database, e l'interruttore è
+    una promessa sul database. Le sette che muovono merce si chiudono perché
+    un movimento è stato confermato; la Conta no, e per lei il pulsante
+    resta — è l'unica che può concludersi senza produrre una riga.
+53. **Un campione vale UN collo di residuo.** Chi ne ha chiesti tre passa
+    dalla maschera tre volte, ed è giusto: sono tre prelievi distinti, con
+    tre righe di registro e tre destinatari possibili.
+54. **Il campo dei colli nel Cambio Ubicazione compare SOLO sotto
+    un'attività.** Fuori di lì il cambio sposta il lotto intero, ed è così da
+    sempre: aggiungere un campo a un flusso che dieci volte al giorno non lo
+    chiede è il modo di far sbagliare chi lo usa a memoria.
 
 ### 1.4.2 (12/08)
 38. **Il collo incompleto NON è una riga di giacenza sua.** `inventory` ha
@@ -582,6 +687,22 @@ Non si rimettono in discussione. Fonte fra parentesi.
     numero che serve è `0,3 − 0,1`, che vale 0,19999999999999998. È la
     trappola 17 arrivata addosso mentre la si applicava — **scegliere i valori
     di prova guardando dove il difetto vive, non dove è comodo.**
+28. **`MOV.MOVE` scrive `qty_delta: 0` su uno spostamento totale**, e non è
+    un difetto: a cambiare è l'ubicazione, non la quantità. Chi legge il
+    registro per sapere quanti colli si sono mossi trova zero, e su un
+    parziale trova un numero negativo. È la ragione per cui l'avanzamento di
+    un'attività non passa da lì — decisione 49 (13/08).
+29. **Un `PATCH` su una chiave che non esiste CREA il record invece di dare
+    errore.** Vale su tutte le collezioni, e la chiave non è quella che si
+    ha in mente: `operators` è a `op_id`, non a `initials`; `tasks` è a
+    `task_id`. Prima di una PATCH scritta a mano, leggere la collezione e
+    guardare la chiave vera — `types/collezioni.ts` è la sorgente unica
+    (13/08).
+30. **Un solo Team Leader è un punto singolo di rottura, e il 13/08 ha
+    rotto.** Il PIN non è recuperabile per costruzione — impronta e sale, mai
+    il chiaro — e il rinnovo lo autorizza un Team Leader col proprio PIN: con
+    uno solo, il cerchio si chiude su se stesso e nessuno crea più un
+    operatore. Si esce solo dal dato, §4bis. **Tenerne due, sempre.**
 10. **`getLocationStatus`: uno stato esplicito vince su «occupata».** Una cella Riservata con merce dentro resta `reserved` — senza questo la deroga non scatterebbe mai.
 11. **`addArticle` esce con `false` su un codice noto.** Era il motivo per cui l'import diceva «importati 0». Ora c'è `upsertArticles`.
 12. **`Dialog.confirm` non accetta HTML**: vuole `message` (testo) e `details` (nodo DOM). È deliberato.
@@ -627,6 +748,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 - **Non versionare `server/data/`**: contiene i dati veri e le anagrafiche operatori.
 - **Non aggiornare `dexie` e `xlsx`**: versioni fisse, l'applicativo è collaudato con quelle.
 - **Non collaudare sul database di lavoro.** Mai. È già costato un blocco d'accesso (1.0 §5.6).
+- **Non tenere un solo Team Leader.** Il PIN non è recuperabile per costruzione, e il rinnovo lo autorizza un Team Leader col proprio: con uno solo il cerchio si chiude su se stesso. §4bis.
 - **Non accendere due interruttori `feature.*` nello stesso turno.**
 - **Non aggiungere un quindicesimo allergene**: è una norma. Le esigenze locali si esprimono con la deroga della cella Riservata.
 - **Non rendere tollerante** la lettura di allergeni e temperature.
@@ -639,12 +761,12 @@ Non si rimettono in discussione. Fonte fra parentesi.
 
 ```bash
 npm run check                       # tsc client + servizio
-npm test                            # 331 prove client
+npm test                            # 374 prove client
 npm run build                       # produce "Pathfinder 1.4/"
 ```
 
 ```bash
-node test/collaudo.js               # 43 prove servizio, da server/
+node test/collaudo.js               # 54 prove servizio, da server/
 ```
 
 ```bash

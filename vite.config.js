@@ -52,8 +52,10 @@ export default defineConfig({
     /* Il nome porta i tre numeri, non due: la serie 1.4 sono sei rilasci
        distinti (1.4.0 … 1.4.5) e ciascuno va in magazzino per conto suo. Il
        ritorno indietro e' rimettere PATHFINDER_APP sul file precedente, che
-       resta in radice: senza il terzo numero i sei si sovrascriverebbero. */
-    cartellaDiConsegna('pathfinder-1.4.2.html'),
+       resta in radice: senza il terzo numero i sei si sovrascriverebbero.
+       La 1.4.2.1 ne porta QUATTRO, per la stessa ragione: le serve un
+       ritorno indietro suo, distinto dalla 1.4.2 che e' in magazzino. */
+    cartellaDiConsegna('pathfinder-1.4.2.1.html'),
   ],
 
   build: {
