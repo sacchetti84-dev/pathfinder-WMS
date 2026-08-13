@@ -291,7 +291,7 @@ viene riscritta all'installazione.
 
 ---
 
-### 4.3 — UDC · 1.4.3
+### 4.3 — UDC · 1.4.4
 
 **Cosa.** Un contenitore — pallet, cassone, carrello — che tiene items e sta in
 un'ubicazione. Si sposta la UDC, e la merce le va dietro.
@@ -349,7 +349,7 @@ consegna:
 - prefisso **assente** → si stampa il **codice interno**, ed è il caso di oggi;
 - prefisso **compilato** → il campo `sscc` si calcola e finisce in etichetta.
 
-Il codice per entrambi si scrive una volta sola in 1.4.3. Il giorno che il prefisso
+Il codice per entrambi si scrive una volta sola in 1.4.4. Il giorno che il prefisso
 arriva, qualcuno lo digita in una casella e nessuno installa niente. È la stessa
 forma della partita IVA: un dato dell'azienda non è una costante del sorgente.
 **A3 smette di essere una domanda aperta** e diventa un campo da compilare.
@@ -378,7 +378,7 @@ con i DDT (§9.5: *i documenti si rileggono, non si ricostruiscono*).
 
 ---
 
-### 4.4 — Motore logico di stoccaggio · 1.4.4
+### 4.4 — Motore logico di stoccaggio · 1.4.5
 
 **Cosa.** Riceve uno o più articoli/lotti da posizionare e propone l'ubicazione — o
 la UDC — migliore, con le condizioni che il magazzino si è dato.
@@ -544,7 +544,7 @@ la Configurazione, non la tappa di prelievo.
 
 ---
 
-### 4.5 — WIP · 1.4.5
+### 4.5 — WIP · 1.4.6
 
 **Cosa.** Gli items prelevati per un ODP finiscono in ubicazione WIP invece di
 sparire; il sistema tiene il conto e il tempo; quello che rientra si riposiziona con
@@ -692,9 +692,9 @@ Sei consegne, `store.js` in TypeScript dentro la prima, e il WIP dentro l'ultima
 | **1.4.0** | Fondamenta: migrazione §1, schema mosso una volta, **`store.js` in TS**, collaudi su `_applyToCache`, export/import da `COLLEZIONI`, interruttori. **Invisibile** | 11/08 → 19/09 | 5,5 |
 | **1.4.1** | Schedulatore sulle attività che esistono già. **Costruita il 12/08**, da installare | 21/09 → 10/10 | 3 |
 | **1.4.2** | Unità di misura, split colli, collo incompleto | 12/10 → **31/10** | 3 |
-| **1.4.3** | UDC, `moveUdc` transazionale, etichette | 02/11 → 21/11 | 3 |
-| **1.4.4** | Motore di stoccaggio: attributi, regole come dato, punteggio, motivazioni | 23/11 → 09/12 | 2,5 |
-| **1.4.5** | WIP — installato con l'interruttore **spento**, si accende a gennaio | 10/12 → **19/12** | 1,5 |
+| **1.4.4** | UDC, `moveUdc` transazionale, etichette | 02/11 → 21/11 | 3 |
+| **1.4.5** | Motore di stoccaggio: attributi, regole come dato, punteggio, motivazioni | 23/11 → 09/12 | 2,5 |
+| **1.4.6** | WIP — installato con l'interruttore **spento**, si accende a gennaio | 10/12 → **19/12** | 1,5 |
 
 Prima di ogni consegna: build, 57+ collaudi client, 29+ di servizio, `npm run check`
 a zero, e il confronto fra due istanze su porte diverse. Il metodo non cambia perché
@@ -748,7 +748,7 @@ collaudi si scrivono prima, nel tempo delle consegne precedenti.**
 - Il file di prova del **motore** — vincoli duri, punteggi, motivazioni — si scrive
   durante la 1.4.2, contro dati finti. Non serve che il motore esista.
 - Il file di prova del **WIP** — quanto è uscito, quanto è tornato, quanto manca — si
-  scrive durante la 1.4.3.
+  scrive durante la 1.4.4.
 
 Non è ottimismo di pianificazione: è la §5.1 dell'HANDOFF 1.3, *«i collaudi si
 scrivono prima»*, usata anche come strumento di calendario. A dicembre resta la
@@ -789,7 +789,7 @@ Si scende di un gradino per ogni settimana di ritardo, dal primo:
 Il quinto gradino non c'è: sotto il quarto si sposta la data, non si toglie altro.
 E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 
-> Nota di calendario, non tecnica: la 1.4.5 si **installa** il 19/12 e si **accende**
+> Nota di calendario, non tecnica: la 1.4.6 si **installa** il 19/12 e si **accende**
 > a gennaio. Chiudere il progetto il 31/12 significa che il codice è in magazzino e
 > collaudato entro quella data — non che si cambia il prelievo di produzione durante
 > l'inventario di fine anno.
@@ -817,7 +817,7 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 
 | # | Decisione | Conseguenza |
 |---|---|---|
-| D1 | **Il WIP resta in calendario**, 1.4.5 | Installato il 19/12 a interruttore spento, acceso a gennaio. Il suo collaudo si scrive a novembre. §4.5, §6 |
+| D1 | **Il WIP resta in calendario**, 1.4.6 | Installato il 19/12 a interruttore spento, acceso a gennaio. Il suo collaudo si scrive a novembre. §4.5, §6 |
 | D2 | **Verifica dell'andamento a fine ottobre** | Quattro fatti da guardare il 31/10, e una scala di cosa togliere già decisa. §6 |
 | D3 | **`store.js` in TypeScript dentro la Fase 0** | 1.4.0 passa da 4 a 5,5 settimane. Sparisce l'aperto #4, spariscono i due ponti verso Store. §3 |
 

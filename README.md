@@ -108,7 +108,7 @@ Poi si avvia a mano, su una porta diversa da quella del magazzino:
 ```powershell
 $env:PATHFINDER_PORT = '4174'
 $env:PATHFINDER_DB   = "$env:TEMP\prova.db"
-$env:PATHFINDER_APP  = '..\pathfinder-1.4.0.html'
+$env:PATHFINDER_APP  = '..\pathfinder-1.4.3.html'
 node pathfinder-server.js
 ```
 
@@ -177,7 +177,7 @@ Succede in fase di rilascio, quando la versione nuova e la vecchia convivono.
 Si dice quale servire:
 
 ```powershell
-.\installa-servizio.ps1 -Applicativo '..\pathfinder-1.4.0.html'
+.\installa-servizio.ps1 -Applicativo '..\pathfinder-1.4.3.html'
 ```
 
 Reinstallando su una macchina già in servizio, se `PATHFINDER_APP` è già
@@ -473,7 +473,7 @@ npm run dev
 ```
 MAPPER/
 ├─ Pathfinder 1.4/       ← PRODOTTA dalla build, si copia in magazzino
-│  ├─ pathfinder-1.4.0.html   l'applicativo
+│  ├─ pathfinder-1.4.3.html   l'applicativo
 │  ├─ README.md             queste istruzioni
 │  └─ server/               il servizio, l'installazione, il backup
 │                           (senza node_modules: le installa lo script)

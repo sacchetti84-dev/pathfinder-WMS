@@ -53,9 +53,13 @@ export default defineConfig({
        distinti (1.4.0 … 1.4.5) e ciascuno va in magazzino per conto suo. Il
        ritorno indietro e' rimettere PATHFINDER_APP sul file precedente, che
        resta in radice: senza il terzo numero i sei si sovrascriverebbero.
-       La 1.4.2.1 ne porta QUATTRO, per la stessa ragione: le serve un
-       ritorno indietro suo, distinto dalla 1.4.2 che e' in magazzino. */
-    cartellaDiConsegna('pathfinder-1.4.2.1.html'),
+
+       Lo schedulatore che lancia il lavoro e' nato fuori piano e per un
+       giorno si e' chiamato 1.4.2.1, col quarto numero — i commit del 12 e
+       13/08 lo chiamano ancora cosi'. Al rilascio ha preso il numero
+       pianificato successivo, e la serie e' tornata a tre numeri: la UDC,
+       che nel piano era la 1.4.3, e' slittata di uno. */
+    cartellaDiConsegna('pathfinder-1.4.3.html'),
   ],
 
   build: {

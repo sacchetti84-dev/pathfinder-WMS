@@ -6,7 +6,7 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 13/08/2026 · Rev. 12 — **la 1.4.2.1 è in magazzino**, provata e installata la notte del 13/08. Resta da accendere
+Data: 13/08/2026 · Rev. 13 — **la 1.4.3 è in magazzino**, provata e installata la notte del 13/08. Nata come 1.4.2.1, ha preso il numero al rilascio. Resta da accendere
 
 ---
 
@@ -25,13 +25,13 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Voce | Valore |
 |---|---|
-| In magazzino, **adesso** | **`pathfinder-1.4.2.1.html`** — verificato su `/api/app-info`, **1.578.609 byte**, installato la notte del 13/08 |
+| In magazzino, **adesso** | **`pathfinder-1.4.3.html`** — verificato su `/api/app-info`, **1.578.603 byte**, installato la notte del 13/08 |
 | Interruttori | **tutti e cinque spenti**: in `meta` non c'è nessuna chiave `feature.*` |
-| Ritorno indietro | **`pathfinder-1.4.2.html`**, fermo in radice, 1.541.133 byte. Sotto restano la 1.4.0 e la 1.2 |
+| Ritorno indietro | **`ARCHIVIO/VERSIONI PRECEDENTI/pathfinder-1.4.2.html`**, 1.541.133 byte. **Non più in radice** dal riordino del 13/08: va ripescato prima di rimettere la variabile — INDEX §7bis |
 | Sorgente | 32 file in `src/`: **27 TypeScript**, 5 JavaScript, più 5 CSS |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
 | Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
-| **1.4.2.1** | **in magazzino**: sei blocchi su sei, otto flussi provati su una copia del database vero prima di installarla — §3 |
+| **1.4.3** | **in magazzino**: sei blocchi su sei, otto flussi provati su una copia del database vero prima di installarla — §3 |
 | Collaudi | **377 client** · **54 servizio** · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
@@ -72,12 +72,12 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
-| *1.4.2.1 · sesto* | **La 1.4.2.1 prende il suo numero e diventa un file**: quattro numeri, non tre — le serve un ritorno indietro suo |
-| `24099b4` | **1.4.2.1 quinto blocco**: il registro delle attività, con l'export a due fogli e le durate in chiaro E in minuti |
-| `d29a274` | **1.4.2.1 quarto blocco**: l'avvio lancia il movimento — `advanceTask`, `abandonTask`, sei maschere che scalano il residuo, e il campionamento che finalmente ha una maschera |
-| `b62e65b` | **1.4.2.1 terzo blocco**: la maschera che pesca dalle giacenze — ricerca FEFO, lotto e Da automatici, 📍 ovunque, campi DDT, soglia in Configurazione |
-| `52ed689` | **1.4.2.1 secondo blocco**: il campionamento cala ciò che c'è dentro il collo — causale `SAMPLE`, rotta composta sua |
-| `dc4fb21` | **1.4.2.1 primo blocco**: l'urgenza calcolata, la freccia dell'avvio annullato, la tabella tipo→operazione, il residuo |
+| *1.4.3 · sesto* | **La 1.4.3 prende il suo numero e diventa un file**: quattro numeri, non tre — le serve un ritorno indietro suo |
+| `24099b4` | **1.4.3 quinto blocco**: il registro delle attività, con l'export a due fogli e le durate in chiaro E in minuti |
+| `d29a274` | **1.4.3 quarto blocco**: l'avvio lancia il movimento — `advanceTask`, `abandonTask`, sei maschere che scalano il residuo, e il campionamento che finalmente ha una maschera |
+| `b62e65b` | **1.4.3 terzo blocco**: la maschera che pesca dalle giacenze — ricerca FEFO, lotto e Da automatici, 📍 ovunque, campi DDT, soglia in Configurazione |
+| `52ed689` | **1.4.3 secondo blocco**: il campionamento cala ciò che c'è dentro il collo — causale `SAMPLE`, rotta composta sua |
+| `dc4fb21` | **1.4.3 primo blocco**: l'urgenza calcolata, la freccia dell'avvio annullato, la tabella tipo→operazione, il residuo |
 | `b6c9ccf` | **La 1.4.2 entra in magazzino**: cinque comandi, revisione 22418 prima e dopo |
 | *1.4.2 · quinto* | **La 1.4.2 prende il suo numero e diventa un file**, e i documenti dicono dov'è |
 | *1.4.2 · quarto* | **Le UM si vedono e si digitano**: la riga «10 × 1.000 + 1 × 100 PZ», il campo del collo incompleto, e i **900 pezzi che comparivano spostando un pallet** — trappola 24 |
@@ -188,7 +188,7 @@ pena conoscere prima di rimetterle in discussione:
    perché un dato è vecchio è peggio del dato vecchio. Lo scarto lo mostra
    `verificaUom`, che non corregge niente.
 
-### La 1.4.2.1 — lo schedulatore che lancia il lavoro
+### La 1.4.3 — lo schedulatore che lancia il lavoro
 
 **Non è nel PIANO-1.4.** Nasce il 12/08 sera, dalla prova sul campo della
 1.4.1: la coda c'era, ma «completare un'attività non muoveva i colli». Non
@@ -196,7 +196,7 @@ era un difetto, era il disegno — il compito era una *richiesta* che
 affiancava l'operazione, e «Completa» una spunta. Da qui in poi **il compito
 apre il lavoro, e si chiude solo perché un movimento è stato confermato.**
 
-Va davanti alla 1.4.3 (UDC, che slitta di quanto serve) per una ragione
+Va davanti alla 1.4.4 (UDC, che slitta di quanto serve) per una ragione
 sola: `feature.tasks` è ancora **spento**, quindi nessuno lo sta usando e
 non si rompe niente a nessuno. Accenderlo com'era avrebbe messo in mano agli
 operatori proprio la «lista che invecchia» che il piano §4.1 temeva.
@@ -228,9 +228,9 @@ operatori proprio la «lista che invecchia» che il piano §4.1 temeva.
 | 3 | La maschera di creazione: ricerca dalle giacenze, autofill, 📍, campi DDT, soglia in Configurazione | **fatto** — provata nel browser |
 | 4 | **L'avvio che lancia il movimento** | **fatto** — 11 prove nuove sul modulo, 4 sul servizio |
 | 5 | **Il registro attività** con export Excel | **fatto** |
-| 6 | Versione `1.4.2.1`, build, documenti | **fatto** — 1.578.609 byte |
+| 6 | Versione `1.4.3`, build, documenti | **fatto** — 1.578.603 byte |
 | 7 | **Prova nel browser sul file consegnato** | **fatta 13/08** — otto flussi su copia del database vero, porta 4199. Tre difetti trovati e chiusi, sotto |
-| 8 | **Installare la 1.4.2.1** | **fatto 13/08** — `/api/app-info` risponde `pathfinder-1.4.2.1.html`, 1.578.609 byte |
+| 8 | **Installare la 1.4.3** | **fatto 13/08** — `/api/app-info` risponde `pathfinder-1.4.3.html`, 1.578.603 byte |
 
 #### Cosa ha trovato la prova nel browser, che tsc e 377 collaudi non vedevano
 
@@ -264,9 +264,9 @@ dentro. `feature.tasks` e `feature.uom` accesi **sulla sola copia**.
 > tutte e due, perché una regola verificata da un lato solo è una regola per
 > metà.
 
-**Il file porta quattro numeri**, `pathfinder-1.4.2.1.html`: gli serve un
+**Il file porta quattro numeri**, `pathfinder-1.4.3.html`: gli serve un
 ritorno indietro suo, distinto dalla 1.4.2 che è in magazzino adesso.
-`package.json` porta `1.4.2.1`, che semver non è — npm lo accetta perché il
+`package.json` porta `1.4.3`, che semver non è — npm lo accetta perché il
 pacchetto è privato e non si pubblica da nessuna parte.
 
 #### Com'è fatto il quarto blocco, che era il più delicato dei sei
@@ -299,7 +299,7 @@ aperta, che non sopravviverebbe alla notte.
 chiamasse.
 
 
-**Il prossimo atto dopo la 1.4.2.1 è la 1.4.3** — UDC, `moveUdc` transazionale, etichette:
+**Il prossimo atto dopo la 1.4.3 è la 1.4.4** — UDC, `moveUdc` transazionale, etichette:
 PIANO-1.4 §4.3, entro il **21/11**.
 
 **Il 31/10 resta la data della verifica dell'andamento** (§6 del piano). Dei
@@ -368,9 +368,9 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 | # | Cosa | Origine | Chi |
 |---|---|---|---|
 | **0** | **`ANDS` È L'UNICO TEAM LEADER, E IL 13/08 È COSTATO.** Per qualche ora il PIN si è smarrito, e con un solo `leader` questo vuol dire che **nessuno può più creare un operatore né rinnovarne uno**: il rinnovo lo autorizza un Team Leader col proprio PIN, e il cerchio si chiude su se stesso. Il PIN è rientrato; **la causa no.** Promuovere `DAPE` o creare una sigla di riserva — un minuto in Configurazione → Operatori, §4bis | **13/08** | **Andrea, prima di ogni altra cosa** |
-| 1 | **Accendere `feature.tasks`** a inizio turno, col PIN del Team Leader — e `feature.uom` il turno dopo, mai lo stesso giorno. Finché sono spenti la 1.4.2.1 è installata e invisibile, ed è voluto | 13/08 | Andrea, a inizio turno |
+| 1 | **Accendere `feature.tasks`** a inizio turno, col PIN del Team Leader — e `feature.uom` il turno dopo, mai lo stesso giorno. Finché sono spenti la 1.4.3 è installata e invisibile, ed è voluto | 13/08 | Andrea, a inizio turno |
 | 1ter | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
-| 1quater | **La 1.4.3** — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | nuovo | il prossimo lavoro |
+| 1quater | **La 1.4.4** — UDC, `moveUdc` transazionale, etichette, entro il **21/11** | nuovo | il prossimo lavoro |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
 | 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare, non codice da scrivere | **1.0 §7.1** | Andrea, quando opportuno |
 | 4 | **Nome DNS interno e certificato** dalla CA aziendale. **Il codice è pronto e non aspetta niente**: due variabili e HTTPS si accende. Il certificato arriva a lavori finiti | **1.0 §7.2** · 1.2 §6.1 | IT — non blocca |
@@ -421,10 +421,10 @@ rinnovato.
 **Vale la pena chiedersi se l'applicativo debba dirlo.** Oggi non avvisa
 nessuno che i Team Leader sono uno solo. Una riga in Configurazione →
 Operatori che lo segnala sarebbe piccola, e questo pomeriggio sarebbe
-servita. **Non è stata scritta**: è fuori dal perimetro della 1.4.2.1, e si
+servita. **Non è stata scritta**: è fuori dal perimetro della 1.4.3, e si
 decide a mente fredda.
 
-### I cinque comandi — **pronti per la 1.4.2.1**, e restano qui perché servono a ogni versione
+### I cinque comandi — **eseguiti per la 1.4.3 il 13/08**, e restano qui perché servono a ogni versione
 
 Da **PowerShell come amministratore** (il servizio gira come SYSTEM), **a fine
 turno** e **con un backup fresco davanti**. Si rifanno tali e quali per la versione
@@ -442,12 +442,12 @@ Invoke-RestMethod -Uri http://127.0.0.1:4173/api/backup -Method Post `
 
 ```powershell
 cd "C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER"
-Copy-Item "Pathfinder 1.4\pathfinder-1.4.2.1.html" pathfinder-1.4.2.1.html
+Copy-Item "Pathfinder 1.4\pathfinder-1.4.3.html" pathfinder-1.4.3.html
 ```
 
 ```powershell
 [Environment]::SetEnvironmentVariable('PATHFINDER_APP',
-  'C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\pathfinder-1.4.2.1.html','Machine')
+  'C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\pathfinder-1.4.3.html','Machine')
 ```
 
 ```powershell
@@ -462,28 +462,36 @@ Invoke-RestMethod http://127.0.0.1:4173/api/app-info
 Se `app_file` non è la versione attesa, o `bytes` non corrisponde, il servizio sta
 servendo un'altra cartella: non insistere, leggere il README §9.
 
-| Versione | `app_file` | `bytes` |
-|---|---|---|
-| 1.4.0 | `pathfinder-1.4.0.html` | 1.493.517 |
-| 1.4.1 — costruita, mai installata | `pathfinder-1.4.1.html` | 1.526.393 |
-| **1.4.2** — il ritorno indietro della 1.4.2.1 | `pathfinder-1.4.2.html` | 1.541.133 |
-| **1.4.2.1** — in magazzino adesso | `pathfinder-1.4.2.1.html` | **1.578.609** |
+| Versione | `app_file` | `bytes` | Dove sta |
+|---|---|---|---|
+| 1.2 | `pathfinder-1.2.html` | 1.486.348 | archivio |
+| 1.4.0 | `pathfinder-1.4.0.html` | 1.493.517 | archivio |
+| 1.4.1 — costruita, mai installata | `pathfinder-1.4.1.html` | 1.526.393 | mai esistita in radice |
+| **1.4.2** — il ritorno indietro della 1.4.3 | `pathfinder-1.4.2.html` | 1.541.133 | archivio |
+| 1.4.2.1 — in magazzino 25 minuti | `pathfinder-1.4.2.1.html` | 1.578.609 | archivio |
+| **1.4.3** — in magazzino adesso | `pathfinder-1.4.3.html` | **1.578.603** | **radice** |
 
-> **La 1.4.2.1 è entrata in radice due volte la stessa notte, e i byte sono
-> cambiati con lei** — da 1.578.041 a 1.578.609. In mezzo una correzione sola,
-> tutta CSS: la freccia delle tendine si ripeteva per tutta la larghezza del
-> campo e spariva al passaggio del mouse. Si è potuto fare perché era notte,
-> gli interruttori erano spenti e la versione non l'aveva ancora usata nessuno.
+> **QUESTA VERSIONE HA AVUTO TRE FILE IN UNA NOTTE, e vale la pena sapere
+> perché — è la storia di come non si fa.**
 >
-> **Non è la strada normale, e non va presa per abitudine.** Sovrascrivere il
-> file servito lascia due contenuti diversi sotto lo stesso numero di versione,
-> e chi verifica un'installazione confronta `app_file` **e** `bytes`: da quel
-> momento vale solo l'ultimo, e un foglio stampato ieri dice il numero
-> sbagliato. Una correzione, anche di una riga di CSS, prende un numero suo.
+> È nata **1.4.2.1**, col quarto numero, perché non era nel piano: i commit
+> del 12 e 13/08 la chiamano ancora così, e i commenti nel codice pure. Il
+> primo file, 1.578.041 byte, è stato installato e poi **sovrascritto la
+> stessa notte** per una correzione tutta CSS — la freccia delle tendine, che
+> si ripeteva per tutta la larghezza del campo. Stesso nome, 1.578.609 byte:
+> due contenuti diversi sotto lo stesso numero di versione. Poi ha preso il
+> numero pianificato successivo ed è diventata **1.4.3**.
+>
+> **La sovrascrittura è l'errore, non il rinumero.** Chi verifica
+> un'installazione confronta `app_file` **e** `bytes`: da quel momento vale
+> solo l'ultimo, e un foglio stampato mezz'ora prima dice il numero sbagliato.
+> Si è potuto fare perché era notte fonda, gli interruttori erano spenti e non
+> l'aveva ancora usata nessuno — tre condizioni che non si ripetono spesso.
+> **Una correzione, anche di una riga di CSS, prende un numero suo.**
 
-**Il ritorno indietro è il punto 3 all'incontrario, più un riavvio.** Il file
-precedente resta in radice — nessuno di questi passi lo sposta, proprio per
-questo — e il database non viene toccato. La 1.2 rilegge il database della
+**Il ritorno indietro sono due passi, dal 13/08.** Prima si ripesca il file
+dall'archivio, poi si rimette la variabile e si riavvia: INDEX §7bis ha i
+comandi. Il database non viene toccato. La 1.2 rilegge il database della
 1.4: lo provano le 8 prove di `collaudo-migrazione-1.4.js`, non una speranza.
 
 > **E se una delle due funzioni desse fastidio, prima di tornare indietro c'è
@@ -515,7 +523,8 @@ questo — e il database non viene toccato. La 1.2 rilegge il database della
 | Collaudi su `_applyToCache` | 1.3 §6.5 | **Fatto 12/08**: 19 collezioni dichiarate, `resetAll` le pulisce tutte |
 | Portare la 1.4.0 in magazzino | 1.4 §4 | **Fatto 12/08**: build, prova nel browser su copia del database vero, cinque comandi, `/api/app-info` lo conferma |
 | Portare la 1.4.1 in magazzino | 1.4 §4 | **Assorbito**: non è mai entrata da sola, è dentro la 1.4.2 |
-| Portare la 1.4.2.1 in magazzino | 1.4 §3 | **Fatto 13/08**: provata prima su una copia del database vero, poi i cinque comandi. Il ritorno indietro è la 1.4.2, che resta in radice |
+| Portare la 1.4.3 in magazzino | 1.4 §3 | **Fatto 13/08**: provata prima su una copia del database vero, poi i cinque comandi. Nata 1.4.2.1, ha preso il numero al rilascio |
+| Riordinare la radice e archiviare le versioni vecchie | 13/08 | **Fatto 13/08**: in radice resta il solo file servito; 1.2, 1.4.0, 1.4.2 e 1.4.2.1 in `ARCHIVIO/VERSIONI PRECEDENTI/`. Il ritorno indietro costa un passo in più — INDEX §7bis |
 | Portare la 1.4.2 in magazzino | 1.4 §4 | **Fatto 12/08, 21:47**: backup, copia in radice, variabile, riavvio, verifica. Revisione del database 22418 prima e dopo: l'installazione non ha scritto niente |
 
 ---
@@ -559,7 +568,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 37. **Le durate non contano gli annullati**, l'attesa sì: in coda ci sono
     stati davvero, ma non li ha lavorati nessuno.
 
-### 1.4.2.1 (12-13/08) — confermate da Andrea prima di scrivere una riga
+### 1.4.3 (12-13/08) — confermate da Andrea prima di scrivere una riga
 43. **Lo schedulatore LANCIA il lavoro, non lo affianca.** L'avvio apre la
     funzione di Movimenta precompilata, e un compito si chiude solo perché
     un movimento è stato confermato. Quello che nella 1.4.1 sembrava un
@@ -588,7 +597,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
     dai colli si adatta a ciò che c'è. È la stessa regola della 1.4.2,
     applicata al campionamento.
 
-### 1.4.2.1 — prese scrivendo i blocchi 4-6 (13/08)
+### 1.4.3 — prese scrivendo i blocchi 4-6 (13/08)
 49. **Il residuo lo scala la MASCHERA, non il registro dei movimenti.**
     `_logMov` è il collo di bottiglia da cui passano trentotto chiamanti, e
     agganciarci l'avanzamento avrebbe servito sei flussi con una riga sola.
@@ -656,7 +665,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
     un `qty_uom` non lo ha mai avuto, e vale una volta.
 
 ### 1.4
-18. **Il WIP resta nella 1.4** (1.4.5, installato il 19/12 a interruttore spento).
+18. **Il WIP resta nella 1.4** (1.4.6, installato il 19/12 a interruttore spento).
 19. **Verifica dell'andamento il 31/10**, con la scala di cosa togliere già decisa.
 20. **Allergeni:** i 14 dell'Allegato II del Reg. UE 1169/2011. Elenco chiuso.
 21. **Temperature:** `SURG` −18 °C · `REFR` +4/+8 °C · `AMB` +18/+25 °C.
@@ -782,7 +791,7 @@ Non si rimettono in discussione. Fonte fra parentesi.
 ## 8. Cosa NON fare
 
 - **Non reintrodurre `store.js`**: il file è `core/store.ts`, e gli import verso di lui si scrivono senza estensione — vedi trappola 20.
-- **Non toccare `pathfinder-1.4.2.html` in radice**: è quello servito adesso. E non spostare `pathfinder-1.4.0.html`, che gli sta accanto: è il ritorno indietro. Nemmeno `pathfinder-1.2.html`.
+- **Non toccare `pathfinder-1.4.3.html` in radice**: è quello servito adesso, ed è l'unico rimasto lì. I precedenti stanno in `ARCHIVIO/VERSIONI PRECEDENTI/` e **non si cancellano**: sono le vie di ritorno, e un archivio svuotato funziona una volta sola.
 - **Non chiamare `addItem` per rimettere a posto della merce senza passargli le UM uscite**: le deriva da colli pieni e il saldo si gonfia in silenzio — trappola 24, e c'è `App._umMossa` apposta.
 - **Non aggiungere un campo all'anagrafica senza guardare come si chiamano le etichette che ci sono già**: `unit` è già «UM» in tre posti — trappola 25.
 - **Non convertire `ui/` sperando che basti il compilatore**: due difetti su due, in questa conversione, li ha presi solo la prova nel browser.

@@ -199,7 +199,7 @@ scritto, non con un riassunto ottimista.
 | Non fa | Perché |
 |---|---|
 | Installare in magazzino | È un atto umano, a fine turno, con un backup fresco davanti |
-| Toccare `pathfinder-1.2.html` in radice | È il file servito adesso |
+| Toccare `pathfinder-1.4.3.html` in radice | È il file servito adesso |
 | Scrivere dentro `Pathfinder 1.2/` | È prodotta: `npm run build` la azzera |
 | Versionare `server/data/` | Contiene i dati veri e le anagrafiche operatori |
 | Aggiornare `dexie` e `xlsx` | Versioni fisse, l'applicativo è collaudato con quelle |
