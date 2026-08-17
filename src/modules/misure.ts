@@ -81,8 +81,10 @@ export function arrotonda(n: unknown, dec: number = DECIMALI_MAX): number | null
 }
 
 /** Numero come arriva: da una maschera, da un foglio Excel, dal database.
-    La virgola decimale italiana è un dato, non un errore di chi digita. */
-function numero(raw: unknown): number | null {
+    La virgola decimale italiana è un dato, non un errore di chi digita.
+    Esportata perché `modules/colli.ts` legge le stesse celle: due letture
+    della virgola sono due numeri diversi nella stessa maschera. */
+export function leggiNumero(raw: unknown): number | null {
   if (typeof raw === 'number') return Number.isFinite(raw) ? raw : null;
   const t = String(raw ?? '').trim().replace(',', '.');
   if (!t) return null;
@@ -152,8 +154,8 @@ export function configurazione(art: Record<string, any> | null | undefined): Con
   if (propria === undefined) return null;
   const uom = propria ?? leggiUnita(art?.unit);
   if (!uom) return null;
-  const proprio = numero(art?.pieces_per_pack);
-  const ripiego = numero(art?.uom_per_collo);
+  const proprio = leggiNumero(art?.pieces_per_pack);
+  const ripiego = leggiNumero(art?.uom_per_collo);
   const per = (proprio && proprio > 0) ? proprio : ((ripiego && ripiego > 0) ? ripiego : null);
   return { uom, per_collo: per === null ? null : arrotonda(per, decimali(uom)) };
 }
@@ -169,7 +171,7 @@ export function gestitaAUM(cfg: Configurazione | null | undefined): boolean {
 export function validaConfigurazione(uomRaw: unknown, perColloRaw: unknown): string[] {
   const errori: string[] = [];
   const uom = leggiUnita(uomRaw);
-  const per = numero(perColloRaw);
+  const per = leggiNumero(perColloRaw);
   if (uom === undefined) {
     errori.push(`Unità di misura non prevista: ${String(uomRaw).trim()} — le ammesse sono ${UNITA_MISURA.map(u => u.code).join(', ')}`);
     return errori;
@@ -210,7 +212,7 @@ export function congela(
 export function daLotto(lot: Partial<Lotto> | null | undefined): Configurazione | null {
   const uom = leggiUnita(lot?.uom);
   if (!uom) return null;
-  const per = numero(lot?.uom_per_collo);
+  const per = leggiNumero(lot?.uom_per_collo);
   return { uom, per_collo: (per && per > 0) ? arrotonda(per, decimali(uom)) : null };
 }
 
