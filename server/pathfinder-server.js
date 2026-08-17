@@ -15,11 +15,16 @@ const DB_FILE = process.env.PATHFINDER_DB || path.join(__dirname, 'data', 'pathf
 /* ── 1.7 · L'APPLICATIVO E' UNA CARTELLA ──────────────────────────────────
    Fino alla 1.6 era un file HTML solo e `PATHFINDER_APP` ci puntava. Dalla
    1.7 e' una cartella — `index.html` piu' `assets/` coi nomi a impronta — e
-   `PATHFINDER_APP_DIR` punta alla GIUNZIONE `corrente`, che non cambia mai:
-   installare e tornare indietro sono un ripuntamento, senza amministratore e
-   senza riavvio.
+   `PATHFINDER_APP_DIR` punta a `corrente`, una cartella che non cambia mai
+   nome: installare e tornare indietro ne sostituiscono il CONTENUTO, senza
+   amministratore e senza riavvio.
 
-   `precedente` e' la giunzione sorella, e serve gli assets della versione
+   NON e' una giunzione, e non deve tornare a esserlo: il 17/08/2026 lo era,
+   e questo processo — che gira come SYSTEM in sessione 0 — non e' riuscito ad
+   attraversarla («UNKNOWN: unknown error» su stat), mentre lo stesso percorso
+   si apriva senza problemi da una sessione utente. Tre ore di applicativo giu'.
+
+   `precedente` e' la cartella sorella, e serve gli assets della versione
    appena lasciata a chi aveva la pagina a meta' caricamento nell'istante
    dello scambio.
 
@@ -83,6 +88,87 @@ const scalaUom = (item, chieste, atteso, tutto) => {
   if (tutto) return { prima, dopo: 0, delta: -prima };
   const out = Math.min(arrotondaUom(chieste), prima);
   return { prima, dopo: arrotondaUom(prima - out), delta: -out };
+};
+
+/* ── 1.8 · L'ELENCO DEI COLLI, E CHI LO ARBITRA ───────────────────────────
+   Dalla 1.8 la suddivisione non si calcola da un per-collo costante: la riga
+   porta `packs`, un numero per collo, e lo stesso articolo puo' stare in colli
+   da 5 e da 25 kg nella stessa ubicazione.
+
+   IL CLIENT SCEGLIE PER INDICE, QUI ARRIVANO SOLO LE QUANTITA'. E' la stessa
+   ragione di `qty_uom_before`: fra il render della maschera e il tocco sul
+   bottone un altro terminale puo' aver preso quel collo, e un indice vecchio
+   punterebbe a merce diversa. Le quantita' invece si cercano nell'elenco che
+   la riga ha adesso — o non si trovano, e allora e' un 409.
+
+   Dove c'e' `packs`, `qty` e `qty_uom` diventano derivate: le conta l'elenco,
+   non il client. */
+const leggiPacks = (raw) => {
+  if (!Array.isArray(raw) || !raw.length) return null;
+  const out = [];
+  for (const v of raw) {
+    const n = arrotondaUom(v);
+    if (n === null || n <= 0) return null;
+    out.push(n);
+  }
+  return out;
+};
+
+const sommaPacks = (elenco) => elenco.reduce((a, n) => arrotondaUom(a + n), 0);
+
+/* Un collo della misura esatta esce intero; se non c'e', si apre IL PIU'
+   PICCOLO CHE BASTA — aprire quello da 1.000 per prendere 300 lascerebbe due
+   colli aperti dove ne bastava uno, e il magazzino li conta a mano. */
+const scalaPacks = (elenco, usciti) => {
+  const rimasti = elenco.slice();
+  let uscite = 0;
+  for (const q of usciti) {
+    let i = rimasti.indexOf(q);
+    if (i === -1) {
+      for (let k = 0; k < rimasti.length; k++) {
+        if (rimasti[k] > q && (i === -1 || rimasti[k] < rimasti[i])) i = k;
+      }
+    }
+    if (i === -1) {
+      throw Object.assign(new Error(`nessun collo contiene ${q}: un altro terminale ha gia' mosso questa riga`), { status: 409 });
+    }
+    if (rimasti[i] === q) rimasti.splice(i, 1);
+    else rimasti[i] = arrotondaUom(rimasti[i] - q);
+    uscite = arrotondaUom(uscite + q);
+  }
+  return { rimasti, uscite };
+};
+
+/* Che cosa esce da una riga gestita a colli dichiarati. `null` = `packs_out`
+   non c'e', e allora comanda il percorso della 1.7 — riga per riga, senza un
+   ramo di codice che si percorre una volta l'anno.
+
+   `packs_before` e' il seme, e vale una volta sola: la riga posizionata prima
+   della 1.8 non ha nessun elenco, e il primo che la muove porta la propria
+   lettura. Poi comanda la riga, come per `qty_uom_before`. */
+const uscitaColli = (item, packsOut, packsBefore) => {
+  const usciti = leggiPacks(packsOut);
+  if (usciti === null) return null;
+  const elenco = leggiPacks(item.packs) || leggiPacks(packsBefore);
+  if (!elenco) {
+    throw Object.assign(new Error(`${item.item_key}: la riga non porta l'elenco dei colli`), { status: 409 });
+  }
+  const { rimasti, uscite } = scalaPacks(elenco, usciti);
+  const prima = sommaPacks(elenco);
+  return {
+    rimasti, tutto: rimasti.length === 0,
+    qtyBefore: elenco.length, qtyAfter: rimasti.length,
+    um: { prima, dopo: arrotondaUom(prima - uscite), delta: -uscite },
+  };
+};
+
+/* `packs_out` illeggibile non ricade in silenzio sul percorso vecchio: una
+   maschera che manda un elenco rotto ha un difetto, e prelevare lo stesso
+   scriverebbe un saldo plausibile per il motivo sbagliato. */
+const assertPacksOut = (raw) => {
+  if (raw !== undefined && raw !== null && leggiPacks(raw) === null) {
+    throw Object.assign(new Error('l\'elenco dei colli da prelevare non e\' leggibile'), { status: 400 });
+  }
 };
 
 const SQL_CONSTRAINT = {
@@ -214,9 +300,12 @@ app.post('/api/tx', wrap((req, res) => {
 }));
 
 app.post('/api/op/removeItem', wrap((req, res) => {
-  const { location_code, item_key, qty, qty_uom, qty_uom_before } = req.body || {};
+  const { location_code, item_key, qty, qty_uom, qty_uom_before, packs_out, packs_before } = req.body || {};
   const n = Number(qty);
-  if (!location_code || !item_key || !Number.isFinite(n) || n < 1)
+  assertPacksOut(packs_out);
+  /* 1.8 — con l'elenco la quantita' in colli e' una conseguenza, e puo' essere
+     zero: un prelievo che apre un collo senza svuotarlo non toglie colli. */
+  if (!location_code || !item_key || (packs_out === undefined && (!Number.isFinite(n) || n < 1)))
     throw Object.assign(new Error('servono location_code, item_key e una quantita\' valida'), { status: 400 });
 
   const out = db.transaction(['inventory'], () => {
@@ -224,26 +313,30 @@ app.post('/api/op/removeItem', wrap((req, res) => {
     const item = rows.find(r => r.item_key === item_key);
     if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
 
-    const have = item.qty || 1;
-    if (n > have)
+    const colli = uscitaColli(item, packs_out, packs_before);
+    const have = colli ? colli.qtyBefore : (item.qty || 1);
+    const usciti = colli ? colli.qtyBefore - colli.qtyAfter : n;
+    if (!colli && n > have)
       throw Object.assign(new Error(`In ${location_code} restano ${have} colli: un altro terminale ne ha gia' presi`), { status: 409 });
 
-    const after = have - n;
+    const after = have - usciti;
     const snapshot = { ...item };
-    const um = scalaUom(item, qty_uom, qty_uom_before, after <= 0);
+    const um = colli ? colli.um : scalaUom(item, qty_uom, qty_uom_before, after <= 0);
     const conti = um === null ? {}
       : { _qty_uom_before: um.prima, _qty_uom_delta: um.delta, _qty_uom_after: um.dopo };
 
-    if (after <= 0) {
+    if (colli ? colli.tutto : after <= 0) {
       db.delete('inventory', item._id);
-      return { ...snapshot, _mode: 'full', _qty_before: have, _qty_delta: -n, _qty_after: 0, ...conti };
+      return { ...snapshot, _mode: 'full', _qty_before: have, _qty_delta: -usciti, _qty_after: 0, ...conti };
     }
     item.qty = after;
     if (um !== null) item.qty_uom = um.dopo;
+    if (colli) item.packs = colli.rimasti;
     item.updated_at = Date.now();
     db.put('inventory', item);
     return { ...snapshot, qty: after, ...(um === null ? {} : { qty_uom: um.dopo }),
-             _mode: 'partial', _qty_before: have, _qty_delta: -n, _qty_after: after, ...conti };
+             ...(colli ? { packs: colli.rimasti } : {}),
+             _mode: 'partial', _qty_before: have, _qty_delta: -usciti, _qty_after: after, ...conti };
   }, originOf(req));
 
   res.json(out);
@@ -286,25 +379,30 @@ app.post('/api/op/sampleItem', wrap((req, res) => {
 }));
 
 app.post('/api/op/commitPickStop', wrap((req, res) => {
-  const { location_code, item_key, qty, qty_uom, qty_uom_before, movement, session } = req.body || {};
+  const { location_code, item_key, qty, qty_uom, qty_uom_before, packs_out, packs_before, movement, session } = req.body || {};
   const n = Number(qty);
-  if (!location_code || !item_key || !Number.isFinite(n) || n < 1 || !session?.session_id)
+  assertPacksOut(packs_out);
+  if (!location_code || !item_key || !session?.session_id
+      || (packs_out === undefined && (!Number.isFinite(n) || n < 1)))
     throw Object.assign(new Error('parametri incompleti'), { status: 400 });
 
   const out = db.transaction(['inventory', 'mov_log', 'pick_session', 'meta'], () => {
     const rows = db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
     const item = rows.find(r => r.item_key === item_key);
     if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
-    const have = item.qty || 1;
-    if (n > have)
+    const colli = uscitaColli(item, packs_out, packs_before);
+    const have = colli ? colli.qtyBefore : (item.qty || 1);
+    const usciti = colli ? colli.qtyBefore - colli.qtyAfter : n;
+    if (!colli && n > have)
       throw Object.assign(new Error(`In ${location_code} restano ${have} colli`), { status: 409 });
 
-    const after = have - n;
-    const um = scalaUom(item, qty_uom, qty_uom_before, after <= 0);
-    if (after <= 0) db.delete('inventory', item._id);
+    const after = have - usciti;
+    const um = colli ? colli.um : scalaUom(item, qty_uom, qty_uom_before, after <= 0);
+    if (colli ? colli.tutto : after <= 0) db.delete('inventory', item._id);
     else {
       item.qty = after;
       if (um !== null) item.qty_uom = um.dopo;
+      if (colli) item.packs = colli.rimasti;
       item.updated_at = Date.now();
       db.put('inventory', item);
     }
@@ -312,15 +410,15 @@ app.post('/api/op/commitPickStop', wrap((req, res) => {
     /* Il movimento porta il delta in UM insieme a quello in colli: il
        registro e' la sola cosa che, fra sei anni, dira' quanto e' uscito. */
     const mov = { ...movement, ts: movement?.ts || Date.now(),
-                  qty_before: have, qty_delta: -n, qty_after: after,
+                  qty_before: have, qty_delta: -usciti, qty_after: after,
                   ...(um === null ? {} : { qty_uom_delta: um.delta }) };
     const movId = db.add('mov_log', mov);
 
     db.put('pick_session', session);
     db.put('meta', { key: 'lastModified', value: Date.now() });
 
-    return { removed: { ...item, _mode: after <= 0 ? 'full' : 'partial',
-                        _qty_before: have, _qty_delta: -n, _qty_after: after,
+    return { removed: { ...item, _mode: (colli ? colli.tutto : after <= 0) ? 'full' : 'partial',
+                        _qty_before: have, _qty_delta: -usciti, _qty_after: after,
                         ...(um === null ? {}
                           : { _qty_uom_before: um.prima, _qty_uom_delta: um.delta, _qty_uom_after: um.dopo }) },
              movement_id: movId };
@@ -450,6 +548,8 @@ const invia = (req, res, assoluto, cache) => {
   res.sendFile(assoluto);
 };
 
+let erroreManifesto = null;
+
 const leggiManifesto = () => {
   if (!APP_DIR) return null;
   try {
@@ -461,8 +561,18 @@ const leggiManifesto = () => {
        il numero su cui si verifica un'installazione. Trovato al banco, con
        tutti i collaudi verdi. */
     const grezzo = fs.readFileSync(path.join(APP_DIR, 'manifest.json'), 'utf8');
+    erroreManifesto = null;
     return JSON.parse(grezzo.replace(/^﻿/, ''));
-  } catch { return null; }
+  } catch (e) {
+    /* L'errore si TIENE, e `/api/app-info` lo dice. Il 17/08 il servizio
+       rispondeva versione e impronta nulle e non c'era modo di sapere perche':
+       il processo gira come SYSTEM, la sua console non la legge nessuno, e da
+       una shell qualunque lo stesso percorso si apriva senza problemi. Un
+       manifesto illeggibile e' il modo in cui si scopre che l'applicativo non
+       verra' servito, e deve dire di cosa e' morto. */
+    erroreManifesto = `${e.code || 'ERRORE'}: ${e.message}`;
+    return null;
+  }
 };
 
 if (APP_DIR) {
@@ -509,7 +619,9 @@ app.get('/api/app-info', wrap((req, res) => {
     /* `app_dir` e' la giunzione, `punta_a` la cartella vera: e' cosi' che si
        vede QUALE versione sta servendo senza aprire niente. */
     let punta_a = null;
-    try { punta_a = fs.realpathSync(APP_DIR); } catch {}
+    let errore = erroreManifesto;
+    try { punta_a = fs.realpathSync(APP_DIR); }
+    catch (e) { errore = `${e.code || 'ERRORE'}: ${e.message}`; }
     return res.json({
       service_version: VERSION,
       modo: 'cartella',
@@ -520,6 +632,9 @@ app.get('/api/app-info', wrap((req, res) => {
       byte_totali: m?.byte_totali ?? null,
       costruita: m?.costruita ?? null,
       file: m?.file?.length ?? null,
+      /* Presente SOLO quando qualcosa non va: un campo che compare e' un campo
+         che si legge, e questa risposta e' il primo comando di ogni diagnosi. */
+      ...(punta_a && !errore ? {} : { errore, utente: os.userInfo().username }),
     });
   }
   let stat = null;

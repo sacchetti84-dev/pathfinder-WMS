@@ -396,6 +396,134 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
      s1.stato === 200 && s2.stato === 200 && c1bis.qty_uom === 273.95,
      'saldo ' + c1bis.qty_uom);
 
+  /* ── 1.8 — L'ELENCO DEI COLLI, ARBITRATO DAL SERVIZIO ──────────────
+     Dalla 1.8 la suddivisione non si calcola da un per-collo costante: si
+     dichiara, e la riga porta `packs`, un numero per collo. Il client sceglie
+     QUALI colli per indice; qui gli indici non arrivano nemmeno, e il motivo
+     e' lo stesso di `qty_uom_before`: la fotografia del client e' vecchia di
+     un pomeriggio. Arriva `packs_out`, cioe' QUANTO esce da ogni collo, e il
+     servizio lo applica al proprio elenco.
+
+     Le due colonne diventano derivate: dove c'e' `packs`, `qty` e `qty_uom`
+     li conta l'elenco e non il client. */
+  await call('POST', '/api/c/inventory/bulk', [
+    { location_code: 'DP-E-01-01', item_key: 'MP-5#P1', article_code: 'MP-5', lot_code: 'P1',
+      qty: 3, qty_uom: 2900, packs: [1000, 1000, 900] },
+    { location_code: 'DP-E-01-02', item_key: 'MP-5#P2', article_code: 'MP-5', lot_code: 'P2',
+      qty: 2, qty_uom: 1500, packs: [1000, 500] },
+    { location_code: 'DP-E-01-03', item_key: 'MP-5#P3', article_code: 'MP-5', lot_code: 'P3',
+      qty: 2, qty_uom: 1300, packs: [1000, 300] },
+    { location_code: 'DP-E-01-04', item_key: 'MP-5#P4', article_code: 'MP-5', lot_code: 'P4', qty: 3, qty_uom: 2900 },
+    { location_code: 'DP-E-01-05', item_key: 'MP-5#P5', article_code: 'MP-5', lot_code: 'P5',
+      qty: 2, qty_uom: 200, packs: [100, 100] },
+    { location_code: 'DP-E-01-06', item_key: 'MP-5#P6', article_code: 'MP-5', lot_code: 'P6',
+      qty: 1, qty_uom: 1000, packs: [1000] },
+    { location_code: 'DP-E-01-07', item_key: 'MP-5#P7', article_code: 'MP-5', lot_code: 'P7',
+      qty: 3, qty_uom: 0.3, packs: [0.1, 0.1, 0.1] },
+    { location_code: 'DP-E-01-08', item_key: 'MP-5#P8', article_code: 'MP-5', lot_code: 'P8',
+      qty: 2, qty_uom: 2000, packs: [1000, 1000] },
+    { location_code: 'DP-E-01-09', item_key: 'MP-5#P9', article_code: 'MP-5', lot_code: 'P9',
+      qty: 1, qty_uom: 900, packs: [900] }
+  ]);
+
+  const interoFuori = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-01-01', item_key: 'MP-5#P1', packs_out: [900] });
+  const p1 = await leggiRiga('MP-5#P1');
+  ok('esce il collo scelto, e le due colonne le riconta l\'elenco',
+     interoFuori.stato === 200 && p1.qty === 2 && p1.qty_uom === 2000
+       && JSON.stringify(p1.packs) === '[1000,1000]',
+     `${p1.qty} colli · ${p1.qty_uom} UM · ${JSON.stringify(p1.packs)}`);
+
+  /* IL PARZIALE APRE IL COLLO PIU' PICCOLO CHE BASTA: aprire quello da 1.000
+     per prendere 300 lascerebbe due colli aperti dove ne bastava uno. */
+  const aperto = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-01-02', item_key: 'MP-5#P2', qty: 1, packs_out: [300] });
+  const p2 = await leggiRiga('MP-5#P2');
+  ok('il parziale apre il collo piu\' piccolo che basta, e i colli non calano',
+     p2.qty === 2 && p2.qty_uom === 1200 && JSON.stringify(p2.packs) === '[1000,200]',
+     `${p2.qty} colli · ${JSON.stringify(p2.packs)}`);
+  ok('con l\'elenco i colli li conta l\'elenco, non il `qty` del client',
+     aperto.dati._qty_after === 2 && aperto.dati._mode === 'partial',
+     'saldo ' + aperto.dati._qty_after);
+
+  const esatto = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-01-03', item_key: 'MP-5#P3', packs_out: [300] });
+  const p3 = await leggiRiga('MP-5#P3');
+  ok('un collo della misura esatta esce intero invece di aprirne un altro',
+     esatto.stato === 200 && p3.qty === 1 && JSON.stringify(p3.packs) === '[1000]',
+     JSON.stringify(p3.packs));
+
+  /* Il seme, come per `qty_uom`: la riga posizionata prima della 1.8 non ha
+     nessun elenco, e il primo che la muove porta la propria lettura — colli
+     pieni piu' il resto. Vale UNA volta, poi comanda la riga. */
+  const seminata = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-01-04', item_key: 'MP-5#P4', packs_out: [900], packs_before: [1000, 1000, 900] });
+  const p4 = await leggiRiga('MP-5#P4');
+  ok('la riga che non ha mai avuto un elenco lo prende dal primo che la muove',
+     seminata.stato === 200 && JSON.stringify(p4.packs) === '[1000,1000]' && p4.qty_uom === 2000,
+     JSON.stringify(p4.packs));
+
+  const nonCiSta = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-01-05', item_key: 'MP-5#P5', packs_out: [150] });
+  ok('una quantita\' che nessun collo contiene viene respinta, non spalmata',
+     nonCiSta.stato === 409, nonCiSta.dati.error);
+
+  const dueVolte = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-01-06', item_key: 'MP-5#P6', packs_out: [1000, 1000] });
+  const p6 = await leggiRiga('MP-5#P6');
+  ok('lo stesso collo non esce due volte: la riga resta intera',
+     dueVolte.stato === 409 && p6.qty === 1, `stato ${dueVolte.stato}, colli ${p6.qty}`);
+
+  await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-01-07', item_key: 'MP-5#P7', packs_out: [0.1] });
+  const p7 = await leggiRiga('MP-5#P7');
+  ok('i decimali dell\'elenco non lasciano code: restano 0,2 e non 0,19999999999999998',
+     p7.qty_uom === 0.2 && p7.qty === 2, `${p7.qty} colli · ${p7.qty_uom} UM`);
+
+  const [c1t, c2t] = await Promise.all([
+    call('POST', '/api/op/removeItem',
+      { location_code: 'DP-E-01-08', item_key: 'MP-5#P8', packs_out: [1000, 1000] }, 'TERMINALE-1'),
+    call('POST', '/api/op/removeItem',
+      { location_code: 'DP-E-01-08', item_key: 'MP-5#P8', packs_out: [1000, 1000] }, 'TERMINALE-2')
+  ]);
+  const p8 = (await call('GET', RIGA('MP-5#P8'))).dati;
+  ok('contesa sull\'elenco: passa un terminale solo, e la riga sparisce una volta',
+     [c1t, c2t].filter(r => r.stato === 200).length === 1 && p8.length === 0,
+     `${[c1t, c2t].filter(r => r.stato === 200).length} passati`);
+
+  const svuotata = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-01-09', item_key: 'MP-5#P9', packs_out: [900] });
+  ok('l\'ultimo collo che esce porta via la riga',
+     svuotata.dati._mode === 'full' && svuotata.dati._qty_uom_after === 0,
+     'modo ' + svuotata.dati._mode);
+
+  /* La 1.7 non cambia di una riga: senza `packs_out` la rotta e' quella di
+     prima, ed e' la ragione per cui la 1.8 si installa a interruttore spento. */
+  await call('POST', '/api/c/inventory/bulk', [
+    { location_code: 'DP-E-02-01', item_key: 'MP-6#V1', article_code: 'MP-6', lot_code: 'V1', qty: 10, qty_uom: 1000 }
+  ]);
+  const comePrima = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-02-01', item_key: 'MP-6#V1', qty: 2, qty_uom: 200 });
+  const v1 = await leggiRiga('MP-6#V1');
+  ok('senza elenco il prelievo e\' quello della 1.7, e nessun `packs` compare',
+     comePrima.stato === 200 && v1.qty === 8 && v1.qty_uom === 800 && v1.packs === undefined,
+     `${v1.qty} colli · ${v1.qty_uom} UM`);
+
+  const tappaColli = await call('POST', '/api/op/commitPickStop', {
+    location_code: 'DP-E-01-01', item_key: 'MP-5#P1', packs_out: [1000],
+    movement: { type: 'PICK', article_code: 'MP-5', lot_code: 'P1',
+                location_code: 'DP-E-01-01', user: 'ANDS', doc_ref: 'ODP-3' },
+    session: { session_id: 'S3', status: 'active', created_at: Date.now(), stops: [] }
+  });
+  const p1bis = await leggiRiga('MP-5#P1');
+  const movColli = (await call('GET',
+    '/api/c/mov_log/query?criteria=' + encodeURIComponent(
+      JSON.stringify({ field: 'lot_code', op: 'equals', value: 'P1' })))).dati[0];
+  ok('la tappa di prelievo muove l\'elenco dentro la stessa transazione del registro',
+     tappaColli.stato === 200 && JSON.stringify(p1bis.packs) === '[1000]'
+       && movColli?.qty_uom_delta === -1000,
+     `${JSON.stringify(p1bis?.packs)} · registro ${movColli?.qty_uom_delta}`);
+
   /* ── 1.4.1 — le attivita' passano dal servizio come tutto il resto ──
      Lo schedulatore non ha rotte sue: e' una collezione a chiave di testo,
      e le due domande che la coda fa davvero — «cosa e' aperto» e «cosa ho
@@ -532,7 +660,7 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
        && info.dati.versione === '1.7-collaudo'
        && info.dati.impronta === 'impronta-di-prova',
      `${info.dati.versione} · ${info.dati.impronta}`);
-  ok('app-info dice a quale cartella punta la giunzione',
+  ok('app-info dice quale cartella sta servendo',
      typeof info.dati.punta_a === 'string' && info.dati.punta_a.length > 0,
      info.dati.punta_a ? path.basename(info.dati.punta_a) : '(nessuna)');
 
