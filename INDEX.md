@@ -101,7 +101,7 @@ prove.
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
-| Collaudi | **474 client** (14 suite, ~1,5 s) · **77 servizio** · **8 migrazione** — tutti verdi il 17/08 |
+| Collaudi | **479 client** (14 suite, ~1,5 s) · **81 servizio** · **8 migrazione** — tutti verdi il 17/08 |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Sorgente | 31 TypeScript · 5 JavaScript · 9 CSS · `index.html`. Ancora JavaScript: `main.js` e `ui/` (4 file) |
 | Numero di build | **1.8.1** in `vite.config.js`, `package.json` e nel servizio: una build in avanzamento non deve chiamarsi come la versione in servizio — §5 |
@@ -173,9 +173,19 @@ non il client. Dove manca, tutto si legge come nella 1.7.
 | 1 | **`modules/colli.ts`** — puro: dichiarazione, elenco, raggruppamento, prelievo per collo, il ponte `daSuddivisione` che legge una riga della 1.7. 39 prove | **fatto** |
 | 2 | **Il servizio arbitra.** `removeItem` e `commitPickStop` accettano `packs_out` (quanto esce da ogni collo) e `packs_before` (il seme, una volta sola). Un collo della misura esatta esce intero, se non c'è si apre **il più piccolo che basta**. 12 prove nuove | **fatto** |
 | 3 | **Store scrive.** `packs` su `Giacenza`, `colliDiRiga`, `descriviRiga`, `addItem` con la suddivisione dichiarata, `removeItem` con le scelte per collo. Interruttore **`feature.colli`**, che pretende `uom` acceso | **fatto** |
-| 4 | **Le maschere** — posizionamento che chiede la suddivisione, prelievo/smaltimento/trasferimento che mostrano i colli uno per uno, la giacenza che li descrive. È il blocco che rende `pronta: true` l'interruttore | da fare |
-| 5 | **Lo spostamento**, che è un `removeItem` più un `addItem`: i colli scelti devono viaggiare interi fino alla riga nuova. Passa da `App._umMossa` — §5, «uno spostamento inventa le UM» | da fare |
-| 6 | **Il banco**: copia del database vero, porta 4199, interruttore acceso, e la merce si muove davvero. Nessun blocco della 1.8 è ancora stato aperto in un browser | da fare |
+| 4 | **Le maschere**: il posizionamento dichiara la suddivisione (il campo ④ Colli pilota la prima riga e resta scrivibile), la riga di giacenza si descrive dall'elenco, e una **maschera sola** — `_scegliColli` — chiede quali colli e quanto prenderne. Lo **smaltimento** è la prima che la usa, e lo storno rimette i colli uno per uno | **fatto** |
+| 5 | **Le altre funzioni che tolgono merce**: prelievo guidato, trasferimento, quarantena, conta. La maschera c'è già — va innestata dove oggi si passa un numero di colli, e **lo spostamento** deve far viaggiare i colli scelti fino alla riga nuova (è un `removeItem` più un `addItem`: §5, «uno spostamento inventa le UM») | da fare |
+| 6 | **Il banco con un operatore in sessione**: quel che si è provato il 17/08 è nella riga qui sotto; restano da provare a mano lo smaltimento completo dalla sua maschera e lo storno | da fare |
+| 7 | L'interruttore diventa **`pronta: true`** solo quando 5 e 6 sono chiusi: finché una funzione toglie merce senza chiedere i colli, accenderlo scriverebbe elenchi a metà | da fare |
+
+**Cosa ha già visto il banco** (17/08, copia del database vero, porta 4199,
+`feature.colli` acceso): il posizionamento con «3 × 25 + 1 × 7» scrive
+`packs [25,25,25,7]`; un secondo carico accoda e la riga diventa «3 × 25 +
+1 × 10 + 1 × 7»; la maschera di scelta calcola cosa esce e cosa resta, e
+rifiuta una quantità più grande del collo; il prelievo `{da: 25, quantita:
+10}` apre il collo da 25 e lascia intero quello da 10. Non provati: lo
+smaltimento dalla sua maschera fino in fondo e lo storno — la sessione
+operatore è scaduta e **il PIN lo digita Andrea**.
 | **1.9** | **Viste giacenza.** Selezionando un'ubicazione dalla mappa, il pannello a destra mostra la giacenza **in colli e in UM**. Più una pagina nuova: si cerca un articolo, si vedono tutti i lotti, se ne selezionano uno o più e si **apre la conta su tutti insieme**; PDF con intestazioni, piè di pagina e la lista dei lotti con ubicazione e quantità. Se costa meno, può diventare un ramo di Inventario |
 | **1.10** | **Trasferimenti generati dall'ODP.** Sulla riga di avviso «articolo in un altro magazzino» — che già c'è — compare una spunta: genera un'**attività di trasferimento** nello schedulatore, il sistema **chiede in quale ubicazione** ricevere la merce, e **quell'ubicazione entra nel percorso come tappa di prelievo** |
 | **1.11** | **UI mobile.** Il sistema riconosce se gira su Android e ridimensiona. Probabilmente serve **un'interfaccia apposita**, non un adattamento |
@@ -461,6 +471,17 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 
 ### Codice
 
+- **UNA QUANTITÀ NON DICE DA QUALE COLLO ESCE.** La 1.8 mandava al servizio
+  solo «10 kg»: su una riga che ha anche un collo da 10, il collo aperto da 25
+  restava intero e spariva quello da 10. Saldo giusto, **colli sbagliati**, e a
+  video una riga che in corsia non esiste. Ogni uscita porta la **misura del
+  collo** (`{da, quantita}`), e una misura che non c'è più è un 409 — non un
+  ripiego su un altro collo. Trovato al banco il 17/08 **con tutte le prove
+  verdi**: nessuna di loro chiedeva da dove uscisse la merce.
+- **Un campo che diventa muto è peggio di un campo bloccato.** Il campo ④
+  Colli, reso specchio della dichiarazione, ignorava in silenzio ciò che
+  l'operatore digitava — e chi scansiona arriva lì col dito. Adesso scrive
+  sulla prima riga della dichiarazione, e la dichiarazione lo rispecchia.
 - **Gli import di un modulo TypeScript si scrivono senza estensione** —
   `../core/store`, non `../core/store.js`. Due specificatori diversi sono due
   moduli, e in pagina c'erano **due Store**: la dashboard leggeva quello che
@@ -724,6 +745,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | Famiglia | Rotte |
 |---|---|
 | **Applicativo** | `/` e `/app` → l'indice, **`no-cache`** · `/assets/:file` → gli assets, **`immutable` un anno**, col ripiego su `precedente` |
+| **Colli (1.8)** | `packs_out` è un elenco di `{da, quantita}` — la misura del collo e quanto ne esce; un numero solo significa «quel collo, intero». `packs_before` è il seme, come `qty_uom_before` |
 | Collezioni | `GET/POST/PUT/PATCH/DELETE /api/c/:col[/:key]` · `/bulk` · `/count` · `/query` |
 | Operazioni composte | `/api/tx` · `/api/op/removeItem` · `/api/op/commitPickStop` · `/api/op/sampleItem` · `/api/op/verifyPin` · `/api/op/hashPin`. **1.8**: le prime due accettano `packs_out` e `packs_before`, e con l'elenco `qty` diventa facoltativo — un prelievo che apre un collo senza svuotarlo non toglie colli |
 | Servizio | `/api/health` · `/api/load` · `/api/clear` · `/api/deleteWhere/:col` · `/api/backup` · `/api/events` (SSE) · `/api/app-info` |
