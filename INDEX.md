@@ -95,8 +95,8 @@ prove.
 
 | Voce | Valore |
 |---|---|
-| In servizio — prova su questo PC | `C:\Pathfinder\app\corrente` contiene la **1.7**, impronta `5df67f5c…`, 4 file, 1.604.959 byte |
-| Via di ritorno | `precedente` contiene la **1.6.1**, impronta `3e98f1c8…`, 1.614.368 byte. Il deposito tiene `pathfinder-1.7\` e `pathfinder-1.6.1\`, di sola lettura |
+| In servizio — prova su questo PC | **`corrente` contiene la 1.8.1**, impronta `1d40ea6e…`, installata il 17/08 alle **23:30:44** — la build delle 23:26, cioè i primi tre blocchi della 1.8 **senza** le maschere e senza la correzione del protocollo. Con `feature.colli` assente dal database si comporta in tutto come la 1.7, e il servizio in esecuzione è ancora il processo della 1.7. **Nessun comando di questa sessione l'ha installata** (i tre `installa-versione.ps1` del 17/08 sera avevano `-Casa banco` e impronte `c8f4150c`, `700ac10c`, `ff73a5a8`): come la cancellazione delle 19:14, la causa non si conosce — §2, punto 1 |
+| Via di ritorno | `precedente` contiene la **1.7**, impronta `5df67f5c…`, e il deposito tiene `pathfinder-1.7\` intatta: si torna indietro con un comando, `.\server\torna-indietro.ps1`. Anche `pathfinder-1.6.1\` è in deposito |
 | Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.7`** — il processo è partito prima —, il **sorgente dice `1.8.1`**. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
@@ -140,7 +140,8 @@ collauda al banco e si consegna il pacchetto.
 
 | # | Cosa | Chi |
 |---|---|---|
-| **1** | **Capire chi ha cancellato `C:\Pathfinder\app\pathfinder-1.6.1`** il 17/08 alle 19:14. La cartella è stata ricostruita dal file singolo in radice e la via di ritorno è di nuovo intera, ma la causa non si conosce: se non è stato un gesto di Andrea in un'altra finestra, qualcosa cancella dentro la directory di installazione | da chiarire |
+| **1** | **Decidere se `corrente` resta alla 1.8.1 o torna alla 1.7.** La 1.8.1 ci è arrivata il 17/08 alle 23:30:44 senza che nessun comando conosciuto l'abbia installata, e non è mai stata aperta in un browser contro il database vero — §5 dice che non si installa senza. Si torna indietro con `.\server\torna-indietro.ps1`, un comando, nessun riavvio. **Funzionalmente non cambia niente**: `feature.colli` non è nel database, e a interruttore spento la 1.8.1 è la 1.7 | Andrea |
+| **1-bis** | **Capire chi ha cancellato `C:\Pathfinder\app\pathfinder-1.6.1`** il 17/08 alle 19:14. La cartella è stata ricostruita dal file singolo in radice e la via di ritorno è di nuovo intera, ma la causa non si conosce: se non è stato un gesto di Andrea in un'altra finestra, qualcosa cancella dentro la directory di installazione | da chiarire |
 | **2** | **Provare il pacchetto su una macchina pulita.** La strada dell'aggiornamento è provata davvero (17/08, su questo PC); quella della **prima installazione** — servizio, attività pianificate, firewall, database — è scritta e riletta ma **mai eseguita**, e serve una macchina senza Pathfinder o una virtuale. È l'unica che chiede i privilegi, ed è quella che si userà in presentazione | Andrea, prima di presentare |
 | **3** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per ore nessuno poteva creare né rinnovare un operatore. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — §6, «Il PIN smarrito» | Andrea |
 | **4** | **Annullare a mano quattro attività** rimaste `in_progress` prima della 1.4.4, col motivo «chiusa dalla 1.4.4, lavoro già eseguito»: `TA-MSRAXA3Q-PQ11` (prelievo), `TA-MSRB4JXK-04C7` (quarantena), `TA-MSRB80C2-2JLC` (campionamento), `TA-MSRBEZLU-5M3E` (conta). **Non si riavviano**: rifare il gesto muoverebbe la merce due volte | Andrea, dalla vista Attività |
