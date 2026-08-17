@@ -26,9 +26,11 @@ ARCHIVIO/BACKUP E FILE DI TEST/movimenti/
 # primo "npm run build" sparirebbe. Si rigenera in tre secondi, ed e' il
 # motivo per cui non sta nel repository: cio' che la compone - il sorgente e
 # il README - c'e' gia'.
-# Il motivo generico: cambia nome a ogni versione, e chi rilascia non deve
-# ricordarsi di aggiungere una riga qui. L'applicativo in radice invece SI'
-# versiona - e' l'artefatto rilasciato, e serve per il ritorno indietro.
+# Dalla 1.7 si chiama "consegna/" e non porta piu' il numero di versione: il
+# numero glielo da' l'installazione, che la copia in C:\Pathfinder\app\. Una
+# riga fissa invece di un modello che inseguiva i numeri - e una cartella che
+# non somiglia a un artefatto rilasciato non viene puntata per sbaglio.
+consegna/
 Pathfinder 1.*/
 
 # Rumore di Windows e degli editor.
