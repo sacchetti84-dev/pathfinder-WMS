@@ -38,7 +38,8 @@ import {
 import { UNITA_MISURA } from '../modules/misure';
 import {
   leggiColli, daSuddivisione, totaleUom as totaleUomColli,
-  descriviColli, preleva as prelevaColli, type Scelta,
+  descriviColli, preleva as prelevaColli, uscite as uscitePerIlServizio,
+  type Scelta,
 } from '../modules/colli';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
@@ -881,7 +882,7 @@ const Store = {
     if (Persistence.supportsRemoteOps) {
       const removed = await Persistence.op!<GiacenzaRimossa>('removeItem', {
         location_code: locationCode, item_key: item.item_key,
-        packs_out: esito.usciti, packs_before: elenco,
+        packs_out: uscitePerIlServizio(elenco, scelte, cfg.uom), packs_before: elenco,
       });
       if (removed._mode === 'full') this._applyToCache('inventory', 'delete', item);
       else {

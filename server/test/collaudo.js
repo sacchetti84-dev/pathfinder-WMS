@@ -497,6 +497,41 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
      svuotata.dati._mode === 'full' && svuotata.dati._qty_uom_after === 0,
      'modo ' + svuotata.dati._mode);
 
+  /* LA PROVA CHE IL BANCO HA PAGATO: «10 kg» non basta a dire da dove escono.
+     Se sulla riga c'e' anche un collo da 10 e l'operatore ha aperto quello da
+     25, la ricerca per sola quantita' porta via il collo sbagliato — saldo
+     giusto, colli sbagliati, e a video una riga che non esiste in corsia. */
+  await call('POST', '/api/c/inventory/bulk', [
+    { location_code: 'DP-E-03-01', item_key: 'MP-7#D1', article_code: 'MP-7', lot_code: 'D1',
+      qty: 3, qty_uom: 60, packs: [25, 25, 10] },
+    { location_code: 'DP-E-03-02', item_key: 'MP-7#D2', article_code: 'MP-7', lot_code: 'D2',
+      qty: 2, qty_uom: 35, packs: [25, 10] }
+  ]);
+
+  const daQualeCollo = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-03-01', item_key: 'MP-7#D1', packs_out: [{ da: 25, quantita: 10 }] });
+  const d1 = await leggiRiga('MP-7#D1');
+  ok('«10 da un collo da 25» apre il 25, e NON porta via il collo da 10',
+     daQualeCollo.stato === 200 && JSON.stringify(d1.packs) === '[15,25,10]' && d1.qty === 3,
+     JSON.stringify(d1.packs));
+
+  const colloSparito = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-03-02', item_key: 'MP-7#D2', packs_out: [{ da: 20, quantita: 5 }] });
+  ok('un collo di quella misura che non c\'e\' e\' un 409, non un ripiego',
+     colloSparito.stato === 409, colloSparito.dati.error);
+
+  const oltreIlCollo = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-03-02', item_key: 'MP-7#D2', packs_out: [{ da: 10, quantita: 12 }] });
+  ok('da un collo non si dichiara di prendere piu\' di quanto ne contiene',
+     oltreIlCollo.stato === 400, 'stato ' + oltreIlCollo.stato);
+
+  const interoDichiarato = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-E-03-02', item_key: 'MP-7#D2', packs_out: [{ da: 10 }] });
+  const d2 = await leggiRiga('MP-7#D2');
+  ok('senza quantita\' il collo dichiarato esce intero',
+     interoDichiarato.stato === 200 && JSON.stringify(d2.packs) === '[25]',
+     JSON.stringify(d2.packs));
+
   /* La 1.7 non cambia di una riga: senza `packs_out` la rotta e' quella di
      prima, ed e' la ragione per cui la 1.8 si installa a interruttore spento. */
   await call('POST', '/api/c/inventory/bulk', [

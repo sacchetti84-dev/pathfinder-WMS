@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   espandi, leggiColli, validaDichiarazione,
   totaleColli, totaleUom, raggruppa, descriviColli,
-  daSuddivisione, preleva, verificaColli,
+  daSuddivisione, preleva, uscite, verificaColli,
 } from '../src/modules/colli';
 
 /* ── La dichiarazione: 10 x 1.000 + 1 x 900 ─────────────────────────── */
@@ -226,6 +226,37 @@ describe('preleva', () => {
 
   it('senza scelte non si muove niente', () => {
     expect(() => preleva(riga(), [], 'PZ')).toThrow();
+  });
+});
+
+/* ── Ciò che si dice al servizio ────────────────────────────────────── */
+
+describe('uscite', () => {
+  const riga = () => [25, 25, 10];
+
+  it('ogni uscita porta DA QUALE COLLO esce, non solo quanto', () => {
+    expect(uscite(riga(), [{ indice: 0, quantita: 10 }], 'KG')).toEqual([{ da: 25, quantita: 10 }]);
+  });
+
+  it('IL COLLO SBAGLIATO: 10 preso da un 25 non e\' il collo da 10', () => {
+    const u = uscite(riga(), [{ indice: 0, quantita: 10 }], 'KG');
+    expect(u[0].da).toBe(25);
+    expect(uscite(riga(), [{ indice: 2 }], 'KG')).toEqual([{ da: 10, quantita: 10 }]);
+  });
+
+  it('un collo intero dichiara la propria misura come quantita\'', () => {
+    expect(uscite(riga(), [{ indice: 1 }], 'KG')).toEqual([{ da: 25, quantita: 25 }]);
+  });
+
+  it('piu\' scelte restano nell\'ordine in cui si sono fatte', () => {
+    expect(uscite(riga(), [{ indice: 2 }, { indice: 0, quantita: 5 }], 'KG'))
+      .toEqual([{ da: 10, quantita: 10 }, { da: 25, quantita: 5 }]);
+  });
+
+  it('cio\' che `preleva` rifiuta non arriva al servizio', () => {
+    expect(() => uscite(riga(), [{ indice: 9 }], 'KG')).toThrow();
+    expect(() => uscite(riga(), [{ indice: 0, quantita: 30 }], 'KG')).toThrow();
+    expect(() => uscite(riga(), [], 'KG')).toThrow();
   });
 });
 

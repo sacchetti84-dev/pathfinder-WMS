@@ -214,6 +214,28 @@ export function preleva(colli: number[] | null | undefined, scelte: Scelta[] | n
   return { rimasti, usciti, uom: totaleUom(usciti, uom) };
 }
 
+/** Le scelte come le capisce il servizio: per ogni uscita, LA MISURA DEL
+    COLLO e quanto ne esce. Gli indici restano di qua — fra il render della
+    maschera e il tocco sul bottone un altro terminale puo' aver mosso la riga
+    — ma la sola quantita' non basta: «10» preso da un collo da 25, su una
+    riga che ha anche un collo da 10, porterebbe via quello. Saldo giusto,
+    colli sbagliati, e una riga che a video non somiglia alla corsia.
+
+    Convalida con `preleva`: cio' che non sta in piedi non parte nemmeno. */
+export function uscite(
+  colli: number[] | null | undefined, scelte: Scelta[] | null | undefined, uom?: string | null,
+): { da: number; quantita: number }[] {
+  preleva(colli, scelte, uom);
+  const letti = leggiColli(colli, uom)!;
+  const dec = decimali(uom);
+  return scelte!.map(s => {
+    const da = letti[Number(s.indice)]!;
+    const q = (s.quantita === undefined || s.quantita === null || s.quantita === '')
+      ? da : arrotonda(leggiNumero(s.quantita), dec)!;
+    return { da, quantita: q };
+  });
+}
+
 /* ── La verifica, che mostra e non corregge ──────────────────────────── */
 
 export interface VerificaColli {

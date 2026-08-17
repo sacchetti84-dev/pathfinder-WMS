@@ -95,11 +95,12 @@ const scalaUom = (item, chieste, atteso, tutto) => {
    porta `packs`, un numero per collo, e lo stesso articolo puo' stare in colli
    da 5 e da 25 kg nella stessa ubicazione.
 
-   IL CLIENT SCEGLIE PER INDICE, QUI ARRIVANO SOLO LE QUANTITA'. E' la stessa
+   IL CLIENT SCEGLIE PER INDICE, QUI GLI INDICI NON ARRIVANO. E' la stessa
    ragione di `qty_uom_before`: fra il render della maschera e il tocco sul
    bottone un altro terminale puo' aver preso quel collo, e un indice vecchio
-   punterebbe a merce diversa. Le quantita' invece si cercano nell'elenco che
-   la riga ha adesso — o non si trovano, e allora e' un 409.
+   punterebbe a merce diversa. Arriva la MISURA del collo e quanto ne esce, e
+   la misura si cerca nell'elenco che la riga ha adesso — o non si trova, e
+   allora e' un 409.
 
    Dove c'e' `packs`, `qty` e `qty_uom` diventano derivate: le conta l'elenco,
    non il client. */
@@ -114,23 +115,62 @@ const leggiPacks = (raw) => {
   return out;
 };
 
+/* Le uscite: «quanto» e, quando il client lo sa, «DA QUALE COLLO».
+   Il solo «quanto» non basta, e costa un saldo giusto con i colli sbagliati:
+   se l'operatore apre un collo da 25 per prenderne 10 e a scaffale c'e' anche
+   un collo da 10, la ricerca per quantita' porterebbe via quello — a video
+   resta «1 × 15», in corsia restano due colli da 25 interi. Trovato al banco
+   il 17/08 con tutte le prove verdi.
+   La forma a numero solo resta valida: e' il collo che esce intero. */
+const leggiUscite = (raw) => {
+  if (!Array.isArray(raw) || !raw.length) return null;
+  const out = [];
+  for (const v of raw) {
+    if (v !== null && typeof v === 'object') {
+      const da = arrotondaUom(v.da);
+      const q = arrotondaUom(v.quantita ?? v.da);
+      if (da === null || q === null || da <= 0 || q <= 0 || q > da) return null;
+      out.push({ da, q });
+      continue;
+    }
+    const n = arrotondaUom(v);
+    if (n === null || n <= 0) return null;
+    out.push({ da: null, q: n });
+  }
+  return out;
+};
+
 const sommaPacks = (elenco) => elenco.reduce((a, n) => arrotondaUom(a + n), 0);
 
-/* Un collo della misura esatta esce intero; se non c'e', si apre IL PIU'
-   PICCOLO CHE BASTA — aprire quello da 1.000 per prendere 300 lascerebbe due
-   colli aperti dove ne bastava uno, e il magazzino li conta a mano. */
+/* Con `da`, il collo e' quello e nessun altro: si cerca un collo di QUELLA
+   misura e se ne toglie `q`. I colli della stessa misura sono intercambiabili
+   — uno da 25 vale l'altro — ma uno da 10 non vale un 25 aperto.
+
+   Senza `da` — la forma a numero solo — vale la regola di prima: misura
+   esatta, e se non c'e' si apre IL PIU' PICCOLO CHE BASTA, perche' aprire
+   quello da 1.000 per prendere 300 lascerebbe due colli aperti dove ne
+   bastava uno. */
 const scalaPacks = (elenco, usciti) => {
   const rimasti = elenco.slice();
   let uscite = 0;
-  for (const q of usciti) {
-    let i = rimasti.indexOf(q);
-    if (i === -1) {
-      for (let k = 0; k < rimasti.length; k++) {
-        if (rimasti[k] > q && (i === -1 || rimasti[k] < rimasti[i])) i = k;
+  for (const u of usciti) {
+    const q = u.q;
+    let i;
+    if (u.da !== null) {
+      i = rimasti.indexOf(u.da);
+      if (i === -1) {
+        throw Object.assign(new Error(`il collo da ${u.da} non e' piu' su questa riga: un altro terminale l'ha gia' mosso`), { status: 409 });
       }
-    }
-    if (i === -1) {
-      throw Object.assign(new Error(`nessun collo contiene ${q}: un altro terminale ha gia' mosso questa riga`), { status: 409 });
+    } else {
+      i = rimasti.indexOf(q);
+      if (i === -1) {
+        for (let k = 0; k < rimasti.length; k++) {
+          if (rimasti[k] > q && (i === -1 || rimasti[k] < rimasti[i])) i = k;
+        }
+      }
+      if (i === -1) {
+        throw Object.assign(new Error(`nessun collo contiene ${q}: un altro terminale ha gia' mosso questa riga`), { status: 409 });
+      }
     }
     if (rimasti[i] === q) rimasti.splice(i, 1);
     else rimasti[i] = arrotondaUom(rimasti[i] - q);
@@ -147,7 +187,7 @@ const scalaPacks = (elenco, usciti) => {
    della 1.8 non ha nessun elenco, e il primo che la muove porta la propria
    lettura. Poi comanda la riga, come per `qty_uom_before`. */
 const uscitaColli = (item, packsOut, packsBefore) => {
-  const usciti = leggiPacks(packsOut);
+  const usciti = leggiUscite(packsOut);
   if (usciti === null) return null;
   const elenco = leggiPacks(item.packs) || leggiPacks(packsBefore);
   if (!elenco) {
@@ -166,7 +206,7 @@ const uscitaColli = (item, packsOut, packsBefore) => {
    maschera che manda un elenco rotto ha un difetto, e prelevare lo stesso
    scriverebbe un saldo plausibile per il motivo sbagliato. */
 const assertPacksOut = (raw) => {
-  if (raw !== undefined && raw !== null && leggiPacks(raw) === null) {
+  if (raw !== undefined && raw !== null && leggiUscite(raw) === null) {
     throw Object.assign(new Error('l\'elenco dei colli da prelevare non e\' leggibile'), { status: 400 });
   }
 };

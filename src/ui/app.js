@@ -42,6 +42,14 @@ import {
   UNITA_MISURA, etichettaUnita, formattaQuantita, descrivi as descriviColli,
   validaConfigurazione, valoriAmmessi as valoriAmmessiUM,
 } from '../modules/misure';
+/* 1.8 — `descriviColli` qui sopra e' la suddivisione CALCOLATA della 1.4.2, e
+   questi sono l'elenco DICHIARATO: due cose diverse con un nome che si
+   somiglia, e per questo portano alias distinti. */
+import {
+  espandi as espandiColli, validaDichiarazione, descriviColli as descriviElenco,
+  totaleUom as totaleUomElenco, verificaColli as verificaElenco,
+  preleva as prelevaElenco,
+} from '../modules/colli';
 
 const App = {
   currentView: 'dashboard',
@@ -3869,7 +3877,7 @@ const App = {
       <div class="form-group" style="margin-bottom:0.5rem">
         <label>④ Colli <span class="req">*</span></label>
         <input class="input input-mono" id="mInQty" type="number" min="1" step="1" value="1" style="max-width:120px;text-align:center;font-weight:700"
-          oninput="App._anteprimaUmIn()"
+          oninput="App._colliQtyInput()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._execPosiziona();}">
         <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">Se il lotto è già in ubicazione, i colli si sommano.</div>
       </div>
@@ -3905,6 +3913,10 @@ const App = {
      A interruttore spento il campo non c'e': la maschera e' quella di ieri. */
   _campoUmIngresso() {
     if (!Store.isFeatureOn('uom')) return '';
+    /* 1.8 — a interruttore acceso il campo unico lascia il posto alla
+       dichiarazione: piu' misure di collo nello stesso posizionamento, che e'
+       come la merce arriva davvero. */
+    if (Store.colliOn()) return this._campoColliIngresso();
     return `
       <div class="form-group" style="margin-bottom:0.5rem" id="mInUmBox" hidden>
         <label>Quantità totale in <span id="mInUmSigla" class="mono"></span> <span style="font-weight:400;color:var(--sx-text-muted)">— solo se l'ultimo collo non è pieno</span></label>
@@ -3914,10 +3926,126 @@ const App = {
       </div>`;
   },
 
+  /* 1.8 — LA SUDDIVISIONE SI DICHIARA, E LA DICHIARA CHI HA LA MERCE IN MANO.
+     «10 × 1.000 + 1 × 900» sono due righe, e piu' colli incompleti sono
+     ammessi: lo stesso articolo arriva in colli da 5 kg e la volta dopo da 25.
+
+     Il campo ④ Colli non si digita piu' quando questo blocco e' aperto: lo
+     conta la dichiarazione, e due numeri che dicono la stessa cosa sono il
+     modo piu' corto per scriverne uno sbagliato. */
+  _colliIn: [],
+
+  _campoColliIngresso() {
+    return `
+      <div class="form-group" style="margin-bottom:0.5rem" id="mInColliBox" hidden>
+        <label>Suddivisione dei colli — <span id="mInColliSigla" class="mono"></span></label>
+        <div id="mInColliRighe"></div>
+        <button class="btn btn-sm" style="margin-top:0.3rem" onclick="App._colliRigaAdd()">+ altra misura</button>
+        <div id="mInColliPrev" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.25rem"></div>
+      </div>`;
+  },
+
+  _colliRigaAdd() {
+    this._colliIn.push({ colli: '', per: '' });
+    this._renderColliIn();
+  },
+
+  /* IL CAMPO ④ NON DIVENTA MUTO. Chi scansiona arriva li' col dito e digita i
+     colli: se quel campo fosse solo uno specchio della dichiarazione, il
+     numero digitato sparirebbe senza dire niente — ed e' il difetto che il
+     banco ha trovato per primo. Scrive sulla PRIMA riga, e la dichiarazione
+     lo rispecchia: un numero solo, due posti da cui muoverlo. */
+  _colliQtyInput() {
+    const box = document.getElementById('mInColliBox');
+    if (!Store.colliOn() || !box || box.hidden || !this._colliIn.length) return this._anteprimaUmIn();
+    this._colliIn[0].colli = document.getElementById('mInQty')?.value ?? '';
+    this._renderColliIn();
+  },
+
+  _colliRigaDel(i) {
+    this._colliIn.splice(i, 1);
+    if (!this._colliIn.length) this._colliIn.push({ colli: '', per: '' });
+    this._renderColliIn();
+  },
+
+  _colliRigaSet(i, campo, valore) {
+    if (!this._colliIn[i]) return;
+    this._colliIn[i][campo] = valore;
+    this._anteprimaColliIn();
+  },
+
+  _renderColliIn() {
+    const box = document.getElementById('mInColliRighe');
+    if (!box) return;
+    box.innerHTML = this._colliIn.map((r, i) => `
+      <div style="display:flex;gap:0.3rem;align-items:center;margin-bottom:0.25rem">
+        <input class="input input-mono" type="number" min="1" step="1" value="${this._esc(String(r.colli ?? ''))}"
+          style="max-width:90px;text-align:center" placeholder="colli"
+          oninput="App._colliRigaSet(${i},'colli',this.value)">
+        <span style="color:var(--sx-text-muted)">×</span>
+        <input class="input input-mono" type="number" min="0" step="0.001" value="${this._esc(String(r.per ?? ''))}"
+          style="max-width:130px;text-align:center" placeholder="dentro"
+          oninput="App._colliRigaSet(${i},'per',this.value)">
+        <button class="btn btn-sm" title="Togli questa misura" onclick="App._colliRigaDel(${i})">✕</button>
+      </div>`).join('');
+    this._anteprimaColliIn();
+  },
+
+  /* La dichiarazione si apre gia' compilata con la confezione dell'anagrafica
+     e i colli che sono nel campo ④: il novantanove per cento dei
+     posizionamenti e' merce tutta uguale, e non deve costare un tasto in piu'. */
+  _anteprimaColliIn() {
+    const box = document.getElementById('mInColliBox');
+    if (!box) return;
+    const art = Validate.clean(document.getElementById('mInArtCode')?.value, true);
+    const lot = Validate.clean(document.getElementById('mInLot')?.value);
+    const cfg = art ? Store.getUomConfig(art, lot) : null;
+    const qtyEl = document.getElementById('mInQty');
+    if (!cfg?.per_collo) {
+      box.hidden = true;
+      return;
+    }
+    box.hidden = false;
+    document.getElementById('mInColliSigla').textContent = cfg.uom;
+    if (!this._colliIn.length) {
+      this._colliIn = [{ colli: parseInt(qtyEl?.value) || 1, per: cfg.per_collo }];
+      return this._renderColliIn();
+    }
+    const prev = document.getElementById('mInColliPrev');
+    const errori = validaDichiarazione(this._colliIn, cfg.uom);
+    if (errori.length) {
+      prev.textContent = '⚖ ' + errori.join(' · ');
+      prev.style.color = 'var(--sx-warning)';
+      return;
+    }
+    const elenco = espandiColli(this._colliIn, cfg.uom);
+    prev.style.color = 'var(--sx-text-muted)';
+    prev.textContent = `⚖ ${descriviElenco(elenco, cfg.uom)} — ${formattaQuantita(totaleUomElenco(elenco, cfg.uom), cfg.uom)} ${cfg.uom} in ${elenco.length} coll.`;
+    /* I colli li conta la dichiarazione, e il campo ④ li rispecchia. Si
+       riscrive solo se e' diverso: assegnare `value` mentre qualcuno sta
+       digitando gli sposta il cursore in fondo. */
+    if (qtyEl && qtyEl.value !== String(elenco.length)) qtyEl.value = String(elenco.length);
+  },
+
+  /* L'elenco da mandare a Store, o `null` se questa maschera non lo sta
+     dichiarando — a interruttore spento, o su un articolo senza confezione. */
+  _elencoDichiarato() {
+    const box = document.getElementById('mInColliBox');
+    if (!Store.colliOn() || !box || box.hidden) return null;
+    const art = Validate.clean(document.getElementById('mInArtCode')?.value, true);
+    const lot = Validate.clean(document.getElementById('mInLot')?.value);
+    const cfg = art ? Store.getUomConfig(art, lot) : null;
+    if (!cfg?.per_collo) return null;
+    const errori = validaDichiarazione(this._colliIn, cfg.uom);
+    if (errori.length) throw new Error(errori.join(' · '));
+    return espandiColli(this._colliIn, cfg.uom);
+  },
+
   /* Il campo compare solo per l'articolo/lotto che ha una confezione, e la
      confezione la si conosce solo dopo che sono stati digitati tutti e due:
      per questo l'anteprima si ricalcola a ogni tasto invece che una volta. */
   _anteprimaUmIn() {
+    if (Store.colliOn()) return this._anteprimaColliIn();
     const box = document.getElementById('mInUmBox');
     if (!box) return;
     const art = Validate.clean(document.getElementById('mInArtCode')?.value, true);
@@ -3945,6 +4073,146 @@ const App = {
      rimette a posto qualcosa che era appena uscito. */
   _umMossa(removed) {
     return typeof removed?._qty_uom_delta === 'number' ? -removed._qty_uom_delta : null;
+  },
+
+  /* ═══ 1.8 — QUALI COLLI, E QUANTI ═══════════════════════════════════
+     Una maschera sola per tutte le funzioni che tolgono merce: smaltimento,
+     trasferimento, prelievo, quarantena. Gli attributi si vedono dove la
+     merce si tocca, e da una sorgente sola — vale per i colli come per gli
+     allergeni: quattro maschere che elencano i colli in quattro modi sono
+     quattro modi di leggere male la stessa riga.
+
+     Restituisce le scelte — indice piu' quantita' facoltativa — oppure `null`
+     se chi guarda ha annullato. L'overlay ha un id suo e una chiusura sua:
+     `modalOverlay` e' uno solo, e una finestra aperta sopra un'altra chiude
+     quella sotto. */
+  _colliSel: null,
+  _colliResolve: null,
+
+  _scegliColli(item, elenco, uom, titolo = 'Quali colli') {
+    document.getElementById('colliOverlay')?.remove();
+    this._colliSel = { elenco, uom, scelte: new Map() };
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'colliOverlay';
+    overlay.innerHTML = `
+      <div class="modal" style="max-width:460px">
+        <div class="modal-header"><h2>📦 ${this._esc(titolo)}</h2></div>
+        <div class="modal-body">
+          <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.6rem">
+            <strong class="mono">${this._esc(item.article_code)}#${this._esc(item.lot_code)}</strong> in <strong class="mono">${this._esc(item.location_code)}</strong>
+            — ${this._esc(descriviElenco(elenco, uom))}
+          </div>
+          <div id="colliSelRighe"></div>
+          <div id="colliSelPrev" style="margin-top:0.5rem;font-weight:700"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" onclick="App._colliSelAnnulla()">Annulla</button>
+          <button class="btn btn-success" onclick="App._colliSelOk()">✓ Conferma i colli</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    this._colliSelRender();
+    return new Promise(resolve => { this._colliResolve = resolve; });
+  },
+
+  _colliSelRender() {
+    const s = this._colliSel;
+    const box = document.getElementById('colliSelRighe');
+    if (!s || !box) return;
+    box.innerHTML = s.elenco.map((q, i) => {
+      const scelto = s.scelte.has(i);
+      const parziale = s.scelte.get(i);
+      return `
+        <div style="display:flex;gap:0.4rem;align-items:center;padding:0.25rem 0;border-bottom:1px solid var(--sx-border)">
+          <input type="checkbox" ${scelto ? 'checked' : ''} onchange="App._colliSelToggle(${i})">
+          <span style="flex:1">Collo ${i + 1} · <strong class="mono">${this._esc(formattaQuantita(q, s.uom))} ${this._esc(s.uom)}</strong></span>
+          ${scelto ? `<input class="input input-mono" type="number" min="0" step="0.001" max="${q}"
+              style="max-width:110px;text-align:center" placeholder="tutto"
+              value="${parziale === null || parziale === undefined ? '' : this._esc(String(parziale))}"
+              title="Vuoto = il collo esce intero. Un numero più piccolo apre il collo e il resto torna a scaffale."
+              oninput="App._colliSelQta(${i},this.value)">` : ''}
+        </div>`;
+    }).join('');
+    this._colliSelPrev();
+  },
+
+  _colliSelToggle(i) {
+    const s = this._colliSel;
+    if (!s) return;
+    if (s.scelte.has(i)) s.scelte.delete(i); else s.scelte.set(i, null);
+    this._colliSelRender();
+  },
+
+  /* Il numero si tiene com'e' stato digitato finche' non si conferma: e' la
+     convalida a dire se ci sta, e dirlo mentre si scrive vorrebbe dire
+     cancellare la cifra a chi sta ancora componendo «1.000». */
+  _colliSelQta(i, valore) {
+    const s = this._colliSel;
+    if (!s || !s.scelte.has(i)) return;
+    s.scelte.set(i, String(valore).trim() === '' ? null : valore);
+    this._colliSelPrev();
+  },
+
+  _colliSelPrev() {
+    const s = this._colliSel;
+    const prev = document.getElementById('colliSelPrev');
+    if (!s || !prev) return;
+    if (!s.scelte.size) {
+      prev.textContent = 'Nessun collo scelto';
+      prev.style.color = 'var(--sx-text-muted)';
+      return;
+    }
+    try {
+      const esito = prelevaElenco(s.elenco, this._colliSelScelte(), s.uom);
+      prev.style.color = 'var(--sx-success)';
+      prev.textContent = `Escono ${esito.usciti.length} coll. · ${formattaQuantita(esito.uom, s.uom)} ${s.uom} — restano ${descriviElenco(esito.rimasti, s.uom)}`;
+    } catch (err) {
+      prev.style.color = 'var(--sx-warning)';
+      prev.textContent = '⚠ ' + (err.message || 'scelta non valida');
+    }
+  },
+
+  _colliSelScelte() {
+    const s = this._colliSel;
+    return [...s.scelte.entries()].map(([indice, quantita]) => (
+      quantita === null || quantita === undefined ? { indice } : { indice, quantita }
+    ));
+  },
+
+  _colliSelOk() {
+    const s = this._colliSel;
+    if (!s?.scelte.size) return this.toast('Scegliere almeno un collo', 'error');
+    const scelte = this._colliSelScelte();
+    try {
+      prelevaElenco(s.elenco, scelte, s.uom);
+    } catch (err) {
+      return this.toast(err.message || 'Scelta dei colli non valida', 'error');
+    }
+    this._colliSelChiudi(scelte);
+  },
+
+  _colliSelAnnulla() { this._colliSelChiudi(null); },
+
+  _colliSelChiudi(esito) {
+    document.getElementById('colliOverlay')?.remove();
+    this._colliSel = null;
+    const resolve = this._colliResolve;
+    this._colliResolve = null;
+    if (resolve) resolve(esito);
+  },
+
+  /* Il gesto completo, per chi toglie merce: se la riga porta l'elenco chiede
+     quali colli, se no restituisce `null` e chi chiama fa come nella 1.7.
+     `undefined` significa «annullato»: e' diverso da «questa riga non ha un
+     elenco», e chi chiama deve fermarsi invece di prelevare tutto. */
+  async _chiediColli(item, titolo) {
+    if (!Store.colliOn()) return null;
+    const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
+    const elenco = Store.colliDiRiga(item);
+    if (!cfg || !elenco) return null;
+    const scelte = await this._scegliColli(item, elenco, cfg.uom, titolo);
+    return scelte === null ? undefined : scelte;
   },
 
   _cbPickIn() { setTimeout(() => { App._previewLoc('mInLoc','mInLocPrev'); document.getElementById('mInArtCode')?.focus(); }, 30); },
@@ -4027,9 +4295,16 @@ const App = {
     const umRaw = document.getElementById('mInUmQty')?.value;
     const qtyUom = umRaw === undefined || umRaw === null || String(umRaw).trim() === ''
       ? null : Number(String(umRaw).replace(',', '.'));
-    let res;
+    let res, elenco = null;
     try {
-      res = await Store.addItem(loc, art, effectiveDesc, lot, exp, notes, qty, qtyUom);
+      /* 1.8 — dove la suddivisione e' dichiarata comanda lei: i colli sono
+         quanti sono nell'elenco, e `qty` qui e' gia' il suo specchio. */
+      elenco = this._elencoDichiarato();
+    } catch (err) {
+      return this.toast(err.message || 'Suddivisione dei colli incompleta', 'error');
+    }
+    try {
+      res = await Store.addItem(loc, art, effectiveDesc, lot, exp, notes, qty, qtyUom, elenco);
     } catch (err) {
       return this.toast(err.message || 'Errore posizionamento', 'error');
     }
@@ -4046,6 +4321,9 @@ const App = {
     // Reset campi articolo ma lascia loc; reset qty al default 1
     for (const id of ['mInArtCode','mInArtDesc','mInLot','mInExp','mInNotes','mInUmQty']) { const e = document.getElementById(id); if (e) e.value = ''; }
     const qtyEl = document.getElementById('mInQty'); if (qtyEl) qtyEl.value = '1';
+    /* 1.8 — la dichiarazione appartiene al collo che si e' appena posizionato:
+       la prossima merce la dichiara chi ce l'ha in mano, da zero. */
+    this._colliIn = [];
     this._anteprimaUmIn();
     document.getElementById('mInArtInfo').innerHTML = '';
     document.getElementById('mInDetails')?.removeAttribute('open');
@@ -4494,7 +4772,16 @@ const App = {
       }
     }
 
-    const isFull = qtyOut >= qtyAvail;
+    /* 1.8 — quali colli, prima di chiedere conferma: il numero digitato in ③
+       dice quanti, l'elenco dice quali, e cio' che esce davvero lo racconta
+       il riepilogo qui sotto. */
+    const scelteColli = await this._chiediColli(item, 'Quali colli si smaltiscono');
+    if (scelteColli === undefined) return this.toast('Smaltimento annullato', 'info');
+    const uscitaColli = scelteColli
+      ? prelevaElenco(Store.colliDiRiga(item), scelteColli, Store.getUomConfig(item.article_code, item.lot_code)?.uom)
+      : null;
+
+    const isFull = scelteColli ? !uscitaColli.rimasti.length : qtyOut >= qtyAvail;
     if (!await Dialog.confirm({
       title: isFull ? 'Smaltimento TOTALE' : 'Smaltimento PARZIALE',
       message: isFull
@@ -4504,14 +4791,18 @@ const App = {
         ['Articolo', item.article_code],
         ['Lotto', item.lot_code],
         ['Ubicazione', loc],
-        ['Colli da smaltire', qtyOut],
-        ['Saldo dopo', `${qtyAvail - qtyOut} Coll.`],
+        ['Colli da smaltire', uscitaColli
+          ? descriviElenco(uscitaColli.usciti, Store.getUomConfig(item.article_code, item.lot_code)?.uom)
+          : qtyOut],
+        ['Saldo dopo', uscitaColli
+          ? `${uscitaColli.rimasti.length} Coll. — ${descriviElenco(uscitaColli.rimasti, Store.getUomConfig(item.article_code, item.lot_code)?.uom)}`
+          : `${qtyAvail - qtyOut} Coll.`],
         ['Motivazione', reasonLabel]
       ]),
       confirmLabel: 'Smaltisci', danger: true
     })) return;
 
-    const removed = await Store.removeItem(loc, key, qtyOut);
+    const removed = await Store.removeItem(loc, key, qtyOut, null, scelteColli);
     if (!removed) return this.toast('Rimozione fallita', 'error');
 
     const notes = `SMALTIMENTO [${reasonLabel}]` + (d.forced_note ? ` · ${d.forced_note}` : '');
@@ -4521,10 +4812,15 @@ const App = {
       loc, null, operator, notes, verbale, removed._qty_before, removed._qty_delta, removed._qty_after, removed._qty_uom_delta);
 
     // v2.1.0 — storno disponibile per 120 secondi
-    this._pushUndo(`Smaltimento ${removed.article_code}#${removed.lot_code} da ${loc} (${qtyOut} Coll.)`,
+    /* 1.8 — lo storno rimette DENTRO i colli che sono usciti, non un numero
+       che ci somiglia: `_packs_out` li porta uno per uno, e senza di lui un
+       collo aperto tornerebbe pieno. */
+    const colliUsciti = removed._packs_out ?? null;
+    this._pushUndo(`Smaltimento ${removed.article_code}#${removed.lot_code} da ${loc} (${colliUsciti ? colliUsciti.length : qtyOut} Coll.)`,
       [{ op: 'add', loc, art: removed.article_code, desc: removed.article_description,
-         lot: removed.lot_code, exp: removed.expiry_date || '', notes: removed.notes || '', qty: qtyOut,
-         qty_uom: this._umMossa(removed) }]);
+         lot: removed.lot_code, exp: removed.expiry_date || '', notes: removed.notes || '',
+         qty: colliUsciti ? colliUsciti.length : qtyOut,
+         qty_uom: this._umMossa(removed), packs: colliUsciti }]);
 
     const snap = {
       doc_id: verbale,
@@ -12400,6 +12696,19 @@ const App = {
      stesso numero, per chi legge, sono tre numeri diversi. */
   _rigaUM(item) {
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
+    /* 1.8 — dove la riga porta l'elenco, la riga la descrive l'elenco: sono i
+       colli veri, uno per uno, e possono essere tutti di misura diversa. La
+       suddivisione calcolata qui sotto non saprebbe raccontarli. */
+    if (cfg && Array.isArray(item?.packs)) {
+      const elenco = Store.colliDiRiga(item);
+      if (elenco) {
+        const v = verificaElenco(item.qty, item.qty_uom, elenco, cfg.uom);
+        const scarto = v && !v.ok
+          ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono all'elenco: ne risulterebbero ${v.colliAttesi}">⚠ ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
+          : '';
+        return `<div class="item-meta">⚖ ${this._esc(descriviElenco(elenco, cfg.uom))}${scarto}</div>`;
+      }
+    }
     if (!cfg?.per_collo) return '';
     const s = Store.suddivisioneDi(item);
     if (!s || !s.colli) return '';
@@ -13379,7 +13688,10 @@ const App = {
           /* 1.4.2 — lo storno rimette esattamente le UM che erano uscite.
              `a.qty_uom` assente lascia derivare dai colli pieni, che e' il
              caso di ogni storno registrato prima di questa versione. */
-          const r = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', a.qty, a.qty_uom ?? null);
+          /* 1.8 — e se lo storno conosce i colli usciti li rimette uno per
+             uno: `a.packs` porta anche il collo che era stato aperto, che
+             derivato dai colli pieni tornerebbe intero. */
+          const r = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', a.qty, a.qty_uom ?? null, a.packs ?? null);
           await this._logMov(MOV.FIX_IN, a.art, a.desc || '', a.lot, a.loc, null, '',
             `STORNO — ${entry.label}`, '', r.qty_before, a.qty, r.qty_after, r.qty_uom_delta);
         } else {
