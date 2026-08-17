@@ -35,18 +35,6 @@
 #  eredita il servizio che gira come SYSTEM. Il giorno del trasloco su una
 #  macchina virtuale si cambia lì, in un posto solo.
 #
-#  DALLA 1.7 L'APPLICATIVO È UNA CARTELLA, NON UN FILE.
-#  PATHFINDER_APP_DIR punta a `C:\Pathfinder\app\corrente`, e da quel momento
-#  NON CAMBIA PIÙ: installare una versione e tornare indietro ne sostituiscono
-#  il CONTENUTO, e non vogliono né l'amministratore né un riavvio del servizio.
-#  È il gesto che il 13/08 veniva respinto con «Accesso al Registro di sistema
-#  non consentito», e adesso serve una volta sola.
-#  (`corrente` NON è una giunzione: il servizio gira come SYSTEM e il 17/08 non
-#  è riuscito ad attraversarne una — vedi installa-versione.ps1.)
-#      .\installa-versione.ps1 -Da ..\consegna -Versione 1.7
-#      .\torna-indietro.ps1
-#  Quanto segue riguarda il modo vecchio, che resta come ripiego.
-#
 #  QUALE FILE DELL'APPLICATIVO SERVIRE.
 #  Il servizio serve un file .html, e finora quale fosse era una sua
 #  convinzione: in mancanza di indicazioni ripiegava su un nome scritto nel
@@ -76,8 +64,7 @@ param(
     [string]$CartellaBackup = 'C:\Pathfinder\backup',
     [string]$OraBackup = '20:00',
     [int]$GiorniDiConservazione = 0,
-    [string]$Applicativo = '',
-    [string]$CartellaApplicativo = 'C:\Pathfinder\app\corrente'
+    [string]$Applicativo = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -186,16 +173,14 @@ if ($Applicativo) {
         exit 1
     }
     else {
-        # Nessun .html, e va benissimo: dalla 1.7 l'applicativo e' una
-        # CARTELLA, e il file singolo e' solo un ripiego. Su una macchina
-        # nuova, installata dal pacchetto, di .html non ce n'e' nessuno — e
-        # fermarsi qui vorrebbe dire non poter installare affatto.
-        # Il servizio parte lo stesso: quello che serve e' PATHFINDER_APP_DIR,
-        # e il pacchetto ci mette dentro la versione subito dopo.
-        Write-Host "  Applicativo   nessun file singolo (si serve la cartella)" -ForegroundColor Yellow
+        Write-Host ""
+        Write-Host "  Non trovo nessun file 'pathfinder-*.html' in $Radice" -ForegroundColor Red
+        Write-Host "  Il servizio serve l'applicativo: senza, i terminali aprono il vuoto."
+        Write-Host "  Copialo li' accanto, oppure indicalo con -Applicativo."
+        exit 1
     }
 }
-if ($Applicativo) { Write-Host "  Applicativo   $Applicativo" }
+Write-Host "  Applicativo   $Applicativo"
 
 # ── Il database ─────────────────────────────────────────────────────
 $cartellaDb = Split-Path -Parent $Database
@@ -241,19 +226,6 @@ Write-Host "  Backup        $CartellaBackup  (ogni sera alle $OraBackup)"
 [Environment]::SetEnvironmentVariable('PATHFINDER_PORT', "$Porta",      'Machine')
 [Environment]::SetEnvironmentVariable('PATHFINDER_APP',  $Applicativo,  'Machine')
 $env:PATHFINDER_APP  = $Applicativo
-
-# 1.7 — la cartella dell'applicativo. È l'ULTIMA volta che questa variabile
-# viene toccata: da qui in poi la giunzione `corrente` si ripunta, e la
-# variabile resta dov'è. Si imposta anche se la giunzione non esiste ancora —
-# il servizio avvisa e resta vivo, e `installa-versione.ps1` la crea.
-[Environment]::SetEnvironmentVariable('PATHFINDER_APP_DIR', $CartellaApplicativo, 'Machine')
-$env:PATHFINDER_APP_DIR = $CartellaApplicativo
-if (Test-Path $CartellaApplicativo) {
-    Write-Host "  Applicativo   $CartellaApplicativo  (cartella)"
-} else {
-    Write-Host "  Applicativo   $CartellaApplicativo  — non esiste ancora" -ForegroundColor Yellow
-    Write-Host "                si crea con: .\installa-versione.ps1 -Da <cartella> -Versione <numero>"
-}
 $env:PATHFINDER_DB   = $Database
 $env:PATHFINDER_PORT = "$Porta"
 
@@ -367,33 +339,14 @@ try {
     # Stessa prova per l'applicativo: che risponda non basta, deve servire il
     # file giusto. E' l'errore che da fuori sembra "l'aggiornamento non ha
     # avuto effetto" e invece e' il servizio che guarda da un'altra parte.
-    # 1.7 — la verifica dipende da COME il servizio sta servendo. In modo
-    # cartella non esiste piu' un `app_file`, e confrontarlo con quello atteso
-    # dava un allarme falso a installazione perfettamente riuscita: lo si
-    # confronta con niente, e niente e' sempre diverso.
     $info = Invoke-RestMethod -Uri "http://127.0.0.1:$Porta/api/app-info" -TimeoutSec 5
-
-    if ($info.modo -eq 'cartella') {
-        Write-Host "  applicativo   $($info.versione)  ->  $(Split-Path -Leaf $info.punta_a)"
-        Write-Host "  impronta      $($info.impronta)"
-        if (-not $info.versione -or -not $info.impronta) {
-            Write-Host ""
-            Write-Host "  ATTENZIONE: la cartella servita non ha un manifesto leggibile." -ForegroundColor Red
-            Write-Host "  cartella: $($info.punta_a)"
-            Write-Host "  Il servizio risponde, ma non si puo' dire QUALE versione:"
-            Write-Host "  reinstallare la versione con .\installa-versione.ps1"
-            exit 1
-        }
-    }
-    else {
-        Write-Host "  applicativo   $($info.app_file)"
-        if ($info.app_file -ne $Applicativo) {
-            Write-Host ""
-            Write-Host "  ATTENZIONE: il servizio sta servendo un altro applicativo." -ForegroundColor Red
-            Write-Host "  atteso:  $Applicativo"
-            Write-Host "  servito: $($info.app_file)"
-            exit 1
-        }
+    Write-Host "  applicativo   $($info.app_file)"
+    if ($info.app_file -ne $Applicativo) {
+        Write-Host ""
+        Write-Host "  ATTENZIONE: il servizio sta servendo un altro applicativo." -ForegroundColor Red
+        Write-Host "  atteso:  $Applicativo"
+        Write-Host "  servito: $($info.app_file)"
+        exit 1
     }
 
     # Un backup si prova il giorno che lo si installa, non la notte che serve.

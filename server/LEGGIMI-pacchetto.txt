@@ -1,0 +1,50 @@
+PATHFINDER — pacchetto di installazione
+© Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
+
+
+COME SI INSTALLA
+
+  Doppio clic su «Installa Pathfinder.bat», INVIO per confermare.
+
+  Non serve altro. Il pacchetto capisce da solo se la macchina ha già
+  Pathfinder — e allora aggiorna soltanto l'applicativo, in due secondi e
+  senza riavviare niente — oppure se è la prima volta, e allora installa
+  anche il servizio dati, l'avvio automatico, il backup serale e apre la
+  porta sul firewall. In quel caso Windows chiede l'autorizzazione: una
+  volta sola, all'inizio.
+
+  Alla fine si apre da sé l'applicativo, e sullo schermo restano la versione
+  e la sua impronta: sono i due numeri che dicono che l'installazione è
+  quella giusta.
+
+
+COSA C'È QUI DENTRO
+
+  app\        l'applicativo — l'indice, gli assets e il manifesto che li
+              elenca con la loro impronta
+  servizio\   il servizio dati: Node + SQLite, gli script di installazione,
+              il backup serale
+
+
+COSA SERVE SULLA MACCHINA
+
+  Windows 10 o 11, e Node.js LTS (nodejs.org). Solo alla prima
+  installazione serve internet, per scaricare le dipendenze del servizio.
+
+
+IL DATABASE NON VIENE MAI TOCCATO
+
+  Sta in C:\Pathfinder\data\pathfinder.db, fuori da questo pacchetto e fuori
+  da qualunque cartella sincronizzata. Installare una versione non ne
+  riscrive una riga, e tornare indietro nemmeno: si rimette l'applicativo di
+  prima e i dati restano dove sono.
+
+
+SE QUALCOSA NON VA
+
+  Il servizio risponde su http://localhost:4173/api/app-info e dice quale
+  versione sta servendo. Se qualcosa non funziona, quella risposta porta due
+  campi in più — «errore» e «utente» — che dicono di cosa è morto.
+
+  Per tornare alla versione precedente, da PowerShell:
+      C:\Pathfinder\servizio\torna-indietro.ps1

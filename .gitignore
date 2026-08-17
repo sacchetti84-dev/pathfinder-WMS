@@ -33,6 +33,11 @@ ARCHIVIO/BACKUP E FILE DI TEST/movimenti/
 consegna/
 Pathfinder 1.*/
 
+# Il banco di prova: copia del database vero (dati operativi e sigle operatore)
+# e cartelle-versione con le loro giunzioni. Si rifa' in due comandi, e una
+# giunzione in un repository non ha senso.
+banco/
+
 # Rumore di Windows e degli editor.
 Thumbs.db
 desktop.ini

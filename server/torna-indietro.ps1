@@ -2,11 +2,18 @@
   Pathfinder — torna alla versione precedente
   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
 
-  Scambia le due giunzioni: `corrente` e `precedente` si invertono. Un comando,
-  nessun riavvio, nessun amministratore — e rilanciandolo si torna avanti,
-  perche' lo scambio e' simmetrico.
+  Scambia il contenuto di `corrente` e `precedente`, ripescandolo dal deposito
+  delle versioni. Un comando, nessun riavvio, nessun amministratore — e
+  rilanciandolo si torna avanti, perche' lo scambio e' simmetrico.
 
       .\torna-indietro.ps1
+
+  QUALE VERSIONE C'E' DOVE LO DICE IL MANIFESTO, non un registro accanto: un
+  registro separato prima o poi dice una cosa e le cartelle un'altra.
+
+  PERCHE' COPIE E NON GIUNZIONI: vedi la testata di installa-versione.ps1 —
+  il 17/08/2026 il servizio, che gira come SYSTEM, non e' riuscito ad
+  attraversare la giunzione, e l'applicativo e' rimasto giu' tre ore.
 
   PRIMA DI TORNARE INDIETRO C'E' UN GESTO PIU' PICCOLO: spegnere l'interruttore
   della funzione che da' fastidio, da Configurazione -> Funzioni. Un rilascio si
@@ -24,61 +31,84 @@ param(
 $ErrorActionPreference = 'Stop'
 
 # MAI `Remove-Item -Recurse` su una giunzione: in PowerShell 5.1 puo' seguire
-# il collegamento e svuotare la cartella di destinazione. Vedi
-# installa-versione.ps1, stessa ragione e stessa coppia di funzioni.
-function Togli-Giunzione([string]$Percorso) {
-    if (-not (Test-Path $Percorso)) { return }
-    try { [System.IO.Directory]::Delete($Percorso, $false) }
-    catch { cmd /c rmdir "`"$Percorso`"" | Out-Null }
+# il collegamento e svuotare la cartella di destinazione. Le giunzioni non si
+# creano piu', ma sul disco ne restano di vecchie.
+function Rimuovi-Punto([string]$Percorso) {
+    if (-not (Test-Path $Percorso -ErrorAction SilentlyContinue)) {
+        try { $a = [System.IO.File]::GetAttributes($Percorso) } catch { return }
+        if ($a -band [System.IO.FileAttributes]::ReparsePoint) {
+            try { [System.IO.Directory]::Delete($Percorso, $false) }
+            catch { cmd /c rmdir "`"$Percorso`"" | Out-Null }
+        }
+        return
+    }
+    $voce = Get-Item $Percorso -Force
+    # ReparsePoint da solo non basta: OneDrive lo mette su ogni cartella
+    # sincronizzata. Una giunzione vera ha anche un bersaglio — vedi
+    # installa-versione.ps1.
+    if (($voce.Attributes -band [System.IO.FileAttributes]::ReparsePoint) -and $voce.Target) {
+        try { [System.IO.Directory]::Delete($Percorso, $false) }
+        catch { cmd /c rmdir "`"$Percorso`"" | Out-Null }
+    } else {
+        Remove-Item $Percorso -Recurse -Force
+    }
 }
 
-function Punta-Giunzione([string]$Percorso, [string]$Verso) {
-    Togli-Giunzione $Percorso
-    try { New-Item -ItemType Junction -Path $Percorso -Target $Verso | Out-Null }
-    catch { cmd /c mklink /J "`"$Percorso`"" "`"$Verso`"" | Out-Null }
-    if (-not (Test-Path $Percorso)) { throw "Giunzione non creata: $Percorso" }
+function Materializza([string]$Sorgente, [string]$Bersaglio) {
+    $temporanea = "$Bersaglio.nuovo"
+    Rimuovi-Punto $temporanea
+    New-Item -ItemType Directory -Path $temporanea -Force | Out-Null
+    Copy-Item (Join-Path $Sorgente '*') $temporanea -Recurse -Force
+    Rimuovi-Punto $Bersaglio
+    Rename-Item $temporanea (Split-Path -Leaf $Bersaglio)
 }
 
-function Dove-Punta([string]$Percorso) {
-    if (-not (Test-Path $Percorso)) { return $null }
-    $t = (Get-Item $Percorso -Force).Target
-    if ($t -is [array]) { return $t[0] }
-    return $t
+function VersioneIn([string]$Cartella) {
+    $m = Join-Path $Cartella 'manifest.json'
+    if (-not (Test-Path $m)) { return $null }
+    try { return (Get-Content $m -Raw | ConvertFrom-Json).versione } catch { return $null }
 }
 
 $Corrente = Join-Path $Casa 'corrente'
 $Precedente = Join-Path $Casa 'precedente'
 
-$ora = Dove-Punta $Corrente
-$prima = Dove-Punta $Precedente
+$ora = VersioneIn $Corrente
+$prima = VersioneIn $Precedente
 
 if (-not $prima) {
     Write-Host ""
-    Write-Host "  Non c'e' una via di ritorno: `precedente` non punta a niente." -ForegroundColor Red
+    Write-Host "  Non c'e' una via di ritorno: 'precedente' non contiene una versione." -ForegroundColor Red
     Write-Host "  Le versioni installate stanno in $Casa — si torna a una qualunque con:"
     Write-Host "    .\installa-versione.ps1 -Da <cartella> -Versione <numero>"
     Write-Host ""
     exit 1
 }
-if (-not (Test-Path $prima)) {
-    Write-Host "  La versione precedente non esiste piu' sul disco: $prima" -ForegroundColor Red
-    exit 1
-}
+
+# Si ripesca dal deposito, che e' la copia buona; il contenuto di `precedente`
+# e' un ripiego per il caso in cui la cartella-versione sia sparita.
+$sorgenteIndietro = Join-Path $Casa "pathfinder-$prima"
+if (-not (Test-Path $sorgenteIndietro)) { $sorgenteIndietro = $Precedente }
+$sorgenteAvanti = if ($ora) { Join-Path $Casa "pathfinder-$ora" } else { $null }
+if ($sorgenteAvanti -and -not (Test-Path $sorgenteAvanti)) { $sorgenteAvanti = $Corrente }
 
 Write-Host ""
 Write-Host "  Pathfinder — ritorno indietro" -ForegroundColor Cyan
-Write-Host "    da  $(Split-Path -Leaf $ora)"
-Write-Host "    a   $(Split-Path -Leaf $prima)" -ForegroundColor Green
+Write-Host "    da  $ora"
+Write-Host "    a   $prima" -ForegroundColor Green
 Write-Host ""
 
-Punta-Giunzione $Corrente $prima
-if ($ora) { Punta-Giunzione $Precedente $ora }
+# Prima si mette da parte cio' che c'e' adesso, poi si scambia: se il comando
+# muore in mezzo, `precedente` porta comunque una versione intera.
+$appoggio = Join-Path $Casa '_scambio'
+if ($sorgenteAvanti) { Materializza $sorgenteAvanti $appoggio }
+Materializza $sorgenteIndietro $Corrente
+if ($sorgenteAvanti) { Materializza $appoggio $Precedente; Rimuovi-Punto $appoggio }
 
-$Manifesto = Join-Path $Corrente 'manifest.json'
-if (Test-Path $Manifesto) {
-    $m = Get-Content $Manifesto -Raw | ConvertFrom-Json
-    Write-Host "  versione    $($m.versione)"
-    Write-Host "  impronta    $($m.impronta)"
+$m = Join-Path $Corrente 'manifest.json'
+if (Test-Path $m) {
+    $j = Get-Content $m -Raw | ConvertFrom-Json
+    Write-Host "  versione    $($j.versione)"
+    Write-Host "  impronta    $($j.impronta)"
 }
 Write-Host ""
 Write-Host "  Fatto, senza riavviare. I terminali lo vedono alla prossima ricarica." -ForegroundColor Cyan
