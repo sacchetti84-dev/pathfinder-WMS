@@ -21,7 +21,7 @@ import zlib from 'node:zlib';
    `index.html` e sta in `consegna/`: una build a file singolo e' una cartella
    con dentro solo l'indice, e il servizio non deve sapere che e' diversa. */
 const CONSEGNA = 'consegna';
-const VERSIONE = '1.7';
+const VERSIONE = '1.8.1';
 const UNICO = process.env.SINGLE_FILE === '1';
 
 const DAL_SERVIZIO = [
@@ -126,28 +126,70 @@ function cartellaDiConsegna(versione) {
 
       const manifesto = scriviManifesto(radice, versione);
       const compresso = comprimi(radice, manifesto);
-      fs.copyFileSync(path.resolve('README.md'), path.resolve(radice, 'README.md'));
 
-      const dentro = path.resolve(radice, 'server');
-      fs.mkdirSync(dentro, { recursive: true });
+      /* ── IL PACCHETTO ────────────────────────────────────────────────────
+         Quello che esce dalla build non e' un mucchio di file da mettere
+         insieme a mano: e' UNA CARTELLA che si copia su una chiavetta e si
+         installa con un doppio clic. Il numero di versione sta nel nome,
+         cosi' due consegne non si confondono mai.
+
+             consegna/Pathfinder 1.7/
+               Installa Pathfinder.bat   <- doppio clic, e basta
+               installa.ps1              il motore
+               LEGGIMI.txt
+               app/                      l'applicativo e il suo manifesto
+               servizio/                 il servizio dati e i suoi script
+
+         Nasce il 17/08/2026 da una richiesta precisa: «non posso mettermi a
+         compilare il terminale in fase di presentazione». Fino a ieri
+         installare voleva dire ricordarsi un comando con due parametri. */
+      const pacchetto = path.resolve(radice, `Pathfinder ${versione}`);
+      const dentroApp = path.resolve(pacchetto, 'app');
+      const dentroServizio = path.resolve(pacchetto, 'servizio');
+      fs.mkdirSync(dentroApp, { recursive: true });
+      fs.mkdirSync(dentroServizio, { recursive: true });
+
+      /* L'applicativo si SPOSTA, non si copia: quello che resta nella radice
+         di `consegna/` verrebbe scambiato per una consegna a sua volta, ed e'
+         esattamente il genere di ambiguita' che il 14/08 e' costata cara. */
+      for (const voce of fs.readdirSync(radice)) {
+        if (voce === `Pathfinder ${versione}`) continue;
+        fs.renameSync(path.resolve(radice, voce), path.resolve(dentroApp, voce));
+      }
+
       for (const voce of DAL_SERVIZIO) {
         const sorgente = path.resolve('server', voce);
         if (!fs.existsSync(sorgente)) {
           console.warn(`  ATTENZIONE: server/${voce} non trovato, non entra nel pacchetto`);
           continue;
         }
-        fs.cpSync(sorgente, path.resolve(dentro, voce), { recursive: true });
+        fs.cpSync(sorgente, path.resolve(dentroServizio, voce), { recursive: true });
+      }
+      fs.copyFileSync(path.resolve('README.md'), path.resolve(dentroServizio, 'README.md'));
+
+      /* Il .bat e il motore stanno in `server/` come tutto il resto degli
+         script, e qui prendono il nome con cui li vede chi installa. */
+      for (const [da, a] of [
+        ['Installa Pathfinder.bat', 'Installa Pathfinder.bat'],
+        ['installa-pathfinder.ps1', 'installa.ps1'],
+        ['LEGGIMI-pacchetto.txt', 'LEGGIMI.txt'],
+      ]) {
+        const sorgente = path.resolve('server', da);
+        if (!fs.existsSync(sorgente)) {
+          console.warn(`  ATTENZIONE: server/${da} non trovato: il pacchetto non si installa da solo`);
+          continue;
+        }
+        fs.copyFileSync(sorgente, path.resolve(pacchetto, a));
       }
 
       const mb = (manifesto.byte_totali / 1024 / 1024).toFixed(2);
       const kb = (compresso / 1024).toFixed(0);
-      console.log(`\n  ${CONSEGNA}/ — Pathfinder ${versione}${UNICO ? ', file unico' : ''}`);
-      console.log(`  ${manifesto.file.length} file, ${mb} MB — ${kb} kB sul filo, compressi`);
+      console.log(`\n  ${CONSEGNA}/Pathfinder ${versione}/${UNICO ? '  (file unico)' : ''}`);
+      console.log(`  app/       ${manifesto.file.length} file, ${mb} MB — ${kb} kB sul filo, compressi`);
       console.log(`  impronta   ${manifesto.impronta}`);
-      console.log(`  ${CONSEGNA}/server/ — il servizio dati, ${DAL_SERVIZIO.length} voci`);
-      console.log('\n  NON e\' questa la cartella che il servizio deve servire: la build');
-      console.log('  la azzera a ogni giro. Si installa con:');
-      console.log(`      .\\server\\installa-versione.ps1 -Da .\\${CONSEGNA} -Versione ${versione}\n`);
+      console.log(`  servizio/  il servizio dati, ${DAL_SERVIZIO.length} voci`);
+      console.log('\n  Si consegna cosi\' com\'e\': doppio clic su «Installa Pathfinder.bat».');
+      console.log('  NON si serve da qui: la build azzera questa cartella a ogni giro.\n');
     },
   };
 }

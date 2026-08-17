@@ -22,7 +22,7 @@ import {
 } from './cache';
 import {
   configurazione as configurazioneUom, congela as congelaLotto, daLotto,
-  suddividi, uomDaColli, verifica as verificaUm,
+  suddividi, uomDaColli, verifica as verificaUm, descrivi as descriviUom,
   sommaUom, sottraiUom, arrotonda as arrotondaUom, decimali as decimaliUom,
   type Configurazione,
 } from '../modules/misure';
@@ -36,6 +36,10 @@ import {
   componiDestinatario, conDestinazione, normalizzaPIva,
 } from '../modules/destinatari';
 import { UNITA_MISURA } from '../modules/misure';
+import {
+  leggiColli, daSuddivisione, totaleUom as totaleUomColli,
+  descriviColli, preleva as prelevaColli, type Scelta,
+} from '../modules/colli';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
 import {
@@ -55,7 +59,7 @@ import { App } from '../ui/app.js';
    Vivono in `meta` una chiave per una, e non in un unico record, proprio
    perche' accenderne due nello stesso turno deve costare due gesti
    distinti: se poi qualcosa si muove, si sa quale delle due e' stata. */
-const FEATURES = ['tasks', 'uom', 'udc', 'putaway', 'wip'];
+const FEATURES = ['tasks', 'uom', 'colli', 'udc', 'putaway', 'wip'];
 const CHIAVE_FEATURE = (nome: string) => `feature.${nome}`;
 
 const Store = {
@@ -696,19 +700,70 @@ const Store = {
     return verificaUm(item.qty ?? 0, item.qty_uom, cfg.per_collo, cfg.uom);
   },
 
+  /* ═══════════════════════════════════════════════════════════════════
+     1.8 — L'ELENCO DEI COLLI
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Lo stesso articolo arriva in colli da 5 kg e la volta dopo da 25: la
+     suddivisione non si calcola piu' da un per-collo costante, si DICHIARA.
+     La regola pura sta in `modules/colli.ts`; qui c'e' solo cio' che scrive.
+
+     L'interruttore e' suo, e non e' `uom`: `uom` e' acceso in magazzino dal
+     13/08, e installare la 1.8 non deve cambiare da solo il modo in cui si
+     posiziona la merce. Installare non e' accendere.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* Senza le unita' di misura non c'e' niente da dichiarare: l'elenco e'
+     fatto di quantita', e una quantita' senza unita' non e' un numero. */
+  colliOn() {
+    return this.isFeatureOn('colli') && this.isFeatureOn('uom');
+  },
+
+  /* L'elenco di una riga, o la lettura onesta di una riga che non ce l'ha:
+     colli PIENI piu' il resto, che e' esattamente ciò che la 1.7 mostrava.
+     Nessuna riga viene riscritta finche' qualcuno non la muove. */
+  colliDiRiga(item: Giacenza | null | undefined): number[] | null {
+    if (!item || !this.colliOn()) return null;
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    if (!cfg) return null;
+    return leggiColli(item.packs, cfg.uom)
+        ?? daSuddivisione(item.qty_uom ?? uomDaColli(item.qty ?? 0, cfg.per_collo, cfg.uom), cfg.per_collo, cfg.uom);
+  },
+
+  /* Come si legge una riga: dall'elenco quando c'e', dalla suddivisione
+     calcolata quando no. Una sola funzione perche' due formattazioni dello
+     stesso numero, per chi legge, sono due numeri diversi. */
+  descriviRiga(item: Giacenza | null | undefined): string {
+    if (!item) return '—';
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    if (!cfg) return '—';
+    const elenco = this.colliDiRiga(item);
+    if (elenco) return descriviColli(elenco, cfg.uom);
+    const s = this.suddivisioneDi(item);
+    return s ? descriviUom(item.qty_uom ?? uomDaColli(item.qty ?? 0, cfg.per_collo, cfg.uom), cfg.per_collo, cfg.uom) : '—';
+  },
+
   /* Le UM di una riga, anche quando `qty_uom` non c'e' ancora.
      RETROCOMPATIBILITA': una giacenza posizionata prima della 1.4.2 si legge
      come colli PIENI, che e' l'unica lettura onesta di un dato che nessuno ha
      mai dichiarato. Il valore non viene scritto finche' qualcuno non muove
      quella riga: all'installazione non si riscrive niente. */
   _uomDiRiga(item: Giacenza, cfg: Configurazione | null): number | null {
-    if (!cfg?.per_collo) return null;
+    if (!cfg) return null;
+    /* 1.8 — DOVE C'E' L'ELENCO, COMANDA L'ELENCO: `qty_uom` e' la sua colonna
+       materializzata, e fra i due il dato vero e' quello che descrive i colli
+       uno per uno. E' la stessa regola che il servizio applica nella
+       transazione — se le due letture divergessero, divergerebbero i saldi. */
+    if (this.colliOn()) {
+      const elenco = leggiColli(item.packs, cfg.uom);
+      if (elenco) return totaleUomColli(elenco, cfg.uom);
+    }
+    if (!cfg.per_collo) return null;
     if (typeof item.qty_uom === 'number') return item.qty_uom;
     return uomDaColli(item.qty ?? 0, cfg.per_collo, cfg.uom);
   },
 
-  async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1, qtyUom: number | null = null) {
-    const qtyAdd = Store._assertPositiveInt(qty, 'Quantità da posizionare');
+  async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1, qtyUom: number | null = null, packsIn: number[] | null = null) {
     const itemKey = `${articleCode}#${lotCode}`;
     const bucket = this._invByLoc.get(locationCode) || [];
     const existing = bucket.find(i => i.item_key === itemKey);
@@ -718,10 +773,21 @@ const Store = {
        questo momento e' un fatto del lotto e non segue piu' l'anagrafica. */
     await this._congelaLotto(articleCode, lotCode, now);
     const cfg = this.getUomConfig(articleCode, lotCode);
-    const uomAdd = this._uomInIngresso(qtyAdd, qtyUom, cfg);
+
+    /* 1.8 — LA SUDDIVISIONE DICHIARATA VINCE SU TUTTO CIO' CHE ARRIVA CON
+       LEI: i colli sono quanti sono nell'elenco, e le UM sono la loro somma.
+       Chi ha la merce in mano ha contato; `qty` e `qty_uom` qui diventano due
+       conseguenze, e passarli diversi non li fa diventare veri. */
+    const packs = (packsIn && this.colliOn() && cfg) ? leggiColli(packsIn, cfg.uom) : null;
+    const qtyAdd = packs ? packs.length : Store._assertPositiveInt(qty, 'Quantità da posizionare');
+    const uomAdd = packs ? totaleUomColli(packs, cfg!.uom) : this._uomInIngresso(qtyAdd, qtyUom, cfg);
 
     // Caso 1: item già presente in questa ubicazione → incrementa qty
     if (existing) {
+      /* 1.8 — l'elenco di PRIMA si legge prima di toccare la riga: il ponte
+         `daSuddivisione` deriva da `qty_uom`, e su una riga già incrementata
+         deriverebbe i colli nuovi due volte. */
+      const colliPrima = packs ? this.colliDiRiga(existing) : null;
       const qtyBefore = existing.qty || 1;
       const qtyAfter = qtyBefore + qtyAdd;
       existing.qty = qtyAfter;
@@ -739,10 +805,25 @@ const Store = {
         existing.qty_uom = sommaUom(this._uomDiRiga(existing, cfg) ?? 0, uomAdd, cfg!.uom);
         updates.qty_uom = existing.qty_uom;
       }
+      /* 1.8 — i colli nuovi si accodano a quelli che c'erano. Se la riga non
+         ha un elenco NE' se ne puo' derivare uno, non se ne inventa uno con i
+         soli colli nuovi: la riga resterebbe con meno colli di quanti ne ha
+         a scaffale. Si comporta come nella 1.7, e l'elenco nascerà il giorno
+         che quella riga si svuota e si riposiziona. */
+      if (packs && colliPrima) {
+        existing.packs = [...colliPrima, ...packs];
+        /* Le due colonne le riconta l'elenco, come fa il servizio dentro la
+           transazione: due letture che divergono sono due saldi che divergono. */
+        existing.qty = existing.packs.length;
+        existing.qty_uom = totaleUomColli(existing.packs, cfg!.uom);
+        updates.packs = existing.packs;
+        updates.qty = existing.qty;
+        updates.qty_uom = existing.qty_uom;
+      }
       await Persistence.update('inventory', existing._id!, updates);
       this._applyToCache('inventory', 'put', existing);
       await this._touchMeta();
-      return { ok: true, item: existing, mode: 'incremented', qty_before: qtyBefore, qty_after: qtyAfter,
+      return { ok: true, item: existing, mode: 'incremented', qty_before: qtyBefore, qty_after: existing.qty,
                qty_uom_delta: uomAdd, qty_uom_after: existing.qty_uom ?? null };
     }
 
@@ -761,6 +842,7 @@ const Store = {
       notes: notes || ''
     };
     if (uomAdd !== null) rec.qty_uom = uomAdd;
+    if (packs) rec.packs = packs;
     const _id = await Persistence.add('inventory', rec);
     const stored = { ...rec, _id };
     this._applyToCache('inventory', 'put', stored);
@@ -771,6 +853,76 @@ const Store = {
     await this._touchMeta();
     return { ok: true, item: stored, mode: 'created', qty_before: 0, qty_after: qtyAdd,
              qty_uom_delta: uomAdd, qty_uom_after: uomAdd };
+  },
+
+  /* 1.8 — L'USCITA A COLLI SCELTI.
+
+     Il client sceglie per INDICE, perche' e' quello che l'operatore tocca a
+     video; al servizio arrivano solo le quantita' — `packs_out` — e le cerca
+     nell'elenco che la riga ha in quel momento. Un indice viaggia male: fra il
+     render della maschera e il tocco sul bottone un altro terminale puo' aver
+     preso quel collo, e l'indice punterebbe a merce diversa.
+
+     `preleva` lancia su tutto cio' che non torna, e lancia PRIMA di scrivere:
+     un collo che non esiste, lo stesso scelto due volte, una quantita' piu'
+     grande di quello che il collo contiene. */
+  async _prelevaColli(locationCode: string, item: Giacenza, scelte: Scelta[]) {
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    const elenco = this.colliDiRiga(item);
+    if (!cfg || !elenco) {
+      throw new Error(`${item.item_key}: questa riga non porta l'elenco dei colli`);
+    }
+    const esito = prelevaColli(elenco, scelte, cfg.uom);
+    const qtyBefore = elenco.length;
+    const uomBefore = totaleUomColli(elenco, cfg.uom);
+    const uomAfter = totaleUomColli(esito.rimasti, cfg.uom);
+    const tutto = esito.rimasti.length === 0;
+
+    if (Persistence.supportsRemoteOps) {
+      const removed = await Persistence.op!<GiacenzaRimossa>('removeItem', {
+        location_code: locationCode, item_key: item.item_key,
+        packs_out: esito.usciti, packs_before: elenco,
+      });
+      if (removed._mode === 'full') this._applyToCache('inventory', 'delete', item);
+      else {
+        item.qty = removed._qty_after;
+        if (typeof removed._qty_uom_after === 'number') item.qty_uom = removed._qty_uom_after;
+        if (Array.isArray(removed.packs)) item.packs = removed.packs;
+        item.last_updated_at = Date.now();
+        this._applyToCache('inventory', 'put', item);
+      }
+      removed._packs_out = esito.usciti;
+      removed._packs_after = removed._mode === 'full' ? [] : (removed.packs ?? esito.rimasti);
+      return removed;
+    }
+
+    const removed = { ...item } as GiacenzaRimossa;
+    removed._mode = tutto ? 'full' : 'partial';
+    removed._qty_before = qtyBefore;
+    removed._qty_after = esito.rimasti.length;
+    removed._qty_delta = esito.rimasti.length - qtyBefore;
+    removed._qty_uom_before = uomBefore;
+    removed._qty_uom_after = tutto ? 0 : uomAfter;
+    removed._qty_uom_delta = -esito.uom;
+    removed._packs_out = esito.usciti;
+    removed._packs_after = esito.rimasti;
+
+    if (tutto) {
+      this._applyToCache('inventory', 'delete', item);
+      await Persistence.delete('inventory', item._id!);
+      await this._touchMeta();
+      return removed;
+    }
+    item.packs = esito.rimasti;
+    item.qty = esito.rimasti.length;
+    item.qty_uom = uomAfter;
+    item.last_updated_at = Date.now();
+    this._applyToCache('inventory', 'put', item);
+    await Persistence.update('inventory', item._id!, {
+      packs: item.packs, qty: item.qty, qty_uom: item.qty_uom, last_updated_at: item.last_updated_at,
+    });
+    await this._touchMeta();
+    return removed;
   },
 
   /* Quante UM entrano con N colli. Dichiarate da chi ha la merce in mano —
@@ -799,13 +951,17 @@ const Store = {
     return stored;
   },
 
-  async removeItem(locationCode: string, itemKey: string, qtyRemove: number | null = null, qtyUomRemove: number | null = null) {
+  async removeItem(locationCode: string, itemKey: string, qtyRemove: number | null = null, qtyUomRemove: number | null = null, scelte: Scelta[] | null = null) {
     if (qtyRemove !== null) qtyRemove = Store._assertPositiveInt(qtyRemove, 'Quantità da prelevare');
     const bucket = this._invByLoc.get(locationCode) || [];
     const idx = bucket.findIndex(i => i.item_key === itemKey);
     if (idx === -1) return null;
     const item = bucket[idx]!;
     const qtyBefore = item.qty || 1;
+
+    /* 1.8 — chi sceglie i colli passa di qua e non tocca il resto: senza
+       scelte questa funzione e' quella della 1.7, riga per riga. */
+    if (scelte && this.colliOn()) return await this._prelevaColli(locationCode, item, scelte);
 
     const cfg = this.getUomConfig(item.article_code, item.lot_code);
     const uomBefore = this._uomDiRiga(item, cfg);

@@ -132,6 +132,10 @@ export interface Giacenza {
   /** 1.4.2 — UM totali nella riga, accanto a `qty` che resta i colli.
       Il collo incompleto NON è una riga sua: si calcola. */
   qty_uom?: number;
+  /** 1.8 — un numero per collo, come li ha dichiarati chi ha posizionato la
+      merce. Dove c'è, `qty` e `qty_uom` sono le sue due colonne
+      materializzate; dove manca, la riga si legge come nella 1.7. */
+  packs?: number[];
 }
 
 /** Ciò che `removeItem` restituisce: la riga com'era, più il conto di che
@@ -148,6 +152,11 @@ export interface GiacenzaRimossa extends Giacenza {
   _qty_uom_before?: number | null;
   _qty_uom_after?: number | null;
   _qty_uom_delta?: number | null;
+  /** 1.8 — quali colli sono usciti, e come resta la riga. Servono alla
+      maschera che deve dire «sono usciti 1 × 1.000 + 1 × 300», e valgono
+      `null` su una riga che l'elenco non ce l'ha. */
+  _packs_out?: number[] | null;
+  _packs_after?: number[] | null;
 }
 
 export interface StatoUbicazione {
