@@ -53,8 +53,8 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Voce | Valore |
 |---|---|
-| In magazzino, **adesso** | **`pathfinder-1.6.1.html`** — in radice, **1.614.368 byte**. È la build del 14/08, che fino al 17/08 veniva servita **da dentro `outDir`**: ogni `npm run build` sarebbe finito davanti agli operatori — §3novies |
-| **1.7 — costruita, non installata** | La consegna multi-file. Entra in due passi, INDEX §7ter: il primo vuole l'amministratore **una volta sola**, e dopo non serve più a nessuno dei due gesti |
+| In magazzino, **adesso** | **`C:\Pathfinder\app\pathfinder-1.6.1\`**, servita dalla giunzione `corrente` dal 17/08 sera. Impronta `3e98f1c8…`, 1.614.368 byte — **gli stessi di prima**: è cambiata la strada, non l'applicativo |
+| **Il meccanismo della 1.7 è in servizio** | `service_version 1.7`, `modo: cartella`. Installare e tornare indietro **non vogliono più l'amministratore né il riavvio**. Manca il passo 2: dare la 1.7 vera agli operatori — INDEX §7ter |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e **`feature.uom`** (13/08 13:54:36, `BABB`). Gli altri tre spenti. **Riletto da `featureLog` la sera del 13/08** — §3septies |
 | Ritorno indietro | **`pathfinder-1.4.4.html`**, in radice: un comando solo, senza ripescare niente. Accanto c'è anche la 1.4.3 |
 | Sorgente | 39 file in `src/`: **30 TypeScript**, 5 JavaScript, **9 CSS** · modularizzazione CSS completata e `src/ui/views/` creata (14/08) · `modules/excel.ts` (1.7) |
@@ -711,6 +711,34 @@ punta lì.
 > consegna è `Invoke-RestMethod http://127.0.0.1:4173/api/app-info`: **quello che
 > risponde il servizio batte quello che dicono questi documenti.**
 
+#### E il servizio non girava dal sorgente
+
+Scoperto la sera del 17/08, mettendo in servizio la 1.7: dopo il riavvio
+`/api/app-info` continuava a rispondere `service_version: 1.1` col processo
+cambiato. L'attività pianificata eseguiva
+**`…\MAPPER\Pathfinder 1.6\server\pathfinder-server.js`** — la copia dentro
+`outDir`, ferma al 12/08 — e il suo `node_modules` era stato installato lì il
+14/08 alle 23:22, la stessa sera in cui quella cartella era diventata la
+produzione. Il log di installazione diceva il percorso giusto: era di quattro
+giorni prima.
+
+**Quindi dentro `outDir` non c'era solo l'applicativo: c'era il servizio.** Un
+`npm run build` con la configurazione di prima avrebbe azzerato la cartella che
+contiene il codice in esecuzione e le sue dipendenze. Il processo vivo sarebbe
+sopravvissuto — Node legge il file all'avvio — ma al primo riavvio, o al primo
+riavvio del PC, il servizio non sarebbe ripartito: niente applicativo **e
+niente API**. Non è successo solo perché la prima cosa cambiata quel giorno è
+stata il nome di `outDir`.
+
+Rimesso a posto rilanciando `installa-servizio.ps1` **da `MAPPER\server`**: lo
+script registra l'attività sul percorso da cui è stato lanciato, ed è
+esattamente così che la produzione c'era finita.
+
+> **Da qui la regola generale, che vale più del caso singolo.** Tre volte in
+> tre giorni la stessa cosa: i documenti dicevano dove girava la produzione, e
+> la produzione girava altrove. `/api/app-info` è l'unico che lo sa, e va
+> chiesto **prima** di ragionare, non dopo.
+
 #### Cosa fa la 1.7, in tre righe
 
 Una versione è **una cartella** — indice, assets coi nomi a impronta, manifesto —
@@ -746,11 +774,13 @@ promettono, **e nessuno dei due dice se l'applicativo funziona.**
 
 #### Cosa manca
 
-Metterla in servizio: due passi in **INDEX §7ter**, e il primo vuole
-l'amministratore una volta sola. Poi i blocchi 5b e 6 — la prova della 1.7 vera
-contro il database di produzione, e il resto dei documenti.
+**Un comando**, e non vuole l'amministratore:
+`installa-versione.ps1 -Da .\consegna -Versione 1.7`. Il meccanismo è già in
+servizio dal 17/08 sera, la strada è provata e il ritorno indietro esiste.
 
-**E il ritorno indietro si prova prima di darla agli operatori**, non dopo.
+**E il ritorno indietro si prova prima di darla agli operatori**, non dopo: si
+scambia, si ricarica un terminale, si torna avanti. Un ritorno indietro provato
+una volta sola è un ritorno indietro che funziona.
 
 #### 3. Gestione e Ripristino del Database
 - Se il database attivo `C:\Pathfinder\data\pathfinder.db` risulta svuotato, i dati integri risiedono nei backup giornalieri automatici `C:\Pathfinder\backup\pathfinder-YYYY-MM-DD.db`.
@@ -773,7 +803,7 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 | 1 | ~~Accendere `feature.tasks`~~ — **fatto il 13/08 alle 10:31:06**. Resta `feature.uom`, **un altro turno**, mai lo stesso giorno di `tasks` | 13/08 | Andrea, a inizio turno |
 | 1ter | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
 | 1quater | ~~1.5 e 1.6~~ — **in magazzino il 13/08 sera**, cinque comandi percorsi tutti | **13/08** | ✔ |
-| **1quinquies** | **METTERE LA 1.7 IN SERVIZIO.** È costruita e provata al banco, non installata: finché non lo è, `npm run build` è innocuo ma la 1.7 non esiste per nessuno. Due passi in **INDEX §7ter** — il primo vuole l'amministratore, ed è l'ultima volta | **17/08** | **il prossimo gesto** |
+| **1quinquies** | **DARE LA 1.7 AGLI OPERATORI.** Il passo 1 è fatto il 17/08 sera — il meccanismo è in servizio a parità di applicativo, e l'amministratore non serve più. Resta un comando: `installa-versione.ps1 -Da .\consegna -Versione 1.7`, **e il ritorno indietro si prova prima di darla**, non dopo — INDEX §7ter | **17/08** | **il prossimo gesto** |
 | 1sexies | **La numerazione scala di uno dalla 1.8 in giù** — D22: la consegna multi-file ha preso il 1.7, la UOM riscritta è la **1.8**, e a scendere fino al WIP che diventa 1.14. Le date non si muovono | 17/08 | preso nota |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
 | 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare, non codice da scrivere | **1.0 §7.1** | Andrea, quando opportuno |

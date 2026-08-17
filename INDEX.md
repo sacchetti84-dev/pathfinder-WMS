@@ -18,8 +18,9 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. **17/08/2026**
 
 | Voce | Valore |
 |---|---|
-| In produzione | **`pathfinder-1.6.1.html`** — in radice, **1.614.368 byte**, servito dal 17/08. È la build del 14/08 (quella coi CSS modularizzati), che fino a quel giorno veniva servita **da dentro `outDir`** — §7 |
-| **1.7 — costruita, NON installata** | La consegna multi-file: `consegna/` con indice, assets a impronta e manifesto. Entra in servizio coi due passi di §7ter, e il primo vuole l'amministratore **una volta sola** |
+| In produzione | **`C:\Pathfinder\app\pathfinder-1.6.1\`**, servita attraverso la giunzione `corrente` dal **17/08 sera**. Impronta `3e98f1c8…`, 1.614.368 byte — **gli stessi byte di prima**: è cambiata la strada, non l'applicativo |
+| **Il meccanismo della 1.7 è in servizio** | `service_version 1.7`, `modo: cartella`. Da adesso installare e tornare indietro **non vogliono più l'amministratore né il riavvio** — §7ter |
+| **1.7 — costruita, NON ancora servita** | `consegna/` con indice, assets a impronta e manifesto. Manca il passo 2: `installa-versione.ps1 -Da .\consegna -Versione 1.7` |
 | Ritorno indietro | **`pathfinder-1.6.html`**, 1.625.239 byte, in radice. Le 1.4.3 e 1.4.4 sono scese in `ARCHIVIO/BUILD/` — §7bis |
 | Interruttori | **DUE accesi**: `feature.tasks` dal **13/08 10:31:06** (`ANDS`) e **`feature.uom` dal 13/08 13:54:36** (`BABB`). Gli altri tre spenti. `uom` è stato alzato e abbassato **cinque volte** in un giorno da due operatori — riletto da `featureLog` il 13/08 sera, i documenti dicevano «spento» |
 | **1.4.3** | **in magazzino il 13/08 notte** — sei blocchi su sei, otto flussi provati su copia del database vero. **Acceso lo stesso giorno** |
@@ -269,7 +270,7 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 | 1bis | ⚠ **`feature.uom` È GIÀ ACCESO**, dal 13/08 13:54:36, e i documenti non lo sapevano. È la funzione che la nota dice **non funzionare** e che la 1.7 riscrive: fino ad allora gli operatori hanno davanti proprio ciò che va rifatto. **Da decidere: spegnerlo fino alla 1.7, o tenerlo e raccogliere cosa sbaglia** — HANDOFF §3septies | **decisione, subito** |
 | 1ter | **Confermare due scelte del 12/08** che il piano non prevedeva: la colonna UM è `unit` — quella che c'è già — e la quantità per collo è `pieces_per_pack`. Vedi HANDOFF §5, decisione 41 | **prima di accendere `uom`** |
 | 1quater | ~~Costruire e installare 1.5 e 1.6~~ — **fatto il 13/08 sera**. Il prossimo è la **1.8 — UOM riscritta**, dopo la 1.7 | ✔ |
-| **1quinquies** | **METTERE LA 1.7 IN SERVIZIO** — è costruita e provata al banco, non installata. Due passi in §7ter, e il primo vuole l'amministratore **una volta sola**: da lì in poi installare e tornare indietro non lo vogliono più | **il prossimo gesto** |
+| **1quinquies** | **DARE LA 1.7 AGLI OPERATORI** — il passo 1 è fatto il 17/08 sera: il meccanismo è in servizio a parità di applicativo. Resta il passo 2, **un comando senza amministratore**: `installa-versione.ps1 -Da .\consegna -Versione 1.7`. E il ritorno indietro si prova **prima**, non dopo — §7ter | **il prossimo gesto** |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
 | 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea**. La maschera c'è: è un dato, non codice | esterno |
 | 4 | Nome DNS interno e certificato dalla CA — **IT**. Il codice è pronto e non aspetta niente: arriva a lavori finiti | non blocca |
@@ -283,6 +284,8 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 - **PRIMA DI CANCELLARE UN FILE DALLA RADICE, CHIEDERE AL SERVIZIO QUALE STA SERVENDO.** Un comando solo — `Invoke-RestMethod http://127.0.0.1:4173/api/app-info` — e dice il percorso esatto. Il 13/08 è stato cancellato `pathfinder-1.4.3.1.html` credendolo non servito: **lo era**, installato mezz'ora prima, e la pagina è andata in **404**. Il servizio dati è rimasto vivo e i terminali già aperti hanno continuato a lavorare, ma chi ricaricava non entrava più. Non è andato perso nessun dato; è andata persa **l'unica copia di quella versione**, e con lei la sua via di ritorno.
 - **Non toccare `pathfinder-1.6.1.html` in radice**: è il file servito in questo momento. Accanto c'è `pathfinder-1.6.html`, che è la via di ritorno. I più vecchi stanno in `ARCHIVIO/` e **non si cancellano**.
+- **E NEANCHE IL SERVIZIO GIRAVA DAL SORGENTE.** Il 17/08 sera si è scoperto che l'attività pianificata eseguiva **`…\MAPPER\Pathfinder 1.6\server\pathfinder-server.js`** — la copia dentro `outDir`, ferma al 12/08 — con il suo `node_modules` installato lì il 14/08 alle 23:22. Quindi un `npm run build` con la configurazione di prima avrebbe azzerato **la cartella che contiene il servizio in esecuzione**: il processo vivo sarebbe sopravvissuto, perché Node legge il file all'avvio, ma al primo riavvio — o al primo riavvio del PC — il servizio non sarebbe più partito. Niente applicativo **e niente API**. Non è successo solo perché quel giorno la prima cosa cambiata è stato il nome di `outDir`. Rimesso a posto rilanciando `installa-servizio.ps1` da `MAPPER\server`.
+- **Chi lancia `installa-servizio.ps1` lo lancia DAL SORGENTE**, mai dalla cartella di consegna: lo script registra l'attività sul percorso da cui è stato lanciato, e da quel momento la produzione gira da lì.
 - **LA PRODUZIONE NON LEGGE MAI DA `outDir`.** Il 14/08 `PATHFINDER_APP` è stato puntato dentro `Pathfinder 1.6/`, che è la cartella che `npm run build` **azzera**: da quel momento ogni build — anche una di prova — sarebbe andata dritta davanti agli operatori, e una build fallita a metà li avrebbe lasciati in 404. È l'incidente del 13/08 da un'altra porta, e nessuno se n'era accorto per tre giorni. Dalla 1.7 la cartella di build si chiama `consegna/`, senza numero: non somiglia a un artefatto rilasciato, e da lì si **installa**, non si serve.
 - **Mai `Remove-Item -Recurse` su una giunzione.** In PowerShell 5.1 — quello di questa macchina — può seguire il collegamento e **svuotare la cartella di destinazione** invece di togliere il rimando. Si usa `[System.IO.Directory]::Delete($p, $false)` oppure `cmd /c rmdir`. Le due funzioni giuste stanno in `installa-versione.ps1`: chi ne scrive una terza le copi da lì.
 - **`index.html` resta `no-cache`, gli assets `immutable`.** Invertirli è il difetto peggiore che questo servizio possa avere: i terminali resterebbero su una versione vecchia senza modo di uscirne, e nemmeno riavviare il servizio li tirerebbe fuori. L'indice è quello che NOMINA gli assets, e per questo non si mette in cache; gli assets portano l'impronta nel nome, e per questo non scadono mai.
@@ -315,6 +318,15 @@ La 1.7 è costruita e provata, non installata. Entra in **due tempi**, e sono
 tenuti separati apposta: prima cambia **la strada**, poi cambia
 **l'applicativo**. Se qualcosa non torna, si sa quale dei due è stato — è la
 stessa regola dei due interruttori nello stesso turno.
+
+> **IL PASSO 1 È FATTO — 17/08 sera.** `/api/app-info` risponde
+> `service_version: 1.7`, `modo: cartella`, `punta_a: …\pathfinder-1.6.1`,
+> impronta `3e98f1c8…` — la stessa di prima. Resta il **passo 2**.
+>
+> Lungo la strada sono venute fuori due cose, e stanno in §7: l'attività
+> pianificata eseguiva il servizio **da dentro `outDir`**, e la verifica finale
+> di `installa-servizio.ps1` non conosceva il modo cartella — dava un allarme
+> falso a installazione riuscita. Tutt'e due corrette.
 
 **Passo 1 — il meccanismo, a parità di applicativo.** La 1.6.1 che sta girando
 adesso viene avvolta in una cartella e servita attraverso la giunzione. Stessi
