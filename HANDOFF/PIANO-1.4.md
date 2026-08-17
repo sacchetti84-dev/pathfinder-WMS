@@ -835,6 +835,20 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 | D11 | **Si tira dritto: nessun gradino si scende adesso** | La mezza settimana degli avvisi non si recupera in anticipo. Si guardano i quattro fatti il 31/10, come deciso in D2. Se `store.js` sfora, il ritardo si vede a settembre e la scala è già pronta. §6 |
 | D12 | **Le etichette UDC si stampano dal browser**, `100 × 80 mm` su A4 | Stessa strada di DDT e report: `@page` e CSS in `mm`. Nessuna rotta nuova, nessun ZPL, nessuna configurazione per macchina. Chiude A6 prima ancora che diventasse un'attesa. §4.3 |
 
+### Prese — 13/08/2026, Andrea, sulle note della §9
+
+| # | Decisione | Conseguenza |
+|---|---|---|
+| D13 | **Le note della §9 passano davanti alla UDC** | UDC, motore di stoccaggio e WIP scendono in coda. Stessa logica di 1.4.3 e 1.4.4: si serve chi sta usando il sistema adesso. §9 |
+| D14 | **La numerazione diventa progressiva, e una build definitiva porta due numeri** — `1.5`, `1.6`, `1.7`… Le build di prova ne portano di più: `1.5.1`, `1.5.2` | Cade il vincolo dei tre numeri: releases distinte hanno già nomi distinti, `pathfinder-1.5.html`. §9.1 |
+| D15 | **Il contenuto di un collo si misura nell'UM dell'articolo** — 25 KG, 1.000 PZ, 12 LT. `qty_uom` è «quantità nell'UM dell'articolo», non «pezzi» | Il peso unitario e il peso netto per collo escono dall'anagrafica: non sono dati gestiti. La giacenza esce in colli **e** UM. §9.4 |
+| D16 | **La pulizia post-campionamento è un'attività aperta e chiusa nello stesso gesto** della conferma del campionamento | Compare nel registro attività come attività vera, con il riferimento all'ultimo campionamento, e non può restare aperta. È l'obbligo GMP. §9.2 |
+| D17 | **Il verbale di campionamento nasce automatico alla conferma**, e resta ristampabile dal registro | Stessa strada del cartellino di quarantena: `@page` e CSS in `mm`, nessuna rotta nuova. §9.2 |
+| D18 | **I 14 allergeni del Reg. UE 1169/2011 restano fissi e non si tolgono**; sopra si aggiungono voci aziendali (glutine, lattosio) | L'import Excel continua a convalidare i 14 e accetta in più quelle configurate. Il foglio «Valori ammessi» le porta entrambe. Rovescia la riga della §7 sul quindicesimo allergene: non si toglie nulla, si aggiunge accanto. §9.3 |
+| D19 | **Allergeni, pericolosi e refrigerato si impostano sulla zona**, come già la classe di conservazione | Un gesto solo per tutte le celle, e il motore di verifica già scritto legge dove legge oggi. Nessun attributo sulla singola cella. §9.3 |
+| D20 | **Due DDT parlano dello stesso destinatario quando coincide la partita IVA** (o il codice fiscale) | «Rossi Srl» e «ROSSI S.R.L.» sono lo stesso record. Un destinatario porta più destinazioni. §9.5 |
+| D21 | **Non si segnalano più ritardi del programma**: si prende nota e basta | Le date restano scritte come fatti; il giudizio sull'andamento lo dà Andrea. |
+
 ### Aperte — bloccano la funzione, non l'inizio dei lavori
 
 | # | Cosa serve sapere | Entro | Blocca |
@@ -851,6 +865,166 @@ Le due che dipendevano da qualcun altro sono chiuse lo stesso giorno in cui il p
 è stato scritto, e con loro è partito il primo pezzo di codice della 1.4.0 — §4.4bis.
 Le due che restavano si sono chiuse il giorno dopo, e nessuna delle due aspettava
 davvero qualcuno: una era una scelta, l'altra un campo da aggiungere.
+
+---
+
+## 9. Le note del 13/08 — quattordici richieste nate dall'uso
+
+**Non vengono dal piano, vengono dal magazzino.** Andrea le ha scritte dopo aver
+guardato il lavoro fatto finora: mezza giornata di schedulatore acceso e due
+versioni fuori piano hanno mostrato cosa manca davvero. Passano davanti alla UDC
+(D13). Qui stanno per intero e in ordine di lavorazione; le decisioni già prese
+sono D13-D21.
+
+### 9.1 Come si numerano da qui in poi — D14
+
+Una build **definitiva** porta **due numeri**: `1.5`, `1.6`, `1.7`. Le build di
+**prova** ne portano di più: `1.5.1`, `1.5.2`. La numerazione è **progressiva** —
+non c'è più una «serie 1.4» dentro cui infilarsi.
+
+Il vecchio vincolo dei tre numeri (INDEX §7) nasceva per non far sovrascrivere
+fra loro i rilasci della serie 1.4, che condividevano i primi due numeri. Con la
+numerazione progressiva il problema non esiste: `pathfinder-1.5.html` e
+`pathfinder-1.6.html` sono già due nomi diversi. **Il vincolo cade, la ragione
+che lo reggeva è soddisfatta lo stesso.**
+
+| Versione | Cosa | §|
+|---|---|---|
+| **1.5** | **Campionamento GMP** — pulizia post-campionamento, verbale PDF, allergeni · più la rinomina Sposta → Trasferimento | 9.2 |
+| **1.6** | **Anagrafiche e parametri** — destinatari/destinazioni DDT, parametri articolo in Impostazioni, attributi di zona | 9.3, 9.5 |
+| **1.7** | **UOM riscritta** — colli a contenuto variabile, più colli incompleti, prelievo parziale in colli e UM ovunque | 9.4 |
+| **1.8** | **Viste giacenza** — pannello della mappa, pagina Giacenze con conta multipla e PDF. Dipende dalla 1.7 | 9.6 |
+| **1.9** | **Trasferimenti generati dall'ODP** — la spunta sull'avviso apre l'attività e aggiunge la tappa | 9.7 |
+| **1.10** | **UI mobile** — riconoscimento Android e interfaccia dedicata | 9.8 |
+| 1.11 | UDC — §4.3, invariata nel contenuto | 4.3 |
+| 1.12 | Motore logico di stoccaggio — §4.4 | 4.4 |
+| 1.13 | WIP — §4.5 | 4.5 |
+
+### 9.2 Campionamento GMP — 1.5
+
+**Alla conferma di un campionamento il sistema chiede se l'operatore ha pulito
+l'area di prelievo.** È un obbligo GMP, non una comodità.
+
+- La risposta genera **un'attività di pulizia aperta e chiusa nello stesso
+  gesto** (D16), che finisce nel registro attività e **porta il riferimento
+  all'ultimo campionamento**: l'attività dice cosa è stato pulito e dopo cosa.
+- **La spunta «campione di riserva in magazzino» sparisce** e al suo posto
+  compare la spunta della pulizia.
+- **Se la materia prima campionata porta allergeni il sistema lo riconosce**,
+  indica all'operatore di pulire la zona di prelievo, e **la spunta diventa
+  automatica**: non è una scelta, è una conseguenza. Registrata come le altre.
+- **Verbale di campionamento in PDF**, da allegare al campione: intestazioni e
+  piè di pagina degli altri documenti, e la **segnalazione delle condizioni di
+  stoccaggio**. Nasce automatico alla conferma, ristampabile dal registro (D17).
+
+**Insieme, perché è piccola e va fatta ovunque:** la funzione **«Sposta» diventa
+«Trasferimento»**, per allinearsi al nome che si usa dappertutto. Da verificare
+che ogni funzione porti lo stesso nome **in tutte le pagine**, non solo in quella
+dove è nata.
+
+### 9.3 Parametri articolo e attributi di zona — 1.6
+
+**In Impostazioni nasce una scheda per i parametri dell'articolo**, dove si
+aggiungono e si tolgono i valori ammessi: UM, allergeni, modalità di
+conservazione, **pericolosità** (infiammabile, nocivo…).
+
+Anagrafica articoli, campo per campo:
+
+| Campo | Cosa cambia |
+|---|---|
+| **Categoria** | Si **precompila con i primi 3 caratteri** dell'articolo, e **resta modificabile**: è la forma più comune, non una regola ferrea |
+| **Fornitore** | Diventa **Fornitore/Cliente**. È un dato che può cambiare senza preavviso e **lo governa SAGE**: Pathfinder lo mostra, non se ne fa carico |
+| **UM** | Resta com'è |
+| ~~Peso unitario~~ · ~~Peso netto per collo~~ | **Escono.** Creano confusione e non sono dati che il magazzino gestisce (D15) |
+| **Quantità per collo** | Resta — ed è la riga che decide se un articolo è gestito a UM |
+| **Classe di conservazione** | Resta |
+| **Allergeni** | I 14 di legge restano fissi; si aggiungono **glutine** e **lattosio** come voci aziendali (D18) |
+| **Pericolosità** | **Nuovo** — infiammabile, nocivo, e quel che si configura |
+| Stato solido/liquido | **Sorvolato per ora.** Si deduce quasi sempre dall'UM, e l'eccezione — una MP comprata a KG che è liquida — non giustifica un campo. Se serve, torna |
+
+**Nella configurazione delle zone** si dichiara se sono dedicate ad articoli con
+**allergeni**, a **pericolosi**, o se sono **refrigerate** (D19). Oggi queste
+configurazioni non ci sono, o non sono globali.
+
+### 9.4 UOM riscritta — 1.7
+
+**Accendendo `feature.uom` la funzione non si comporta come deve: va riscritta**
+sui principi qui sotto, che sono l'operatività vera del magazzino.
+
+Gli item che arrivano **non hanno un confezionamento costante**: lo stesso
+articolo arriva una volta in colli da 5 kg e la volta dopo in colli da 25 kg.
+
+- **Al posizionamento** l'operatore scansiona ubicazione, articolo e lotto, e
+  dichiara **la suddivisione dei colli** — es. 10 colli da 1.000 pz e 1 collo da
+  900 pz.
+- **Più colli incompleti sono ammessi**, non uno solo: capita di averne diversi.
+- Il sistema **calcola il totale contenuto** e carica in giacenza **il numero
+  totale di UM e il numero totale di colli**.
+- **A prelievo, smaltimento e trasferimento** l'operatore sceglie fra le proposte
+  del sistema **quali e quanti colli** prende.
+- **La verifica del contenuto di un collo resta sempre il metodo di controllo**,
+  ed è così che lavorano anche gli altri reparti.
+- **Il prelievo parziale opera in colli e in UM su tutte le funzioni** — e tutte
+  le funzioni hanno il prelievo parziale.
+
+L'unità del contenuto è **l'UM dell'articolo** (D15): kg dove l'articolo è a kg,
+pezzi dove è a pezzi.
+
+### 9.5 Anagrafica destinatari e destinazioni — 1.6
+
+Serve un'anagrafica dei destinatari/destinazioni per i DDT, che **si popola da
+sé** man mano che i DDT si compilano.
+
+| Caso | Comportamento |
+|---|---|
+| Destinatario **già in anagrafica** | Compila il DDT da solo |
+| Destinatario **non in anagrafica** | Il DDT si compila normalmente, e i dati nuovi **finiscono in anagrafica** |
+| Destinatario noto, **destinazione diversa** | Si aggiunge una **nuova destinazione selezionabile**: un destinatario ne ha più d'una |
+
+I dati si modificano **da due parti** — dalla funzione Anagrafica destinatari, e
+direttamente sul DDT. Modificandoli sul DDT **il sistema chiede se è una modifica
+permanente o spot**.
+
+Due DDT parlano dello stesso destinatario quando **coincide la partita IVA** o il
+codice fiscale (D20).
+
+### 9.6 Viste della giacenza — 1.8
+
+- **Selezionando un'ubicazione dalla mappa**, il menu che si apre a destra mostra
+  **la giacenza in colli e in UM**.
+- **Una pagina nuova per la visualizzazione delle giacenze**: si cerca un
+  articolo e si vedono **tutti i lotti presenti**. Da lì si **seleziona uno o più
+  lotti** fra quelli filtrati e si **apre l'attività di conta su tutti insieme**.
+  E si **stampa un PDF** con le solite intestazioni e piè di pagina e la lista dei
+  lotti con ubicazione e quantità.
+
+> Se costa meno, **questa pagina può diventare un ramo della funzione
+> Inventario** invece di una voce sua.
+
+### 9.7 I trasferimenti che nascono dall'ODP — 1.9
+
+Alla configurazione iniziale del percorso di prelievo da ODP/XLS, quando il
+sistema riconosce **item in un magazzino diverso** da quello scelto come
+partenza, la riga di segnalazione **che già c'è** porta una spunta a destra.
+
+Il flusso, per intero:
+
+1. Si carica il file XLS;
+2. il parser lo legge e **genera avvisi e tappe**;
+3. l'operatore **sceglie fra gli avvisi quali righe devono generare una richiesta
+   di trasferimento**;
+4. il sistema **chiede in quale ubicazione** vuole ricevere il materiale;
+5. la spunta **genera un'attività di trasferimento nello schedulatore**, che
+   prenderà in carico un altro operatore o lui stesso;
+6. **quell'ubicazione entra nel percorso come tappa di prelievo** per gli articoli
+   oggetto di trasferimento;
+7. l'operatore percorre il prelievo e lo chiude come da funzione.
+
+### 9.8 UI mobile — 1.10
+
+La visualizzazione su dispositivi mobili è da migliorare. **Il sistema deve
+riconoscere se sta girando su Android** e ridimensionare correttamente
+l'interfaccia. Probabilmente serve **una UI apposita**, non un adattamento.
 
 ---
 

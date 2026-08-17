@@ -5,8 +5,12 @@
 quali trappole sono già state pagate. Il resto si apre quando serve davvero.
 Manutenzione: si aggiorna a ogni commit che sposta uno dei numeri o degli aperti.
 
+Nota sugli archivi: alcuni artefatti storici sono stati spostati in ARCHIVIO per pulizia. Vedere il manifesto di archivio (machine-readable) qui: [ARCHIVIO/archive-manifest.json](C:/Users/sacch/OneDrive/Desktop/PROGETTI E CODING/MAPPER/ARCHIVIO/archive-manifest.json) e la versione leggibile qui: [ARCHIVIO/archive-manifest.md](C:/Users/sacch/OneDrive/Desktop/PROGETTI E CODING/MAPPER/ARCHIVIO/archive-manifest.md).
+
+Per le conversazioni con Claude: caricare SOLO INDEX.md (punto di stato) e HANDOFF/HANDOFF-pathfinder-1.4.md; l'INDEX rimane il singolo file di riferimento per tracciamento e sviluppo.
+
 © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 13/08/2026
+Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 14/08/2026
 
 ---
 
@@ -14,17 +18,19 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 13/08/2026
 
 | Voce | Valore |
 |---|---|
-| In produzione | **`pathfinder-1.4.3.html`** — è il file che il servizio serve **adesso**, 1.578.603 byte, installato la notte del **13/08** |
-| Ritorno indietro | **`ARCHIVIO/VERSIONI PRECEDENTI/pathfinder-1.4.2.html`**, 1.541.133 byte. **Non è più in radice**: la radice è stata riordinata il 13/08 e tiene solo il file servito. Tornare indietro costa un passo in più — §7bis |
-| Interruttori | **tutti e cinque spenti**: in `meta` non c'è nessuna chiave `feature.*` |
-| **1.4.3** | **in magazzino dal 13/08** — sei blocchi su sei, otto flussi provati su copia del database vero. Resta da **accendere**: gli interruttori sono ancora spenti. HANDOFF §3 |
+| In produzione | **`pathfinder-1.6.html`** — è il file che il servizio serve **adesso**, **1.625.239 byte**, installato il **13/08 sera**. Contiene la 1.5 per intero |
+| Ritorno indietro | **`pathfinder-1.4.4.html`**, 1.587.378 byte, **in radice**: un comando. In radice c'è anche la 1.4.3 — §7bis |
+| Interruttori | **DUE accesi**: `feature.tasks` dal **13/08 10:31:06** (`ANDS`) e **`feature.uom` dal 13/08 13:54:36** (`BABB`). Gli altri tre spenti. `uom` è stato alzato e abbassato **cinque volte** in un giorno da due operatori — riletto da `featureLog` il 13/08 sera, i documenti dicevano «spento» |
+| **1.4.3** | **in magazzino il 13/08 notte** — sei blocchi su sei, otto flussi provati su copia del database vero. **Acceso lo stesso giorno** |
+| **1.4.3.1** | Vissuta mezza giornata, **assorbita dalla 1.4.4**: il selettore 📍 che chiudeva la maschera sotto, e il campo «A» sui tipi che una destinazione non ce l'hanno |
+| **1.4.4** | **Lo schedulatore imparato dall'uso.** Quattro tipi su sette non si chiudevano mai: nasce la distinzione fra attività **a residuo** e **a gesto**. Il Posizionamento esce, la Conta diventa un inventario mirato. HANDOFF §3ter |
 | ⚠ **Da chiudere** | `ANDS` è **l'unico Team Leader**. Il PIN del 13/08 è rientrato, ma un solo leader resta un punto singolo di rottura: il PIN non è recuperabile e il rinnovo lo autorizza un leader. **Promuoverne un secondo** — HANDOFF §4bis |
-| Sorgente | **27 TypeScript** · 5 JavaScript · 5 CSS · `index.html` |
+| Sorgente | **29 TypeScript** · 5 JavaScript · **9 CSS** · `index.html` — `01-base.css` modularizzato in 5 file, avviata struttura `src/ui/views/` (14/08) |
 | Ancora JavaScript | `main.js`, `ui/` (4 file) |
 | Servizio | Node + Express + SQLite, porta **4173** |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive |
-| Collezioni | **19** — le 14 di sempre più `lots` `udc` `tasks` `wip` `storage_rules`. `tasks` e `lots` si popolano a interruttore acceso |
-| Collaudi | **377 client** (~1,8 s) + **54 servizio** + 8 migrazione — verdi |
+| Collezioni | **20** — le 19 più **`recipients`** (1.6). **Non esiste finché il servizio non riparte**: `schema.js` si legge all'avvio |
+| Collaudi | **435 client** (~1,8 s) + **55 servizio** + 8 migrazione — verdi |
 | Tipi | `npm run check` client + servizio — 0 errori |
 
 ## 2. Comandi
@@ -33,7 +39,7 @@ Repo privato: `sacchetti84-dev/pathfinder`, branch `main` · agg. 13/08/2026
 npm run dev      # sviluppo, ricarica a caldo
 npm run build    # produce "Pathfinder 1.4/" (la azzera e la rifà)
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest, 11 suite
+npm test         # vitest, 13 suite
 ```
 
 Collaudo del servizio: `node server/test/collaudo.js` (da `server/`).
@@ -53,8 +59,13 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `core/pacchetto.ts` | 154 | Export: composizione, conteggi, verifica — blocco 4 |
 | `core/geometria.ts` | 123 | Le ubicazioni, generate dalla configurazione della zona — blocco 2 |
 | `core/giacenza.ts` | 94 | FEFO e ricerca della merce — blocco 3 |
-| `styles/01-base.css` | 2.630 | Base, temi, componenti |
+| `styles/01-tokens.css` | 367 | Token globali, colori MD3, elevazioni, forme e transizioni — 14/08 |
+| `styles/01-base.css` | 83 | Reset, body, scrollbar, blocco servizio non raggiungibile e boot screen |
+| `styles/01-components.css` | 458 | Pulsanti, input, form, badge, switch, card, tabelle, feedback toast e dialoghi |
+| `styles/01-layout.css` | 320 | App shell, header, ricerca, navigazione, sidebar, operatore e mobile |
+| `styles/01-views.css` | 530 | Mappa, conformità, movimenti, inventario, prelievo, config e report stampa PDF |
 | `styles/02..05-*.css` | 705 | Grafici, sezioni e riquadri della dashboard, report di prelievo |
+| `ui/views/` | — | **14/08** — Directory per l'estrazione incrementale delle viste da `app.js` |
 | `ui/dialog.js` | 367 | Finestre modali (`confirm`, `prompt`, form) |
 | `ui/feedback.js` | 181 | Toast, spinner, stato di sincronizzazione |
 | `ui/tabs.js` | 59 | Schede |
@@ -65,6 +76,8 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `modules/conformita.ts` | 155 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio girato al contrario |
 | `modules/compiti.ts` | 445 | **1.4.1 · 1.4.3** — ciclo di vita, coda, misure, e da qui l'urgenza calcolata, la tabella tipo→operazione, il residuo e **l'avanzamento**. Puro: non tocca Store né il DOM |
 | `modules/misure.ts` | 317 | **1.4.2** — le cinque unità, la suddivisione per collo, il collo incompleto. Puro come `compiti`: entrano numeri, escono suddivisioni |
+| `modules/parametri.ts` | 165 | **1.6** — le tendine che sono un dato. I valori di legge davanti e non rimovibili, gli aggiunti dietro: un codice che ripete un fisso sparisce invece di sostituirlo |
+| `modules/destinatari.ts` | 200 | **1.6** — chi è lo stesso destinatario (partita IVA), quale destinazione è nuova, e cosa è cambiato. Puro: entra un DDT, escono chiavi e differenze |
 | `modules/validate.ts` | 104 | Validazioni di campo |
 | `modules/auth.ts` | 88 | PIN operatore, hash e verifica |
 | `modules/session.ts` | 69 | Sessione dell'operatore al terminale |
@@ -78,7 +91,7 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `core/costanti.ts` | 44 | `MOV`, `MOV_LABELS`, ritenzione del registro |
 | `types/entita.ts` | 409 | Le entità: item, movimento, operatore, documento, e le cinque della 1.4 |
 | `types/contratto.ts` | 146 | L'interfaccia che i due adapter devono rispettare, e la forma dell'idratazione |
-| `types/collezioni.ts` | 51 | Le 19 collezioni, chiavi primarie, campi indicizzati. **Sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono |
+| `types/collezioni.ts` | 58 | Le **20** collezioni, chiavi primarie, campi indicizzati. **Sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono |
 | `main.js` | 46 | Avvio: importa gli stili, monta `App`, gancio globale |
 | `index.html` | 200 | Scheletro del DOM + i marchi `<svg>` in linea |
 
@@ -91,15 +104,15 @@ Righe arrotondate. Il ruolo è una riga: il dettaglio sta nel file.
 | `lib/schema.js` | 191 | Tabelle e indici — **due funzioni separate**, con la migrazione in mezzo |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate. Da amministratore |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata serale |
-| `test/collaudo.js` | 455 | 54 prove sul servizio vero |
+| `test/collaudo.js` | 460 | 55 prove sul servizio vero |
 | `test/collaudo-migrazione-1.4.js` | 158 | 8 prove sul cambio di schema della 1.4. Fuori dalla suite: si lancia da solo |
 
 ### Collaudi — `test/`
 
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
-`compiti` (98) · `misure` (65) — **377 prove** in tutto. `ambiente.js` è il
-preambolo comune.
+`compiti` (114) · `misure` (65) · `parametri` (19) · `destinatari` (27) —
+**435 prove** in tutto. `ambiente.js` è il preambolo comune.
 
 ## 4. API del servizio
 
@@ -119,7 +132,7 @@ L'applicativo è servito su `/` e su `/app`.
 |---|---|
 | `PATHFINDER_PORT` | `4173` |
 | `PATHFINDER_DB` | `server/data/pathfinder.db` |
-| `PATHFINDER_APP` | **impostata**: `…\MAPPER\pathfinder-1.4.3.html` dal 13/08. Il ripiego nel codice resta `pathfinder-1.1.html`, che in radice non c'è da tempo |
+| `PATHFINDER_APP` | **impostata**: `…\MAPPER\pathfinder-1.6.html` dal 13/08 sera. Il ripiego nel codice resta `pathfinder-1.1.html`, che in radice non c'è da tempo |
 | `PATHFINDER_TLS_CERT` / `_KEY` | assenti → HTTP |
 
 Si leggono **all'avvio**: cambiate senza riavvio non hanno effetto.
@@ -144,9 +157,34 @@ Tutte e cinque entrano. Ultima installazione utile: **19/12** — poi c'è l'inv
 | ↳ *fatto 12-13/08* | L'urgenza calcolata e la freccia dell'avvio annullato · la causale `SAMPLE` col campione che cala solo la quantità dentro il collo · la maschera che pesca dalle giacenze in FEFO | — |
 | ↳ *fatto 13/08* | **L'avvio apre Movimenta precompilata e il movimento confermato scala il residuo**, su sei maschere · il prelievo si chiude all'evasione del DDT · **il campionamento ha finalmente la sua maschera**, l'ottava attività · il **registro attività** con export a due fogli · versione, build, documenti | — |
 | ↳ *fatto 13/08* | **Provata su una copia del database vero** su una porta sua — otto flussi, tre difetti che tsc e 377 collaudi non vedevano · installata coi cinque comandi · la radice riordinata, le versioni vecchie in archivio | — |
-| **1.4.4** | UDC — contenitori, `moveUdc` transazionale, etichette | 21/11 |
-| **1.4.5** | Motore logico di stoccaggio — attributi, regole come dato, motivazioni | 09/12 |
-| **1.4.6** | WIP — installato a interruttore **spento**, si accende a gennaio | 19/12 |
+| **1.4.3.1** | Nata e assorbita in mezza giornata: il selettore 📍 con overlay e chiusura **propri**, e `vuoleDestinazione` — il campo «A» che si nasconde **e si svuota**. Mai servita da sola, è dentro la 1.4.4 | ✔ |
+| **1.4.4** | **LO SCHEDULATORE IMPARATO DALL'USO** — in magazzino il 13/08 pomeriggio. Mezza giornata di uso vero ha detto ciò che nessun collaudo diceva: **quattro tipi su sette non si chiudevano mai** | ✔ |
+| ↳ *fatto 13/08* | Le due famiglie in `modules/compiti.ts`: **a residuo** (Trasferimento, Smaltimento) e **a gesto** (le altre cinque) · il prelievo si chiude alla **registrazione del DDT**, non all'evasione · **il Posizionamento esce dai tipi** · **la Conta diventa un inventario mirato** a un articolo e un lotto, con la finestra di guida a tre scansioni · il lotto non viene più maiuscolato, perché è metà di `item_key` · provata sulla 4199, cinque flussi | — |
+
+### Il piano riordinato — le note del 13/08
+
+**Quattordici richieste nate dall'uso passano davanti alla UDC** (D13), e la
+numerazione diventa **progressiva**: una build definitiva porta **due numeri**
+(D14). Testo per intero in **[PIANO-1.4 §9](HANDOFF/PIANO-1.4.md)**, decisioni
+D13-D21 in §8, sintesi in [HANDOFF §3quinquies](HANDOFF/HANDOFF-pathfinder-1.4.md).
+
+| Versione | Cosa |
+|---|---|
+| **1.5** | ✔ **in magazzino il 13/08 sera, dentro la 1.6** — pulizia post-campionamento, verbale PDF automatico, allergeni con spunta automatica · più Sposta → **Trasferimento** ovunque. Non è mai stata un file suo, come la 1.4.1. HANDOFF §3sexies |
+| **1.6** | ✔ **in magazzino il 13/08 sera** — destinatari/destinazioni DDT auto-popolanti, scheda parametri articolo, attributi **sulla zona**. Prima versione a due numeri, D14. HANDOFF §3sexies |
+| **1.7** | **UOM riscritta** — colli a contenuto variabile, più colli incompleti al carico, giacenza in colli e UM, prelievo parziale in colli e UM **su tutte le funzioni** |
+| **1.8** | **Viste giacenza** — pannello della mappa, pagina Giacenze con conta multipla e PDF |
+| **1.9** | **Trasferimenti generati dall'ODP** — la spunta sull'avviso apre l'attività e aggiunge la tappa |
+| **1.10** | **UI mobile** — riconoscimento Android, interfaccia dedicata |
+| 1.11 | UDC — contenitori, `moveUdc` transazionale, etichette |
+| 1.12 | Motore logico di stoccaggio — attributi, regole come dato, motivazioni |
+| 1.13 | WIP — installato a interruttore **spento**, si accende a gennaio |
+
+> **I numeri sono slittati di uno, le date no.** La 1.4.3 aveva già preso il posto
+> della UDC; la 1.4.4 l'ha fatto una seconda volta. Restano tre consegne in tre
+> finestre — 21/11, 09/12, 19/12 — e **non c'è slack**: due versioni nate fuori
+> piano in due giorni sono il segnale da guardare alla verifica del 31/10, non
+> un dettaglio di numerazione.
 
 > **Verifica il 31/10**, fine della 1.4.2. Quattro fatti da guardare, e una scala già
 > decisa di cosa togliere se anche uno solo è falso — PIANO-1.4 §6. Serve perché
@@ -197,24 +235,32 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 | # | Cosa | Peso |
 |---|---|---|
 | **0** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per qualche ora nessuno poteva creare un operatore né rinnovarne uno. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — HANDOFF §4bis | **prima di tutto** |
-| 1 | **Accendere `feature.tasks`** a inizio turno, col PIN del Team Leader. Finché è spento la 1.4.3 è installata ma invisibile — ed è voluto | **il prossimo** |
-| 1bis | **`feature.uom` il turno DOPO**, mai lo stesso giorno di `tasks`: due interruttori insieme e non si sa più quale ha fatto cosa | il turno dopo |
+| **0bis** | ~~I due comandi della 1.4.3.1~~ — **superato**: la 1.4.3.1 è stata assorbita dalla 1.4.4, installata il 13/08 pomeriggio | ✔ |
+| **0ter** | **Le 4 attività rimaste aperte prima della 1.4.4** — `TA-MSRAXA3Q-PQ11` (prelievo), `TA-MSRB4JXK-04C7` (quarantena), `TA-MSRB80C2-2JLC` (campionamento), `TA-MSRBEZLU-5M3E` (conta). Sono i compiti che il difetto ha lasciato `in_progress`: il lavoro è stato fatto, il record no. **Vanno annullati a mano col motivo**, non si chiudono da sé — HANDOFF §3ter | **da fare** |
+| 1 | ~~Accendere `feature.tasks`~~ — **fatto il 13/08 alle 10:31:06** | ✔ |
+| 1bis | ⚠ **`feature.uom` È GIÀ ACCESO**, dal 13/08 13:54:36, e i documenti non lo sapevano. È la funzione che la nota dice **non funzionare** e che la 1.7 riscrive: fino ad allora gli operatori hanno davanti proprio ciò che va rifatto. **Da decidere: spegnerlo fino alla 1.7, o tenerlo e raccogliere cosa sbaglia** — HANDOFF §3septies | **decisione, subito** |
 | 1ter | **Confermare due scelte del 12/08** che il piano non prevedeva: la colonna UM è `unit` — quella che c'è già — e la quantità per collo è `pieces_per_pack`. Vedi HANDOFF §5, decisione 41 | **prima di accendere `uom`** |
-| 1quater | La 1.4.4 — UDC, `moveUdc` transazionale, etichette, entro il 21/11 | **il prossimo lavoro** |
+| 1quater | ~~Costruire e installare 1.5 e 1.6~~ — **fatto il 13/08 sera**, cinque comandi, servizio riavviato, `recipients` creata sul database vero. Il prossimo è la **1.7 — UOM riscritta** | ✔ |
 | 2 | Caratterizzare le zone e popolare gli attributi in anagrafica — **Andrea, alla configurazione** | esterno |
 | 3 | Partita IVA e dati mittente in Configurazione → DDT — **Andrea**. La maschera c'è: è un dato, non codice | esterno |
 | 4 | Nome DNS interno e certificato dalla CA — **IT**. Il codice è pronto e non aspetta niente: arriva a lavori finiti | non blocca |
-| 5 | `ui/` a TypeScript, per ultima — `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | grande |
+| 5 | **Modularizzazione UI ed estrazione viste a TypeScript** — avviata struttura in `src/ui/views/`, da estrarre a blocchi (destinatari, parametri, compiti, movimenta, giacenze) senza commit monolitici. Vedi HANDOFF §3octies | grande |
+| 5bis | ~~Modularizzazione CSS~~ — **completata il 14/08**: `01-base.css` scomposto in 5 file, cascata preservata, `npm test` (435) e `build` verdi | ✔ |
 | 6 | `TODO F1-REVIEW` ×3: cache svuotata prima della conferma del supporto (`store.ts`), riallineamento ridondante dopo `resetAll()` (`app.js`) | piccolo |
-| 7 | `weight_net_kg` e **`pieces_per_pack`** da compilare in anagrafica — colonne `Peso_Netto_Collo` e `Pezzi_Per_Collo`. I campi sono già cablati. Dalla 1.4.2 il secondo **decide se l'articolo è gestito a UM**: senza, resta a soli colli | import Excel |
+| 7 | **`pieces_per_pack`** da compilare in anagrafica — colonna `Pezzi_Per_Collo`. Il campo è già cablato e **decide se l'articolo è gestito a UM**: senza, resta a soli colli. `weight_net_kg` **esce** con D15: non è un dato che il magazzino gestisce | import Excel |
 | 8 | `service_version` in `pathfinder-server.js` è ancora `'1.1'`, ma il servizio è cambiato: `_migra` e 19 collezioni. Da decidere se allinearla | piccolo |
 
 ## 7. Cosa non fare
 
-- **Non toccare `pathfinder-1.4.3.html` in radice**: è il file servito in questo momento, ed è l'unico rimasto lì. Tutti i precedenti stanno in `ARCHIVIO/VERSIONI PRECEDENTI/` e **non si cancellano**: sono le vie di ritorno.
-- **Installare non è accendere.** La 1.4.3 è in magazzino dalla notte del 13/08 e non cambia niente a video finché gli interruttori restano spenti: sono gesti in momenti diversi, ed è così che si distingue un rilascio andato male da una funzione che non piace.
+- **PRIMA DI CANCELLARE UN FILE DALLA RADICE, CHIEDERE AL SERVIZIO QUALE STA SERVENDO.** Un comando solo — `Invoke-RestMethod http://127.0.0.1:4173/api/app-info` — e dice il percorso esatto. Il 13/08 è stato cancellato `pathfinder-1.4.3.1.html` credendolo non servito: **lo era**, installato mezz'ora prima, e la pagina è andata in **404**. Il servizio dati è rimasto vivo e i terminali già aperti hanno continuato a lavorare, ma chi ricaricava non entrava più. Non è andato perso nessun dato; è andata persa **l'unica copia di quella versione**, e con lei la sua via di ritorno.
+- **Non toccare `pathfinder-1.6.html` in radice**: è il file servito in questo momento. Accanto c'è `pathfinder-1.4.4.html`, che è la via di ritorno, e la 1.4.3 che l'ha preceduta. I più vecchi stanno in `ARCHIVIO/VERSIONI PRECEDENTI/` e **non si cancellano**.
+- **Installare non è accendere.** Sono gesti in momenti diversi, ed è così che si distingue un rilascio andato male da una funzione che non piace. La 1.4.3 è entrata la notte del 13/08 e `feature.tasks` è stato alzato la mattina dopo, alle 10:31.
+- **Chi alza un interruttore aggiorna la riga «Interruttori» qui sopra, nello stesso gesto.** Il 13/08 `feature.tasks` è stato acceso alle 10:31 e per mezza giornata questi documenti hanno continuato a dire «tutti e cinque spenti»: è il primo fatto che una conversazione nuova legge, e decide se un difetto segnalato sia «impossibile» o «normale».
+- **Non aprire una finestra sopra un'altra riusando `showModal`**: l'id è fisso e `closeModal` chiude il primo che trova, cioè quello sotto. Overlay con id proprio e chiusura propria — HANDOFF §6, trappola 31.
+- **Non fidarsi di un `op_id` scritto in un documento**: si rilegge `/api/c/operators`. Quello di `ANDS` è cambiato il 13/08, e una PATCH su una chiave che non esiste **crea un record** invece di dare errore.
 - **Uno spostamento è un `removeItem` seguito da un `addItem`**, e il secondo deriva le UM dai colli pieni: senza passargli quante ne sono uscite, spostare 11 colli da 10.100 pz ne riscrive 11.000. Chi aggiunge un `addItem` che rimette a posto qualcosa passi da `App._umMossa` — HANDOFF §6, trappola 24.
-- **Il nome del file porta tre numeri**, `pathfinder-1.4.N.html`: la serie 1.4 sono sei rilasci distinti, e senza il terzo numero si sovrascriverebbero fra loro. Dal 13/08 in radice resta **solo il file servito**: i precedenti scendono in archivio, da dove si ripescano se serve tornare indietro.
+- **Dalla D14 la numerazione è progressiva, e una build definitiva porta DUE numeri** — `pathfinder-1.5.html`, `1.6`, `1.7`. Le build di **prova** ne portano di più (`1.5.1`). Il vecchio vincolo dei tre numeri serviva perché i rilasci della serie 1.4 condividevano i primi due e si sarebbero sovrascritti: con la numerazione progressiva i nomi sono già distinti, e il vincolo cade. In radice stanno il file servito e il precedente installato; i più vecchi scendono in archivio.
+- **Non segnalare ritardi del programma di sviluppo** — D21: si prende nota delle date, il giudizio sull'andamento lo dà Andrea.
 - **Gli import di un modulo TypeScript si scrivono senza estensione**: `../core/store`, non `../core/store.js`. Due specificatori diversi sono due moduli, e due Store in pagina — HANDOFF §6, trappola 20.
 - **Non riunire `createTableSQL` e `createIndexSQL`**: sono due funzioni perché fra i due passi sta `_migra`, e senza di lei il servizio non parte su un database che esiste già.
 - **Non installare una 1.4.x parziale**, e **non installarla senza averla aperta in un browser** contro una copia del database vero, su una porta sua. Il 13/08 tre difetti su tre li ha trovati solo quella, con tsc e 377 collaudi verdi.
@@ -230,13 +276,14 @@ in Configurazione — zone e partita IVA — che non bloccano nessun lavoro.
 
 ## 7bis. Il ritorno indietro, dal 13/08 in poi
 
-**La radice tiene solo il file servito.** Prima ci stavano anche i precedenti,
-e tornare indietro era un comando solo: rimettere `PATHFINDER_APP` sul file
-accanto. Dal riordino del 13/08 ne servono due, perché il file va prima
-ripescato dall'archivio.
+**La radice tiene il file servito, più quello appena costruito finché non lo
+si serve.** Adesso ce ne sono due: la **1.4.4**, servita, e la **1.4.3**, che
+è la via di ritorno. I più vecchi restano in archivio.
 
-Da **PowerShell come amministratore**, sostituendo `1.4.2` con la versione a
-cui si vuole tornare:
+Quindi il ritorno indietro costa **un comando** se il file è già in radice, e
+**due** se va ripescato dall'archivio. Da **PowerShell come amministratore**,
+sostituendo il numero con la versione a cui si vuole tornare — l'esempio è il
+caso caro, dall'archivio:
 
 ```powershell
 cd "C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER"
@@ -246,6 +293,13 @@ Copy-Item "ARCHIVIO\VERSIONI PRECEDENTI\pathfinder-1.4.2.html" pathfinder-1.4.2.
 Stop-ScheduledTask  -TaskName 'Pathfinder - Servizio dati'
 Start-ScheduledTask -TaskName 'Pathfinder - Servizio dati'
 ```
+
+> **Dalla 1.6 il ritorno indietro resta un comando solo**, perché la 1.4.4 è già
+> in radice: bastano la variabile e il riavvio, senza ripescare niente.
+>
+> **E dalla 1.6 il riavvio non è più un dettaglio**: `server/lib/schema.js` si
+> legge all'avvio, ed è lì che `recipients` viene creata. Tornare indietro non
+> la toglie — una tabella in più che nessuno interroga non fa danno.
 
 > **`Copy-Item`, non `Move-Item`.** L'archivio resta pieno: è la ragione per
 > cui esiste. Un ritorno indietro che svuota l'archivio funziona una volta
@@ -263,7 +317,10 @@ di prima; i dati restano dove sono.
 
 | Versione | Dove sta | `bytes` |
 |---|---|---|
-| **1.4.3** — servita adesso | radice | **1.578.603** |
+| **1.6** — servita adesso | radice | **1.625.239** |
+| **1.4.4** — il ritorno indietro della 1.6 | radice | **1.587.378** |
+| **1.4.3** — la precedente, ancora in radice | radice | **1.578.603** |
+| 1.4.3.1 — vissuta mezza giornata, **nessuna copia esiste più** | — | 1.579.414 |
 | 1.4.2 | `ARCHIVIO/VERSIONI PRECEDENTI/` | 1.541.133 |
 | 1.4.2.1 — in magazzino 25 minuti la notte del 13/08 | `ARCHIVIO/VERSIONI PRECEDENTI/` | 1.578.609 |
 | 1.4.0 | `ARCHIVIO/VERSIONI PRECEDENTI/` | 1.493.517 |
