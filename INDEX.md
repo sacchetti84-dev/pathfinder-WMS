@@ -77,13 +77,17 @@ amministratore, nessun riavvio, ritorno indietro in un comando. Verificato in
 servizio il 17/08: indice **8.542 byte** compressi e `no-cache`, i tre assets
 `immutable`, **251 kB** al primo caricamento, `xlsx` solo a richiesta.
 
-### La 1.8 è cominciata, e i primi tre blocchi sono in cassa
+### La 1.8 è scritta per intero, e aspetta un PIN e un turno
 
 Dal 17/08 sera il codice non è più quello della 1.7: **la suddivisione dei
-colli si dichiara invece di calcolarsi**. Tre blocchi committati — il modulo
-puro, il servizio che arbitra, Store che scrive — e **nessuno di loro si vede
-a video**: l'interruttore `feature.colli` esiste, è spento, ed è segnato «non
-ancora costruita» finché non arrivano le maschere. Cosa manca è in §2.
+colli si dichiara invece di calcolarsi**, e lo stesso articolo può stare in
+colli da 25 e da 5 kg sulla stessa riga. Cinque blocchi committati — il modulo
+puro, il servizio che arbitra, Store che scrive, le maschere, e ogni funzione
+che toglie merce — con l'interruttore `feature.colli` **spento** e adesso
+alzabile da Configurazione → Funzioni.
+
+Quello che manca non è codice: è **provare le maschere con un operatore
+identificato** e poi installare un turno e accendere il turno dopo. §2.
 
 Il servizio **in esecuzione ha ancora il codice della 1.7 in memoria** — Node
 legge all'avvio — e continua a rispondere `service_version: 1.7`. Il sorgente
@@ -95,13 +99,13 @@ prove.
 
 | Voce | Valore |
 |---|---|
-| In servizio — prova su questo PC | **`corrente` contiene la 1.8.1**, impronta `1d40ea6e…`, installata il 17/08 alle **23:30:44** — la build delle 23:26, cioè i primi tre blocchi della 1.8 **senza** le maschere e senza la correzione del protocollo. Con `feature.colli` assente dal database si comporta in tutto come la 1.7, e il servizio in esecuzione è ancora il processo della 1.7. **Nessun comando di questa sessione l'ha installata** (i tre `installa-versione.ps1` del 17/08 sera avevano `-Casa banco` e impronte `c8f4150c`, `700ac10c`, `ff73a5a8`): come la cancellazione delle 19:14, la causa non si conosce — §2, punto 1 |
+| In servizio — prova su questo PC | **`corrente` contiene la 1.8.1**, impronta `ff73a5a8…`, installata il **18/08 alle 00:10:04** dall'installer del pacchetto — lanciato a mano, come quello delle 23:30:44 che aveva portato l'impronta `1d40ea6e`. È il codice fino al **quarto blocco** della 1.8: c'è la correzione del protocollo, non c'è il quinto blocco. Con `feature.colli` assente dal database si comporta in tutto come la 1.7, e il servizio in esecuzione è ancora il processo della 1.7 |
 | Via di ritorno | `precedente` contiene la **1.7**, impronta `5df67f5c…`, e il deposito tiene `pathfinder-1.7\` intatta: si torna indietro con un comando, `.\server\torna-indietro.ps1`. Anche `pathfinder-1.6.1\` è in deposito |
 | Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.7`** — il processo è partito prima —, il **sorgente dice `1.8.1`**. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
-| Collaudi | **479 client** (14 suite, ~1,5 s) · **81 servizio** · **8 migrazione** — tutti verdi il 17/08 |
+| Collaudi | **483 client** (14 suite, ~1,5 s) · **81 servizio** · **8 migrazione** — tutti verdi il 18/08 |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Sorgente | 31 TypeScript · 5 JavaScript · 9 CSS · `index.html`. Ancora JavaScript: `main.js` e `ui/` (4 file) |
 | Numero di build | **1.8.1** in `vite.config.js`, `package.json` e nel servizio: una build in avanzamento non deve chiamarsi come la versione in servizio — §5 |
@@ -140,7 +144,7 @@ collauda al banco e si consegna il pacchetto.
 
 | # | Cosa | Chi |
 |---|---|---|
-| **1** | **Decidere se `corrente` resta alla 1.8.1 o torna alla 1.7.** La 1.8.1 ci è arrivata il 17/08 alle 23:30:44 senza che nessun comando conosciuto l'abbia installata, e non è mai stata aperta in un browser contro il database vero — §5 dice che non si installa senza. Si torna indietro con `.\server\torna-indietro.ps1`, un comando, nessun riavvio. **Funzionalmente non cambia niente**: `feature.colli` non è nel database, e a interruttore spento la 1.8.1 è la 1.7 | Andrea |
+| **1** | **`corrente` non è più la 1.8.1 del quarto blocco: rifare l'installazione con la build finita**, o tornare alla 1.7 con `.\server\torna-indietro.ps1`. Quella installata alle 00:10 è la build `ff73a5a8`, ferma al quarto blocco; il pacchetto in `consegna\Pathfinder 1.8.1\` porta ora l'impronta `12c2e4cf`. **Funzionalmente non cambia niente finché `feature.colli` resta spento** — e nel database vero non c'è | Andrea |
 | **1-bis** | **Capire chi ha cancellato `C:\Pathfinder\app\pathfinder-1.6.1`** il 17/08 alle 19:14. La cartella è stata ricostruita dal file singolo in radice e la via di ritorno è di nuovo intera, ma la causa non si conosce: se non è stato un gesto di Andrea in un'altra finestra, qualcosa cancella dentro la directory di installazione | da chiarire |
 | **2** | **Provare il pacchetto su una macchina pulita.** La strada dell'aggiornamento è provata davvero (17/08, su questo PC); quella della **prima installazione** — servizio, attività pianificate, firewall, database — è scritta e riletta ma **mai eseguita**, e serve una macchina senza Pathfinder o una virtuale. È l'unica che chiede i privilegi, ed è quella che si userà in presentazione | Andrea, prima di presentare |
 | **3** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per ore nessuno poteva creare né rinnovare un operatore. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — §6, «Il PIN smarrito» | Andrea |
@@ -174,19 +178,27 @@ non il client. Dove manca, tutto si legge come nella 1.7.
 | 1 | **`modules/colli.ts`** — puro: dichiarazione, elenco, raggruppamento, prelievo per collo, il ponte `daSuddivisione` che legge una riga della 1.7. 39 prove | **fatto** |
 | 2 | **Il servizio arbitra.** `removeItem` e `commitPickStop` accettano `packs_out` (quanto esce da ogni collo) e `packs_before` (il seme, una volta sola). Un collo della misura esatta esce intero, se non c'è si apre **il più piccolo che basta**. 12 prove nuove | **fatto** |
 | 3 | **Store scrive.** `packs` su `Giacenza`, `colliDiRiga`, `descriviRiga`, `addItem` con la suddivisione dichiarata, `removeItem` con le scelte per collo. Interruttore **`feature.colli`**, che pretende `uom` acceso | **fatto** |
-| 4 | **Le maschere**: il posizionamento dichiara la suddivisione (il campo ④ Colli pilota la prima riga e resta scrivibile), la riga di giacenza si descrive dall'elenco, e una **maschera sola** — `_scegliColli` — chiede quali colli e quanto prenderne. Lo **smaltimento** è la prima che la usa, e lo storno rimette i colli uno per uno | **fatto** |
-| 5 | **Le altre funzioni che tolgono merce**: prelievo guidato, trasferimento, quarantena, conta. La maschera c'è già — va innestata dove oggi si passa un numero di colli, e **lo spostamento** deve far viaggiare i colli scelti fino alla riga nuova (è un `removeItem` più un `addItem`: §5, «uno spostamento inventa le UM») | da fare |
-| 6 | **Il banco con un operatore in sessione**: quel che si è provato il 17/08 è nella riga qui sotto; restano da provare a mano lo smaltimento completo dalla sua maschera e lo storno | da fare |
-| 7 | L'interruttore diventa **`pronta: true`** solo quando 5 e 6 sono chiusi: finché una funzione toglie merce senza chiedere i colli, accenderlo scriverebbe elenchi a metà | da fare |
+| 4 | **Le maschere**: il posizionamento dichiara la suddivisione (il campo ④ Colli pilota la prima riga e resta scrivibile), la riga di giacenza si descrive dall'elenco — **una sorgente sola**, `Store.descriviRiga` — e una **maschera sola**, `_scegliColli`, chiede quali colli e quanto prenderne | **fatto** |
+| 5 | **Ogni funzione che toglie merce ci passa**: smaltimento, trasferimento, prelievo guidato, carrello di produzione, evasione DDT, quarantena e rilascio. Lo **spostamento** porta i colli scelti fino alla riga nuova. La **conta mirata** chiede quali colli mancano e **rifiuta la rettifica in aumento** su una riga a colli dichiarati — un collo trovato ha una misura che nessuno può indovinare, e si posiziona da Movimenta. L'**inventario di vano**, che corregge molte righe in fila, rimanda quelle a colli dichiarati alla Conta. Lo **storno** ritrova i colli per misura (`scelteDaMisure`) e si ferma se uno non c'è più | **fatto** |
+| 6 | L'interruttore è **`pronta: true`**: si può accendere da Configurazione → Funzioni, e pretende `uom` acceso | **fatto** |
+| 7 | **Il banco con un operatore in sessione.** Quel che si è provato è nella riga qui sotto; le maschere che pretendono l'identità — smaltimento, trasferimento, prelievo, quarantena — non sono state esercitate fino in fondo perché **il PIN lo digita Andrea** | da fare |
+| 8 | **Installare e provare in magazzino**, un turno, e accendere l'interruttore **il turno dopo**: installare non è accendere | Andrea |
 
-**Cosa ha già visto il banco** (17/08, copia del database vero, porta 4199,
+**Cosa ha già visto il banco** (17–18/08, copia del database vero, porta 4199,
 `feature.colli` acceso): il posizionamento con «3 × 25 + 1 × 7» scrive
 `packs [25,25,25,7]`; un secondo carico accoda e la riga diventa «3 × 25 +
 1 × 10 + 1 × 7»; la maschera di scelta calcola cosa esce e cosa resta, e
 rifiuta una quantità più grande del collo; il prelievo `{da: 25, quantita:
-10}` apre il collo da 25 e lascia intero quello da 10. Non provati: lo
-smaltimento dalla sua maschera fino in fondo e lo storno — la sessione
-operatore è scaduta e **il PIN lo digita Andrea**.
+10}` apre il collo da 25 e **lascia intero quello da 10**; lo storno per
+misura riporta la riga a `[15,25,25]`, e un collo che non c'è più viene
+respinto con il motivo scritto. La riga con due colli da 5 si legge «2 × 25 +
+2 × 5», dove la 1.7 diceva «2 × 25 + 1 × 10» e segnalava uno scarto che non
+c'era.
+
+**Cosa il banco non ha visto**: tutte le maschere che pretendono un operatore
+identificato. Si provano in un minuto col PIN — smaltimento parziale,
+trasferimento, prelievo guidato, quarantena — e sono l'ultimo passo prima di
+installare.
 | **1.9** | **Viste giacenza.** Selezionando un'ubicazione dalla mappa, il pannello a destra mostra la giacenza **in colli e in UM**. Più una pagina nuova: si cerca un articolo, si vedono tutti i lotti, se ne selezionano uno o più e si **apre la conta su tutti insieme**; PDF con intestazioni, piè di pagina e la lista dei lotti con ubicazione e quantità. Se costa meno, può diventare un ramo di Inventario |
 | **1.10** | **Trasferimenti generati dall'ODP.** Sulla riga di avviso «articolo in un altro magazzino» — che già c'è — compare una spunta: genera un'**attività di trasferimento** nello schedulatore, il sistema **chiede in quale ubicazione** ricevere la merce, e **quell'ubicazione entra nel percorso come tappa di prelievo** |
 | **1.11** | **UI mobile.** Il sistema riconosce se gira su Android e ridimensiona. Probabilmente serve **un'interfaccia apposita**, non un adattamento |
@@ -395,6 +407,14 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   stato rimosso credendolo non servito: lo era, installato mezz'ora prima, e la
   pagina è andata in 404. Nessun dato perso; persa **l'unica copia** di quella
   versione, e con lei la sua via di ritorno.
+- **UN INSTALLER APERTO BLOCCA `npm run build`.** La build azzera `consegna/`
+  per intero, e finché `Installa Pathfinder.bat` è in esecuzione — anche solo
+  fermo sull'INVIO finale — Windows tiene la cartella e vite muore con
+  `EPERM, Permission denied`. La cartella resta lì **vuota**, e né
+  `Remove-Item`, né `Directory::Delete`, né `cmd /c rmdir` la tolgono: non è
+  una giunzione e non è OneDrive, è un processo vivo. Si chiude la finestra
+  dell'installer e la build riparte. `Get-CimInstance Win32_Process | Where
+  CommandLine -like '*consegna*'` dice in due secondi chi la tiene.
 - **IL NUMERO DELLA BUILD NON È IL NUMERO DEL CODICE.** Finché
   `vite.config.js` e `package.json` dicono `1.7`, ogni `npm run build` fatta
   mentre si costruisce la versione dopo produce una `consegna\Pathfinder 1.7\`
@@ -701,7 +721,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `core/schema.ts` · `utils.ts` · `costanti.ts` | 173 · 46 · 44 | Schema IndexedDB e migrazioni · `debounce` e `_h` · causali e ritenzione |
 | `modules/compiti.ts` | 445 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. **Puro**: non tocca Store né il DOM |
 | `modules/misure.ts` | 319 | Le cinque unità, la suddivisione per collo, il collo incompleto. Puro |
-| `modules/colli.ts` | 213 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, il ponte con la 1.7. Puro |
+| `modules/colli.ts` | 256 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, le uscite come le capisce il servizio, il ritrovamento per misura, il ponte con la 1.7. Puro |
 | `modules/vault.ts` | 303 | Backup su cartella locale (File System Access API) |
 | `modules/pickRoute.ts` | 246 | Percorso di prelievo a serpentina |
 | `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
@@ -736,8 +756,8 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
-`compiti` (114) · `misure` (65) · `colli` (39) · `parametri` (19) ·
-`destinatari` (27) — **474 prove**. `ambiente.js` è il preambolo comune.
+`compiti` (114) · `misure` (65) · `colli` (48) · `parametri` (19) ·
+`destinatari` (27) — **483 prove**. `ambiente.js` è il preambolo comune.
 
 ---
 

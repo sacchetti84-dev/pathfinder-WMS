@@ -2279,10 +2279,10 @@ const App = {
     box.innerHTML = `<div style="max-height:190px;overflow-y:auto;border:1px solid var(--sx-border);border-radius:var(--radius-md)">${
       ordinate.map(it => {
         const disp = Store.getAvailableQty(it.location_code, it.item_key) || 0;
-        const um = Store.suddivisioneDi(it);
-        const cfg = Store.getUomConfig(it.article_code, it.lot_code);
-        const dettaglio = um && cfg?.per_collo
-          ? ` · ⚖ ${this._esc(descriviColli(um.pieni * cfg.per_collo + um.resto, cfg.per_collo, cfg.uom))}` : '';
+        /* 1.8 — una sorgente sola per la descrizione della riga: dove c'è
+           l'elenco lo legge, dove no ricade sulla suddivisione calcolata. */
+        const descr = Store.descriviRiga(it);
+        const dettaglio = descr === '—' ? '' : ` · ⚖ ${this._esc(descr)}`;
         return `<div class="search-result-item" onclick="App._ntScegli('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">
           <span class="mono" style="font-weight:700">${this._esc(it.article_code)}</span>
           <span class="mono" style="color:var(--sx-text-secondary)">${this._esc(it.lot_code)}</span>
@@ -8280,7 +8280,7 @@ const App = {
         <span style="color:var(--sx-text-muted)">${this._esc(it.article_description || '')}</span><br>
         <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">
           Lotto <strong>${this._esc(it.lot_code)}</strong> · Ubic. <strong class="mono">${this._esc(it.location_code)}</strong> ·
-          <strong>${it.qty || 0} Coll.</strong>${dentro !== null ? ` · ⚖ ${this._esc(descriviColli(dentro, cfg.per_collo, cfg.uom))}` : ''}</span>
+          <strong>${it.qty || 0} Coll.</strong>${dentro !== null ? ` · ⚖ ${this._esc(Store.descriviRiga(it))}` : ''}</span>
       </div>
       ${scalabile ? `
       <div class="form-group" style="margin-bottom:0.5rem">
