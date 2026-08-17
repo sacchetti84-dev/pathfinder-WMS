@@ -236,6 +236,31 @@ export function uscite(
   });
 }
 
+/** Le misure di colli che erano usciti, ritrovate nell'elenco di adesso: è
+    quello che serve a uno storno, che deve togliere i colli che aveva
+    rimesso e non altri di misura comoda. Due colli uguali sono due scelte
+    diverse — la stessa posizione non si sceglie due volte.
+
+    Lancia se una misura non c'è più: chi ha stornato ha in mano un collo
+    preciso, e prenderne un altro sarebbe un saldo giusto sui colli sbagliati.
+    `null` quando non c'è niente da ritrovare. */
+export function scelteDaMisure(
+  colli: number[] | null | undefined, misure: unknown, uom?: string | null,
+): Scelta[] | null {
+  const letti = leggiColli(colli, uom);
+  const cercate = leggiColli(misure, uom);
+  if (!letti || !cercate) return null;
+  const presi = new Set<number>();
+  return cercate.map(q => {
+    const i = letti.findIndex((v, k) => v === q && !presi.has(k));
+    if (i === -1) {
+      throw new Error(`Il collo da ${formattaQuantita(q, uom)} non è più su questa riga: lo storno non può ritrovarlo`);
+    }
+    presi.add(i);
+    return { indice: i };
+  });
+}
+
 /* ── La verifica, che mostra e non corregge ──────────────────────────── */
 
 export interface VerificaColli {

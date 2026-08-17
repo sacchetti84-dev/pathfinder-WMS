@@ -4206,6 +4206,16 @@ const App = {
      quali colli, se no restituisce `null` e chi chiama fa come nella 1.7.
      `undefined` significa «annullato»: e' diverso da «questa riga non ha un
      elenco», e chi chiama deve fermarsi invece di prelevare tutto. */
+  /* Tutti i colli della riga, senza chiedere niente: serve dove la merce si
+     sposta INTERA e non c'è nessuna scelta da fare — il rilascio dalla
+     quarantena, per esempio. Senza queste scelte l'`addItem` che segue
+     deriverebbe colli pieni, e l'elenco morirebbe nel passaggio. */
+  _tuttiIColli(item) {
+    if (!Store.colliOn()) return null;
+    const elenco = Store.colliDiRiga(item);
+    return elenco ? elenco.map((_, indice) => ({ indice })) : null;
+  },
+
   async _chiediColli(item, titolo) {
     if (!Store.colliOn()) return null;
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
@@ -4330,8 +4340,11 @@ const App = {
     this._previewLoc('mInLoc','mInLocPrev');
     this._refreshSessionLog();
     // v2.1.0 — storno disponibile per 120 secondi
+    /* 1.8 — lo storno di un posizionamento dichiarato toglie ESATTAMENTE i
+       colli che erano entrati: senza l'elenco toglierebbe «tre colli», e su
+       una riga imballata in due misure non sarebbero gli stessi tre. */
     this._pushUndo(`Posizionamento ${art}#${lot} → ${loc} (${qty} Coll.)`,
-      [{ op: 'remove', loc, art, desc: effectiveDesc, lot, qty, qty_uom: res.qty_uom_delta ?? null }]);
+      [{ op: 'remove', loc, art, desc: effectiveDesc, lot, qty, qty_uom: res.qty_uom_delta ?? null, packs: elenco }]);
     /* 1.4.4 — nessun aggancio: il Posizionamento non è più un tipo di
        attività. Questa maschera resta quella di sempre per chi posiziona
        merce a mano, e non ha nessun compito da far avanzare. */
@@ -5265,16 +5278,25 @@ const App = {
       })) return { ok: false };
     }
 
+    /* 1.8 — QUALI COLLI SI SPOSTANO. Uno spostamento è un `removeItem` più un
+       `addItem`, e il secondo deve rimettere GLI STESSI colli: senza l'elenco
+       li deriverebbe pieni, ed è la trappola che faceva nascere 900 pezzi dal
+       nulla nel passaggio da uno scaffale all'altro. */
+    const scelteColli = await this._chiediColli(item, 'Quali colli si spostano');
+    if (scelteColli === undefined) { this.toast('Trasferimento annullato', 'info'); return { ok: false }; }
+
     // v1.7.0 — Se in destinazione lo stesso lotto è già presente, i colli
     // vengono sommati (gestito da addItem con mode='incremented').
     const backup = { ...item };  // snapshot per rollback
-    const removed = await Store.removeItem(item.location_code, item.item_key, partial ? qtyToMove : null);
+    const removed = await Store.removeItem(item.location_code, item.item_key, partial ? qtyToMove : null, null, scelteColli);
     if (!removed) { this.toast('Rimozione dall\'origine fallita', 'error'); return { ok: false }; }
     // Add in destinazione preservando metadati e quantità
     const umMossa = this._umMossa(removed);   // 1.4.2 — il collo incompleto si sposta con la merce
-    const res = await Store.addItem(dest, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', qtyToMove, umMossa);
+    const colliMossi = removed._packs_out ?? null;
+    const nMossi = colliMossi ? colliMossi.length : qtyToMove;
+    const res = await Store.addItem(dest, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', nMossi, umMossa, colliMossi);
     if (!res.ok) {
-      if (partial) await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', qtyToMove, umMossa);
+      if (partial || (colliMossi && removed._mode === 'partial')) await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', item.notes || '', nMossi, umMossa, colliMossi);
       else await Store.restoreItem(backup);
       this.toast('Conflitto destinazione — rollback eseguito', 'error');
       return { ok: false };
@@ -5284,16 +5306,20 @@ const App = {
     const impactNote = impactedDocs.length
       ? `Merce impegnata su DDT: ${impactedDocs.map(d => d.ddt_num).join(', ')} — righe da riallineare`
       : '';
-    await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, dest, Store.getCurrentIdentity().initials, impactNote, '', qtyAvail, partial ? -qtyToMove : 0, partial ? qtyAvail - qtyToMove : qtyToMove);
+    /* Con l'elenco il parziale lo dice il servizio, non il numero digitato: un
+       collo aperto e rimesso a scaffale lascia la riga viva anche quando i
+       colli chiesti erano tutti. */
+    const parzialeVero = colliMossi ? removed._mode === 'partial' : partial;
+    await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, dest, Store.getCurrentIdentity().initials, impactNote, '', qtyAvail, parzialeVero ? -nMossi : 0, parzialeVero ? removed._qty_after : nMossi);
     const mergeMsg = res.mode === 'incremented' ? ` (sommato: saldo ${res.qty_after} Coll. in ${dest})` : '';
-    this.toast(`✓ ${item.article_code}#${item.lot_code}: ${item.location_code} → ${dest} · ${qtyToMove} Coll.${mergeMsg}`, 'success');
+    this.toast(`✓ ${item.article_code}#${item.lot_code}: ${item.location_code} → ${dest} · ${nMossi} Coll.${mergeMsg}`, 'success');
     if (impactedDocs.length) {
       this.toast(`⚠ ${impactedDocs.length} DDT pendente/i ora disallineato/i — verificare in Movimenta`, 'warning');
     }
     this.updateSyncIndicator();
     this._refreshSessionLog();
-    await this._taskAvanza(qtyToMove, ['TRANSFER']);   // 1.4.2.1
-    return { ok: true, qtyMoved: qtyToMove, mergeMsg, impactedDocs, partial };
+    await this._taskAvanza(nMossi, ['TRANSFER']);   // 1.4.2.1
+    return { ok: true, qtyMoved: nMossi, mergeMsg, impactedDocs, partial: parzialeVero };
   },
 
   async _execCambio() {
@@ -5589,11 +5615,20 @@ const App = {
         break;
       }
       backups.push({ ...full });
+      /* 1.8 — riga per riga, quali colli lasciano lo scaffale. Chi annulla
+         qui ferma il carrello: le righe già scaricate tornano indietro dal
+         rollback qui sotto, che è la stessa strada di ogni altro guasto. */
+      const sceltePick = await this._chiediColli(full, `Quali colli · ${it.article_code}#${it.lot_code}`);
+      if (sceltePick === undefined) {
+        failedAt = i; failReason = 'Prelievo annullato alla scelta dei colli';
+        backups.pop();
+        break;
+      }
       // Rimozione parziale o totale a seconda di qtyPick
-      const removed = await Store.removeItem(it.location_code, it.item_key, qtyPick);
+      const removed = await Store.removeItem(it.location_code, it.item_key, qtyPick, null, sceltePick);
       if (!removed) { failedAt = i; break; }
       results.push({ ...it, _qty_before: removed._qty_before, _qty_delta: removed._qty_delta, _qty_after: removed._qty_after, _mode: removed._mode,
-                     _qty_uom_delta: removed._qty_uom_delta ?? null });
+                     _qty_uom_delta: removed._qty_uom_delta ?? null, _packs_out: removed._packs_out ?? null });
     }
     if (failedAt !== -1) {
       // Rollback: per ogni item processato, se era partial → reincrementa, se era full → restoreItem
@@ -5603,7 +5638,7 @@ const App = {
         if (mode === 'partial') {
           // ripristina addItem con qty_delta (re-incrementa)
           // 1.4.2 — e con le UM che erano uscite, se no il rollback ne inventa
-          await Store.addItem(b.location_code, b.article_code, b.article_description, b.lot_code, b.expiry_date || '', b.notes || '', Math.abs(results[j]._qty_delta), this._umMossa(results[j]));
+          await Store.addItem(b.location_code, b.article_code, b.article_description, b.lot_code, b.expiry_date || '', b.notes || '', Math.abs(results[j]._qty_delta) || (results[j]._packs_out?.length ?? 1), this._umMossa(results[j]), results[j]._packs_out ?? null);
         } else {
           await Store.restoreItem(b);
         }
@@ -6302,6 +6337,16 @@ const App = {
     });
     if (qty === null) return;
 
+    /* 1.8 — quali colli, sulla riga che l'operatore ha davanti. Il numero
+       chiesto sopra resta la misura del prelievo; l'elenco dice quali colli
+       lasciano lo scaffale, e su un lotto imballato in due misure diverse i
+       due dati non sono lo stesso dato. */
+    const scelteColli = await this._chiediColli(
+      { article_code: st.article_code, lot_code: st.lot_code, location_code: st.location_code, item_key: st.item_key,
+        ...(Store.getItemsAtLocation(st.location_code).find(i => i.item_key === st.item_key) || {}) },
+      'Quali colli si prelevano');
+    if (scelteColli === undefined) return this.toast('Prelievo annullato', 'info');
+
     const effectiveUser = this._prodOperator || Store.getCurrentIdentity().initials;
     const notes = st.forced_note || '';
     let removed = null;
@@ -6311,6 +6356,7 @@ const App = {
         session,
         stop: st,
         qty,
+        scelte: scelteColli,
         movement: {
           type: MOV.PICK,
           article_code: st.article_code,
@@ -7041,8 +7087,19 @@ const App = {
       })) return;
     }
     let corrections = 0;
+    /* 1.8 — le righe a colli dichiarati non si rettificano al buio da qui.
+       Questo giro corregge molte righe in fila, e su una suddivisione
+       dichiarata «due colli in meno» non dice QUALI: si passa dalla Conta
+       mirata, che li fa scegliere uno per uno. Il mancante totale invece si
+       applica — la riga sparisce, e non resta nessun elenco da disallineare. */
+    const rimandate = [];
     for (const it of items) {
       const sysQty = it.qty || 1;
+      if (!it.missing && typeof it.counted_qty === 'number' && it.counted_qty !== sysQty
+          && Store.colliDiRiga(it)) {
+        rimandate.push(`${it.article_code}#${it.lot_code}`);
+        continue;
+      }
       // Caso 1: missing totale → FIX- intero
       if (it.missing) {
         const removed = await Store.removeItem(loc, it.item_key);
@@ -7084,6 +7141,9 @@ const App = {
     }
     if (corrections === 0) this.toast('Nessuna correzione — inventario confermato ✓', 'info');
     else this.toast(`✓ ${corrections} correzion${corrections === 1 ? 'e applicata' : 'i applicate'}`, 'success');
+    if (rimandate.length) {
+      this.toast(`⚠ ${rimandate.length} rig${rimandate.length === 1 ? 'a a colli dichiarati non rettificata' : 'he a colli dichiarati non rettificate'} — vanno contate una per una da Attività → Conta, che chiede quali colli: ${rimandate.join(', ')}`, 'warning');
+    }
     this.updateSyncIndicator();
     /* 1.4.4 — QUI NON SI CHIUDE NESSUN COMPITO. L'inventario di vano è una
        funzione di magazzino che esiste da sempre e non nasce mai da
@@ -7333,14 +7393,29 @@ const App = {
       confirmLabel: 'Rettifica', danger: true,
     })) return;
 
+    /* 1.8 — SU UNA RIGA A COLLI DICHIARATI, UNA CONTA NON È UN NUMERO SOLO.
+       In meno: si dice QUALI colli mancano, e chi conta li ha davanti. In
+       più: un collo trovato ha una misura che nessuno può indovinare, e
+       inventargliela scriverebbe una giacenza plausibile e falsa — si
+       posiziona da Movimenta, dove la suddivisione si dichiara. */
+    const elencoConta = Store.colliDiRiga(it);
+    let scelteConta = null;
+    if (elencoConta && delta < 0) {
+      scelteConta = await this._chiediColli(it, 'Quali colli mancano');
+      if (scelteConta === undefined) return this.toast('Conta annullata', 'info');
+    }
+    if (elencoConta && delta > 0) {
+      return this.toast('Colli in più su una riga a colli dichiarati: posizionali da Movimenta → Posiziona, dichiarando com\'è imballato ciò che hai trovato', 'warning');
+    }
+
     try {
       if (delta < 0) {
-        const tolti = contati === 0
+        const tolti = contati === 0 && !scelteConta
           ? await Store.removeItem(d.location_code, d.item_key)
-          : await Store.removeItem(d.location_code, d.item_key, Math.abs(delta));
+          : await Store.removeItem(d.location_code, d.item_key, Math.abs(delta), null, scelteConta);
         if (!tolti) return this.toast('Rettifica non riuscita', 'error');
         await this._logMov(MOV.FIX_OUT, d.article_code, d.article_description, d.lot_code,
-          d.location_code, null, sigla, dettaglio, '', sistema, delta, contati);
+          d.location_code, null, sigla, dettaglio, '', sistema, tolti._qty_delta ?? delta, tolti._qty_after ?? contati);
       } else if (delta > 0) {
         const res = await Store.addItem(d.location_code, d.article_code, d.article_description,
           d.lot_code, d.expiry_date || '', '', delta);
@@ -7773,16 +7848,23 @@ const App = {
     /* Lo spostamento in area NC ora avviene SEMPRE — `nearest` e' garantito
        dalla guardia qui sopra — e sposta solo i colli bloccati. */
     const blockedLoc = nearest.code;
-    const removed = await Store.removeItem(item.location_code, item.item_key, qtyToMove);
+    /* 1.8 — in area NC ci vanno i colli bloccati, quelli e non altri: la
+       quarantena nomina merce precisa, e un collo diverso da quello che il
+       controllo qualità ha guardato è un altro fatto. */
+    const scelteNC = await this._chiediColli(item, 'Quali colli vanno in quarantena');
+    if (scelteNC === undefined) { this.toast('Quarantena annullata', 'info'); return { ok: false }; }
+    const removed = await Store.removeItem(item.location_code, item.item_key, qtyToMove, null, scelteNC);
     if (!removed) { this.toast('Item non più disponibile — operazione annullata', 'error'); return { ok: false }; }
     const umNC = this._umMossa(removed);   // 1.4.2 — vedi _umMossa
+    const colliNC = removed._packs_out ?? null;
+    if (colliNC) qtyToMove = colliNC.length;
     try {
-      const res = await Store.addItem(nearest.code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', 'QUARANTENA: ' + reason, qtyToMove, umNC);
+      const res = await Store.addItem(nearest.code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', 'QUARANTENA: ' + reason, qtyToMove, umNC, colliNC);
       if (!res.ok) throw new Error('addItem non riuscito');
       await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, nearest.code, operator, 'Spostamento in quarantena', '', qtyToMove, 0, qtyToMove);
     } catch (err) {
       if (removed._mode === 'partial')
-        await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', '', qtyToMove, umNC);
+        await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', '', qtyToMove, umNC, colliNC);
       else
         await Store.restoreItem(backup);
       this.toast(`Spostamento in area NC fallito (${err.message || 'errore'}) — operazione annullata, nessuna quarantena registrata`, 'error');
@@ -7799,8 +7881,10 @@ const App = {
       blocked_location: blockedLoc,
       qty: qtyToMove,
       qty_at_origin_before: qtyPhys,
-      qty_left_at_origin: qtyPhys - qtyToMove,
-      partial: parziale,
+      /* Con i colli scelti il residuo lo dice la riga, non la sottrazione: un
+         collo aperto e rimesso a scaffale lascia l'origine viva. */
+      qty_left_at_origin: colliNC ? removed._qty_after : qtyPhys - qtyToMove,
+      partial: colliNC ? removed._mode === 'partial' : parziale,
       reason, operator, reference_dept: refDept, reference_person: refPerson
     });
 
@@ -7995,18 +8079,27 @@ const App = {
 
     if (srcItem) {
       const inNC = srcItem.qty || 1;
-      const qtyToMove = Math.min(rec.qty || inNC, inNC);
+      let qtyToMove = Math.min(rec.qty || inNC, inNC);
       const backup = { ...srcItem };
-      const removed = await Store.removeItem(currentLoc, itemKey, qtyToMove);
+      /* 1.8 — il rilascio non è una scelta: esce dall'area NC ciò che ci era
+         entrato, e i colli viaggiano com'erano. Solo un rilascio parziale
+         chiede quali, ed è un caso che il controllo qualità decide. */
+      const scelteRil = qtyToMove >= inNC
+        ? this._tuttiIColli(srcItem)
+        : await this._chiediColli(srcItem, 'Quali colli si rilasciano');
+      if (scelteRil === undefined) return this.toast('Rilascio annullato', 'info');
+      const removed = await Store.removeItem(currentLoc, itemKey, qtyToMove, null, scelteRil);
       if (removed) {
         const umRil = this._umMossa(removed);   // 1.4.2 — vedi _umMossa
-        const res = await Store.addItem(dest, srcItem.article_code, srcItem.article_description, srcItem.lot_code, srcItem.expiry_date || '', (srcItem.notes || '').replace(/^QUARANTENA:\s*/i, '').trim(), qtyToMove, umRil);
+        const colliRil = removed._packs_out ?? null;
+        if (colliRil) qtyToMove = colliRil.length;
+        const res = await Store.addItem(dest, srcItem.article_code, srcItem.article_description, srcItem.lot_code, srcItem.expiry_date || '', (srcItem.notes || '').replace(/^QUARANTENA:\s*/i, '').trim(), qtyToMove, umRil, colliRil);
         if (res.ok) {
           moved = true;
           await this._logMov(MOV.MOVE, srcItem.article_code, srcItem.article_description, srcItem.lot_code, currentLoc, dest, relOperator, 'Rilascio quarantena → riposizionamento conforme', rec.q_id, qtyToMove, 0, qtyToMove);   // v2.0.1 [B6]
         } else {
           if (removed._mode === 'partial')
-            await Store.addItem(currentLoc, srcItem.article_code, srcItem.article_description, srcItem.lot_code, srcItem.expiry_date || '', '', qtyToMove, umRil);
+            await Store.addItem(currentLoc, srcItem.article_code, srcItem.article_description, srcItem.lot_code, srcItem.expiry_date || '', '', qtyToMove, umRil, colliRil);
           else
             await Store.restoreItem(backup);
           moveErr = `Impossibile posizionare in ${dest} — item ripristinato in ${currentLoc}`;
@@ -9256,9 +9349,13 @@ const App = {
         // Snapshot pre-rimozione per rollback
         const before = Store.getItemsAtLocation(l.location_code).find(x => x.item_key === l.item_key);
         const backup = before ? { ...before } : null;
-        const removed = await Store.removeItem(l.location_code, l.item_key, l.qty);
+        /* 1.8 — anche il DDT esce a colli scelti: quello che sale sul camion
+           è merce precisa, e il documento la nomina. */
+        const scelteDdt = before ? await this._chiediColli(before, `Quali colli · riga ${i + 1} di ${doc.lines.length}`) : null;
+        if (scelteDdt === undefined) { failedAt = i; failMsg = 'Evasione annullata alla scelta dei colli'; break; }
+        const removed = await Store.removeItem(l.location_code, l.item_key, l.qty, null, scelteDdt);
         if (!removed) { failedAt = i; failMsg = `Rimozione fallita (riga ${i+1})`; break; }
-        performed.push({ backup, mode: removed._mode, location_code: l.location_code, item_key: l.item_key, qty_removed: l.qty, qty_before: removed._qty_before, qty_after: removed._qty_after });
+        performed.push({ backup, mode: removed._mode, location_code: l.location_code, item_key: l.item_key, qty_removed: l.qty, qty_before: removed._qty_before, qty_after: removed._qty_after, packs_out: removed._packs_out ?? null });
       } catch (err) {
         failedAt = i;
         failMsg = `Errore riga ${i+1}: ${err.message || 'sconosciuto'}`;
@@ -9271,7 +9368,7 @@ const App = {
         const p = performed[j];
         try {
           if (p.mode === 'full' && p.backup) await Store.restoreItem(p.backup);
-          else if (p.backup) await Store.addItem(p.location_code, p.backup.article_code, p.backup.article_description, p.backup.lot_code, p.backup.expiry_date || '', p.backup.notes || '', p.qty_removed);
+          else if (p.backup) await Store.addItem(p.location_code, p.backup.article_code, p.backup.article_description, p.backup.lot_code, p.backup.expiry_date || '', p.backup.notes || '', p.packs_out ? p.packs_out.length : p.qty_removed, null, p.packs_out ?? null);
         } catch {}
       }
       return this.toast(`${failMsg} — rollback eseguito, DDT resta pendente`, 'error');
@@ -10818,8 +10915,8 @@ const App = {
       pronta: true },
     { nome: 'colli', ver: '1.8', label: 'Colli dichiarati', icona: '📦',
       cosa: 'La suddivisione non si calcola più da una quantità per collo costante: al posizionamento si dichiara com\'è imballata la merce — «10 × 1.000 + 1 × 900» — e più colli incompleti sono ammessi. A prelievo, smaltimento e trasferimento si sceglie quali colli e quanto prenderne.',
-      cambia: 'Il posizionamento chiede la suddivisione invece della sola quantità, e le maschere che tolgono merce mostrano i colli uno per uno. Le righe già a scaffale continuano a leggersi come oggi finché non le si muove. Richiede le unità di misura accese.',
-      pronta: false },
+      cambia: 'Il posizionamento chiede la suddivisione invece della sola quantità, e ogni funzione che toglie merce — smaltimento, trasferimento, prelievo, spedizione, quarantena, conta — chiede prima quali colli. Le righe già a scaffale continuano a leggersi come oggi finché non le si muove. Richiede le unità di misura accese, e l\'inventario di vano rimanda alla Conta mirata le righe a colli dichiarati.',
+      pronta: true },
     { nome: 'udc', ver: '1.4.3', label: 'UDC — unità di carico', icona: '🟫',
       cosa: 'Pallet, cassoni e carrelli che si spostano interi, con l\'etichetta stampata alla creazione.',
       cambia: 'Non ancora costruita: arriva con la 1.4.3.', pronta: false },
@@ -13695,7 +13792,12 @@ const App = {
           await this._logMov(MOV.FIX_IN, a.art, a.desc || '', a.lot, a.loc, null, '',
             `STORNO — ${entry.label}`, '', r.qty_before, a.qty, r.qty_after, r.qty_uom_delta);
         } else {
-          const r = await Store.removeItem(a.loc, `${a.art}#${a.lot}`, a.qty, a.qty_uom ?? null);
+          /* 1.8 \u2014 i colli entrati si ritrovano per misura sulla riga di
+             adesso; se uno non c'\u00e8 pi\u00f9, lo storno si ferma e lo dice invece
+             di portarne via un altro. */
+          const rigaOra = Store.getItemsAtLocation(a.loc).find(x => x.item_key === `${a.art}#${a.lot}`);
+          const scelteStorno = a.packs ? Store.scelteDaColli(rigaOra, a.packs) : null;
+          const r = await Store.removeItem(a.loc, `${a.art}#${a.lot}`, a.qty, a.qty_uom ?? null, scelteStorno);
           if (!r) throw new Error('item non piu\u0300 presente');
           await this._logMov(MOV.FIX_OUT, a.art, a.desc || '', a.lot, a.loc, null, '',
             `STORNO — ${entry.label}`, '', r._qty_before, r._qty_delta, r._qty_after, r._qty_uom_delta);

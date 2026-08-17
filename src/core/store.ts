@@ -39,7 +39,7 @@ import { UNITA_MISURA } from '../modules/misure';
 import {
   leggiColli, daSuddivisione, totaleUom as totaleUomColli,
   descriviColli, preleva as prelevaColli, uscite as uscitePerIlServizio,
-  type Scelta,
+  scelteDaMisure as scelteDaMisureColli, type Scelta,
 } from '../modules/colli';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
@@ -729,6 +729,16 @@ const Store = {
     if (!cfg) return null;
     return leggiColli(item.packs, cfg.uom)
         ?? daSuddivisione(item.qty_uom ?? uomDaColli(item.qty ?? 0, cfg.per_collo, cfg.uom), cfg.per_collo, cfg.uom);
+  },
+
+  /* Le scelte che ritrovano, sulla riga di adesso, i colli che erano usciti:
+     la usa lo storno, che deve togliere quelli e non altri della stessa
+     misura comoda. `null` se la riga non porta un elenco. */
+  scelteDaColli(item: Giacenza | null | undefined, misure: unknown): Scelta[] | null {
+    if (!item || !this.colliOn()) return null;
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    if (!cfg) return null;
+    return scelteDaMisureColli(this.colliDiRiga(item), misure, cfg.uom);
   },
 
   /* Come si legge una riga: dall'elenco quando c'e', dalla suddivisione
@@ -2034,7 +2044,7 @@ const Store = {
     await this._touchMeta();
   },
 
-  async commitPickStop({ session, stop, qty, movement }: { session: SessionePrelievo; stop: Record<string, any>; qty: number; movement: Partial<Movimento> & { type: MovTipo } }) {
+  async commitPickStop({ session, stop, qty, movement, scelte = null }: { session: SessionePrelievo; stop: Record<string, any>; qty: number; movement: Partial<Movimento> & { type: MovTipo }; scelte?: Scelta[] | null }) {
     if (!session?.session_id) throw new Error('Sessione di prelievo priva di identificativo');
     if (!stop) throw new Error('Tappa non identificata');
 
@@ -2043,7 +2053,9 @@ const Store = {
       /* `meta` e' inclusa perche' _touchMeta() vi scrive: escluderla
          farebbe fallire la transazione con TransactionInactiveError. */
       await Persistence.transaction(['inventory', 'mov_log', 'pick_session', 'meta'], async () => {
-        removed = await this.removeItem(stop.location_code, stop.item_key, qty);
+        /* 1.8 — la tappa prende i colli che l'operatore ha scelto, e senza
+           scelte resta il prelievo a numero di colli della 1.7. */
+        removed = await this.removeItem(stop.location_code, stop.item_key, qty, null, scelte);
         if (!removed) throw new Error('Scarico della giacenza non riuscito');
 
         /* 1.4.2 — quanto e' uscito in UM. Fra sei anni il registro e' la sola
@@ -2060,7 +2072,8 @@ const Store = {
         });
 
         stop.status = 'done';
-        stop.qty_picked = qty;
+        stop.qty_picked = removed._packs_out ? removed._packs_out.length : qty;
+        if (removed._packs_out) stop.packs_picked = removed._packs_out;
         stop.done_at = Date.now();
         session.updated_at = Date.now();
         await Persistence.put('pick_session', session);

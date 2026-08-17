@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   espandi, leggiColli, validaDichiarazione,
   totaleColli, totaleUom, raggruppa, descriviColli,
-  daSuddivisione, preleva, uscite, verificaColli,
+  daSuddivisione, preleva, uscite, scelteDaMisure, verificaColli,
 } from '../src/modules/colli';
 
 /* ── La dichiarazione: 10 x 1.000 + 1 x 900 ─────────────────────────── */
@@ -257,6 +257,28 @@ describe('uscite', () => {
     expect(() => uscite(riga(), [{ indice: 9 }], 'KG')).toThrow();
     expect(() => uscite(riga(), [{ indice: 0, quantita: 30 }], 'KG')).toThrow();
     expect(() => uscite(riga(), [], 'KG')).toThrow();
+  });
+});
+
+/* ── Ritrovare i colli che erano usciti ─────────────────────────────── */
+
+describe('scelteDaMisure', () => {
+  it('lo storno ritrova i colli entrati e li sceglie per misura', () => {
+    expect(scelteDaMisure([25, 25, 10, 7], [25, 7], 'KG')).toEqual([{ indice: 0 }, { indice: 3 }]);
+  });
+
+  it('due colli della stessa misura sono due scelte diverse', () => {
+    expect(scelteDaMisure([25, 25, 10], [25, 25], 'KG')).toEqual([{ indice: 0 }, { indice: 1 }]);
+  });
+
+  it('un collo che non c\'e\' piu\' ferma lo storno invece di prenderne un altro', () => {
+    expect(() => scelteDaMisure([25, 25], [25, 7], 'KG')).toThrow();
+    expect(() => scelteDaMisure([25], [25, 25], 'KG')).toThrow();
+  });
+
+  it('senza elenco o senza misure non c\'e\' niente da ritrovare', () => {
+    expect(scelteDaMisure(null, [25], 'KG')).toBe(null);
+    expect(scelteDaMisure([25], null, 'KG')).toBe(null);
   });
 });
 
