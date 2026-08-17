@@ -12,8 +12,30 @@ const { NAMES } = require('./lib/schema');
 const PORT = Number(process.env.PATHFINDER_PORT || 4173);
 const ROOT = path.resolve(__dirname, '..');
 const DB_FILE = process.env.PATHFINDER_DB || path.join(__dirname, 'data', 'pathfinder.db');
-const APP_FILE = process.env.PATHFINDER_APP || path.join(ROOT, 'pathfinder-1.1.html');
-const VERSION = '1.1';
+/* ── 1.7 · L'APPLICATIVO E' UNA CARTELLA ──────────────────────────────────
+   Fino alla 1.6 era un file HTML solo e `PATHFINDER_APP` ci puntava. Dalla
+   1.7 e' una cartella — `index.html` piu' `assets/` coi nomi a impronta — e
+   `PATHFINDER_APP_DIR` punta alla GIUNZIONE `corrente`, che non cambia mai:
+   installare e tornare indietro sono un ripuntamento, senza amministratore e
+   senza riavvio.
+
+   `precedente` e' la giunzione sorella, e serve gli assets della versione
+   appena lasciata a chi aveva la pagina a meta' caricamento nell'istante
+   dello scambio.
+
+   `PATHFINDER_APP` resta come ripiego, per servire una vecchia consegna a
+   file singolo senza avvolgerla. Non e' la strada normale: una build a file
+   singolo e' una cartella con dentro il solo `index.html`, e passa di qui
+   come tutte le altre. */
+const APP_DIR  = process.env.PATHFINDER_APP_DIR || null;
+const PREV_DIR = process.env.PATHFINDER_APP_PREV
+  || (APP_DIR ? path.join(path.dirname(APP_DIR), 'precedente') : null);
+const APP_FILE = process.env.PATHFINDER_APP || null;
+
+/* La versione del SERVIZIO, non dell'applicativo — quella la dice il
+   manifesto, e sono due cose diverse. Si muove quando cambia il contratto:
+   qui cambia davvero, con una variabile nuova e la famiglia `/assets`. */
+const VERSION = '1.7';
 
 const TLS_CERT = process.env.PATHFINDER_TLS_CERT || null;
 const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
@@ -405,13 +427,104 @@ app.post('/api/backup', wrap((req, res) => {
 
 const noCache = (res) => res.set('Cache-Control', 'no-cache');
 
-app.get('/', (req, res) => { noCache(res); res.sendFile(APP_FILE); });
-app.get('/app', (req, res) => { noCache(res); res.sendFile(APP_FILE); });
+/* Gli assets portano l'impronta nel nome: a parita' di nome non cambiano
+   mai, e il terminale non ha ragione di richiederli una seconda volta.
+   `index.html` invece resta `no-cache`, perche' e' lui che li nomina: un
+   indice vecchio in cache chiederebbe file che non esistono piu'.
+   Invertire questi due e' il difetto peggiore possibile. */
+const PER_SEMPRE = 'public, max-age=31536000, immutable';
+
+/* Il `.gz` lo scrive la build, una volta sola e al massimo livello: questi
+   file non cambiano, comprimerli a ogni richiesta sarebbe CPU spesa per
+   riottenere lo stesso byte. Chi non dichiara di accettare gzip riceve il
+   file in chiaro, che resta li' accanto — nessun terminale resta fuori. */
+const invia = (req, res, assoluto, cache) => {
+  res.set('Cache-Control', cache);
+  res.set('Vary', 'Accept-Encoding');
+  const gz = assoluto + '.gz';
+  if (/\bgzip\b/.test(String(req.headers['accept-encoding'] || '')) && fs.existsSync(gz)) {
+    res.type(path.extname(assoluto) || 'application/octet-stream');
+    res.set('Content-Encoding', 'gzip');
+    return res.sendFile(gz);
+  }
+  res.sendFile(assoluto);
+};
+
+const leggiManifesto = () => {
+  if (!APP_DIR) return null;
+  try {
+    /* Il BOM va tolto PRIMA di `JSON.parse`, che su di lui lancia. Non e' un
+       caso di scuola: `installa-versione.ps1` genera il manifesto di una
+       consegna avvolta, e in PowerShell 5.1 `Out-File -Encoding utf8` scrive
+       UTF-8 CON BOM. Senza questa riga, dopo un ritorno indietro
+       `/api/app-info` rispondeva versione e impronta nulle — cioe' proprio
+       il numero su cui si verifica un'installazione. Trovato al banco, con
+       tutti i collaudi verdi. */
+    const grezzo = fs.readFileSync(path.join(APP_DIR, 'manifest.json'), 'utf8');
+    return JSON.parse(grezzo.replace(/^﻿/, ''));
+  } catch { return null; }
+};
+
+if (APP_DIR) {
+  const indice = path.join(APP_DIR, 'index.html');
+
+  /* UN NOME, NON UN PERCORSO. `:file` non puo' contenere una barra, e il
+     controllo sui caratteri chiude la porta a tutto il resto: non esiste un
+     modo di uscire da `assets/`. Fuori da qui la cartella-versione non e'
+     raggiungibile dalla LAN — mai `express.static` sulla cartella intera,
+     perche' il giorno in cui la variabile punta a un albero di sorgenti
+     quella riga li pubblica tutti. */
+  app.get('/assets/:file', (req, res) => {
+    const nome = req.params.file;
+    if (!/^[A-Za-z0-9._-]+$/.test(nome) || nome.includes('..')) {
+      return res.status(400).json({ error: 'nome di risorsa non valido' });
+    }
+    const qui = path.join(APP_DIR, 'assets', nome);
+    if (fs.existsSync(qui)) return invia(req, res, qui, PER_SEMPRE);
+
+    /* Il ripiego su `precedente`: chi stava caricando la pagina nell'istante
+       dello scambio chiede assets che `corrente` non ha piu'. I nomi portano
+       l'impronta, quindi due versioni non possono collidere. */
+    const prima = PREV_DIR ? path.join(PREV_DIR, 'assets', nome) : null;
+    if (prima && fs.existsSync(prima)) return invia(req, res, prima, PER_SEMPRE);
+
+    res.status(404).json({ error: 'risorsa inesistente' });
+  });
+
+  app.get(['/', '/app'], (req, res) => invia(req, res, indice, 'no-cache'));
+} else {
+  app.get(['/', '/app'], (req, res) => {
+    if (!APP_FILE) {
+      return res.status(503).type('text/plain').send(
+        'Applicativo non configurato: impostare PATHFINDER_APP_DIR e riavviare il servizio.');
+    }
+    noCache(res);
+    res.sendFile(APP_FILE);
+  });
+}
 
 app.get('/api/app-info', wrap((req, res) => {
+  if (APP_DIR) {
+    const m = leggiManifesto();
+    /* `app_dir` e' la giunzione, `punta_a` la cartella vera: e' cosi' che si
+       vede QUALE versione sta servendo senza aprire niente. */
+    let punta_a = null;
+    try { punta_a = fs.realpathSync(APP_DIR); } catch {}
+    return res.json({
+      service_version: VERSION,
+      modo: 'cartella',
+      app_dir: APP_DIR,
+      punta_a,
+      versione: m?.versione ?? null,
+      impronta: m?.impronta ?? null,
+      byte_totali: m?.byte_totali ?? null,
+      costruita: m?.costruita ?? null,
+      file: m?.file?.length ?? null,
+    });
+  }
   let stat = null;
   try { const s = fs.statSync(APP_FILE); stat = { bytes: s.size, mtime: s.mtime.toISOString() }; } catch {}
-  res.json({ service_version: VERSION, app_file: APP_FILE, ...stat });
+  res.json({ service_version: VERSION, modo: 'file', app_file: APP_FILE, ...stat });
 }));
 
 app.use((req, res) => res.status(404).json({ error: 'endpoint inesistente' }));
@@ -449,7 +562,29 @@ const server = srv.listen(PORT, () => {
   console.log(`  applicativo ${schema}://localhost:${PORT}/`);
   for (const ip of lan) console.log(`  in rete     ${schema}://${ip}:${PORT}/`);
   if (schema === 'http') console.log('  ATTENZIONE  senza certificato il PIN viaggia in chiaro');
-  if (!fs.existsSync(APP_FILE)) {
+  /* Un applicativo che non c'e' NON ferma il servizio: le rotte `/api`
+     devono rispondere lo stesso, e i terminali gia' aperti continuano a
+     lavorare. E' la stessa scelta del 13/08, quando il file servito fu
+     cancellato per errore e il magazzino ando' avanti. */
+  if (APP_DIR) {
+    const mancanti = ['index.html', 'manifest.json']
+      .filter((f) => !fs.existsSync(path.join(APP_DIR, f)));
+    if (mancanti.length) {
+      console.error(`  ATTENZIONE  la cartella dell'applicativo non e' completa: ${APP_DIR}`);
+      console.error(`              mancano: ${mancanti.join(', ')}`);
+      console.error('              i terminali riceveranno una pagina vuota (404).');
+      console.error('              Il servizio dati resta vivo: le rotte /api rispondono.');
+    } else {
+      const m = leggiManifesto();
+      let punta_a = APP_DIR;
+      try { punta_a = fs.realpathSync(APP_DIR); } catch {}
+      console.log(`  applicativo ${m?.versione ?? '?'} — ${path.basename(punta_a)}`);
+      console.log(`  impronta    ${m?.impronta ?? '(manifesto illeggibile)'}`);
+    }
+  } else if (!APP_FILE) {
+    console.error('  ATTENZIONE  nessun applicativo configurato.');
+    console.error('              Impostare PATHFINDER_APP_DIR sulla giunzione `corrente`.');
+  } else if (!fs.existsSync(APP_FILE)) {
     console.error(`  ATTENZIONE  l'applicativo NON esiste: ${APP_FILE}`);
     console.error('              i terminali riceveranno una pagina vuota (404).');
     console.error('              Indicare il file giusto in PATHFINDER_APP e riavviare.');

@@ -4,9 +4,50 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 
+const zlib = require('zlib');
+
 const TMP = path.join(os.tmpdir(), `pathfinder-collaudo-${Date.now()}.db`);
 process.env.PATHFINDER_DB = TMP;
 process.env.PATHFINDER_PORT = '4199';
+
+/* ── 1.7 · UNA CARTELLA-VERSIONE FINTA ────────────────────────────────────
+   Il servizio legge le variabili all'avvio, quindi la cartella va costruita
+   PRIMA del `require`. Sono due: `corrente`, con l'indice e un asset, e
+   `precedente` con un asset che `corrente` non ha — cosi' si prova il
+   ripiego che copre chi stava caricando la pagina durante lo scambio. */
+const APP = path.join(os.tmpdir(), `pathfinder-app-${Date.now()}`);
+const ORA = path.join(APP, 'corrente');
+const PRIMA = path.join(APP, 'precedente');
+
+const INDICE = '<!doctype html><title>finta</title><p>PATHFINDER-COLLAUDO';
+const ASSET_ORA = 'export const dove = "corrente";';
+const ASSET_PRIMA = 'export const dove = "precedente";';
+
+fs.mkdirSync(path.join(ORA, 'assets'), { recursive: true });
+fs.mkdirSync(path.join(PRIMA, 'assets'), { recursive: true });
+fs.writeFileSync(path.join(ORA, 'index.html'), INDICE);
+fs.writeFileSync(path.join(ORA, 'assets', 'index-AAAA1111.js'), ASSET_ORA);
+/* Il `.gz` porta un contenuto DIVERSO dal file in chiaro. Non e' un dispetto:
+   e' l'unico modo di provare quale dei due percorsi ha risposto, visto che
+   `fetch` decomprime da solo e la forma compressa non si vede piu' arrivata
+   la risposta. In produzione i due contenuti sono lo stesso byte. */
+fs.writeFileSync(path.join(ORA, 'assets', 'index-AAAA1111.js.gz'),
+                 zlib.gzipSync(ASSET_ORA.replace('corrente', 'corrente-compresso')));
+fs.writeFileSync(path.join(PRIMA, 'assets', 'index-BBBB2222.js'), ASSET_PRIMA);
+/* IL BOM DAVANTI E' VOLUTO. `installa-versione.ps1` genera il manifesto di una
+   consegna avvolta, e in PowerShell 5.1 `Out-File -Encoding utf8` scrive UTF-8
+   col BOM: `JSON.parse` su di lui lancia, e `/api/app-info` rispondeva versione
+   e impronta NULLE dopo un ritorno indietro. Trovato al banco il 17/08 con
+   tutti i collaudi verdi — da qui in avanti lo copre una prova. */
+fs.writeFileSync(path.join(ORA, 'manifest.json'), '﻿' + JSON.stringify({
+  versione: '1.7-collaudo',
+  costruita: new Date().toISOString(),
+  byte_totali: INDICE.length + ASSET_ORA.length,
+  file: [{ percorso: 'index.html', byte: INDICE.length, sha256: 'x' }],
+  impronta: 'impronta-di-prova',
+}));
+
+process.env.PATHFINDER_APP_DIR = ORA;
 
 const { app, db, server } = require('../pathfinder-server.js');
 
@@ -450,11 +491,60 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   ok('backup a caldo del database', bk.stato === 200 && fs.existsSync(bk.dati.file),
      bk.dati.file ? path.basename(bk.dati.file) : bk.dati.error);
 
+  // ── 1.7 · L'applicativo servito da una cartella ───────────────────
+  /* `fetch` chiede gzip da solo e lo decomprime senza dirlo: per sapere QUALE
+     dei due file ha risposto si guarda il contenuto, non l'intestazione. */
+  const chiedi = async (url, intestazioni = {}) => {
+    const r = await fetch(BASE + url, { headers: intestazioni });
+    return { stato: r.status, cache: r.headers.get('cache-control'), testo: await r.text() };
+  };
+
+  const indice = await chiedi('/');
+  ok('la radice serve l index.html della cartella',
+     indice.stato === 200 && indice.testo.includes('PATHFINDER-COLLAUDO'));
+  ok('l indice NON si mette in cache', indice.cache === 'no-cache', indice.cache);
+
+  const inChiaro = await chiedi('/assets/index-AAAA1111.js', { 'accept-encoding': 'identity' });
+  ok('un asset di `corrente` viene servito',
+     inChiaro.stato === 200 && inChiaro.testo.includes('"corrente"'));
+  ok('gli assets si mettono in cache per sempre',
+     /immutable/.test(inChiaro.cache || '') && /31536000/.test(inChiaro.cache || ''),
+     inChiaro.cache);
+
+  const compresso = await chiedi('/assets/index-AAAA1111.js', { 'accept-encoding': 'gzip' });
+  ok('a chi accetta gzip arriva il .gz scritto dalla build',
+     compresso.testo.includes('"corrente-compresso"'), compresso.testo.trim());
+
+  const ripiego = await chiedi('/assets/index-BBBB2222.js');
+  ok('un asset che `corrente` non ha piu arriva da `precedente`',
+     ripiego.stato === 200 && ripiego.testo.includes('"precedente"'),
+     'copre chi stava caricando la pagina durante lo scambio');
+
+  const fuori = await chiedi('/assets/..%2Fmanifest.json');
+  ok('non si esce dalla cartella assets', fuori.stato === 400, 'stato ' + fuori.stato);
+
+  const mancante = await chiedi('/assets/index-CCCC3333.js');
+  ok('un asset inesistente da 404', mancante.stato === 404, 'stato ' + mancante.stato);
+
+  const info = await call('GET', '/api/app-info');
+  ok('app-info dice modo, versione e impronta del manifesto',
+     info.dati.modo === 'cartella'
+       && info.dati.versione === '1.7-collaudo'
+       && info.dati.impronta === 'impronta-di-prova',
+     `${info.dati.versione} · ${info.dati.impronta}`);
+  ok('app-info dice a quale cartella punta la giunzione',
+     typeof info.dati.punta_a === 'string' && info.dati.punta_a.length > 0,
+     info.dati.punta_a ? path.basename(info.dati.punta_a) : '(nessuna)');
+
   // ── Chiusura ──────────────────────────────────────────────────────
   console.log(`\n  ${passate} passate, ${fallite} fallite\n`);
   server.close();
   db.close();
-  try { fs.unlinkSync(TMP); fs.rmSync(dirBackup, { recursive: true, force: true }); } catch {}
+  try {
+    fs.unlinkSync(TMP);
+    fs.rmSync(dirBackup, { recursive: true, force: true });
+    fs.rmSync(APP, { recursive: true, force: true });
+  } catch {}
   process.exit(fallite ? 1 : 0);
 })().catch(err => {
   console.error('\n  COLLAUDO INTERROTTO:', err);
