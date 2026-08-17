@@ -1,4 +1,16 @@
-import * as XLSX from 'xlsx';
+/* ── 1.7 · SheetJS ENTRA DA FUORI ─────────────────────────────────────────
+   Questo modulo NON importa `xlsx`: se lo facesse, il chunk separato della
+   1.7 non esisterebbe — basta un import statico da un file del chunk
+   principale per riportarcelo dentro.
+
+   E NON diventa asincrono. `parse()` è sincrona, e le 26 prove di
+   `test/odp.test.js` la chiamano così: la purezza di questo modulo è il
+   motivo per cui quelle prove esistono, e si collauda da fermo. Quindi il
+   modulo lo riceve da fuori, una volta, con `usaXLSX()` — l'interfaccia la
+   chiama dopo `caricaExcel()`, le prove in cima al file. */
+type Excel = typeof import('xlsx');
+
+let XLSX: Excel | null = null;
 
 type Riga = any[];
 
@@ -40,6 +52,11 @@ export type EsitoODP =
 
 const OdpParser = {
 
+  /** Deposita SheetJS, che questo modulo non importa. Si chiama una volta. */
+  usaXLSX(modulo: Excel): void {
+    XLSX = modulo;
+  },
+
   /* Etichette usate come ancore. Confronto normalizzato: maiuscolo, spazi
      multipli compressi, accenti irrilevanti perché mai in posizione utile. */
   _norm(v: unknown): string {
@@ -62,7 +79,7 @@ const OdpParser = {
     const n = Number(v);
     if (!Number.isFinite(n) || n < 1 || n > 2958465) return '';
     try {
-      if (typeof XLSX !== 'undefined' && XLSX.SSF?.parse_date_code) {
+      if (XLSX?.SSF?.parse_date_code) {
         const d = XLSX.SSF.parse_date_code(n);
         if (d?.y) {
           return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
@@ -88,7 +105,7 @@ const OdpParser = {
   },
 
   parse(arrayBuffer: ArrayBuffer): EsitoODP {
-    if (typeof XLSX === 'undefined') {
+    if (!XLSX) {
       return { ok: false, error: 'Libreria Excel non disponibile: ricaricare la pagina con connessione attiva.' };
     }
     let rows: Riga[];

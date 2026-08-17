@@ -1,4 +1,8 @@
-import * as XLSX from 'xlsx';
+/* 1.7 — SheetJS non si importa piu' in cima: e' 864 KB su 1,61 MB, e serve
+   sette volte in tutto il file. `caricaExcel()` lo prende quando serve, una
+   volta sola. Chi rimette qui `import * as XLSX from 'xlsx'` se lo riporta
+   dentro al chunk principale e annulla la 1.7 — vedi `modules/excel.ts`. */
+import { caricaExcel } from '../modules/excel';
 import { LOG_RETENTION_DAYS, LOG_RETENTION_MS, MOV, MOV_LABELS } from '../core/costanti';
 import { debounce, _h } from '../core/utils';
 import { Persistence } from '../core/persistence/index';
@@ -1992,9 +1996,10 @@ const App = {
      mese — quante ne sono state aperte, da chi, quanto sono state ferme —
      e con le durate in DUE forme: in chiaro per chi legge, in minuti per
      chi ci fa una tabella pivot. */
-  exportTasksExcel() {
+  async exportTasksExcel() {
     const tutte = Store.getTasks().slice().sort((a, b) => (b.requested_at || 0) - (a.requested_at || 0));
     if (!tutte.length) return this.toast('Nessuna attività da esportare', 'error');
+    const XLSX = await caricaExcel();
     const min = (ms) => (ms === null || ms === undefined) ? '' : Math.round(ms / 60000);
     const dt = (ms) => ms ? new Date(ms).toLocaleString('it-IT') : '';
 
@@ -2809,9 +2814,10 @@ const App = {
         <button class="btn btn-accent" onclick="App.esportaDeroghe()">📊 Esporta Excel</button>`);
   },
 
-  esportaDeroghe() {
+  async esportaDeroghe() {
     const d = (this._conf || this._aggiornaConformita())?.deroghe || [];
     if (!d.length) return this.toast('Niente da esportare', 'warning');
+    const XLSX = await caricaExcel();
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(x => ({
       'Ubicazione': x.location_code, 'Articolo': x.article_code,
@@ -2831,9 +2837,10 @@ const App = {
     }[tipo] || tipo;
   },
 
-  esportaNonConformita() {
+  async esportaNonConformita() {
     const conf = this._conf || this._aggiornaConformita();
     if (!conf?.nonConformita.length) return this.toast('Niente da esportare', 'warning');
+    const XLSX = await caricaExcel();
     const data = conf.nonConformita.map(n => ({
       'Gravità': n.gravita === 'alta' ? 'ALTA' : 'MEDIA',
       'Tipo': this._etichettaTipoNC(n.tipo),
@@ -4609,7 +4616,7 @@ const App = {
       <footer class="doc-zone-foot">
         ${firme}
         <div class="pr-footer">
-          <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder 1.6 — Dietopack S.r.l. / Naturacare Group</span>
+          <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder 1.7 — Dietopack S.r.l. / Naturacare Group</span>
           <span>${this._esc(docId)} — ${this._esc(printedLabel)} ${this._esc(fmt)}</span>
         </div>
       </footer>
@@ -5427,6 +5434,9 @@ const App = {
       return this.toast('Formato non valido · Caricare il file .xlsx esportato da Sage X3', 'error');
     }
     try {
+      /* 1.7 — il parser resta sincrono e non importa SheetJS: glielo diamo
+         qui, dopo che il chunk e' arrivato. Vedi `modules/odpParser.ts`. */
+      OdpParser.usaXLSX(await caricaExcel());
       const buf = await file.arrayBuffer();
       const res = OdpParser.parse(buf);
       if (!res.ok) {
@@ -12771,7 +12781,7 @@ const App = {
 
   /* Export Registro Movimenti completo in Excel (4 fogli) */
   async exportMovLogExcel() {
-    if (typeof XLSX === 'undefined') return this.toast('Libreria Excel non disponibile', 'error');
+    const XLSX = await caricaExcel();
     const totale = Store.getMovLogTotal();
     if (!totale) return this.toast('Nessuna movimentazione da esportare', 'error');
     if (totale > 100000 && !await Dialog.confirm({
@@ -12857,8 +12867,8 @@ const App = {
     this.toast(`📊 Esportato: ${fn} (${log.length} record, 4 fogli)`, 'success');
   },
 
-  exportGiacenzeExcel() {
-    if (typeof XLSX === 'undefined') return this.toast('Libreria Excel non disponibile', 'error');
+  async exportGiacenzeExcel() {
+    const XLSX = await caricaExcel();
     const inventory = Store.getInventorySnapshot();
     if (!inventory.length) return this.toast('Nessuna giacenza da esportare', 'warning');
 
@@ -12988,6 +12998,7 @@ const App = {
     const file = event.target.files[0];
     if (!file) return;
     try {
+      const XLSX = await caricaExcel();
       const buf = await file.arrayBuffer();
       const wb = XLSX.read(new Uint8Array(buf), { type: 'array' });
       const ws = wb.Sheets[wb.SheetNames[0]];
@@ -13160,9 +13171,10 @@ const App = {
     });
   },
 
-  exportArticlesExcel() {
+  async exportArticlesExcel() {
     const articles = Store.getArticles();
     if (!articles.length) return this.toast('Nessun articolo da esportare', 'warning');
+    const XLSX = await caricaExcel();
     const data = articles.map(a => ({
       'Codice': a.code, 'Descrizione': a.description, 'Categoria': a.category || '',
       'Fornitore': a.supplier || '', 'UM': a.unit || 'PZ',

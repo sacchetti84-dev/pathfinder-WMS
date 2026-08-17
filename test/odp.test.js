@@ -2,6 +2,11 @@ import { describe, it, expect } from 'vitest';
 import * as XLSX from 'xlsx';
 import { OdpParser } from '../src/modules/odpParser';
 
+/* 1.7 — il parser non importa piu' SheetJS: nel prodotto arriva da un chunk
+   caricato a richiesta, qui glielo diamo noi. Una riga, e le 26 prove sotto
+   restano quelle che erano. */
+OdpParser.usaXLSX(XLSX);
+
 /* Da matrice di celle a .xlsx a ArrayBuffer, che è ciò che il parser riceve
    dall'input file dell'interfaccia. */
 function foglio(righe) {
