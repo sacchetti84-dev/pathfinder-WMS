@@ -167,7 +167,7 @@ const Vault = {
       const manifest = {
         _format: 'warehouse-mapper-vault-1',
         _app: 'Pathfinder Warehouse Mapper',
-        _appVersion: '1.6',
+        _appVersion: '1.7',
         aggiornato: new Date().toISOString(),
         stato_file: `wm-stato-${oggi}.json`,
         stato_sha256: await this._sha256(statoJson),

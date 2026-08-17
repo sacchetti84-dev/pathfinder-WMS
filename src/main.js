@@ -42,6 +42,6 @@ window.addEventListener('error', (e) => {
   App.toast(`Errore imprevisto · ${e.message || 'vedi console'}`, 'error');
 });
 
-// © Andrea Sacchetti — Dietopack S.r.l. — Pathfinder 1.6 — Fine script
+// © Andrea Sacchetti — Dietopack S.r.l. — Pathfinder 1.7 — Fine script
 
 window.App = App;

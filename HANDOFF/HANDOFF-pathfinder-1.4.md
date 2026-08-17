@@ -6,7 +6,15 @@ permanenti nella §5, le trappole nella §6, le convenzioni nella §7. I documen
 vecchi restano leggibili in `ARCHIVIO/HANDOFF STORICI/` — vedi §10.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
-Data: 14/08/2026 · Rev. 19 — **MODULARIZZAZIONE CSS & ARCHITETTURA VISTE UI**, il 14/08:
+Data: **17/08/2026 · Rev. 20 — LA CONSEGNA DIVENTA UNA CARTELLA (1.7)**, costruita
+e provata al banco, **non ancora installata**. Una versione è una cartella con
+gli assets a impronta; `xlsx` si carica a richiesta; lo scambio e il ritorno
+indietro sono il ripuntamento di una giunzione, **senza amministratore e senza
+riavvio**. Primo caricamento da 1.610 a **251 kB**, ricarica a **300 byte**.
+Trovato e chiuso un difetto che i collaudi non vedevano — §3novies, e il
+disegno per intero in **[PIANO-CONSEGNA-1.7](PIANO-CONSEGNA-1.7.md)**
+
+Rev. 19 — **MODULARIZZAZIONE CSS & ARCHITETTURA VISTE UI**, il 14/08:
 `01-base.css` (2.731 righe) scomposto in 5 file puliti preservando la cascata esatta;
 avviata la cartella `src/ui/views/` con le istruzioni e la roadmap per l'estrazione
 progressiva a blocchi di `app.js` verso TypeScript; verificati tutti i collaudi e
@@ -45,16 +53,17 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Voce | Valore |
 |---|---|
-| In magazzino, **adesso** | **`pathfinder-1.6.html`** — verificato su `/api/app-info`, **1.625.239 byte**, installato il 13/08 sera |
+| In magazzino, **adesso** | **`pathfinder-1.6.1.html`** — in radice, **1.614.368 byte**. È la build del 14/08, che fino al 17/08 veniva servita **da dentro `outDir`**: ogni `npm run build` sarebbe finito davanti agli operatori — §3novies |
+| **1.7 — costruita, non installata** | La consegna multi-file. Entra in due passi, INDEX §7ter: il primo vuole l'amministratore **una volta sola**, e dopo non serve più a nessuno dei due gesti |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e **`feature.uom`** (13/08 13:54:36, `BABB`). Gli altri tre spenti. **Riletto da `featureLog` la sera del 13/08** — §3septies |
 | Ritorno indietro | **`pathfinder-1.4.4.html`**, in radice: un comando solo, senza ripescare niente. Accanto c'è anche la 1.4.3 |
-| Sorgente | 38 file in `src/`: **29 TypeScript**, 5 JavaScript, **9 CSS** · modularizzazione CSS completata, creata cartella `src/ui/views/` (14/08) |
+| Sorgente | 39 file in `src/`: **30 TypeScript**, 5 JavaScript, **9 CSS** · modularizzazione CSS completata e `src/ui/views/` creata (14/08) · `modules/excel.ts` (1.7) |
 | Ancora JavaScript | `main.js` · `ui/` (4 file). **`core/store.js` non esiste più** |
 | Collezioni | **20** — le 19 più **`recipients`** (1.6), creata dal riavvio del 13/08 sera su un database che esisteva già |
 | **1.4.3** | **in magazzino**: sei blocchi su sei, otto flussi provati su una copia del database vero prima di installarla — §3 |
 | **1.4.3.1** | vissuta mezza giornata e **assorbita dalla 1.4.4**: il selettore 📍 che chiudeva la maschera sotto, e il campo «A» sui tipi che una destinazione non ce l'hanno — §3bis |
 | **1.4.4** | **in magazzino**: le due famiglie di chiusura, il Posizionamento tolto, la Conta rifatta come inventario mirato — §3ter |
-| Collaudi | **435 client** · **55 servizio** · **8 migrazione** — tutti verdi |
+| Collaudi | **435 client** · **65 servizio** (dieci nuove con la 1.7) · **8 migrazione** — tutti verdi |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Scadenza progetto | **31/12/2026** · ultima installazione utile **19/12** |
 
@@ -105,6 +114,7 @@ Repo privato `sacchetti84-dev/pathfinder`, branch `main`, albero pulito e in par
 
 | Commit | Cosa |
 |---|---|
+| *17/08* | **La 1.7: la consegna diventa una cartella.** Quattro blocchi su sei — build multi-file col manifesto, `xlsx` a richiesta, il servizio che serve una cartella, i due script della giunzione. Più tre giorni di lavoro che erano rimasti fuori da `git log` e il difetto di `outDir` — §3novies |
 | *14/08* | **Modularizzazione CSS, avvio `src/ui/views/` e guida per Claude**: `01-base.css` (2.731 righe) diviso in 5 file puliti rispettando la cascata (`01-tokens.css`, `01-base.css`, `01-components.css`, `01-layout.css`, `01-views.css`). Avviata l'architettura per l'estrazione a blocchi di `app.js` verso TypeScript. Ripristinato il database attivo dai backup serali — §3octies |
 | *1.4.3.1* | **Due difetti della maschera di creazione, trovati usandola**: il selettore 📍 che chiudeva la finestra sotto invece della propria, e il campo «A» offerto ai sei tipi che una destinazione non ce l'hanno. Nasce `vuoleDestinazione`, con 3 prove — §3bis |
 | *1.4.3 · sesto* | **La 1.4.3 prende il suo numero e diventa un file**: quattro numeri, non tre — le serve un ritorno indietro suo |
@@ -673,6 +683,75 @@ Si segue lo stesso metodo rigoroso a blocchi usato con successo per `store.ts`.
 - **Validazione a ogni passo**: Eseguire sempre `npm run check`, `npm test` e `npm run build` prima di considerare chiuso un blocco.
 - **Banco di prova nel browser**: Testare sempre su una porta secondaria (4199) contro una copia del database prima di considerare completato un blocco.
 
+### 3novies. La 1.7 — la consegna diventa una cartella (17/08)
+
+Disegno, blocchi e decisioni D22-D29: **[PIANO-CONSEGNA-1.7](PIANO-CONSEGNA-1.7.md)**.
+Qui sta solo ciò che una conversazione nuova deve sapere subito.
+
+#### Il difetto che stava in produzione da tre giorni
+
+`/api/app-info` rispondeva **`…\MAPPER\Pathfinder 1.6\pathfinder-1.6.html`**: la
+produzione leggeva **da dentro `outDir`**, che `npm run build` azzera. Ogni
+build — anche una di prova — sarebbe finita davanti agli operatori, e una build
+fallita a metà li avrebbe lasciati in 404. È l'incidente del 13/08 da un'altra
+porta, e nessuno se n'era accorto perché **i documenti dicevano un'altra cosa**:
+INDEX §5 dichiarava la radice.
+
+E il file servito non era quello che i documenti dichiaravano: **1.614.368 byte
+contro 1.625.239**, cioè la build del 14/08 coi CSS modularizzati, non la 1.6 del
+13/08. Spostare la variabile sulla radice sarebbe stato un **ritorno indietro
+silenzioso**, non una correzione: perciò in radice è entrata
+`pathfinder-1.6.1.html`, byte per byte la build che stava girando, e la variabile
+punta lì.
+
+> **Da qui esce una regola, e vale oltre questo caso.** Un rilascio si verifica
+> confrontando `app_file` **e** i byte, ed è scritto da tempo — ma nessuno lo
+> rifà dopo, e nel frattempo qualcuno sposta una variabile di macchina alle
+> cinque del pomeriggio. Il primo comando di ogni conversazione che tocchi la
+> consegna è `Invoke-RestMethod http://127.0.0.1:4173/api/app-info`: **quello che
+> risponde il servizio batte quello che dicono questi documenti.**
+
+#### Cosa fa la 1.7, in tre righe
+
+Una versione è **una cartella** — indice, assets coi nomi a impronta, manifesto —
+e vive in `C:\Pathfinder\app\`, fuori da OneDrive come il database. Lo scambio e
+il ritorno indietro sono il **ripuntamento di una giunzione**: senza
+amministratore, senza riavviare, in due secondi, e `precedente` copre chi aveva
+la pagina a metà caricamento nell'istante dello scambio. Il **manifesto con
+l'impronta** sostituisce il conteggio dei byte come prova d'identità di una
+build.
+
+`xlsx` — 864 KB su 1,61 MB, per una funzione che gira qualche volta al giorno —
+si carica a richiesta. E il servizio, che non aveva **mai** compresso niente,
+adesso passa i `.gz` che la build ha scritto una volta sola.
+
+| | prima | 1.7, misurato al banco |
+|---|---:|---:|
+| Primo caricamento | 1.610 kB | **251 kB** |
+| Ricarica | 1.610 kB | **300 byte** |
+
+#### Il difetto che solo il banco ha trovato
+
+Con `npm run check` a 0, 435 prove client e 65 sul servizio tutte verdi, dopo un
+ritorno indietro `/api/app-info` rispondeva **`versione: null, impronta: null`** —
+cioè proprio i due numeri su cui si verifica un'installazione. Causa: il
+manifesto generato da `installa-versione.ps1` aveva il **BOM**, perché
+`Out-File -Encoding utf8` in PowerShell 5.1 lo scrive, e `JSON.parse` sul BOM
+lancia. Adesso lo script scrive senza, il servizio lo tollera comunque, e il
+manifesto finto del collaudo **ne porta uno apposta**: la prova resta.
+
+È la terza volta in una settimana che la stessa lezione si presenta. `tsc` dice
+se il codice è coerente, i collaudi dicono se le parti fanno quello che
+promettono, **e nessuno dei due dice se l'applicativo funziona.**
+
+#### Cosa manca
+
+Metterla in servizio: due passi in **INDEX §7ter**, e il primo vuole
+l'amministratore una volta sola. Poi i blocchi 5b e 6 — la prova della 1.7 vera
+contro il database di produzione, e il resto dei documenti.
+
+**E il ritorno indietro si prova prima di darla agli operatori**, non dopo.
+
 #### 3. Gestione e Ripristino del Database
 - Se il database attivo `C:\Pathfinder\data\pathfinder.db` risulta svuotato, i dati integri risiedono nei backup giornalieri automatici `C:\Pathfinder\backup\pathfinder-YYYY-MM-DD.db`.
 - Il ripristino istantaneo a caldo si effettua tramite Node leggendo le 20 collezioni dal backup con `all()` e riversandole con `bulkPut()` dentro una singola transazione `dst.transaction(NAMES, ...)`.
@@ -693,14 +772,16 @@ Tutti gli aperti dei tre handoff precedenti, verificati uno per uno. La colonna
 | 1quinquies | **`pathfinder-1.4.2.1.html` in `ARCHIVIO/VERSIONI PRECEDENTI/` porta un nome che non è più vero**: quella build è la 1.4.3 di oggi. Da rinominare o da annotare, prima che qualcuno ci torni sopra credendo di tornare a una versione che non è mai esistita | 13/08 | piccolo |
 | 1 | ~~Accendere `feature.tasks`~~ — **fatto il 13/08 alle 10:31:06**. Resta `feature.uom`, **un altro turno**, mai lo stesso giorno di `tasks` | 13/08 | Andrea, a inizio turno |
 | 1ter | **Confermare le due scelte della §5.41**: la colonna UM è `unit`, la quantità per collo è `pieces_per_pack`. Il piano ne prevedeva altre due, e sarebbero state due colonne con lo stesso nome | 12/08 | Andrea, prima di accendere `uom` |
-| 1quater | ~~1.5 e 1.6~~ — **in magazzino il 13/08 sera**, cinque comandi percorsi tutti. Il prossimo è la **1.7 — UOM riscritta**, poi 1.8…1.10, e solo dopo la UDC — §3quinquies | **13/08** | il prossimo lavoro |
+| 1quater | ~~1.5 e 1.6~~ — **in magazzino il 13/08 sera**, cinque comandi percorsi tutti | **13/08** | ✔ |
+| **1quinquies** | **METTERE LA 1.7 IN SERVIZIO.** È costruita e provata al banco, non installata: finché non lo è, `npm run build` è innocuo ma la 1.7 non esiste per nessuno. Due passi in **INDEX §7ter** — il primo vuole l'amministratore, ed è l'ultima volta | **17/08** | **il prossimo gesto** |
+| 1sexies | **La numerazione scala di uno dalla 1.8 in giù** — D22: la consegna multi-file ha preso il 1.7, la UOM riscritta è la **1.8**, e a scendere fino al WIP che diventa 1.14. Le date non si muovono | 17/08 | preso nota |
 | 2 | **Caratterizzare le zone** e popolare gli attributi in anagrafica. Senza, la mappa resta muta | nuovo | Andrea, alla configurazione |
 | 3 | **Partita IVA e dati del mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare, non codice da scrivere | **1.0 §7.1** | Andrea, quando opportuno |
 | 4 | **Nome DNS interno e certificato** dalla CA aziendale. **Il codice è pronto e non aspetta niente**: due variabili e HTTPS si accende. Il certificato arriva a lavori finiti | **1.0 §7.2** · 1.2 §6.1 | IT — non blocca |
 | 5 | **`weight_net_kg` e `pieces_per_pack` in anagrafica.** I campi sono cablati ovunque — maschere, import, export, peso del DDT: sono **solo da compilare**, colonne `Peso_Netto_Collo` e `Pezzi_Per_Collo`. Dalla 1.4.2 il secondo **decide se un articolo è gestito a UM**: senza, resta a soli colli anche a interruttore acceso | **1.0 §7.6** | import Excel |
 | 6 | **`ui/` in TypeScript**, `app.js` da solo sono 10.529 righe. Fuori dalla 1.4 | 1.2 §6.4 · 1.3 §6.4 | grande |
 | 7 | **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto (`store.ts` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`) | 1.3 | piccolo |
-| 8 | **`service_version` è ancora `'1.1'`** in `pathfinder-server.js`, ma il servizio è cambiato: `_migra` e 19 collezioni. Da decidere se allinearla, sapendo che è la versione del *servizio* e non dell'applicativo | 12/08 | piccolo |
+| 8 | ~~**`service_version` è ancora `'1.1'`**~~ — **chiuso il 17/08**: è `'1.7'`. La regola decisa è che si muove **quando cambia il contratto del servizio**, non a ogni rilascio dell'applicativo — e qui è cambiato davvero, con `PATHFINDER_APP_DIR` e la famiglia `/assets`. La versione dell'*applicativo* la dice il manifesto, e sono due cose diverse — D28 | 12/08 | ✔ |
 
 ### 3sexies. La 1.5 e la 1.6 — in magazzino la sera del 13/08
 
@@ -1358,7 +1439,7 @@ L'estetica di Pathfinder è governata dalla **chiarezza operativa, leggibilità 
 - **Non convertire `ui/` sperando che basti il compilatore**: due difetti su due, in questa conversione, li ha presi solo la prova nel browser.
 - **Non installare senza aver aperto la versione nuova in un browser**, contro una copia del database vero e su una porta sua. Tsc e i collaudi non hanno visto né la trappola 20 né la 21.
 - **Non togliere `window.App = App`** in coda a `main.js`: 366 punti chiamano `App` per nome e smetterebbero di funzionare **in silenzio**.
-- **Non scrivere a mano dentro `Pathfinder 1.4/`**: è prodotta, la build la azzera.
+- **Non scrivere a mano dentro `consegna/`** (era `Pathfinder 1.x/`): è prodotta, la build la azzera — e **non è la cartella che il servizio serve**.
 - **Non versionare `server/data/`**: contiene i dati veri e le anagrafiche operatori.
 - **Non aggiornare `dexie` e `xlsx`**: versioni fisse, l'applicativo è collaudato con quelle.
 - **Non collaudare sul database di lavoro. E `npm run dev` NON è al riparo**: la pagina servita da Vite parla col servizio vero sulla 4173, perché l'adapter remoto non guarda da quale porta arrivi. La prova si fa su una copia, su una porta sua, con `PATHFINDER_DB` spostato — §3sexies. È già costato un blocco d'accesso (1.0 §5.6).

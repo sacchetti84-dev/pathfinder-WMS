@@ -125,12 +125,12 @@ L'applicativo è su `http://localhost:4174/`. Per fermarlo: `Ctrl+C`.
 
 ## 4. Installazione sul PC di magazzino
 
-**Serve solo la cartella `Pathfinder 1.4`** — quella prodotta da
+**Serve solo la cartella `consegna`** — quella prodotta da
 `npm run build` (§10). Dentro c'è tutto: l'applicativo, il servizio,
 l'installazione, il backup e queste istruzioni. Il resto del progetto sulla
 macchina di magazzino non serve.
 
-1. Copia la cartella sulla macchina. **Sceglila corta**: `C:\Pathfinder\app`
+1. Copia la cartella sulla macchina. **Sceglila corta**: `C:\Pathfinder\servizio`
    va bene, una decina di sottocartelle dentro Desktop no. Windows si ferma a
    260 caratteri di percorso e l'installazione delle dipendenze, che scende in
    profondità dentro `node_modules`, è la prima a sbatterci.
@@ -138,7 +138,7 @@ macchina di magazzino non serve.
    amministratore*; nella barra del titolo deve comparire «Amministratore:»):
 
 ```powershell
-cd "C:\Pathfinder\app\Pathfinder 1.4\server"
+cd "C:\Pathfinder\servizio\consegna\server"
 .\installa-servizio.ps1
 ```
 
@@ -213,7 +213,7 @@ Get-ScheduledTask -TaskName "Pathfinder*" | Select-Object TaskName, State
 
 Il servizio non ha niente cablato: si sposta copiando due cose.
 
-1. **Copia** la cartella `Pathfinder 1.4` sulla macchina nuova (§4). Non
+1. **Copia** la cartella `consegna` sulla macchina nuova (§4). Non
    serve altro: dentro c'è applicativo, servizio e installazione.
 2. **Copia il database a caldo**, chiedendolo al servizio vecchio — mai con
    `Copy-Item` (§7 spiega perché):
@@ -247,7 +247,9 @@ anche quando gira come SYSTEM.
 |---|---|---|
 | `PATHFINDER_DB` | `C:\Pathfinder\data\pathfinder.db` | Il database. **Mai dentro una cartella sincronizzata** |
 | `PATHFINDER_PORT` | `4173` | La porta di ascolto |
-| `PATHFINDER_APP` | la impostano `installa-servizio.ps1` (§4) e il rilascio di una versione nuova (§8). Solo se manca, il servizio ripiega su `<cartella accanto a server\>\pathfinder-1.1.html` e, se non c'è, **lo dichiara all'avvio** | Il file dell'applicativo da servire |
+| `PATHFINDER_APP_DIR` | **1.7** — la imposta `installa-servizio.ps1` (§4) a `C:\Pathfinder\app\corrente`, e **da lì non si tocca più**: le versioni si scambiano ripuntando la giunzione. Se la cartella non ha `index.html` e `manifest.json`, il servizio **lo dichiara all'avvio e resta vivo** | La cartella dell'applicativo |
+| `PATHFINDER_APP_PREV` | il fratello `precedente` della cartella qui sopra. Si imposta solo per tenerlo altrove | Da dove arrivano gli assets della versione appena lasciata |
+| `PATHFINDER_APP` | il ripiego a file singolo, usato solo se `PATHFINDER_APP_DIR` non c'è. Il vecchio ripiego a `pathfinder-1.1.html` **è stato tolto**: era un file che in radice non esisteva da mesi | Il file dell'applicativo da servire |
 | `PATHFINDER_TLS_CERT` | — | Certificato in formato PEM. Se c'è, il servizio parla `https` |
 | `PATHFINDER_TLS_KEY` | — | Chiave privata. Deve essere **leggibile da SYSTEM** |
 
@@ -341,9 +343,39 @@ Invoke-RestMethod http://127.0.0.1:4199/api/health | Select-Object file, revisio
 
 ## 8. Aggiornare a una versione nuova
 
+> **DALLA 1.7 QUESTA PROCEDURA È DUE COMANDI, e nessuno dei due vuole
+> l'amministratore.** Una versione non è più un file ma una **cartella**, che
+> vive in `C:\Pathfinder\app\`; `PATHFINDER_APP_DIR` punta alla giunzione
+> `corrente` e non cambia mai più. Aggiornare e tornare indietro sono un
+> ripuntamento, e il servizio **non va riavviato**: risolve la giunzione a ogni
+> richiesta.
+>
+> ```powershell
+> cd "…\MAPPER"
+> npm run build
+> .\server\installa-versione.ps1 -Da .\consegna -Versione 1.8
+> Invoke-RestMethod http://127.0.0.1:4173/api/app-info   # versione e impronta
+> ```
+>
+> E il ritorno indietro:
+>
+> ```powershell
+> .\server\torna-indietro.ps1
+> ```
+>
+> **`consegna\` NON è la cartella che il servizio serve**: è `outDir`, e
+> `npm run build` la azzera a ogni giro. Da lì si installa. Puntarci la
+> produzione è l'errore trovato il 17/08, che era in piedi da tre giorni.
+>
+> Il riavvio del servizio resta necessario per una cosa sola: una modifica ai
+> file di `server\`, che Node carica all'avvio.
+>
+> Quello che segue è la procedura del modo a file singolo, che resta valida
+> finché `PATHFINDER_APP_DIR` non è impostata.
+
 1. **Backup prima.** Sempre, anche per una modifica piccola (§7).
 2. Copia il file nuovo dell'applicativo nella cartella `MAPPER`, prendendolo
-   da `Pathfinder 1.4\` (§10). In radice ci sta **il file che il servizio
+   da `consegna\` (§10). In radice ci sta **il file che il servizio
    serve**, ed è la ragione per cui non lo si punta direttamente dentro la
    cartella di consegna: quella la build la riscrive, e un rilascio deve
    essere un gesto, non un effetto collaterale di `npm run build`.
@@ -433,7 +465,7 @@ Aprendo `MAPPER` si vedono tre cose diverse, e non vanno confuse.
 
 | | Cos'è | Chi la tocca |
 |---|---|---|
-| **`Pathfinder 1.4/`** | **La consegna, completa.** L'applicativo in un file solo, il servizio dati, l'installazione, il backup e queste istruzioni. Si copia su una macchina nuova e si installa da lì, **senza il resto del progetto** | Nessuno a mano: la **produce** `npm run build` e la **svuota** a ogni giro |
+| **`consegna/`** | **La consegna, completa.** L'applicativo — dalla 1.7 un indice piu' `assets/` con un manifesto, non piu' un file solo — il servizio dati, l'installazione, il backup e queste istruzioni. Si copia su una macchina nuova e si installa da lì, **senza il resto del progetto** | Nessuno a mano: la **produce** `npm run build` e la **svuota** a ogni giro |
 | `src/` `test/` `index.html` e i file di configurazione | Il cantiere | Chi sviluppa |
 | `server/` | Il servizio dati, in funzione | Si installa una volta (§4), poi ci pensa Windows |
 | `ARCHIVIO/` | Versioni precedenti, file di prova, marchi, stampa etichette | Nessuno, di norma |
@@ -456,7 +488,7 @@ Aprendo `MAPPER` si vedono tre cose diverse, e non vanno confuse.
 |---|---|
 | `npm install` | Dipendenze del client |
 | `npm run dev` | Sviluppo con ricarica automatica su `localhost:5173` |
-| `npm run build` | Rifà `Pathfinder 1.4/`: l'applicativo e una copia di queste istruzioni |
+| `npm run build` | Rifà `consegna/`: l'applicativo, il manifesto e una copia di queste istruzioni. **Non è la cartella che il servizio serve** |
 | `npm run check` | Controllo dei tipi, client **e** servizio |
 | `npm test` | Collaudi automatici (serpentina, FEFO, geometria, parser ODP) — ~1 secondo |
 | `cd server && npm test` | 30 prove sul servizio, con database usa-e-getta |

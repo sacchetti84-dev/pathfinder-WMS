@@ -849,6 +849,22 @@ E si sposta il WIP, che è l'ultimo e il solo che non blocca nessuno.
 | D20 | **Due DDT parlano dello stesso destinatario quando coincide la partita IVA** (o il codice fiscale) | «Rossi Srl» e «ROSSI S.R.L.» sono lo stesso record. Un destinatario porta più destinazioni. §9.5 |
 | D21 | **Non si segnalano più ritardi del programma**: si prende nota e basta | Le date restano scritte come fatti; il giudizio sull'andamento lo dà Andrea. |
 
+### Prese — 17/08/2026, Andrea, sulla consegna
+
+Le sette decisioni **D22-D29** stanno per intero, con la ragione di ognuna, in
+**[PIANO-CONSEGNA-1.7 §10](PIANO-CONSEGNA-1.7.md)**. In breve: la consegna
+diventa **multi-file e prende il numero 1.7**, quindi tutto il resto scala di uno
+(D22) · una versione è **una cartella**, e una build a file singolo è una cartella
+con dentro il solo indice (D23) · le versioni installate vivono in
+**`C:\Pathfinder\app\`**, fuori da OneDrive (D24) · lo scambio è il ripuntamento
+della giunzione **`corrente`** (D25) · il **manifesto con l'impronta** sostituisce
+il conteggio dei byte (D26) · **`xlsx` si carica a richiesta** (D27) ·
+`service_version` diventa `'1.7'` e si muove **col contratto** (D28) · la
+**compressione si paga in build**, non a ogni richiesta (D29).
+
+> **D22 tocca questo documento in un punto solo ma importante**: da qui in giù i
+> numeri di versione della §9 sono scalati di uno. Le **date no** — D21.
+
 ### Aperte — bloccano la funzione, non l'inizio dei lavori
 
 | # | Cosa serve sapere | Entro | Blocca |
@@ -892,13 +908,14 @@ che lo reggeva è soddisfatta lo stesso.**
 |---|---|---|
 | **1.5** | **Campionamento GMP** — pulizia post-campionamento, verbale PDF, allergeni · più la rinomina Sposta → Trasferimento | 9.2 |
 | **1.6** | **Anagrafiche e parametri** — destinatari/destinazioni DDT, parametri articolo in Impostazioni, attributi di zona | 9.3, 9.5 |
-| **1.7** | **UOM riscritta** — colli a contenuto variabile, più colli incompleti, prelievo parziale in colli e UM ovunque | 9.4 |
-| **1.8** | **Viste giacenza** — pannello della mappa, pagina Giacenze con conta multipla e PDF. Dipende dalla 1.7 | 9.6 |
-| **1.9** | **Trasferimenti generati dall'ODP** — la spunta sull'avviso apre l'attività e aggiunge la tappa | 9.7 |
-| **1.10** | **UI mobile** — riconoscimento Android e interfaccia dedicata | 9.8 |
-| 1.11 | UDC — §4.3, invariata nel contenuto | 4.3 |
-| 1.12 | Motore logico di stoccaggio — §4.4 | 4.4 |
-| 1.13 | WIP — §4.5 | 4.5 |
+| **1.7** | **La consegna multi-file** — costruita il 17/08, non ancora installata. Una versione è una cartella, `xlsx` a richiesta, lo scambio è una giunzione. D22-D29 e il disegno in [PIANO-CONSEGNA-1.7](PIANO-CONSEGNA-1.7.md) | — |
+| **1.8** | **UOM riscritta** — colli a contenuto variabile, più colli incompleti, prelievo parziale in colli e UM ovunque | 9.4 |
+| **1.9** | **Viste giacenza** — pannello della mappa, pagina Giacenze con conta multipla e PDF. Dipende dalla 1.8 | 9.6 |
+| **1.10** | **Trasferimenti generati dall'ODP** — la spunta sull'avviso apre l'attività e aggiunge la tappa | 9.7 |
+| **1.11** | **UI mobile** — riconoscimento Android e interfaccia dedicata | 9.8 |
+| 1.12 | UDC — §4.3, invariata nel contenuto | 4.3 |
+| 1.13 | Motore logico di stoccaggio — §4.4 | 4.4 |
+| 1.14 | WIP — §4.5 | 4.5 |
 
 ### 9.2 Campionamento GMP — 1.5
 
@@ -946,7 +963,7 @@ Anagrafica articoli, campo per campo:
 **allergeni**, a **pericolosi**, o se sono **refrigerate** (D19). Oggi queste
 configurazioni non ci sono, o non sono globali.
 
-### 9.4 UOM riscritta — 1.7
+### 9.4 UOM riscritta — 1.8
 
 **Accendendo `feature.uom` la funzione non si comporta come deve: va riscritta**
 sui principi qui sotto, che sono l'operatività vera del magazzino.
@@ -988,7 +1005,7 @@ permanente o spot**.
 Due DDT parlano dello stesso destinatario quando **coincide la partita IVA** o il
 codice fiscale (D20).
 
-### 9.6 Viste della giacenza — 1.8
+### 9.6 Viste della giacenza — 1.9
 
 - **Selezionando un'ubicazione dalla mappa**, il menu che si apre a destra mostra
   **la giacenza in colli e in UM**.
@@ -1001,7 +1018,7 @@ codice fiscale (D20).
 > Se costa meno, **questa pagina può diventare un ramo della funzione
 > Inventario** invece di una voce sua.
 
-### 9.7 I trasferimenti che nascono dall'ODP — 1.9
+### 9.7 I trasferimenti che nascono dall'ODP — 1.10
 
 Alla configurazione iniziale del percorso di prelievo da ODP/XLS, quando il
 sistema riconosce **item in un magazzino diverso** da quello scelto come
@@ -1020,7 +1037,7 @@ Il flusso, per intero:
    oggetto di trasferimento;
 7. l'operatore percorre il prelievo e lo chiude come da funzione.
 
-### 9.8 UI mobile — 1.10
+### 9.8 UI mobile — 1.11
 
 La visualizzazione su dispositivi mobili è da migliorare. **Il sistema deve
 riconoscere se sta girando su Android** e ridimensionare correttamente
