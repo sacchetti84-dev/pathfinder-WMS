@@ -6,6 +6,11 @@ export const COLLEZIONI = [
   'mov_log', 'quarantine', 'pending_outbound', 'pick_session',
   'pick_archive', 'disposal_archive', 'operators', 'meta',
   'lots', 'udc', 'tasks', 'wip', 'storage_rules',
+  /* 1.6 — la ventesima. I destinatari dei DDT sono un'anagrafica vera —
+     un soggetto con piu' destinazioni — e non una colonna del documento:
+     tenerli in `meta` avrebbe voluto dire riscrivere l'intero elenco a ogni
+     DDT nuovo, e cercarli scorrendoli. */
+  'recipients',
 ] as const;
 
 /** Una collezione, e nient'altro: `Persistence.get('sitess', …)` non compila. */
@@ -18,7 +23,7 @@ export const CHIAVE_PRIMARIA = {
   pick_archive: 'doc_id', disposal_archive: 'doc_id',
   operators: 'op_id', meta: 'key',
   lots: '_id', udc: 'udc_id', tasks: 'task_id', wip: 'wip_id',
-  storage_rules: 'rule_id',
+  storage_rules: 'rule_id', recipients: 'rcp_id',
 } as const satisfies Record<Collezione, string>;
 
 export type ChiavePrimaria = typeof CHIAVE_PRIMARIA;
@@ -43,6 +48,7 @@ export const CAMPI_INDICIZZATI = {
   tasks: ['type', 'status', 'priority', 'requested_at', 'assigned_to'],
   wip: ['odp_num', 'item_key', 'status'],
   storage_rules: ['priority', 'attiva'],
+  recipients: ['vat', 'name'],
 } as const satisfies Record<Collezione, readonly string[]>;
 
 /** I campi su cui si può davvero costruire un criterio, per collezione. */

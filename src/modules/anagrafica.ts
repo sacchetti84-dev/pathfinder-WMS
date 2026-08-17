@@ -117,8 +117,21 @@ function leggiElenco<T extends string>(
   return { codici, scarti };
 }
 
-export function leggiAllergeni(raw: unknown): { codici: CodiceAllergene[]; scarti: string[] } {
-  return leggiElenco(raw, ALLERGENI);
+/* 1.6 — GLI ELENCHI AMMESSI POSSONO ESSERE PIÙ LUNGHI DELLE TABELLE.
+   D18 lascia aggiungere voci aziendali accanto ai 14 di legge, e l'import
+   Excel deve accettarle: chi le ha configurate se le aspetta in colonna.
+   Il parametro è opzionale e di serie vuoto — chi non passa niente ottiene
+   esattamente il comportamento che aveva prima. */
+export function leggiCodici(
+  raw: unknown, ordine: readonly { code: string }[],
+): { codici: string[]; scarti: string[] } {
+  return leggiElenco(raw, ordine);
+}
+
+export function leggiAllergeni(
+  raw: unknown, aggiunti: readonly { code: string; label: string }[] = [],
+): { codici: CodiceAllergene[]; scarti: string[] } {
+  return leggiElenco(raw, [...ALLERGENI, ...aggiunti] as readonly { code: CodiceAllergene }[]);
 }
 
 export function leggiCertificazioni(raw: unknown): { codici: CodiceCertificazione[]; scarti: string[] } {

@@ -23,7 +23,7 @@ import type { Collezione } from '../types/collezioni.js';
 import type {
   Sito, Zona, Articolo, Giacenza, StatoUbicazione, Movimento, Quarantena,
   DocumentoUscita, SessionePrelievo, ReportPrelievo, VerbaleSmaltimento,
-  Operatore, Lotto, Udc, Compito, ContoWip, RegolaStoccaggio, Istante,
+  Operatore, Lotto, Udc, Compito, ContoWip, RegolaStoccaggio, Destinatario, Istante,
 } from '../types/entita.js';
 
 /* ── Le forme ──────────────────────────────────────────────────────────── */
@@ -64,6 +64,7 @@ export const FORMA_CACHE = {
   tasks:            { field: 'tasks',           kind: 'list',   key: 'task_id',  insert: 'unshift' },
   wip:              { field: 'wip',             kind: 'list',   key: 'wip_id',   insert: 'unshift' },
   storage_rules:    { field: 'storageRules',    kind: 'list',   key: 'rule_id',  insert: 'push' },
+  recipients:       { field: 'recipients',      kind: 'list',   key: 'rcp_id',   insert: 'push' },
 } as const satisfies Record<Collezione, Forma>;
 
 /* ── La cache ──────────────────────────────────────────────────────────── */
@@ -98,6 +99,7 @@ export interface Cache {
   tasks: Compito[];
   wip: ContoWip[];
   storageRules: RegolaStoccaggio[];
+  recipients: Destinatario[];
   meta: MetaCache;
 }
 
@@ -201,7 +203,7 @@ export function cacheVuota(): Cache {
     movLog: [], quarantine: [], pendingOut: [],
     pickSession: null, pickArchive: [], disposalArchive: [], operators: [],
     movLogTotal: 0,
-    lots: [], udc: [], tasks: [], wip: [], storageRules: [],
+    lots: [], udc: [], tasks: [], wip: [], storageRules: [], recipients: [],
     meta: metaVuota(),
   };
 }

@@ -3,7 +3,7 @@ import { viteSingleFile } from 'vite-plugin-singlefile';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const CONSEGNA = 'Pathfinder 1.4';
+const CONSEGNA = 'Pathfinder 1.6';
 
 const DAL_SERVIZIO = [
   'pathfinder-server.js',   // il servizio
@@ -49,17 +49,22 @@ function cartellaDiConsegna(nome) {
 export default defineConfig({
   plugins: [
     viteSingleFile(),
-    /* Il nome porta i tre numeri, non due: la serie 1.4 sono sei rilasci
-       distinti (1.4.0 … 1.4.5) e ciascuno va in magazzino per conto suo. Il
-       ritorno indietro e' rimettere PATHFINDER_APP sul file precedente, che
-       resta in radice: senza il terzo numero i sei si sovrascriverebbero.
+    /* DALLA D14 IL NOME PORTA DUE NUMERI, non tre. Il vincolo dei tre
+       nasceva perche' i rilasci della serie 1.4 condividevano i primi due e
+       senza il terzo si sarebbero sovrascritti; con la numerazione
+       progressiva `pathfinder-1.6.html` e `pathfinder-1.7.html` sono gia'
+       nomi distinti, e la ragione che reggeva il vincolo e' soddisfatta lo
+       stesso. Le build di PROVA ne portano di piu': 1.6.1, 1.6.2.
 
-       Lo schedulatore che lancia il lavoro e' nato fuori piano e per un
-       giorno si e' chiamato 1.4.2.1, col quarto numero — i commit del 12 e
-       13/08 lo chiamano ancora cosi'. Al rilascio ha preso il numero
-       pianificato successivo, e la serie e' tornata a tre numeri: la UDC,
-       che nel piano era la 1.4.3, e' slittata di uno. */
-    cartellaDiConsegna('pathfinder-1.4.3.html'),
+       La 1.5 non diventa un file. E' il campionamento GMP piu' la rinomina
+       Sposta → Trasferimento, ed e' dentro la 1.6 per intero: la 1.4.1 aveva
+       fatto lo stesso dentro la 1.4.2, e la catena del ritorno indietro
+       regge lo stesso — quello che deve esistere e' il file precedente
+       INSTALLATO, non tutti quelli numerati.
+
+       Il ritorno indietro della 1.6 e' `pathfinder-1.4.4.html`, che resta in
+       radice. */
+    cartellaDiConsegna('pathfinder-1.6.html'),
   ],
 
   build: {

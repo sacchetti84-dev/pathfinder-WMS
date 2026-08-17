@@ -117,6 +117,17 @@ const COLLECTIONS = {
     pk: 'rule_id', pkType: 'text',
     indexed: ['priority', 'attiva'], unique: [],
     numeric: ['priority']
+  },
+
+  /* ── 1.6 — la ventesima, e la prima nata dall'uso ──────────────────────
+     I destinatari dei DDT si popolano da se': compilando un documento a un
+     soggetto che non c'e', il soggetto entra. `vat` NON e' unico a livello
+     di indice — un DDT a un privato non ha partita IVA, e due NULL
+     violerebbero un vincolo unico. L'unicita' la fa il client cercando
+     prima di scrivere, che e' dove sa anche COSA fare del doppione. */
+  recipients: {
+    pk: 'rcp_id', pkType: 'text',
+    indexed: ['vat', 'name'], unique: []
   }
 };
 

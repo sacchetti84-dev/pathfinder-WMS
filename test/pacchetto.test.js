@@ -25,7 +25,7 @@ function cache(sovrascrivi = {}) {
     movLog: [], quarantine: [], pendingOut: [],
     pickSession: null, pickArchive: [], disposalArchive: [], operators: [],
     movLogTotal: 0,
-    lots: [], udc: [], tasks: [], wip: [], storageRules: [],
+    lots: [], udc: [], tasks: [], wip: [], storageRules: [], recipients: [],
     meta: metaVuota(),
     ...sovrascrivi,
   };

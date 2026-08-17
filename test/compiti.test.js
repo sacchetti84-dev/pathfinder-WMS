@@ -5,7 +5,8 @@ import {
   transizioneAmmessa, eAperto, componiCompito, validaRichiesta,
   prioritaConsentita, ordinaCoda, misure, inRitardo, riepilogo,
   ORE_URGENZA_DEFAULT, OPERAZIONE, prioritaEffettiva, inScadenza,
-  operazioneDi, chiudeAMano, vuoleColli, daGiacenza, vuoleArticolo, vuoleUbicazione,
+  operazioneDi, chiudeAlGesto, vuoleColli, vuoleUbicazione,
+  vuoleDestinazione, tipiRichiedibili, nasceDalSistema,
   quantitaRichiesta, quantitaFatta, residuo, esaurito,
   avanzamento, avvioRitirabile,
 } from '../src/modules/compiti';
@@ -30,11 +31,26 @@ const compito = (extra = {}) => ({
 /* ── Le tabelle ─────────────────────────────────────────────────────── */
 
 describe('tabelle', () => {
-  it('gli otto tipi del piano, e nessun altro', () => {
+  /* SETTE RICHIEDIBILI, non gli otto del piano: il Posizionamento e'
+     uscito il 13/08. L'ottavo e' la Pulizia, che nessuno chiede — 1.5. */
+  it('i sette tipi richiedibili, e la Pulizia che nasce dal sistema', () => {
     expect(Object.keys(TIPI_COMPITO)).toEqual([
       'TRANSFER', 'PICK_SHIP', 'PICK_RET', 'QUARANTINE',
-      'SAMPLING', 'DISPOSAL', 'PUTAWAY', 'COUNT',
+      'SAMPLING', 'DISPOSAL', 'COUNT', 'CLEANING',
     ]);
+    expect(tipiRichiedibili()).toEqual([
+      'TRANSFER', 'PICK_SHIP', 'PICK_RET', 'QUARANTINE',
+      'SAMPLING', 'DISPOSAL', 'COUNT',
+    ]);
+  });
+
+  /* 1.5 — LA PULIZIA NON STA IN NESSUNA TENDINA. Nasce dalla conferma di un
+     campionamento e nasce gia' chiusa: se comparisse fra le scelte,
+     qualcuno aprirebbe una pulizia a mano e resterebbe li' per sempre. */
+  it('la Pulizia nasce dal sistema e nessuno la puo chiedere', () => {
+    expect(nasceDalSistema('CLEANING')).toBe(true);
+    expect(tipiRichiedibili()).not.toContain('CLEANING');
+    for (const t of tipiRichiedibili()) expect(nasceDalSistema(t), t).toBe(false);
   });
 
   it('ogni tipo ha etichetta e icona', () => {
@@ -475,9 +491,17 @@ describe('transizioni — l\'avvio che non ha prodotto niente', () => {
 /* ── Quale operazione apre quale attivita' ──────────────────────────── */
 
 describe('operazioneDi', () => {
-  it('tutti e otto i tipi sanno cosa aprire', () => {
-    for (const t of Object.keys(TIPI_COMPITO)) expect(operazioneDi(t)).toBeTruthy();
+  it('tutti i tipi richiedibili sanno cosa aprire', () => {
+    for (const t of tipiRichiedibili()) expect(operazioneDi(t), t).toBeTruthy();
     expect(Object.keys(OPERAZIONE).sort()).toEqual(Object.keys(TIPI_COMPITO).sort());
+  });
+
+  /* La Pulizia dichiara `none`, e `operazioneDi` traduce «niente da
+     aprire» in `null`: e' la stessa risposta di un tipo sconosciuto, ed e'
+     voluto — chi la prendesse in mano non deve trovarsi una maschera. */
+  it('la Pulizia non apre niente, perche nasce gia chiusa', () => {
+    expect(OPERAZIONE.CLEANING.modo).toBe('none');
+    expect(operazioneDi('CLEANING')).toBe(null);
   });
 
   it('i due prelievi vanno tutti e due sulle spedizioni', () => {
@@ -485,9 +509,9 @@ describe('operazioneDi', () => {
     expect(operazioneDi('PICK_RET').modo).toBe('shipping');
   });
 
-  it('carico e scarico sono la stessa vista con due direzioni', () => {
-    expect(operazioneDi('PUTAWAY').modo).toBe('io');
-    expect(operazioneDi('PUTAWAY').dir).toBe('in');
+  /* Lo Smaltimento resta l'unico che apre Carico/Scarico, in uscita: il
+     Posizionamento era l'altra direzione, e non e' piu' un compito. */
+  it('lo scarico apre Carico/Scarico in uscita', () => {
     expect(operazioneDi('DISPOSAL').modo).toBe('io');
     expect(operazioneDi('DISPOSAL').dir).toBe('out');
   });
@@ -497,54 +521,90 @@ describe('operazioneDi', () => {
   });
 });
 
-describe('le tre eccezioni per tipo', () => {
-  /* La Conta che torna giusta non produce nessun movimento: senza il gesto
-     a mano non si chiuderebbe mai. */
-  it('solo la Conta si chiude a mano', () => {
-    expect(chiudeAMano('COUNT')).toBe(true);
-    for (const t of Object.keys(TIPI_COMPITO)) {
-      if (t !== 'COUNT') expect(chiudeAMano(t), t).toBe(false);
-    }
+describe('le eccezioni per tipo', () => {
+  /* IL POSIZIONAMENTO NON ESISTE PIU' — 13/08. Mettere a scaffale la merce
+     appena arrivata succede in coda all'accettazione, che su Pathfinder non
+     passa: nessuno l'avrebbe mai chiesto come compito. La prova sta qui
+     perche' un tipo tolto e' una decisione, e chi lo rimettesse deve
+     inciampare in una riga rossa e non in una tendina piu' lunga. */
+  it('il Posizionamento non e\' piu\' un tipo di attivita\'', () => {
+    expect(TIPI_COMPITO.PUTAWAY).toBeUndefined();
+    expect(operazioneDi('PUTAWAY')).toBe(null);
+    expect(tipiRichiedibili()).toHaveLength(7);
   });
 
-  it('i colli servono ovunque si muova merce, non alla Conta', () => {
+  it('i colli servono ovunque si muova una quantita\' decisa prima, non alla Conta', () => {
     expect(vuoleColli('COUNT')).toBe(false);
-    for (const t of Object.keys(TIPI_COMPITO)) {
+    /* La Pulizia nemmeno: non tocca merce. */
+    expect(vuoleColli('CLEANING')).toBe(false);
+    for (const t of tipiRichiedibili()) {
       if (t !== 'COUNT') expect(vuoleColli(t), t).toBe(true);
     }
   });
 
-  /* Il Posizionamento riguarda merce che a magazzino non c'e' ancora:
-     cercarla fra le giacenze non la troverebbe mai. */
-  it('si cerca fra le giacenze tranne che per il Posizionamento', () => {
-    expect(daGiacenza('PUTAWAY')).toBe(false);
-    for (const t of Object.keys(TIPI_COMPITO)) {
-      if (t !== 'PUTAWAY') expect(daGiacenza(t), t).toBe(true);
-    }
-  });
-
-  /* La Conta si fa su un vano, non su un articolo: chiederle un articolo la
-     ridurrebbe a verificare cio' che il sistema gia' crede, e meta' del senso
-     di un inventario e' trovare quello che non dovrebbe esserci. */
-  it('solo la Conta non vuole un articolo', () => {
-    expect(vuoleArticolo('COUNT')).toBe(false);
-    for (const t of Object.keys(TIPI_COMPITO)) {
-      if (t !== 'COUNT') expect(vuoleArticolo(t), t).toBe(true);
-    }
-  });
-
-  it('e solo la Conta pretende l\'ubicazione', () => {
+  it('solo la Conta pretende l\'ubicazione', () => {
     expect(vuoleUbicazione('COUNT')).toBe(true);
     for (const t of Object.keys(TIPI_COMPITO)) {
       if (t !== 'COUNT') expect(vuoleUbicazione(t), t).toBe(false);
     }
   });
 
-  /* Le tre regole della Conta si tengono: niente colli, niente articolo,
-     e in cambio l'ubicazione. E' l'unica delle otto fatta cosi'. */
-  it('la Conta e\' l\'unica senza colli e senza articolo', () => {
-    expect([vuoleColli('COUNT'), vuoleArticolo('COUNT'), vuoleUbicazione('COUNT')])
-      .toEqual([false, false, true]);
+  /* La destinazione la legge un consumatore solo: `_taskLancia` la usa per
+     precompilare `pCambioDest`, e da quando il Posizionamento non c'e' piu'
+     quello e' l'unico modo che la guarda. */
+  it('la destinazione la vuole il solo Trasferimento', () => {
+    expect(vuoleDestinazione('TRANSFER')).toBe(true);
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      if (t !== 'TRANSFER') expect(vuoleDestinazione(t), t).toBe(false);
+    }
+  });
+
+  it('un tipo sconosciuto non vuole destinazione', () => {
+    expect(vuoleDestinazione('BOH')).toBe(false);
+    expect(vuoleDestinazione('')).toBe(false);
+  });
+
+  /* La Conta apre l'inventario nel ramo MIRATO: stesso modo dell'inventario
+     di vano, ma su un articolo e un lotto soli. E' `dir` a distinguerli. */
+  it('la Conta apre l\'inventario mirato', () => {
+    expect(operazioneDi('COUNT')).toEqual({ modo: 'inv', dir: 'mirato' });
+  });
+});
+
+/* ── Le due famiglie: a residuo e a gesto ───────────────────────────── */
+
+describe('chiudeAlGesto', () => {
+  /* Cinque tipi su sette si concludono col gesto confermato e non con un
+     conteggio che arriva a zero. E' la correzione della 1.4.4: prima
+     restavano aperti per sempre, perche' il residuo non ci arrivava mai. */
+  it('i cinque tipi a gesto', () => {
+    for (const t of ['PICK_SHIP', 'PICK_RET', 'QUARANTINE', 'SAMPLING', 'COUNT']) {
+      expect(chiudeAlGesto(t), t).toBe(true);
+    }
+  });
+
+  /* I due che spostano una quantita' decisa in anticipo restano a residuo:
+     12 chiesti, 5 mossi, ne restano 7 — decisione 45, che vale ancora. */
+  it('i due tipi a residuo', () => {
+    expect(chiudeAlGesto('TRANSFER')).toBe(false);
+    expect(chiudeAlGesto('DISPOSAL')).toBe(false);
+  });
+
+  it('un tipo sconosciuto non chiude al gesto', () => {
+    expect(chiudeAlGesto('BOH')).toBe(false);
+    expect(chiudeAlGesto('')).toBe(false);
+  });
+
+  /* Ogni tipo dichiarato sta in una delle due famiglie e in una sola: se
+     domani se ne aggiunge uno, questa prova chiede di dire quale. */
+  it('ogni tipo sta in una famiglia', () => {
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      expect(typeof chiudeAlGesto(t), t).toBe('boolean');
+    }
+    const gesto = Object.keys(TIPI_COMPITO).filter(chiudeAlGesto);
+    expect(gesto).toHaveLength(6);
+    /* La Pulizia si chiude al gesto per costruzione: nasce fatta. */
+    expect(chiudeAlGesto('CLEANING')).toBe(true);
   });
 });
 
@@ -617,12 +677,60 @@ describe('avanzamento', () => {
     expect(a.chiude).toBe(true);
   });
 
-  /* La Conta non porta colli: nessun movimento la chiude, si chiude a mano. */
-  it('un compito senza quantita\' non si chiude mai da solo', () => {
-    const a = avanzamento(compito({ payload: null }), 9);
+  /* Un tipo a RESIDUO senza quantita' nel payload non si chiude: non c'e'
+     niente che possa arrivare a zero. Vale per Trasferimento e Smaltimento,
+     ed e' il motivo per cui i colli su quei due sono obbligatori. */
+  it('un tipo a residuo senza quantita\' non si chiude mai da solo', () => {
+    const a = avanzamento(compito({ type: 'TRANSFER', payload: null }), 9);
     expect(a.qty_done).toBe(9);
     expect(a.residuo).toBe(null);
     expect(a.chiude).toBe(false);
+  });
+
+  /* ── 1.4.4: i tipi a gesto si chiudono confermando ──────────────────
+     Qui c'e' il difetto che il magazzino ha visto in mezza giornata: con la
+     sola regola del residuo, quarantena, campionamento, conta e i due
+     prelievi restavano aperti per sempre. */
+
+  it('una quarantena si chiude anche bloccando meno colli di quanti chiesti', () => {
+    const a = avanzamento(compito({ type: 'QUARANTINE', payload: { qty: 13 } }), 4);
+    expect(a.qty_done).toBe(4);
+    expect(a.residuo).toBe(9);      // il residuo resta VERO: dice cosa e' successo
+    expect(a.chiude).toBe(true);    // ...ma non e' lui a decidere la chiusura
+  });
+
+  /* Decisione 53: un campione vale un collo. Con la richiesta precompilata a
+     tutta la giacenza — 13 colli — non si esauriva mai. */
+  it('un campione chiude il compito pur valendo un collo su tredici', () => {
+    const a = avanzamento(compito({ type: 'SAMPLING', payload: { qty: 13 } }), 1);
+    expect(a.chiude).toBe(true);
+  });
+
+  /* UNA CONTA CHE TORNA GIUSTA NON PRODUCE NESSUNA RIGA, e resta un lavoro
+     fatto: zero correzioni deve chiudere esattamente come dieci. */
+  it('una conta si chiude con ZERO correzioni', () => {
+    const a = avanzamento(compito({ type: 'COUNT', payload: null }), 0);
+    expect(a.qty_done).toBe(0);
+    expect(a.chiude).toBe(true);
+  });
+
+  it('una conta si chiude anche con delle correzioni', () => {
+    expect(avanzamento(compito({ type: 'COUNT', payload: null }), 3).chiude).toBe(true);
+  });
+
+  /* Il prelievo si chiude alla REGISTRAZIONE del DDT: da li' in poi la merce
+     aspetta il vettore, e non dipende piu' da chi ha prelevato. */
+  it('un prelievo chiude alla registrazione, anche parziale', () => {
+    for (const t of ['PICK_SHIP', 'PICK_RET']) {
+      expect(avanzamento(compito({ type: t, payload: { qty: 40 } }), 12).chiude, t).toBe(true);
+    }
+  });
+
+  /* La prova che separa le due famiglie: stessi numeri, esito opposto. */
+  it('stessi numeri, famiglie diverse, esito opposto', () => {
+    const parziale = { payload: { qty: 12 } };
+    expect(avanzamento(compito({ ...parziale, type: 'TRANSFER' }), 5).chiude).toBe(false);
+    expect(avanzamento(compito({ ...parziale, type: 'QUARANTINE' }), 5).chiude).toBe(true);
   });
 
   it('un movimento che non ha mosso niente non fa avanzare niente', () => {

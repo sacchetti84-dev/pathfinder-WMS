@@ -3,7 +3,7 @@ import type {
   Istante, Sito, Zona, Articolo, Giacenza, StatoUbicazione,
   UbicazioneDisattivata, Movimento, Quarantena, DocumentoUscita,
   SessionePrelievo, ReportPrelievo, VerbaleSmaltimento, Operatore, Meta,
-  Lotto, Udc, Compito, ContoWip, RegolaStoccaggio,
+  Lotto, Udc, Compito, ContoWip, RegolaStoccaggio, Destinatario,
 } from './entita.js';
 
 /* ── Tipi di movimento ───────────────────────────────────────────── */
@@ -87,6 +87,7 @@ export interface CaricamentoIniziale {
   tasks?: Compito[];
   wip?: ContoWip[];
   storageRules?: RegolaStoccaggio[];
+  recipients?: Destinatario[];
 }
 
 /* ── Il contratto ────────────────────────────────────────────────── */

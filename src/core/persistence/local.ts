@@ -54,7 +54,7 @@ const LocalPersistence = {
     const [sites, zones, articles, inventory, locStatus, disabled,
            movLog, movLogTotal, quarantine, pendingOut, meta, pickSession, pickArchive,
            disposalArchive, operators,
-           lots, udc, tasks, wip, storageRules] =
+           lots, udc, tasks, wip, storageRules, recipients] =
       await Promise.all([
         db.sites.toArray(),
         db.zones.toArray(),
@@ -76,12 +76,13 @@ const LocalPersistence = {
         db.udc.toArray(),
         db.tasks.toArray(),
         db.wip.toArray(),
-        db.storage_rules.toArray()
+        db.storage_rules.toArray(),
+        db.recipients.toArray()
       ]);
     return { sites, zones, articles, inventory, locStatus, disabled,
              movLog, movLogTotal, quarantine, pendingOut, meta, pickSession, pickArchive,
              disposalArchive, operators,
-             lots, udc, tasks, wip, storageRules };
+             lots, udc, tasks, wip, storageRules, recipients };
   },
 
   diskFull: false,

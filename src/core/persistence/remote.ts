@@ -105,7 +105,8 @@ const RemotePersistence = {
          non manda queste chiavi, e un client 1.4 deve poterci parlare lo
          stesso mentre si rimette la versione di prima. */
       lots: d.lots ?? [], udc: d.udc ?? [], tasks: d.tasks ?? [],
-      wip: d.wip ?? [], storageRules: d.storage_rules ?? []
+      wip: d.wip ?? [], storageRules: d.storage_rules ?? [],
+      recipients: d.recipients ?? []
     };
   },
 

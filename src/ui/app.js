@@ -16,7 +16,7 @@ import { PickRoute } from '../modules/pickRoute.js';
 import { Vault } from '../modules/vault';
 import {
   ALLERGENI, CLASSI_TEMPERATURA, CERTIFICAZIONI,
-  leggiAllergeni, scriviAllergeni, leggiCertificazioni, scriviCertificazioni,
+  leggiAllergeni, leggiCodici, scriviAllergeni, leggiCertificazioni, scriviCertificazioni,
   leggiClasseTemperatura, etichettaAllergene, etichettaClasse,
   etichettaCertificazione, fogliValoriAmmessi,
 } from '../modules/anagrafica';
@@ -25,9 +25,15 @@ import {
   etichettaTipo, iconaTipo, etichettaPriorita, etichettaStato,
   eAperto, misure, inRitardo, durataUmana,
   ORE_URGENZA_DEFAULT, prioritaEffettiva, inScadenza,
-  operazioneDi, chiudeAMano, vuoleColli, daGiacenza, vuoleArticolo, vuoleUbicazione,
+  operazioneDi, vuoleColli, vuoleUbicazione, vuoleDestinazione,
   quantitaRichiesta, quantitaFatta, residuo, esaurito,
+  tipiRichiedibili, nasceDalSistema,
 } from '../modules/compiti';
+import { validaVoce, normalizzaCodice, etichettaDi } from '../modules/parametri';
+import {
+  normalizzaNome as normalizzaNomeRcp, destinazionePredefinita,
+  descriviDestinazione, differenze as differenzeRcp,
+} from '../modules/destinatari';
 import {
   UNITA_MISURA, etichettaUnita, formattaQuantita, descrivi as descriviColli,
   validaConfigurazione, valoriAmmessi as valoriAmmessiUM,
@@ -986,7 +992,7 @@ const App = {
       { mode: 'io',   sub: 'in',         color: 'var(--ct-cat-in)',   icon: '\u{1F4E6}',
         title: 'Carico / Scarico', sub_txt: 'Posiziona e smaltisci', key: 'F2' },
       { mode: 'pick', sub: 'cambio',     color: 'var(--ct-cat-move)', icon: '\u{1F504}',
-        title: 'Sposta',         sub_txt: 'Cambio ubicazione',      key: 'F3' },
+        title: 'Trasferimento',  sub_txt: 'Cambio ubicazione',      key: 'F3' },
       { mode: 'pick', sub: 'produzione', color: 'var(--ct-cat-pick)', icon: '\u{1F3ED}',
         title: 'Prelievo ordini', sub_txt: 'Prelievo produzione',   key: 'F3' }
     ];
@@ -1696,7 +1702,20 @@ const App = {
       const tr = _h('tr', {}, [
         _h('td', { class: 'td-center mono', style: { color: 'var(--sx-text-muted)' } }, [String(i+1)]),
         _h('td', { style: { whiteSpace: 'nowrap' } }, [
-          _h('span', { style: { color, fontWeight: '600' } }, [lbl])
+          _h('span', { style: { color, fontWeight: '600' } }, [lbl]),
+          /* 1.5 — LA RISTAMPA DEL VERBALE, dove il campionamento è scritto.
+             Il verbale nasce da sé alla conferma (D17); qui c'è la seconda
+             copia, per il campione che ne ha perso una. Solo sulle righe
+             SAMPLE, e solo se il movimento ha un identificativo — quelli
+             scritti prima della 1.5 ce l'hanno lo stesso. */
+          ...(m.type === MOV.SAMPLE && typeof m._id === 'number' ? [
+            _h('button', {
+              class: 'btn btn-sm',
+              style: { marginLeft: '0.35rem', padding: '0 0.3rem' },
+              title: 'Ristampa il verbale di campionamento',
+              onclick: () => this._ristampaVerbaleCampione(m._id),
+            }, ['🖨'])
+          ] : [])
         ]),
         _h('td', {}, [
           _h('span', { class: 'mono', style: { fontWeight: '700', color: 'var(--sx-primary)' } }, [m.article_code || ''])
@@ -1874,7 +1893,9 @@ const App = {
         azioni.push(`<button class="btn btn-sm" onclick="App.doStartTask('${t.task_id}')">${t.status === 'in_progress' ? '▶ Riprendi' : '▶ Avvia'}</button>`);
         /* «Fatta» a mano sopravvive per la sola Conta: le altre sette si
            chiudono perche' un movimento e' stato confermato — decisione 43. */
-        if (t.status === 'in_progress' && chiudeAMano(t.type)) azioni.push(`<button class="btn btn-sm btn-primary" onclick="App.doCompleteTask('${t.task_id}')">✓ Fatta</button>`);
+        /* 1.4.4 — «✓ Fatta» non c'è più: sopravviveva per la sola Conta, che
+           adesso si chiude confermando il conteggio. Ogni attività si chiude
+           portando a termine la sua operazione, e Store lo impone. */
         azioni.push(`<button class="btn btn-sm btn-ghost" style="color:var(--sx-danger)" onclick="App.doCancelTask('${t.task_id}')" title="Annulla, con motivo">✕</button>`);
       }
       const prio = aperto && leader
@@ -2061,6 +2082,14 @@ const App = {
     if (p.from) pezzi.push(`da <span class="mono">${this._esc(p.from)}</span>`);
     if (p.to) pezzi.push(`a <span class="mono">${this._esc(p.to)}</span>`);
     if (p.sample_for) pezzi.push(`campione per <strong>${this._esc(p.sample_for)}</strong>${p.sample_spare ? ' · riserva a magazzino' : ''}`);
+    /* 1.5 — la pulizia dice DOVE e DOPO COSA. Il «dopo cosa» è
+       `source_ref`, ed è il dato che la GMP domanda: senza, la riga dice
+       che si è pulito e non che si è pulito dopo un campionamento. */
+    if (t.type === 'CLEANING') {
+      if (p.location_code) pezzi.push(`area <span class="mono">${this._esc(p.location_code)}</span>`);
+      if (t.source_ref) pezzi.push(`dopo il campionamento <span class="mono">${this._esc(t.source_ref)}</span>`);
+      if (p.auto) pezzi.push('<strong>obbligatoria — allergeni</strong>');
+    }
     const testa = pezzi.length ? pezzi.join(' · ') : '<span style="color:var(--sx-text-muted)">—</span>';
     const note = t.note ? `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">${this._esc(t.note)}</div>` : '';
     const chiuso = t.cancel_reason ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-danger)">Annullata: ${this._esc(t.cancel_reason)}</div>` : '';
@@ -2078,7 +2107,7 @@ const App = {
       <div class="form-row" style="margin-bottom:0.6rem">
         <div class="form-group"><label>Tipo di attività <span class="req">*</span></label>
           <select class="select" id="ntType" onchange="App._ntTypeChanged()">
-            ${Object.entries(TIPI_COMPITO).map(([k, v]) => `<option value="${k}">${v.icona} ${this._esc(v.label)}</option>`).join('')}
+            ${tipiRichiedibili().map(k => `<option value="${k}">${TIPI_COMPITO[k].icona} ${this._esc(TIPI_COMPITO[k].label)}</option>`).join('')}
           </select></div>
         <div class="form-group"><label>Priorità</label>
           <select class="select" id="ntPriority">
@@ -2110,7 +2139,7 @@ const App = {
             <input class="input input-mono" id="ntFrom" maxlength="30" style="text-transform:uppercase" placeholder="dalla disponibilità scelta">
             <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntFrom')" title="Sfoglia le ubicazioni">📍</button>
           </div></div>
-        <div class="form-group"><label>A (ubicazione)</label>
+        <div class="form-group" id="ntToGroup"><label>A (ubicazione)</label>
           <div style="display:flex;gap:0.3rem">
             <input class="input input-mono" id="ntTo" maxlength="30" style="text-transform:uppercase">
             <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntTo')" title="Sfoglia le ubicazioni">📍</button>
@@ -2129,16 +2158,16 @@ const App = {
         <div class="form-group"><label>Causale di trasporto</label>
           <select class="select" id="ntCausale">${this._causaliDDT()}</select></div>
       </div>
-      <!-- IL CAMPIONAMENTO È L'UNICA DELLE OTTO CHE OGGI NON ESISTE (PIANO §4.1),
-           e nasce qui con le tre cose che un campione deve portarsi dietro:
-           quanto se n'è preso, per chi, e se resta la riserva. Senza «per chi»
-           un campione è merce sparita dallo scaffale. -->
+      <!-- IL CAMPIONAMENTO PORTA UNA COSA SOLA ALLA RICHIESTA: per chi.
+           Senza «per chi» un campione è merce sparita dallo scaffale.
+           1.5 — LA SPUNTA «CAMPIONE DI RISERVA» È USCITA. Non era un dato del
+           magazzino ma una nota di laboratorio, e al suo posto — alla
+           CONFERMA, non qui — c'è la pulizia dell'area di prelievo, che la
+           GMP pretende. Chi chiede il campione non sa ancora se pulirà: lo
+           sa chi lo preleva, nel momento in cui l'ha prelevato. -->
       <div class="form-row" id="ntSamplingRow" style="margin-bottom:0.6rem;display:none">
         <div class="form-group"><label>Campione per chi <span class="req">*</span></label>
           <input class="input" id="ntSampleFor" maxlength="60" placeholder="Laboratorio interno, cliente, ente…"></div>
-        <div class="form-group" style="max-width:220px"><label>Campione di riserva</label>
-          <label style="display:flex;align-items:center;gap:0.4rem;font-weight:400;padding-top:0.4rem">
-            <input type="checkbox" id="ntSampleSpare"> Ne resta uno a magazzino</label></div>
       </div>
       <div class="form-row" style="margin-bottom:0.6rem">
         <div class="form-group"><label>Scadenza</label>
@@ -2173,30 +2202,26 @@ const App = {
     const mostra = (id, si) => { const e = document.getElementById(id); if (e) e.style.display = si ? '' : 'none'; };
     mostra('ntSamplingRow', tipo === 'SAMPLING');
     mostra('ntDdtRow', tipo === 'PICK_SHIP' || tipo === 'PICK_RET');
+    /* Lo Smaltimento scarica il magazzino e non porta niente da nessuna
+       parte: il campo «A» lì non è di troppo, è fuorviante. Si SVUOTA oltre
+       a nascondersi, perché `doCreateTask` legge il campo e non la sua
+       visibilità: compilato prima di cambiare tipo, finirebbe nel payload
+       lo stesso. */
+    const destOk = vuoleDestinazione(tipo);
+    mostra('ntToGroup', destOk);
+    const dest = document.getElementById('ntTo');
+    if (dest && !destOk) dest.value = '';
     const req = (id, si) => { const e = document.getElementById(id); if (e) e.style.visibility = si ? '' : 'hidden'; };
     req('ntQtyReq', vuoleColli(tipo));
-    req('ntArtReq', vuoleArticolo(tipo));
-    /* La Conta chiede il vano e non l'articolo: l'asterisco si sposta, e
-       l'etichetta lo dice — «Da» su una conta non è una partenza, è il
-       posto che si va ad aprire. */
+    /* 1.4.4 — TUTTI E SETTE I TIPI PESCANO DALLE GIACENZE, Conta compresa.
+       Il Posizionamento era l'unico che cercava in anagrafica, e non c'è
+       più; la Conta era l'unico che apriva un vano intero, e adesso è un
+       inventario mirato a un articolo e un lotto. Una regola in meno per
+       ramo, e la maschera si comporta allo stesso modo ovunque. */
     const daLbl = document.getElementById('ntFromLabel');
     if (daLbl) daLbl.innerHTML = vuoleUbicazione(tipo)
       ? 'Ubicazione da contare <span class="req">*</span>'
       : 'Da (ubicazione)';
-    const art = document.getElementById('ntArticle');
-    if (art) art.placeholder = vuoleUbicazione(tipo)
-      ? 'non serve: la conta guarda tutto il vano'
-      : 'Codice o descrizione — cerca a magazzino';
-    /* Il Posizionamento cerca in anagrafica e il lotto lo si digita: la
-       merce che deve arrivare non è ancora da nessuna parte. */
-    const lot = document.getElementById('ntLot');
-    const from = document.getElementById('ntFrom');
-    if (lot) {
-      lot.readOnly = daGiacenza(tipo);
-      lot.placeholder = daGiacenza(tipo) ? 'dalla disponibilità scelta' : 'da digitare';
-      if (!daGiacenza(tipo)) lot.value = lot.value || '';
-    }
-    if (from) from.disabled = !daGiacenza(tipo);
     this._ntCercaArticolo();
   },
 
@@ -2211,14 +2236,8 @@ const App = {
     if (!box) return;
     const tipo = document.getElementById('ntType')?.value || '';
     const q = (document.getElementById('ntArticle')?.value || '').trim();
-    if (!daGiacenza(tipo)) {
-      box.innerHTML = q
-        ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">📥 Posizionamento: la merce non è ancora a magazzino — lotto e destinazione si digitano.</div>`
-        : '';
-      return;
-    }
-    if (vuoleUbicazione(tipo)) {
-      box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">🔢 Conta: si apre l'ubicazione e si conta quello che c'è — anche quello che non dovrebbe esserci. L'articolo non serve.</div>`;
+    if (!q && vuoleUbicazione(tipo)) {
+      box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">🔢 Conta: si sceglie la riga da ricontare. L'inventario di tutto il vano sta in Movimenta → Inventario e non ha bisogno di un'attività.</div>`;
       return;
     }
     if (q.length < 2) { box.innerHTML = ''; return; }
@@ -2229,8 +2248,11 @@ const App = {
        ancora. Si torna all'elenco solo se si ridigita l'articolo. */
     const lotto = document.getElementById('ntLot')?.value;
     const da = document.getElementById('ntFrom')?.value;
-    if (lotto && da && q.toUpperCase() === (document.getElementById('ntArticle')?.value || '').toUpperCase()) {
-      const scelta = Store.getItemsAtLocation(da).find(i => i.item_key === `${q.toUpperCase()}#${lotto}`);
+    if (lotto && da) {
+      /* La chiave si compone coi valori COM'ERANO nella giacenza, non
+         maiuscolati: `item_key` è `ARTICOLO#LOTTO` e distingue le
+         maiuscole — vedi la nota in `doCreateTask`. */
+      const scelta = Store.getItemsAtLocation(da).find(i => i.item_key === `${q}#${lotto}`);
       if (scelta) return this._ntConferma(scelta);
     }
 
@@ -2288,24 +2310,28 @@ const App = {
     if (val('ntType') === 'SAMPLING') {
       if (!val('ntSampleFor')) return err('Un campione senza destinatario è merce sparita dallo scaffale: dire per chi.');
       payload.sample_for = val('ntSampleFor');
-      payload.sample_spare = !!document.getElementById('ntSampleSpare')?.checked;
     }
     const tipo = val('ntType');
     /* 1.4.2.1 — ciò che serve a precompilare il movimento è obbligatorio, e
        lo si dice PRIMA: un'attività senza articolo o senza colli è un'attività
        che chi la prende in mano non sa eseguire. Le regole per tipo stanno in
        `modules/compiti.ts`. */
-    /* La Conta è l'eccezione: si fa su un vano, e l'articolo non c'entra —
-       metà del senso di un inventario è trovare quello che lì non doveva
-       esserci. In cambio l'ubicazione, per lei sola, è obbligatoria. */
-    if (vuoleArticolo(tipo) && daGiacenza(tipo) && !su('ntArticle')) return err('Scegliere l\'articolo fra le giacenze: l\'attività deve dire su che cosa si lavora.');
-    if (vuoleArticolo(tipo) && daGiacenza(tipo) && !su('ntLot')) return err('Scegliere una delle disponibilità proposte: lotto e ubicazione di partenza vengono da lì.');
-    if (vuoleUbicazione(tipo) && !su('ntFrom')) return err('Quale ubicazione si conta: senza, non c\'è niente da aprire a chi la prende in mano.');
+    if (!val('ntArticle')) return err('Scegliere l\'articolo fra le giacenze: l\'attività deve dire su che cosa si lavora.');
+    if (!val('ntLot')) return err('Scegliere una delle disponibilità proposte: lotto e ubicazione di partenza vengono da lì.');
+    if (vuoleUbicazione(tipo) && !su('ntFrom')) return err('Quale riga si conta: senza l\'ubicazione non c\'è niente da aprire a chi la prende in mano.');
     if (vuoleColli(tipo) && !(parseInt(val('ntQty'), 10) > 0)) return err('Quanti colli: senza, il movimento non si può preparare e l\'attività non sa quando è finita.');
     if ((tipo === 'PICK_SHIP' || tipo === 'PICK_RET') && !val('ntDest')) return err('Un prelievo per spedizione vuole il destinatario: lo sa chi la chiede, non chi preleva.');
 
-    if (su('ntArticle')) payload.article_code = su('ntArticle');
-    if (su('ntLot')) payload.lot_code = su('ntLot');
+    /* 1.4.4 — ARTICOLO E LOTTO SI SCRIVONO COM'ERANO, SENZA MAIUSCOLARLI.
+       Insieme formano `item_key` — `ARTICOLO#LOTTO` — che è la chiave con
+       cui si ritrova la riga di giacenza. Maiuscolarli qui sembrava una
+       normalizzazione e invece era una riscrittura della chiave: un lotto
+       registrato `qwert` diventava `QWERT`, e `_taskLancia` andava a cercare
+       una riga che non esiste. La maschera si apriva vuota, e chi la prendeva
+       in mano non aveva modo di capire perché. I due valori li ha scritti
+       `_ntScegli` copiandoli dalla giacenza scelta: sono già quelli giusti. */
+    if (val('ntArticle')) payload.article_code = val('ntArticle');
+    if (val('ntLot')) payload.lot_code = val('ntLot');
     if (val('ntQty')) payload.qty = parseInt(val('ntQty'), 10);
     if (su('ntFrom')) payload.from = su('ntFrom');
     if (su('ntTo')) payload.to = su('ntTo');
@@ -2407,14 +2433,7 @@ const App = {
     const resta = residuo(t);
     const colli = resta === null ? (p.qty || '') : resta;
 
-    if (op.modo === 'io' && op.dir === 'in') {
-      set('mInLoc', p.to); set('mInArtCode', p.article_code); set('mInLot', p.lot_code);
-      if (colli) set('mInQty', String(colli));
-      this._previewLoc('mInLoc', 'mInLocPrev');
-      this._autoLookupArticle('mInArtCode', 'mInArtInfo', 'mInArtDesc');
-      this._anteprimaUmIn();
-      this.setPrimaryScanField('mInLoc');
-    } else if (op.modo === 'io' && op.dir === 'out') {
+    if (op.modo === 'io' && op.dir === 'out') {
       if (p.from && p.article_code && p.lot_code) {
         this._dispSelect(p.from, `${p.article_code}#${p.lot_code}`);
         if (colli) set('dQty', String(colli));
@@ -2440,9 +2459,13 @@ const App = {
         this._qSelect(p.from, `${p.article_code}#${p.lot_code}`);
         if (colli) set('qQty', String(colli));
       }
-    } else if (op.modo === 'inv') {
-      const loc = p.from || p.to;
-      if (loc) { set('mInvLoc', loc); this._previewLoc('mInvLoc', 'mInvLocPrev'); this._loadInv(); }
+    } else if (op.modo === 'inv' && op.dir === 'mirato') {
+      /* 1.4.4 — LA CONTA È UN INVENTARIO MIRATO. Non apre più il vano
+         intero: apre la riga che il compito indica, con la finestra di
+         guida a scansioni come smaltimento e quarantena. */
+      if (p.from && p.article_code && p.lot_code) {
+        this._contaSelect(p.from, `${p.article_code}#${p.lot_code}`);
+      }
     } else if (op.modo === 'shipping') {
       /* Destinatario, vettore e causale li ha detti chi ha CHIESTO il
          prelievo: qui si ritrovano in testata, e la riga entra da sola
@@ -2512,24 +2535,6 @@ const App = {
     return await this._taskScala(this._taskRun.task_id, colli, movs);
   },
 
-  /* Il prelievo si chiude quando la merce ESCE, e fra il DDT e il ritiro del
-     vettore possono passare dei giorni — anche a terminale spento. Il filo
-     e' `doc.task_id`, scritto alla registrazione: qui non serve nessuna
-     sessione aperta. */
-  async _taskAvanzaDoc(doc, colli, movs) {
-    if (!doc?.task_id || !Store.isFeatureOn('tasks')) return;
-    const t = Store.getTask(doc.task_id);
-    if (!t || !eAperto(t)) return;
-    /* Un DDT evaso da chi non l'aveva avviato chiude comunque il compito: e'
-       la merce che e' uscita, non la sessione. Se il compito non era in
-       corso lo si porta li' prima, se no `advanceTask` lo respinge. */
-    if (t.status !== 'in_progress') {
-      try { await Store.startTask(doc.task_id); } catch { return; }
-    }
-    if (this._taskRun?.task_id === doc.task_id) this._taskRun.movs = [];
-    return await this._taskScala(doc.task_id, colli, movs);
-  },
-
   async _taskScala(taskId, colli, movs = []) {
     let rec;
     try {
@@ -2581,12 +2586,6 @@ const App = {
   _taskLascia() {
     this.cancelMov();
     this.renderMovimenta();
-  },
-
-  /* «Completa» a mano sopravvive per la sola Conta: le altre sette si
-     chiudono muovendo la merce, e Store lo pretende. */
-  doCompleteTask(taskId) {
-    return this._taskAction(() => Store.completeTask(taskId), '✓ Attività completata');
   },
 
   async doCancelTask(taskId) {
@@ -2791,7 +2790,7 @@ const App = {
         <td class="mono">${this._esc(x.article_code)}</td>
         <td>${this._esc(x.article_description || '')}</td>
         <td class="mono">${this._esc(x.lot_code || '')}</td>
-        <td>${this._esc(x.allergens.map(etichettaAllergene).join(', '))}</td>
+        <td>${this._esc(x.allergens.map(c => this._etAllergene(c)).join(', '))}</td>
       </tr>`).join('');
 
     this.showModal(`Allergeni in deroga — ${d.length}`, `
@@ -2817,7 +2816,7 @@ const App = {
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map(x => ({
       'Ubicazione': x.location_code, 'Articolo': x.article_code,
       'Descrizione': x.article_description || '', 'Lotto': x.lot_code || '',
-      'Colli': x.qty ?? '', 'Allergeni': x.allergens.map(etichettaAllergene).join(', '),
+      'Colli': x.qty ?? '', 'Allergeni': x.allergens.map(c => this._etAllergene(c)).join(', '),
     }))), 'Deroghe');
     XLSX.writeFile(wb, `allergeni-in-deroga-${new Date().toISOString().slice(0,10)}.xlsx`);
     this.toast('✓ Excel esportato', 'success');
@@ -3115,7 +3114,7 @@ const App = {
           </div>
           <div class="item-actions">
             <button class="btn btn-sm btn-accent" title="Modifica i dati dell’item" onclick="App.showEditItemModal('${this._esc(code)}','${k}')">✏️ Modifica</button>
-            <button class="btn btn-sm btn-primary" title="Sposta in un’altra ubicazione" onclick="App.showMoveItemModal('${this._esc(code)}','${k}')">🔀 Sposta</button>
+            <button class="btn btn-sm btn-primary" title="Trasferisci in un’altra ubicazione" onclick="App.showMoveItemModal('${this._esc(code)}','${k}')">🔀 Trasferisci</button>
             ${quarantined
               ? '<button class="btn btn-sm" disabled title="Item gia’ in quarantena — il rilascio si fa da Movimenta">🔒 In quarantena</button>'
               : `<button class="btn btn-sm btn-warning" title="Blocco qualità / non conformità" onclick="App.showQuarantineItemModal('${this._esc(code)}','${k}')">🚫 Quarantena</button>`}
@@ -3140,7 +3139,7 @@ const App = {
     if (!item) return this.toast('Item non trovato', 'error');
     const qty = item.qty || 1;
     this.showModal(
-      `🔀 Sposta item — da ${this._esc(locationCode)}`,
+      `🔀 Trasferimento — da ${this._esc(locationCode)}`,
       `<div style="background:var(--sx-bg-alt);border:1px solid var(--sx-border);border-radius:var(--radius-md);padding:0.55rem 0.75rem;margin-bottom:0.85rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">
         <span class="mono" style="font-weight:700;color:var(--sx-primary)">${this._esc(item.article_code)}</span>
         ${this._esc(item.article_description || '')}<br>
@@ -3163,7 +3162,7 @@ const App = {
         </div>
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-primary" onclick="App.doMoveItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">🔀 Sposta</button>`
+       <button class="btn btn-primary" onclick="App.doMoveItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">🔀 Trasferisci</button>`
     );
   },
 
@@ -3562,6 +3561,9 @@ const App = {
        lavorazione: il compito torna in carico. Se invece qualcosa si e'
        mosso, `abandonTask` lo lascia dov'e' — decisione 46. */
     if (this._taskRun) this._taskAbbandona();
+    /* 1.4.4 — la conta mirata è uno stato di lavorazione come gli altri: una
+       verifica lasciata a metà non deve ricomparire alla riapertura. */
+    this._contaState = null;
     const fa = document.getElementById('movFormArea');
     if (fa) fa.innerHTML = '';
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
@@ -4045,7 +4047,9 @@ const App = {
     // v2.1.0 — storno disponibile per 120 secondi
     this._pushUndo(`Posizionamento ${art}#${lot} → ${loc} (${qty} Coll.)`,
       [{ op: 'remove', loc, art, desc: effectiveDesc, lot, qty, qty_uom: res.qty_uom_delta ?? null }]);
-    await this._taskAvanza(qty, ['PUTAWAY']);   // 1.4.2.1
+    /* 1.4.4 — nessun aggancio: il Posizionamento non è più un tipo di
+       attività. Questa maschera resta quella di sempre per chi posiziona
+       merce a mano, e non ha nessun compito da far avanzare. */
     this.setPrimaryScanField('mInArtCode');
   },
 
@@ -4605,7 +4609,7 @@ const App = {
       <footer class="doc-zone-foot">
         ${firme}
         <div class="pr-footer">
-          <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder 1.4 — Dietopack S.r.l. / Naturacare Group</span>
+          <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder 1.6 — Dietopack S.r.l. / Naturacare Group</span>
           <span>${this._esc(docId)} — ${this._esc(printedLabel)} ${this._esc(fmt)}</span>
         </div>
       </footer>
@@ -4634,6 +4638,102 @@ const App = {
      documenti, con voci diverse. */
   _docCell(lbl, val, cls = '') {
     return `<div class="doc-cell ${cls}"><div class="doc-cell-lbl">${this._esc(lbl)}</div><div class="doc-cell-val">${val ? this._esc(val) : '—'}</div></div>`;
+  },
+
+  /* 1.5 — IL VERBALE DI CAMPIONAMENTO, che accompagna il campione.
+     Stesse intestazioni e stesso piè di pagina degli altri documenti: passa
+     da `_docPageHTML` come il verbale di smaltimento, e non porta un layout
+     suo. Ciò che ha in più è la fascia delle CONDIZIONI DI STOCCAGGIO — un
+     campione che viaggia senza la sua temperatura è un campione che il
+     laboratorio può rifiutare.
+
+     I dati arrivano dal chiamante e non si rileggono dal magazzino: al
+     momento della ristampa la giacenza è già cambiata, e un verbale che
+     cambia dopo la firma non è un verbale. */
+  _stampaVerbaleCampione(v) {
+    const fmtTs = (ms) => ms
+      ? new Date(ms).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
+      : '—';
+    const art = Store.getArticle(v.article_code);
+    const allergeni = (art?.allergens || []).map(a => this._etAllergene(a)).join(', ');
+    const classe = art?.temp_class ? etichettaClasse(art.temp_class) : '';
+
+    const headExtra = `<div class="doc-idblock doc-idblock--3">
+        ${this._docCell('Articolo', v.article_code)}
+        ${this._docCell('Lotto', v.lot_code)}
+        ${this._docCell('Ubicazione di prelievo', v.location_code)}
+        ${this._docCell('Descrizione', v.article_description, 'doc-cell--wide')}
+        ${this._docCell('Campione per', v.per_chi)}
+      </div>`;
+
+    const body = `
+      <div class="vb-strip">CAMPIONE PRELEVATO DALLA GIACENZA</div>
+
+      <div class="vb-reason">
+        <div class="vb-reason-lbl">Condizioni di stoccaggio</div>
+        <div class="vb-reason-val">${this._esc(classe || 'Classe di conservazione non dichiarata in anagrafica')}</div>
+        ${allergeni ? `<div class="vb-forced">Allergeni dichiarati: ${this._esc(allergeni)}</div>` : ''}
+      </div>
+
+      <div class="vb-reason" style="margin-top:0.4rem">
+        <div class="vb-reason-lbl">Pulizia dell'area di campionamento</div>
+        <div class="vb-reason-val">${v.pulito
+          ? (v.pulitoAuto
+            ? 'ESEGUITA — obbligatoria, la merce campionata porta allergeni'
+            : 'ESEGUITA e registrata nel registro attività')
+          : 'NON DICHIARATA'}</div>
+        ${v.note ? `<div class="vb-forced">Note: ${this._esc(v.note)}</div>` : ''}
+      </div>
+
+      <div class="doc-fill"></div>
+
+      <div class="doc-grid">
+        ${this._docCell('Quantità prelevata', v.quantita || 'non scalata')}
+        ${this._docCell('Colli a scaffale', String(v.qty_colli))}
+        ${this._docCell('Data e ora', fmtTs(v.ts))}
+        ${this._docCell('Operatore', v.operatore)}
+      </div>`;
+
+    this._docPrint(this._docPageHTML({
+      kind: 'VERBALE DI CAMPIONAMENTO',
+      kindSub: 'Prelievo di campione — da allegare al campione',
+      num: v.rif || '—', dateVal: fmtTs(v.ts),
+      headExtra, body, docId: v.rif || '', pageClass: 'doc-page--vb',
+      signs: [
+        { role: 'Operatore magazzino', hint: v.operatore || '' },
+        { role: 'Controllo qualità', hint: 'Data e firma' },
+        { role: 'Ricevente il campione', hint: v.per_chi || '' }
+      ]
+    }));
+  },
+
+  /* La seconda copia si ricostruisce dal MOVIMENTO, che è dove il
+     campionamento è scritto — non dalla giacenza di adesso, che nel
+     frattempo è cambiata. Il dettaglio è la riga che `_execCampione` ha
+     composto: si rilegge com'era, senza reinterpretarla più di così. */
+  _ristampaVerbaleCampione(movId) {
+    const m = Store.getMovLog().find(x => x._id === movId);
+    if (!m) return this.toast('Movimento non più nella finestra del registro — allargala da Configurazione', 'error');
+    const pezzi = String(m.notes || '').split(' · ');
+    const perChi = (pezzi.find(p => p.startsWith('CAMPIONE per ')) || '').replace('CAMPIONE per ', '');
+    const pulizia = pezzi.find(p => p.startsWith('area ')) || '';
+    const note = pezzi.filter(p => !p.startsWith('CAMPIONE per ') && !p.startsWith('area ')).join(' · ');
+    this._stampaVerbaleCampione({
+      rif: `MOV-${m._id}`,
+      article_code: m.article_code,
+      article_description: m.article_description,
+      lot_code: m.lot_code,
+      location_code: m.location_code,
+      qty_colli: m.qty_after != null ? m.qty_after : 0,
+      quantita: (typeof m.qty_uom_delta === 'number' && m.uom)
+        ? `${formattaQuantita(-m.qty_uom_delta, m.uom)} ${m.uom}` : null,
+      per_chi: perChi,
+      note,
+      pulito: pulizia.startsWith('area pulita'),
+      pulitoAuto: pulizia.includes('allergeni'),
+      ts: m.ts,
+      operatore: m.user,
+    });
   },
 
   _printDisposal(doc_id) {
@@ -4691,7 +4791,7 @@ const App = {
     el.innerHTML = `<div class="mov-form-card">
       <h3>🏗️ <span style="color:var(--sx-accent)">Prelievo</span></h3>
       <div class="prel-tabs">
-        <button class="prel-tab ${this._pickSubMode === 'cambio' ? 'active' : ''}" onclick="App._pickSub('cambio')"><span class="prel-tab-icon">🔄</span>Cambio Ubicazione</button>
+        <button class="prel-tab ${this._pickSubMode === 'cambio' ? 'active' : ''}" onclick="App._pickSub('cambio')"><span class="prel-tab-icon">🔄</span>Trasferimento</button>
         <button class="prel-tab ${this._pickSubMode === 'produzione' ? 'active' : ''}" onclick="App._pickSub('produzione')"><span class="prel-tab-icon">🏭</span>Prelievo Produzione</button>
         <button class="prel-tab ${this._pickSubMode === 'ordine' ? 'active' : ''}" onclick="App._pickSub('ordine')"><span class="prel-tab-icon">🧭</span>Da Ordine (XLSX)</button>
       </div>
@@ -4857,7 +4957,7 @@ const App = {
       if (!await Dialog.confirm({
         title: '\u26A0 Merce impegnata su DDT pendenti',
         message: msg,
-        confirmLabel: 'Sposta comunque',
+        confirmLabel: 'Trasferisci comunque',
         danger: true
       })) return { ok: false };
     }
@@ -6442,6 +6542,13 @@ const App = {
 
   // ═══ 4. INVENTARIO ═══
   _formInventario(el) {
+    if (!el) return;
+    /* 1.4.4 — DUE RAMI, UNA FUNZIONE. Di serie l'inventario di vano, quello
+       di sempre. Con una Conta avviata, la finestra di guida sulla riga sola
+       che il compito indica: è lo stesso mestiere a due granularità, e
+       tenerle nella stessa voce di Movimenta evita a chi lavora di dover
+       sapere in anticipo quale delle due gli serve. */
+    if (this._contaState) { this._contaRenderVerify(el); return; }
     el.innerHTML = `<div class="mov-form-card">
       <h3>📋 <span style="color:var(--sx-warning)">Inventario</span> — Verifica Ubicazione</h3>
       <div class="wf-instructions">
@@ -6672,14 +6779,286 @@ const App = {
     if (corrections === 0) this.toast('Nessuna correzione — inventario confermato ✓', 'info');
     else this.toast(`✓ ${corrections} correzion${corrections === 1 ? 'e applicata' : 'i applicate'}`, 'success');
     this.updateSyncIndicator();
-    /* 1.4.2.1 — la Conta non porta colli, quindi non si esaurisce da sola: qui
-       si registrano le rettifiche che ha prodotto, e a chiuderla resta il
-       gesto a mano — che per lei sopravvive apposta, perche' un inventario
-       che torna giusto non produce nessuna riga di registro. */
-    await this._taskAvanza(corrections, ['COUNT']);
+    /* 1.4.4 — QUI NON SI CHIUDE NESSUN COMPITO. L'inventario di vano è una
+       funzione di magazzino che esiste da sempre e non nasce mai da
+       un'attività: la Conta ha il suo ramo mirato, con la sua conferma.
+       Lasciare l'aggancio qui avrebbe voluto dire che un inventario massivo
+       fatto per altre ragioni chiudeva la Conta di qualcun altro. */
     this._invState = null;
     this._loadInv();
     this._refreshSessionLog();
+  },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     LA CONTA — inventario MIRATO a una riga sola (1.4.4)
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Fino alla 1.4.3 la Conta apriva il vano intero, cioè la stessa cosa che
+     l'inventario di magazzino fa da sempre: un'attività che duplicava una
+     funzione. Quello che serviva era il contrario — poter dire «vai a
+     ricontare QUESTO articolo, QUESTO lotto», su una riga sola, e chiudere
+     quando il conteggio è confermato: giusto o sbagliato che sia, il lavoro
+     è stato fatto.
+
+     La finestra è quella di guida delle altre operazioni fisiche —
+     smaltimento, quarantena, prelievo guidato: si raggiunge l'ubicazione, si
+     scansionano ubicazione, articolo e lotto, e solo allora si digita quanto
+     si è contato. Un inventario si fida di ciò che l'operatore ha davanti,
+     e le tre scansioni sono ciò che dimostra che ce l'aveva davvero.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  _contaState: null,
+
+  /* Apre la riga indicata dal compito. La giacenza si rilegge ADESSO: fra
+     la richiesta e l'arrivo davanti allo scaffale può essere passato un
+     turno, e contro un numero vecchio si conterebbe a vuoto. */
+  _contaSelect(loc, itemKey) {
+    const it = Store.getItemsAtLocation(loc).find(i => i.item_key === itemKey);
+    if (!it) {
+      this._contaState = null;
+      this.toast('Quella riga non è più in giacenza: la conta non ha un oggetto', 'warning');
+      this._formInventario(document.getElementById('movFormArea'));
+      return;
+    }
+    this._contaState = {
+      location_code: it.location_code,
+      item_key: it.item_key,
+      article_code: it.article_code,
+      article_description: it.article_description || '',
+      lot_code: it.lot_code,
+      expiry_date: it.expiry_date || '',
+      qty_system: it.qty || 0,
+      scan: { loc: '', art: '', lot: '' },
+    };
+    this._formInventario(document.getElementById('movFormArea'));
+  },
+
+  _contaBack() {
+    this._contaState = null;
+    this._formInventario(document.getElementById('movFormArea'));
+  },
+
+  _contaRenderVerify(el) {
+    const d = this._contaState;
+    const dove = this._getLocInfo(d.location_code);
+    el.innerHTML = `
+      <article class="route-stop-card">
+        <header class="route-stop-head">
+          <span class="route-stop-seq">🔢</span>
+          <div class="route-stop-title">
+            <div class="route-stop-loc mono">${this._esc(d.location_code)}</div>
+            <div class="route-stop-site">${this._esc([dove?.siteName, dove?.zoneName].filter(Boolean).join(' · ') || 'Raggiungi questa ubicazione')}</div>
+          </div>
+        </header>
+
+        <div class="route-stop-body">
+          <div class="route-stop-kv"><span>Articolo</span><b class="mono">${this._esc(d.article_code)}</b></div>
+          <div class="route-stop-kv"><span>Descrizione</span><b>${this._esc(d.article_description || '—')}</b></div>
+          <div class="route-stop-kv"><span>Lotto</span><b class="mono">${this._esc(d.lot_code)}</b></div>
+          <div class="route-stop-kv"><span>Scadenza</span><b>${this._esc(d.expiry_date || '—')}</b></div>
+        </div>
+
+        <!-- LA QUANTITÀ DI SISTEMA NON SI MOSTRA PRIMA DI AVER CONTATO.
+             Un numero davanti agli occhi è un suggerimento, e un inventario
+             che suggerisce la risposta non verifica niente: si confronta
+             dopo, ed è il confronto a essere il risultato. -->
+        <div class="mov-preview mov-preview-warn" style="margin:0.5rem 0">
+          <strong>Conta i colli che vedi a scaffale.</strong>
+          Il numero a sistema compare dopo, quando c'è qualcosa da confrontare.
+        </div>
+
+        <div class="form-group" style="margin:0.6rem 0 0.4rem">
+          <label>① Scansiona UBICAZIONE <span class="req">*</span></label>
+          <div style="display:flex;gap:0.3rem">
+            <input class="input input-mono" id="cnLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
+              oninput="App._normScan('cnLoc')"
+              onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('cnLoc');App._contaCheckLoc();}">
+            <button class="btn btn-sm" type="button" onclick="App._pickLoc('cnLoc','_contaCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
+          </div>
+        </div>
+        <div class="form-group" style="margin-bottom:0.4rem">
+          <label>② Scansiona ARTICOLO <span class="req">*</span></label>
+          <input class="input input-mono" id="cnArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._contaCheckArt();}">
+        </div>
+        <div class="form-group" style="margin-bottom:0.4rem">
+          <label>③ Scansiona LOTTO <span class="req">*</span></label>
+          <input class="input input-mono" id="cnLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._contaCheckLot();}">
+        </div>
+
+        <div id="cnFeedback"></div>
+
+        <div class="disp-confirm">
+          <div class="form-group" style="width:180px;margin-bottom:0.5rem">
+            <label style="white-space:nowrap">④ Colli contati <span class="req">*</span></label>
+            <input class="input input-mono" id="cnQty" type="number" min="0" step="1"
+              style="text-align:center;font-weight:700;font-size: var(--md-sys-typescale-title-medium-size)"
+              oninput="App._contaAnteprima()">
+          </div>
+          <div id="cnConfronto"></div>
+          <div class="form-group" style="margin-bottom:0">
+            <label>Nota (opz.) — se il conteggio non torna, perché</label>
+            <input class="input" id="cnNota" maxlength="${Validate.MAX.REASON}" placeholder="Es: due colli trovati nel vano accanto">
+          </div>
+        </div>
+
+        <div style="display:flex;gap:0.5rem;margin-top:0.7rem;flex-wrap:wrap">
+          <button class="btn btn-primary" style="flex:1;font-weight:800;min-height:var(--md-touch)"
+            onclick="App._execConta()">🔢 CONFERMA CONTEGGIO</button>
+          <button class="btn" style="min-height:var(--md-touch)" onclick="App._contaBack()">← Lascia</button>
+        </div>
+      </article>`;
+    this._contaState.scan = { loc: '', art: '', lot: '' };
+    this.setPrimaryScanField('cnLoc');
+  },
+
+  /* Il confronto compare solo DOPO che un numero è stato digitato: prima
+     non c'è niente da confrontare, e mostrarlo sarebbe suggerire. */
+  _contaAnteprima() {
+    const d = this._contaState;
+    const box = document.getElementById('cnConfronto');
+    if (!d || !box) return;
+    const v = document.getElementById('cnQty')?.value;
+    if (v === '' || v === null || v === undefined) { box.innerHTML = ''; return; }
+    const contati = parseInt(v, 10);
+    if (!Number.isFinite(contati) || contati < 0) { box.innerHTML = ''; return; }
+    const delta = contati - d.qty_system;
+    if (delta === 0) {
+      box.innerHTML = `<div class="mov-preview mov-preview-ok" style="margin-bottom:0.5rem"><strong>✓ Torna.</strong> A sistema ci sono ${d.qty_system} Coll., e ne hai contati altrettanti.</div>`;
+      return;
+    }
+    const segno = delta > 0 ? '+' : '';
+    box.innerHTML = `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.5rem">
+      <strong>⚠ Non torna: ${segno}${delta} Coll.</strong>
+      A sistema ${d.qty_system}, contati ${contati}. Confermando, la giacenza viene rettificata a <strong>${contati}</strong> e il movimento resta a registro con la tua sigla.
+    </div>`;
+  },
+
+  /* ─── Le tre scansioni ─────────────────────────────────────────────── */
+
+  _contaCheckLoc() {
+    const d = this._contaState;
+    if (!d) return;
+    const val = Validate.clean(document.getElementById('cnLoc')?.value, true).replace(/'/g, '-');
+    if (!val) return;
+    if (val !== d.location_code) {
+      d.scan.loc = '';
+      this._scanFb('cnFeedback', 'error', `Sei in ${val}, ma la conta è su ${d.location_code}`);
+      return;
+    }
+    d.scan.loc = val;
+    this._scanFb('cnFeedback', 'ok', `Ubicazione ${val} confermata`);
+    document.getElementById('cnArt')?.focus();
+  },
+
+  _contaCheckArt() {
+    const d = this._contaState;
+    if (!d) return;
+    const val = Validate.clean(document.getElementById('cnArt')?.value, true);
+    if (!val) return;
+    if (val !== d.article_code) {
+      d.scan.art = '';
+      this._scanFb('cnFeedback', 'error', `Articolo ${val} diverso da quello da contare (${d.article_code})`);
+      return;
+    }
+    d.scan.art = val;
+    this._scanFb('cnFeedback', 'ok', `Articolo ${val} confermato`);
+    document.getElementById('cnLot')?.focus();
+  },
+
+  _contaCheckLot() {
+    const d = this._contaState;
+    if (!d) return;
+    const val = Validate.clean(document.getElementById('cnLot')?.value);
+    if (!val) return;
+    if (val !== d.lot_code) {
+      d.scan.lot = '';
+      this._scanFb('cnFeedback', 'error', `Lotto ${val} diverso da quello da contare (${d.lot_code})`);
+      return;
+    }
+    d.scan.lot = val;
+    this._scanFb('cnFeedback', 'ok', `Lotto ${val} confermato — adesso conta i colli`);
+    document.getElementById('cnQty')?.focus();
+  },
+
+  /* ─── La conferma ──────────────────────────────────────────────────── */
+
+  async _execConta() {
+    if (!this._requireOperator('la conta')) return;
+    const d = this._contaState;
+    if (!d) return this.toast('Nessuna riga da contare', 'error');
+
+    const mancanti = [];
+    if (!d.scan.loc) mancanti.push('ubicazione');
+    if (!d.scan.art) mancanti.push('articolo');
+    if (!d.scan.lot) mancanti.push('lotto');
+    if (mancanti.length) {
+      this._scanFb('cnFeedback', 'error', `Verifica incompleta — manca la scansione di: ${mancanti.join(', ')}`);
+      document.getElementById(mancanti[0] === 'ubicazione' ? 'cnLoc' : mancanti[0] === 'articolo' ? 'cnArt' : 'cnLot')?.focus();
+      return;
+    }
+
+    const grezzo = document.getElementById('cnQty')?.value;
+    const contati = parseInt(grezzo, 10);
+    if (grezzo === '' || !Number.isFinite(contati) || contati < 0) {
+      document.getElementById('cnQty')?.focus();
+      return this.toast('Quanti colli hai contato: zero è una risposta, vuoto no', 'error');
+    }
+
+    /* La giacenza si rilegge un'ultima volta: fra l'apertura della maschera
+       e la conferma un altro terminale può aver mosso questa riga. */
+    const it = Store.getItemsAtLocation(d.location_code).find(i => i.item_key === d.item_key);
+    if (!it) return this.toast('La riga non è più in giacenza — ricomincia', 'error');
+    const sistema = it.qty || 0;
+    const delta = contati - sistema;
+    const nota = Validate.clean(document.getElementById('cnNota')?.value);
+    const sigla = Store.getCurrentIdentity().initials;
+    const dettaglio = [`Conta mirata: ${contati}/${sistema}`, nota].filter(Boolean).join(' — ');
+
+    if (delta !== 0 && !await Dialog.confirm({
+      title: 'Rettificare la giacenza?',
+      message: `La giacenza di ${d.article_code}#${d.lot_code} in ${d.location_code} passa da ${sistema} a ${contati} Coll.`,
+      details: Dialog.kv([
+        ['A sistema', `${sistema} Coll.`],
+        ['Contati', `${contati} Coll.`],
+        ['Differenza', `${delta > 0 ? '+' : ''}${delta} Coll.`],
+      ]),
+      confirmLabel: 'Rettifica', danger: true,
+    })) return;
+
+    try {
+      if (delta < 0) {
+        const tolti = contati === 0
+          ? await Store.removeItem(d.location_code, d.item_key)
+          : await Store.removeItem(d.location_code, d.item_key, Math.abs(delta));
+        if (!tolti) return this.toast('Rettifica non riuscita', 'error');
+        await this._logMov(MOV.FIX_OUT, d.article_code, d.article_description, d.lot_code,
+          d.location_code, null, sigla, dettaglio, '', sistema, delta, contati);
+      } else if (delta > 0) {
+        const res = await Store.addItem(d.location_code, d.article_code, d.article_description,
+          d.lot_code, d.expiry_date || '', '', delta);
+        if (!res.ok) return this.toast('Rettifica non riuscita', 'error');
+        await this._logMov(MOV.FIX_IN, d.article_code, d.article_description, d.lot_code,
+          d.location_code, null, sigla, dettaglio, '', sistema, delta, contati);
+      }
+    } catch (err) {
+      return this.toast(`Rettifica non riuscita: ${err.message || 'errore'}`, 'error');
+    }
+
+    if (delta === 0) this.toast(`✓ Conta confermata: ${contati} Coll., come a sistema`, 'success');
+    else this.toast(`✓ Giacenza rettificata a ${contati} Coll. (${delta > 0 ? '+' : ''}${delta})`, 'success');
+    this.updateSyncIndicator();
+    this._refreshSessionLog();
+
+    /* 1.4.4 — LA CONTA SI CHIUDE QUI, CONFERMATA O RETTIFICATA CHE SIA.
+       È un tipo «a gesto»: quanti colli si siano corretti non decide niente,
+       perché un inventario che torna giusto non produce nessuna riga ed è
+       comunque un lavoro fatto. I colli passati sono lo scarto assoluto, e
+       servono al registro delle attività per dire quanto ha pesato. */
+    await this._taskAvanza(Math.abs(delta), ['COUNT']);
+    this._contaState = null;
+    this._formInventario(document.getElementById('movFormArea'));
   },
 
   // ═══ 5. QUARANTENA ═══
@@ -7521,16 +7900,47 @@ const App = {
       <div class="form-row" style="margin-bottom:0.5rem">
         <div class="form-group"><label>③ Campione per chi <span class="req">*</span></label>
           <input class="input" id="cpFor" maxlength="60" placeholder="Laboratorio interno, cliente, ente…"></div>
-        <div class="form-group" style="max-width:230px"><label>Campione di riserva</label>
-          <label style="display:flex;align-items:center;gap:0.4rem;font-weight:400;padding-top:0.4rem">
-            <input type="checkbox" id="cpSpare"> Ne resta uno a magazzino</label></div>
       </div>
+      ${this._campBloccoPulizia(it)}
       <div class="form-group" style="margin-bottom:0.5rem"><label>Note</label>
         <input class="input" id="cpNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Opzionale"></div>
       <button class="btn btn-primary" style="width:100%;padding:0.55rem;font-weight:700;background:var(--sx-teal);border-color:var(--sx-teal)"
         onclick="App._execCampione()">🧪 REGISTRA IL CAMPIONE</button>
       <div id="cpFeedback" style="margin-top:0.4rem"></div>`;
     document.getElementById(scalabile ? 'cpQty' : 'cpFor')?.focus();
+  },
+
+  /* 1.5 — LA PULIZIA DELL'AREA DI PRELIEVO, CHE LA GMP PRETENDE.
+     Ha preso il posto della spunta «campione di riserva», che era una nota
+     di laboratorio e non un fatto di magazzino.
+
+     Sugli ALLERGENI non è una domanda: la merce campionata li porta, la
+     zona va pulita, e la spunta arriva già segnata e non si toglie. Restare
+     una scelta l'avrebbe resa una scelta anche quando non lo è — e il
+     campo, disabilitato, non arriverebbe al lettore: lo porta `cpCleanAuto`,
+     che è il valore vero. */
+  _campBloccoPulizia(it) {
+    const allergeni = Store.getArticle(it.article_code)?.allergens || [];
+    const auto = allergeni.length > 0;
+    const nomi = allergeni.map(a => this._etAllergene(a)).join(', ');
+    return `
+      <input type="hidden" id="cpCleanAuto" value="${auto ? '1' : '0'}">
+      ${auto ? `
+      <div class="mov-preview mov-preview-warn" style="margin-bottom:0.5rem">
+        <strong>⚠ ${this._esc(it.article_code)} porta allergeni: ${this._esc(nomi)}</strong><br>
+        <span style="font-size: var(--md-sys-typescale-body-small-size)">
+          Pulire la zona di prelievo a campionamento terminato. La pulizia è
+          <strong>obbligatoria</strong> e viene registrata da sé nel registro attività.</span>
+      </div>` : ''}
+      <div class="form-group" style="margin-bottom:0.5rem">
+        <label style="display:flex;align-items:center;gap:0.45rem;font-weight:600;text-transform:none;cursor:${auto ? 'default' : 'pointer'}">
+          <input type="checkbox" id="cpClean" style="width:17px;height:17px"
+            ${auto ? 'checked disabled' : ''}>
+          <span>🧽 Ho pulito l'area di campionamento${auto ? ' — obbligatorio' : ''}</span>
+        </label>
+        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">
+          Spuntata, la pulizia finisce nel registro attività col riferimento a questo campionamento — è richiesto dalla GMP.</div>
+      </div>`;
   },
 
   async _execCampione() {
@@ -7544,7 +7954,10 @@ const App = {
        stessa regola della maschera di richiesta, e per la stessa ragione. */
     const perChi = Validate.clean(document.getElementById('cpFor')?.value);
     if (!perChi) { document.getElementById('cpFor')?.focus(); return this.toast('Dire per chi è il campione', 'error'); }
-    const riserva = !!document.getElementById('cpSpare')?.checked;
+    /* La pulizia obbligatoria non passa dal campo, che è disabilitato e non
+       arriverebbe: passa da `cpCleanAuto`, che dice se la merce ha allergeni. */
+    const pulitoAuto = document.getElementById('cpCleanAuto')?.value === '1';
+    const pulito = pulitoAuto || !!document.getElementById('cpClean')?.checked;
     const note = Validate.clean(document.getElementById('cpNotes')?.value);
     if (Validate.notes(note)) return this.toast(Validate.notes(note), 'error');
 
@@ -7563,23 +7976,73 @@ const App = {
       if (!esito) return this.toast('Item non più presente', 'error');
     }
 
-    const dettaglio = [`CAMPIONE per ${perChi}`, riserva ? 'riserva a magazzino' : '', note].filter(Boolean).join(' · ');
+    const dettaglio = [
+      `CAMPIONE per ${perChi}`,
+      /* La pulizia sta ANCHE nel dettaglio del movimento, non solo
+         nell'attività: il registro attività vive a interruttore acceso, il
+         registro dei movimenti c'è sempre. Un obbligo GMP non può dipendere
+         da un interruttore. */
+      pulito ? (pulitoAuto ? 'area pulita — obbligatoria, allergeni' : 'area pulita') : 'area NON pulita',
+      note,
+    ].filter(Boolean).join(' · ');
     /* La causale nuova, la quindicesima. Il logbook dei campioni è il
        registro filtrato su di lei: nessuna collezione in più. */
-    await this._logMov(MOV.SAMPLE, it.article_code, it.article_description, it.lot_code, d.location_code,
+    const movId = await this._logMov(MOV.SAMPLE, it.article_code, it.article_description, it.lot_code, d.location_code,
       null, Store.getCurrentIdentity().initials, dettaglio, '',
       it.qty || 0, 0, it.qty || 0, esito ? esito.qty_uom_delta : null);
+
+    /* IL RIFERIMENTO ALL'ULTIMO CAMPIONAMENTO, che è il dato che la GMP
+       chiede. È il movimento e non il compito: il campionamento esiste
+       sempre, il compito solo se qualcuno l'aveva chiesto. */
+    const rifCamp = typeof movId === 'number' ? `MOV-${movId}` : null;
+    if (pulito) {
+      try {
+        await Store.logCleaningTask({
+          location_code: d.location_code,
+          article_code: it.article_code,
+          lot_code: it.lot_code,
+          sample_ref: rifCamp,
+          automatica: pulitoAuto,
+          note: pulitoAuto ? 'Pulizia obbligatoria: la merce campionata porta allergeni' : '',
+        });
+      } catch (err) {
+        /* La pulizia non registrata non fa saltare il campionamento: la
+           merce si è già mossa. Resta scritta nel dettaglio del movimento,
+           e l'operatore lo sa. */
+        this.toast(`Campione registrato, ma la pulizia non è finita nel registro attività: ${err.message || err}`, 'warning');
+      }
+    }
 
     const quanto = esito ? `${formattaQuantita(-esito.qty_uom_delta, esito.uom)} ${esito.uom}` : 'quantità non scalata';
     this.toast(`🧪 Campione registrato: ${it.article_code}#${it.lot_code} — ${quanto}`, 'success');
     const fb = document.getElementById('cpFeedback');
-    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><strong>✓ ${this._esc(it.article_code)}#${this._esc(it.lot_code)}</strong> — ${this._esc(quanto)}, per ${this._esc(perChi)}. I colli restano ${it.qty || 0}.</div>`;
+    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><strong>✓ ${this._esc(it.article_code)}#${this._esc(it.lot_code)}</strong> — ${this._esc(quanto)}, per ${this._esc(perChi)}. I colli restano ${it.qty || 0}.${pulito ? ' Pulizia registrata.' : ''}</div>`;
     this.updateSyncIndicator();
     this._refreshSessionLog();
     /* Un campione è UN gesto: vale un collo di residuo. Chi ne ha chiesti
        tre passa di qui tre volte, ed è giusto così — sono tre prelievi
        distinti, con tre righe di registro. */
     await this._taskAvanza(1, ['SAMPLING']);
+
+    /* IL VERBALE NASCE DA SÉ, come il cartellino di quarantena — D17. Un
+       verbale che si stampa «quando serve» è un verbale che qualcuno
+       dimentica, e il campione parte senza il foglio che lo accompagna.
+       Resta ristampabile dal registro attività. */
+    this._stampaVerbaleCampione({
+      rif: rifCamp,
+      article_code: it.article_code,
+      article_description: it.article_description,
+      lot_code: it.lot_code,
+      location_code: d.location_code,
+      qty_colli: it.qty || 0,
+      quantita: esito ? `${formattaQuantita(-esito.qty_uom_delta, esito.uom)} ${esito.uom}` : null,
+      per_chi: perChi,
+      note,
+      pulito, pulitoAuto,
+      ts: Date.now(),
+      operatore: Store.getCurrentIdentity().initials,
+    });
+
     this._campReset();
     this._formCampionamento(document.getElementById('movFormArea'));
   },
@@ -7607,9 +8070,24 @@ const App = {
     const causaliOpts = cfg.causali.map(c =>
       `<option value="${this._esc(c.id)}" ${this._shipCausale === c.id ? 'selected' : ''}>${this._esc(c.label)}</option>`).join('');
 
+    /* 1.6 — L'ANAGRAFICA VIENE PRIMA DELLA DERIVAZIONE DAI DDT.
+       `getKnownRecipients` ricava i destinatari scorrendo i documenti gia'
+       fatti, ed e' cio' che c'era prima che l'anagrafica esistesse: resta
+       come RIPIEGO per i clienti storici, che nell'anagrafica non ci sono
+       finche' non gli si spedisce di nuovo. I due elenchi si uniscono, e i
+       nomi doppi non si mostrano due volte. */
+    const rubrica = Store.getRecipients();
     const known = Store.getKnownRecipients();
-    const datalist = known.length
-      ? `<datalist id="shipRecipients">${known.map(r => `<option value="${this._esc(r.destination)}"></option>`).join('')}</datalist>`
+    const nomi = [];
+    const visti = new Set();
+    for (const r of [...rubrica.map(r => r.name), ...known.map(k => k.destination)]) {
+      const n = String(r || '').trim();
+      const k = n.toUpperCase();
+      if (!n || visti.has(k)) continue;
+      visti.add(k); nomi.push(n);
+    }
+    const datalist = nomi.length
+      ? `<datalist id="shipRecipients">${nomi.map(n => `<option value="${this._esc(n)}"></option>`).join('')}</datalist>`
       : '';
 
     const w = this._shipComputeWeights();
@@ -7837,17 +8315,44 @@ const App = {
     if (!cart.length && !pending.length) document.getElementById('pShipCustomer')?.focus();
   },
 
+  /* 1.6 — UN DESTINATARIO GIA' IN ANAGRAFICA COMPILA IL DDT DA SE'.
+     Si cerca prima in rubrica e poi, per i clienti storici, nei DDT gia'
+     fatti. `fill` non sovrascrive: cio' che l'operatore ha gia' digitato e'
+     una scelta, e l'anagrafica non la corregge alle sue spalle. */
   _shipRecipientPicked() {
     const name = Validate.clean(document.getElementById('pShipCustomer')?.value);
     this._shipCustomer = name;
     if (!name) { this._persistShipHeader(); return; }
-    const known = Store.getKnownRecipients()
-      .find(r => r.destination.trim().toUpperCase() === name.trim().toUpperCase());
-    if (!known) { this._persistShipHeader(); return; }
     const fill = (id, val) => {
       const e = document.getElementById(id);
       if (e && !e.value.trim() && val) e.value = val;
     };
+
+    const rcp = Store.getRecipients()
+      .find(r => normalizzaNomeRcp(r.name) === normalizzaNomeRcp(name));
+    if (rcp) {
+      fill('pShipDestVat', rcp.vat || rcp.fiscal_code);
+      const d = destinazionePredefinita(rcp);
+      if (d) {
+        fill('pShipDestAddress', d.address);
+        fill('pShipDestZip', d.zip);
+        fill('pShipDestCity', d.city);
+        fill('pShipDestProvince', d.province);
+      }
+      this._persistShipHeader();
+      /* PIU' DESTINAZIONI: si sceglie, non si indovina. La prima e' solo la
+         proposta — un cliente con un deposito riceve dove ha detto lui. */
+      const altre = (rcp.destinations || []).length;
+      this.toast(altre > 1
+        ? `${name}: ${altre} destinazioni in anagrafica — si cambia dal selettore`
+        : `Anagrafica di ${name} ripresa`, 'info');
+      if (altre > 1) this._shipMostraDestinazioni(rcp);
+      return;
+    }
+
+    const known = Store.getKnownRecipients()
+      .find(r => r.destination.trim().toUpperCase() === name.trim().toUpperCase());
+    if (!known) { this._persistShipHeader(); return; }
     fill('pShipDestAddress', known.dest_address);
     fill('pShipDestZip', known.dest_zip);
     fill('pShipDestCity', known.dest_city);
@@ -7857,6 +8362,41 @@ const App = {
     fill('pShipCarrier', known.carrier);
     this._persistShipHeader();
     this.toast(`Anagrafica di ${name} ripresa dall'ultimo DDT`, 'info');
+  },
+
+  /* Il selettore delle destinazioni. Overlay con id PROPRIO e chiusura
+     propria — trappola 31: `showModal` riusa `modalOverlay`, e aperto da
+     dentro un'altra finestra chiuderebbe quella sotto. */
+  _shipMostraDestinazioni(rcp) {
+    document.getElementById('destPickOverlay')?.remove();
+    const righe = (rcp.destinations || []).map((d, i) => `
+      <button class="btn" style="width:100%;text-align:left;margin-bottom:0.3rem"
+        onclick="App._shipScegliDestinazione('${this._esc(rcp.rcp_id)}',${i})">
+        <strong>${this._esc(d.label || `Destinazione ${i + 1}`)}</strong>${d.predefinita ? ' <span class="badge badge-teal">predefinita</span>' : ''}<br>
+        <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${this._esc(descriviDestinazione(d))}</span>
+      </button>`).join('');
+    const ov = document.createElement('div');
+    ov.className = 'modal-overlay';
+    ov.id = 'destPickOverlay';
+    ov.onclick = (e) => { if (e.target === ov) ov.remove(); };
+    ov.innerHTML = `<div class="modal">
+      <div class="modal-header"><h3>Dove consegna ${this._esc(rcp.name)}?</h3>
+        <button class="modal-close" onclick="document.getElementById('destPickOverlay')?.remove()">&times;</button></div>
+      <div class="modal-body">${righe}</div></div>`;
+    document.body.appendChild(ov);
+  },
+
+  _shipScegliDestinazione(rcpId, i) {
+    const d = Store.getRecipient(rcpId)?.destinations?.[i];
+    document.getElementById('destPickOverlay')?.remove();
+    if (!d) return;
+    const set = (id, val) => { const e = document.getElementById(id); if (e) e.value = val || ''; };
+    set('pShipDestAddress', d.address);
+    set('pShipDestZip', d.zip);
+    set('pShipDestCity', d.city);
+    set('pShipDestProvince', d.province);
+    this._persistShipHeader();
+    this.toast(`Destinazione: ${descriviDestinazione(d)}`, 'success');
   },
 
   _shipComputeWeights(lines = null) {
@@ -8290,20 +8830,83 @@ const App = {
         /* Il mittente viene congelato nel documento: un DDT ristampato fra
            due anni deve riportare la sede di allora [M4]. */
         sender: Store.getDocConfig().sender,
-        /* 1.4.2.1 — il compito che ha aperto questo prelievo resta scritto sul
-           documento: il residuo si scala quando la merce ESCE, e fra qui e il
-           ritiro del vettore possono passare dei giorni. */
+        /* Il compito che ha aperto questo prelievo resta scritto sul
+           documento: dalla 1.4.4 non è più il filo della chiusura, ma resta
+           il legame fra la richiesta e il documento che ne è nato — serve a
+           chi, fra un mese, si chiede da dove venisse questo DDT. */
         task_id: (this._taskRun?.type === 'PICK_SHIP' || this._taskRun?.type === 'PICK_RET')
           ? this._taskRun.task_id : null,
         lines: this._shipCart.slice()
       });
       await Store.rememberDdtNumber(doc.ddt_num);
       this.toast(`✓ DDT ${doc.ddt_num} registrato come pendente`, 'success');   // v2.2.1 [F4]
+      /* 1.6 — L'ANAGRAFICA SI POPOLA QUI, e non prima: si registra ciò che è
+         andato su un documento vero, non ciò che qualcuno stava digitando.
+         Dopo il salvataggio, così un errore di rubrica non fa perdere un DDT. */
+      await this._aggiornaRubrica();
       this.updateSyncIndicator();
+      /* 1.4.4 — IL PRELIEVO SI CHIUDE QUI, ALLA REGISTRAZIONE DEL DDT.
+         Il lavoro dell'operatore finisce col documento: da questo momento la
+         merce aspetta il vettore, e l'evasione non dipende più da lui — può
+         passare giorni, e la fa chi spedisce. Tenere il compito aperto fino
+         al ritiro voleva dire lasciare in coda, addosso a chi ha prelevato,
+         un'attività che non poteva più concludere. */
+      const colliDdt = this._shipCart.reduce((s, l) => s + (l.qty || 1), 0);
+      await this._taskAvanza(colliDdt, ['PICK_SHIP', 'PICK_RET']);
       this._shipResetHeader();
       this._formSpedizioni(document.getElementById('movFormArea'));
     } catch (err) {
       this.toast(`Errore salvataggio: ${err.message || 'sconosciuto'}`, 'error');
+    }
+  },
+
+  /* 1.6 — «PERMANENTE O SPOT», e la domanda si fa solo quando serve.
+     Tre casi e una sola domanda:
+     - destinatario nuovo → entra, senza chiedere niente: non c'è nulla da
+       sovrascrivere, e chiederlo sarebbe un passaggio a vuoto;
+     - dati identici → non si chiede e non si scrive;
+     - dati diversi da quelli in rubrica → si mostra COSA cambia e si chiede
+       se vale per sempre o solo per questo documento.
+
+     La destinazione fa storia a sé e non entra nella domanda: un indirizzo
+     nuovo si aggiunge sempre accanto agli altri, perché non corregge niente
+     — è un posto in più dove quel cliente riceve. */
+  async _aggiornaRubrica() {
+    const dati = {
+      name: this._shipCustomer,
+      vat: this._shipDestVat,
+      address: this._shipDestAddress,
+      zip: this._shipDestZip,
+      city: this._shipDestCity,
+      province: this._shipDestProvince,
+    };
+    if (!String(dati.name || '').trim()) return;
+    try {
+      const esistente = Store.findRecipient(dati);
+      let permanente = false;
+      if (esistente) {
+        const diff = differenzeRcp(esistente, dati, destinazionePredefinita(esistente));
+        /* Le sole differenze di INDIRIZZO non aprono la domanda: quelle
+           diventano una destinazione in più, e nessuno deve decidere niente. */
+        const anagrafiche = diff.filter(d => ['name', 'vat', 'fiscal_code'].includes(d.campo));
+        if (anagrafiche.length) {
+          permanente = await Dialog.confirm({
+            title: 'I dati del destinatario sono cambiati',
+            message: 'Vale da adesso in poi, o solo per questo documento?\n\nIl DDT appena registrato porta comunque i valori che hai scritto: la scelta riguarda l\'anagrafica.',
+            details: Dialog.kv(anagrafiche.map(d => [d.etichetta, `${d.prima || '—'} → ${d.dopo}`])),
+            confirmLabel: 'Modifica permanente',
+            cancelLabel: 'Solo per questo DDT',
+          });
+        }
+      }
+      const esito = await Store.upsertRecipient(dati, { permanente });
+      if (!esito) return;
+      if (esito.creato) this.toast(`📇 ${esito.record.name} aggiunto all'anagrafica destinatari`, 'info');
+      else if (esito.destinazioneNuova) this.toast(`📇 Nuova destinazione salvata per ${esito.record.name}`, 'info');
+      else if (permanente) this.toast(`📇 Anagrafica di ${esito.record.name} aggiornata`, 'info');
+    } catch (err) {
+      /* La rubrica non deve mai far sembrare fallito un DDT che è passato. */
+      this.toast(`DDT registrato. L'anagrafica destinatari non si è aggiornata: ${err.message || err}`, 'warning');
     }
   },
 
@@ -8378,9 +8981,13 @@ const App = {
     }
     // Aggiorna status documento → evaded
     await Store.updatePendingStatus(doc_id, 'evaded');
-    /* 1.4.2.1 — la merce e' uscita: adesso il prelievo che ha aperto questo
-       DDT ha mosso i suoi colli, e sono quelli del documento. */
-    await this._taskAvanzaDoc(doc, totalColli, movIds);
+    /* 1.4.4 — QUI NON SI CHIUDE NIENTE. Il compito di prelievo si è chiuso
+       alla registrazione del DDT: l'evasione è il ritiro del vettore, un
+       fatto del magazzino che non ha un'attività sua e non ne conclude
+       nessuna. Fino alla 1.4.3 la chiusura stava qui, e dipendeva da un
+       `task_id` che veniva scritto solo se la sessione dell'operatore era
+       ancora viva al salvataggio: bastava uscire da Movimenta e rientrare
+       perché il filo si spezzasse e il compito non si chiudesse mai più. */
     this.toast(`✓ DDT ${doc.ddt_num} evaso · ${doc.lines.length} righe · ${totalColli} Coll.`, 'success');
     this.updateSyncIndicator();
     if (await Dialog.confirm({
@@ -9092,7 +9699,14 @@ const App = {
   },
 
   /* Modal universale selezione ubicazione */
+  /* L'overlay ha un id SUO, e non quello di `showModal`. Dalla 1.4.3 questo
+     selettore si apre anche da dentro una modale — la maschera di creazione
+     di un'attività — e due overlay con lo stesso `modalOverlay` sono due
+     elementi che `getElementById` non distingue: restituisce il primo, cioè
+     la maschera sotto, e `closeModal()` chiudeva quella lasciando in piedi
+     il selettore. Stessa forma di `_showReleaseDestDialog`. */
   _pickLoc(targetInputId, callbackName) {
+    document.getElementById('pickLocOverlay')?.remove();
     const sites = Store.getSites();
     let html = '<div style="max-height:400px;overflow-y:auto">';
     for (const site of sites) {
@@ -9105,7 +9719,7 @@ const App = {
           const st = Store.getLocationStatus(loc.code);
           const ic = Store.getItemsAtLocation(loc.code).length;
           const cb = callbackName ? `;App.${callbackName}()` : '';
-          html += `<div class="search-result-item" onclick="document.getElementById('${targetInputId}').value='${loc.code}';App.closeModal()${cb}">
+          html += `<div class="search-result-item" onclick="document.getElementById('${targetInputId}').value='${loc.code}';App._closePickLoc()${cb}">
             <span class="mono" style="font-weight:700">${this._esc(loc.code)}</span>
             <span style="margin-left:auto;font-size: var(--md-sys-typescale-label-small-size)"><span class="badge badge-${st === 'occupied' ? 'green' : st === 'reserved' ? 'amber' : 'muted'}">${st}</span>${ic ? ' · ' + ic + ' item' : ''}</span>
           </div>`;
@@ -9116,8 +9730,18 @@ const App = {
     }
     if (html === '<div style="max-height:400px;overflow-y:auto">') html += '<div class="empty-state"><p>Nessuna ubicazione disponibile</p></div>';
     html += '</div>';
-    this.showModal('📍 Seleziona Ubicazione', html);
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'pickLocOverlay';
+    overlay.onclick = (e) => { if (e.target === overlay) this._closePickLoc(); };
+    overlay.innerHTML = `<div class="modal">
+      <div class="modal-header"><h2>📍 Seleziona Ubicazione</h2><button class="btn btn-sm btn-icon btn-ghost" onclick="App._closePickLoc()">✕</button></div>
+      <div class="modal-body">${html}</div>
+    </div>`;
+    document.body.appendChild(overlay);
   },
+
+  _closePickLoc() { document.getElementById('pickLocOverlay')?.remove(); },
 
   _searchLimits: { items: 50, locs: 30, arts: 30 },
   _searchHits: [],        // risultati appiattiti nell'ordine di visualizzazione
@@ -9580,6 +10204,8 @@ const App = {
       <div class="config-tabs">
         <button class="config-tab ${this._configTab === 'sites' ? 'active' : ''}" onclick="App._configTab='sites';App.renderConfig()">Siti e Zone</button>
         <button class="config-tab ${this._configTab === 'articles' ? 'active' : ''}" onclick="App._configTab='articles';App.renderConfig()">Anagrafica Articoli</button>
+        <button class="config-tab ${this._configTab === 'params' ? 'active' : ''}" onclick="App._configTab='params';App.renderConfig()">Parametri Articolo</button>
+        <button class="config-tab ${this._configTab === 'recipients' ? 'active' : ''}" onclick="App._configTab='recipients';App.renderConfig()">Destinatari</button>
         <button class="config-tab ${this._configTab === 'operators' ? 'active' : ''}" onclick="App._configTab='operators';App.renderConfig()">Operatori</button>
         <button class="config-tab ${this._configTab === 'docs' ? 'active' : ''}" onclick="App._configTab='docs';App.renderConfig()">DDT e Documenti</button>
         <button class="config-tab ${this._configTab === 'session' ? 'active' : ''}" onclick="App._configTab='session';App.renderConfig()">Sessione</button>
@@ -9591,11 +10217,279 @@ const App = {
     const content = document.getElementById('configContent');
     if (this._configTab === 'sites') this._renderConfigSites(content);
     else if (this._configTab === 'articles') this._renderConfigArticles(content);
+    else if (this._configTab === 'params') this._renderConfigParams(content);
+    else if (this._configTab === 'recipients') this._renderConfigRecipients(content);
     else if (this._configTab === 'operators') this._renderConfigOperators(content);
     else if (this._configTab === 'docs') this._renderConfigDocs(content);   // v3.0.0 [M4]
     else if (this._configTab === 'session') this._renderConfigSession(content);
     else if (this._configTab === 'features') this._renderConfigFeatures(content);
     else this._renderConfigData(content);
+  },
+
+  /* ═══ ANAGRAFICA DESTINATARI — 1.6, PIANO §9.5 ═════════════════════
+     QUESTA SCHEDA NON SI COMPILA: si guarda. L'anagrafica si popola da sé
+     compilando i DDT, ed è la differenza che regge la funzione — nessuno
+     caricherebbe mai duecento destinatari a mano. Qui si correggono i dati
+     e si tolgono i doppioni che l'uso ha prodotto. */
+  _rcpFiltro: '',
+
+  _renderConfigRecipients(el) {
+    const tutti = Store.getRecipients();
+    const q = String(this._rcpFiltro || '').trim();
+    const righe = q ? Store.searchRecipients(q, 200) : tutti;
+    const senzaPiva = tutti.filter(r => !r.vat && !r.fiscal_code).length;
+
+    const corpo = righe.length ? righe
+      .slice()
+      .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'it'))
+      .map(r => {
+        const dest = (r.destinations || []).map(d =>
+          `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">
+            ${d.predefinita ? '★ ' : '· '}${this._esc(d.label ? `${d.label} — ` : '')}${this._esc(descriviDestinazione(d))}</div>`).join('')
+          || '<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">nessuna destinazione</div>';
+        return `<tr>
+          <td><strong>${this._esc(r.name)}</strong>${dest}</td>
+          <td class="mono">${this._esc(r.vat || r.fiscal_code || '')}</td>
+          <td class="td-center">${(r.destinations || []).length}</td>
+          <td class="td-center" style="white-space:nowrap">
+            <button class="btn btn-sm" onclick="App.showEditRecipientModal('${this._esc(r.rcp_id)}')">✏</button>
+            <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteRecipient('${this._esc(r.rcp_id)}')">🗑</button>
+          </td></tr>`;
+      }).join('')
+      : `<tr><td colspan="4" style="color:var(--sx-text-muted)">${tutti.length ? 'Nessun riscontro.' : 'Vuota — si riempie da sé al primo DDT.'}</td></tr>`;
+
+    el.innerHTML = `
+      <div style="margin-bottom:0.6rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">
+        <strong>Si popola da sé compilando i DDT.</strong> Un destinatario nuovo entra al primo documento;
+        un indirizzo diverso si aggiunge accanto agli altri, e la volta dopo si sceglie.
+        Due DDT parlano dello stesso destinatario quando coincide la <strong>partita IVA</strong>.
+      </div>
+      ${senzaPiva ? `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.6rem">
+        ⚠ <strong>${senzaPiva}</strong> ${senzaPiva === 1 ? 'destinatario è' : 'destinatari sono'} senza partita IVA: ${senzaPiva === 1 ? 'viene riconosciuto' : 'vengono riconosciuti'} dalla ragione sociale,
+        e due grafie diverse ${senzaPiva === 1 ? 'ne farebbero' : 'ne farebbero'} due record.
+      </div>` : ''}
+      <div class="form-group" style="margin-bottom:0.5rem;max-width:340px">
+        <input class="input" placeholder="Cerca per nome o partita IVA" value="${this._esc(this._rcpFiltro)}"
+          oninput="App._rcpFiltro=this.value;App._renderConfigRecipients(document.getElementById('configContent'))">
+      </div>
+      <table class="table table-sm"><thead><tr>
+        <th>Destinatario e destinazioni</th><th style="width:150px">P. IVA / C.F.</th>
+        <th style="width:70px" class="td-center">Dest.</th><th style="width:110px"></th>
+      </tr></thead><tbody>${corpo}</tbody></table>
+      <div style="margin-top:0.4rem;font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">
+        ${tutti.length} in anagrafica · ★ è la destinazione che il DDT propone
+      </div>`;
+  },
+
+  showEditRecipientModal(rcpId) {
+    const r = Store.getRecipient(rcpId);
+    if (!r) return;
+    const dest = (r.destinations || []).map((d, i) => `
+      <div style="border:1px solid var(--sx-border);border-radius:var(--radius-md);padding:0.45rem;margin-bottom:0.35rem">
+        <div class="form-row" style="margin-bottom:0.3rem">
+          <div class="form-group"><label>Etichetta</label>
+            <input class="input" id="rcD${i}Label" value="${this._esc(d.label || '')}" maxlength="40"></div>
+          <div class="form-group" style="max-width:150px"><label>&nbsp;</label>
+            <label style="display:flex;align-items:center;gap:0.35rem;font-weight:400;padding-top:0.4rem">
+              <input type="radio" name="rcDefault" value="${i}" ${d.predefinita ? 'checked' : ''}> Predefinita</label></div>
+        </div>
+        <div class="form-row" style="margin-bottom:0.3rem">
+          <div class="form-group"><label>Indirizzo</label>
+            <input class="input" id="rcD${i}Address" value="${this._esc(d.address || '')}" maxlength="120"></div>
+          <div class="form-group" style="max-width:110px"><label>CAP</label>
+            <input class="input input-mono" id="rcD${i}Zip" value="${this._esc(d.zip || '')}" maxlength="10"></div>
+        </div>
+        <div class="form-row">
+          <div class="form-group"><label>Comune</label>
+            <input class="input" id="rcD${i}City" value="${this._esc(d.city || '')}" maxlength="60"></div>
+          <div class="form-group" style="max-width:100px"><label>Prov.</label>
+            <input class="input input-mono" id="rcD${i}Province" value="${this._esc(d.province || '')}" maxlength="4"></div>
+          <div class="form-group" style="max-width:110px"><label>&nbsp;</label>
+            <button class="btn btn-sm btn-danger" style="width:100%" onclick="App.doRimuoviDestinazione('${this._esc(rcpId)}',${i})">Togli</button></div>
+        </div>
+      </div>`).join('') || '<div style="color:var(--sx-text-muted);margin-bottom:0.4rem">Nessuna destinazione: si aggiunge al primo DDT.</div>';
+
+    this.showModal(`Destinatario — ${this._esc(r.name)}`, `
+      <div class="form-row" style="margin-bottom:0.6rem">
+        <div class="form-group"><label>Ragione sociale <span class="req">*</span></label>
+          <input class="input" id="rcName" value="${this._esc(r.name)}" maxlength="120"></div>
+        <div class="form-group"><label>Partita IVA</label>
+          <input class="input input-mono" id="rcVat" value="${this._esc(r.vat || '')}" maxlength="20"></div>
+        <div class="form-group"><label>Codice fiscale</label>
+          <input class="input input-mono" id="rcCf" value="${this._esc(r.fiscal_code || '')}" maxlength="20"></div>
+      </div>
+      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.5rem">
+        La partita IVA è la chiave: cambiandola, i DDT futuri con la vecchia creeranno un secondo record.
+      </div>
+      <div style="font-weight:700;margin-bottom:0.35rem">Destinazioni</div>
+      ${dest}
+    `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
+        <button class="btn btn-primary" onclick="App.doSaveRecipient('${this._esc(rcpId)}')">Salva</button>`);
+  },
+
+  async doSaveRecipient(rcpId) {
+    const r = Store.getRecipient(rcpId);
+    if (!r) return;
+    const nome = Validate.clean(document.getElementById('rcName')?.value);
+    if (!nome) return this.toast('La ragione sociale non può restare vuota', 'error');
+    const scelta = document.querySelector('input[name="rcDefault"]:checked')?.value;
+    const destinations = (r.destinations || []).map((d, i) => {
+      const v = (c) => Validate.clean(document.getElementById(`rcD${i}${c}`)?.value);
+      const out = { ...d,
+        label: v('Label') || undefined, address: v('Address') || undefined,
+        zip: v('Zip') || undefined, city: v('City') || undefined,
+        province: v('Province') || undefined };
+      /* Una sola predefinita: due stelle sarebbero due proposte, e il DDT
+         ne prenderebbe una a caso. */
+      if (String(i) === String(scelta)) out.predefinita = true; else delete out.predefinita;
+      return out;
+    });
+    await Store.saveRecipient({
+      ...r, name: nome,
+      vat: Validate.clean(document.getElementById('rcVat')?.value, true) || undefined,
+      fiscal_code: Validate.clean(document.getElementById('rcCf')?.value, true) || undefined,
+      destinations,
+    });
+    this.closeModal();
+    this.renderConfig();
+    this.updateSyncIndicator();
+    this.toast(`✓ ${nome} aggiornato`, 'success');
+  },
+
+  async doRimuoviDestinazione(rcpId, i) {
+    const r = Store.getRecipient(rcpId);
+    if (!r) return;
+    const d = (r.destinations || [])[i];
+    if (!d) return;
+    if (!await Dialog.confirm({
+      title: 'Togliere questa destinazione?',
+      message: 'I DDT già registrati non vengono toccati: portano il loro indirizzo scritto dentro.',
+      details: Dialog.kv([['Destinazione', descriviDestinazione(d) || '—']]),
+      confirmLabel: 'Togli', danger: true,
+    })) return;
+    const destinations = (r.destinations || []).filter((_, j) => j !== i);
+    /* Tolta la predefinita, la prima rimasta prende il suo posto: senza,
+       il DDT non proporrebbe più niente e nessuno saprebbe perché. */
+    if (d.predefinita && destinations.length) destinations[0] = { ...destinations[0], predefinita: true };
+    await Store.saveRecipient({ ...r, destinations });
+    this.closeModal();
+    this.renderConfig();
+    this.updateSyncIndicator();
+    this.toast('Destinazione tolta', 'success');
+  },
+
+  async confirmDeleteRecipient(rcpId) {
+    const r = Store.getRecipient(rcpId);
+    if (!r) return;
+    if (!await Dialog.confirm({
+      title: 'Eliminare il destinatario dall’anagrafica?',
+      message: 'I DDT già registrati non vengono toccati. Al prossimo documento a questo nome, il destinatario rientra da sé.',
+      details: Dialog.kv([['Destinatario', r.name], ['P. IVA', r.vat || '—']]),
+      confirmLabel: 'Elimina', danger: true,
+    })) return;
+    await Store.deleteRecipient(rcpId);
+    this.renderConfig();
+    this.updateSyncIndicator();
+    this.toast(`${r.name} eliminato dall'anagrafica`, 'success');
+  },
+
+  /* ═══ PARAMETRI ARTICOLO — 1.6, PIANO §9.3 ═════════════════════════
+     Fino alla 1.5 le tendine dell'anagrafica erano tutte nel sorgente:
+     aggiungere una voce voleva dire un rilascio. Da qui in poi sono un dato.
+
+     LA REGOLA STA IN `modules/parametri.ts` E NON QUI: i valori di legge —
+     i 14 allergeni del Reg. UE 1169/2011, le tre classi del freddo, le
+     cinque unità che il motore sa dividere — si vedono e NON si tolgono.
+     Sopra si aggiunge. Il lucchetto che si vede su quelle righe è la resa
+     di `Voce.fissa`, non una regola scritta due volte — D18. */
+  _PARAM_SCHEDE: [
+    { chiave: 'unita', titolo: 'Unità di misura', icona: '⚖',
+      nota: 'Le cinque che il motore sa dividere sono fisse. Ciò che si aggiunge qui compare fra i suggerimenti dell\'anagrafica, ma resta «non gestita»: il motore non la divide.',
+      elenco: 'getUnitaAmmesse' },
+    { chiave: 'allergeni', titolo: 'Allergeni', icona: '⚠',
+      nota: 'I 14 dell\'Allegato II del Reg. UE 1169/2011 sono una norma e non si tolgono. Le voci aziendali — il lattosio, che non è il latte — si aggiungono accanto.',
+      elenco: 'getAllergeniAmmessi' },
+    { chiave: 'conservazione', titolo: 'Modalità di conservazione', icona: '🌡',
+      nota: 'Le tre classi della logistica del freddo sono fisse. Una quarta modalità si aggiunge qui.',
+      elenco: 'getClassiConservazione' },
+    { chiave: 'pericoli', titolo: 'Pericolosità', icona: '☣',
+      nota: 'Configurabile per intero: non è una norma di etichettatura ma una politica di magazzino — dice dove una cosa non si può mettere, e quel «dove» cambia con le zone.',
+      elenco: 'getPericoli' },
+  ],
+
+  _renderConfigParams(el) {
+    const schede = this._PARAM_SCHEDE.map(s => {
+      const voci = Store[s.elenco]();
+      const righe = voci.length ? voci.map(v => `
+        <tr>
+          <td class="mono" style="font-weight:700">${this._esc(v.code)}</td>
+          <td>${this._esc(v.label)}</td>
+          <td class="td-center">${v.fissa
+            ? '<span class="badge badge-muted" title="Valore di legge o di sistema: non si toglie">🔒 fisso</span>'
+            : `<button class="btn btn-sm btn-danger" onclick="App.doRimuoviParam('${s.chiave}','${this._esc(v.code)}')">Togli</button>`}</td>
+        </tr>`).join('')
+        : `<tr><td colspan="3" style="color:var(--sx-text-muted)">Nessuna voce.</td></tr>`;
+      return `
+      <div class="cfg-card" style="margin-bottom:0.9rem">
+        <h3 style="margin:0 0 0.25rem">${s.icona} ${this._esc(s.titolo)}</h3>
+        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.5rem">${this._esc(s.nota)}</div>
+        <table class="table table-sm"><thead><tr>
+          <th style="width:170px">Codice</th><th>Etichetta</th><th style="width:110px"></th>
+        </tr></thead><tbody>${righe}</tbody></table>
+        <div class="form-row" style="margin-top:0.4rem">
+          <div class="form-group"><label>Codice nuovo</label>
+            <input class="input input-mono" id="pp_${s.chiave}_code" maxlength="24" style="text-transform:uppercase" placeholder="ES_NUOVO"></div>
+          <div class="form-group"><label>Etichetta</label>
+            <input class="input" id="pp_${s.chiave}_label" maxlength="60" placeholder="Come la legge l'operatore"></div>
+          <div class="form-group" style="max-width:130px"><label>&nbsp;</label>
+            <button class="btn btn-primary" style="width:100%" onclick="App.doAggiungiParam('${s.chiave}')">Aggiungi</button></div>
+        </div>
+      </div>`;
+    }).join('');
+
+    el.innerHTML = `
+      <div style="margin-bottom:0.7rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">
+        Le tendine dell'anagrafica articoli e della caratterizzazione delle zone si compilano da qui.
+        <strong>I valori di legge si vedono e non si tolgono</strong>: sopra si aggiunge.
+      </div>
+      ${schede}`;
+  },
+
+  async doAggiungiParam(chiave) {
+    const code = document.getElementById(`pp_${chiave}_code`)?.value;
+    const label = document.getElementById(`pp_${chiave}_label`)?.value;
+    const errori = validaVoce({ code, label });
+    if (errori.length) return this.toast(errori[0], 'error');
+    const attuali = Store.getArticleParams()[chiave] || [];
+    const codeN = normalizzaCodice(code);
+    /* Un codice che ripete un valore di legge non si aggiunge e non si
+       sovrascrive: sparirebbe in silenzio dentro `unisci`, e chi l'ha
+       digitato crederebbe di averlo fatto. */
+    if (Store[this._PARAM_SCHEDE.find(s => s.chiave === chiave).elenco]().some(v => v.code === codeN)) {
+      return this.toast(`${codeN} c'è già`, 'error');
+    }
+    await Store.saveArticleParams({ [chiave]: [...attuali, { code: codeN, label: String(label).trim() }] });
+    this.renderConfig();
+    this.updateSyncIndicator();
+    this.toast(`✓ ${codeN} aggiunto`, 'success');
+  },
+
+  async doRimuoviParam(chiave, code) {
+    /* Togliere una voce NON tocca gli articoli che la portano: resterebbe
+       un codice senza etichetta in tendina, che `etichettaDi` mostra com'è.
+       È voluto — cancellare un attributo da 11.180 articoli perché qualcuno
+       ha ripulito una lista è un danno che non si disfa. */
+    if (!await Dialog.confirm({
+      title: 'Togliere la voce dalla configurazione?',
+      message: 'Gli articoli e le zone che la portano NON vengono toccati: il codice resta scritto su di loro e si continua a leggere.',
+      details: Dialog.kv([['Voce', code]]),
+      confirmLabel: 'Togli', danger: true,
+    })) return;
+    const attuali = (Store.getArticleParams()[chiave] || []).filter(v => v.code !== code);
+    await Store.saveArticleParams({ [chiave]: attuali });
+    this.renderConfig();
+    this.updateSyncIndicator();
+    this.toast(`${code} tolto dalla configurazione`, 'success');
   },
 
   /* ═══ INTERRUTTORI DI FUNZIONE — 1.4 ═══════════════════════════════
@@ -11085,14 +11979,26 @@ const App = {
     const attuale = zone?.temp_class || '';
     const riservata = zone?.allergen_zone === true;
     const scelti = new Set(zone?.allergens || []);
-    const opzioni = CLASSI_TEMPERATURA.map(c =>
-      `<option value="${c.code}" ${attuale === c.code ? 'selected' : ''}>${this._esc(c.label)} — ${this._esc(c.range)}</option>`
+    const opzioni = Store.getClassiConservazione().map(c =>
+      `<option value="${c.code}" ${attuale === c.code ? 'selected' : ''}>${this._esc(c.label)}</option>`
     ).join('');
-    const caselle = ALLERGENI.map(a =>
+    const caselle = Store.getAllergeniAmmessi().map(a =>
       `<label class="all-chip ${scelti.has(a.code) ? 'on' : ''}">
         <input type="checkbox" id="ezAll_${a.code}" ${scelti.has(a.code) ? 'checked' : ''}
           onchange="this.parentElement.classList.toggle('on',this.checked)">
         ${this._esc(a.label)}</label>`
+    ).join('');
+    /* 1.6 — IL TERZO ATTRIBUTO DI DESTINAZIONE D'USO, D19. Si imposta sulla
+       zona come gli altri due e scende a tutte le sue celle: un gesto solo,
+       e il motore di verifica legge dove legge gia'. */
+    const pericolosa = zone?.hazard_zone === true;
+    const pericoli = Store.getPericoli();
+    const hazScelti = new Set(zone?.hazards || []);
+    const hazCaselle = pericoli.map(h =>
+      `<label class="all-chip ${hazScelti.has(h.code) ? 'on' : ''}">
+        <input type="checkbox" id="ezHaz_${h.code}" ${hazScelti.has(h.code) ? 'checked' : ''}
+          onchange="this.parentElement.classList.toggle('on',this.checked)">
+        ${this._esc(h.label)}</label>`
     ).join('');
     return `
       <div style="border-top:1px dashed var(--sx-border);margin:0.8rem 0 0.6rem;padding-top:0.7rem">
@@ -11109,6 +12015,17 @@ const App = {
         <div class="form-group" id="ezAllergenList" ${riservata ? '' : 'hidden'}>
           <label>Allergeni ammessi — nessuno spuntato = tutti</label>
           <div class="all-grid">${caselle}</div></div>
+        <div class="form-group" style="margin-bottom:0.4rem">
+          <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;font-size: var(--md-sys-typescale-body-small-size)">
+            <input type="checkbox" id="ezHazardZone" style="width:16px;height:16px;cursor:pointer" ${pericolosa ? 'checked' : ''}
+              onchange="document.getElementById('ezHazardList').hidden=!this.checked">
+            <span>Zona dedicata alla merce pericolosa</span>
+          </label></div>
+        <div class="form-group" id="ezHazardList" ${pericolosa ? '' : 'hidden'}>
+          <label>Pericolosità ammesse — nessuna spuntata = tutte</label>
+          ${pericoli.length
+            ? `<div class="all-grid">${hazCaselle}</div>`
+            : `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">Nessuna pericolosità configurata — si aggiungono in Configurazione → Parametri articolo.</div>`}</div>
         <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.3rem">
           🧭 Lasciata non caratterizzata, la zona non segnala nulla.<br>
           🔓 Una singola ubicazione marcata <strong>Riservata</strong> ammette allergeni
@@ -11120,13 +12037,19 @@ const App = {
 
   _leggiDestinazioneZona() {
     const riservata = document.getElementById('ezAllergenZone')?.checked === true;
-    const allergens = ALLERGENI
+    const allergens = Store.getAllergeniAmmessi()
       .filter(a => document.getElementById(`ezAll_${a.code}`)?.checked)
       .map(a => a.code);
+    const pericolosa = document.getElementById('ezHazardZone')?.checked === true;
+    const hazards = Store.getPericoli()
+      .filter(h => document.getElementById(`ezHaz_${h.code}`)?.checked)
+      .map(h => h.code);
     return {
       temp_class: document.getElementById('ezTempClass')?.value || undefined,
       allergen_zone: riservata,
       allergens: riservata && allergens.length ? allergens : undefined,
+      hazard_zone: pericolosa,
+      hazards: pericolosa && hazards.length ? hazards : undefined,
     };
   },
 
@@ -11276,32 +12199,35 @@ const App = {
     this.showModal('Nuovo Articolo', `
       <div class="form-row" style="margin-bottom:0.6rem">
         <div class="form-group"><label>Codice <span class="req">*</span></label>
-          <input class="input input-mono" id="artCode" placeholder="MP-001234" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"></div>
+          <input class="input input-mono" id="artCode" placeholder="MP-001234" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+            oninput="App._precompilaCategoria()"></div>
         <div class="form-group"><label>Categoria</label>
-          <input class="input input-mono" id="artCategory" placeholder="MP" maxlength="5" value="MP" style="text-transform:uppercase"></div>
+          <input class="input input-mono" id="artCategory" placeholder="MP" maxlength="5" value="MP" style="text-transform:uppercase"
+            oninput="this.dataset.tocca='1'"></div>
+      </div>
+      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin:-0.35rem 0 0.6rem">
+        La categoria si compila da sé coi <strong>primi 3 caratteri</strong> del codice — è la forma più comune, non una regola: si può riscrivere.
       </div>
       <div class="form-group" style="margin-bottom:0.6rem"><label>Descrizione <span class="req">*</span></label>
         <input class="input" id="artDesc" placeholder="Descrizione articolo" maxlength="${Validate.MAX.ARTICLE_DESC}"></div>
       <div class="form-row" style="margin-bottom:0.6rem">
-        <div class="form-group"><label>Fornitore</label>
+        <div class="form-group"><label>Fornitore / Cliente</label>
           <input class="input" id="artSupplier" maxlength="80"></div>
         <div class="form-group"><label>UM</label>
           <input class="input input-mono" id="artUnit" value="PZ" maxlength="5" style="text-transform:uppercase"
             list="umAmmesse" oninput="App._aggiornaNotaUM('art')"></div>
       </div>
       ${this._datalistUM()}
-      <div class="form-row-3" style="margin-bottom:0.6rem">
-        <div class="form-group"><label>Peso unitario (kg)</label><input class="input" id="artWeight" type="number" step="0.001" min="0" value="0"></div>
+      <!-- 1.6 — PESO UNITARIO E PESO NETTO PER COLLO SONO USCITI (D15).
+           Non erano dati che il magazzino gestisce, e stando accanto alla
+           quantità per collo facevano credere che servissero tutti e tre. -->
+      <div class="form-row-3" style="margin-bottom:0.3rem">
+        <div class="form-group"><label>Quantità per collo (UM)</label><input class="input" id="artPiecesPack" type="number" step="0.001" min="0" value="0" oninput="App._aggiornaNotaUM('art')"></div>
         <div class="form-group"><label>Stock Min</label><input class="input" id="artMinStock" type="number" step="1" min="0" value="0"></div>
         <div class="form-group"><label>Stock Max</label><input class="input" id="artMaxStock" type="number" step="1" min="0" value="0"></div>
       </div>
-      <!-- v3.0.0 [M4] — i due campi che finiscono sul DDT -->
-      <div class="form-row" style="margin-bottom:0.3rem">
-        <div class="form-group"><label>Peso netto per collo (kg)</label><input class="input" id="artWeightColl" type="number" step="0.001" min="0" value="0"></div>
-        <div class="form-group"><label>Quantità per collo (UM)</label><input class="input" id="artPiecesPack" type="number" step="0.001" min="0" value="0" oninput="App._aggiornaNotaUM('art')"></div>
-      </div>
       <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
-        📄 Con questi il <strong>DDT</strong> calcola peso e pezzi. A zero si compilano a mano.
+        📄 La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
       </div>
       ${this._notaUM('art')}
       ${this._campiAttributiArticolo(null, 'art')}
@@ -11314,6 +12240,20 @@ const App = {
     this._aggiornaNotaUM('art');
   },
 
+  /* 1.6 — LA CATEGORIA SI PRECOMPILA, E BASTA. I primi tre caratteri del
+     codice sono la categoria nella grande maggioranza dei casi, ma non è una
+     regola ferrea: ci sono articoli che non la seguono. Quindi si suggerisce
+     e non si impone — e appena qualcuno tocca il campo, il suggerimento si
+     ferma: `dataset.tocca` è il segno che una scelta è stata fatta, e
+     riscriverla al tasto dopo sarebbe cancellarla. */
+  _precompilaCategoria() {
+    const cat = document.getElementById('artCategory');
+    const code = document.getElementById('artCode');
+    if (!cat || !code || cat.dataset.tocca === '1') return;
+    const primi = String(code.value || '').trim().toUpperCase().slice(0, 3);
+    if (primi) cat.value = primi;
+  },
+
   async doAddArticle() {
     const code = Validate.clean(document.getElementById('artCode').value, true);
     const desc = Validate.clean(document.getElementById('artDesc').value);
@@ -11324,8 +12264,6 @@ const App = {
       code, description: desc, category: cat,
       supplier: Validate.clean(document.getElementById('artSupplier').value),
       unit: Validate.clean(document.getElementById('artUnit').value, true) || 'PZ',
-      weight: document.getElementById('artWeight').value,
-      weight_net_kg: document.getElementById('artWeightColl').value,     // v3.0.0 [M4]
       pieces_per_pack: document.getElementById('artPiecesPack').value,   // v3.0.0 [M4]
       min_stock: document.getElementById('artMinStock').value,
       max_stock: document.getElementById('artMaxStock').value,
@@ -11361,10 +12299,18 @@ const App = {
       out.push({ tipo: 'temp', icona: '🌡', et: 'Conservazione', testo: etichettaClasse(a.temp_class) });
     }
     if (a.allergens?.length) {
-      out.push({ tipo: 'all', icona: '⚠', et: 'Allergeni', testo: a.allergens.map(etichettaAllergene).join(', ') });
+      out.push({ tipo: 'all', icona: '⚠', et: 'Allergeni', testo: a.allergens.map(c => this._etAllergene(c)).join(', ') });
     }
     if (a.certifications?.length) {
       out.push({ tipo: 'cert', icona: '✓', et: 'Certificazioni', testo: a.certifications.map(etichettaCertificazione).join(', ') });
+    }
+    /* 1.6 — la pericolosità viaggia come gli altri due: davanti allo
+       scaffale, sul report e sul DDT. Chi ha in mano un collo di
+       infiammabile deve saperlo lì, non in Configurazione. */
+    if (a.hazards?.length) {
+      const ammessi = Store.getPericoli();
+      out.push({ tipo: 'haz', icona: '☣', et: 'Pericolosità',
+                 testo: a.hazards.map(h => etichettaDi(ammessi, h)).join(', ') });
     }
     return out;
   },
@@ -11400,7 +12346,10 @@ const App = {
      scrivere qualunque cosa come ha sempre fatto. Cio' che non e' fra le
      cinque si legge come «non gestita», e non succede niente. */
   _datalistUM() {
-    return `<datalist id="umAmmesse">${UNITA_MISURA
+    /* 1.6 — le cinque che il motore sa dividere, più quelle configurate in
+       Impostazioni. Restano un suggerimento e non un vincolo: ciò che non è
+       fra le cinque si legge come «non gestita», e non succede niente. */
+    return `<datalist id="umAmmesse">${Store.getUnitaAmmesse()
       .map(u => `<option value="${u.code}">${this._esc(u.label)}</option>`).join('')}</datalist>`;
   },
 
@@ -11454,18 +12403,43 @@ const App = {
     return `<div class="item-meta">⚖ ${this._esc(descriviColli(totale, cfg.per_collo, cfg.uom))}${incompleto}${avviso}</div>`;
   },
 
+  /* 1.6 — LE TENDINE NON SONO PIÙ NEL SORGENTE. Classi, allergeni e
+     pericolosità arrivano da Store, che unisce i valori di legge con quelli
+     configurati in Impostazioni → Parametri articolo. I 14 del Reg. UE
+     1169/2011 restano davanti e non si possono togliere — D18. */
+  /* 1.6 — L'ETICHETTA DI UN ALLERGENE PUO' NON STARE PIU' NELLA TABELLA.
+     `etichettaAllergene` conosce i 14 di legge e ripiega sul codice per
+     tutto il resto: da quando D18 lascia aggiungere voci aziendali, quel
+     ripiego si vede — «LATTOSIO» al posto di «Lattosio», davanti a un
+     operatore e su un verbale. Trovato provando la 1.6 nel browser.
+     Un punto solo, perche' la stessa etichetta esce in sei. */
+  _etAllergene(code) {
+    return etichettaDi(Store.getAllergeniAmmessi(), code);
+  },
+
   _campiAttributiArticolo(art, p) {
     const attuale = art?.temp_class || '';
     const scelti = new Set(art?.allergens || []);
-    const opzioni = CLASSI_TEMPERATURA.map(c =>
-      `<option value="${c.code}" ${attuale === c.code ? 'selected' : ''}>${this._esc(c.label)} — ${this._esc(c.range)}</option>`
+    const opzioni = Store.getClassiConservazione().map(c =>
+      `<option value="${c.code}" ${attuale === c.code ? 'selected' : ''}>${this._esc(c.label)}</option>`
     ).join('');
-    const caselle = ALLERGENI.map(a =>
-      `<label class="all-chip ${scelti.has(a.code) ? 'on' : ''}">
+    const caselle = Store.getAllergeniAmmessi().map(a =>
+      `<label class="all-chip ${scelti.has(a.code) ? 'on' : ''}" ${a.fissa ? '' : 'title="Voce aziendale, aggiunta in Impostazioni"'}>
         <input type="checkbox" id="${p}All_${a.code}" value="${a.code}" ${scelti.has(a.code) ? 'checked' : ''}
           onchange="this.parentElement.classList.toggle('on',this.checked)">
-        ${this._esc(a.label)}</label>`
+        ${this._esc(a.label)}${a.fissa ? '' : ' •'}</label>`
     ).join('');
+    /* La pericolosità dice dove una cosa NON si può mettere, ed è la metà
+       d'articolo della spunta sulla zona. Nasce configurabile per intero:
+       non è una norma di etichettatura, è una politica di magazzino. */
+    const pericoli = Store.getPericoli();
+    const periScelti = new Set(art?.hazards || []);
+    const pericolose = pericoli.length ? pericoli.map(h =>
+      `<label class="all-chip ${periScelti.has(h.code) ? 'on' : ''}">
+        <input type="checkbox" id="${p}Haz_${h.code}" value="${h.code}" ${periScelti.has(h.code) ? 'checked' : ''}
+          onchange="this.parentElement.classList.toggle('on',this.checked)">
+        ${this._esc(h.label)}</label>`
+    ).join('') : '';
     /* 1.4.0 — le certificazioni non sono un vincolo di stoccaggio: sono un
        fatto che deve arrivare fino all'operatore e fino al DDT. Stessa
        maschera degli allergeni perche' si compilano nello stesso momento. */
@@ -11481,8 +12455,10 @@ const App = {
         <select class="input" id="${p}TempClass">
           <option value="">— non classificato —</option>${opzioni}
         </select></div>
-      <div class="form-group" style="margin-bottom:0.3rem"><label>Allergeni (Reg. UE 1169/2011)</label>
+      <div class="form-group" style="margin-bottom:0.3rem"><label>Allergeni (Reg. UE 1169/2011, più le voci aziendali •)</label>
         <div class="all-grid">${caselle}</div></div>
+      ${pericolose ? `<div class="form-group" style="margin-bottom:0.3rem"><label>Pericolosità</label>
+        <div class="all-grid">${pericolose}</div></div>` : ''}
       <div class="form-group" style="margin-bottom:0.3rem"><label>Certificazioni</label>
         <div class="all-grid">${certificati}</div></div>
       <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
@@ -11493,9 +12469,12 @@ const App = {
 
   _leggiAttributiArticolo(p) {
     const cls = document.getElementById(`${p}TempClass`)?.value || '';
-    const allergens = ALLERGENI
+    const allergens = Store.getAllergeniAmmessi()
       .filter(a => document.getElementById(`${p}All_${a.code}`)?.checked)
       .map(a => a.code);
+    const hazards = Store.getPericoli()
+      .filter(h => document.getElementById(`${p}Haz_${h.code}`)?.checked)
+      .map(h => h.code);
     /* Nessuna casella spuntata qui vuol dire NON CLASSIFICATO, non «verificato,
        non ne ha»: da una maschera non si distingue chi ha guardato da chi e'
        passato oltre. Per dichiarare l'assenza c'e' NESSUNO nella colonna del
@@ -11507,6 +12486,7 @@ const App = {
     return {
       temp_class: cls || null,
       allergens: allergens.length ? allergens : null,
+      hazards: hazards.length ? hazards : null,
       certifications: certifications.length ? certifications : null,
     };
   },
@@ -11524,25 +12504,21 @@ const App = {
       <div class="form-group" style="margin-bottom:0.6rem"><label>Descrizione <span class="req">*</span></label>
         <input class="input" id="eaDesc" value="${this._esc(art.description)}" maxlength="${Validate.MAX.ARTICLE_DESC}"></div>
       <div class="form-row" style="margin-bottom:0.6rem">
-        <div class="form-group"><label>Fornitore</label>
+        <div class="form-group"><label>Fornitore / Cliente</label>
           <input class="input" id="eaSupplier" value="${this._esc(art.supplier || '')}" maxlength="80"></div>
         <div class="form-group"><label>UM</label>
           <input class="input input-mono" id="eaUnit" value="${this._esc(art.unit || 'PZ')}" maxlength="5" style="text-transform:uppercase"
             list="umAmmesse" oninput="App._aggiornaNotaUM('ea')"></div>
       </div>
       ${this._datalistUM()}
-      <div class="form-row-3" style="margin-bottom:0.6rem">
-        <div class="form-group"><label>Peso unitario (kg)</label><input class="input" id="eaWeight" type="number" step="0.001" min="0" value="${art.weight || 0}"></div>
+      <!-- 1.6 — i due pesi sono usciti, D15: non sono dati che il magazzino gestisce -->
+      <div class="form-row-3" style="margin-bottom:0.3rem">
+        <div class="form-group"><label>Quantità per collo (UM)</label><input class="input" id="eaPiecesPack" type="number" step="0.001" min="0" value="${art.pieces_per_pack || 0}" oninput="App._aggiornaNotaUM('ea')"></div>
         <div class="form-group"><label>Stock Min</label><input class="input" id="eaMinStock" type="number" step="1" min="0" value="${art.min_stock || 0}"></div>
         <div class="form-group"><label>Stock Max</label><input class="input" id="eaMaxStock" type="number" step="1" min="0" value="${art.max_stock || 0}"></div>
       </div>
-      <!-- v3.0.0 [M4] — i due campi che finiscono sul DDT -->
-      <div class="form-row" style="margin-bottom:0.3rem">
-        <div class="form-group"><label>Peso netto per collo (kg)</label><input class="input" id="eaWeightColl" type="number" step="0.001" min="0" value="${art.weight_net_kg || 0}"></div>
-        <div class="form-group"><label>Quantità per collo (UM)</label><input class="input" id="eaPiecesPack" type="number" step="0.001" min="0" value="${art.pieces_per_pack || 0}" oninput="App._aggiornaNotaUM('ea')"></div>
-      </div>
       <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
-        📄 Con questi il <strong>DDT</strong> calcola peso e pezzi. A zero si compilano a mano.
+        📄 La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
       </div>
       ${this._notaUM('ea')}
       ${this._campiAttributiArticolo(art, 'ea')}
@@ -11562,8 +12538,6 @@ const App = {
       description: desc, category: cat,
       supplier: Validate.clean(document.getElementById('eaSupplier').value),
       unit: Validate.clean(document.getElementById('eaUnit').value, true) || 'PZ',
-      weight: document.getElementById('eaWeight').value,
-      weight_net_kg: document.getElementById('eaWeightColl').value,      // v3.0.0 [M4]
       pieces_per_pack: document.getElementById('eaPiecesPack').value,    // v3.0.0 [M4]
       min_stock: document.getElementById('eaMinStock').value,
       max_stock: document.getElementById('eaMaxStock').value,
@@ -12064,7 +13038,9 @@ const App = {
       testo('Note', 'notes');
       numero('Peso', 'weight'); numero('Lunghezza', 'length');
       numero('Larghezza', 'width'); numero('Altezza', 'height');
-      numero('Peso_Netto_Collo', 'weight_net_kg'); numero('Pezzi_Per_Collo', 'pieces_per_pack');
+      /* 1.6 — `Peso_Netto_Collo` non si legge piu': D15 lo toglie dai dati
+         gestiti. Una colonna vecchia nel foglio non fa danno, viene ignorata. */
+      numero('Pezzi_Per_Collo', 'pieces_per_pack');
       numero('Stock_Min', 'min_stock'); numero('Stock_Max', 'max_stock');
 
       if (rec.description !== undefined) {
@@ -12086,13 +13062,25 @@ const App = {
       }
 
       if (row['Allergeni'] !== undefined) {
-        const { codici, scarti } = leggiAllergeni(row['Allergeni']);
+        /* Le voci aziendali passano insieme ai 14: chi le ha configurate se
+           le aspetta in colonna, e un rifiuto qui sarebbe incomprensibile. */
+        const { codici, scarti } = leggiAllergeni(row['Allergeni'], Store.getArticleParams().allergeni);
         if (scarti.length) {
           problemi.push(`Riga ${foglio} — ${code}: allergene non previsto ${scarti.map(s => `"${s}"`).join(', ')}`);
           return;
         }
         rec.allergens = codici;
         if (codici.length) conAllergeni++;
+      }
+
+      if (row['Pericolosita'] !== undefined) {
+        const ammesse = Store.getPericoli();
+        const { codici, scarti } = leggiCodici(row['Pericolosita'], ammesse);
+        if (scarti.length) {
+          problemi.push(`Riga ${foglio} — ${code}: pericolosità non prevista ${scarti.map(s => `"${s}"`).join(', ')}. Ammesse: ${ammesse.map(h => h.code).join(', ') || 'nessuna configurata'}`);
+          return;
+        }
+        rec.hazards = codici;
       }
 
       if (row['Certificazioni'] !== undefined) {
@@ -12180,11 +13168,12 @@ const App = {
       'Fornitore': a.supplier || '', 'UM': a.unit || 'PZ',
       'Peso': a.weight || 0, 'Lunghezza': a.length || 0, 'Larghezza': a.width || 0, 'Altezza': a.height || 0,
       // v3.0.0 [M4] — i due valori che alimentano il DDT
-      'Peso_Netto_Collo': a.weight_net_kg || 0, 'Pezzi_Per_Collo': a.pieces_per_pack || 0,
+      'Pezzi_Per_Collo': a.pieces_per_pack || 0,
       'Stock_Min': a.min_stock || 0, 'Stock_Max': a.max_stock || 0,
       // 1.4.0 — vuote finche' non le si compila: la cella vuota dice «non
       // classificato», che e' un'informazione e non va confusa con «nessuno».
       'Temperatura': a.temp_class || '', 'Allergeni': scriviAllergeni(a.allergens),
+      'Pericolosita': scriviAllergeni(a.hazards),
       'Certificazioni': scriviCertificazioni(a.certifications),
       'Note': a.notes || ''
     }));
@@ -12196,7 +13185,17 @@ const App = {
       /* 1.4.2 — le cinque unita' entrano nello stesso foglio, sulla colonna
          `UM` che l'export ha da sempre: non ce n'e' una seconda. Ogni modulo
          porta i propri valori, e il foglio li mette in fila. */
-      [...fogliValoriAmmessi(), ...valoriAmmessiUM()]
+      /* 1.6 — e con loro i valori CONFIGURATI, che senza questa riga
+         verrebbero rifiutati dalla convalida che il foglio stesso genera:
+         l'anagrafica li offre in tendina e l'import li accetta. */
+      [...fogliValoriAmmessi(), ...valoriAmmessiUM(),
+       ...Store.getArticleParams().allergeni.map(v => ({
+         colonna: 'Allergeni', valore: v.code, significato: `${v.label} — voce aziendale` })),
+       ...Store.getArticleParams().conservazione.map(v => ({
+         colonna: 'Temperatura', valore: v.code, significato: `${v.label} — voce aziendale` })),
+       ...Store.getPericoli().map(v => ({
+         colonna: 'Pericolosita', valore: v.code, significato: v.label })),
+       { colonna: 'Pericolosita', valore: 'NESSUNO', significato: 'Verificato: non pericoloso' }]
         .map(v => ({ 'Colonna': v.colonna, 'Valore': v.valore, 'Significato': v.significato }))
     ), 'Valori ammessi');
     XLSX.writeFile(wb, `anagrafica-articoli-${new Date().toISOString().slice(0,10)}.xlsx`);

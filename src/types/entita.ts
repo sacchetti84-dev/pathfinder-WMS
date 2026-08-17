@@ -43,6 +43,12 @@ export interface Zona {
   allergen_zone?: boolean;
   /** Se valorizzato, i soli allergeni ammessi. Vuoto su zona riservata = tutti. */
   allergens?: CodiceAllergene[];
+  /** 1.6 — la zona e' dedicata alla merce pericolosa. Terzo attributo di
+      destinazione d'uso, accanto a temperatura e allergeni: si imposta sulla
+      zona e scende a tutte le sue celle, come gli altri due (D19). */
+  hazard_zone?: boolean;
+  /** Se valorizzato, le sole pericolosita' ammesse. Vuoto su zona pericolosa = tutte. */
+  hazards?: string[];
   [config: string]: unknown;
 }
 
@@ -74,6 +80,10 @@ export interface Articolo {
   /** 1.4.0 — certificazioni di prodotto. Non è un vincolo di stoccaggio: è
       un fatto che deve viaggiare fino all'operatore e fino al DDT. */
   certifications?: CodiceCertificazione[];
+  /** 1.6 — la pericolosita', che e' configurabile per intero: non e' una
+      norma di etichettatura come gli allergeni ma una politica di magazzino,
+      e i codici vivono in `meta.articleParams` — vedi `modules/parametri.ts`. */
+  hazards?: string[];
   /** 1.4.2 — l'unità dentro il collo. `uom_per_collo` assente legge
       `pieces_per_pack`: una sorgente sola, con un ripiego. */
   uom?: UnitaMisura;
@@ -370,8 +380,12 @@ export interface Udc {
     servono davvero: quanto sta in coda, e quanto dura. */
 export interface Compito {
   task_id: string;
+  /* 1.4.4 — `PUTAWAY` è uscito: il posizionamento avviene in coda
+     all'accettazione, che su Pathfinder non passa. I record già scritti
+     restano leggibili — l'unione finisce con `string`, e le etichette di
+     un tipo sconosciuto ripiegano sul codice. */
   type: 'TRANSFER' | 'PICK_SHIP' | 'PICK_RET' | 'QUARANTINE' | 'SAMPLING'
-      | 'DISPOSAL' | 'PUTAWAY' | 'COUNT' | string;
+      | 'DISPOSAL' | 'COUNT' | 'CLEANING' | string;
   /** 1-4. La alza SOLO un Team Leader, altrimenti diventa urgente tutto. */
   priority: number;
   status: 'requested' | 'assigned' | 'in_progress' | 'done' | 'cancelled' | string;
@@ -425,6 +439,41 @@ export interface RegolaStoccaggio {
   quando: { campo: string; operatore: string; valore: unknown };
   allora: Record<string, unknown>;
   note?: string;
+  updated_at?: Istante;
+  updated_by?: string;
+}
+
+/* ── 1.6 — I DESTINATARI DEI DDT, E LE LORO DESTINAZIONI ──────────
+   Un destinatario è un SOGGETTO, e un soggetto ha più indirizzi dove
+   riceve: la sede legale, il deposito, il conto terzi. Per questo le
+   destinazioni sono una lista dentro il record e non un campo — «un
+   destinatario può avere diverse destinazioni», PIANO §9.5. */
+
+export interface Destinazione {
+  dest_id: string;
+  /** Come la chiama chi la sceglie: «Sede», «Deposito Nord». */
+  label?: string;
+  address?: string;
+  zip?: string;
+  city?: string;
+  province?: string;
+  country?: string;
+  /** La prima che si è vista, e quella che il DDT propone. */
+  predefinita?: boolean;
+  created_at?: Istante;
+}
+
+export interface Destinatario {
+  rcp_id: string;
+  name: string;
+  /** LA CHIAVE DI RICONOSCIMENTO — D20. Due DDT parlano dello stesso
+      destinatario quando coincide questa, non la ragione sociale: «Rossi
+      Srl» e «ROSSI S.R.L.» sono lo stesso soggetto. Può mancare — un DDT a
+      un privato — e allora si ripiega sul nome normalizzato. */
+  vat?: string;
+  fiscal_code?: string;
+  destinations: Destinazione[];
+  created_at?: Istante;
   updated_at?: Istante;
   updated_by?: string;
 }

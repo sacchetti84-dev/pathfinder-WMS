@@ -4,7 +4,7 @@ import type {
   Sito, Zona, Articolo, Giacenza, StatoUbicazione, UbicazioneDisattivata,
   Movimento, Quarantena, DocumentoUscita, SessionePrelievo, ReportPrelievo,
   VerbaleSmaltimento, Operatore, Meta,
-  Lotto, Udc, Compito, ContoWip, RegolaStoccaggio,
+  Lotto, Udc, Compito, ContoWip, RegolaStoccaggio, Destinatario,
 } from '../types/entita.js';
 
 class PathfinderDB extends Dexie {
@@ -27,6 +27,7 @@ class PathfinderDB extends Dexie {
   tasks!: Table<Compito, string>;
   wip!: Table<ContoWip, string>;
   storage_rules!: Table<RegolaStoccaggio, string>;
+  recipients!: Table<Destinatario, string>;
 }
 
 const db = new PathfinderDB(DB_NAME);
@@ -168,6 +169,41 @@ db.version(8).stores({
   tasks:            '&task_id, type, status, priority, requested_at, assigned_to',
   wip:              '&wip_id, odp_num, item_key, status',
   storage_rules:    '&rule_id, priority, attiva'
+});
+
+/* 1.6 — LO SCHEMA SI MUOVE UNA SECONDA VOLTA, e vale la pena dire perche'
+   non e' la stessa cosa della version(8). Quella aggiungeva cinque collezioni
+   VUOTE in anticipo, per non doverlo rifare; questa ne aggiunge una che si
+   popola da se' al primo DDT. Non c'era modo di prevederla: i destinatari
+   sono nati dall'uso, come tutta la §9.
+
+   Nessun `.upgrade()`: non c'e' niente da riscrivere. Il ramo remoto fa la
+   stessa cosa con `PathfinderDB._migra`, che non ha bisogno di sapere che
+   collezione sia — legge `NAMES`. */
+db.version(9).stores({
+  sites:            '++_id, &id',
+  zones:            '++_id, site_id, &[site_id+id]',
+  articles:         '++_id, &code, category',
+  inventory:        '++_id, location_code, item_key, article_code, lot_code, udc_id, [location_code+item_key]',
+  loc_status:       '++_id, &location_code, status',
+  disabled:         '++_id, &location_code',
+  mov_log:          '++_id, ts, type, article_code, lot_code, location_code',
+  quarantine:       '++_id, &q_id, item_key, status, article_code, lot_code',
+  pending_outbound: '&doc_id, kind, status, ddt_num, created_at',
+  pick_session:     '&session_id, status, created_at',
+  pick_archive:     '&doc_id, odp_num, closed_at',
+  disposal_archive: '&doc_id, created_at, article_code, lot_code',
+  operators:        '&op_id, &initials, role, active',
+  meta:             'key',
+  lots:             '++_id, article_code, lot_code, &[article_code+lot_code]',
+  udc:              '&udc_id, location_code, status, site_id',
+  tasks:            '&task_id, type, status, priority, requested_at, assigned_to',
+  wip:              '&wip_id, odp_num, item_key, status',
+  storage_rules:    '&rule_id, priority, attiva',
+  /* `vat` NON e' unico a livello di indice: un record senza partita IVA e'
+     ammesso — si compila un DDT a un privato — e due `null` violerebbero un
+     indice unico. L'unicita' la fa `Store.upsertRecipient`, che cerca prima. */
+  recipients:       '&rcp_id, vat, name'
 });
 
 export { db };

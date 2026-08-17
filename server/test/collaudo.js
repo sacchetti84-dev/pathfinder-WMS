@@ -37,17 +37,24 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   // ── Salute ────────────────────────────────────────────────────────
   const salute = await call('GET', '/api/health');
   ok('Servizio risponde', salute.stato === 200 && salute.dati.ok);
-  /* Quattordici fino alla 1.2, diciannove dalla 1.4.0: le cinque nuove
-     nascono vuote in Fase 0 perche' lo schema si muova una volta sola. Che
-     i nomi siano quelli che il client si aspetta lo prova il tipo in
-     `lib/schema.js`, non questo conteggio. */
+  /* Quattordici fino alla 1.2, diciannove dalla 1.4.0, VENTI dalla 1.6:
+     le cinque della 1.4 nascono vuote in Fase 0 perche' lo schema si muova
+     una volta sola; `recipients` no — e' nata dall'uso, e non c'era modo di
+     prevederla. Che i nomi siano quelli che il client si aspetta lo prova il
+     tipo in `lib/schema.js`, non questo conteggio. */
   const NUOVE_14 = ['lots', 'udc', 'tasks', 'wip', 'storage_rules'];
-  ok('Diciannove collezioni dichiarate', salute.dati.collections.length === 19,
+  ok('Venti collezioni dichiarate', salute.dati.collections.length === 20,
      salute.dati.collections.length + '');
   ok('le cinque collezioni della 1.4 ci sono e sono vuote',
      NUOVE_14.every(c => salute.dati.collections.includes(c))
        && NUOVE_14.every(c => (salute.dati.counts?.[c] ?? 0) === 0),
      NUOVE_14.join(' · '));
+  /* 1.6 — la ventesima nasce vuota come le altre: un'anagrafica che si
+     popola da se' e' vuota finche' non si compila il primo DDT. */
+  ok('recipients c e ed e vuota',
+     salute.dati.collections.includes('recipients')
+       && (salute.dati.counts?.recipients ?? 0) === 0,
+     'recipients');
 
   // ── Chiave autoincrementale ───────────────────────────────────────
   const a1 = await call('POST', '/api/c/articles',

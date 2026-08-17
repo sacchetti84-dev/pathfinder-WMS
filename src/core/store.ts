@@ -7,13 +7,13 @@ import type {
   Sito, Zona, Articolo, Giacenza, Movimento, Quarantena, DocumentoUscita,
   RigaDocumento, SessionePrelievo, ReportPrelievo, VerbaleSmaltimento,
   Operatore, Istante, Coordinate, GiacenzaRimossa, IngressoArticolo, Compito,
-  Lotto,
+  Lotto, Destinatario, Destinazione,
 } from '../types/entita';
 import {
   PRIORITA_NORMALE, ORE_URGENZA_DEFAULT, eAperto, ordinaCoda, componiCompito, validaRichiesta,
   prioritaConsentita, transizioneAmmessa, etichettaPriorita, etichettaStato,
   riepilogo as riepilogoCompiti, type Richiesta as RichiestaCompito,
-  avanzamento, avvioRitirabile, chiudeAMano,
+  avanzamento, avvioRitirabile,
 } from '../modules/compiti';
 import {
   FORMA_CACHE, applicaAllaCache, bucketPut, bucketDelete,
@@ -26,6 +26,16 @@ import {
   sommaUom, sottraiUom, arrotonda as arrotondaUom, decimali as decimaliUom,
   type Configurazione,
 } from '../modules/misure';
+import {
+  parametriDiSerie, leggiParametri, unisci as unisciVoci,
+  type ParametriArticolo, type Voce,
+} from '../modules/parametri';
+import { ALLERGENI, CLASSI_TEMPERATURA } from '../modules/anagrafica';
+import {
+  trovaDestinatario, cerca as cercaDestinatari, chiaveDestinatario,
+  componiDestinatario, conDestinazione, normalizzaPIva,
+} from '../modules/destinatari';
+import { UNITA_MISURA } from '../modules/misure';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
 import {
@@ -1066,7 +1076,13 @@ const Store = {
   ARTICLE_TEXT_FIELDS: ['description', 'category', 'supplier', 'unit', 'notes'],
   ARTICLE_NUM_FIELDS: ['weight', 'length', 'width', 'height', 'min_stock', 'max_stock',
                        'weight_net_kg', 'pieces_per_pack'],
-  ARTICLE_ATTR_FIELDS: ['allergens', 'temp_class'],   // 1.4.0
+  /* 1.6 — `certifications` MANCAVA DA QUANDO ESISTE, e la lista bianca la
+     scartava in silenzio: la maschera di modifica mostrava le caselle, le
+     rileggeva, e `updateArticle` le buttava via. Solo l'import Excel le
+     scriveva, il che spiega perche' nessuno se n'era accorto — le
+     certificazioni arrivano da li'. Trovato provando la 1.6 nel browser:
+     `hazards` stava per prendere la stessa strada. */
+  ARTICLE_ATTR_FIELDS: ['allergens', 'temp_class', 'certifications', 'hazards'],
 
   async updateArticle(code: string, updates: Partial<Articolo>) {
     const art = this._artByCode.get(code);
@@ -1387,6 +1403,63 @@ const Store = {
     return rec;
   },
 
+  /* 1.5 — LA PULIZIA POST-CAMPIONAMENTO, CHE NASCE GIA' CHIUSA — D16.
+     La GMP pretende che la pulizia dell'area di prelievo sia registrata e
+     riferita al campionamento che l'ha resa necessaria. Qui non c'e' niente
+     da mettere in coda: il gesto e' gia' stato fatto quando l'operatore
+     conferma, e un compito aperto che nessuno prendera' mai sarebbe la
+     «lista che invecchia» del piano §4.1.
+
+     Non passa da `_moveTask` perche' non e' una transizione: e' un record
+     che nasce nel suo stato finale, con richiesta e chiusura nello stesso
+     istante. E' l'unico punto del progetto in cui succede, e sta scritto
+     qui perche' si veda.
+
+     A interruttore SPENTO non scrive e non solleva: il campionamento deve
+     poter andare avanti comunque, e la pulizia resta scritta nel dettaglio
+     del movimento — che c'e' sempre. */
+  async logCleaningTask(
+    dati: { location_code: string; article_code?: string; lot_code?: string;
+            sample_ref?: string | null; automatica?: boolean; note?: string },
+  ) {
+    if (!this.isFeatureOn('tasks')) return null;
+    const io = this.getCurrentIdentity();
+    const sigla = String(io.initials ?? '').toUpperCase().trim();
+    if (!sigla) return null;
+    const now = Date.now();
+    const taskId = `TA-${now.toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const rec: Compito = {
+      task_id: taskId,
+      type: 'CLEANING',
+      priority: PRIORITA_NORMALE,
+      status: 'done',
+      requested_by: sigla,
+      requested_at: now,
+      assigned_to: sigla,
+      started_at: now,
+      completed_at: now,
+      completed_by: sigla,
+      due_at: null,
+      /* IL RIFERIMENTO ALL'ULTIMO CAMPIONAMENTO E' IL DATO CHE LA GMP CHIEDE:
+         senza, la riga dice «e' stato pulito» e non «e' stato pulito dopo
+         cosa», che e' l'unica cosa che un auditor domanda. */
+      source_ref: dati.sample_ref ?? null,
+      payload: {
+        location_code: dati.location_code,
+        article_code: dati.article_code ?? null,
+        lot_code: dati.lot_code ?? null,
+        auto: dati.automatica === true,
+      },
+      qty_done: 0,
+    };
+    const note = String(dati.note ?? '').trim();
+    if (note) rec.note = note;
+    await Persistence.add('tasks', rec);
+    this._applyToCache('tasks', 'put', rec);
+    await this._touchMeta();
+    return rec;
+  },
+
   /* Il passaggio di stato passa tutto da qui: una transizione non ammessa
      deve costare un errore in faccia a chi la chiede, non una riga strana
      che qualcuno leggera' fra un mese. */
@@ -1428,13 +1501,21 @@ const Store = {
   async completeTask(taskId: string, initials: string = '') {
     const v = String(initials || this.getCurrentIdentity().initials || '').toUpperCase().trim();
     const cur = this.getTask(taskId);
-    /* 1.4.2.1 — «Completa» a mano sopravvive per la sola Conta, che puo'
-       concludersi senza muovere un collo. Sugli altri sette il compito si
-       chiude perche' un movimento e' stato confermato: chiuderlo a mano
-       vorrebbe dire dichiarare fatto del lavoro che nessuno ha registrato. */
-    if (cur && !chiudeAMano(cur.type) && !this._chiusuraAmmessa) {
-      throw new Error('Questa attività si chiude muovendo la merce: premere ▶ Avvia e confermare il movimento');
+    /* 1.4.4 — «COMPLETA» A MANO NON ESISTE PIU', PER NESSUN TIPO.
+       Sopravviveva per la sola Conta, che con la regola del residuo non
+       poteva chiudersi da sola. Adesso la Conta e' un inventario mirato che
+       si chiude confermando il conteggio — anche quando il conteggio torna
+       giusto e non produce nessuna riga — quindi l'ultimo tipo che aveva
+       bisogno del gesto a mano non ce l'ha piu'.
+
+       La guardia resta e diventa assoluta: un compito si chiude perche'
+       un'operazione e' stata confermata, e la sola strada e' `advanceTask`.
+       Dichiarare fatto del lavoro che nessuno ha registrato non e' una
+       scorciatoia, e' un buco nella tracciabilita' GMP. */
+    if (!this._chiusuraAmmessa) {
+      throw new Error('Questa attività si chiude confermando l\'operazione: premere ▶ Avvia e portarla a termine');
     }
+    void cur;
     return await this._moveTask(taskId, 'done', { completed_at: Date.now(), completed_by: v || null });
   },
 
@@ -1945,6 +2026,144 @@ const Store = {
     this._cache.meta.docConfig = merged;
     await this._touchMeta();
     return merged;
+  },
+
+  /* ── 1.6 — I PARAMETRI DELL'ARTICOLO, CHE SONO UN DATO ──────────────
+     Vivono in `meta` come `docConfig` e la soglia di urgenza: sono una
+     politica di magazzino, e le politiche cambiano senza che cambi la
+     versione. Le tendine dell'anagrafica le leggono da qui.
+
+     `undefined` e «record svuotato» sono due cose diverse, e la differenza
+     conta: chi non ha mai aperto la scheda si trova i valori di serie, chi
+     ha tolto tutte le voci di una tendina se le ritrova tolte. Rimettergliele
+     al ricaricamento sarebbe rifiutargli una scelta in silenzio. */
+  getArticleParams(): ParametriArticolo {
+    const saved = (this._cache.meta as Record<string, any>)?.articleParams;
+    return saved === undefined || saved === null
+      ? parametriDiSerie()
+      : leggiParametri(saved);
+  },
+
+  async saveArticleParams(p: Partial<ParametriArticolo>) {
+    const merged = leggiParametri({ ...this.getArticleParams(), ...p });
+    await Persistence.put('meta', { key: 'articleParams', value: merged });
+    this._applyToCache('meta', 'put', { key: 'articleParams', value: merged });
+    (this._cache.meta as Record<string, any>).articleParams = merged;
+    await this._touchMeta();
+    return merged;
+  },
+
+  /* Gli elenchi COME LI VEDE UNA TENDINA: i valori di legge davanti e
+     marcati, gli aggiunti dietro. Stanno qui e non nella UI perche' la
+     stessa unione serve alla maschera, all'import Excel e al foglio
+     «Valori ammessi» — tre elenchi scritti a mano divergono. */
+  getAllergeniAmmessi(): Voce[] {
+    return unisciVoci(ALLERGENI, this.getArticleParams().allergeni);
+  },
+  getClassiConservazione(): Voce[] {
+    return unisciVoci(
+      CLASSI_TEMPERATURA.map(c => ({ code: c.code, label: `${c.label} (${c.range})` })),
+      this.getArticleParams().conservazione);
+  },
+  getUnitaAmmesse(): Voce[] {
+    return unisciVoci(
+      UNITA_MISURA.map(u => ({ code: u.code, label: u.label })),
+      this.getArticleParams().unita);
+  },
+  /* La pericolosita' non ha niente di fisso dietro: e' una classificazione
+     di magazzino, non una norma di etichettatura. */
+  getPericoli(): Voce[] {
+    return unisciVoci([], this.getArticleParams().pericoli);
+  },
+
+  /* ── 1.6 — I DESTINATARI DEI DDT ────────────────────────────────────
+     L'anagrafica si popola da se': non c'e' un momento in cui qualcuno la
+     carica, c'e' un DDT che si compila. Le regole — chi e' lo stesso
+     destinatario, quale destinazione e' nuova — stanno in
+     `modules/destinatari.ts`; qui si scrive e basta. */
+  getRecipients() { return this._cache.recipients; },
+  getRecipient(rcpId: string) {
+    return this._cache.recipients.find(r => r.rcp_id === rcpId) || null;
+  },
+  findRecipient(dati: Partial<Destinatario>) {
+    return trovaDestinatario(this._cache.recipients, dati);
+  },
+  searchRecipients(query: string, max = 8) {
+    return cercaDestinatari(this._cache.recipients, query, max);
+  },
+
+  /* IL CUORE: entra cio' che c'e' scritto sul DDT, esce il record.
+     Tre casi, e sono i tre della nota — PIANO §9.5:
+     - non c'e' → nasce, con la sua destinazione;
+     - c'e', stessa destinazione → non si tocca niente;
+     - c'e', destinazione diversa → la destinazione si AGGIUNGE accanto.
+
+     `permanente` decide solo il quarto caso: i dati anagrafici cambiati sul
+     documento. Falso — cioe' «spot» — lascia il record com'era e il DDT
+     porta i suoi valori: e' un documento, non una correzione. */
+  async upsertRecipient(
+    dati: Partial<Destinatario & Destinazione>,
+    { permanente = false }: { permanente?: boolean } = {},
+  ) {
+    const now = Date.now();
+    const nuovoId = (p: string) => `${p}-${now.toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    const esistente = this.findRecipient(dati);
+
+    if (!esistente) {
+      /* Senza chiave non nasce niente: un DDT senza ragione sociale ne'
+         partita IVA non e' un destinatario, e scriverlo vorrebbe dire un
+         record anonimo in piu' a ogni documento incompleto. */
+      if (!chiaveDestinatario(dati)) return null;
+      const rec = componiDestinatario(dati, nuovoId('RC'), nuovoId('DE'), now);
+      rec.updated_by = this.getCurrentIdentity().initials || undefined;
+      await Persistence.add('recipients', rec);
+      this._applyToCache('recipients', 'put', rec);
+      await this._touchMeta();
+      return { record: rec, creato: true, destinazioneNuova: rec.destinations.length > 0 };
+    }
+
+    let rec: Destinatario = esistente;
+    let mosso = false;
+    if (permanente) {
+      const patch: Partial<Destinatario> = {};
+      const nome = String(dati.name ?? '').trim();
+      if (nome && nome !== rec.name) patch.name = nome;
+      const vat = normalizzaPIva(dati.vat);
+      if (vat && vat !== rec.vat) patch.vat = vat;
+      const cf = normalizzaPIva(dati.fiscal_code);
+      if (cf && cf !== rec.fiscal_code) patch.fiscal_code = cf;
+      if (Object.keys(patch).length) {
+        rec = { ...rec, ...patch, updated_at: now, updated_by: this.getCurrentIdentity().initials };
+        mosso = true;
+      }
+    }
+    /* La destinazione si aggiunge SEMPRE, anche a modifica «spot»: un
+       indirizzo nuovo non e' una correzione di quello vecchio — e' un posto
+       in piu' dove quel cliente riceve, e la volta dopo si sceglie. */
+    const esito = conDestinazione(rec, dati, nuovoId('DE'), now);
+    if (esito.aggiunta) { rec = esito.record; mosso = true; }
+
+    if (mosso) {
+      await Persistence.put('recipients', rec);
+      this._applyToCache('recipients', 'put', rec);
+      await this._touchMeta();
+    }
+    return { record: rec, creato: false, destinazioneNuova: esito.aggiunta };
+  },
+
+  async saveRecipient(rec: Destinatario) {
+    if (!rec?.rcp_id) throw new Error('Destinatario senza identificativo');
+    const agg = { ...rec, updated_at: Date.now(), updated_by: this.getCurrentIdentity().initials };
+    await Persistence.put('recipients', agg);
+    this._applyToCache('recipients', 'put', agg);
+    await this._touchMeta();
+    return agg;
+  },
+
+  async deleteRecipient(rcpId: string) {
+    await Persistence.delete('recipients', rcpId);
+    this._applyToCache('recipients', 'delete', { rcp_id: rcpId });
+    await this._touchMeta();
   },
 
   getCausale(id: string) {

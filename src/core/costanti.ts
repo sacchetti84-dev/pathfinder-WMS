@@ -32,7 +32,7 @@ const MOV = Object.freeze({
 } as const satisfies Record<string, TipoMovimento>);
 
 const MOV_LABELS = {
-  IN: 'Posizionamento', OUT: 'Smaltimento', MOVE: 'Cambio Ubicazione',
+  IN: 'Posizionamento', OUT: 'Smaltimento', MOVE: 'Trasferimento',
   PICK: 'Prelievo Produzione', REPOS: 'Riposizionamento',
   'FIX+': 'Correzione +', 'FIX-': 'Correzione −',
   QUAR: 'Quarantena', QREL: 'Rilascio Quarantena',

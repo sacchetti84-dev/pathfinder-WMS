@@ -372,7 +372,7 @@ describe('le cinque collezioni della 1.4', () => {
   const casi = [
     ['lots', { _id: 1, article_code: '700', lot_code: 'L1' }, 'lots'],
     ['udc', { udc_id: 'UDC-1', status: 'open' }, 'udc'],
-    ['tasks', { task_id: 'T-1', type: 'PUTAWAY', priority: 3 }, 'tasks'],
+    ['tasks', { task_id: 'T-1', type: 'TRANSFER', priority: 3 }, 'tasks'],
     ['wip', { wip_id: 'W-1', odp_num: 'ODP-1', item_key: '700|L1', qty: 2 }, 'wip'],
     ['storage_rules', { rule_id: 'R-1', priority: 1, attiva: true }, 'storageRules'],
   ];

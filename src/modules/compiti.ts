@@ -14,9 +14,12 @@ import type { Compito, Istante } from '../types/entita.js';
 
 /* ── Le tabelle ─────────────────────────────────────────────────────── */
 
-/* Gli otto tipi del piano. Sette esistono già come operazione: il
-   campionamento è l'unico che nasce qui, ed è il motivo per cui sta
-   nell'elenco e non fra le cose da fare dopo. */
+/* SETTE TIPI, non gli otto del piano. Il **Posizionamento è uscito il
+   13/08**: mettere a scaffale la merce appena arrivata succede in coda
+   all'accettazione, che su Pathfinder non passa — nessuno l'avrebbe mai
+   chiesto come compito, e un tipo che non si usa è una voce in più in ogni
+   tendina e un ramo in più in ogni regola. La funzione «Posiziona» di
+   Movimenta resta dov'è: a sparire è il compito, non l'operazione. */
 export const TIPI_COMPITO = {
   TRANSFER:   { label: 'Trasferimento',   icona: '↔' },
   PICK_SHIP:  { label: 'Prelievo spedizione', icona: '🚚' },
@@ -24,11 +27,31 @@ export const TIPI_COMPITO = {
   QUARANTINE: { label: 'Blocco quarantena', icona: '🚫' },
   SAMPLING:   { label: 'Campionamento',   icona: '🧪' },
   DISPOSAL:   { label: 'Smaltimento',     icona: '🗑' },
-  PUTAWAY:    { label: 'Posizionamento',  icona: '📥' },
   COUNT:      { label: 'Conta',           icona: '🔢' },
+  /* 1.5 — LA PULIZIA DELL'AREA DI PRELIEVO DOPO UN CAMPIONAMENTO, che la GMP
+     pretende registrata. Non si chiede a mano e non sta in nessuna tendina:
+     nasce dalla conferma di un campionamento e nasce gia' chiusa (D16). Sta
+     fra i tipi lo stesso perche' deve comparire nel registro delle attivita'
+     come attivita' vera, con i suoi tempi e la sua sigla — un'annotazione
+     libera non sarebbe interrogabile in audit. */
+  CLEANING:   { label: 'Pulizia post-campionamento', icona: '🧽' },
 } as const;
 
 export type TipoCompito = keyof typeof TIPI_COMPITO;
+
+/* I tipi che il SISTEMA apre da se', e che nessuno puo' chiedere dalla
+   maschera di creazione. Sono fuori dalla tendina e fuori da `_taskLancia`:
+   nascono chiusi, quindi non c'e' niente da lanciare. */
+export const TIPI_SISTEMA: readonly string[] = ['CLEANING'];
+
+export function nasceDalSistema(t: string): boolean {
+  return TIPI_SISTEMA.includes(t);
+}
+
+/** I tipi che si possono chiedere a mano — quelli della tendina. */
+export function tipiRichiedibili(): TipoCompito[] {
+  return (Object.keys(TIPI_COMPITO) as TipoCompito[]).filter(t => !nasceDalSistema(t));
+}
 
 /* Il numero cresce con l'urgenza: «alzare la priorità» è alzare il numero,
    che è come lo dice chi la chiede. */
@@ -205,7 +228,7 @@ export function ordinaCoda(
     || (a.requested_at || 0) - (b.requested_at || 0));
 }
 
-/* ── Che cosa apre ogni tipo, e le tre eccezioni ────────────────────── */
+/* ── Che cosa apre ogni tipo, e le eccezioni ────────────────────────── */
 
 /* 1.4.2.1 — DA QUI LO SCHEDULATORE SMETTE DI AFFIANCARE IL LAVORO E LO APRE.
    Ogni tipo dice quale funzione di Movimenta lanciare, precompilata coi dati
@@ -219,48 +242,75 @@ export const OPERAZIONE = {
   QUARANTINE: { modo: 'quarantine' },
   SAMPLING:   { modo: 'sampling' },
   DISPOSAL:   { modo: 'io', dir: 'out' },
-  PUTAWAY:    { modo: 'io', dir: 'in' },
-  COUNT:      { modo: 'inv' },
+  /* La Conta apre l'inventario nel suo ramo MIRATO: un articolo e un lotto
+     soli, non tutto il vano — `dir: 'mirato'` è ciò che distingue i due. */
+  COUNT:      { modo: 'inv', dir: 'mirato' },
+  /* La pulizia non apre niente: nasce chiusa insieme al campionamento che
+     l'ha resa necessaria. `none` e' esplicito apposta — la tabella pretende
+     che ogni tipo dica cosa apre, e «niente» e' una risposta. */
+  CLEANING:   { modo: 'none' },
 } as const satisfies Record<TipoCompito, { modo: string; dir?: string; kind?: string }>;
 
 export type Operazione = { modo: string; dir?: string; kind?: string };
 
-/** `null` su un tipo sconosciuto: meglio non aprire niente che aprire la
-    maschera sbagliata a chi ha in mano un carrello. */
+/** `null` su un tipo sconosciuto — e sui tipi che non si lanciano: meglio
+    non aprire niente che aprire la maschera sbagliata a chi ha in mano un
+    carrello. */
 export function operazioneDi(t: string): Operazione | null {
-  return (OPERAZIONE as Record<string, Operazione>)[t] ?? null;
+  const op = (OPERAZIONE as Record<string, Operazione>)[t];
+  return !op || op.modo === 'none' ? null : op;
 }
 
-/* La Conta è l'unica delle otto che può concludersi senza muovere un collo:
-   un inventario che torna giusto non produce nessuna riga di registro, e
-   senza il gesto a mano quel compito non si chiuderebbe mai. */
-export function chiudeAMano(t: string): boolean {
-  return t === 'COUNT';
+/* ── LE DUE FAMIGLIE: a residuo e a gesto ───────────────────────────── */
+
+/* 1.4.4 — LA CORREZIONE PIÙ IMPORTANTE DI QUESTA VERSIONE.
+   Fino alla 1.4.3 un compito si chiudeva in un modo solo: quando il residuo
+   dei colli arrivava a zero. Regge per i due tipi che spostano una quantità
+   — 12 chiesti, 5 mossi, ne restano 7 — e NON regge per gli altri cinque,
+   che si concludono col gesto e non con un conteggio:
+
+   - una **quarantena** confermata è fatta, che si siano bloccati 4 colli su
+     13 o tutti e 13: quei 4 sono la decisione di qualità che è stata presa;
+   - un **campione** è un prelievo solo, e vale un collo per decisione 53:
+     con la richiesta precompilata a tutta la giacenza non si esauriva mai;
+   - una **conta** può concludersi senza produrre nessuna riga — un
+     inventario che torna giusto è un esito, non un nulla di fatto;
+   - un **prelievo** si conclude quando il DDT è registrato: da lì in poi
+     l'evasione è merce che aspetta il vettore, e non dipende più
+     dall'operatore che ha prelevato.
+
+   Il risultato pratico è che quattro tipi su sette non si chiudevano mai e
+   restavano in coda a invecchiare — cioè proprio «la lista che invecchia»
+   che il piano §4.1 voleva evitare. */
+export function chiudeAlGesto(t: string): boolean {
+  return t === 'PICK_SHIP' || t === 'PICK_RET'
+      || t === 'QUARANTINE' || t === 'SAMPLING' || t === 'COUNT'
+      || t === 'CLEANING';
 }
 
-/** I colli servono ovunque si muova merce: senza, il movimento non si
-    precompila e il compito non sa quando è finito. Si conta ciò che c'è. */
+/** I colli servono ovunque si muova una quantità decisa in anticipo. La
+    Conta no: quanti ce ne siano è la domanda, non il dato. La Pulizia
+    nemmeno: non tocca merce. */
 export function vuoleColli(t: string): boolean {
-  return t !== 'COUNT';
+  return t !== 'COUNT' && t !== 'CLEANING';
 }
 
-/** Il Posizionamento riguarda merce che a magazzino non c'è ancora:
-    cercarla fra le giacenze non la troverebbe mai. */
-export function daGiacenza(t: string): boolean {
-  return t !== 'PUTAWAY';
-}
-
-/** La Conta si fa su un'UBICAZIONE, non su un articolo: si apre un vano e si
-    conta quello che c'è dentro — compreso quello che non dovrebbe esserci,
-    che è metà del motivo per cui si fa un inventario. Pretenderle un articolo
-    la renderebbe una verifica di ciò che il sistema già crede. */
-export function vuoleArticolo(t: string): boolean {
-  return t !== 'COUNT';
-}
-
-/** …e per la stessa ragione l'ubicazione, per lei sola, è obbligatoria. */
+/** LA CONTA È UN INVENTARIO MIRATO A UN ARTICOLO E UN LOTTO, non l'apertura
+    di un vano intero. L'inventario di tutto il vano esiste già in Movimenta
+    e non ha bisogno di un compito; quello che serviva era poter dire «vai a
+    contare QUESTO», ed è una riga di giacenza come per ogni altro tipo. */
 export function vuoleUbicazione(t: string): boolean {
   return t === 'COUNT';
+}
+
+/** Una destinazione ce l'ha il solo Trasferimento, che è l'unico tipo
+    rimasto a portare merce da un vano a un altro. Lo Smaltimento scarica il
+    magazzino, un prelievo esce con un DDT, un campione non muove colli.
+    Chiederla lo stesso non è un campo di troppo: `doCreateTask` la
+    scriverebbe nel payload, e il payload è la richiesta — cioè storia, che
+    chi prende in mano l'attività si trova davanti. */
+export function vuoleDestinazione(t: string): boolean {
+  return t === 'TRANSFER';
 }
 
 /* ── Il residuo ─────────────────────────────────────────────────────── */
@@ -309,7 +359,14 @@ export interface Avanzamento {
    e lo fa con questi tre numeri davanti.
 
    I colli si troncano a interi non negativi: un movimento che non ha mosso
-   niente non fa avanzare niente, e mezzo collo non esiste. */
+   niente non fa avanzare niente, e mezzo collo non esiste.
+
+   1.4.4 — SUI TIPI A GESTO IL CONTEGGIO NON DECIDE NIENTE. Arrivare qui
+   vuol dire che l'operazione è stata confermata, ed è quella la prova che
+   il compito è finito: `chiude` è vero comunque, anche con zero colli —
+   una conta che torna giusta non produce nessuna riga e resta un lavoro
+   fatto. Il `qty_done` si aggiorna lo stesso, perché il registro delle
+   attività mostra quanto si è mosso davvero. */
 export function avanzamento(
   c: Partial<Compito> | null | undefined,
   colli: number | null | undefined,
@@ -318,7 +375,8 @@ export function avanzamento(
   const mossi = Number.isFinite(n) && n > 0 ? Math.floor(n) : 0;
   const qty_done = quantitaFatta(c) + mossi;
   const dopo = { ...(c ?? {}), qty_done } as Partial<Compito>;
-  return { qty_done, residuo: residuo(dopo), chiude: esaurito(dopo) };
+  const gesto = chiudeAlGesto(String(c?.type ?? ''));
+  return { qty_done, residuo: residuo(dopo), chiude: gesto || esaurito(dopo) };
 }
 
 /* UN AVVIO CHE NON HA PRODOTTO NIENTE TORNA IN CARICO — decisione 46.
