@@ -35,6 +35,16 @@
 #  eredita il servizio che gira come SYSTEM. Il giorno del trasloco su una
 #  macchina virtuale si cambia lì, in un posto solo.
 #
+#  DALLA 1.7 L'APPLICATIVO È UNA CARTELLA, NON UN FILE.
+#  PATHFINDER_APP_DIR punta alla giunzione `C:\Pathfinder\app\corrente`, e da
+#  quel momento NON CAMBIA PIÙ: installare una versione e tornare indietro
+#  sono un ripuntamento di giunzione, che non vuole né l'amministratore né un
+#  riavvio del servizio. È il gesto che il 13/08 veniva respinto con «Accesso
+#  al Registro di sistema non consentito», e adesso serve una volta sola.
+#      .\installa-versione.ps1 -Da ..\consegna -Versione 1.7
+#      .\torna-indietro.ps1
+#  Quanto segue riguarda il modo vecchio, che resta come ripiego.
+#
 #  QUALE FILE DELL'APPLICATIVO SERVIRE.
 #  Il servizio serve un file .html, e finora quale fosse era una sua
 #  convinzione: in mancanza di indicazioni ripiegava su un nome scritto nel
@@ -64,7 +74,8 @@ param(
     [string]$CartellaBackup = 'C:\Pathfinder\backup',
     [string]$OraBackup = '20:00',
     [int]$GiorniDiConservazione = 0,
-    [string]$Applicativo = ''
+    [string]$Applicativo = '',
+    [string]$CartellaApplicativo = 'C:\Pathfinder\app\corrente'
 )
 
 $ErrorActionPreference = 'Stop'
@@ -226,6 +237,19 @@ Write-Host "  Backup        $CartellaBackup  (ogni sera alle $OraBackup)"
 [Environment]::SetEnvironmentVariable('PATHFINDER_PORT', "$Porta",      'Machine')
 [Environment]::SetEnvironmentVariable('PATHFINDER_APP',  $Applicativo,  'Machine')
 $env:PATHFINDER_APP  = $Applicativo
+
+# 1.7 — la cartella dell'applicativo. È l'ULTIMA volta che questa variabile
+# viene toccata: da qui in poi la giunzione `corrente` si ripunta, e la
+# variabile resta dov'è. Si imposta anche se la giunzione non esiste ancora —
+# il servizio avvisa e resta vivo, e `installa-versione.ps1` la crea.
+[Environment]::SetEnvironmentVariable('PATHFINDER_APP_DIR', $CartellaApplicativo, 'Machine')
+$env:PATHFINDER_APP_DIR = $CartellaApplicativo
+if (Test-Path $CartellaApplicativo) {
+    Write-Host "  Applicativo   $CartellaApplicativo  (giunzione)"
+} else {
+    Write-Host "  Applicativo   $CartellaApplicativo  — non esiste ancora" -ForegroundColor Yellow
+    Write-Host "                si crea con: .\installa-versione.ps1 -Da ..\consegna -Versione 1.7"
+}
 $env:PATHFINDER_DB   = $Database
 $env:PATHFINDER_PORT = "$Porta"
 
