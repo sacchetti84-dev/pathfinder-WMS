@@ -1,0 +1,371 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   PATHFINDER — 01-tokens.css
+   Token di sistema, palette colori, Material Design 3 (M3) e variabili globali
+   ════════════════════════════════════════════════════════════════════════════ */
+
+:root {
+
+  /* ── Chrome applicativo (barra superiore, sidebar) ── */
+  --sx-primary: #1b3a4b;          /* petrolio scuro desaturato — upper bar */
+  --sx-primary-hover: #244a5e;
+  --sx-primary-light: #2e5a70;
+
+  /* ── Accento interattivo unico ── */
+  --sx-accent: #00745a;           /* verde-petrolio sobrio: richiamo Sage senza usarne il marchio */
+  --sx-accent-hover: #005f4a;
+  --sx-accent-soft: #e6f2ef;
+
+  /* ── Colori di stato (desaturati per griglie dense) ── */
+  --sx-success: #1f7a4d;
+  --sx-success-soft: #e6f2eb;
+  --sx-warning: #a8620a;
+  --sx-warning-soft: #fbf0dc;
+  --sx-danger: #a82c26;
+  --sx-danger-soft: #f8e6e5;
+  --sx-purple: #55458c;           /* Quarantena */
+  --sx-purple-soft: #ecebf5;
+  --sx-teal: #0f6b66;             /* Resi */
+  --sx-teal-soft: #e2f0ef;
+  --sx-orange: #b4531b;           /* Spedizioni */
+  --sx-orange-soft: #fbeade;
+
+  /* ── Superfici ── */
+  --sx-bg: #eff1f3;               /* area di lavoro */
+  --sx-bg-alt: #e3e7ea;           /* fasce alternate, hover */
+  --sx-card: #ffffff;
+  --sx-card-alt: #f6f8f9;         /* intestazioni griglia, zebra */
+  --sx-input: #ffffff;
+
+  /* ── Bordi: la gerarchia dell'interfaccia passa da qui ── */
+  --sx-border: #ccd4d9;           /* filetto standard */
+  --sx-border-strong: #9aa8b0;    /* bordo marcato, campi attivi */
+
+  /* ── Testo ── */
+  --sx-text: #182830;
+  --sx-text-secondary: #43555f;
+  --sx-text-muted: #6d7f89;
+  --sx-disabled: #c4ced4;
+
+  /* ── Geometria: angoli quasi vivi, ombre minime ── */
+  --radius: 2px;
+  --radius-md: 3px;
+  --shadow-sm: 0 1px 1px rgba(24,40,48,0.05);
+  --shadow: 0 1px 3px rgba(24,40,48,0.10);
+  --shadow-lg: 0 3px 10px rgba(24,40,48,0.16);
+  --transition: 0.12s ease;
+
+  /* Scala di forma M3 */
+  --md-shape-xs: 4px;
+  --md-shape-sm: 8px;
+  --md-shape-md: 12px;
+  --md-shape-lg: 16px;
+  --md-shape-xl: 28px;
+  --md-shape-full: 999px;
+
+  /* Elevazione M3 (livelli 0-4) — discreta, non "app consumer" */
+  --md-elev-1: 0 1px 2px rgba(24,40,48,0.16), 0 1px 3px 1px rgba(24,40,48,0.07);
+  --md-elev-2: 0 1px 2px rgba(24,40,48,0.16), 0 2px 6px 2px rgba(24,40,48,0.08);
+  --md-elev-3: 0 4px 8px 3px rgba(24,40,48,0.10), 0 1px 3px rgba(24,40,48,0.16);
+  --md-elev-4: 0 6px 10px 4px rgba(24,40,48,0.12), 0 2px 3px rgba(24,40,48,0.18);
+
+  /* State layer M3 (opacita' standard) */
+  --md-state-hover: 0.08;
+  --md-state-focus: 0.10;
+  --md-state-press: 0.12;
+
+  /* Target tattili — tablet con guanti da magazzino */
+  --md-touch: 48px;
+  --md-touch-sm: 40px;
+
+  /* Motion M3 */
+  --md-motion-short: 150ms cubic-bezier(0.2, 0, 0, 1);
+  --md-motion-med: 250ms cubic-bezier(0.2, 0, 0, 1);
+  --md-motion-emph: 350ms cubic-bezier(0.05, 0.7, 0.1, 1);
+
+  --font: 'Segoe UI', 'Noto Sans', Arial, -apple-system, BlinkMacSystemFont, sans-serif;
+  --mono: 'Consolas', 'SF Mono', 'Courier New', monospace;
+
+  --grad-header: var(--sx-primary);
+  --grad-card: var(--sx-card);
+  --grad-card-hover: var(--sx-bg-alt);
+  --grad-bg: var(--sx-bg);
+  --grad-soft-blue: var(--sx-accent-soft);
+  --grad-soft-green: var(--sx-success-soft);
+  --grad-soft-amber: var(--sx-warning-soft);
+  --grad-soft-red: var(--sx-danger-soft);
+  --grad-soft-purple: var(--sx-purple-soft);
+  --grad-soft-teal: var(--sx-teal-soft);
+  --grad-soft-orange: var(--sx-orange-soft);
+
+  /* ── Ruoli colore di sistema MD3 ── */
+  --md-sys-color-primary: #166B54;
+  --md-sys-color-on-primary: #FFFFFF;
+  --md-sys-color-primary-container: #A4F2D5;
+  --md-sys-color-on-primary-container: #00513E;
+  --md-sys-color-secondary: #4C635A;
+  --md-sys-color-on-secondary: #FFFFFF;
+  --md-sys-color-secondary-container: #CEE9DC;
+  --md-sys-color-on-secondary-container: #344C42;
+  --md-sys-color-tertiary: #406376;
+  --md-sys-color-on-tertiary: #FFFFFF;
+  --md-sys-color-tertiary-container: #C3E8FE;
+  --md-sys-color-on-tertiary-container: #274B5D;
+  --md-sys-color-error: #BA1A1A;
+  --md-sys-color-on-error: #FFFFFF;
+  --md-sys-color-error-container: #FFDAD6;
+  --md-sys-color-on-error-container: #93000A;
+  --md-sys-color-background: #F5FBF6;
+  --md-sys-color-on-background: #171D1A;
+  --md-sys-color-surface: #F5FBF6;
+  --md-sys-color-on-surface: #171D1A;
+  --md-sys-color-surface-variant: #DBE5DF;
+  --md-sys-color-on-surface-variant: #3F4944;
+  --md-sys-color-surface-dim: #D5DBD7;
+  --md-sys-color-surface-bright: #F5FBF6;
+  --md-sys-color-surface-container-lowest: #FFFFFF;
+  --md-sys-color-surface-container-low: #EFF5F0;
+  --md-sys-color-surface-container: #E9EFEB;
+  --md-sys-color-surface-container-high: #E4EAE5;
+  --md-sys-color-surface-container-highest: #DEE4DF;
+  --md-sys-color-outline: #707974;
+  --md-sys-color-outline-variant: #BFC9C3;
+  --md-sys-color-inverse-surface: #2C322F;
+  --md-sys-color-inverse-on-surface: #ECF2ED;
+  --md-sys-color-inverse-primary: #88D6BA;
+  --md-sys-color-surface-tint: #166B54;
+  --md-sys-color-shadow: #000000;
+  --md-sys-color-scrim: #000000;
+
+  /* chrome applicativo (petrolio storico, armonizzato) */
+  --md-ext-chrome:            #40636F;
+  --md-ext-chrome-dim:        #274C57;
+  --md-ext-chrome-deep:       #0D3540;
+  --md-ext-on-chrome:         #FFFFFF;
+  --md-ext-chrome-container:  #C3E9F7;
+  --md-ext-chrome-container-low: #DBF5FF;
+  --md-ext-on-chrome-container: #001F27;
+  /* esito positivo */
+  --md-ext-success:            #2D694F;
+  --md-ext-success-dim:        #105139;
+  --md-ext-success-deep:       #003825;
+  --md-ext-on-success:         #FFFFFF;
+  --md-ext-success-container:  #B2F0CF;
+  --md-ext-success-container-low: #BFFFDD;
+  --md-ext-on-success-container: #002114;
+  /* avviso */
+  --md-ext-warning:            #7B581B;
+  --md-ext-warning-dim:        #604103;
+  --md-ext-warning-deep:       #432C00;
+  --md-ext-on-warning:         #FFFFFF;
+  --md-ext-warning-container:  #FFDDAF;
+  --md-ext-warning-container-low: #FFEEDA;
+  --md-ext-on-warning-container: #281800;
+  /* quarantena */
+  --md-ext-quarant:            #565B8B;
+  --md-ext-quarant-dim:        #3E4372;
+  --md-ext-quarant-deep:       #282C5A;
+  --md-ext-on-quarant:         #FFFFFF;
+  --md-ext-quarant-container:  #E0E0FF;
+  --md-ext-quarant-container-low: #F1EFFF;
+  --md-ext-on-quarant-container: #121644;
+  /* resi */
+  --md-ext-resi:            #20695D;
+  --md-ext-resi-dim:        #005046;
+  --md-ext-resi-deep:       #003730;
+  --md-ext-on-resi:         #FFFFFF;
+  --md-ext-resi-container:  #AAF0E0;
+  --md-ext-resi-container-low: #B8FFEE;
+  --md-ext-on-resi-container: #00201B;
+  /* spedizioni */
+  --md-ext-spediz:            #845326;
+  --md-ext-spediz-dim:        #683C10;
+  --md-ext-spediz-deep:       #4C2700;
+  --md-ext-on-spediz:         #FFFFFF;
+  --md-ext-spediz-container:  #FFDCC2;
+  --md-ext-spediz-container-low: #FFEDE2;
+  --md-ext-on-spediz-container: #2E1500;
+
+  --md-ref-typeface-plain: var(--font);
+  --md-ref-typeface-brand: var(--font);
+
+  --md-sys-typescale-display-large-size: 3.5625rem;
+  --md-sys-typescale-display-large-line-height: 4rem;
+  --md-sys-typescale-display-large-weight: 400;
+  --md-sys-typescale-display-large-tracking: -0.015625rem;
+
+  --md-sys-typescale-display-medium-size: 2.8125rem;
+  --md-sys-typescale-display-medium-line-height: 3.25rem;
+  --md-sys-typescale-display-medium-weight: 400;
+  --md-sys-typescale-display-medium-tracking: 0;
+
+  --md-sys-typescale-display-small-size: 2.25rem;
+  --md-sys-typescale-display-small-line-height: 2.75rem;
+  --md-sys-typescale-display-small-weight: 400;
+  --md-sys-typescale-display-small-tracking: 0;
+
+  --md-sys-typescale-headline-large-size: 2rem;
+  --md-sys-typescale-headline-large-line-height: 2.5rem;
+  --md-sys-typescale-headline-large-weight: 400;
+  --md-sys-typescale-headline-large-tracking: 0;
+
+  --md-sys-typescale-headline-medium-size: 1.75rem;
+  --md-sys-typescale-headline-medium-line-height: 2.25rem;
+  --md-sys-typescale-headline-medium-weight: 400;
+  --md-sys-typescale-headline-medium-tracking: 0;
+
+  --md-sys-typescale-headline-small-size: 1.5rem;
+  --md-sys-typescale-headline-small-line-height: 2rem;
+  --md-sys-typescale-headline-small-weight: 400;
+  --md-sys-typescale-headline-small-tracking: 0;
+
+  --md-sys-typescale-title-large-size: 1.375rem;
+  --md-sys-typescale-title-large-line-height: 1.75rem;
+  --md-sys-typescale-title-large-weight: 400;
+  --md-sys-typescale-title-large-tracking: 0;   /* v2.4.0 — da spec MD3 (Title Large: tracking 0) */
+
+  --md-sys-typescale-title-medium-size: 1rem;
+  --md-sys-typescale-title-medium-line-height: 1.5rem;
+  --md-sys-typescale-title-medium-weight: 500;
+  --md-sys-typescale-title-medium-tracking: 0.009375rem;
+
+  --md-sys-typescale-title-small-size: 0.875rem;
+  --md-sys-typescale-title-small-line-height: 1.25rem;
+  --md-sys-typescale-title-small-weight: 500;
+  --md-sys-typescale-title-small-tracking: 0.00625rem;
+
+  --md-sys-typescale-body-large-size: 1rem;
+  --md-sys-typescale-body-large-line-height: 1.5rem;
+  --md-sys-typescale-body-large-weight: 400;
+  --md-sys-typescale-body-large-tracking: 0.03125rem;
+
+  --md-sys-typescale-body-medium-size: 0.875rem;
+  --md-sys-typescale-body-medium-line-height: 1.25rem;
+  --md-sys-typescale-body-medium-weight: 400;
+  --md-sys-typescale-body-medium-tracking: 0.015625rem;
+
+  --md-sys-typescale-body-small-size: 0.75rem;
+  --md-sys-typescale-body-small-line-height: 1rem;
+  --md-sys-typescale-body-small-weight: 400;
+  --md-sys-typescale-body-small-tracking: 0.025rem;
+
+  --md-sys-typescale-label-large-size: 0.875rem;
+  --md-sys-typescale-label-large-line-height: 1.25rem;
+  --md-sys-typescale-label-large-weight: 500;
+  --md-sys-typescale-label-large-tracking: 0.00625rem;
+
+  --md-sys-typescale-label-medium-size: 0.75rem;
+  --md-sys-typescale-label-medium-line-height: 1rem;
+  --md-sys-typescale-label-medium-weight: 500;
+  --md-sys-typescale-label-medium-tracking: 0.03125rem;
+
+  --md-sys-typescale-label-small-size: 0.6875rem;
+  --md-sys-typescale-label-small-line-height: 1rem;
+  --md-sys-typescale-label-small-weight: 500;
+  --md-sys-typescale-label-small-tracking: 0.03125rem;
+
+  /* ── Scala di forma MD3 (_md-sys-shape.scss) ── */
+  --md-sys-shape-corner-none: 0px;
+  --md-sys-shape-corner-extra-small: 4px;
+  --md-sys-shape-corner-extra-small-top: 4px 4px 0px 0px;
+  --md-sys-shape-corner-small: 8px;
+  --md-sys-shape-corner-medium: 12px;
+  --md-sys-shape-corner-large: 16px;
+  --md-sys-shape-corner-large-top: 16px 16px 0px 0px;
+  --md-sys-shape-corner-extra-large: 28px;
+  --md-sys-shape-corner-extra-large-top: 28px 28px 0px 0px;
+  --md-sys-shape-corner-full: 9999px;
+
+  /* ── State layer MD3 (_md-sys-state.scss, valori ufficiali v0.192) ──
+     La v2.1.0 usava 0.10 per il fuoco: valore corretto a 0.12. */
+  --md-sys-state-hover-opacity: 0.08;
+  --md-sys-state-focus-opacity: 0.12;
+  --md-sys-state-pressed-opacity: 0.12;
+  --md-sys-state-dragged-opacity: 0.16;
+
+  --md-sys-elevation-level0: none;
+  --md-sys-elevation-level1: 0 1px 2px rgba(0,0,0,0.30), 0 1px 3px 1px rgba(0,0,0,0.15);
+  --md-sys-elevation-level2: 0 1px 2px rgba(0,0,0,0.30), 0 2px 6px 2px rgba(0,0,0,0.15);
+  --md-sys-elevation-level3: 0 4px 8px 3px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.30);
+  --md-sys-elevation-level4: 0 6px 10px 4px rgba(0,0,0,0.15), 0 2px 3px rgba(0,0,0,0.30);
+  --md-sys-elevation-level5: 0 8px 12px 6px rgba(0,0,0,0.15), 0 4px 4px rgba(0,0,0,0.30);
+
+  /* ── Motion MD3 ── */
+  --md-sys-motion-easing-emphasized: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-easing-emphasized-decelerate: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --md-sys-motion-easing-emphasized-accelerate: cubic-bezier(0.3, 0, 0.8, 0.15);
+  --md-sys-motion-easing-standard: cubic-bezier(0.2, 0, 0, 1);
+  --md-sys-motion-duration-short2: 100ms;
+  --md-sys-motion-duration-short3: 150ms;
+  --md-sys-motion-duration-short4: 200ms;
+  --md-sys-motion-duration-medium1: 250ms;
+  --md-sys-motion-duration-medium2: 300ms;
+  --md-sys-motion-duration-medium3: 350ms;
+  --md-sys-motion-duration-medium4: 400ms;
+
+  /* Chrome applicativo: petrolio storico armonizzato sul seed */
+  --sx-primary: var(--md-ext-chrome-dim);
+  --sx-primary-hover: var(--md-ext-chrome-deep);
+  --sx-primary-light: var(--md-ext-chrome);
+
+  /* Accento interattivo = ruolo primary MD3 */
+  --sx-accent: var(--md-sys-color-primary);
+  --sx-accent-hover: var(--md-sys-color-on-primary-container);
+  --sx-accent-soft: var(--md-sys-color-secondary-container);
+
+  /* Stati operativi: tinta = tono 40, versione tenue = contenitore tono 90 */
+  --sx-success: var(--md-ext-success);
+  --sx-success-soft: var(--md-ext-success-container);
+  --sx-warning: var(--md-ext-warning);
+  --sx-warning-soft: var(--md-ext-warning-container);
+  --sx-danger: var(--md-sys-color-error);
+  --sx-danger-soft: var(--md-sys-color-error-container);
+  --sx-purple: var(--md-ext-quarant);
+  --sx-purple-soft: var(--md-ext-quarant-container);
+  --sx-teal: var(--md-ext-resi);
+  --sx-teal-soft: var(--md-ext-resi-container);
+  --sx-orange: var(--md-ext-spediz);
+  --sx-orange-soft: var(--md-ext-spediz-container);
+
+  /* Superfici: scala tonale MD3 al posto dei grigi neutri */
+  --sx-bg: var(--md-sys-color-surface-container);
+  --sx-bg-alt: var(--md-sys-color-surface-container-high);
+  --sx-card: var(--md-sys-color-surface-container-lowest);
+  --sx-card-alt: var(--md-sys-color-surface-container-low);
+  --sx-input: var(--md-sys-color-surface-container-highest);
+
+  /* Contorni */
+  --sx-border: var(--md-sys-color-outline-variant);
+  --sx-border-strong: var(--md-sys-color-outline);
+
+  /* Testo */
+  --sx-text: var(--md-sys-color-on-surface);
+  --sx-text-secondary: var(--md-sys-color-on-surface-variant);
+  --sx-text-muted: var(--md-sys-color-outline);
+  --sx-disabled: var(--md-sys-color-outline-variant);
+
+  /* Geometria: dai 2px "quasi vivi" della v2.0.2 alla scala di forma MD3 */
+  --radius: var(--md-sys-shape-corner-extra-small);
+  --radius-md: var(--md-sys-shape-corner-medium);
+  --shadow-sm: var(--md-sys-elevation-level1);
+  --shadow: var(--md-sys-elevation-level2);
+  --shadow-lg: var(--md-sys-elevation-level3);
+  --transition: 0.15s cubic-bezier(0.2, 0, 0, 1);
+
+  /* Token v2.1.0 riallineati ai valori MD3 ufficiali */
+  --md-shape-xs: var(--md-sys-shape-corner-extra-small);
+  --md-shape-sm: var(--md-sys-shape-corner-small);
+  --md-shape-md: var(--md-sys-shape-corner-medium);
+  --md-shape-lg: var(--md-sys-shape-corner-large);
+  --md-shape-xl: var(--md-sys-shape-corner-extra-large);
+  --md-shape-full: var(--md-sys-shape-corner-full);
+  --md-elev-1: var(--md-sys-elevation-level1);
+  --md-elev-2: var(--md-sys-elevation-level2);
+  --md-elev-3: var(--md-sys-elevation-level3);
+  --md-elev-4: var(--md-sys-elevation-level4);
+  --md-state-hover: var(--md-sys-state-hover-opacity);
+  --md-state-focus: var(--md-sys-state-focus-opacity);
+  --md-state-press: var(--md-sys-state-pressed-opacity);
+  --md-motion-short: var(--md-sys-motion-duration-short3, 150ms) var(--md-sys-motion-easing-standard);
+  --md-motion-med: var(--md-sys-motion-duration-medium1, 250ms) var(--md-sys-motion-easing-standard);
+  --md-motion-emph: var(--md-sys-motion-duration-medium3, 350ms) var(--md-sys-motion-easing-emphasized-decelerate);
+}

@@ -1,6 +1,10 @@
 // I fogli di stile, NELL'ORDINE IN CUI STAVANO NEL FILE. L'ordine non è
 // estetico: è la cascata. Invertirne due cambia quale regola vince.
+import './styles/01-tokens.css';
 import './styles/01-base.css';
+import './styles/01-components.css';
+import './styles/01-layout.css';
+import './styles/01-views.css';
 import './styles/02-dash-charts.css';
 import './styles/03-dash-sections.css';
 import './styles/04-dash-quick.css';
@@ -38,6 +42,6 @@ window.addEventListener('error', (e) => {
   App.toast(`Errore imprevisto · ${e.message || 'vedi console'}`, 'error');
 });
 
-// © Andrea Sacchetti — Dietopack S.r.l. — Pathfinder 1.4 — Fine script
+// © Andrea Sacchetti — Dietopack S.r.l. — Pathfinder 1.6 — Fine script
 
 window.App = App;
