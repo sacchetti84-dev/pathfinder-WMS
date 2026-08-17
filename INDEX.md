@@ -105,7 +105,7 @@ prove.
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
-| Collaudi | **483 client** (14 suite, ~1,5 s) · **81 servizio** · **8 migrazione** — tutti verdi il 18/08 |
+| Collaudi | **483 client** (14 suite, ~1,5 s) · **81 servizio** · **17 installazione** · **8 migrazione** — tutti verdi il 18/08 |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Sorgente | 31 TypeScript · 5 JavaScript · 9 CSS · `index.html`. Ancora JavaScript: `main.js` e `ui/` (4 file) |
 | Numero di build | **1.8.1** in `vite.config.js`, `package.json` e nel servizio: una build in avanzamento non deve chiamarsi come la versione in servizio — §5 |
@@ -232,8 +232,9 @@ npm test         # vitest, 13 suite, 435 prove
 ```
 
 ```bash
-node test/collaudo.js                    # 65 prove sul servizio, da server/
+node test/collaudo.js                    # 81 prove sul servizio, da server/
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server/
+node test/collaudo-installazione.js      # 17 prove sugli script di installazione, da server/
 ```
 
 `SINGLE_FILE=1 npm run build` riproduce il file unico di prima: è la via d'uscita
@@ -266,7 +267,7 @@ e la separazione è la correzione di un difetto vero:
 | Luogo | Chi ci **scrive** | Chi ci **legge** |
 |---|---|---|
 | `consegna/Pathfinder <ver>/` — il **pacchetto** | `npm run build`, che azzera `consegna/` a ogni giro | chi installa, a doppio clic — **mai il servizio** |
-| `C:\Pathfinder\app\pathfinder-<versione>\` — il **deposito** | `installa-versione.ps1`, **una volta sola**: poi è di sola lettura | nessuno direttamente |
+| `C:\Pathfinder\app\pathfinder-<versione>\` — il **deposito** | `installa-versione.ps1`, che **rifà la cartella a ogni installazione** di quel numero: un numero di versione lì dentro significa «gli ultimi byte installati con quel nome» | nessuno direttamente |
 | `C:\Pathfinder\app\corrente\` e `precedente\` | i due script, che ci **materializzano** una versione del deposito | **il servizio** |
 | `ARCHIVIO/` | l'archiviazione | nessuno |
 
@@ -305,9 +306,28 @@ entrambi i casi alla fine verifica l'impronta e apre l'applicativo nel browser.
 > significherebbe un magazzino fermo il giorno che si sfila la chiavetta — è la
 > stessa trappola di `outDir`, con le ruote.
 
+> **Prima disinstalla, poi installa — sempre, che la versione sia diversa o la
+> stessa.** Se quel numero è già nel deposito, la sua cartella viene tolta e
+> riscritta con i byte del pacchetto. È la correzione del 18/08: fino ad allora
+> l'installer passava `-Riusa` e una versione già in deposito veniva rimessa in
+> servizio **com'era**, così chi rifaceva la build senza cambiare numero
+> installava e restava ai byte di ieri — successo due volte con la 1.8.1 nella
+> stessa notte. Da adesso un numero nel deposito significa «gli ultimi byte
+> installati con quel nome», e l'impronta che l'installer verifica alla fine è
+> di nuovo una prova.
+
 > **Reinstallare la stessa versione non tocca `precedente`.** È il gesto più
 > innocuo che esista — rilanciare l'installer due volte in presentazione — e
-> senza quella riga cancellerebbe la via di ritorno in silenzio.
+> senza quella riga cancellerebbe la via di ritorno in silenzio. Vale anche
+> adesso che il deposito si riscrive: si muove solo quando cambia **il numero**
+> in servizio.
+
+> **Gli script di gestione delle versioni si rinfrescano dal pacchetto** a ogni
+> aggiornamento — `installa-versione.ps1` e `torna-indietro.ps1` finiscono in
+> `C:\Pathfinder\servizio` anche quando il servizio non si tocca. Nessuno li sta
+> eseguendo, al contrario di `pathfinder-server.js` che vorrebbe un riavvio, e
+> senza quella copia una macchina resterebbe per sempre alla logica di
+> installazione del giorno in cui è nata.
 
 ### Installare a mano, quando serve
 
@@ -316,11 +336,11 @@ npm run build
 .\server\installa-versione.ps1 -Da ".\consegna\Pathfinder <numero>\app" -Versione <numero>
 ```
 
-Lo script copia **solo** indice, assets e manifesto nel deposito, materializza in
-`precedente` la versione che era in `corrente`, materializza in `corrente` quella
-nuova, e **si ferma senza toccare niente** se la cartella di destinazione esiste
-già: una versione installata è di sola lettura, e reinstallarci sopra fa perdere
-la via di ritorno.
+Lo script copia **solo** indice, assets e manifesto nel deposito — dopo aver
+tolto quello che c'era sotto quel numero, così non restano assets orfani —,
+materializza in `precedente` la versione che era in `corrente` e in `corrente`
+quella nuova. Una consegna senza `index.html` viene respinta prima di toccare
+qualunque cosa.
 
 **Niente amministratore e niente riavvio**: il servizio rilegge la cartella a
 ogni richiesta. Si verifica subito:
@@ -747,10 +767,11 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `installa-pathfinder.ps1` | — | **L'installer**: capisce se è un aggiornamento o una prima installazione, si eleva solo se serve, verifica l'impronta e apre l'applicativo. Nel pacchetto diventa `installa.ps1`. `-NonChiedere` per provarlo senza una persona davanti |
 | `Installa Pathfinder.bat` · `LEGGIMI-pacchetto.txt` | — | Il doppio clic e le istruzioni per chi installa. Nel pacchetto diventano `Installa Pathfinder.bat` e `LEGGIMI.txt` |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate e le variabili. Da amministratore, **una volta**, **dal sorgente** o dalla copia in `C:\Pathfinder\servizio` |
-| `installa-versione.ps1` | — | Copia una consegna nel deposito e la **materializza** in `corrente`, spostando in `precedente` quella che c'era. Avvolge anche una consegna a file singolo. `-Casa` per il banco |
+| `installa-versione.ps1` | — | **Disinstalla e reinstalla**: toglie dal deposito la cartella di quel numero, la riscrive con i byte del pacchetto e la **materializza** in `corrente`, spostando in `precedente` quella che c'era. Avvolge anche una consegna a file singolo. `-Casa` per il banco |
 | `torna-indietro.ps1` | — | Scambia il contenuto di `corrente` e `precedente`, ripescandolo dal deposito. Simmetrico |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata delle 20:00 |
-| `test/collaudo.js` · `test/collaudo-migrazione-1.4.js` | 520 · 158 | 65 prove sul servizio vero · 8 sul cambio di schema |
+| `test/collaudo.js` · `test/collaudo-migrazione-1.4.js` | 520 · 158 | 81 prove sul servizio vero · 8 sul cambio di schema |
+| `test/collaudo-installazione.js` | — | **17 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte |
 
 ### Collaudi — `test/`
 
