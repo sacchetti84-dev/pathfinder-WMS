@@ -1,6 +1,7 @@
 import { type Vista, $ } from './vista';
 import { caricaExcel } from '../../modules/excel';
 import { Store } from '../../core/store';
+import type { Compito } from '../../types/entita';
 import { Dialog } from '../dialog';
 import {
   TIPI_COMPITO, PRIORITA_NORMALE, PRIORITA_MAX_OPERATORE,
@@ -9,6 +10,27 @@ import {
   operazioneDi, vuoleColli, vuoleUbicazione, vuoleDestinazione,
   quantitaRichiesta, quantitaFatta, residuo, tipiRichiedibili,
 } from '../../modules/compiti';
+
+/* IL `payload` DI UN COMPITO, come lo legge e lo scrive questa maschera.
+
+   `Compito.payload` è `unknown` nel tipo condiviso, e con ragione: ogni
+   genere di compito porta campi suoi. Qui si dichiara l'unione di quelli
+   che le otto maschere usano davvero — tutti facoltativi, perché un
+   trasferimento non ha `sample_for` e un campionamento non ha `to`. */
+type PayloadCompito = {
+  article_code?: string;
+  lot_code?: string;
+  location_code?: string;
+  from?: string;
+  to?: string;
+  qty?: number;
+  causale?: string;
+  carrier?: string;
+  destination?: string;
+  sample_for?: string;
+  sample_spare?: number;
+  auto?: boolean;
+};
 
 export const VistaCompiti: Vista = {
   /* ═══ ATTIVITA' — 1.4.1 ════════════════════════════════════════════
@@ -119,7 +141,7 @@ export const VistaCompiti: Vista = {
 
   _renderTaskTable(righe, io) {
     const leader = io.role === 'leader';
-    const corpo = righe.map((t: any) => {
+    const corpo = (righe as Compito[]).map((t) => {
       const m = misure(t);
       const tardi = inRitardo(t);
       const aperto = eAperto(t);
@@ -188,7 +210,7 @@ export const VistaCompiti: Vista = {
   },
 
   _renderTaskRegistro(righe) {
-    const corpo = righe.map((t: any) => {
+    const corpo = (righe as Compito[]).map((t) => {
       const m = misure(t);
       const chiesto = quantitaRichiesta(t);
       const fatti = quantitaFatta(t);
@@ -235,8 +257,8 @@ export const VistaCompiti: Vista = {
     const tutte = Store.getTasks().slice().sort((a, b) => (b.requested_at || 0) - (a.requested_at || 0));
     if (!tutte.length) return this.toast('Nessuna attività da esportare', 'error');
     const XLSX = await caricaExcel();
-    const min = (ms: any) => (ms === null || ms === undefined) ? '' : Math.round(ms / 60000);
-    const dt = (ms: any) => ms ? new Date(ms).toLocaleString('it-IT') : '';
+    const min = (ms: number | null | undefined) => (ms === null || ms === undefined) ? '' : Math.round(ms / 60000);
+    const dt = (ms: number | null | undefined) => ms ? new Date(ms).toLocaleString('it-IT') : '';
 
     const headers = ['Attività', 'Tipo', 'Priorità', 'Stato', 'Articolo', 'Lotto', 'Da', 'A',
       'Colli chiesti', 'Colli fatti', 'Residuo', 'Chiesta da', 'Svolta da', 'Chiusa da',
@@ -244,7 +266,7 @@ export const VistaCompiti: Vista = {
       'In coda', 'In coda (min)', 'Lavoro', 'Lavoro (min)', 'Totale (min)',
       'N° movimenti', 'Movimenti', 'Note', 'Motivo annullamento'];
     const rows = tutte.map(t => {
-      const p: any = (t.payload && typeof t.payload === 'object') ? t.payload : {};
+      const p = ((t.payload && typeof t.payload === 'object') ? t.payload : {}) as PayloadCompito;
       const m = misure(t);
       const chiesto = quantitaRichiesta(t);
       return [
@@ -270,11 +292,15 @@ export const VistaCompiti: Vista = {
     /* Foglio 2 — le due misure per tipo. È la riga che dice se un tipo di
        attività sta in coda troppo a lungo, e senza la quale il registro è
        un elenco invece di una misura. */
-    const perTipo: any = {};
+    /* Per ogni genere di attività: quante sono, come sono finite, e quanto
+       hanno aspettato. */
+    type MisureTipo = { tot: number; aperte: number; fatte: number; annullate: number;
+                        attesa: number; durata: number; conclusi: number };
+    const perTipo: Record<string, MisureTipo> = {};
     for (const t of tutte) {
       const k = etichettaTipo(t.type);
       if (!perTipo[k]) perTipo[k] = { tot: 0, aperte: 0, fatte: 0, annullate: 0, attesa: 0, durata: 0, conclusi: 0 };
-      const v = perTipo[k];
+      const v = perTipo[k]!;
       v.tot++;
       if (eAperto(t)) v.aperte++;
       else if (t.status === 'cancelled') v.annullate++;
@@ -309,7 +335,7 @@ export const VistaCompiti: Vista = {
      utile lo stesso compito a otto attivita' diverse. Qui si mostrano i
      campi che si riconoscono, e il resto si legge nella nota. */
   _renderTaskPayload(t) {
-    const p: any = (t.payload && typeof t.payload === 'object') ? t.payload : {};
+    const p = ((t.payload && typeof t.payload === 'object') ? t.payload : {}) as PayloadCompito;
     const pezzi = [];
     if (p.article_code) pezzi.push(`<span class="mono">${this._esc(p.article_code)}</span>`);
     if (p.lot_code) pezzi.push(`lotto <span class="mono">${this._esc(p.lot_code)}</span>`);
@@ -429,8 +455,8 @@ export const VistaCompiti: Vista = {
   /* Le nove causali di trasporto vivono in Configurazione → DDT dalla v2:
      qui si leggono, non si riscrivono. */
   _causaliDDT() {
-    const cfg = (Store.getMeta()?.docConfig as any)?.causali || [];
-    return cfg.map((c: any) => `<option value="${this._esc(c.id)}">${this._esc(c.label)}</option>`).join('');
+    const cfg = Store.getDocConfig().causali || [];
+    return cfg.map((c) => `<option value="${this._esc(c.id)}">${this._esc(c.label)}</option>`).join('');
   },
 
   /* Ogni tipo di attività porta con sé le proprie regole — quali campi
@@ -439,7 +465,7 @@ export const VistaCompiti: Vista = {
      spegne ciò che l'operatore vede. */
   _ntTypeChanged() {
     const tipo = $('ntType')?.value || '';
-    const mostra = (id: any, si: any) => { const e = $(id); if (e) e.style.display = si ? '' : 'none'; };
+    const mostra = (id: string, si: boolean) => { const e = $(id); if (e) e.style.display = si ? '' : 'none'; };
     mostra('ntSamplingRow', tipo === 'SAMPLING');
     mostra('ntDdtRow', tipo === 'PICK_SHIP' || tipo === 'PICK_RET');
     /* Lo Smaltimento scarica il magazzino e non porta niente da nessuna
@@ -451,7 +477,7 @@ export const VistaCompiti: Vista = {
     mostra('ntToGroup', destOk);
     const dest = $('ntTo');
     if (dest && !destOk) dest.value = '';
-    const req = (id: any, si: any) => { const e = $(id); if (e) e.style.visibility = si ? '' : 'hidden'; };
+    const req = (id: string, si: boolean) => { const e = $(id); if (e) e.style.visibility = si ? '' : 'hidden'; };
     req('ntQtyReq', vuoleColli(tipo));
     /* 1.4.4 — TUTTI E SETTE I TIPI PESCANO DALLE GIACENZE, Conta compresa.
        Il Posizionamento era l'unico che cercava in anagrafica, e non c'è
@@ -524,7 +550,7 @@ export const VistaCompiti: Vista = {
   _ntScegli(loc, itemKey) {
     const it = Store.getItemsAtLocation(loc).find(i => i.item_key === itemKey);
     if (!it) return this.toast('Quella riga non è più a magazzino', 'warning');
-    const set = (id: any, v: any) => { const e = $(id); if (e) e.value = v; };
+    const set = (id: string, v: string) => { const e = $(id); if (e) e.value = v; };
     set('ntArticle', it.article_code);
     set('ntLot', it.lot_code);
     set('ntFrom', it.location_code);
@@ -543,10 +569,10 @@ export const VistaCompiti: Vista = {
   },
 
   async doCreateTask() {
-    const err = (m: any) => { const e = $('ntError'); if (e) e.textContent = m; };
-    const val = (id: any) => ($(id)?.value || '').trim();
-    const su = (id: any) => val(id).toUpperCase();
-    const payload: any = {};
+    const err = (m: string) => { const e = $('ntError'); if (e) e.textContent = m; };
+    const val = (id: string) => ($(id)?.value || '').trim();
+    const su = (id: string) => val(id).toUpperCase();
+    const payload: PayloadCompito = {};
     if (val('ntType') === 'SAMPLING') {
       if (!val('ntSampleFor')) return err('Un campione senza destinatario è merce sparita dallo scaffale: dire per chi.');
       payload.sample_for = val('ntSampleFor');
@@ -595,8 +621,8 @@ export const VistaCompiti: Vista = {
       this.toast(`📋 ${etichettaTipo(rec.type)} in coda — ${rec.task_id}`, 'success');
       this.renderTasks();
       if (this.currentView === 'dashboard') this.renderDashboard();
-    } catch (e: any) {
-      err(e.message);
+    } catch (e) {
+      err((e as Error).message);
     }
   },
 
@@ -608,8 +634,8 @@ export const VistaCompiti: Vista = {
       if (messaggio) this.toast(messaggio, 'success');
       this.renderTasks();
       if (this.currentView === 'dashboard') this.renderDashboard();
-    } catch (err: any) {
-      this.toast(err.message, 'error');
+    } catch (err) {
+      this.toast((err as Error).message, 'error');
     }
   },
 
@@ -653,8 +679,8 @@ export const VistaCompiti: Vista = {
 
     try {
       if (t.status !== 'in_progress') await Store.startTask(taskId, io.initials);
-    } catch (err: any) {
-      return this.toast(err.message, 'error');
+    } catch (err) {
+      return this.toast((err as Error).message, 'error');
     }
     this._taskRun = { task_id: taskId, type: t.type, payload: (t.payload && typeof t.payload === 'object') ? t.payload : {}, movs: [] };
     this.renderTasks();
@@ -668,8 +694,8 @@ export const VistaCompiti: Vista = {
   _taskLancia(t, op) {
     this.switchView('movimenta');
     this.startMov(op.modo, op.dir || null);
-    const p: any = (t.payload && typeof t.payload === 'object') ? t.payload : {};
-    const set = (id: any, v: any) => { const e = $(id); if (e && v) e.value = v; };
+    const p = ((t.payload && typeof t.payload === 'object') ? t.payload : {}) as PayloadCompito;
+    const set = (id: string, v: string | undefined) => { const e = $(id); if (e && v) e.value = v; };
     const resta = residuo(t);
     const colli = resta === null ? (p.qty || '') : resta;
 
@@ -779,10 +805,10 @@ export const VistaCompiti: Vista = {
     let rec;
     try {
       rec = await Store.advanceTask(taskId, colli, movs);
-    } catch (err: any) {
+    } catch (err) {
       /* Il movimento e' gia' andato: qui si perde solo il conto, e va detto
          forte perche' il compito resta aperto con un residuo sbagliato. */
-      this.toast(`Movimento registrato, ma l'attività non è avanzata: ${err.message}`, 'error');
+      this.toast(`Movimento registrato, ma l'attività non è avanzata: ${(err as Error).message}`, 'error');
       return;
     }
     if (!eAperto(rec)) {
@@ -813,8 +839,8 @@ export const VistaCompiti: Vista = {
             : `Attività ${run.task_id} resta in corso — ${residuo(dopo) ?? 0} coll. da fare`, 'info');
         }
       }
-    } catch (err: any) {
-      if (!silenzioso) this.toast(err.message, 'error');
+    } catch (err) {
+      if (!silenzioso) this.toast((err as Error).message, 'error');
     }
     this._renderTaskBanner();
     if (this.currentView === 'tasks') this.renderTasks();
