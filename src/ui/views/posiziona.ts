@@ -19,6 +19,12 @@ import {
 type RigaColliIn = { colli: string; per: string };
 type SceltaColli = { elenco: number[]; uom: string; scelte: Map<number, number | boolean> };
 
+/* Il gestore dell'Escape della finestra dei colli. Sta QUI e non dentro
+   `App`: la superficie del monolite e' un contratto — 577 nomi, e un
+   collaudo che li conta — e un ascoltatore non e' un metodo che qualcuno
+   chiama. Ne vive uno per volta, come la finestra. */
+let escColli: ((e: KeyboardEvent) => void) | null = null;
+
 export const VistaPosiziona = {
   _formPosiziona(el) {
     el.innerHTML = `
@@ -259,7 +265,6 @@ export const VistaPosiziona = {
      quella sotto. */
   _colliSel: null as SceltaColli | null,
   _colliResolve: null,
-  _colliEsc: null as ((e: KeyboardEvent) => void) | null,
 
   _scegliColli(item, elenco, uom, titolo = 'Quali colli') {
     $('colliOverlay')?.remove();
@@ -295,13 +300,13 @@ export const VistaPosiziona = {
        prima; e `_colliSelChiudi` lo stacca, che un ascoltatore lasciato
        vivo chiuderebbe la finestra dopo. Annullare qui e' `null`, cioe'
        "non ho scelto": la stessa cosa che dice il pulsante Annulla. */
-    this._colliEsc = (e: KeyboardEvent) => {
+    escColli = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       e.preventDefault();
       e.stopPropagation();
       this._colliSelAnnulla();
     };
-    document.addEventListener('keydown', this._colliEsc, true);
+    document.addEventListener('keydown', escColli, true);
 
     return new Promise(resolve => { this._colliResolve = resolve; });
   },
@@ -384,9 +389,9 @@ export const VistaPosiziona = {
   _colliSelAnnulla() { this._colliSelChiudi(null); },
 
   _colliSelChiudi(esito: unknown) {
-    if (this._colliEsc) {
-      document.removeEventListener('keydown', this._colliEsc, true);
-      this._colliEsc = null;
+    if (escColli) {
+      document.removeEventListener('keydown', escColli, true);
+      escColli = null;
     }
     $('colliOverlay')?.remove();
     this._colliSel = null;
