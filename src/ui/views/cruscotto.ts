@@ -1,7 +1,32 @@
 import { type Vista, $ } from './vista';
 import { MOV, MOV_LABELS } from '../../core/costanti';
 import { Store } from '../../core/store';
+import type { Sito } from '../../types/entita';
 import { pickupAlertStatus } from '../../modules/pickupAlert';
+
+/* LE FORME DEI GRAFICI. Non sono dati del magazzino: sono quel che i
+   disegnatori qui sotto si passano l'un l'altro. */
+type Punto = { x: number; y: number };
+
+/* Un articolo della classifica: quante volte si e' mosso. */
+type ArticoloTop = { code: string; count: number };
+
+/* Uno spicchio della ciambella, o una voce di legenda. */
+type Segmento = { label: string; value: number; color?: string };
+
+/* Un giorno della barra dei movimenti: il totale e la sua data. */
+type GiornoTrend = { total: number; label: string; picks: number };
+
+/* Un ordine di produzione raggruppato dai movimenti che lo compongono. */
+type OrdineRaggruppato = {
+  ref: string;
+  users: Set<string>;
+  articles: Set<string>;
+  rows: number;
+  colli: number;
+  first: number;
+  last: number;
+};
 
 export const VistaCruscotto: Vista = {
   // ── Dashboard ──
@@ -17,12 +42,12 @@ export const VistaCruscotto: Vista = {
     const kpi = Store.computeKPIs();
     const meta = Store.getMeta();
 
-    const sparkline = (vals: any, w = 80, h = 22, color = 'var(--md-sys-color-primary)') => {
-      if (!vals.length || vals.every((v: any) => v === 0)) return `<svg class="kpi-sparkline" width="${w}" height="${h}"></svg>`;
+    const sparkline = (vals: number[], w = 80, h = 22, color = 'var(--md-sys-color-primary)') => {
+      if (!vals.length || vals.every((v) => v === 0)) return `<svg class="kpi-sparkline" width="${w}" height="${h}"></svg>`;
       const max = Math.max(...vals, 1);
       const step = w / Math.max(vals.length - 1, 1);
-      const pts = vals.map((v: any, i: any) => ({ x: i * step, y: h - 1 - (v / max) * (h - 3) }));
-      const last = pts[pts.length - 1];
+      const pts = vals.map((v, i) => ({ x: i * step, y: h - 1 - (v / max) * (h - 3) }));
+      const last = pts[pts.length - 1]!;
       return `<svg class="kpi-sparkline" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true">
         <path d="${this._smoothPath(pts)}" style="fill:none;stroke:${color};stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round"/>
         <circle cx="${last.x.toFixed(1)}" cy="${last.y.toFixed(1)}" r="2.2" style="fill:${color}"/>
@@ -201,7 +226,7 @@ export const VistaCruscotto: Vista = {
       const qty = m.qty_delta != null ? Math.abs(m.qty_delta) : null;
       const dest = m.dest_location ? ` → <span class="mono">${this._esc(m.dest_location)}</span>` : '';
       const ref = m.doc_ref ? ` · rif. ${this._esc(m.doc_ref)}` : '';
-      return `<div class="dl-row" title="${this._esc(((MOV_LABELS as any)[m.type] || m.type) + ' — ' + (m.article_description || m.article_code))}">
+      return `<div class="dl-row" title="${this._esc((MOV_LABELS[m.type] || m.type) + ' — ' + (m.article_description || m.article_code))}">
         <span class="dl-tag" style="border-left-color:${this._movColor(m.type)}">${this._esc(this._movShort(m.type))}</span>
         <div class="dl-main">
           <div class="dl-p"><span class="mono">${this._esc(m.article_code || '—')}</span>${m.lot_code ? ' · lotto <span class="mono">' + this._esc(m.lot_code) + '</span>' : ''}</div>
@@ -220,7 +245,7 @@ export const VistaCruscotto: Vista = {
   _groupProdOrders() {
     const map = new Map();
     for (const m of Store.getMovLog()) {
-      if (m.type !== MOV.PICK && m.type !== ('PICK' as any)) continue;
+      if (m.type !== MOV.PICK) continue;   // `MOV.PICK` E' la stringa 'PICK': il doppio confronto era una cintura in piu'
       const ref = m.doc_ref || '(senza numero)';
       let g = map.get(ref);
       if (!g) { g = { ref, rows: 0, colli: 0, first: m.ts, last: m.ts, users: new Set(), articles: new Set() }; map.set(ref, g); }
@@ -244,7 +269,7 @@ export const VistaCruscotto: Vista = {
     if (!list.length) {
       return `<div class="card">${head}<div class="dl-empty">Nessun prelievo di produzione registrato. Gli ordini compaiono qui dopo la conferma del prelievo.</div></div>`;
     }
-    const rows = list.map((g: any) => {
+    const rows = (list as OrdineRaggruppato[]).map((g) => {
       const users = [...g.users].join(', ') || 'n.d.';
       const sameDay = new Date(g.first).toDateString() === new Date(g.last).toDateString();
       const when = sameDay ? this._fmtDateTime(g.last) : `${this._fmtDateTime(g.first)} — ${this._fmtDateTime(g.last)}`;
@@ -381,31 +406,31 @@ export const VistaCruscotto: Vista = {
     return `<div class="card">${head}<div class="dl-list">${rows}</div></div>`;
   },
 
-  _smoothPath(pts) {
+  _smoothPath(pts: Punto[]) {
     const n = pts.length;
     if (n === 0) return '';
-    if (n === 1) return `M${pts[0].x},${pts[0].y}`;
-    if (n === 2) return `M${pts[0].x},${pts[0].y} L${pts[1].x},${pts[1].y}`;
-    const dx: any[] = [], dy: any[] = [], slope: any[] = [];
+    if (n === 1) return `M${pts[0]!.x},${pts[0]!.y}`;
+    if (n === 2) return `M${pts[0]!.x},${pts[0]!.y} L${pts[1]!.x},${pts[1]!.y}`;
+    const dx: number[] = [], dy: number[] = [], slope: number[] = [];
     for (let i = 0; i < n - 1; i++) {
-      dx.push(pts[i + 1].x - pts[i].x);
-      dy.push(pts[i + 1].y - pts[i].y);
-      slope.push(dx[i] === 0 ? 0 : dy[i] / dx[i]);
+      dx.push(pts[i + 1]!.x - pts[i]!.x);
+      dy.push(pts[i + 1]!.y - pts[i]!.y);
+      slope.push(dx[i]! === 0 ? 0 : dy[i]! / dx[i]!);
     }
-    const tan = [slope[0]];
+    const tan = [slope[0]!];
     for (let i = 1; i < n - 1; i++) {
-      if (slope[i - 1] * slope[i] <= 0) { tan.push(0); continue; }
-      const w1 = 2 * dx[i] + dx[i - 1];
-      const w2 = dx[i] + 2 * dx[i - 1];
-      tan.push((w1 + w2) / (w1 / slope[i - 1] + w2 / slope[i]));
+      if (slope[i - 1]! * slope[i]! <= 0) { tan.push(0); continue; }
+      const w1 = 2 * dx[i]! + dx[i - 1]!;
+      const w2 = dx[i]! + 2 * dx[i - 1]!;
+      tan.push((w1 + w2) / (w1 / slope[i - 1]! + w2 / slope[i]!));
     }
-    tan.push(slope[n - 2]);
-    let d = `M${pts[0].x.toFixed(2)},${pts[0].y.toFixed(2)}`;
+    tan.push(slope[n - 2]!);
+    let d = `M${pts[0]!.x.toFixed(2)},${pts[0]!.y.toFixed(2)}`;
     for (let i = 0; i < n - 1; i++) {
-      const h = dx[i] / 3;
-      d += ` C${(pts[i].x + h).toFixed(2)},${(pts[i].y + tan[i] * h).toFixed(2)}` +
-           ` ${(pts[i + 1].x - h).toFixed(2)},${(pts[i + 1].y - tan[i + 1] * h).toFixed(2)}` +
-           ` ${pts[i + 1].x.toFixed(2)},${pts[i + 1].y.toFixed(2)}`;
+      const h = dx[i]! / 3;
+      d += ` C${(pts[i]!.x + h).toFixed(2)},${(pts[i]!.y + tan[i]! * h).toFixed(2)}` +
+           ` ${(pts[i + 1]!.x - h).toFixed(2)},${(pts[i + 1]!.y - tan[i + 1]! * h).toFixed(2)}` +
+           ` ${pts[i + 1]!.x.toFixed(2)},${pts[i + 1]!.y.toFixed(2)}`;
     }
     return d;
   },
@@ -426,13 +451,15 @@ export const VistaCruscotto: Vista = {
   },
   _movColor(type) { return this._MOV_COLORS[type] || 'var(--md-sys-color-outline)'; },
 
-  _svgDonut(segments, opts = {}) {
+  _svgDonut(segments: Segmento[], opts: {
+    size?: number; thickness?: number; centerLabel?: string; gapDeg?: number; ariaLabel?: string;
+  } = {}) {
     const {
       size = 196, thickness = 30, centerLabel = 'TOTALE',   // v2.4.4 [N1] — riquadro condiviso
       gapDeg = 2.2, ariaLabel = 'Grafico a ciambella'
     } = opts;
-    const list = segments.filter((s: any) => s.value > 0);
-    const total = list.reduce((s: any, x: any) => s + x.value, 0);
+    const list = segments.filter((s) => s.value > 0);
+    const total = list.reduce((s, x) => s + x.value, 0);
     if (!total) return '<div class="ct-empty">Nessun dato da rappresentare.</div>';
 
     const cx = size / 2, cy = size / 2;
@@ -464,7 +491,7 @@ export const VistaCruscotto: Vista = {
       <text class="ct-total-lbl" x="${cx}" y="${cy + 17}" text-anchor="middle">${this._esc(centerLabel)}</text>
     </svg>`;
 
-    const legend = list.map((s: any) => {
+    const legend = list.map((s) => {
       const pct = Math.round(s.value / total * 100);
       return `<div class="ct-legend-row" title="${this._esc(s.label)}: ${s.value} (${pct}%)">
         <span class="ct-swatch" style="background:${s.color}"></span>
@@ -477,9 +504,9 @@ export const VistaCruscotto: Vista = {
     return `<div class="chart-wrap ct-anim">${svg}<div class="ct-legend">${legend}</div></div>`;
   },
 
-  _renderDailyBars(trend) {
+  _renderDailyBars(trend: GiornoTrend[]) {
     if (!trend?.length) return '<div class="ct-empty">Nessun dato disponibile.</div>';
-    const totalSum = trend.reduce((s: any, d: any) => s + d.total, 0);
+    const totalSum = trend.reduce((s, d) => s + d.total, 0);
     if (totalSum === 0) {
       return '<div class="ct-empty">Nessun movimento registrato negli ultimi 14 giorni.</div>';
     }
@@ -488,12 +515,12 @@ export const VistaCruscotto: Vista = {
     const padL = 30, padR = 16, padT = 14, padB = 30;
     const plotW = W - padL - padR, plotH = H - padT - padB;
 
-    const rawMax = Math.max(...trend.map((d: any) => d.total), 1);
+    const rawMax = Math.max(...trend.map((d) => d.total), 1);
     // Massimo arrotondato: la griglia cade su valori leggibili, non su decimali
     const step = rawMax <= 4 ? 1 : rawMax <= 10 ? 2 : rawMax <= 25 ? 5 : rawMax <= 60 ? 10 : Math.ceil(rawMax / 4 / 25) * 25;
     const max = Math.ceil(rawMax / step) * step;
-    const yOf = (v: any) => padT + plotH - (v / max) * plotH;
-    const xOf = (i: any) => padL + (i * plotW) / Math.max(trend.length - 1, 1);
+    const yOf = (v: number) => padT + plotH - (v / max) * plotH;
+    const xOf = (i: number) => padL + (i * plotW) / Math.max(trend.length - 1, 1);
 
     // Griglia orizzontale
     let grid = '';
@@ -503,27 +530,27 @@ export const VistaCruscotto: Vista = {
         <text class="ct-axis" x="${padL - 5}" y="${(y + 3).toFixed(1)}" text-anchor="end">${v}</text>`;
     }
 
-    const pts = trend.map((d: any, i: any) => ({ x: xOf(i), y: yOf(d.total) }));
+    const pts = trend.map((d, i) => ({ x: xOf(i), y: yOf(d.total) }));
     const line = this._smoothPath(pts);
-    const area = `${line} L${pts[pts.length - 1].x.toFixed(2)},${yOf(0).toFixed(2)} L${pts[0].x.toFixed(2)},${yOf(0).toFixed(2)} Z`;
+    const area = `${line} L${pts[pts.length - 1]!.x.toFixed(2)},${yOf(0).toFixed(2)} L${pts[0]!.x.toFixed(2)},${yOf(0).toFixed(2)} Z`;
 
     const lastIdx = trend.length - 1;
     let xLabels = '', dots = '';
-    trend.forEach((d: any, i: any) => {
+    trend.forEach((d, i) => {
       const isToday = i === lastIdx;
       if ((lastIdx - i) % 2 === 0) {
         const anchor = isToday ? 'end' : i === 0 ? 'start' : 'middle';
         xLabels += `<text class="ct-axis${isToday ? ' ct-axis-now' : ''}" x="${xOf(i).toFixed(1)}" y="${H - 10}" text-anchor="${anchor}">${this._esc(d.label)}</text>`;
       }
       const tip = `${d.label}: ${d.total} movimenti · ${d.picks} prelievi${isToday ? ' · oggi' : ''}`;
-      dots += `<circle class="ct-hit" cx="${pts[i].x.toFixed(1)}" cy="${pts[i].y.toFixed(1)}" r="11"><title>${this._esc(tip)}</title></circle>`;
-      if (isToday || d.total === Math.max(...trend.map((t: any) => t.total))) {
-        dots += `<circle class="${isToday ? 'ct-dot-now' : 'ct-dot'}" cx="${pts[i].x.toFixed(1)}" cy="${pts[i].y.toFixed(1)}" r="4"/>`;
+      dots += `<circle class="ct-hit" cx="${pts[i]!.x.toFixed(1)}" cy="${pts[i]!.y.toFixed(1)}" r="11"><title>${this._esc(tip)}</title></circle>`;
+      if (isToday || d.total === Math.max(...trend.map((t) => t.total))) {
+        dots += `<circle class="${isToday ? 'ct-dot-now' : 'ct-dot'}" cx="${pts[i]!.x.toFixed(1)}" cy="${pts[i]!.y.toFixed(1)}" r="4"/>`;
       }
     });
 
     const avg = (totalSum / trend.length).toFixed(1);
-    const peak = trend.reduce((m: any, d: any) => (d.total > m.total ? d : m), trend[0]);
+    const peak = trend.reduce((m, d) => (d.total > m.total ? d : m), trend[0]!);
 
     return `<div class="chart-wrap ct-anim">
       <svg class="chart chart--area" viewBox="0 0 ${W} ${H}" role="img"
@@ -554,7 +581,7 @@ export const VistaCruscotto: Vista = {
       .filter(([, c]) => c > 0)
       .sort((a, b) => b[1] - a[1])
       .map(([type, count]) => ({
-        label: (MOV_LABELS as any)[type] || type,
+        label: MOV_LABELS[type as keyof typeof MOV_LABELS] || type,
         value: count,
         color: this._movColor(type)
       }));
@@ -565,7 +592,7 @@ export const VistaCruscotto: Vista = {
   },
 
   _renderSiteOccupancy(sites) {
-    const cells = sites.map((site: any) => {
+    const cells = (sites as Sito[]).map((site) => {
       const st = Store.getSiteStats(site.id);
       const pct = st.total ? Math.round(st.occupied / st.total * 100) : 0;
       // Soglia cromatica: oltre l'85% il magazzino e' prossimo alla saturazione
@@ -598,8 +625,8 @@ export const VistaCruscotto: Vista = {
 
   _renderTopArticles(topArticles) {
     if (!topArticles?.length) return '<div class="ct-empty">Nessun movimento registrato.</div>';
-    const max = Math.max(...topArticles.map((a: any) => a.count), 1);
-    const rows = topArticles.map((art: any, i: any) => {
+    const max = Math.max(...(topArticles as ArticoloTop[]).map((a) => a.count), 1);
+    const rows = (topArticles as ArticoloTop[]).map((art, i) => {
       const pct = Math.round(art.count / max * 100);
       const desc = Store.getArticle(art.code)?.description || '';
       const tip = desc ? `${art.code} — ${desc}: ${art.count} movimenti` : `${art.code}: ${art.count} movimenti`;
@@ -667,7 +694,7 @@ export const VistaCruscotto: Vista = {
       this.startMov(kind === 'SHIP' ? 'shipping' : 'returns');
       setTimeout(() => {
         const det = document.querySelector(`details[data-doc-id="${doc_id}"]`);
-        if (det) { (det as any).open = true; det.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
+        if (det) { (det as HTMLDetailsElement).open = true; det.scrollIntoView({ behavior: 'smooth', block: 'center' }); }
       }, 90);
     }, 50);
   },
