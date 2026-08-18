@@ -1,26 +1,56 @@
 import { Feedback } from './feedback';
 
+/* QUEL CHE UN DIALOGO PUO' RESTITUIRE, E CHI GLIELO CHIEDE.
+
+   Quattro generi, quattro risposte: `confirm` da' un booleano, `reason` il
+   testo, `qty` l'intero, e chiunque annulli da' `null`. La promessa e'
+   generica sul solo valore di ritorno — le azioni restano su `Esito`, perche'
+   il fuoco iniziale cerca fra loro il pulsante che vale `false` e un tipo
+   stretto renderebbe quel confronto impossibile da scrivere. */
+type Esito = string | number | boolean | null;
+type Genere = 'confirm' | 'alert' | 'reason' | 'qty';
+
+type Azione = {
+  label: string;
+  value?: Esito;
+  cls?: string;
+  autofocus?: boolean;
+  onClick?: () => void;
+};
+
+type Apertura = {
+  icon?: string;
+  title: string;
+  bodyNode?: Node | null;
+  actions: Azione[];
+  danger?: boolean;
+  kind?: Genere;
+  guardMs?: number | null;
+  focusTarget?: string | null;
+};
+
 const Dialog = {
   GUARD_MS: 900,          // finestra anti-ritorno-a-capo del lettore
-  _resolve: null,
+  _resolve: null as ((v: Esito | undefined) => void) | null,
   _openedAt: 0,
   _guardMs: 0,
   _requireClick: false,
-  _kind: 'confirm',
-  _keyHandler: null,
-  _guardTimer: null,
-  _restoreFocus: null,
+  _kind: 'confirm' as Genere,
+  _keyHandler: null as ((e: KeyboardEvent) => void) | null,
+  /* `undefined` e non `null`, che `clearTimeout` non accetta. */
+  _guardTimer: undefined as ReturnType<typeof setTimeout> | undefined,
+  _restoreFocus: null as string | null,
 
   get isOpen() {
     const o = document.getElementById('dlgOverlay');
     return Boolean(o && o.classList.contains('open'));
   },
 
-  _overlay() { return document.getElementById('dlgOverlay'); },
+  _overlay(): HTMLElement | null { return document.getElementById('dlgOverlay'); },
 
   /* Costruisce e apre il dialogo. Ritorna una Promise risolta alla chiusura. */
-  _open({ icon = 'ℹ', title, bodyNode, actions, danger = false, kind = 'confirm',
-          guardMs = /** @type {number|null} */ (null), focusTarget = /** @type {string|null} */ (null) }) {
+  _open<T extends Esito>({ icon = 'ℹ', title, bodyNode, actions, danger = false, kind = 'confirm',
+          guardMs = null, focusTarget = null }: Apertura): Promise<T | null> {
     const overlay = this._overlay();
     if (!overlay) return Promise.resolve(null);
     if (this.isOpen) this._finish(null);   // un dialogo per volta
@@ -66,7 +96,7 @@ const Dialog = {
 
     const foot = document.createElement('footer');
     foot.className = 'dlg-actions';
-    const btnNodes = [];
+    const btnNodes: { node: HTMLButtonElement; spec: Azione }[] = [];
     for (const a of actions) {
       const b = document.createElement('button');
       b.className = `btn ${a.cls || ''}`.trim();
@@ -99,8 +129,14 @@ const Dialog = {
                        btnNodes.find(b => danger ? b.spec.value === false : b.spec.value !== false);
     setTimeout(() => {
       if (focusTarget && !danger) {
-        const t = typeof focusTarget === 'string' ? document.getElementById(focusTarget) : focusTarget;
-        if (t) { t.focus(); if (t.select) t.select(); return; }
+        const t = document.getElementById(focusTarget);
+        /* I due campi che arrivano qui sono un `textarea` e un `input`: solo
+           loro sanno selezionare il proprio contenuto. */
+        if (t) {
+          t.focus();
+          if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement) t.select();
+          return;
+        }
       }
       defaultBtn?.node.focus();
     }, 30);
@@ -109,10 +145,12 @@ const Dialog = {
     document.addEventListener('keydown', this._keyHandler, true);
     Feedback.sound(danger ? 'warn' : 'info');
 
-    return new Promise(res => { this._resolve = res; });
+    /* La promessa porta il tipo di chi ha aperto il dialogo, il campo no:
+       ne vive uno per volta ed e' l'apertura a sapere cosa aspetta. */
+    return new Promise<T | null>(res => { this._resolve = res as (v: Esito | undefined) => void; });
   },
 
-  _onKey(e) {
+  _onKey(e: KeyboardEvent) {
     if (!this.isOpen) return;
     if (e.key === 'Escape') {
       e.preventDefault(); e.stopPropagation();
@@ -147,7 +185,7 @@ const Dialog = {
     else this._finish(true);
   },
 
-  _finish(value) {
+  _finish(value: Esito | undefined) {
     clearTimeout(this._guardTimer);
     if (this._keyHandler) {
       document.removeEventListener('keydown', this._keyHandler, true);
@@ -165,7 +203,7 @@ const Dialog = {
     if (res) res(value);
   },
 
-  _mkBody(message, extraNode = null) {
+  _mkBody(message: string, extraNode: Node | null = null): DocumentFragment {
     const frag = document.createDocumentFragment();
     if (message) {
       const p = document.createElement('p');
@@ -181,7 +219,7 @@ const Dialog = {
      l'annotazione TypeScript deduce `null` dal valore predefinito e rifiuta
      quel nodo a chi chiama. Le viste estratte in `.ts` sono il primo codice
      controllato che passa di qua. */
-  kv(pairs) {
+  kv(pairs: Iterable<readonly [string, unknown]>): HTMLDListElement {
     const dl = document.createElement('dl');
     dl.className = 'dlg-kv';
     for (const [k, v] of pairs) {
@@ -194,10 +232,13 @@ const Dialog = {
   },
 
   /* Conferma booleana. danger:true -> Invio disabilitato, fuoco su Annulla. */
-  confirm({ title, message = '', details = /** @type {Node|null} */ (null), confirmLabel = 'Conferma', cancelLabel = 'Annulla',
-            danger = false, icon = /** @type {string|null} */ (null),
-            guardMs = /** @type {number|null} */ (null), focusTarget = /** @type {string|null} */ (null) }) {
-    return this._open({
+  confirm({ title, message = '', details = null, confirmLabel = 'Conferma', cancelLabel = 'Annulla',
+            danger = false, icon = null,
+            guardMs = null, focusTarget = null }: {
+    title: string; message?: string; details?: Node | null; confirmLabel?: string; cancelLabel?: string;
+    danger?: boolean; icon?: string | null; guardMs?: number | null; focusTarget?: string | null;
+  }): Promise<boolean | null> {
+    return this._open<boolean>({
       icon: icon || (danger ? '⚠' : '❓'),
       title,
       bodyNode: this._mkBody(message, details),
@@ -212,8 +253,10 @@ const Dialog = {
     });
   },
 
-  alert({ title, message = '', details = /** @type {Node|null} */ (null), icon = 'ℹ', okLabel = 'Ho capito' }) {
-    return this._open({
+  alert({ title, message = '', details = null, icon = 'ℹ', okLabel = 'Ho capito' }: {
+    title: string; message?: string; details?: Node | null; icon?: string; okLabel?: string;
+  }): Promise<boolean | null> {
+    return this._open<boolean>({
       icon, title,
       bodyNode: this._mkBody(message, details),
       kind: 'alert',
@@ -221,8 +264,11 @@ const Dialog = {
     });
   },
 
-  reason({ title, message = '', details = /** @type {Node|null} */ (null), placeholder = 'Motivazione…',
-           minLen = 5, icon = '\u270E', confirmLabel = 'Conferma', danger = false }) {
+  reason({ title, message = '', details = null, placeholder = 'Motivazione…',
+           minLen = 5, icon = '\u270E', confirmLabel = 'Conferma', danger = false }: {
+    title: string; message?: string; details?: Node | null; placeholder?: string;
+    minLen?: number; icon?: string; confirmLabel?: string; danger?: boolean;
+  }): Promise<string | null> {
     const wrap = document.createElement('div');
     if (details) wrap.appendChild(details);
 
@@ -254,7 +300,7 @@ const Dialog = {
     });
 
     this._reasonMin = minLen;
-    return this._open({
+    return this._open<string>({
       icon, title,
       bodyNode: this._mkBody(message, wrap),
       kind: 'reason',
@@ -268,8 +314,8 @@ const Dialog = {
     });
   },
 
-  _submitReason(minLen) {
-    const ta = document.getElementById('dlgReasonInput');
+  _submitReason(minLen: number) {
+    const ta = document.getElementById('dlgReasonInput') as HTMLTextAreaElement | null;
     const txt = (ta?.value || '').trim();
     if (txt.length < minLen) {
       Feedback.signal('error', 'Motivazione troppo breve',
@@ -284,7 +330,10 @@ const Dialog = {
 
   /* Selezione quantita' senza tastiera: +/- a pollice, valore preimpostato al
      massimo disponibile. Restituisce un intero o null se annullato. */
-  qty({ title, message = '', details = /** @type {Node|null} */ (null), value = 1, min = 1, max = 9999, unit = 'Coll.' }) {
+  qty({ title, message = '', details = null, value = 1, min = 1, max = 9999, unit = 'Coll.' }: {
+    title: string; message?: string; details?: Node | null;
+    value?: number; min?: number; max?: number; unit?: string;
+  }): Promise<number | null> {
     const wrap = document.createElement('div');
     if (details) wrap.appendChild(details);
 
@@ -314,8 +363,8 @@ const Dialog = {
     maxBtn.style.minWidth = 'auto';
     maxBtn.style.fontSize = '0.85rem';
 
-    const clamp = (v) => Math.min(max, Math.max(min, v));
-    const setVal = (v) => { input.value = String(clamp(v)); Feedback.sound('scan'); };
+    const clamp = (v: number) => Math.min(max, Math.max(min, v));
+    const setVal = (v: number) => { input.value = String(clamp(v)); Feedback.sound('scan'); };
     minus.addEventListener('click', () => setVal((parseInt(input.value, 10) || min) - 1));
     plus.addEventListener('click', () => setVal((parseInt(input.value, 10) || min) + 1));
     maxBtn.addEventListener('click', () => setVal(max));
@@ -342,7 +391,7 @@ const Dialog = {
     wrap.appendChild(hint);
 
     this._qtyBounds = { min, max };
-    return this._open({
+    return this._open<number>({
       icon: '\u{1F522}', title,
       bodyNode: this._mkBody(message, wrap),
       kind: 'qty',
@@ -355,9 +404,9 @@ const Dialog = {
   },
 
   _submitQty() {
-    const input = document.getElementById('dlgQtyInput');
+    const input = document.getElementById('dlgQtyInput') as HTMLInputElement | null;
     const { min, max } = this._qtyBounds || { min: 1, max: 9999 };
-    const v = parseInt(input?.value, 10);
+    const v = parseInt(input?.value ?? '', 10);
     if (!Number.isInteger(v) || v < min || v > max) {
       Feedback.signal('error', 'Quantità non valida', `Inserire un numero intero tra ${min} e ${max}.`);
       input?.focus(); input?.select();
@@ -366,7 +415,7 @@ const Dialog = {
     this._finish(v);
   },
 
-  _qtyBounds: null
+  _qtyBounds: null as { min: number; max: number } | null
 };
 
 export { Dialog };

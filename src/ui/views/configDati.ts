@@ -10,7 +10,7 @@ import {
   CERTIFICAZIONI, CLASSI_TEMPERATURA, leggiAllergeni, leggiCodici, scriviAllergeni,
   leggiCertificazioni, scriviCertificazioni, leggiClasseTemperatura, fogliValoriAmmessi,
 } from '../../modules/anagrafica';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 
 export const VistaConfigDati: Vista = {

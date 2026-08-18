@@ -1,7 +1,7 @@
 import { type Vista, $ } from './vista';
 import { caricaExcel } from '../../modules/excel';
 import { Store } from '../../core/store';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 import {
   TIPI_COMPITO, PRIORITA_NORMALE, PRIORITA_MAX_OPERATORE,
   etichettaTipo, iconaTipo, etichettaPriorita, etichettaStato,

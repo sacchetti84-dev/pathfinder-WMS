@@ -6,7 +6,7 @@ import { pickupAlertStatus } from '../modules/pickupAlert';
 import { Auth } from '../modules/auth';
 import { Session } from '../modules/session';
 import { Feedback } from './feedback';
-import { Dialog } from './dialog.js';
+import { Dialog } from './dialog';
 import { Tabs } from './tabs';
 import { Store } from '../core/store';
 

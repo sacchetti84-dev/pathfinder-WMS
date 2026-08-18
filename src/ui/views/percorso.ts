@@ -5,7 +5,7 @@ import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { OdpParser } from '../../modules/odpParser';
 import { PickRoute } from '../../modules/pickRoute.js';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 
 export const VistaPercorso: Vista = {

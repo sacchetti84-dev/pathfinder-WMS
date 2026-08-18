@@ -1,7 +1,7 @@
 import { type Vista, $, $q } from './vista';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 import {
   destinazionePredefinita, descriviDestinazione, differenze as differenzeRcp,
 } from '../../modules/destinatari';
@@ -210,7 +210,7 @@ export const VistaDestinatari: Vista = {
             details: Dialog.kv(anagrafiche.map(d => [d.etichetta, `${d.prima || '—'} → ${d.dopo}`])),
             confirmLabel: 'Modifica permanente',
             cancelLabel: 'Solo per questo DDT',
-          });
+          }) ?? false;   // un dialogo che non si apre non e' un si'
         }
       }
       const esito = await Store.upsertRecipient(dati, { permanente });

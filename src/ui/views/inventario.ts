@@ -2,7 +2,7 @@ import { type Vista, $ } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 
 export const VistaInventario: Vista = {
   // ═══ 4. INVENTARIO ═══
@@ -113,7 +113,7 @@ export const VistaInventario: Vista = {
       value: sysQty, min: 0, max: 99999
     });
     if (inp === null) return;
-    const counted = parseInt(inp);
+    const counted = inp;   // `Dialog.qty` da' gia' un intero
     if (isNaN(counted) || counted < 0) return this.toast('Numero non valido', 'error');
     it.counted_qty = counted;
     it.checked = true;

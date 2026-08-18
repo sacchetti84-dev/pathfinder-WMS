@@ -4,7 +4,7 @@ import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { Auth } from '../../modules/auth';
 import { Session } from '../../modules/session';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 
 export const VistaConfigOperatori: Vista = {
   _renderConfigOperators(el) {

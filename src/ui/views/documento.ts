@@ -2,7 +2,7 @@ import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { pickupAlertStatus } from '../../modules/pickupAlert';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 
 export const VistaDocumento: Vista = {
   /* Apre il modal di edit per un DDT pendente. Crea uno snapshot mutabile in

@@ -1,6 +1,6 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 import { validaVoce, normalizzaCodice, etichettaDi } from '../../modules/parametri';
 
 export const VistaParametri: Vista = {
