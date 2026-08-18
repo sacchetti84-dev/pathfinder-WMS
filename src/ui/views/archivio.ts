@@ -1,8 +1,25 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
 
+/* LE QUATTRO SORGENTI RIDOTTE A UNA FORMA SOLA.
+
+   DDT, verbali, cartellini e rapporti non hanno niente in comune nel
+   database: ce l'hanno in questa tabella, ed è questa riga qui. */
+type GenereArchivio = 'ddt' | 'disposal' | 'nc' | 'pick';
+
+type RigaArchivio = {
+  kind: GenereArchivio;
+  ts: number;
+  num: string;
+  title: string;
+  sub: string;
+  stato: { lbl: string; cls: string };
+  search: string;
+  print: string;
+};
+
 export const VistaArchivio: Vista = {
-  _arcType: 'all',
+  _arcType: 'all' as GenereArchivio | 'all',
   _arcText: '',
   _arcFrom: '',
   _arcTo: '',
@@ -17,8 +34,8 @@ export const VistaArchivio: Vista = {
   /* Le quattro sorgenti ridotte a una forma sola. Ogni riga sa da dove
      viene, come si chiama e quale funzione la ristampa. */
   _archiveRows() {
-    const rows = [];
-    const esc = (v: any) => this._esc(String(v ?? ''));
+    const rows: RigaArchivio[] = [];
+    const esc = (v: unknown) => this._esc(String(v ?? ''));
 
     for (const d of Store.getAllOutbound()) {
       const colli = (d.lines || []).reduce((s, l) => s + (l.qty || 1), 0);
@@ -56,7 +73,7 @@ export const VistaArchivio: Vista = {
         ts: q.created_at || 0,
         num: q.q_id,
         title: `${q.article_code} · L:${q.lot_code}`,
-        sub: `${(q as any).qty || 1} Coll.${(q as any).partial ? ' (parziale)' : ''} · 📍 ${q.blocked_location} · ${q.reason || '—'}`,
+        sub: `${q.qty || 1} Coll.${q.partial ? ' (parziale)' : ''} · 📍 ${q.blocked_location} · ${q.reason || '—'}`,
         stato: q.status === 'active'
           ? { lbl: 'Attiva', cls: 'badge-amber' }
           : { lbl: 'Rilasciata', cls: 'badge-green' },
@@ -71,39 +88,42 @@ export const VistaArchivio: Vista = {
         ts: p.closed_at || p.ended_at || 0,
         num: p.odp_num || p.doc_id,
         title: p.odp_num ? `Ordine ${p.odp_num}` : 'Prelievo senza numero',
-        sub: `${((p.rows || []) as any[]).length} righe · ${p.operator || '—'}`,
+        sub: `${(p.rows || []).length} righe · ${p.operator || '—'}`,
         stato: { lbl: 'Chiuso', cls: 'badge-green' },
-        search: `${p.doc_id} ${p.odp_num || ''} ${p.operator || ''} ${((p.rows || []) as any[]).map((r: any) => r.article_code + ' ' + r.lot_code).join(' ')}`,
+        search: `${p.doc_id} ${p.odp_num || ''} ${p.operator || ''} ${(p.rows || []).map((r) => r.article_code + ' ' + r.lot_code).join(' ')}`,
         print: `App._printPickArchive('${esc(p.doc_id)}')`
       });
     }
 
-    return rows.sort((a: any, b: any) => b.ts - a.ts);
+    return rows.sort((a, b) => b.ts - a.ts);
   },
 
   renderArchive() {
     const el = $('viewArchive');
     if (!el) return;
 
-    let rows = this._archiveRows();
+    /* `this` dentro una vista e' ancora `any` — lo diventera' in C2 — e
+       quindi cio' che si legge da li' si nomina qui. */
+    let rows: RigaArchivio[] = this._archiveRows();
+    const generi = this._ARC_KINDS as Record<GenereArchivio, { label: string; icon: string }>;
     const totale = rows.length;
 
-    if (this._arcType !== 'all') rows = rows.filter((r: any) => r.kind === this._arcType);
+    if (this._arcType !== 'all') rows = rows.filter((r) => r.kind === this._arcType);
     const testo = this._arcText.trim().toUpperCase();
-    if (testo) rows = rows.filter((r: any) => (r.search || '').toUpperCase().includes(testo));
+    if (testo) rows = rows.filter((r) => (r.search || '').toUpperCase().includes(testo));
     if (this._arcFrom) {
       const da = new Date(this._arcFrom + 'T00:00:00').getTime();
-      rows = rows.filter((r: any) => r.ts >= da);
+      rows = rows.filter((r) => r.ts >= da);
     }
     if (this._arcTo) {
       const a = new Date(this._arcTo + 'T23:59:59').getTime();
-      rows = rows.filter((r: any) => r.ts <= a);
+      rows = rows.filter((r) => r.ts <= a);
     }
 
-    const chip = (id: any, lbl: any) => `<button class="config-tab ${this._arcType === id ? 'active' : ''}"
+    const chip = (id: string, lbl: string) => `<button class="config-tab ${this._arcType === id ? 'active' : ''}"
       onclick="App._arcType='${id}';App.renderArchive()">${lbl}</button>`;
 
-    const conteggi: any = {};
+    const conteggi: Record<string, number> = {};
     for (const r of this._archiveRows()) conteggi[r.kind] = (conteggi[r.kind] || 0) + 1;
 
     el.innerHTML = `
@@ -115,7 +135,7 @@ export const VistaArchivio: Vista = {
 
       <div class="config-tabs mb-6">
         ${chip('all', `Tutti (${totale})`)}
-        ${Object.entries<any>(this._ARC_KINDS).map(([id, k]) =>
+        ${Object.entries(generi).map(([id, k]) =>
           chip(id, `${k.icon} ${k.label} (${conteggi[id] || 0})`)).join('')}
       </div>
 
@@ -153,9 +173,9 @@ export const VistaArchivio: Vista = {
               <th class="w-[60px]"></th>
             </tr></thead>
             <tbody>
-              ${rows.map((r: any) => `<tr>
+              ${rows.map((r) => `<tr>
                 <td class="mono whitespace-nowrap">${r.ts ? this._fmtDateTime(r.ts) : '—'}</td>
-                <td><span title="${this._esc(this._ARC_KINDS[r.kind].label)}">${this._ARC_KINDS[r.kind].icon} ${this._esc(this._ARC_KINDS[r.kind].label)}</span></td>
+                <td><span title="${this._esc(generi[r.kind].label)}">${generi[r.kind].icon} ${this._esc(generi[r.kind].label)}</span></td>
                 <td class="mono font-semibold">${this._esc(r.num)}</td>
                 <td>
                   <div class="font-semibold">${this._esc(r.title)}</div>
