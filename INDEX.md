@@ -99,15 +99,15 @@ prove.
 
 | Voce | Valore |
 |---|---|
-| In servizio — prova su questo PC | `corrente` contiene la **1.8.2**, impronta `99d65b7a…` — la build dell'estrazione, installata da Andrea il **18/08 alle 11:13**. Il servizio in esecuzione è ancora quello di prima e risponde `service_version 1.8.1`: **è il difetto che l'installer nuovo chiude** |
+| In servizio — prova su questo PC | `corrente` contiene la **1.8.3**, impronta `3d765c51…`, costruita il **18/08 alle 10:04** — è la build con Tailwind acceso e nient'altro cambiato (F0 della migrazione, §2). Il servizio risponde `service_version 1.8.3` **e** `versione 1.8.3`: **i due numeri coincidono**, ed è la prima volta. Chiesto al servizio il 18/08 nel pomeriggio |
 | Via di ritorno | **Si reinstalla il pacchetto della versione di prima** — §4: è il solo gesto che riporta indietro anche il servizio. `precedente` contiene la **1.8.1** (`12c2e4cf…`) e serve agli assets di chi stava caricando durante uno scambio, non più a tornare indietro. Il deposito tiene `pathfinder-1.8.2\`, `pathfinder-1.7\` e `pathfinder-1.6.1\`; i pacchetti li archivia Andrea |
-| Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.8.1`**; il **sorgente dice `1.8.3`**. Dalla 1.8.3 i due numeri non divergono più: l'installer porta anche il servizio e lo riavvia. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
+| Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.8.3`**, come il sorgente: l'installer porta anche il servizio e lo riavvia, e da qui in poi i due numeri non divergono. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
 | Collaudi | **485 client** (15 suite, ~1,5 s) · **81 servizio** · **22 installazione** · **8 migrazione** — tutti verdi il 18/08. Le due del client sono la **rete dell'estrazione** (§7); cinque delle ventidue sono nuove e guardano l'**installer a doppio clic** |
 | Tipi | `npm run check` a 0 su client e servizio |
-| Sorgente | **58 TypeScript** · 5 JavaScript · 9 CSS · `index.html`. Ancora JavaScript: `main.js`, `ui/app.js` (**1.328 righe**, era 13.893) e i tre di `ui/` — `dialog`, `feedback`, `tabs` |
+| Sorgente | **58 TypeScript** · 5 JavaScript · **10 CSS** · `index.html`. Ancora JavaScript: `main.js`, `ui/app.js` (**1.328 righe**, era 13.893) e i tre di `ui/` — `dialog`, `feedback`, `tabs`. Il CSS in più è `00-tailwind.css`: il tema |
 | Numero di build | **1.8.3** in `vite.config.js`, `package.json` e nel servizio. La 1.8.2 è in servizio: una build in avanzamento non porta il numero di ciò che sta girando, se no `consegna\` dice una cosa e la macchina un'altra — §5 |
 | Git | `main`, **allineato con `origin/main`** — spinto il 18/08 |
 
@@ -144,7 +144,7 @@ collauda al banco e si consegna il pacchetto.
 
 | # | Cosa | Chi |
 |---|---|---|
-| **1** | **Installare la 1.8.3 e vedere i due numeri coincidere.** Il pacchetto è in `consegna\Pathfinder 1.8.3\` e porta l'installer nuovo — quello che aggiorna anche il servizio e lo riavvia. È la prima installazione che chiede l'autorizzazione di Windows per un aggiornamento, e la prima che lascia l'applicativo giù qualche secondo: **a fine turno**. Dopo, `/api/app-info` deve dire `1.8.3` due volte | Andrea |
+| ~~1~~ | ~~**Installare la 1.8.3 e vedere i due numeri coincidere.**~~ **Fatto il 18/08**: `/api/app-info` dice `1.8.3` due volte. L'installer nuovo — quello che porta anche il servizio e lo riavvia — ha funzionato. In `corrente` c'è la build con Tailwind acceso, impronta `3d765c51…` | fatto |
 | **1-bis** | **Capire chi ha cancellato `C:\Pathfinder\app\pathfinder-1.6.1`** il 17/08 alle 19:14. La cartella è stata ricostruita dal file singolo in radice e la via di ritorno è di nuovo intera, ma la causa non si conosce: se non è stato un gesto di Andrea in un'altra finestra, qualcosa cancella dentro la directory di installazione | da chiarire |
 | **2** | **Provare il pacchetto su una macchina pulita.** La strada dell'aggiornamento è provata davvero (17/08, su questo PC); quella della **prima installazione** — servizio, attività pianificate, firewall, database — è scritta e riletta ma **mai eseguita**, e serve una macchina senza Pathfinder o una virtuale. È l'unica che chiede i privilegi, ed è quella che si userà in presentazione | Andrea, prima di presentare |
 | **3** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per ore nessuno poteva creare né rinnovare un operatore. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — §6, «Il PIN smarrito» | Andrea |
@@ -207,6 +207,57 @@ installare.
 | 1.14 | **WIP** — il prelievo per ODP finisce in un'ubicazione WIP invece di sparire; ciò che entra e non torna **è il consumo reale di produzione**. È l'unica funzione che cambia il significato di un movimento esistente: a `feature.wip` spento, `PICK` resta quello di sempre. Si installa il 19/12 **spento** e si accende a gennaio |
 
 ### Lavoro di fondo, non una versione
+
+- **Il front end è passato a Tailwind il 18/08**, in trentuno commit e senza
+  spostare un pixel. Non è «tutto a utility»: l'applicativo non ha componenti,
+  il markup nasce da stringhe dentro venticinque viste, e la stessa fila di
+  utility sarebbe finita ricopiata centinaia di volte. **I componenti e il
+  telaio restano classi** — `btn`, `badge`, `input`, sidebar, modali: si
+  scrivono una volta e non si ripetono. Quel che è stato tolto sono i
+  **`style=`**: erano **2.187 dichiarazioni** dentro 1.092 attributi, sono
+  rimasti **84 attributi**, di cui 53 portano un valore che nasce a tempo di
+  esecuzione (`color:${themeColor}`, `width:${pct}%`), gli altri sono il
+  disegno degli SVG dei marchi, tre misure in punti del rapporto di stampa e i
+  `display:none` di `index.html`.
+
+  **Le quattro cose da sapere prima di toccare un foglio di stile:**
+
+  1. **`main.js` importa un CSS solo.** `00-tailwind.css` è il tema e importa
+     gli altri nove con `@import ... layer(app)`. L'ordine fra i nove è la
+     cascata di sempre.
+  2. **L'ordine dei layer è il contratto**: `theme, base, components, app,
+     utilities`. Il CSS dell'applicativo sta in `app`, **sotto** le utility:
+     una utility scritta in un sorgente batte la classe. Prima della
+     migrazione stava fuori dai layer, dove batteva tutto — e siccome una
+     regola senza layer batte qualunque regola dentro un layer, `* { margin:
+     0 }` spegneva ogni `mb-*` e ogni `p-*`: le utility nascevano morte, e
+     nessun collaudo se ne accorgeva. È la trappola che ha trovato il pilota.
+  3. **La spaziatura va a decimi di rem**, non a quarti come in Tailwind
+     altrove: qui `mb-4` è **0,4rem**, non 1rem. La ragione è l'MC9400 — 4,3"
+     da 800×480, in CSS fra i 400 e i 533 px, **sotto ogni media query che
+     l'applicativo ha oggi**. La spaziatura di qui è tarata fitta apposta e
+     sulla griglia da 0,25rem tre valori su quattro non ci stavano: sarebbero
+     finiti scritti `mb-[0.6rem]`, più lunghi dello `style=` che sostituiscono.
+     Così invece ci stanno tutti, e la densità dell'intera interfaccia ha una
+     manopola sola — `--spacing` — che è quella che servirà alla 1.11.
+  4. **Il tema non ha valori, ha rimandi.** Il colore si cambia in
+     `01-tokens.css` come sempre. La tavolozza di serie è spenta: `bg-blue-500`
+     non compila, sarebbe un colore che il sistema non ha. Raggi e ombre vanno
+     **per numero** — `rounded-2`, `shadow-3` — perché `--radius-md`,
+     `--shadow-sm` e `--shadow-lg` sono già token dell'applicativo e i nomi si
+     sovrapporrebbero.
+
+  **Quel che non si migra**: la stampa. Le tre `@media print` restano CSS come
+  sono — DDT, verbali e cartellini sono documenti. (Convertire il markup di una
+  vista che stampa è invece sicuro: quelle regole non hanno `!important`, e lo
+  `style=` le batteva già.)
+
+  **Cosa è costato e cosa ha reso**: il CSS cresce da 154,69 a 176,64 kB in
+  chiaro ma **cala compresso**, 25,77 → 24,49, perché sta tutto dentro un
+  layer; il JavaScript cala di **27 kB** in chiaro, che sono le stringhe
+  accorciate. Il primo caricamento va da 257 a **255 kB**. In byte è quasi
+  pari: quel che si è guadagnato è che la misura, il colore e la spaziatura
+  hanno **una sorgente sola**, e che l'interfaccia adesso si può stringere.
 
 - **L'estrazione delle viste è finita il 18/08.** `ui/app.js` è passato da
   **13.893 righe a 1.328** in ventitré blocchi, uno per commit, e le viste
@@ -842,7 +893,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/validate.ts` · `auth.ts` · `session.ts` · `pickupAlert.ts` · `scanGuard.ts` | 104 · 88 · 69 · 43 · 31 | Validazioni · PIN e impronta · sessione · allerta ritiri · guardia del lettore |
 | `modules/excel.ts` | 31 | **Il punto unico da cui SheetJS si carica, e solo quando serve.** Chi rimette `import * as XLSX` in cima a un file annulla la 1.7 |
 | `types/entita.ts` · `contratto.ts` · `collezioni.ts` | 409 · 146 · 58 | Le entità · l'interfaccia dei due adapter · **le 20 collezioni, sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono |
-| `styles/*.css` | 2.463 | 9 file: token, base, componenti, layout, viste, grafici e report |
+| `styles/*.css` | 3.400 | **10 file**. `00-tailwind.css` è il tema — le utility, e i token dell'applicativo riletti da `@theme`: colore, scala tipografica, spaziatura a decimi di rem, raggi, ombre, soglie. Gli altri nove — token, base, componenti, layout, viste, grafici e report — **li importa lui**, dentro `@layer app`, e `main.js` importa solo lui. L'ordine fra i nove è la cascata di sempre |
 | `ui/dialog.js` · `feedback.js` · `tabs.js` | 367 · 181 · 59 | Modali · toast e spinner · schede |
 | `main.js` · `index.html` | 46 · 200 | Avvio e gancio globale · scheletro del DOM e marchi SVG |
 | `ui/views/` | 10.520 | **Le venticinque viste**, più `vista.ts` (il tipo e i due aiuti al DOM) e `globale.d.ts`. Elenco e regole qui sotto |
