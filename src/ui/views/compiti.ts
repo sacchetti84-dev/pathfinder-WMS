@@ -30,7 +30,7 @@ export const VistaCompiti: Vista = {
     if (!Store.isFeatureOn('tasks')) {
       el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div>
         <p>Lo schedulatore di attività è spento.</p>
-        <button class="btn btn-sm btn-primary" style="margin-top:0.5rem"
+        <button class="btn btn-sm btn-primary mt-5"
           onclick="App._configTab='features';App.switchView('config')">Vai agli interruttori</button></div>`;
       return;
     }
@@ -52,7 +52,7 @@ export const VistaCompiti: Vista = {
       `<option value="${k}" ${this._taskTipo === k ? 'selected' : ''}>${v.icona} ${this._esc(v.label)}</option>`).join('');
 
     el.innerHTML = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem">
+      <div class="flex justify-between items-center mb-10 flex-wrap gap-5">
         <div>
           <h1 class="dash-h1">📋 Attività</h1>
           <p class="dash-sub">Cosa c'è da fare, in che ordine, e da quanto aspetta</p>
@@ -62,17 +62,17 @@ export const VistaCompiti: Vista = {
 
       ${this._renderTaskKpi(r)}
 
-      <div class="card" style="margin-bottom:0.8rem">
-        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
-          <div class="config-tabs" style="margin:0">
+      <div class="card mb-8">
+        <div class="flex gap-5 items-center flex-wrap">
+          <div class="config-tabs m-0">
             ${['aperte', 'mie', 'registro'].map(a => `<button class="config-tab ${this._taskAmbito === a ? 'active' : ''}"
               onclick="App._taskAmbito='${a}';App.renderTasks()">${a === 'aperte' ? 'In coda' : a === 'mie' ? `Le mie${io.initials ? ' (' + this._esc(io.initials) + ')' : ''}` : '📚 Registro'}</button>`).join('')}
           </div>
-          <select class="select" style="max-width:230px" onchange="App._taskTipo=this.value;App.renderTasks()">
+          <select class="select max-w-[230px]" onchange="App._taskTipo=this.value;App.renderTasks()">
             <option value="">Tutti i tipi</option>${opzioniTipo}
           </select>
-          <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">${righe.length} attività</span>
-          ${this._taskAmbito === 'registro' ? `<button class="btn btn-sm" style="margin-left:auto" onclick="App.exportTasksExcel()">📊 Esporta Excel</button>` : ''}
+          <span class="text-body-small text-sx-text-muted">${righe.length} attività</span>
+          ${this._taskAmbito === 'registro' ? `<button class="btn btn-sm ml-auto" onclick="App.exportTasksExcel()">📊 Esporta Excel</button>` : ''}
         </div>
       </div>
 
@@ -101,17 +101,17 @@ export const VistaCompiti: Vista = {
       </div>
       <div class="kpi-card k-warning">
         <div class="kpi-label">Attesa media in coda</div>
-        <div class="kpi-value" style="font-size:1.4rem">${durataUmana(r.attesaMedia)}</div>
+        <div class="kpi-value text-[1.4rem]">${durataUmana(r.attesaMedia)}</div>
         <div class="kpi-sub">${r.conclusi ? `su ${r.conclusi} attività conclus${r.conclusi === 1 ? 'a' : 'e'}` : 'nessuna attività conclusa finora'}</div>
       </div>
       <div class="kpi-card k-success">
         <div class="kpi-label">Durata media</div>
-        <div class="kpi-value" style="font-size:1.4rem">${durataUmana(r.durataMedia)}</div>
+        <div class="kpi-value text-[1.4rem]">${durataUmana(r.durataMedia)}</div>
         <div class="kpi-sub">dalla presa in carico alla chiusura</div>
       </div>
       ${vecchio ? `<div class="kpi-card k-purple">
         <div class="kpi-label">In coda da più tempo</div>
-        <div class="kpi-value" style="font-size:1.4rem">${durataUmana(r.attesaMassima)}</div>
+        <div class="kpi-value text-[1.4rem]">${durataUmana(r.attesaMassima)}</div>
         <div class="kpi-sub">${iconaTipo(vecchio.type)} ${this._esc(etichettaTipo(vecchio.type))} · ${this._esc(vecchio.requested_by)}</div>
       </div>` : ''}
     </div>`;
@@ -135,39 +135,39 @@ export const VistaCompiti: Vista = {
         /* 1.4.4 — «✓ Fatta» non c'è più: sopravviveva per la sola Conta, che
            adesso si chiude confermando il conteggio. Ogni attività si chiude
            portando a termine la sua operazione, e Store lo impone. */
-        azioni.push(`<button class="btn btn-sm btn-ghost" style="color:var(--sx-danger)" onclick="App.doCancelTask('${t.task_id}')" title="Annulla, con motivo">✕</button>`);
+        azioni.push(`<button class="btn btn-sm btn-ghost text-sx-danger" onclick="App.doCancelTask('${t.task_id}')" title="Annulla, con motivo">✕</button>`);
       }
       const prio = aperto && leader
-        ? `<select class="select" style="width:104px;padding:0.15rem 0.3rem" onchange="App.doSetTaskPriority('${t.task_id}',this.value)">
+        ? `<select class="select w-[104px] py-1.5 px-3" onchange="App.doSetTaskPriority('${t.task_id}',this.value)">
              ${[4, 3, 2, 1].map(p => `<option value="${p}" ${t.priority === p ? 'selected' : ''}>${etichettaPriorita(p)}</option>`).join('')}
            </select>`
         : `<span class="badge ${this._taskPrioClasse(t.priority)}">${etichettaPriorita(t.priority)}</span>`;
-      return `<tr${tardi ? ' style="background:var(--sx-danger-soft)"' : ''}>
+      return `<tr class="bg-sx-danger-soft"${tardi ? '' : ''}>
         <td>${prio}</td>
-        <td style="white-space:nowrap"><span title="${this._esc(etichettaTipo(t.type))}">${iconaTipo(t.type)}</span> ${this._esc(etichettaTipo(t.type))}</td>
-        <td style="min-width:240px">${this._renderTaskPayload(t)}</td>
+        <td class="whitespace-nowrap"><span title="${this._esc(etichettaTipo(t.type))}">${iconaTipo(t.type)}</span> ${this._esc(etichettaTipo(t.type))}</td>
+        <td class="min-w-[240px]">${this._renderTaskPayload(t)}</td>
         <td><span class="badge ${this._taskStatoClasse(t.status)}">${this._esc(etichettaStato(t.status))}</span></td>
         <td class="mono">${this._esc(t.assigned_to || '—')}</td>
-        <td class="mono" style="white-space:nowrap">${this._esc(t.requested_by)}<br>
-            <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${new Date(t.requested_at).toLocaleString('it-IT')}</span></td>
-        <td style="white-space:nowrap">${t.due_at
+        <td class="mono whitespace-nowrap">${this._esc(t.requested_by)}<br>
+            <span class="text-label-small text-sx-text-muted">${new Date(t.requested_at).toLocaleString('it-IT')}</span></td>
+        <td class="whitespace-nowrap">${t.due_at
             ? `${tardi ? '⏰ ' : ''}${new Date(t.due_at).toLocaleString('it-IT')}`
-            : '<span style="color:var(--sx-text-muted)">—</span>'}</td>
-        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-body-small-size)">
+            : '<span class="text-sx-text-muted">—</span>'}</td>
+        <td class="whitespace-nowrap text-body-small">
             coda ${durataUmana(m.attesa)}${m.durata !== null ? `<br>lavoro ${durataUmana(m.durata)}` : ''}</td>
-        <td style="min-width:190px"><div style="display:flex;gap:0.25rem;flex-wrap:wrap">${azioni.join('')}</div></td>
+        <td class="min-w-[190px]"><div class="flex gap-2.5 flex-wrap">${azioni.join('')}</div></td>
       </tr>`;
     }).join('');
 
     /* La colonna «Cosa» e' l'unica che deve poter respirare: le altre sono
        larghezze fisse, e senza un minimo qui il payload esce una parola per
        riga. La tabella scorre in orizzontale invece di comprimersi. */
-    return `<div class="card" style="overflow-x:auto">
-      <table class="sx-table" style="min-width:1080px">
+    return `<div class="card overflow-x-auto">
+      <table class="sx-table min-w-[1080px]">
         <thead><tr>
-          <th style="width:110px">Priorità</th><th>Tipo</th><th>Cosa</th><th style="width:110px">Stato</th>
-          <th style="width:70px">In carico</th><th style="width:130px">Richiesta</th>
-          <th style="width:130px">Scadenza</th><th style="width:110px">Tempi</th><th style="width:200px">Azioni</th>
+          <th class="w-[110px]">Priorità</th><th>Tipo</th><th>Cosa</th><th class="w-[110px]">Stato</th>
+          <th class="w-[70px]">In carico</th><th class="w-[130px]">Richiesta</th>
+          <th class="w-[130px]">Scadenza</th><th class="w-[110px]">Tempi</th><th class="w-[200px]">Azioni</th>
         </tr></thead>
         <tbody>${corpo}</tbody>
       </table>
@@ -194,33 +194,33 @@ export const VistaCompiti: Vista = {
       const fatti = quantitaFatta(t);
       const movs = t.mov_ids?.length || 0;
       const esito = t.status === 'cancelled'
-        ? `<span style="color:var(--sx-danger)">${this._esc(t.cancel_reason || 'annullata')}</span>`
+        ? `<span class="text-sx-danger">${this._esc(t.cancel_reason || 'annullata')}</span>`
         : t.status === 'done'
-          ? `${movs ? `${movs} moviment${movs === 1 ? 'o' : 'i'}` : '<span style="color:var(--sx-text-muted)">chiusa a mano</span>'}`
-          : '<span style="color:var(--sx-text-muted)">—</span>';
+          ? `${movs ? `${movs} moviment${movs === 1 ? 'o' : 'i'}` : '<span class="text-sx-text-muted">chiusa a mano</span>'}`
+          : '<span class="text-sx-text-muted">—</span>';
       return `<tr>
-        <td class="mono" style="white-space:nowrap;font-size: var(--md-sys-typescale-label-small-size)">${this._esc(t.task_id)}</td>
-        <td style="white-space:nowrap">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</td>
-        <td style="min-width:220px">${this._renderTaskPayload(t)}</td>
+        <td class="mono whitespace-nowrap text-label-small">${this._esc(t.task_id)}</td>
+        <td class="whitespace-nowrap">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</td>
+        <td class="min-w-[220px]">${this._renderTaskPayload(t)}</td>
         <td><span class="badge ${this._taskStatoClasse(t.status)}">${this._esc(etichettaStato(t.status))}</span></td>
-        <td style="white-space:nowrap">${chiesto === null ? '—' : `${fatti}/${chiesto}`}</td>
+        <td class="whitespace-nowrap">${chiesto === null ? '—' : `${fatti}/${chiesto}`}</td>
         <td class="mono">${this._esc(t.requested_by)}</td>
         <td class="mono">${this._esc(t.assigned_to || '—')}</td>
-        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-label-small-size)">${this._tsBreve(t.requested_at)}</td>
-        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-label-small-size)">${this._tsBreve(t.started_at)}</td>
-        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-label-small-size)">${this._tsBreve(t.completed_at)}</td>
-        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-body-small-size)">${durataUmana(m.attesa)}</td>
-        <td style="white-space:nowrap;font-size: var(--md-sys-typescale-body-small-size)">${durataUmana(m.durata)}</td>
-        <td style="font-size: var(--md-sys-typescale-body-small-size)">${esito}</td>
+        <td class="whitespace-nowrap text-label-small">${this._tsBreve(t.requested_at)}</td>
+        <td class="whitespace-nowrap text-label-small">${this._tsBreve(t.started_at)}</td>
+        <td class="whitespace-nowrap text-label-small">${this._tsBreve(t.completed_at)}</td>
+        <td class="whitespace-nowrap text-body-small">${durataUmana(m.attesa)}</td>
+        <td class="whitespace-nowrap text-body-small">${durataUmana(m.durata)}</td>
+        <td class="text-body-small">${esito}</td>
       </tr>`;
     }).join('');
-    return `<div class="card" style="overflow-x:auto">
-      <table class="sx-table" style="min-width:1280px">
+    return `<div class="card overflow-x-auto">
+      <table class="sx-table min-w-[1280px]">
         <thead><tr>
-          <th style="width:120px">Attività</th><th>Tipo</th><th>Cosa</th><th style="width:100px">Stato</th>
-          <th style="width:70px">Colli</th><th style="width:70px">Chiesta da</th><th style="width:70px">Svolta da</th>
-          <th style="width:110px">Richiesta</th><th style="width:110px">Avvio</th><th style="width:110px">Chiusura</th>
-          <th style="width:90px">In coda</th><th style="width:90px">Lavoro</th><th style="width:150px">Chiusa con</th>
+          <th class="w-[120px]">Attività</th><th>Tipo</th><th>Cosa</th><th class="w-[100px]">Stato</th>
+          <th class="w-[70px]">Colli</th><th class="w-[70px]">Chiesta da</th><th class="w-[70px]">Svolta da</th>
+          <th class="w-[110px]">Richiesta</th><th class="w-[110px]">Avvio</th><th class="w-[110px]">Chiusura</th>
+          <th class="w-[90px]">In coda</th><th class="w-[90px]">Lavoro</th><th class="w-[150px]">Chiusa con</th>
         </tr></thead>
         <tbody>${corpo}</tbody>
       </table>
@@ -330,9 +330,9 @@ export const VistaCompiti: Vista = {
       if (t.source_ref) pezzi.push(`dopo il campionamento <span class="mono">${this._esc(t.source_ref)}</span>`);
       if (p.auto) pezzi.push('<strong>obbligatoria — allergeni</strong>');
     }
-    const testa = pezzi.length ? pezzi.join(' · ') : '<span style="color:var(--sx-text-muted)">—</span>';
-    const note = t.note ? `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">${this._esc(t.note)}</div>` : '';
-    const chiuso = t.cancel_reason ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-danger)">Annullata: ${this._esc(t.cancel_reason)}</div>` : '';
+    const testa = pezzi.length ? pezzi.join(' · ') : '<span class="text-sx-text-muted">—</span>';
+    const note = t.note ? `<div class="text-body-small text-sx-text-secondary">${this._esc(t.note)}</div>` : '';
+    const chiuso = t.cancel_reason ? `<div class="text-label-small text-sx-danger">Annullata: ${this._esc(t.cancel_reason)}</div>` : '';
     return testa + note + chiuso;
   },
 
@@ -344,7 +344,7 @@ export const VistaCompiti: Vista = {
     const leader = io.role === 'leader';
     const operatori = Store.getOperators({ activeOnly: true });
     this.showModal('📋 Nuova attività', `
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Tipo di attività <span class="req">*</span></label>
           <select class="select" id="ntType" onchange="App._ntTypeChanged()">
             ${tipiRichiedibili().map(k => `<option value="${k}">${TIPI_COMPITO[k].icona} ${this._esc(TIPI_COMPITO[k].label)}</option>`).join('')}
@@ -353,18 +353,18 @@ export const VistaCompiti: Vista = {
           <select class="select" id="ntPriority">
             ${[1, 2, 3, 4].map(p => `<option value="${p}" ${p === PRIORITA_NORMALE ? 'selected' : ''} ${p > PRIORITA_MAX_OPERATORE && !leader ? 'disabled' : ''}>${etichettaPriorita(p)}${p > PRIORITA_MAX_OPERATORE && !leader ? ' — solo Team Leader' : ''}</option>`).join('')}
           </select>
-          ${leader ? '' : '<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.2rem">Oltre Normale serve un Team Leader: se tutto è urgente, la coda torna a essere l\'ordine in cui si è chiesto.</div>'}
+          ${leader ? '' : '<div class="text-label-small text-sx-text-muted mt-2">Oltre Normale serve un Team Leader: se tutto è urgente, la coda torna a essere l\'ordine in cui si è chiesto.</div>'}
         </div>
       </div>
-      <div class="form-row" style="margin-bottom:0.2rem">
+      <div class="form-row mb-2">
         <div class="form-group"><label>Articolo <span class="req" id="ntArtReq">*</span></label>
-          <input class="input input-mono" id="ntArticle" maxlength="40" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="ntArticle" maxlength="40"
             placeholder="Codice o descrizione — cerca a magazzino"
             oninput="App._ntCercaArticolo()" autocomplete="off"></div>
         <div class="form-group"><label>Lotto</label>
           <input class="input input-mono" id="ntLot" maxlength="40" readonly
             placeholder="dalla disponibilità scelta"></div>
-        <div class="form-group" style="max-width:110px"><label>Colli <span class="req" id="ntQtyReq">*</span></label>
+        <div class="form-group max-w-[110px]"><label>Colli <span class="req" id="ntQtyReq">*</span></label>
           <input class="input input-mono" id="ntQty" type="number" min="1" step="1"></div>
       </div>
       <!-- 1.4.2.1 — SI SCEGLIE UNA RIGA DI MAGAZZINO, NON SI DIGITA UN LOTTO.
@@ -372,27 +372,27 @@ export const VistaCompiti: Vista = {
            un'attivita' aperta su un lotto che non esiste e' un giro a vuoto per
            chi la prende in mano. Il Posizionamento fa eccezione, e per forza —
            la sua merce a magazzino non c'e' ancora. -->
-      <div id="ntDisp" style="margin-bottom:0.6rem"></div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="mb-6" id="ntDisp"></div>
+      <div class="form-row mb-6">
         <div class="form-group"><label id="ntFromLabel">Da (ubicazione)</label>
-          <div style="display:flex;gap:0.3rem">
-            <input class="input input-mono" id="ntFrom" maxlength="30" style="text-transform:uppercase" placeholder="dalla disponibilità scelta">
+          <div class="flex gap-3">
+            <input class="input input-mono uppercase" id="ntFrom" maxlength="30" placeholder="dalla disponibilità scelta">
             <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntFrom')" title="Sfoglia le ubicazioni">📍</button>
           </div></div>
         <div class="form-group" id="ntToGroup"><label>A (ubicazione)</label>
-          <div style="display:flex;gap:0.3rem">
-            <input class="input input-mono" id="ntTo" maxlength="30" style="text-transform:uppercase">
+          <div class="flex gap-3">
+            <input class="input input-mono uppercase" id="ntTo" maxlength="30">
             <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntTo')" title="Sfoglia le ubicazioni">📍</button>
           </div></div>
       </div>
       <!-- Il DDT vuole destinatario, vettore e causale, e li sa chi CHIEDE la
            spedizione: l'operatore che preleva non deve indovinarli. Compaiono
            solo per i due prelievi, e per nessun altro tipo. -->
-      <div id="ntDdtRow" style="display:none;margin-bottom:0.6rem">
-        <div class="form-row" style="margin-bottom:0.4rem">
+      <div class="hidden mb-6" id="ntDdtRow">
+        <div class="form-row mb-4">
           <div class="form-group"><label>Destinatario <span class="req">*</span></label>
             <input class="input" id="ntDest" maxlength="120" placeholder="Ragione sociale"></div>
-          <div class="form-group" style="max-width:200px"><label>Vettore</label>
+          <div class="form-group max-w-[200px]"><label>Vettore</label>
             <input class="input" id="ntCarrier" maxlength="80"></div>
         </div>
         <div class="form-group"><label>Causale di trasporto</label>
@@ -405,11 +405,11 @@ export const VistaCompiti: Vista = {
            CONFERMA, non qui — c'è la pulizia dell'area di prelievo, che la
            GMP pretende. Chi chiede il campione non sa ancora se pulirà: lo
            sa chi lo preleva, nel momento in cui l'ha prelevato. -->
-      <div class="form-row" id="ntSamplingRow" style="margin-bottom:0.6rem;display:none">
+      <div class="form-row mb-6 hidden" id="ntSamplingRow">
         <div class="form-group"><label>Campione per chi <span class="req">*</span></label>
           <input class="input" id="ntSampleFor" maxlength="60" placeholder="Laboratorio interno, cliente, ente…"></div>
       </div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Scadenza</label>
           <input class="input" id="ntDue" type="datetime-local"></div>
         <div class="form-group"><label>Assegna a</label>
@@ -418,7 +418,7 @@ export const VistaCompiti: Vista = {
             ${operatori.map(o => `<option value="${this._esc(o.initials)}">${this._esc(o.initials)} — ${this._esc([o.first_name, o.last_name].filter(Boolean).join(' ') || 'dati incompleti')}</option>`).join('')}
           </select></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.4rem"><label>Note — le legge chi la prende</label>
+      <div class="form-group mb-4"><label>Note — le legge chi la prende</label>
         <input class="input" id="ntNote" maxlength="200" placeholder="Es: il cliente ritira giovedì mattina"></div>
       <div id="ntError" class="gate-error"></div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
@@ -477,7 +477,7 @@ export const VistaCompiti: Vista = {
     const tipo = $('ntType')?.value || '';
     const q = ($('ntArticle')?.value || '').trim();
     if (!q && vuoleUbicazione(tipo)) {
-      box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">🔢 Conta: si sceglie la riga da ricontare. L'inventario di tutto il vano sta in Movimenta → Inventario e non ha bisogno di un'attività.</div>`;
+      box.innerHTML = `<div class="text-label-small text-sx-text-muted">🔢 Conta: si sceglie la riga da ricontare. L'inventario di tutto il vano sta in Movimenta → Inventario e non ha bisogno di un'attività.</div>`;
       return;
     }
     if (q.length < 2) { box.innerHTML = ''; return; }
@@ -499,11 +499,11 @@ export const VistaCompiti: Vista = {
     const righe = Store.findItemLocations(q)
       .filter(it => (Store.getAvailableQty(it.location_code, it.item_key) || 0) > 0);
     if (!righe.length) {
-      box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-warning)">⚠ Nessuna giacenza disponibile per «${this._esc(q)}»</div>`;
+      box.innerHTML = `<div class="text-label-small text-sx-warning">⚠ Nessuna giacenza disponibile per «${this._esc(q)}»</div>`;
       return;
     }
     const ordinate = Store.sortByFEFO(righe).slice(0, 12);
-    box.innerHTML = `<div style="max-height:190px;overflow-y:auto;border:1px solid var(--sx-border);border-radius:var(--radius-md)">${
+    box.innerHTML = `<div class="max-h-[190px] overflow-y-auto border border-sx-border rounded-[var(--radius-md)]">${
       ordinate.map(it => {
         const disp = Store.getAvailableQty(it.location_code, it.item_key) || 0;
         /* 1.8 — una sorgente sola per la descrizione della riga: dove c'è
@@ -511,10 +511,10 @@ export const VistaCompiti: Vista = {
         const descr = Store.descriviRiga(it);
         const dettaglio = descr === '—' ? '' : ` · ⚖ ${this._esc(descr)}`;
         return `<div class="search-result-item" onclick="App._ntScegli('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">
-          <span class="mono" style="font-weight:700">${this._esc(it.article_code)}</span>
-          <span class="mono" style="color:var(--sx-text-secondary)">${this._esc(it.lot_code)}</span>
-          <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${this._esc(it.location_code)}${it.expiry_date ? ' · scad ' + this._esc(it.expiry_date) : ''}${dettaglio}</span>
-          <span style="margin-left:auto;font-weight:700;color:var(--sx-accent)">${disp} Coll.</span>
+          <span class="mono font-bold">${this._esc(it.article_code)}</span>
+          <span class="mono text-sx-text-secondary">${this._esc(it.lot_code)}</span>
+          <span class="text-label-small text-sx-text-muted">${this._esc(it.location_code)}${it.expiry_date ? ' · scad ' + this._esc(it.expiry_date) : ''}${dettaglio}</span>
+          <span class="ml-auto font-bold text-sx-accent">${disp} Coll.</span>
         </div>`;
       }).join('')}</div>`;
   },
@@ -539,7 +539,7 @@ export const VistaCompiti: Vista = {
     const box = $('ntDisp');
     if (!box) return;
     const disp = Store.getAvailableQty(it.location_code, it.item_key) || 0;
-    box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-success)">✓ ${this._esc(it.article_code)} lotto ${this._esc(it.lot_code)} in ${this._esc(it.location_code)} — ${disp} colli disponibili</div>`;
+    box.innerHTML = `<div class="text-label-small text-sx-success">✓ ${this._esc(it.article_code)} lotto ${this._esc(it.lot_code)} in ${this._esc(it.location_code)} — ${disp} colli disponibili</div>`;
   },
 
   async doCreateTask() {
@@ -749,13 +749,13 @@ export const VistaCompiti: Vista = {
       p.from ? `da <span class="mono">${this._esc(p.from)}</span>` : '',
       p.to ? `a <span class="mono">${this._esc(p.to)}</span>` : '',
     ].filter(Boolean).join(' · ');
-    area.innerHTML = `<div class="mov-preview" style="background:var(--sx-accent-soft);border-color:var(--sx-accent);margin-bottom:0.6rem;display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap">
-      <span style="font-weight:700">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</span>
-      <span class="mono" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${this._esc(t.task_id)}</span>
-      <span style="font-size: var(--md-sys-typescale-body-small-size)">${dettaglio}</span>
+    area.innerHTML = `<div class="mov-preview bg-sx-accent-soft border-sx-accent mb-6 flex gap-6 items-center flex-wrap">
+      <span class="font-bold">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</span>
+      <span class="mono text-label-small text-sx-text-muted">${this._esc(t.task_id)}</span>
+      <span class="text-body-small">${dettaglio}</span>
       ${resta === null ? '' : `<span class="badge badge-blue">restano ${resta} coll.${fatti ? ` · ${fatti} già mossi` : ''}</span>`}
-      ${t.note ? `<span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-secondary)">${this._esc(t.note)}</span>` : ''}
-      <button class="btn btn-sm btn-ghost" style="margin-left:auto" onclick="App._taskLascia()">Lascia l'attività</button>
+      ${t.note ? `<span class="text-label-small text-sx-text-secondary">${this._esc(t.note)}</span>` : ''}
+      <button class="btn btn-sm btn-ghost ml-auto" onclick="App._taskLascia()">Lascia l'attività</button>
     </div>`;
   },
 
@@ -858,27 +858,27 @@ export const VistaCompiti: Vista = {
     const coda = Store.getTaskQueue().slice(0, 6);
     const righe = coda.map(t => {
       const m = misure(t);
-      return `<tr${inRitardo(t) ? ' style="background:var(--sx-danger-soft)"' : ''}>
+      return `<tr class="bg-sx-danger-soft"${inRitardo(t) ? '' : ''}>
         <td><span class="badge ${this._taskPrioClasse(t.priority)}">${etichettaPriorita(t.priority)}</span></td>
         <td>${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</td>
         <td class="mono">${this._esc(t.assigned_to || '—')}</td>
-        <td style="white-space:nowrap">${durataUmana(m.attesa)}</td>
+        <td class="whitespace-nowrap">${durataUmana(m.attesa)}</td>
       </tr>`;
     }).join('');
     return `<div class="card">
-      <div class="card-title" style="display:flex;justify-content:space-between;align-items:center">
+      <div class="card-title flex justify-between items-center">
         <span>📋 Attività aperte</span>
         <button class="btn btn-sm" onclick="App.switchView('tasks')">Apri la coda</button>
       </div>
-      ${r.aperti ? `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.4rem">
-          <strong>${r.aperti}</strong> apert${r.aperti === 1 ? 'a' : 'e'}${r.urgenti ? ` · <strong style="color:var(--sx-danger)">${r.urgenti} urgent${r.urgenti === 1 ? 'e' : 'i'}</strong>` : ''}${r.inRitardo ? ` · ${r.inRitardo} oltre la scadenza` : ''}
+      ${r.aperti ? `<div class="text-body-small text-sx-text-secondary mb-4">
+          <strong>${r.aperti}</strong> apert${r.aperti === 1 ? 'a' : 'e'}${r.urgenti ? ` · <strong class="text-sx-danger">${r.urgenti} urgent${r.urgenti === 1 ? 'e' : 'i'}</strong>` : ''}${r.inRitardo ? ` · ${r.inRitardo} oltre la scadenza` : ''}
           ${r.attesaMassima !== null ? ` · la più vecchia aspetta da <strong>${durataUmana(r.attesaMassima)}</strong>` : ''}
         </div>
-        <div style="overflow-x:auto"><table class="sx-table">
-          <thead><tr><th style="width:90px">Priorità</th><th>Tipo</th><th style="width:70px">In carico</th><th style="width:90px">In coda da</th></tr></thead>
+        <div class="overflow-x-auto"><table class="sx-table">
+          <thead><tr><th class="w-[90px]">Priorità</th><th>Tipo</th><th class="w-[70px]">In carico</th><th class="w-[90px]">In coda da</th></tr></thead>
           <tbody>${righe}</tbody>
         </table></div>
-        ${r.aperti > coda.length ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.35rem">altre ${r.aperti - coda.length} in coda</div>` : ''}`
+        ${r.aperti > coda.length ? `<div class="text-label-small text-sx-text-muted mt-3.5">altre ${r.aperti - coda.length} in coda</div>` : ''}`
       : '<div class="ct-empty">Nessuna attività aperta.</div>'}
     </div>`;
   },
