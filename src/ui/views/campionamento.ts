@@ -4,6 +4,7 @@ import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { ALLERGENI, etichettaClasse } from '../../modules/anagrafica';
 import { formattaQuantita } from '../../modules/misure';
+import { raggruppa as raggruppaColli } from '../../modules/colli';
 
 /* IL VERBALE DEL CAMPIONE: non e' un record del database, e' cio' che si
    stampa. Nasce in due punti — dal campionamento appena fatto e dalla
@@ -106,9 +107,12 @@ export const VistaCampionamento = {
     const it = Store.getItemsAtLocation(d.location_code).find(i => i.item_key === d.item_key);
     if (!it) { this._campReset(); el.innerHTML = ''; return; }
     const cfg = Store.getUomConfig(it.article_code, it.lot_code);
-    const scalabile = Store.isFeatureOn('uom') && !!cfg?.per_collo;
-    const um = scalabile ? Store.suddivisioneDi(it) : null;
-    const dentro = um ? um.pieni * cfg!.per_collo! + um.resto : null;
+    /* 1.8.4 — una riga a colli DICHIARATI si campiona anche senza il
+       per-collo d'anagrafica: le UM ce le ha l'elenco. */
+    const elenco = Store.colliDiRiga(it);
+    const scalabile = Store.isFeatureOn('uom') && (!!cfg?.per_collo || !!elenco);
+    const um = (scalabile && cfg?.per_collo) ? Store.suddivisioneDi(it) : null;
+    const dentro = (um && cfg?.per_collo) ? um.pieni * cfg.per_collo + um.resto : (elenco ? 1 : null);
 
     el.innerHTML = `
       <div class="mov-preview bg-[var(--grad-soft-teal)] border-sx-teal mb-5">
@@ -120,12 +124,23 @@ export const VistaCampionamento = {
       </div>
       ${scalabile ? `
       <div class="form-group mb-5">
-        <label>② Quantità prelevata in <span class="mono">${this._esc(cfg.uom)}</span> <span class="req">*</span></label>
+        <label>② Quantità prelevata in <span class="mono">${this._esc(cfg!.uom)}</span> <span class="req">*</span></label>
         <input class="input input-mono max-w-[180px] text-center font-bold" id="cpQty" type="number" min="0" step="0.001"
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('cpFor')?.focus();}">
         <div class="text-label-small text-sx-text-muted mt-1.5">
           I colli restano ${it.qty || 0}. Cala solo la quantità dentro.</div>
-      </div>`
+      </div>
+      ${elenco ? `
+      <div class="form-group mb-5">
+        <label>②&nbsp;bis Da quale collo <span class="req">*</span></label>
+        <select class="select max-w-[240px]" id="cpCollo">
+          ${raggruppaColli(elenco, cfg!.uom).map((g: { colli: number; per: number }) =>
+            `<option value="${g.per}">${this._esc(formattaQuantita(g.per, cfg!.uom))} ${this._esc(cfg!.uom)} — ${g.colli} coll.</option>`).join('')}
+        </select>
+        <div class="text-label-small text-sx-text-muted mt-1.5">
+          Il collo scelto cala di quanto esce e torna a scaffale. Un campione lascia sempre un residuo:
+          per prendere tutto il collo serve un prelievo.</div>
+      </div>` : ''}`
       : `<div class="mov-preview mov-preview-warn mb-5">
           ⚠ <strong>${this._esc(it.article_code)} non ha una quantità per collo</strong>${Store.isFeatureOn('uom') ? '' : ' (e le unità di misura sono spente)'}:
           il prelievo si registra a registro, ma nessuna quantità cala.
@@ -202,8 +217,11 @@ export const VistaCampionamento = {
       const raw = $('cpQty')?.value;
       const qta = Number(String(raw ?? '').replace(',', '.'));
       if (!(qta > 0)) { $('cpQty')?.focus(); return this.toast(`Quantità del campione in ${cfg.uom}: deve essere maggiore di zero`, 'error'); }
+      /* Da quale collo esce: sulla riga senza elenco non c'e' niente da
+         chiedere, e Store se ne accorge da solo. */
+      const daCollo = $('cpCollo') ? Number($('cpCollo').value) : null;
       try {
-        esito = await Store.sampleItem(d.location_code, d.item_key, qta);
+        esito = await Store.sampleItem(d.location_code, d.item_key, qta, daCollo);
       } catch (err) {
         return this.toast((err as Error).message || 'Campionamento non riuscito', 'error');
       }

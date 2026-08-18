@@ -1105,7 +1105,7 @@ const Store = {
      scioglie da sola man mano che l'anagrafica si popola.
      ═══════════════════════════════════════════════════════════════════ */
 
-  async sampleItem(locationCode: string, itemKey: string, qtyUom: number) {
+  async sampleItem(locationCode: string, itemKey: string, qtyUom: number, daCollo: number | null = null) {
     this._assertUomOn();
     const bucket = this._invByLoc.get(locationCode) || [];
     const item = bucket.find(i => i.item_key === itemKey);
@@ -1115,6 +1115,46 @@ const Store = {
     if (!cfg) throw new Error(`${item.article_code} non ha un'unità di misura: il campione non si può quantificare`);
     const prelevate = arrotondaUom(qtyUom, decimaliUom(cfg.uom));
     if (prelevate === null || prelevate <= 0) throw new Error(`Quantità del campione in ${cfg.uom}: deve essere maggiore di zero`);
+
+    /* 1.8.4 — IL CAMPIONE ESCE DA UN COLLO PRECISO, e quel collo cala.
+       Prima di qui il campionamento scalava solo `qty_uom`: su una riga a
+       colli dichiarati l'elenco restava pieno, e siccome dove c'e' l'elenco
+       comanda l'elenco, il campione spariva alla lettura dopo. */
+    const elenco = this.colliDiRiga(item);
+    if (elenco && daCollo === null) {
+      throw new Error(`${item.item_key}: questa riga porta l'elenco dei colli — dire da quale collo esce il campione`);
+    }
+    if (elenco) {
+      const uscita = [{ da: daCollo!, quantita: prelevate }];
+      const scelte = scelteDaUsciteColli(elenco, uscita, cfg.uom)!;
+      const esito = prelevaColli(elenco, scelte, cfg.uom);
+      /* Un campione vale un collo di residuo: se il collo si svuota non e'
+         un campionamento, e la rotta lo rifiuta. Si dice di qua, prima. */
+      if (esito.rimasti.length !== elenco.length) {
+        throw new Error(`Un campione lascia sempre un residuo: per prendere tutto il collo da ${daCollo} ${cfg.uom} serve un prelievo`);
+      }
+      const primaUm = totaleUomColli(elenco, cfg.uom);
+      const dopoUm = totaleUomColli(esito.rimasti, cfg.uom);
+      if (Persistence.supportsRemoteOps) {
+        const res = await Persistence.op!<{ qty_uom_before: number; qty_uom_after: number; packs: number[] }>('sampleItem', {
+          location_code: locationCode, item_key: itemKey, packs_out: uscita,
+        });
+        item.qty_uom = res.qty_uom_after;
+        if (Array.isArray(res.packs)) item.packs = res.packs;
+        item.last_updated_at = Date.now();
+        this._applyToCache('inventory', 'put', item);
+        return { ok: true, item, uom: cfg.uom, qty_uom_before: res.qty_uom_before,
+                 qty_uom_after: res.qty_uom_after, qty_uom_delta: -prelevate };
+      }
+      item.packs = esito.rimasti;
+      item.qty_uom = dopoUm;
+      item.last_updated_at = Date.now();
+      this._applyToCache('inventory', 'put', item);
+      await Persistence.update('inventory', item._id!, { packs: esito.rimasti, qty_uom: dopoUm, last_updated_at: item.last_updated_at });
+      await this._touchMeta();
+      return { ok: true, item, uom: cfg.uom, qty_uom_before: primaUm,
+               qty_uom_after: dopoUm, qty_uom_delta: -prelevate };
+    }
 
     const prima = this._uomDiRiga(item, cfg);
     if (prima === null) throw new Error(`${item.article_code} lotto ${item.lot_code}: manca la quantità per collo, il campione non si può scalare`);
