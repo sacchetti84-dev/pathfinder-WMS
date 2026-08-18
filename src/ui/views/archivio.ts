@@ -107,31 +107,31 @@ export const VistaArchivio: Vista = {
     for (const r of this._archiveRows()) conteggi[r.kind] = (conteggi[r.kind] || 0) + 1;
 
     el.innerHTML = `
-      <h1 style="font-size: var(--md-sys-typescale-title-large-size);color:var(--sx-primary);font-weight:700;margin-bottom:0.35rem">🗂 Archivio documenti</h1>
-      <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.75rem;line-height:1.55">
+      <h1 class="text-title-large text-sx-primary font-bold mb-3.5">🗂 Archivio documenti</h1>
+      <p class="text-body-small text-sx-text-secondary mb-7.5 leading-[1.55]">
         Ogni documento emesso dall'applicativo, aperto o chiuso, ristampabile per tutta la durata di conservazione.
         La ristampa rilegge il documento archiviato: il foglio esce identico a quello del giorno di emissione.
       </p>
 
-      <div class="config-tabs" style="margin-bottom:0.6rem">
+      <div class="config-tabs mb-6">
         ${chip('all', `Tutti (${totale})`)}
         ${Object.entries<any>(this._ARC_KINDS).map(([id, k]) =>
           chip(id, `${k.icon} ${k.label} (${conteggi[id] || 0})`)).join('')}
       </div>
 
-      <div class="config-card" style="margin-bottom:0.6rem">
-        <div style="display:flex;gap:0.6rem;flex-wrap:wrap;align-items:flex-end">
-          <div class="form-group" style="flex:1;min-width:240px;margin-bottom:0">
+      <div class="config-card mb-6">
+        <div class="flex gap-6 flex-wrap items-end">
+          <div class="form-group flex-1 min-w-[240px] mb-0">
             <label>Cerca</label>
             <input class="input" id="arcText" placeholder="Numero, articolo, lotto, destinatario, ubicazione…"
               value="${this._esc(this._arcText)}" oninput="App._arcText=this.value;App._arcRedraw()">
           </div>
-          <div class="form-group" style="width:160px;margin-bottom:0">
+          <div class="form-group w-[160px] mb-0">
             <label>Dal</label>
             <input class="input" type="date" id="arcFrom" value="${this._esc(this._arcFrom)}"
               onchange="App._arcFrom=this.value;App.renderArchive()">
           </div>
-          <div class="form-group" style="width:160px;margin-bottom:0">
+          <div class="form-group w-[160px] mb-0">
             <label>Al</label>
             <input class="input" type="date" id="arcTo" value="${this._esc(this._arcTo)}"
               onchange="App._arcTo=this.value;App.renderArchive()">
@@ -142,24 +142,24 @@ export const VistaArchivio: Vista = {
 
       <div class="config-card">
         <h3>${rows.length} document${rows.length === 1 ? 'o' : 'i'}${rows.length !== totale ? ` su ${totale}` : ''}</h3>
-        ${rows.length ? `<div style="overflow-x:auto">
+        ${rows.length ? `<div class="overflow-x-auto">
           <table class="sx-table">
             <thead><tr>
-              <th style="width:130px">Data</th>
-              <th style="width:110px">Tipo</th>
-              <th style="width:150px">Numero</th>
+              <th class="w-[130px]">Data</th>
+              <th class="w-[110px]">Tipo</th>
+              <th class="w-[150px]">Numero</th>
               <th>Riferimento</th>
-              <th style="width:105px">Stato</th>
-              <th style="width:60px"></th>
+              <th class="w-[105px]">Stato</th>
+              <th class="w-[60px]"></th>
             </tr></thead>
             <tbody>
               ${rows.map((r: any) => `<tr>
-                <td class="mono" style="white-space:nowrap">${r.ts ? this._fmtDateTime(r.ts) : '—'}</td>
+                <td class="mono whitespace-nowrap">${r.ts ? this._fmtDateTime(r.ts) : '—'}</td>
                 <td><span title="${this._esc(this._ARC_KINDS[r.kind].label)}">${this._ARC_KINDS[r.kind].icon} ${this._esc(this._ARC_KINDS[r.kind].label)}</span></td>
-                <td class="mono" style="font-weight:600">${this._esc(r.num)}</td>
+                <td class="mono font-semibold">${this._esc(r.num)}</td>
                 <td>
-                  <div style="font-weight:600">${this._esc(r.title)}</div>
-                  <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)" class="truncate">${this._esc(r.sub)}</div>
+                  <div class="font-semibold">${this._esc(r.title)}</div>
+                  <div class="truncate text-label-small text-sx-text-muted">${this._esc(r.sub)}</div>
                 </td>
                 <td><span class="badge ${r.stato.cls}">${this._esc(r.stato.lbl)}</span></td>
                 <td><button class="btn btn-sm btn-ghost" onclick="${r.print}" title="Ristampa">🖨</button></td>
