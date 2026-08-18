@@ -31,8 +31,14 @@
     "noUncheckedIndexedAccess": true,
     "noFallthroughCasesInSwitch": true,
 
-    "allowJs": true,
-    "checkJs": false,
+    /* 18/08 — NEL SORGENTE NON C'E' PIU' JAVASCRIPT.
+       `allowJs` era la porta lasciata aperta durante la conversione: cinque
+       file la usavano, l'ultimo — `app.js`, 1.328 righe — e' passato il 18/08.
+       Chiuderla vuol dire che un `.js` messo in `src/` non compila per
+       sbaglio: si vede subito, invece di entrare senza controllo.
+       (`vite.config.js` e i collaudi in `test/` restano JavaScript e stanno
+       fuori da `include`: non e' codice che finisce in pagina.) */
+    "allowJs": false,
 
     "noEmit": true,
     "skipLibCheck": true,
