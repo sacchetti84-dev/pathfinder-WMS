@@ -1,8 +1,27 @@
 import { type Vista, $ } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
+import type { Giacenza } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
+
+/* L'inventario di un vano mentre lo si conta: le righe a sistema con la
+   spunta di chi le ha viste, e le righe trovate che a sistema non c'erano. */
+type RigaInventario = Giacenza & {
+  confirmed: boolean;
+  missing: boolean;
+  checked: boolean;
+  counted_qty: number | null;
+};
+
+type RigaExtra = {
+  article_code: string;
+  article_description?: string;
+  lot_code: string;
+  qty: number;
+};
+
+type StatoInventario = { loc: string; items: RigaInventario[]; extras: RigaExtra[] };
 
 export const VistaInventario: Vista = {
   // ═══ 4. INVENTARIO ═══
@@ -154,7 +173,7 @@ export const VistaInventario: Vista = {
     const artInfo = Store.getArticle(art);
     if (!artInfo) return this.toast(`Articolo ${art} non in anagrafica. Usa Configurazione o "Posiziona" per crearlo`, 'error');
     // Evita duplicato extras
-    if (this._invState.extras.find((e: any) => e.article_code === art && e.lot_code === lot)) return this.toast('Item già nella lista extra', 'warning');
+    if ((this._invState as StatoInventario).extras.find((e) => e.article_code === art && e.lot_code === lot)) return this.toast('Item già nella lista extra', 'warning');
     this._invState.extras.push({ article_code: art, article_description: artInfo.description, lot_code: lot, qty });
     $('mInvExtraArt').value = '';
     $('mInvExtraLot').value = '';
@@ -167,7 +186,7 @@ export const VistaInventario: Vista = {
     const el = $('mInvExtras');
     if (!this._invState?.extras.length) { el.innerHTML = ''; return; }
     let html = '';
-    this._invState.extras.forEach((ex: any, idx: any) => {
+    (this._invState as StatoInventario).extras.forEach((ex, idx) => {
       const exQty = ex.qty || 1;
       html += `<div class="inv-item-row inv-row-extra">
         <div class="inv-info">
@@ -187,8 +206,8 @@ export const VistaInventario: Vista = {
   async _execInventario() {
     if (!this._requireOperator('le rettifiche inventariali')) return;   // v2.0.1 [B7]
     if (!this._invState) return;
-    const { loc, items, extras } = this._invState;
-    const unchecked = items.filter((i: any) => !i.checked);
+    const { loc, items, extras } = this._invState as StatoInventario;
+    const unchecked = items.filter((i) => !i.checked);
     if (unchecked.length > 0) {
       const msg = `⚠ ${unchecked.length} item non verificati.\n\nOK = considera quantità di sistema CORRETTE (nessuna azione)\nAnnulla = torna alla verifica`;
       if (!await Dialog.confirm({
@@ -234,7 +253,9 @@ export const VistaInventario: Vista = {
           }
         } else {
           // FIX+: aggiungi delta colli (incrementa record esistente)
-          const res = await Store.addItem(loc, it.article_code, it.article_description, it.lot_code, it.expiry_date || '', '', delta);
+          /* DIFETTO NOTO — una riga senza descrizione la scrive `undefined`
+             in giacenza; vedi `giacenze.ts`. Non si corregge qui. */
+          const res = await Store.addItem(loc, it.article_code, it.article_description as string, it.lot_code, it.expiry_date || '', '', delta);
           if (res.ok) {
             await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `Conta fisica: ${it.counted_qty}/${sysQty}`, '', sysQty, delta, it.counted_qty);   // v2.0.1 [B7]
             corrections++;
@@ -246,7 +267,7 @@ export const VistaInventario: Vista = {
     // Extras: nuovi item trovati fisicamente
     for (const ex of extras) {
       const exQty = ex.qty || 1;
-      const res = await Store.addItem(loc, ex.article_code, ex.article_description, ex.lot_code, '', '', exQty);
+      const res = await Store.addItem(loc, ex.article_code, ex.article_description as string, ex.lot_code, '', '', exQty);
       if (res.ok) {
         await this._logMov(MOV.FIX_IN, ex.article_code, ex.article_description, ex.lot_code, loc, null, Store.getCurrentIdentity().initials, 'Item extra trovato a inventario', '', res.qty_before, exQty, res.qty_after);   // v2.0.1 [B7]
         corrections++;
@@ -535,8 +556,8 @@ export const VistaInventario: Vista = {
         await this._logMov(MOV.FIX_IN, d.article_code, d.article_description, d.lot_code,
           d.location_code, null, sigla, dettaglio, '', sistema, delta, contati);
       }
-    } catch (err: any) {
-      return this.toast(`Rettifica non riuscita: ${err.message || 'errore'}`, 'error');
+    } catch (err) {
+      return this.toast(`Rettifica non riuscita: ${(err as Error).message || 'errore'}`, 'error');
     }
 
     if (delta === 0) this.toast(`✓ Conta confermata: ${contati} Coll., come a sistema`, 'success');
