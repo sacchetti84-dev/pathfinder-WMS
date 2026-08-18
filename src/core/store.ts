@@ -193,13 +193,13 @@ const Store = {
       o.role === 'leader' && o.active !== false && !!o.pin_hash);
   },
 
-  async addOperator(rec: Partial<Operatore> & { initials: string }) {
+  async addOperator(rec: Partial<Operatore> & { initials: string }): Promise<Operatore> {
     const initials = String(rec.initials ?? '').toUpperCase().trim();
     if (this.getOperatorByInitials(initials)) {
       throw new Error(`Le iniziali ${initials} sono già assegnate a un altro operatore`);
     }
     const now = Date.now();
-    const record = {
+    const record: Operatore = {
       op_id: `OP-${now.toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`,
       first_name: rec.first_name || '',
       last_name:  rec.last_name || '',

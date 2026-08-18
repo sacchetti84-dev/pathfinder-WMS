@@ -12,7 +12,7 @@
 import { test, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
-import { App } from '../src/ui/app.js';
+import { App } from '../src/ui/app';
 import { SUPERFICIE } from './superficie-app.dati.js';
 
 test('App espone gli stessi nomi di prima dell\'estrazione', () => {
@@ -24,7 +24,7 @@ test('ogni App.qualcosa citato nel sorgente esiste', () => {
     ? fs.readdirSync('src/ui/views').filter((f) => f.endsWith('.ts') || f.endsWith('.js'))
       .map((f) => path.join('src/ui/views', f))
     : [];
-  const sorgente = ['index.html', 'src/ui/app.js', 'src/main.ts', ...viste]
+  const sorgente = ['index.html', 'src/ui/app.ts', 'src/main.ts', ...viste]
     .map((f) => fs.readFileSync(f, 'utf8')).join('\n');
 
   /* `App.${...}` dentro un template non e' un nome, e' un nome calcolato. */

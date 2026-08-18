@@ -49,6 +49,10 @@ export interface Zona {
   hazard_zone?: boolean;
   /** Se valorizzato, le sole pericolosita' ammesse. Vuoto su zona pericolosa = tutte. */
   hazards?: string[];
+  /** I livelli di una zona a scaffale — ["T","1","2"]. C'erano dalla v1 e
+      mancavano solo da questo tipo: sei punti fra viste e geometria li
+      leggevano passando da un cast. Trovati convertendo `app.js`. */
+  levels?: string[];
   [config: string]: unknown;
 }
 

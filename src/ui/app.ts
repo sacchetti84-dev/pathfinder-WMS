@@ -1,6 +1,7 @@
 import { LOG_RETENTION_DAYS, MOV, MOV_LABELS } from '../core/costanti';
 import { debounce, _h } from '../core/utils';
 import { Persistence } from '../core/persistence/index';
+import type { RemotePersistence } from '../core/persistence/index';
 import { Validate } from '../modules/validate';
 import { pickupAlertStatus } from '../modules/pickupAlert';
 import { Auth } from '../modules/auth';
@@ -9,6 +10,41 @@ import { Feedback } from './feedback';
 import { Dialog } from './dialog';
 import { Tabs } from './tabs';
 import { Store } from '../core/store';
+import type { Operatore } from '../types/entita';
+
+/* IL CAMPO CHE LA MASCHERA HA APPENA DISEGNATO.
+
+   E' l'aiuto che nelle viste si chiama `$`. `getElementById` restituisce
+   `HTMLElement | null`, e questi punti leggono `.value`, `.disabled`,
+   `.selectionStart` da un campo che hanno disegnato loro.
+
+   `campo` non promette che ci sia — chi lo chiama si guarda come si
+   guardava prima. `nodo` dice che c'e' perche' sta scritto in
+   `index.html`: se sparisse di la', la riga esplode adesso come
+   esplodeva ieri. */
+const campo = (id: string) => document.getElementById(id) as HTMLInputElement | null;
+const pulsante = (id: string) => document.getElementById(id) as HTMLButtonElement | null;
+const nodo = (id: string) => document.getElementById(id) as HTMLElement;
+
+/* L'avviso che arriva dal servizio quando ha scritto qualcun altro, e la
+   voce dell'annulla: due forme che vivono in memoria e in nessun
+   database. */
+type AvvisoCambio = { collections?: string[] };
+
+type AzioneAnnulla = {
+  op: 'add' | 'remove';
+  loc: string;
+  art: string;
+  lot: string;
+  qty: number;
+  desc?: string;
+  exp?: string;
+  notes?: string;
+  qty_uom?: number | null;
+  packs?: number[] | null;
+};
+
+type VoceAnnulla = { label: string; actions: AzioneAnnulla[]; ts: number };
 
 import { VistaDestinatari } from './views/destinatari';
 import { VistaParametri } from './views/parametri';
@@ -36,12 +72,70 @@ import { VistaRegistro } from './views/registro';
 import { VistaArchivio } from './views/archivio';
 import { VistaRicerca } from './views/ricerca';
 
-const App = {
+/* IL MONOLITE E' PIU' GRANDE DI QUESTO FILE.
+
+   `App` e' un oggetto solo, ma meta' dei suoi metodi arriva dalle
+   venticinque viste, che rientrano con l'assegnazione in coda al file. Un
+   `this.renderConfig()` scritto qui dentro chiama codice che sta in
+   `views/configurazione.ts`, e `tsc` da solo non puo' saperlo.
+
+   Questo elenco e' il ponte: dice quali nomi delle viste passano di qua e
+   con che forma. Non e' il contratto delle viste — quello nasce in fase B —
+   ed e' scritto stretto apposta: se una vista cambia una firma, il primo a
+   dirlo e' questo file.
+
+   Le quattro proprieta' in fondo non sono di nessuna vista: nascono a
+   runtime dentro i metodi che le usano, e nell'oggetto letterale non ci
+   sono mai state. */
+interface DalleViste {
+  renderDashboard(): void;
+  renderTasks(): void;
+  renderMap(): void;
+  renderMovimenta(): void;
+  renderConfig(): void;
+  renderArchive(): void;
+  renderDetail(code: string): void;
+  cancelMov(): void;
+  closeSearchPop(): void;
+  exportData(): Promise<void>;
+  startMov(mode: string, dir?: string | null): void;
+  _formSpedizioni(el: HTMLElement): void;
+  _checkPendingPickSession(): Promise<void>;
+  _flushRecoveryQueue(): Promise<void>;
+  _renderRecoveryBanner(): void;
+  _recoveryQueue(): unknown[];
+  _saveCheckpoint(): Promise<void>;
+  _scheduleVaultBackup(): Promise<void>;
+  _syncFeatureNav(): void;
+  _onReadOnlyChange(readOnly: boolean): void;
+  _blockedByReadOnly(): boolean;
+  _refreshSessionLog(): void;
+  _logMov(
+    type: string, art: string, desc: string, lot: string, loc: string,
+    destLoc?: string | null, user?: string, notes?: string, docRef?: string,
+    qtyBefore?: number | null, qtyDelta?: number | null, qtyAfter?: number | null,
+    qtyUomDelta?: number | null,
+  ): Promise<void>;
+
+  _svcBeat: ReturnType<typeof setInterval> | undefined;
+  _resyncPending: Set<string> | undefined;
+  _resyncTimer: ReturnType<typeof setTimeout> | undefined;
+  _lastTextValue: string | undefined;
+}
+
+/* `ThisType` e' l'unico modo di dire "dentro questi metodi `this` e' anche
+   quello": l'oggetto letterale resta scritto com'era, e nessuna riga porta
+   un cast. */
+function monolite<T extends object>(corpo: T & ThisType<T & DalleViste>): T & DalleViste {
+  return corpo as T & DalleViste;
+}
+
+const App = monolite({
   currentView: 'dashboard',
-  currentSite: null,
-  currentZone: null,
+  currentSite: null as string | null,
+  currentZone: null as string | null,
   currentLevel: 'T',
-  selectedLocation: null,
+  selectedLocation: null as string | null,
   mapViewMode: 'plan',
   _showRegistry: false,
   _movMode: null,
@@ -99,8 +193,8 @@ const App = {
   _artSort: 'code_asc',
   _editingSiteId: null,
 
-  currentOperator: null,                // es. "AS", "MR" — popolato al login
-  currentOperatorRecord: null,          // v2.7.0 — record completo dell'anagrafica
+  currentOperator: null as string | null,          // es. "AS", "MR" — popolato al login
+  currentOperatorRecord: null as Operatore | null, // v2.7.0 — record completo dell'anagrafica
   _OPERATOR_KEY: 'wm_current_operator', // chiave localStorage (NON è token, solo iniziali)
   _KNOWN_OPERATORS_KEY: 'wm_known_operators', // v2.7.0: sigle storiche, solo per la migrazione
   _MIGRATED_KEY: 'wm_operators_migrated',     // v2.7.0: la migrazione avviene una volta sola
@@ -110,22 +204,25 @@ const App = {
 
   _wireRemote() {
     if (Persistence.kind !== 'remote') return;
+    /* Oltre questa riga l'adapter e' quello remoto, ed e' l'unico che ha i
+       ganci del servizio: il contratto comune non li porta. */
+    const remoto = Persistence as typeof RemotePersistence;
 
-    Persistence._onOffline = (err) => {
+    remoto._onOffline = (err) => {
       if (err) this._showServiceDown(err);
       else this._hideServiceDown();
     };
 
-    Persistence._onChange = (ev) => this._scheduleResync(ev);
+    remoto._onChange = (ev) => this._scheduleResync(ev as AvvisoCambio);
 
     this._svcBeat = setInterval(async () => {
-      try { await Persistence._call('GET', '/api/health'); } catch {}
+      try { await remoto._call('GET', '/api/health'); } catch {}
     }, 20000);
   },
 
   /* Riallineamento accorpato: molti avvisi ravvicinati fanno UNA
      rilettura, non una ciascuno. */
-  _scheduleResync(ev) {
+  _scheduleResync(ev: AvvisoCambio | null) {
     this._resyncPending = this._resyncPending || new Set();
     for (const c of (ev?.collections || [])) this._resyncPending.add(c);
     clearTimeout(this._resyncTimer);
@@ -155,7 +252,7 @@ const App = {
     if (toccate.length) this.updateSyncIndicator();
   },
 
-  _showServiceDown(err) {
+  _showServiceDown(err: unknown) {
     if (document.getElementById('svcDown')) return;
     const el = document.createElement('div');
     el.id = 'svcDown';
@@ -176,7 +273,7 @@ const App = {
             <li>Questa finestra si sblocca da sola appena il servizio torna.</li>
           </ol>
         </div>
-        <p class="svc-down-err">${this._esc(err?.message || 'connessione interrotta')}</p>
+        <p class="svc-down-err">${this._esc((err as Error | null)?.message || 'connessione interrotta')}</p>
         <button class="btn btn-primary" onclick="App._retryService()">Riprova adesso</button>
       </div>`;
     document.body.appendChild(el);
@@ -193,9 +290,12 @@ const App = {
   },
 
   async _retryService() {
+    /* Il pulsante esiste solo dentro la fascia "servizio non raggiungibile",
+       che nasce solo da remoto. */
+    const remoto = Persistence as typeof RemotePersistence;
     try {
-      await Persistence._call('GET', '/api/health');
-      Persistence._subscribe();
+      await remoto._call('GET', '/api/health');
+      remoto._subscribe();
     } catch {
       this.toast('Ancora nessuna risposta dal servizio', 'error');
     }
@@ -205,8 +305,8 @@ const App = {
     try {
       await Store.init();
     } catch (err) {
-      document.getElementById('bootScreen').innerHTML =
-        `<div class="text-center p-20 text-sx-danger"><h2>Errore inizializzazione DB</h2><p class="mt-10">${this._esc(err.message)}</p><p class="mt-10 text-body-small text-[#666]">Verifica che il browser supporti IndexedDB e abbia spazio sufficiente.</p></div>`;
+      nodo('bootScreen').innerHTML =
+        `<div class="text-center p-20 text-sx-danger"><h2>Errore inizializzazione DB</h2><p class="mt-10">${this._esc((err as Error).message)}</p><p class="mt-10 text-body-small text-[#666]">Verifica che il browser supporti IndexedDB e abbia spazio sufficiente.</p></div>`;
       return;
     }
     // v1.9.1 — Carica preferenza fix scanner layout
@@ -219,8 +319,8 @@ const App = {
     document.addEventListener('keydown', (e) => this._shortcuts(e));
     this._loadSidebarState();                 // v2.7.0 [G4]
     this._wireRemote();                       // database sulla macchina, se c'è
-    document.getElementById('bootScreen').style.display = 'none';
-    document.getElementById('appRoot').style.display = 'grid';
+    nodo('bootScreen').style.display = 'none';
+    nodo('appRoot').style.display = 'grid';
     this._syncHeaderHeight();                 // v2.7.0 [G3]
     window.addEventListener('resize', debounce(() => this._syncHeaderHeight(), 120));
     this.renderSidebar();
@@ -299,7 +399,7 @@ const App = {
   },
 
   /* Persiste preferenza fix scanner. */
-  _setScannerLayoutFix(enabled) {
+  _setScannerLayoutFix(enabled: boolean) {
     this._scannerLayoutFix = !!enabled;
     try {
       localStorage.setItem(this._SCANNER_FIX_KEY, this._scannerLayoutFix ? '1' : '0');
@@ -308,9 +408,9 @@ const App = {
     if (this._configTab === 'data') this.renderConfig();
   },
 
-  _scanKeydownFix(e) {
+  _scanKeydownFix(e: KeyboardEvent) {
     if (!this._scannerLayoutFix) return;
-    const t = e.target;
+    const t = e.target as HTMLInputElement | null;
     if (!t || t.tagName !== 'INPUT') return;
     if (!t.classList.contains('input-mono')) return;
     // Ignora se modificatori (Ctrl/Alt/Meta) per non interferire con scorciatoie
@@ -323,7 +423,7 @@ const App = {
       'Backslash': '\\',
       'Equal': '='
     };
-    const expected = PHYS_MAP[e.code];
+    const expected = PHYS_MAP[e.code as keyof typeof PHYS_MAP];
     if (!expected) return;
     // Se il carattere prodotto coincide già con quello atteso → nessuna correzione necessaria
     if (e.key === expected) return;
@@ -366,7 +466,8 @@ const App = {
     Session.resume();
   },
 
-  _gateShell(title, bodyHtml, footerHtml, { dismissible = false } = {}) {
+  _gateShell(title: string, bodyHtml: string, footerHtml: string,
+             { dismissible = false }: { dismissible?: boolean } = {}) {
     document.getElementById('identityGate')?.remove();
     const overlay = document.createElement('div');
     overlay.id = 'identityGate';
@@ -418,12 +519,12 @@ const App = {
   },
 
   async _confirmFirstLeader() {
-    const err = (m) => { const e = document.getElementById('wizError'); if (e) e.textContent = m; };
-    const first = Validate.clean(document.getElementById('wizFirst')?.value);
-    const last  = Validate.clean(document.getElementById('wizLast')?.value);
-    const init  = (document.getElementById('wizInitials')?.value || '').toUpperCase().trim();
-    const pin   = document.getElementById('wizPin')?.value || '';
-    const pin2  = document.getElementById('wizPin2')?.value || '';
+    const err = (m: string) => { const e = document.getElementById('wizError'); if (e) e.textContent = m; };
+    const first = Validate.clean(campo('wizFirst')?.value);
+    const last  = Validate.clean(campo('wizLast')?.value);
+    const init  = (campo('wizInitials')?.value || '').toUpperCase().trim();
+    const pin   = campo('wizPin')?.value || '';
+    const pin2  = campo('wizPin2')?.value || '';
     if (!first || !last) return err('Nome e cognome sono obbligatori.');
     if (!/^[A-Z0-9]{2,4}$/.test(init)) return err('Iniziali non valide: 2-4 caratteri, lettere maiuscole o cifre.');
     const pinErr = Auth.validatePin(pin);
@@ -437,12 +538,12 @@ const App = {
       this.toast(`👑 Team Leader ${rec.initials} creato — sei collegato`, 'success');
       if (this.currentView === 'config') this.renderConfig();
     } catch (e) {
-      err(e.message || 'Creazione non riuscita.');
+      err((e as Error).message || 'Creazione non riuscita.');
     }
   },
 
   /* ── Login: chi sei e qual è il tuo PIN ───────────────────────────── */
-  _loginSelectedId: null,
+  _loginSelectedId: null as string | null,
   _loginFails: 0,
 
   _renderLoginModal({ initial = false, reason = '' } = {}) {
@@ -472,7 +573,7 @@ const App = {
     setTimeout(() => document.getElementById(this._loginSelectedId ? 'loginPin' : 'loginOps')?.focus(), 80);
   },
 
-  _loginPillsHTML(ops) {
+  _loginPillsHTML(ops: Operatore[]) {
     if (!ops.length) return '<div class="gate-error">Nessun operatore attivo in anagrafica.</div>';
     return ops.map(o => {
       const label = (o.last_name || o.first_name)
@@ -483,7 +584,7 @@ const App = {
     }).join('');
   },
 
-  _selectLoginOp(opId) {
+  _selectLoginOp(opId: string) {
     this._loginSelectedId = opId;
     const host = document.getElementById('loginOps');
     if (host) host.innerHTML = this._loginPillsHTML(Store.getOperators({ activeOnly: true }));
@@ -492,18 +593,18 @@ const App = {
 
   async _confirmLogin() {
     const errEl = document.getElementById('loginError');
-    const err = (m) => { if (errEl) errEl.textContent = m; };
+    const err = (m: string) => { if (errEl) errEl.textContent = m; };
     const op = this._loginSelectedId ? Store.getOperator(this._loginSelectedId) : null;
     if (!op) return err('Seleziona il tuo nominativo.');
 
     if (!op.pin_hash) { this._renderCompleteProfile(op); return; }
 
-    const pin = document.getElementById('loginPin')?.value || '';
+    const pin = campo('loginPin')?.value || '';
     if (!/^\d{6}$/.test(pin)) return err('Digita il PIN a 6 cifre.');
     if (!await Auth.verifyPin(op, pin)) {
       this._loginFails++;
       err('Nominativo o PIN non corretti.');   // messaggio generico: non si dice quale dei due
-      const input = document.getElementById('loginPin');
+      const input = campo('loginPin');
       if (input) input.value = '';
       if (this._loginFails >= 3) {
         const wait = Math.min(20, 2 ** (this._loginFails - 2));
@@ -518,7 +619,7 @@ const App = {
   },
 
   /* Completamento della scheda importata dallo storico + primo PIN. */
-  _renderCompleteProfile(op) {
+  _renderCompleteProfile(op: Operatore) {
     this._gateShell(
       `📝 Completa la tua scheda — ${this._esc(op.initials)}`,
       `<p class="text-body-small text-sx-text-secondary leading-[1.6] mb-8">
@@ -543,12 +644,12 @@ const App = {
     setTimeout(() => document.getElementById('cpFirst')?.focus(), 80);
   },
 
-  async _confirmCompleteProfile(opId) {
-    const err = (m) => { const e = document.getElementById('cpError'); if (e) e.textContent = m; };
-    const first = Validate.clean(document.getElementById('cpFirst')?.value);
-    const last  = Validate.clean(document.getElementById('cpLast')?.value);
-    const pin   = document.getElementById('cpPin')?.value || '';
-    const pin2  = document.getElementById('cpPin2')?.value || '';
+  async _confirmCompleteProfile(opId: string) {
+    const err = (m: string) => { const e = document.getElementById('cpError'); if (e) e.textContent = m; };
+    const first = Validate.clean(campo('cpFirst')?.value);
+    const last  = Validate.clean(campo('cpLast')?.value);
+    const pin   = campo('cpPin')?.value || '';
+    const pin2  = campo('cpPin2')?.value || '';
     if (!first || !last) return err('Nome e cognome sono obbligatori.');
     const pinErr = Auth.validatePin(pin);
     if (pinErr) return err(pinErr);
@@ -558,12 +659,12 @@ const App = {
       const rec = await Store.updateOperator(opId, { first_name: first, last_name: last, ...fields });
       this._afterLogin(rec);
     } catch (e) {
-      err(e.message || 'Salvataggio non riuscito.');
+      err((e as Error).message || 'Salvataggio non riuscito.');
     }
   },
 
   /* ── Cosa succede dopo un accesso riuscito ────────────────────────── */
-  _afterLogin(op) {
+  _afterLogin(op: Operatore) {
     const previous = this.currentOperator;
     const changed = previous && previous !== op.initials;
     this._activateOperator(op);
@@ -582,7 +683,7 @@ const App = {
         || Boolean(this._shipCart?.length) || Boolean(this._dispState);
   },
 
-  _activateOperator(op) {
+  _activateOperator(op: Operatore) {
     this.currentOperator = op.initials;
     this.currentOperatorRecord = op;
     try { localStorage.setItem(this._OPERATOR_KEY, op.initials); } catch {}
@@ -657,7 +758,8 @@ const App = {
     const righe = list.map(b => `<tr>
       <td class="mono">${this._esc(b.name)}</td>
       <td class="mono">${(b.size / 1024).toFixed(0)} KB</td>
-      <td>${b.modified ? new Date(b.modified).toLocaleString('it-IT') : '—'}</td>
+      <td>${(b as { modified?: number }).modified
+              ? new Date((b as { modified?: number }).modified!).toLocaleString('it-IT') : '—'}</td>
       <td><button class="btn btn-sm btn-accent" onclick="App.restoreOPFSBackup('${this._esc(b.name)}')">♻ Ripristina</button></td>
     </tr>`).join('');
     this.showModal(
@@ -675,7 +777,7 @@ const App = {
     );
   },
 
-  async restoreOPFSBackup(filename) {
+  async restoreOPFSBackup(filename: string) {
     try {
       const testo = await Store.readOPFSBackup(filename);
       const pacchetto = JSON.parse(testo);
@@ -701,7 +803,7 @@ const App = {
       this.toast(`♻ Ripristino da ${filename} completato`, 'success');
     } catch (err) {
       console.error('[WM] ripristino OPFS:', err);
-      this.toast(`Ripristino non riuscito: ${err.message}`, 'error');
+      this.toast(`Ripristino non riuscito: ${(err as Error).message}`, 'error');
     }
   },
 
@@ -711,7 +813,7 @@ const App = {
       this.toast(`💾 Copia locale creata — ${(r.size/1024).toFixed(1)} KB`, 'success');
       this.renderConfig();
     } catch (err) {
-      this.toast(`Copia locale non riuscita: ${err.message}`, 'error');
+      this.toast(`Copia locale non riuscita: ${(err as Error).message}`, 'error');
     }
   },
 
@@ -735,11 +837,11 @@ const App = {
   },
 
   // ── Routing views ──
-  switchView(view) {
+  switchView(view: string) {
     this.currentView = view;
     if (view === 'dashboard') this._showRegistry = false;
     this.closeSearchPop();
-    document.querySelectorAll('.nav-btn, .mob-tab, .hdr-icon-btn').forEach(b => {
+    document.querySelectorAll<HTMLElement>('.nav-btn, .mob-tab, .hdr-icon-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.view === view);
     });
     for (const id of ['Dashboard','Map','Movimenta','Tasks','Archive','Config']) {
@@ -754,8 +856,8 @@ const App = {
       if (!this.currentSite) {
         const first = Store.getSites()[0];
         const firstZone = first?.zones?.find(z => z.active);
-        if (firstZone) this.openZone(first.id, firstZone.id);
-        else document.getElementById('mapContainer').innerHTML = '<div class="empty-state"><div class="empty-icon">🗺</div><p>Nessuna zona configurata — vai in Configurazione</p></div>';
+        if (firstZone) this.openZone(first!.id, firstZone.id);
+        else nodo('mapContainer').innerHTML = '<div class="empty-state"><div class="empty-icon">🗺</div><p>Nessuna zona configurata — vai in Configurazione</p></div>';
       } else {
         this.renderMap();
       }
@@ -784,13 +886,13 @@ const App = {
   },
 
   _syncHeaderHeight() {
-    const h = document.querySelector('.app-header')?.offsetHeight;
+    const h = document.querySelector<HTMLElement>('.app-header')?.offsetHeight;
     if (h) document.documentElement.style.setProperty('--hdr-h', `${h}px`);
   },
 
   // ── Sidebar ──
   renderSidebar() {
-    const el = document.getElementById('sidebarContent');
+    const el = nodo('sidebarContent');
     const sites = Store.getSites();
     if (!sites.length) {
       el.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>Nessun sito</p><button class="btn btn-sm btn-primary mt-5" onclick="App.switchView(\'config\')">+ Configura</button></div>';
@@ -813,7 +915,7 @@ const App = {
         const ico = zone.type === 'RACK' ? '▦' : zone.type === 'FLOOR' ? '▤' : '▣';
         const isActive = this.currentZone === zone.id && this.currentSite === site.id;
         html += `<div class="zone-item ${isActive ? 'active' : ''}" onclick="App.openZone('${site.id}','${zone.id}')">
-          <span class="zone-type-icon zone-type-${zone.type.toLowerCase()}">${ico}</span>
+          <span class="zone-type-icon zone-type-${zone.type!.toLowerCase()}">${ico}</span>
           <span class="truncate">${this._esc(zone.name)}</span>
         </div>`;
       }
@@ -826,39 +928,42 @@ const App = {
     el.innerHTML = html;
   },
 
-  toggleSite(siteId) {
+  toggleSite(siteId: string) {
     this.currentSite = this.currentSite === siteId ? null : siteId;
     this.renderSidebar();
   },
 
-  openZone(siteId, zoneId) {
+  openZone(siteId: string, zoneId: string) {
     this.currentSite = siteId;
     this.currentZone = zoneId;
     const zone = Store.getZone(siteId, zoneId);
-    if (zone?.type === 'RACK' && zone.levels?.length) this.currentLevel = zone.levels[0];
+    if (zone?.type === 'RACK' && zone.levels?.length) this.currentLevel = zone.levels[0]!;
     this.switchView('map');
     this.renderSidebar();
   },
 
-  _fmtKg(v) {
+  _fmtKg(v: number) {
     const n = Number(v);
     if (!Number.isFinite(n)) return '—';
     return n.toLocaleString('it-IT', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   },
 
-  _isoToIt(iso) {
+  _isoToIt(iso: string) {
     if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return '—';
     const [y, m, d] = iso.split('-');
     return `${d}/${m}/${y}`;
   },
 
   /* HTML escape contro XSS */
-  _esc(str) {
+  _esc(str: unknown) {
     if (str === null || str === undefined) return '';
-    return String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    /* La tabella ha esattamente i cinque caratteri che l'espressione
+       trova: il ripiego su `c` non scatta mai. */
+    return String(str).replace(/[&<>"']/g, c =>
+      ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'} as Record<string, string>)[c] ?? c);
   },
 
-  _payload(obj) {
+  _payload(obj: unknown) {
     return encodeURIComponent(JSON.stringify(obj)).replace(/'/g, '%27');
   },
 
@@ -872,7 +977,9 @@ const App = {
 
   /* v2.1.0 — Sostituto applicativo di prompt() per gli input testuali.
      Restituisce la stringa inserita oppure null se annullato. */
-  _promptText({ title, message = '', placeholder = '', value = '', maxlength = 200 }) {
+  _promptText({ title, message = '', placeholder = '', value = '', maxlength = 200 }: {
+    title: string; message?: string; placeholder?: string; value?: string; maxlength?: number;
+  }) {
     const wrap = document.createElement('div');
     const input = document.createElement('input');
     input.className = 'input';
@@ -897,7 +1004,7 @@ const App = {
   },
 
   /* Maschera live: rimuove i non-numerici e inserisce le barre durante la digitazione */
-  _dateMaskInput(el) {
+  _dateMaskInput(el: HTMLInputElement) {
     const digits = el.value.replace(/\D/g, '').slice(0, 8);
     let out = digits;
     if (digits.length > 4) out = `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
@@ -907,12 +1014,12 @@ const App = {
 
   /* Alla perdita di focus (o su Invio) normalizza la visualizzazione:
      espande l'anno a 2 cifre e riallinea le barre. Non tocca input non validi. */
-  _dateMaskBlur(el) {
+  _dateMaskBlur(el: HTMLInputElement) {
     const iso = this._dateITtoISO(el.value);
     if (iso) el.value = this._dateISOtoIT(iso);
   },
 
-  _dateITtoISO(value, warnLabel = null) {
+  _dateITtoISO(value: string, warnLabel: string | null = null) {
     const digits = String(value || '').replace(/\D/g, '');
     if (!digits) return '';
     let dd, mm, yyyy;
@@ -934,7 +1041,7 @@ const App = {
   },
 
   /* ISO yyyy-mm-dd (o legacy yyyy-mm) → gg/mm/aaaa per la visualizzazione nei campi */
-  _dateISOtoIT(iso) {
+  _dateISOtoIT(iso: string) {
     if (!iso) return '';
     const m = /^(\d{4})-(\d{2})(?:-(\d{2}))?$/.exec(String(iso).trim());
     if (!m) return String(iso);
@@ -942,10 +1049,12 @@ const App = {
   },
 
   /* Normalizza input scanner barcode (layout IT vs US) */
-  _normScan(fieldId) {
-    const el = document.getElementById(fieldId);
+  _normScan(fieldId: string) {
+    const el = campo(fieldId);
     if (!el) return;
-    const pos = el.selectionStart;
+    /* Un campo che non e' di testo non ha cursore: `null` contava zero
+       anche prima, nella somma qui sotto. */
+    const pos = el.selectionStart ?? 0;
     const before = el.value;
     el.value = before.replace(/['\u2018\u2019`]/g, '-').toUpperCase();
     if (el.value !== before) {
@@ -954,7 +1063,7 @@ const App = {
     }
   },
 
-  _getLocInfo(code) {
+  _getLocInfo(code: string) {
     for (const site of Store.getSites()) {
       for (const zone of (site.zones || []).filter(z => z.active)) {
         if (Store.generateLocations(site.id, zone.id).find(l => l.code === code)) {
@@ -965,8 +1074,8 @@ const App = {
     return null;
   },
 
-  _previewLoc(inputId, previewId) {
-    const code = Validate.clean(document.getElementById(inputId)?.value, true).replace(/'/g, '-');
+  _previewLoc(inputId: string, previewId: string) {
+    const code = Validate.clean(campo(inputId)?.value, true).replace(/'/g, '-');
     const el = document.getElementById(previewId);
     if (!el) return;
     if (!code || code.length < 3) { el.innerHTML = ''; return; }
@@ -993,7 +1102,7 @@ const App = {
      elementi che `getElementById` non distingue: restituisce il primo, cioè
      la maschera sotto, e `closeModal()` chiudeva quella lasciando in piedi
      il selettore. Stessa forma di `_showReleaseDestDialog`. */
-  _pickLoc(targetInputId, callbackName) {
+  _pickLoc(targetInputId: string, callbackName: string) {
     document.getElementById('pickLocOverlay')?.remove();
     const sites = Store.getSites();
     let html = '<div class="max-h-[400px] overflow-y-auto">';
@@ -1031,9 +1140,9 @@ const App = {
 
   _closePickLoc() { document.getElementById('pickLocOverlay')?.remove(); },
 
-  goToLocation(code) {
+  goToLocation(code: string) {
     const parts = code.split('-');
-    const siteId = parts[0];
+    const siteId = parts[0]!;   // una stringa divisa ha sempre un primo pezzo
     const site = Store.getSite(siteId);
     if (!site) return;
     for (const zone of (site.zones || []).filter(z => z.active)) {
@@ -1041,14 +1150,14 @@ const App = {
         this.currentSite = siteId;
         this.currentZone = zone.id;
         if (zone.type === 'RACK') {
-          const last = parts[parts.length - 1];
+          const last = parts[parts.length - 1]!;
           if ((zone.levels || []).includes(last)) this.currentLevel = last;
         }
         this.selectedLocation = code;
         this.switchView('map');
         setTimeout(() => {
           this.renderDetail(code);
-          document.getElementById('detailPanel').classList.remove('collapsed');
+          nodo('detailPanel').classList.remove('collapsed');
           this._flashLocation(code);
         }, 50);
         this.renderSidebar();
@@ -1059,10 +1168,10 @@ const App = {
 
   /* Lampeggio della cella raggiunta: su una griglia di trecento ubicazioni la
      sola selezione non basta a farsi trovare dall'occhio. */
-  _flashLocation(code) {
-    const cells = document.querySelectorAll(`[data-loc="${CSS.escape(code)}"]`);
+  _flashLocation(code: string) {
+    const cells = document.querySelectorAll<HTMLElement>(`[data-loc="${CSS.escape(code)}"]`);
     if (!cells.length) return;
-    cells[0].scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
+    cells[0]!.scrollIntoView({ block: 'center', inline: 'center', behavior: 'smooth' });
     for (const c of cells) {
       c.classList.remove('loc-cell--flash');
       void c.offsetWidth;                 // forza il restart dell'animazione
@@ -1072,7 +1181,7 @@ const App = {
   },
 
   // ═══ Modals CRUD ═══
-  showModal(title, bodyHtml, footerHtml = '') {
+  showModal(title: string, bodyHtml: string, footerHtml = '') {
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'modalOverlay';
@@ -1114,7 +1223,7 @@ const App = {
     if (this._saving) return;
     const dot = document.getElementById('syncDot');
     const text = document.getElementById('syncText');
-    const btn = document.getElementById('syncIndicator');
+    const btn = pulsante('syncIndicator');
     this._saving = true;
     dot?.classList.remove('unsaved');
     dot?.classList.add('saving');
@@ -1132,9 +1241,9 @@ const App = {
     }
   },
 
-  toast(message, type = 'info') {
+  toast(message: unknown, type = 'info') {
     const kindMap = { success: 'ok', error: 'error', warning: 'warn', info: 'info' };
-    const kind = kindMap[type] || 'info';
+    const kind = kindMap[type as keyof typeof kindMap] || 'info';
     const msg = String(message ?? '');
     const sep = msg.indexOf(' · ');
     const title = sep > 0 ? msg.slice(0, sep).trim() : msg;
@@ -1143,11 +1252,12 @@ const App = {
   },
 
   UNDO_WINDOW_MS: 120000,
-  _undoEntry: null,
-  _undoTimer: null,
+  _undoEntry: null as VoceAnnulla | null,
+  /* `undefined` e non `null`: `clearInterval` accetta l'uno e non l'altro. */
+  _undoTimer: undefined as ReturnType<typeof setInterval> | undefined,
 
   /* actions: [{ op:'add'|'remove', loc, art, desc, lot, exp, notes, qty }] */
-  _pushUndo(label, actions) {
+  _pushUndo(label: string, actions: AzioneAnnulla[]) {
     if (!Array.isArray(actions) || !actions.length) return;
     this._undoEntry = { label, actions, ts: Date.now() };
     clearInterval(this._undoTimer);
@@ -1156,15 +1266,15 @@ const App = {
   },
 
   _undoValid() {
-    return Boolean(this._undoEntry) && (Date.now() - this._undoEntry.ts) < this.UNDO_WINDOW_MS;
+    return Boolean(this._undoEntry) && (Date.now() - this._undoEntry!.ts) < this.UNDO_WINDOW_MS;
   },
 
   _undoBarHTML() {
     if (!this._undoValid()) return '';
-    const left = Math.max(0, Math.ceil((this.UNDO_WINDOW_MS - (Date.now() - this._undoEntry.ts)) / 1000));
+    const left = Math.max(0, Math.ceil((this.UNDO_WINDOW_MS - (Date.now() - this._undoEntry!.ts)) / 1000));
     return `<div class="undo-bar">
       <span class="text-body-large">↩</span>
-      <span class="undo-label">Ultima operazione: <strong>${this._esc(this._undoEntry.label)}</strong></span>
+      <span class="undo-label">Ultima operazione: <strong>${this._esc(this._undoEntry!.label)}</strong></span>
       <span class="undo-timer">${left}s</span>
       <button class="btn btn-sm btn-warning" onclick="App._undoLast()">ANNULLA</button>
     </div>`;
@@ -1186,7 +1296,8 @@ const App = {
     if (!this._undoValid()) {
       return this.toast('Finestra di annullamento scaduta — usare una rettifica inventariale', 'warning');
     }
-    const entry = this._undoEntry;
+    /* `_undoValid()` due righe sopra ha gia' guardato che ci sia. */
+    const entry = this._undoEntry!;
     const ok = await Dialog.confirm({
       title: 'Annullare l\u2019ultima operazione?',
       message: 'Verra\u0300 eseguito il movimento inverso e registrato a log come rettifica. Nessun dato viene cancellato.',
@@ -1240,42 +1351,42 @@ const App = {
     }
   },
 
-  _primaryScanField: null,
+  _primaryScanField: null as string | null,
 
-  setPrimaryScanField(id) {
+  setPrimaryScanField(id: string | null) {
     this._primaryScanField = id || null;
     const el = id ? document.getElementById(id) : null;
     document.querySelectorAll('.scan-active').forEach(n => n.classList.remove('scan-active'));
     if (el) { el.classList.add('scan-active'); el.focus(); }
   },
 
-  _focusKeeper(e) {
+  _focusKeeper(e: KeyboardEvent) {
     if (Dialog.isOpen) return;
     if (this._gateOpen) return;   // v2.7.0 [G6] — col gate aperto i tasti sono suoi
     if (!this._primaryScanField) return;
     if (e.ctrlKey || e.altKey || e.metaKey) return;
     if (e.key.length !== 1) return;                     // solo caratteri stampabili
-    const ae = document.activeElement;
+    const ae = document.activeElement as HTMLElement | null;
     const editable = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.tagName === 'SELECT' || ae.isContentEditable);
     if (editable) return;
-    const target = document.getElementById(this._primaryScanField);
+    const target = campo(this._primaryScanField);
     if (!target) return;
     e.preventDefault();
     target.focus();
     target.value += e.key;
   },
 
-  _shortcuts(e) {
+  _shortcuts(e: KeyboardEvent) {
     if (Dialog.isOpen) return;
     /* v2.7.0 [G6] — Il gate di identita' e' un blocco: finche' e' aperto
        nessuna scorciatoia deve poter agire su cio' che sta sotto. */
     if (this._gateOpen) return;
-    const ae = document.activeElement;
+    const ae = document.activeElement as HTMLElement | null;
     const typing = ae && (ae.tagName === 'INPUT' || ae.tagName === 'TEXTAREA' || ae.isContentEditable);
 
     if (e.ctrlKey && (e.key === 'f' || e.key === 'F')) {
       e.preventDefault();
-      const input = document.getElementById('hdrSearchInput');
+      const input = campo('hdrSearchInput');
       if (input) { input.focus(); input.select(); }
       return;
     }
@@ -1296,10 +1407,11 @@ const App = {
     const fnMap = {
       F2: ['io', 'in'], F3: ['pick', null], F4: ['inv', null],
       F6: ['io', 'out'], F7: ['quarantine', null], F8: ['shipping', null]
-    };
-    if (fnMap[e.key]) {
+    } as const;
+    const combinazione = fnMap[e.key as keyof typeof fnMap];
+    if (combinazione) {
       e.preventDefault();
-      const [mode, dir] = fnMap[e.key];
+      const [mode, dir] = combinazione;
       if (this.currentView !== 'movimenta') this.switchView('movimenta');
       setTimeout(() => this.startMov(mode, dir), 60);
       return;
@@ -1309,7 +1421,7 @@ const App = {
       this._undoLast();
     }
   }
-};
+});
 
 /* LE VISTE ESTRATTE RIENTRANO IN `App`.
 
@@ -1319,9 +1431,13 @@ const App = {
    qua verrebbe sovrascritto in silenzio, e da quel momento girerebbero due
    versioni della stessa maschera con una sola visibile. */
 for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampionamento, VistaMovimenta, VistaPosiziona, VistaSmaltimento, VistaPrelievo, VistaPercorso, VistaRapportoPrelievo, VistaInventario, VistaQuarantena, VistaSpedizioni, VistaDocumento, VistaMappa, VistaGiacenze, VistaConfigOperatori, VistaConfigSiti, VistaConfigArticoli, VistaConfigDati, VistaConfigurazione, VistaCruscotto, VistaRegistro, VistaArchivio, VistaRicerca]) {
+  /* Qui si scrive per nome, e un nome non e' una chiave dichiarata: le due
+     letture servono a questo e non aggiungono niente a runtime. */
+  const dentro = App as unknown as Record<string, unknown>;
+  const fuori = vista as unknown as Record<string, unknown>;
   for (const nome of Object.keys(vista)) {
     if (nome in App) throw new Error(`vista: ${nome} e' gia' in App`);
-    App[nome] = vista[nome];
+    dentro[nome] = fuori[nome];
   }
 }
 
