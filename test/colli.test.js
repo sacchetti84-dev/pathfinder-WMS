@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   espandi, leggiColli, validaDichiarazione,
   totaleColli, totaleUom, raggruppa, descriviColli,
-  daSuddivisione, preleva, uscite, scelteDaMisure, verificaColli,
+  daSuddivisione, preleva, uscite, scelteDaMisure, scelteDaUscite, verificaColli,
 } from '../src/modules/colli';
 
 /* ── La dichiarazione: 10 x 1.000 + 1 x 900 ─────────────────────────── */
@@ -299,5 +299,61 @@ describe('verificaColli', () => {
   it('una verifica che non puo\' girare non accusa nessuno', () => {
     expect(verificaColli(3, 2900, null, 'PZ')).toBe(null);
     expect(verificaColli(3, 2900, [], 'PZ')).toBe(null);
+  });
+});
+
+/* ── Le uscite messe da parte, e ritrovate dopo ──────────────────────── */
+
+/* Il carrello del DDT sceglie i colli quando la riga entra, e la merce esce
+   giorni dopo, all'evasione. Fra i due momenti gli indici non valgono piu' —
+   un altro terminale puo' aver mosso la riga — e quel che si mette da parte
+   sono le MISURE, come per il servizio. Qui si torna indietro. */
+describe('scelteDaUscite', () => {
+  it('i colli interi messi da parte si ritrovano per misura', () => {
+    expect(scelteDaUscite([25, 25, 10, 7], [{ da: 25, quantita: 25 }, { da: 7, quantita: 7 }], 'KG'))
+      .toEqual([{ indice: 0 }, { indice: 3 }]);
+  });
+
+  it('UN COLLO APERTO NON DIVENTA UN ALTRO COLLO: 10 preso da un 25 resta un 25 aperto', () => {
+    /* La riga ha anche un collo da 10: prenderlo sarebbe il difetto del
+       17/08 al contrario — saldo giusto, colli sbagliati. */
+    expect(scelteDaUscite([25, 25, 10], [{ da: 25, quantita: 10 }], 'KG'))
+      .toEqual([{ indice: 0, quantita: 10 }]);
+  });
+
+  it('due colli della stessa misura sono due scelte diverse', () => {
+    expect(scelteDaUscite([25, 25, 10], [{ da: 25, quantita: 25 }, { da: 25, quantita: 5 }], 'KG'))
+      .toEqual([{ indice: 0 }, { indice: 1, quantita: 5 }]);
+  });
+
+  it('una misura che non c\'e\' piu\' ferma l\'evasione invece di prenderne un\'altra', () => {
+    expect(() => scelteDaUscite([25, 10], [{ da: 7, quantita: 7 }], 'KG')).toThrow();
+    expect(() => scelteDaUscite([25], [{ da: 25, quantita: 25 }, { da: 25, quantita: 25 }], 'KG')).toThrow();
+  });
+
+  it('una quantita\' piu\' grande del collo non parte', () => {
+    expect(() => scelteDaUscite([25, 10], [{ da: 10, quantita: 12 }], 'KG')).toThrow();
+  });
+
+  it('senza elenco o senza uscite non c\'e\' niente da ritrovare', () => {
+    expect(scelteDaUscite(null, [{ da: 25, quantita: 25 }], 'KG')).toBe(null);
+    expect(scelteDaUscite([25], null, 'KG')).toBe(null);
+    expect(scelteDaUscite([25], [], 'KG')).toBe(null);
+  });
+
+  it('ANDATA E RITORNO: cio\' che `uscite` mette da parte, `scelteDaUscite` lo ritrova uguale', () => {
+    const colli = [25, 25, 10, 7];
+    const scelte = [{ indice: 0 }, { indice: 2, quantita: 4 }];
+    const messe = uscite(colli, scelte, 'KG');
+    expect(scelteDaUscite(colli, messe, 'KG')).toEqual(scelte);
+  });
+
+  it('la seconda riga del carrello vede la riga gia\' impegnata dalla prima', () => {
+    /* Due righe di DDT sullo stesso lotto non possono prenotare lo stesso
+       collo: la seconda sceglie su cio' che la prima ha lasciato. */
+    const colli = [25, 25, 10];
+    const prima = uscite(colli, [{ indice: 0, quantita: 7 }], 'KG');
+    const restano = preleva(colli, scelteDaUscite(colli, prima, 'KG'), 'KG').rimasti;
+    expect(restano).toEqual([18, 25, 10]);
   });
 });
