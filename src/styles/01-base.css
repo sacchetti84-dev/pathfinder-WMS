@@ -4,16 +4,10 @@
    e Boot Screen
    ════════════════════════════════════════════════════════════════════════════ */
 
-/* Il reset sta in `@layer base` e non fuori dai layer, e la ragione e' la
-   cascata: una regola senza layer batte QUALUNQUE regola dentro un layer, e
-   fuori dai layer questo `*` spegneva ogni `mb-*` e `p-*` di Tailwind — le
-   utility nascevano morte. Dentro `base` l'ordine diventa quello giusto:
-   reset, poi utility, poi il CSS dell'applicativo che resta senza layer e
-   continua a vincere su tutto. La specificita' e' 0,0,0: qualunque classe lo
-   batteva gia' prima, quindi a video non cambia niente. */
-@layer base {
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-}
+/* Il reset non sta piu' fuori dai layer: tutto questo foglio entra in `app`
+   da `00-tailwind.css`, e `app` sta sotto `utilities`. Fuori dai layer questo
+   `*` spegneva ogni `mb-*` e `p-*` di Tailwind — le utility nascevano morte. */
+* { margin: 0; padding: 0; box-sizing: border-box; }
 html, body { height: 100%; overflow: hidden; }
 
 body {
