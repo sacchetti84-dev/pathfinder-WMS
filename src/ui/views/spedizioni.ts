@@ -56,7 +56,7 @@ export const VistaSpedizioni: Vista = {
     const w = this._shipComputeWeights();
 
     el.innerHTML = `<div class="mov-form-card">
-      <h3>🚚 <span style="color:var(--sx-orange)">Spedizioni</span> — Documenti di trasporto in uscita</h3>
+      <h3>🚚 <span class="text-sx-orange">Spedizioni</span> — Documenti di trasporto in uscita</h3>
       <div class="wf-instructions">
         <strong>Flusso 2-stati:</strong>
         <span class="wf-step">① REGISTRA DDT</span> (testata + righe → DDT pendente, merce ancora in giacenza) →
@@ -65,32 +65,32 @@ export const VistaSpedizioni: Vista = {
         La <strong>causale</strong> distingue una spedizione da un reso.
       </div>
 
-      ${gaps.length ? `<div class="mov-preview mov-preview-err" style="margin-bottom:0.6rem">
+      ${gaps.length ? `<div class="mov-preview mov-preview-err mb-6">
         ⚠ <strong>Mittente incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.
         I DDT si stampano lo stesso, ma con l'avviso che il documento non è conforme.
-        <button class="btn btn-sm" style="margin-left:0.4rem" onclick="App._configTab='docs';App.switchView('config')">Configura ora</button>
+        <button class="btn btn-sm ml-4" onclick="App._configTab='docs';App.switchView('config')">Configura ora</button>
       </div>` : ''}
 
       <!-- ═════ LISTA DDT PENDENTI ═════ -->
-      <div style="margin-bottom:0.8rem">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.3rem">
-          <strong style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-orange)">📋 DDT Pendenti <span class="badge badge-orange">${pending.length}</span></strong>
+      <div class="mb-8">
+        <div class="flex justify-between items-center mb-3">
+          <strong class="text-body-small text-sx-orange">📋 DDT Pendenti <span class="badge badge-orange">${pending.length}</span></strong>
         </div>
         ${this._renderPendingDdtList(pending)}
       </div>
 
       <!-- ═════ COMPOSIZIONE NUOVO DDT ═════ -->
-      <details ${cart.length ? 'open' : ''} style="margin-top:0.8rem">
-        <summary style="cursor:pointer;font-size: var(--md-sys-typescale-body-medium-size);font-weight:700;color:var(--sx-primary);padding:0.4rem 0.5rem;background:var(--grad-soft-orange);border:1px solid var(--sx-orange);border-radius:var(--radius)">
+      <details class="mt-8" ${cart.length ? 'open' : ''}>
+        <summary class="cursor-pointer text-body-medium font-bold text-sx-primary py-4 px-5 bg-[var(--grad-soft-orange)] border border-sx-orange rounded-[var(--radius)]">
           ➕ Componi Nuovo DDT ${cart.length ? `<span class="badge badge-orange">${cart.length} righe in bozza</span>` : ''}
         </summary>
-        <div style="border:1px solid var(--sx-border);border-top:none;border-radius:0 0 var(--radius-md) var(--radius-md);padding:0.6rem;background:var(--sx-card-alt)">
+        <div class="border border-sx-border [border-top:none] rounded-b-[var(--radius-md)] p-6 bg-sx-card-alt">
           ${datalist}
 
           <!-- ── TESTATA: documento ── -->
           <div class="ddt-block">
             <div class="ddt-block-lbl">📋 Documento</div>
-            <div class="form-row" style="margin-bottom:0.4rem">
+            <div class="form-row mb-4">
               <div class="form-group">
                 <label>Causale del trasporto <span class="req">*</span></label>
                 <select class="select" id="pShipCausale" onchange="App._persistShipHeader()">${causaliOpts}</select>
@@ -101,7 +101,7 @@ export const VistaSpedizioni: Vista = {
                   onchange="App._persistShipHeader()">
               </div>
             </div>
-            <div class="form-row" style="margin-bottom:0">
+            <div class="form-row mb-0">
               <div class="form-group">
                 <label>Data del documento <span class="req">*</span></label>
                 <input class="input" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" id="pShipDocDate"
@@ -119,12 +119,12 @@ export const VistaSpedizioni: Vista = {
           <!-- ── TESTATA: destinatario ── -->
           <div class="ddt-block">
             <div class="ddt-block-lbl">🏢 Destinatario</div>
-            <div class="form-row" style="margin-bottom:0.4rem">
+            <div class="form-row mb-4">
               <div class="form-group">
                 <label>Denominazione <span class="req">*</span></label>
                 <input class="input" id="pShipCustomer" list="shipRecipients" placeholder="Ragione sociale del destinatario" maxlength="120"
                   value="${this._esc(this._shipCustomer)}" onchange="App._shipRecipientPicked()">
-                <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">💡 Un destinatario già usato porta con sé indirizzo e P. IVA.</div>
+                <div class="text-label-small text-sx-text-muted mt-1.5">💡 Un destinatario già usato porta con sé indirizzo e P. IVA.</div>
               </div>
               <div class="form-group">
                 <label>Partita IVA / C.F.</label>
@@ -132,7 +132,7 @@ export const VistaSpedizioni: Vista = {
                   value="${this._esc(this._shipDestVat)}" onchange="App._persistShipHeader()">
               </div>
             </div>
-            <div class="form-row" style="margin-bottom:0.4rem">
+            <div class="form-row mb-4">
               <div class="form-group">
                 <label>Indirizzo</label>
                 <input class="input" id="pShipDestAddress" maxlength="120" placeholder="Via, numero civico"
@@ -140,11 +140,11 @@ export const VistaSpedizioni: Vista = {
               </div>
               <div class="form-group">
                 <label>CAP</label>
-                <input class="input input-mono" id="pShipDestZip" maxlength="10" style="max-width:120px"
+                <input class="input input-mono max-w-[120px]" id="pShipDestZip" maxlength="10"
                   value="${this._esc(this._shipDestZip)}" onchange="App._persistShipHeader()">
               </div>
             </div>
-            <div class="form-row" style="margin-bottom:0.4rem">
+            <div class="form-row mb-4">
               <div class="form-group">
                 <label>Comune</label>
                 <input class="input" id="pShipDestCity" maxlength="60"
@@ -152,22 +152,22 @@ export const VistaSpedizioni: Vista = {
               </div>
               <div class="form-group">
                 <label>Prov.</label>
-                <input class="input input-mono" id="pShipDestProvince" maxlength="4" style="max-width:110px" placeholder="Sigla"
+                <input class="input input-mono max-w-[110px]" id="pShipDestProvince" maxlength="4" placeholder="Sigla"
                   value="${this._esc(this._shipDestProvince)}" onchange="App._persistShipHeader()">
               </div>
             </div>
-            <div class="form-group" style="margin-bottom:0">
+            <div class="form-group mb-0">
               <label>Luogo di destinazione della merce</label>
               <input class="input" id="pShipShipTo" maxlength="160" placeholder="Solo se DIVERSO dalla sede del destinatario"
                 value="${this._esc(this._shipShipTo)}" onchange="App._persistShipHeader()">
-              <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">Vuoto: si consegna alla sede del destinatario.</div>
+              <div class="text-label-small text-sx-text-muted mt-1.5">Vuoto: si consegna alla sede del destinatario.</div>
             </div>
           </div>
 
           <!-- ── TESTATA: trasporto ── -->
           <div class="ddt-block">
             <div class="ddt-block-lbl">🚛 Trasporto</div>
-            <div class="form-row" style="margin-bottom:0.4rem">
+            <div class="form-row mb-4">
               <div class="form-group">
                 <label>Vettore</label>
                 <input class="input" id="pShipCarrier" placeholder="Es: BRT, GLS, vettore proprio" maxlength="80"
@@ -181,7 +181,7 @@ export const VistaSpedizioni: Vista = {
                 </select>
               </div>
             </div>
-            <div class="form-row" style="margin-bottom:0.4rem">
+            <div class="form-row mb-4">
               <div class="form-group">
                 <label>Porto</label>
                 <select class="select" id="pShipPorto" onchange="App._persistShipHeader()">
@@ -190,13 +190,13 @@ export const VistaSpedizioni: Vista = {
                 </select>
               </div>
               <div class="form-group">
-                <label>📅 Data ritiro prevista <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);font-weight:400">(per gli alert)</span></label>
+                <label>📅 Data ritiro prevista <span class="text-label-small text-sx-text-muted font-normal">(per gli alert)</span></label>
                 <input class="input" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" id="pShipExpected"
                   value="${this._esc(this._dateISOtoIT(this._shipExpectedDate))}"
                   oninput="App._dateMaskInput(this)" onblur="App._dateMaskBlur(this);App._persistShipHeader()">
               </div>
             </div>
-            <div class="form-row" style="margin-bottom:0">
+            <div class="form-row mb-0">
               <div class="form-group">
                 <label>Data e ora inizio trasporto</label>
                 <input class="input" id="pShipStartTransport" maxlength="30" placeholder="Es: 08/08/2026 14:30 — o «alla consegna»"
@@ -212,8 +212,8 @@ export const VistaSpedizioni: Vista = {
 
           <!-- ── TESTATA: pesi ── -->
           <div class="ddt-block">
-            <div class="ddt-block-lbl">⚖ Pesi <span style="font-weight:400;text-transform:none;letter-spacing:0">— calcolati dall'anagrafica, correggibili a mano</span></div>
-            <div class="form-row" style="margin-bottom:0">
+            <div class="ddt-block-lbl">⚖ Pesi <span class="font-normal normal-case tracking-[0]">— calcolati dall'anagrafica, correggibili a mano</span></div>
+            <div class="form-row mb-0">
               <div class="form-group">
                 <label>Peso netto (kg)</label>
                 <input class="input input-mono" id="pShipPesoNetto" inputmode="decimal" maxlength="12"
@@ -227,7 +227,7 @@ export const VistaSpedizioni: Vista = {
                   value="${this._esc(this._shipPesoLordo)}" onchange="App._persistShipHeader()">
               </div>
             </div>
-            <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.3rem">
+            <div class="text-label-small text-sx-text-muted mt-3">
               ${w.missing.length
                 ? `⚠ Peso non censito in anagrafica per: <strong>${this._esc(w.missing.slice(0, 4).join(', '))}${w.missing.length > 4 ? ` e altri ${w.missing.length - 4}` : ''}</strong> — il netto va scritto a mano.`
                 : (w.net != null
@@ -237,12 +237,12 @@ export const VistaSpedizioni: Vista = {
           </div>
 
           <!-- ── INSERIMENTO RIGA ── -->
-          <div class="form-group" style="margin-bottom:0.4rem">
+          <div class="form-group mb-4">
             <label>① Scansiona Articolo <span class="req">*</span></label>
-            <input class="input input-mono" id="pShipArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+            <input class="input input-mono uppercase" id="pShipArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
               onkeydown="if(event.key==='Enter'){event.preventDefault();$('pShipLot')?.focus();}">
           </div>
-          <div class="form-group" style="margin-bottom:0.4rem">
+          <div class="form-group mb-4">
             <label>② Scansiona Lotto <span class="req">*</span></label>
             <input class="input input-mono" id="pShipLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
               onkeydown="if(event.key==='Enter'){event.preventDefault();App._shipLookup();}">
@@ -250,30 +250,30 @@ export const VistaSpedizioni: Vista = {
           </div>
           <div id="pShipDetails" class="hidden">
             <div id="pShipItemPreview"></div>
-            <div style="display:flex;gap:0.4rem;margin-bottom:0.4rem;align-items:flex-end">
-              <div class="form-group" style="width:130px"><label>Colli <span class="req">*</span></label><input class="input input-mono" id="pShipQty" type="number" min="1" step="1" value="1" style="text-align:center;font-weight:700"
+            <div class="flex gap-4 mb-4 items-end">
+              <div class="form-group w-[130px]"><label>Colli <span class="req">*</span></label><input class="input input-mono text-center font-bold" id="pShipQty" type="number" min="1" step="1" value="1"
                 onkeydown="if(event.key==='Enter'){event.preventDefault();App._shipAddToCart();}"></div>
-              <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);padding-bottom:0.4rem">Disponibili (esclusi pendenti): <strong id="pShipAvail" style="color:var(--sx-orange)">—</strong> Coll.</div>
+              <div class="text-label-small text-sx-text-muted pb-4">Disponibili (esclusi pendenti): <strong class="text-sx-orange" id="pShipAvail">—</strong> Coll.</div>
             </div>
-            <div class="form-group" style="margin-bottom:0.5rem">
+            <div class="form-group mb-5">
               <label>Note riga (opz.)</label>
               <input class="input" id="pShipNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Es: riferimento riga d'ordine">
             </div>
-            <button class="btn" style="width:100%;background:var(--sx-orange);color:#fff;border-color:var(--sx-orange);padding:0.5rem;font-weight:700" onclick="App._shipAddToCart()">+ AGGIUNGI AL CARRELLO</button>
+            <button class="btn w-full bg-sx-orange text-white border-sx-orange p-5 font-bold" onclick="App._shipAddToCart()">+ AGGIUNGI AL CARRELLO</button>
           </div>
 
           <!-- ── CARRELLO ── -->
           <section id="shipCartZone">${this._shipCartZoneHTML()}</section>
 
-          <div class="form-group" style="margin-top:0.6rem;margin-bottom:0">
+          <div class="form-group mt-6 mb-0">
             <label>Annotazioni sul documento (opz.)</label>
             <input class="input" id="pShipDocNotes" maxlength="200" placeholder="Testo libero riportato in fondo al DDT"
               value="${this._esc(this._shipDocNotes)}" onchange="App._persistShipHeader()">
           </div>
-          <div id="pShipFeedback" style="margin-top:0.4rem"></div>
+          <div class="mt-4" id="pShipFeedback"></div>
         </div>
       </details>
-      <div style="margin-top:0.6rem"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
     </div>`;
     if (!cart.length && !pending.length) $('pShipCustomer')?.focus();
   },
@@ -333,10 +333,10 @@ export const VistaSpedizioni: Vista = {
   _shipMostraDestinazioni(rcp) {
     $('destPickOverlay')?.remove();
     const righe = (rcp.destinations || []).map((d: any, i: any) => `
-      <button class="btn" style="width:100%;text-align:left;margin-bottom:0.3rem"
+      <button class="btn w-full text-left mb-3"
         onclick="App._shipScegliDestinazione('${this._esc(rcp.rcp_id)}',${i})">
         <strong>${this._esc(d.label || `Destinazione ${i + 1}`)}</strong>${d.predefinita ? ' <span class="badge badge-teal">predefinita</span>' : ''}<br>
-        <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${this._esc(descriviDestinazione(d))}</span>
+        <span class="text-label-small text-sx-text-muted">${this._esc(descriviDestinazione(d))}</span>
       </button>`).join('');
     const ov = document.createElement('div');
     ov.className = 'modal-overlay';
@@ -386,7 +386,7 @@ export const VistaSpedizioni: Vista = {
      v2.0.0+ — sort by alert priority (overdue/today/tomorrow/soon/ok/none) */
   _renderPendingDdtList(pending) {
     if (!pending.length) {
-      return `<div style="padding:0.5rem 0.7rem;background:var(--sx-card-alt);border:1px dashed var(--sx-border);border-radius:var(--radius);font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);text-align:center">Nessun DDT pendente — componine uno nuovo qui sotto</div>`;
+      return `<div class="py-5 px-7 bg-sx-card-alt [border:1px_dashed_var(--sx-border)] rounded-[var(--radius)] text-body-small text-sx-text-muted text-center">Nessun DDT pendente — componine uno nuovo qui sotto</div>`;
     }
     const sorted = pending.slice().sort((a: any, b: any) => {
       const sa = pickupAlertStatus(a).sortKey;
@@ -415,53 +415,53 @@ export const VistaSpedizioni: Vista = {
     const borderWidth = isUrgent ? '2px' : '1px';
     const animation = (alert.level === 'overdue' || alert.level === 'today') ? 'animation:pendingPulse 2s ease-in-out infinite' : '';
     const alertBadgeSummary = alert.level === 'none'
-      ? `<span class="badge" style="background:var(--sx-card-alt);color:var(--sx-text-muted);border:1px dashed var(--sx-border-strong);font-size: var(--md-sys-typescale-label-small-size)">📅 da definire</span>`
+      ? `<span class="badge" class="bg-sx-card-alt text-sx-text-muted [border:1px_dashed_var(--sx-border-strong)] text-label-small">📅 da definire</span>`
       : `<span class="badge" style="background:${alert.bg};color:${alert.color};border-color:${alert.color};font-size: var(--md-sys-typescale-label-small-size);font-weight:700">📅 ${this._esc(alert.shortLabel)}</span>`;
     /* v2.0.1 [A-3] — Controllo di integrità delegato a Store.checkPendingDocIntegrity. */
     const integrity = Store.checkPendingDocIntegrity(doc);
     const warnings = integrity.issues.length;
     const issueByLine = new Map(integrity.issues.map(x => [x.lineIndex, x]));
-    const warnBadge = warnings > 0 ? `<span class="badge" style="background:var(--sx-danger-soft);color:var(--sx-danger);border-color:var(--sx-danger);margin-left:0.3rem" title="${warnings} riga/e non allineata/e alla giacenza attuale">⚠ ${warnings}</span>` : '';
+    const warnBadge = warnings > 0 ? `<span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3" title="${warnings} riga/e non allineata/e alla giacenza attuale">⚠ ${warnings}</span>` : '';
     const linesHtml = doc.lines.map((l: any, i: any) => {
       const issue = issueByLine.get(i);
       const rowStyle = issue ? 'background:var(--sx-danger-soft);' : '';
       const issueHtml = issue
-        ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-danger);padding:0.15rem 0 0.25rem 1rem">⚠ ${this._esc(issue.message)}</div>`
+        ? `<div class="text-label-small text-sx-danger pt-1.5 pr-0 pb-2.5 pl-10">⚠ ${this._esc(issue.message)}</div>`
         : '';
       return `<div style="${rowStyle}font-size: var(--md-sys-typescale-label-small-size);padding:0.2rem 0;border-bottom:1px dashed var(--sx-border)">
-      <div style="display:flex;justify-content:space-between;gap:0.4rem">
-        <span><span style="color:var(--sx-text-muted)">${i+1}.</span> <strong>${this._esc(l.article_code)}</strong> · L:${this._esc(l.lot_code)} · 📍${this._esc(l.location_code!)}${l.notes ? ' · <em>' + this._esc(l.notes) + '</em>' : ''}</span>
+      <div class="flex justify-between gap-4">
+        <span><span class="text-sx-text-muted">${i+1}.</span> <strong>${this._esc(l.article_code)}</strong> · L:${this._esc(l.lot_code)} · 📍${this._esc(l.location_code!)}${l.notes ? ' · <em>' + this._esc(l.notes) + '</em>' : ''}</span>
         <strong style="color:${themeColor}">${l.qty} Coll.</strong>
       </div>${issueHtml}
     </div>`;
     }).join('');
     return `<details data-doc-id="${this._esc(doc.doc_id)}" style="background:${themeBg};border:${borderWidth} solid ${borderColor};border-radius:var(--radius-md);padding:0;margin-bottom:0.4rem;${animation}">
-      <summary style="cursor:pointer;padding:0.5rem 0.7rem;font-size: var(--md-sys-typescale-body-small-size);font-weight:600;display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
-        <span style="display:flex;align-items:center;gap:0.4rem;flex-wrap:wrap">
-          <strong style="color:${themeColor}">DDT ${this._esc(doc.ddt_num)}</strong> · ${this._esc(doc.destination)}${doc.carrier ? ' <span style="color:var(--sx-text-muted)">· ' + this._esc(doc.carrier) + '</span>' : ''}
-          <span class="badge ${themeBadge}" style="font-size: var(--md-sys-typescale-label-small-size)">${this._esc(causale)}</span>
+      <summary class="cursor-pointer py-5 px-7 text-body-small font-semibold flex justify-between items-center gap-5 flex-wrap">
+        <span class="flex items-center gap-4 flex-wrap">
+          <strong style="color:${themeColor}">DDT ${this._esc(doc.ddt_num)}</strong> · ${this._esc(doc.destination)}${doc.carrier ? ' <span class="text-sx-text-muted">· ' + this._esc(doc.carrier) + '</span>' : ''}
+          <span class="badge ${themeBadge} text-label-small">${this._esc(causale)}</span>
           ${alertBadgeSummary}
           ${warnBadge}
         </span>
         <span class="badge ${themeBadge}">${doc.lines.length} righe · ${totalColli} Coll.</span>
       </summary>
       <div style="padding:0.5rem 0.7rem;background:#fff;border-top:1px solid ${borderColor};border-radius:0 0 var(--radius-md) var(--radius-md)">
-        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.4rem">
-          Registrato il ${created} <span style="color:var(--sx-text-secondary)">(${ageStr} fa)</span>
+        <div class="text-label-small text-sx-text-muted mb-4">
+          Registrato il ${created} <span class="text-sx-text-secondary">(${ageStr} fa)</span>
           ${doc.operator ? ' · <strong>' + this._esc(doc.operator) + '</strong>' : ''} · Destinatario: <strong>${this._esc(doc.destination)}</strong>
           ${doc.ship_to ? ' · Destinazione: <strong>' + this._esc(doc.ship_to) + '</strong>' : ''}
         </div>
-        ${alert.level !== 'none' ? `<div style="background:${alert.bg};color:${alert.color};font-weight:700;font-size: var(--md-sys-typescale-body-small-size);padding:0.35rem 0.55rem;border-radius:var(--radius);margin-bottom:0.4rem;border:1px solid ${alert.color}">${this._esc(alert.label)}</div>` : `<div style="background:var(--sx-card-alt);color:var(--sx-text-muted);font-size: var(--md-sys-typescale-label-small-size);padding:0.3rem 0.5rem;border-radius:var(--radius);margin-bottom:0.4rem;border:1px dashed var(--sx-border-strong)">📅 Ritiro non datato — nessun alert su questo DDT</div>`}
-        <div style="margin-bottom:0.5rem">${linesHtml}</div>
-        ${warnings > 0 ? `<div style="background:var(--sx-danger-soft);color:var(--sx-danger);font-size: var(--md-sys-typescale-label-small-size);padding:0.4rem 0.55rem;border-radius:var(--radius);margin-bottom:0.4rem;border:1px solid var(--sx-danger)">
+        ${alert.level !== 'none' ? `<div style="background:${alert.bg};color:${alert.color};font-weight:700;font-size: var(--md-sys-typescale-body-small-size);padding:0.35rem 0.55rem;border-radius:var(--radius);margin-bottom:0.4rem;border:1px solid ${alert.color}">${this._esc(alert.label)}</div>` : `<div class="bg-sx-card-alt text-sx-text-muted text-label-small py-3 px-5 rounded-[var(--radius)] mb-4 [border:1px_dashed_var(--sx-border-strong)]">📅 Ritiro non datato — nessun alert su questo DDT</div>`}
+        <div class="mb-5">${linesHtml}</div>
+        ${warnings > 0 ? `<div class="bg-sx-danger-soft text-sx-danger text-label-small py-4 px-5.5 rounded-[var(--radius)] mb-4 border border-sx-danger">
           <strong>⚠ ${warnings} riga/e NON ALLINEATA/E alla giacenza attuale.</strong><br>
           Il documento non è evadibile così com'è: usare <strong>📝 Modifica</strong> per riallinearlo, oppure <strong>✕</strong> per annullarlo e rifarlo.
         </div>` : ''}
-        <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+        <div class="flex gap-4 flex-wrap">
           <button class="btn" style="flex:1;min-width:120px;padding:0.5rem;font-weight:700;background:${themeColor};color:#fff;border-color:${themeColor}" onclick="App._evadiSpedizione('${this._esc(doc.doc_id)}')">✓ EVADI DDT</button>
-          <button class="btn" style="background:var(--sx-accent-soft);color:var(--sx-accent);border-color:var(--sx-accent);font-weight:600" onclick="App._editPendingDoc('${this._esc(doc.doc_id)}')" title="Modifica DDT">📝 Modifica</button>
+          <button class="btn bg-sx-accent-soft text-sx-accent border-sx-accent font-semibold" onclick="App._editPendingDoc('${this._esc(doc.doc_id)}')" title="Modifica DDT">📝 Modifica</button>
           <button class="btn" onclick="App._printDDT('${this._esc(doc.doc_id)}')" title="Stampa il DDT">🖨</button>
-          <button class="btn btn-ghost" style="color:var(--sx-danger)" onclick="App._cancelPendingShip('${this._esc(doc.doc_id)}')" title="Annulla DDT">✕</button>
+          <button class="btn btn-ghost text-sx-danger" onclick="App._cancelPendingShip('${this._esc(doc.doc_id)}')" title="Annulla DDT">✕</button>
         </div>
       </div>
     </details>`;
@@ -472,17 +472,17 @@ export const VistaSpedizioni: Vista = {
     const lot = Validate.clean($('pShipLot')?.value);
     const info = $('pShipInfo');
     const details = $('pShipDetails');
-    if (!art) { info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ Scansiona prima il codice articolo</div>`; $('pShipArt')?.focus(); return; }
-    if (!lot) { info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ Scansiona il codice lotto</div>`; $('pShipLot')?.focus(); return; }
+    if (!art) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona prima il codice articolo</div>`; $('pShipArt')?.focus(); return; }
+    if (!lot) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona il codice lotto</div>`; $('pShipLot')?.focus(); return; }
     const artErr = Validate.article(art);
-    if (artErr) { info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ ${this._esc(artErr)}</div>`; details.classList.add('hidden'); return; }
+    if (artErr) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ ${this._esc(artErr)}</div>`; details.classList.add('hidden'); return; }
     const lotErr = Validate.lot(lot);
-    if (lotErr) { info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ ${this._esc(lotErr)}</div>`; details.classList.add('hidden'); return; }
+    if (lotErr) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ ${this._esc(lotErr)}</div>`; details.classList.add('hidden'); return; }
     const allItems = Store.findItemLocations(art);
     const matched = allItems.filter(it => it.lot_code === lot);
-    if (!matched.length) { info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ Item ${this._esc(art)}#${this._esc(lot)} non trovato in magazzino</div>`; details.classList.add('hidden'); return; }
+    if (!matched.length) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Item ${this._esc(art)}#${this._esc(lot)} non trovato in magazzino</div>`; details.classList.add('hidden'); return; }
     const notQuar = matched.filter(it => !Store.isItemQuarantined(it.item_key, it.location_code));
-    if (!notQuar.length) { info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-purple);margin-top:0.2rem">⚠ L'item ${this._esc(art)}#${this._esc(lot)} è in quarantena in tutte le ubicazioni in cui si trova</div>`; details.classList.add('hidden'); return; }
+    if (!notQuar.length) { info.innerHTML = `<div class="text-body-small text-sx-purple mt-2">⚠ L'item ${this._esc(art)}#${this._esc(lot)} è in quarantena in tutte le ubicazioni in cui si trova</div>`; details.classList.add('hidden'); return; }
     const inCartByKey = {};
     for (const c of this._shipCart) {
       const k = `${c.location_code}#${c.item_key}`;
@@ -496,18 +496,18 @@ export const VistaSpedizioni: Vista = {
       return { ...it, _totalQty: totalQty, _pendingQty: pendingQty, _availableQty: availableQty };
     });
     const usable = enriched.filter(it => it._availableQty > 0);
-    if (!usable.length) { info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-warning);margin-top:0.2rem">⚠ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`; details.classList.add('hidden'); return; }
+    if (!usable.length) { info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`; details.classList.add('hidden'); return; }
     if (usable.length === 1) { this._shipSelectItem(usable[0]); return; }
-    let html = '<div style="max-height:200px;overflow-y:auto;margin-top:0.3rem"><div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.3rem">Item presente in più ubicazioni — seleziona da quale prelevare:</div>';
+    let html = '<div class="max-h-[200px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Item presente in più ubicazioni — seleziona da quale prelevare:</div>';
     for (const it of usable) {
       const p = App._payload(it);
       const pendBadge = it._pendingQty > 0 ? ` <span class="badge badge-amber">${it._pendingQty} prenotati</span>` : '';
-      html += `<div class="inv-item-row" style="cursor:pointer" onclick="App._shipSelectEnc('${p}')">
+      html += `<div class="inv-item-row cursor-pointer" onclick="App._shipSelectEnc('${p}')">
         <div class="inv-info">
-          <div class="inv-code" style="color:var(--sx-orange)">${this._esc(it.article_code)} <span style="color:var(--sx-text-muted);font-weight:400;font-size: var(--md-sys-typescale-body-small-size)">${this._esc(it.article_description || '')}</span></div>
+          <div class="inv-code text-sx-orange">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-body-small">${this._esc(it.article_description || '')}</span></div>
           <div class="inv-lot">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong>${pendBadge}${it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : ''}</div>
         </div>
-        <span style="color:var(--sx-orange);font-size: var(--md-sys-typescale-body-small-size)">🚚 Seleziona</span>
+        <span class="text-sx-orange text-body-small">🚚 Seleziona</span>
       </div>`;
     }
     info.innerHTML = html + '</div>';
@@ -526,17 +526,17 @@ export const VistaSpedizioni: Vista = {
       .reduce((s: any, c: any) => s + c.qty, 0);
     const availableQty = Math.max(0, totalQty - pendingQty - cartQty);
     if (availableQty <= 0) {
-      $('pShipInfo').innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-warning);margin-top:0.2rem">⚠ Giacenza tutta impegnata</div>`;
+      $('pShipInfo').innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠ Giacenza tutta impegnata</div>`;
       return;
     }
     this._shipState = { item: full, availableQty, totalQty, pendingQty };
     const expBadge = full.expiry_date ? ` · scad. ${this._esc(full.expiry_date)}` : '';
-    const pendBadge = pendingQty > 0 ? ` · <span style="color:var(--sx-warning)">${pendingQty} prenotati</span>` : '';
+    const pendBadge = pendingQty > 0 ? ` · <span class="text-sx-warning">${pendingQty} prenotati</span>` : '';
     $('pShipInfo').innerHTML = '';
-    $('pShipItemPreview').innerHTML = `<div class="mov-preview" style="background:var(--grad-soft-orange);border-color:var(--sx-orange);margin-bottom:0.4rem">
-      <strong style="color:var(--sx-orange)">${this._esc(full.article_code)}</strong>
-      <span style="color:var(--sx-text-muted)">${this._esc(full.article_description || '')}</span><br>
-      <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">Lotto: <strong>${this._esc(full.lot_code)}</strong> · Ubic: <strong class="mono">${this._esc(full.location_code)}</strong> · Disp. effettiva: <strong style="color:var(--sx-orange)">${availableQty} Coll.</strong> (tot. ${totalQty}${pendBadge})${expBadge}</span>
+    $('pShipItemPreview').innerHTML = `<div class="mov-preview bg-[var(--grad-soft-orange)] border-sx-orange mb-4">
+      <strong class="text-sx-orange">${this._esc(full.article_code)}</strong>
+      <span class="text-sx-text-muted">${this._esc(full.article_description || '')}</span><br>
+      <span class="text-body-small text-sx-text-muted">Lotto: <strong>${this._esc(full.lot_code)}</strong> · Ubic: <strong class="mono">${this._esc(full.location_code)}</strong> · Disp. effettiva: <strong class="text-sx-orange">${availableQty} Coll.</strong> (tot. ${totalQty}${pendBadge})${expBadge}</span>
     </div>`;
     const qe = $('pShipQty');
     if (qe) { qe.value = availableQty; qe.max = availableQty; }
@@ -640,12 +640,12 @@ export const VistaSpedizioni: Vista = {
     const totalColli = this._shipCart.reduce((s: any, r: any) => s + (r.qty || 0), 0);
     const w = this._shipComputeWeights();
     const wLabel = w.net != null ? ` <span class="dlg-chip">${this._fmtKg(w.net)} kg</span>` : '';
-    return `<div style="display:flex;justify-content:space-between;align-items:center;margin:0.7rem 0 0.35rem">
-        <strong style="font-size: var(--md-sys-typescale-body-medium-size)">🛒 Carrello Bozza <span style="color:var(--sx-orange)">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>${wLabel}` : ''}</strong>
+    return `<div class="flex justify-between items-center mt-7 mx-0 mb-3.5">
+        <strong class="text-body-medium">🛒 Carrello Bozza <span class="text-sx-orange">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>${wLabel}` : ''}</strong>
         ${n ? '<button class="btn btn-sm btn-ghost" onclick="App._shipClearCart()">Svuota</button>' : ''}
       </div>
       <div class="pick-cart">${this._renderShipCart()}</div>
-      ${n ? `<button class="btn" style="width:100%;margin-top:0.6rem;font-weight:800;min-height:var(--md-touch);background:var(--sx-orange);color:#fff;border-color:var(--sx-orange)" onclick="App._saveShipPending()">📥 REGISTRA DDT PENDENTE (${n} righe)</button>` : ''}`;
+      ${n ? `<button class="btn w-full mt-6 font-extrabold min-h-[var(--md-touch)] bg-sx-orange text-white border-sx-orange" onclick="App._saveShipPending()">📥 REGISTRA DDT PENDENTE (${n} righe)</button>` : ''}`;
   },
 
   _updateShipCart() {
@@ -658,15 +658,15 @@ export const VistaSpedizioni: Vista = {
     if (!this._shipCart.length) return '<div class="pick-cart-empty">Carrello vuoto — scansiona articolo e lotto, identifica in giacenza, poi aggiungi</div>';
     return this._shipCart.map((it: any, i: any) => {
       const expBadge = it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : '';
-      const notesBadge = it.notes ? ` · <span style="color:var(--sx-text-muted);font-style:italic">${this._esc(it.notes)}</span>` : '';
-      const partial = it.qty < (it.qty_at_creation || it.qty) ? ` <span class="badge badge-amber" style="margin-left:0.2rem">PARZIALE</span>` : '';
-      return `<div class="pick-cart-item" style="border-left:3px solid var(--sx-orange)">
-        <div class="pci-num" style="background:var(--sx-orange)">${i+1}</div>
+      const notesBadge = it.notes ? ` · <span class="text-sx-text-muted italic">${this._esc(it.notes)}</span>` : '';
+      const partial = it.qty < (it.qty_at_creation || it.qty) ? ` <span class="badge badge-amber ml-2">PARZIALE</span>` : '';
+      return `<div class="pick-cart-item border-l-[3px] border-l-sx-orange">
+        <div class="pci-num bg-sx-orange">${i+1}</div>
         <div class="pci-info">
-          <div class="pci-code">${this._esc(it.article_code)} <span style="color:var(--sx-text-muted);font-weight:400;font-size: var(--md-sys-typescale-label-small-size)">${this._esc(it.article_description || '')}</span>${partial}</div>
-          <div class="pci-loc">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong style="color:var(--sx-orange)">${it.qty} Coll.</strong>${expBadge}${notesBadge}</div>
+          <div class="pci-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(it.article_description || '')}</span>${partial}</div>
+          <div class="pci-loc">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong class="text-sx-orange">${it.qty} Coll.</strong>${expBadge}${notesBadge}</div>
         </div>
-        <button class="btn btn-sm btn-ghost" style="color:var(--sx-danger)" onclick="App._shipRemoveFromCart(${i})">✕</button>
+        <button class="btn btn-sm btn-ghost text-sx-danger" onclick="App._shipRemoveFromCart(${i})">✕</button>
       </div>`;
     }).join('');
   },
@@ -1010,7 +1010,7 @@ export const VistaSpedizioni: Vista = {
           </div>
           <div class="ddt-box">
             <div class="ddt-box-lbl">Luogo di destinazione della merce</div>
-            <div class="ddt-box-row" style="font-weight:600">${doc.ship_to ? this._esc(doc.ship_to) : 'Come destinatario'}</div>
+            <div class="ddt-box-row font-semibold">${doc.ship_to ? this._esc(doc.ship_to) : 'Come destinatario'}</div>
             <div class="ddt-box-foot"><strong>Partenza:</strong> ${this._esc(partenza || '—')}</div>
           </div>
         </div>
