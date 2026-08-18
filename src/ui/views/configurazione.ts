@@ -22,7 +22,7 @@ type FunzioneOpzionale = {
 /* Il campo del mittente, e la sua etichetta a video. */
 type CampoMittente = [chiave: keyof Mittente, etichetta: string];
 
-export const VistaConfigurazione: Vista = {
+export const VistaConfigurazione = {
   renderConfig() {
     const el = $('viewConfig');
     el.innerHTML = `<div class="config-container">
@@ -453,4 +453,4 @@ export const VistaConfigurazione: Vista = {
     this.toast(`✓ Ripristinate ${label}`, 'success');
     this.renderConfig();
   },
-};
+} satisfies Vista;

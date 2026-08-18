@@ -22,7 +22,7 @@ type OrdineLetto = Percorso & {
   file_name: string;
 };
 
-export const VistaPercorso: Vista = {
+export const VistaPercorso = {
   _routeStage: 'import',        // 'import' | 'run'
   _routeParsed: null,           // esito OdpParser, vivo solo fra import e avvio
   _routeScan: { loc: '', art: '', lot: '' },
@@ -833,4 +833,4 @@ export const VistaPercorso: Vista = {
     this.startMov('prelievo');
     setTimeout(() => this._pickSub('ordine'), 60);
   },
-};
+} satisfies Vista;

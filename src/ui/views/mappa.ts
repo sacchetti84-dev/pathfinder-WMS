@@ -5,7 +5,7 @@ import type { Ubicazione } from '../../core/geometria';
 import type { NonConformita, Deroga } from '../../modules/conformita';
 import type { CodiceAllergene } from '../../modules/anagrafica';
 
-export const VistaMappa: Vista = {
+export const VistaMappa = {
   // ═══ MAPPA ═══
   renderMap() {
     if (!this.currentSite || !this.currentZone) return;
@@ -418,4 +418,4 @@ export const VistaMappa: Vista = {
     this.updateSyncIndicator();
     this.toast(`${code} → ${newSt}`, 'success');
   },
-};
+} satisfies Vista;

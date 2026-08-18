@@ -21,7 +21,7 @@ import { Dialog } from '../dialog';
    pericolosita. Nasce in un punto solo e si stampa in due. */
 type AvvisoArticolo = { tipo: string; icona: string; et: string; testo: string };
 
-export const VistaConfigArticoli: Vista = {
+export const VistaConfigArticoli = {
   _onArtFilterInput(value) {
     if (!this._artFilterDebounced) {
       this._artFilterDebounced = debounce((v) => {
@@ -499,4 +499,4 @@ export const VistaConfigArticoli: Vista = {
     this.updateSyncIndicator();
     this.toast(`Articolo ${code} eliminato`, 'success');
   },
-};
+} satisfies Vista;

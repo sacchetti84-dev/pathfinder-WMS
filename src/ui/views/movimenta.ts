@@ -12,7 +12,7 @@ import { ScanGuard } from '../../modules/scanGuard';
 import { Dialog } from '../dialog';
 import { Tabs } from '../tabs';
 
-export const VistaMovimenta: Vista = {
+export const VistaMovimenta = {
   renderMovimenta() {
     const el = $('viewMovimenta');
     const logCount = this._movSessionLog.length;
@@ -364,4 +364,4 @@ export const VistaMovimenta: Vista = {
     if (this._ioMode === 'out') this._formSmaltire(el);
     else this._formPosiziona(el);
   },
-};
+} satisfies Vista;

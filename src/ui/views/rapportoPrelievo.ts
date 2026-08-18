@@ -79,7 +79,7 @@ type VoceCarrello = {
   _qty_delta?: number;
 };
 
-export const VistaRapportoPrelievo: Vista = {
+export const VistaRapportoPrelievo = {
   _PICK_REPORT_VER: '1.0',
 
   _fmtDurLong(sec) {
@@ -460,4 +460,4 @@ export const VistaRapportoPrelievo: Vista = {
     }
     return snap;
   },
-};
+} satisfies Vista;

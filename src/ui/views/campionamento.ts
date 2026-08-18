@@ -24,7 +24,7 @@ type VerbaleCampione = {
   operatore: string;
 };
 
-export const VistaCampionamento: Vista = {
+export const VistaCampionamento = {
   /* ═══ 5bis. CAMPIONAMENTO — 1.4.2.1 ════════════════════════════════
      © Andrea Sacchetti — Dietopack S.r.l.
 
@@ -374,4 +374,4 @@ export const VistaCampionamento: Vista = {
       operatore: m.user,
     });
   },
-};
+} satisfies Vista;

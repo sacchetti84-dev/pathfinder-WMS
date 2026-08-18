@@ -1441,4 +1441,36 @@ for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampio
   }
 }
 
+
+/* IL MONOLITE INTERO — `App` piu' le venticinque viste che gli rientrano
+   dentro. Serve a `views/vista.ts`, che con questo tipo da' un `this` vero
+   ai corpi delle viste: da qui in poi un `this.qualcosa` sbagliato dentro
+   una maschera non compila. */
+export type Monolite = typeof App
+  & typeof VistaDestinatari
+  & typeof VistaParametri
+  & typeof VistaCompiti
+  & typeof VistaCampionamento
+  & typeof VistaMovimenta
+  & typeof VistaPosiziona
+  & typeof VistaSmaltimento
+  & typeof VistaPrelievo
+  & typeof VistaPercorso
+  & typeof VistaRapportoPrelievo
+  & typeof VistaInventario
+  & typeof VistaQuarantena
+  & typeof VistaSpedizioni
+  & typeof VistaDocumento
+  & typeof VistaMappa
+  & typeof VistaGiacenze
+  & typeof VistaConfigOperatori
+  & typeof VistaConfigSiti
+  & typeof VistaConfigArticoli
+  & typeof VistaConfigDati
+  & typeof VistaConfigurazione
+  & typeof VistaCruscotto
+  & typeof VistaRegistro
+  & typeof VistaArchivio
+  & typeof VistaRicerca;
+
 export { App };

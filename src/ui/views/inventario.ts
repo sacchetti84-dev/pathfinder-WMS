@@ -23,7 +23,7 @@ type RigaExtra = {
 
 type StatoInventario = { loc: string; items: RigaInventario[]; extras: RigaExtra[] };
 
-export const VistaInventario: Vista = {
+export const VistaInventario = {
   // ═══ 4. INVENTARIO ═══
   _formInventario(el) {
     if (!el) return;
@@ -574,4 +574,4 @@ export const VistaInventario: Vista = {
     this._contaState = null;
     this._formInventario($('movFormArea'));
   },
-};
+} satisfies Vista;

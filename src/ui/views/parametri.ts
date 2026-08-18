@@ -22,7 +22,7 @@ type SchedaParam = {
   elenco: ElencoVoci;
 };
 
-export const VistaParametri: Vista = {
+export const VistaParametri = {
   /* ═══ PARAMETRI ARTICOLO — 1.6, PIANO §9.3 ═════════════════════════
      Fino alla 1.5 le tendine dell'anagrafica erano tutte nel sorgente:
      aggiungere una voce voleva dire un rilascio. Da qui in poi sono un dato.
@@ -123,4 +123,4 @@ export const VistaParametri: Vista = {
     this.toast(`${code} tolto dalla configurazione`, 'success');
   },
 
-};
+} satisfies Vista;

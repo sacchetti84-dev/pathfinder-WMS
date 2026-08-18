@@ -19,7 +19,7 @@ import {
 type RigaColliIn = { colli: string; per: string };
 type SceltaColli = { elenco: number[]; uom: string; scelte: Map<number, number | boolean> };
 
-export const VistaPosiziona: Vista = {
+export const VistaPosiziona = {
   _formPosiziona(el) {
     el.innerHTML = `
       <div class="wf-instructions">
@@ -522,4 +522,4 @@ export const VistaPosiziona: Vista = {
        merce a mano, e non ha nessun compito da far avanzare. */
     this.setPrimaryScanField('mInArtCode');
   },
-};
+} satisfies Vista;

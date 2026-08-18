@@ -32,7 +32,7 @@ type PayloadCompito = {
   auto?: boolean;
 };
 
-export const VistaCompiti: Vista = {
+export const VistaCompiti = {
   /* ═══ ATTIVITA' — 1.4.1 ════════════════════════════════════════════
      © Andrea Sacchetti — Dietopack S.r.l.
 
@@ -908,4 +908,4 @@ export const VistaCompiti: Vista = {
       : '<div class="ct-empty">Nessuna attività aperta.</div>'}
     </div>`;
   },
-};
+} satisfies Vista;

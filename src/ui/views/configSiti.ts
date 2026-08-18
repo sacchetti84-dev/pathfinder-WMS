@@ -4,7 +4,7 @@ import type { Zona } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 
-export const VistaConfigSiti: Vista = {
+export const VistaConfigSiti = {
   _renderConfigSites(el) {
     const sites = Store.getSites();
     let html = `<div class="config-card">
@@ -373,4 +373,4 @@ export const VistaConfigSiti: Vista = {
     this.updateSyncIndicator();
     this.toast(`Zona ${zoneId} eliminata`, 'success');
   },
-};
+} satisfies Vista;

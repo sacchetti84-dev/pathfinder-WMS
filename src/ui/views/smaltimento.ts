@@ -12,7 +12,7 @@ type Alternativa = { location_code: string; item_key: string; qty_available: num
 /* Una firma in calce a un documento: chi firma, e cosa scrive sotto. */
 type Firma = { role: string; hint?: string };
 
-export const VistaSmaltimento: Vista = {
+export const VistaSmaltimento = {
   // ── 1B. SCARICO ─────────────────────────────────────────────────────
   // Tre stadi, uno stato solo: this._dispState.
 
@@ -667,4 +667,4 @@ export const VistaSmaltimento: Vista = {
       ]
     }));
   },
-};
+} satisfies Vista;

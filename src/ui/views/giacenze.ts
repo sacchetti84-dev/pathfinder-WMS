@@ -4,7 +4,7 @@ import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 
-export const VistaGiacenze: Vista = {
+export const VistaGiacenze = {
   selectLocation(code) {
     this.selectedLocation = code;
     this.renderMap();
@@ -500,4 +500,4 @@ export const VistaGiacenze: Vista = {
     const incrSuffix = res.mode === 'incremented' ? ` (saldo: ${res.qty_after})` : '';
     this.toast(`✓ ${code}#${lot} aggiunto a ${locationCode} · +${qty} Coll.${incrSuffix}`, 'success');
   },
-};
+} satisfies Vista;

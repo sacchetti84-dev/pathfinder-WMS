@@ -28,7 +28,7 @@ type OrdineRaggruppato = {
   last: number;
 };
 
-export const VistaCruscotto: Vista = {
+export const VistaCruscotto = {
   // ── Dashboard ──
   renderDashboard() {
     const el = $('viewDashboard');
@@ -774,4 +774,4 @@ export const VistaCruscotto: Vista = {
       ${rows}
     </div>`;
   },
-};
+} satisfies Vista;

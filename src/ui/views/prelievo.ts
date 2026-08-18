@@ -13,7 +13,7 @@ type VoceCarrelloProd = Giacenza & {
   qty_phys: number;
 };
 
-export const VistaPrelievo: Vista = {
+export const VistaPrelievo = {
   // ═══ 3. PRELIEVO (3 sub-flussi) ═══
   _formPrelievo(el) {
     el.innerHTML = `<div class="mov-form-card">
@@ -605,4 +605,4 @@ export const VistaPrelievo: Vista = {
     if (!cart.length) return this.toast('Niente da stampare', 'error');
     this._emitPickReport(this._prodCartSnapshot(cart, { partial: true }), { reprint: false });
   },
-};
+} satisfies Vista;

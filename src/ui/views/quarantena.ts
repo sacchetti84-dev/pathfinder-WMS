@@ -8,7 +8,7 @@ import { Feedback } from '../feedback';
 /* Dove altro sta lo stesso lotto: la quarantena le propone come lo scarico. */
 type Alternativa = { location_code: string; item_key: string; qty_available: number; qty_physical: number };
 
-export const VistaQuarantena: Vista = {
+export const VistaQuarantena = {
   // ═══ 5. QUARANTENA ═══
   // v1.8.0: richiede scansione ARTICOLO + LOTTO (doppia identificazione obbligatoria)
   _formQuarantena(el) {
@@ -755,4 +755,4 @@ export const VistaQuarantena: Vista = {
       ]
     }));
   },
-};
+} satisfies Vista;

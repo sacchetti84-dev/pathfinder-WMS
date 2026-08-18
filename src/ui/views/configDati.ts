@@ -44,7 +44,7 @@ type GiacenzaEstesa = {
 /* Le righe che arrivano da un foglio Excel letto: intestazione → valore. */
 type RigaFoglio = Record<string, string | number | undefined>;
 
-export const VistaConfigDati: Vista = {
+export const VistaConfigDati = {
   _fmtUsage(est) {
     if (!est) return 'Non disponibile';
     const mb = (b: number | null | undefined) => ((b || 0) / 1048576).toFixed(1);
@@ -1128,4 +1128,4 @@ export const VistaConfigDati: Vista = {
     this.updateSyncIndicator();
     this.toast('✓ Database resettato — configurare nuovi siti da Configurazione', 'info');
   },
-};
+} satisfies Vista;

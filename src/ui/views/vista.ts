@@ -6,12 +6,21 @@
    istanzia: è un pezzo dell'oggetto, che `app.js` rimette dentro con la
    guardia in coda al file.
 
-   `this` è il monolite intero, e finché `app.js` è JavaScript non c'è un tipo
-   migliore di `any`. Non è una resa: è che i corpi si tipizzano DOPO
-   l'estrazione, un file per volta, e mescolare le due cose vorrebbe dire
-   riscrivere mentre si sposta. Intanto `tsc` guarda già la cosa che sbaglia
-   per davvero durante un'estrazione — un import dimenticato — ed è la ragione
-   per cui questi file nascono `.ts` e non `.js`.
+   `this` è il monolite intero, e resta `any` per una ragione precisa, provata
+   il 18/08 alla fine della migrazione: dargli il tipo vero — `typeof App` più
+   le venticinque viste, con `ThisType` — è un ciclo che il compilatore non
+   scioglie (TS7022, ventitré viste «implicitly has type any because it is
+   referenced directly or indirectly in its own initializer»). Il tipo di una
+   vista dipenderebbe da `Monolite`, che dipende dal tipo di quella vista.
+   Uscirne vuol dire dichiarare a mano la superficie intera — le stesse
+   trecento righe che `superficie-app.dati.js` già elenca — e quel documento
+   esiste, quindi la strada c'è: si genera, non si scrive.
+
+   Quel che invece è cambiato: le viste non sono più annotate `: Vista`, sono
+   `satisfies Vista`. La differenza non è di stile — con l'annotazione il tipo
+   di ogni metodo veniva schiacciato su `Metodo`, e chi importava una vista non
+   vedeva più niente; con `satisfies` il controllo resta e la forma vera
+   sopravvive.
 
    Il ramo che non è una funzione serve allo stato e alle tabelle di una vista
    (`_rcpFiltro`, `_PARAM_SCHEDE`): viaggiano col blocco a cui appartengono. */
@@ -19,7 +28,7 @@ type Metodo = (this: any, ...args: any[]) => any;
 
 export type Vista = Record<
   string,
-  Metodo | string | number | boolean | readonly any[] | Record<string, any> | null
+  Metodo | string | number | boolean | readonly unknown[] | Record<string, unknown> | null | Set<unknown> | Map<unknown, unknown>
 >;
 
 /* IL CAMPO CHE SI È SCRITTO TRE RIGHE SOPRA.
