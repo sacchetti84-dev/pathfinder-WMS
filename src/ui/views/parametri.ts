@@ -33,33 +33,33 @@ export const VistaParametri: Vista = {
       const voci = (Store as any)[s.elenco]();
       const righe = voci.length ? voci.map((v: any) => `
         <tr>
-          <td class="mono" style="font-weight:700">${this._esc(v.code)}</td>
+          <td class="mono font-bold">${this._esc(v.code)}</td>
           <td>${this._esc(v.label)}</td>
           <td class="td-center">${v.fissa
             ? '<span class="badge badge-muted" title="Valore di legge o di sistema: non si toglie">🔒 fisso</span>'
             : `<button class="btn btn-sm btn-danger" onclick="App.doRimuoviParam('${s.chiave}','${this._esc(v.code)}')">Togli</button>`}</td>
         </tr>`).join('')
-        : `<tr><td colspan="3" style="color:var(--sx-text-muted)">Nessuna voce.</td></tr>`;
+        : `<tr><td colspan="3" class="text-sx-text-muted">Nessuna voce.</td></tr>`;
       return `
-      <div class="cfg-card" style="margin-bottom:0.9rem">
-        <h3 style="margin:0 0 0.25rem">${s.icona} ${this._esc(s.titolo)}</h3>
-        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.5rem">${this._esc(s.nota)}</div>
-        <table class="table table-sm"><thead><tr>
-          <th style="width:170px">Codice</th><th>Etichetta</th><th style="width:110px"></th>
+      <div class="mb-[0.9rem]">
+        <h3 class="m-0 mb-1">${s.icona} ${this._esc(s.titolo)}</h3>
+        <div class="text-label-small text-sx-text-muted mb-2">${this._esc(s.nota)}</div>
+        <table><thead><tr>
+          <th class="w-[170px]">Codice</th><th>Etichetta</th><th class="w-[110px]"></th>
         </tr></thead><tbody>${righe}</tbody></table>
-        <div class="form-row" style="margin-top:0.4rem">
+        <div class="form-row mt-[0.4rem]">
           <div class="form-group"><label>Codice nuovo</label>
-            <input class="input input-mono" id="pp_${s.chiave}_code" maxlength="24" style="text-transform:uppercase" placeholder="ES_NUOVO"></div>
+            <input class="input input-mono uppercase" id="pp_${s.chiave}_code" maxlength="24" placeholder="ES_NUOVO"></div>
           <div class="form-group"><label>Etichetta</label>
             <input class="input" id="pp_${s.chiave}_label" maxlength="60" placeholder="Come la legge l'operatore"></div>
-          <div class="form-group" style="max-width:130px"><label>&nbsp;</label>
-            <button class="btn btn-primary" style="width:100%" onclick="App.doAggiungiParam('${s.chiave}')">Aggiungi</button></div>
+          <div class="form-group max-w-[130px]"><label>&nbsp;</label>
+            <button class="btn btn-primary w-full" onclick="App.doAggiungiParam('${s.chiave}')">Aggiungi</button></div>
         </div>
       </div>`;
     }).join('');
 
     el.innerHTML = `
-      <div style="margin-bottom:0.7rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">
+      <div class="mb-[0.7rem] text-body-small text-sx-text-secondary">
         Le tendine dell'anagrafica articoli e della caratterizzazione delle zone si compilano da qui.
         <strong>I valori di legge si vedono e non si tolgono</strong>: sopra si aggiunge.
       </div>
