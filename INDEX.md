@@ -100,8 +100,8 @@ prove.
 | Voce | Valore |
 |---|---|
 | In servizio — prova su questo PC | `corrente` contiene la **1.8.2**, impronta `99d65b7a…` — la build dell'estrazione, installata da Andrea il **18/08 alle 11:13**. Il servizio in esecuzione è ancora quello di prima e risponde `service_version 1.8.1`: **è il difetto che l'installer nuovo chiude** |
-| Via di ritorno | `precedente` contiene la **1.7**, impronta `5df67f5c…`, e il deposito tiene `pathfinder-1.7\` intatta: si torna indietro con un comando, `.\server\torna-indietro.ps1`. Anche `pathfinder-1.6.1\` è in deposito |
-| Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.8.1`**; il **sorgente dice `1.8.2`** — cambierà da sé al primo riavvio, come è già successo. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
+| Via di ritorno | **Si reinstalla il pacchetto della versione di prima** — §4: è il solo gesto che riporta indietro anche il servizio. `precedente` contiene la **1.8.1** (`12c2e4cf…`) e serve agli assets di chi stava caricando durante uno scambio, non più a tornare indietro. Il deposito tiene `pathfinder-1.8.2\`, `pathfinder-1.7\` e `pathfinder-1.6.1\`; i pacchetti li archivia Andrea |
+| Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.8.1`**; il **sorgente dice `1.8.3`**. Dalla 1.8.3 i due numeri non divergono più: l'installer porta anche il servizio e lo riavvia. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
@@ -109,7 +109,7 @@ prove.
 | Tipi | `npm run check` a 0 su client e servizio |
 | Sorgente | **58 TypeScript** · 5 JavaScript · 9 CSS · `index.html`. Ancora JavaScript: `main.js`, `ui/app.js` (**1.328 righe**, era 13.893) e i tre di `ui/` — `dialog`, `feedback`, `tabs` |
 | Numero di build | **1.8.3** in `vite.config.js`, `package.json` e nel servizio. La 1.8.2 è in servizio: una build in avanzamento non porta il numero di ciò che sta girando, se no `consegna\` dice una cosa e la macchina un'altra — §5 |
-| Git | `main`, **26 commit avanti** rispetto a `origin/main` — da allineare |
+| Git | `main`, **allineato con `origin/main`** — spinto il 18/08 |
 
 ### Cosa fa la 1.7, e cosa ha misurato il banco
 
@@ -531,6 +531,14 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   `index.html` e `assets/`, e la rotta accetta **un nome, non un percorso**: il
   giorno in cui la variabile punta a un albero di sorgenti, quella riga li
   pubblicherebbe tutti sulla LAN.
+- **OneDrive può bloccare `npm run build`**: quando ha finito di sincronizzare
+  `consegna\`, ne trasforma i file in segnaposto («file su richiesta»), e ogni
+  voce prende l'attributo `ReparsePoint`. `emptyOutDir` di Vite, che azzera la
+  cartella all'inizio di ogni build, ci sbatte contro con **`EPERM, Permission
+  denied`** e la build muore prima di compilare una riga. Il pacchetto che c'è
+  resta valido: si aspetta, o si toglie la cartella a mano prima di ricostruire.
+  Non è un difetto della build — è la stessa cosa per cui il database sta fuori
+  da OneDrive, vista da un'altra parte.
 - **`powershell -File script.ps1 -ParametroCheNonEsiste` NON dà errore: lo
   scarta in silenzio e manda avanti lo script.** Chi credeva di simulare ha
   installato — successo il 18/08/2026 su questa macchina, chiedendo `-Prova` a
