@@ -1894,7 +1894,7 @@ const Store = {
   },
 
   /* Restituisce DDT pendenti per kind (RES | SHIP), ordinati dal più recente */
-  getPendingOutbound(kind: string) {
+  getPendingOutbound(kind?: string | null) {
     return this._cache.pendingOut
       .filter(d => d.status === 'pending' && (kind == null || d.kind === kind))
       .sort((a, b) => b.created_at - a.created_at);
