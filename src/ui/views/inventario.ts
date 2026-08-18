@@ -219,18 +219,33 @@ export const VistaInventario = {
       })) return;
     }
     let corrections = 0;
-    /* 1.8 — le righe a colli dichiarati non si rettificano al buio da qui.
-       Questo giro corregge molte righe in fila, e su una suddivisione
-       dichiarata «due colli in meno» non dice QUALI: si passa dalla Conta
-       mirata, che li fa scegliere uno per uno. Il mancante totale invece si
-       applica — la riga sparisce, e non resta nessun elenco da disallineare. */
+    /* 1.8 — SU UNA RIGA A COLLI DICHIARATI SI CHIEDE QUALI, E SI RETTIFICA QUI.
+
+       Fino a ieri questo giro le saltava e mandava l'operatore alla Conta
+       mirata: era l'unico punto in cui una maschera diceva «questo non lo so
+       fare, vai da un'altra parte», e chi aveva appena contato il vano doveva
+       rifare la stessa riga altrove. Adesso la domanda — quali colli mancano —
+       la fa qui, con la stessa finestra di tutte le altre maschere.
+
+       Resta fuori un caso solo: i colli **in più**. Un collo trovato ha una
+       misura che nessuno può indovinare, e inventargliela scriverebbe una
+       giacenza plausibile e falsa: quello si posiziona da Movimenta, dove la
+       suddivisione si dichiara. */
     const rimandate = [];
     for (const it of items) {
       const sysQty = it.qty || 1;
+      let scelteConta = null;
       if (!it.missing && typeof it.counted_qty === 'number' && it.counted_qty !== sysQty
           && Store.colliDiRiga(it)) {
-        rimandate.push(`${it.article_code}#${it.lot_code}`);
-        continue;
+        if (it.counted_qty > sysQty) {
+          rimandate.push(`${it.article_code}#${it.lot_code} (in più)`);
+          continue;
+        }
+        scelteConta = await this._chiediColli(it, `Quali colli mancano · ${it.article_code}#${it.lot_code}`);
+        if (scelteConta === undefined) {
+          rimandate.push(`${it.article_code}#${it.lot_code} (scelta annullata)`);
+          continue;
+        }
       }
       // Caso 1: missing totale → FIX- intero
       if (it.missing) {
@@ -245,8 +260,8 @@ export const VistaInventario = {
         const delta = it.counted_qty - sysQty;
         if (delta === 0) continue;  // nessuna azione
         if (delta < 0) {
-          // FIX-: rimuovi |delta| colli
-          const removed = await Store.removeItem(loc, it.item_key, Math.abs(delta));
+          // FIX-: rimuovi |delta| colli — e quali, se la riga li dichiara
+          const removed = await Store.removeItem(loc, it.item_key, Math.abs(delta), null, scelteConta);
           if (removed) {
             await this._logMov(MOV.FIX_OUT, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `Conta fisica: ${it.counted_qty}/${sysQty}`, '', sysQty, delta, it.counted_qty);   // v2.0.1 [B7]
             corrections++;
@@ -276,7 +291,7 @@ export const VistaInventario = {
     if (corrections === 0) this.toast('Nessuna correzione — inventario confermato ✓', 'info');
     else this.toast(`✓ ${corrections} correzion${corrections === 1 ? 'e applicata' : 'i applicate'}`, 'success');
     if (rimandate.length) {
-      this.toast(`⚠ ${rimandate.length} rig${rimandate.length === 1 ? 'a a colli dichiarati non rettificata' : 'he a colli dichiarati non rettificate'} — vanno contate una per una da Attività → Conta, che chiede quali colli: ${rimandate.join(', ')}`, 'warning');
+      this.toast(`⚠ ${rimandate.length} rig${rimandate.length === 1 ? 'a non rettificata' : 'he non rettificate'} — i colli in più si posizionano da Movimenta, dichiarando com'è imballato ciò che hai trovato: ${rimandate.join(', ')}`, 'warning');
     }
     this.updateSyncIndicator();
     /* 1.4.4 — QUI NON SI CHIUDE NESSUN COMPITO. L'inventario di vano è una
