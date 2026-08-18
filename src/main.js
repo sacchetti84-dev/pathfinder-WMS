@@ -1,5 +1,9 @@
 // I fogli di stile, NELL'ORDINE IN CUI STAVANO NEL FILE. L'ordine non è
 // estetico: è la cascata. Invertirne due cambia quale regola vince.
+// Tailwind sta in cima, ma non perche' la cascata lo pretenda: le sue utility
+// vivono in `@layer utilities`, e qualunque regola senza layer le batte. Sta in
+// cima perche' e' il primo foglio che si legge.
+import './styles/00-tailwind.css';
 import './styles/01-tokens.css';
 import './styles/01-base.css';
 import './styles/01-components.css';

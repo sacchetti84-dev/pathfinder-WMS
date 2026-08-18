@@ -1,5 +1,6 @@
 import { defineConfig } from 'vite';
 import { viteSingleFile } from 'vite-plugin-singlefile';
+import tailwindcss from '@tailwindcss/vite';
 import fs from 'node:fs';
 import path from 'node:path';
 import crypto from 'node:crypto';
@@ -196,6 +197,9 @@ function cartellaDiConsegna(versione) {
 
 export default defineConfig({
   plugins: [
+    /* Tailwind legge i sorgenti e scrive le sole utility che trova scritte.
+       Va per primo: produce il CSS che gli altri due poi impacchettano. */
+    tailwindcss(),
     ...(UNICO ? [viteSingleFile()] : []),
     cartellaDiConsegna(VERSIONE),
   ],

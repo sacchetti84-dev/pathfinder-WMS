@@ -1,0 +1,82 @@
+/* ════════════════════════════════════════════════════════════════════════════
+   PATHFINDER — 00-tailwind.css
+   Tailwind v4: le utility e il tema, letto dai token dell'applicativo
+   ════════════════════════════════════════════════════════════════════════════ */
+
+/* Si importano le PARTI, non `tailwindcss` intero: manca `preflight`, e manca
+   apposta. Il reset di serie toglie margini, elenchi e bordi a tutto il
+   documento, e l'interfaccia di qui e' scritta a mano sopra le impostazioni
+   del browser: accenderlo cambierebbe a video mille cose in un colpo, senza
+   che nessuno le abbia chieste. */
+@layer theme, base, components, utilities;
+@import 'tailwindcss/theme.css' layer(theme);
+@import 'tailwindcss/utilities.css' layer(utilities) source(none);
+
+/* Dove si leggono le classi. `source(none)` spegne la ricerca automatica, che
+   partirebbe dalla radice e finirebbe dentro `pathfinder-1.6.html` — 1,6 MB di
+   build vecchia, dove ogni parola somiglia a una classe. */
+@source '../../index.html';
+@source '../**/*.{ts,js}';
+
+/* Le utility stanno in `@layer utilities`; il CSS dell'applicativo non sta in
+   nessun layer, e nella cascata quello senza layer vince sempre. Vuol dire che
+   `.hidden`, `.flex` e `.truncate`, che l'applicativo si era gia' scritte in
+   `01-components.css`, restano le sue: finche' non si migra un file, Tailwind
+   non puo' cambiargli niente sotto. */
+
+@theme {
+  /* La tavolozza di serie si azzera: i colori dell'applicativo sono ventinove
+     e stanno in `01-tokens.css`. Con la tavolozza accesa `bg-blue-500`
+     funzionerebbe, e sarebbe un colore che il sistema non ha. Cosi' invece non
+     compila. */
+  --color-*: initial;
+  --color-transparent: transparent;
+  --color-current: currentColor;
+  --color-white: #fff;
+  --color-black: #000;
+
+  /* Una sorgente sola: qui non ci sono valori, ci sono rimandi. Il colore si
+     cambia in `01-tokens.css` come sempre, e le utility lo seguono. */
+  --color-sx-primary: var(--sx-primary);
+  --color-sx-primary-hover: var(--sx-primary-hover);
+  --color-sx-primary-light: var(--sx-primary-light);
+
+  --color-sx-accent: var(--sx-accent);
+  --color-sx-accent-hover: var(--sx-accent-hover);
+  --color-sx-accent-soft: var(--sx-accent-soft);
+
+  --color-sx-success: var(--sx-success);
+  --color-sx-success-soft: var(--sx-success-soft);
+  --color-sx-warning: var(--sx-warning);
+  --color-sx-warning-soft: var(--sx-warning-soft);
+  --color-sx-danger: var(--sx-danger);
+  --color-sx-danger-soft: var(--sx-danger-soft);
+  --color-sx-purple: var(--sx-purple);
+  --color-sx-purple-soft: var(--sx-purple-soft);
+  --color-sx-teal: var(--sx-teal);
+  --color-sx-teal-soft: var(--sx-teal-soft);
+  --color-sx-orange: var(--sx-orange);
+  --color-sx-orange-soft: var(--sx-orange-soft);
+
+  --color-sx-bg: var(--sx-bg);
+  --color-sx-bg-alt: var(--sx-bg-alt);
+  --color-sx-card: var(--sx-card);
+  --color-sx-card-alt: var(--sx-card-alt);
+  --color-sx-input: var(--sx-input);
+
+  --color-sx-border: var(--sx-border);
+  --color-sx-border-strong: var(--sx-border-strong);
+
+  --color-sx-text: var(--sx-text);
+  --color-sx-text-secondary: var(--sx-text-secondary);
+  --color-sx-text-muted: var(--sx-text-muted);
+  --color-sx-disabled: var(--sx-disabled);
+
+  /* Raggi e ombre restano spenti. I nomi si sovrappongono: `--radius-md`,
+     `--shadow-sm` e `--shadow-lg` sono insieme token dell'applicativo e
+     namespace di Tailwind, e lasciandoli accesi `rounded-md` direbbe una
+     misura e il token un'altra. Si accendono in F2, quando i componenti si
+     riscrivono e la geometria ha una sorgente sola. */
+  --radius-*: initial;
+  --shadow-*: initial;
+}
