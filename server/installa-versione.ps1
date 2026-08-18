@@ -224,9 +224,10 @@ Write-Host ""
 Write-Host "  versione    $($m.versione)"
 Write-Host "  impronta    $($m.impronta)"
 Write-Host ""
-Write-Host "  Nessun riavvio: il servizio rilegge la cartella a ogni richiesta." -ForegroundColor Cyan
+Write-Host "  Questo script tocca il solo APPLICATIVO, e non riavvia niente:" -ForegroundColor Cyan
+Write-Host "  il servizio rilegge la cartella a ogni richiesta."
+Write-Host "  Il pacchetto a doppio clic fa di piu': porta anche il servizio e lo riavvia."
+Write-Host ""
 Write-Host "  Verificare con:"
 Write-Host "    Invoke-RestMethod http://127.0.0.1:4173/api/app-info"
-Write-Host ""
-Write-Host "  Il ritorno indietro e' un comando: .\torna-indietro.ps1"
 Write-Host ""

@@ -20,6 +20,15 @@
   disinstalla, una funzione si spegne, e le due cose si confondono solo se si
   accendono nello stesso turno in cui si installa.
 
+  DAL 18/08/2026 QUESTO SCRIPT RIPORTA INDIETRO SOLO META' VERSIONE.
+  Il pacchetto a doppio clic installa insieme l'applicativo E il servizio, e li
+  riavvia; qui si scambiano due cartelle di applicativo e basta. Chi lo lancia
+  si ritrova il servizio nuovo che serve l'applicativo vecchio: funziona — le
+  rotte sono compatibili all'indietro e lo dicono 77 prove — ma i due numeri di
+  `/api/app-info` non coincidono piu', e quello e' il segno che di solito vuol
+  dire «installazione non riuscita». Per tornare indietro davvero si reinstalla
+  il pacchetto della versione di prima, che sta in `consegna\`.
+
   Il DATABASE non si tocca, in nessun caso: un rilascio si disinstalla
   rimettendo l'applicativo di prima, e i dati restano dove sono.
 #>
@@ -116,4 +125,9 @@ Write-Host "  Verificare con:"
 Write-Host "    Invoke-RestMethod http://127.0.0.1:4173/api/app-info"
 Write-Host ""
 Write-Host "  Rilanciando questo stesso comando si torna avanti."
+Write-Host ""
+Write-Host "  ATTENZIONE: e tornato indietro il solo APPLICATIVO." -ForegroundColor Yellow
+Write-Host "  Il servizio dati resta quello di adesso, e i due numeri di /api/app-info"
+Write-Host "  non coincideranno. Per tornare indietro davvero si reinstalla il pacchetto"
+Write-Host "  della versione di prima."
 Write-Host ""

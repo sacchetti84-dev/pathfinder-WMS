@@ -145,6 +145,57 @@ try {
   ok('e non lascia una versione a meta\' nel deposito',
      !fs.existsSync(path.join(CASA, 'pathfinder-9.9')));
   ok('ne\' tocca quello che era in servizio', manifesto('corrente')?.versione === '2.1');
+
+  // ── 8. L'INSTALLER A DOPPIO CLIC: le decisioni, senza toccare niente ─────
+  /* `-Prova` dice cosa farebbe ed esce. Serve a due cose: provare le
+     decisioni su una macchina in servizio, e avere qualcosa da esercitare qui
+     — l'installazione vera registra attivita' pianificate e apre porte sul
+     firewall, e un collaudo che la esegue davvero non e' un collaudo. */
+  const pacchetto = path.join(CONSEGNE, 'pacchetto');
+  fs.mkdirSync(pacchetto, { recursive: true });
+  fs.cpSync(consegna('3.0', 'pacchetto'), path.join(pacchetto, 'app'), { recursive: true });
+  fs.mkdirSync(path.join(pacchetto, 'servizio'), { recursive: true });
+  fs.writeFileSync(path.join(pacchetto, 'servizio', 'pathfinder-server.js'), '// finto');
+  fs.copyFileSync(path.join(SERVER, 'installa-pathfinder.ps1'), path.join(pacchetto, 'installa.ps1'));
+
+  const prova = (argomenti) => execFileSync('powershell', [
+    '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(pacchetto, 'installa.ps1'),
+    '-NonChiedere', '-Prova', ...argomenti,
+  ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+
+  const detto = prova([]);
+  ok('la prova dice la strada e non tocca niente', /PROVA/.test(detto) && /strada/.test(detto));
+  ok("e su questa macchina, che Pathfinder ce l'ha, la strada e' l'aggiornamento",
+     /aggiornamento/.test(detto));
+  ok('la prova non lascia niente in giro',
+     !fs.existsSync(path.join(CASA, 'pathfinder-3.0')));
+
+  /* UN PARAMETRO SCRITTO MALE NON DEVE SIMULARE: PowerShell lanciato con
+     -File scarta in silenzio cio' che non trova nel param(), e il 18/08 un
+     `-Prova` chiesto a un installer che non l'aveva ha fatto un'installazione
+     vera su questa macchina. */
+  let respintoArgomento = false;
+  let dettoArgomento = '';
+  try {
+    dettoArgomento = execFileSync('powershell', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(pacchetto, 'installa.ps1'),
+      '-NonChiedere', '-Prova', '-ParametroCheNonEsiste',
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) { respintoArgomento = true; dettoArgomento = (e.stdout || '') + (e.stderr || ''); }
+  ok("UN ARGOMENTO CHE NON ESISTE FERMA L'INSTALLER, invece di essere scartato",
+     respintoArgomento && /non tocco niente/i.test(dettoArgomento));
+
+  /* Spostare un'installazione non e' installare: aggiornando, una radice
+     diversa da quella della macchina si rifiuta prima di toccare qualunque
+     cosa. */
+  let respintaRadice = false;
+  let dettoRadice = '';
+  try {
+    dettoRadice = prova(['-Radice', path.join(CASA, 'altrove')]);
+  } catch (e) { respintaRadice = true; dettoRadice = (e.stdout || '') + (e.stderr || ''); }
+  ok('e una radice diversa da quella installata viene rifiutata',
+     respintaRadice && /non e.* installare/i.test(dettoRadice));
+
 } catch (err) {
   fallite++;
   console.log(`\n  ERRORE: ${err.message}\n${err.stdout || ''}${err.stderr || ''}`);

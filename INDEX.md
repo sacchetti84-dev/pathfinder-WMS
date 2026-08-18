@@ -99,17 +99,17 @@ prove.
 
 | Voce | Valore |
 |---|---|
-| In servizio — prova su questo PC | **`corrente` contiene la 1.8.1 finita**, impronta `12c2e4cf…`, costruita il **17/08 alle 22:47**: è la 1.8 per intero, quinto blocco compreso. Il servizio è stato riavviato e risponde `service_version 1.8.1`. Con `feature.colli` spento si comporta in tutto come la 1.7 — e nel database vero l'interruttore non c'è |
+| In servizio — prova su questo PC | `corrente` contiene la **1.8.2**, impronta `99d65b7a…` — la build dell'estrazione, installata da Andrea il **18/08 alle 11:13**. Il servizio in esecuzione è ancora quello di prima e risponde `service_version 1.8.1`: **è il difetto che l'installer nuovo chiude** |
 | Via di ritorno | `precedente` contiene la **1.7**, impronta `5df67f5c…`, e il deposito tiene `pathfinder-1.7\` intatta: si torna indietro con un comando, `.\server\torna-indietro.ps1`. Anche `pathfinder-1.6.1\` è in deposito |
 | Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.8.1`**; il **sorgente dice `1.8.2`** — cambierà da sé al primo riavvio, come è già successo. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
-| Collaudi | **485 client** (15 suite, ~1,5 s) · **81 servizio** · **17 installazione** · **8 migrazione** — tutti verdi il 18/08. Le due nuove sono la **rete dell'estrazione**: la superficie di `App` — §7 |
+| Collaudi | **485 client** (15 suite, ~1,5 s) · **81 servizio** · **22 installazione** · **8 migrazione** — tutti verdi il 18/08. Le due del client sono la **rete dell'estrazione** (§7); cinque delle ventidue sono nuove e guardano l'**installer a doppio clic** |
 | Tipi | `npm run check` a 0 su client e servizio |
 | Sorgente | **58 TypeScript** · 5 JavaScript · 9 CSS · `index.html`. Ancora JavaScript: `main.js`, `ui/app.js` (**1.328 righe**, era 13.893) e i tre di `ui/` — `dialog`, `feedback`, `tabs` |
-| Numero di build | **1.8.2** in `vite.config.js`, `package.json` e nel servizio, dal 18/08: la 1.8.1 sta girando, e ogni build riscriveva `consegna\Pathfinder 1.8.1\` con byte diversi. Un numero deve voler dire dei byte — §5 |
-| Git | `main`, **24 commit avanti** rispetto a `origin/main` — da allineare |
+| Numero di build | **1.8.3** in `vite.config.js`, `package.json` e nel servizio. La 1.8.2 è in servizio: una build in avanzamento non porta il numero di ciò che sta girando, se no `consegna\` dice una cosa e la macchina un'altra — §5 |
+| Git | `main`, **26 commit avanti** rispetto a `origin/main` — da allineare |
 
 ### Cosa fa la 1.7, e cosa ha misurato il banco
 
@@ -144,7 +144,7 @@ collauda al banco e si consegna il pacchetto.
 
 | # | Cosa | Chi |
 |---|---|---|
-| **1** | **Chiusa il 18/08**: `corrente` porta la 1.8.1 finita (`12c2e4cf`) e il servizio, riavviato, lo conferma. Resta da sapere **quando** è stato riavviato e da chi: nessuno l'ha scritto, e riavviare il servizio non è un gesto che si fa per sbaglio | — |
+| **1** | **Installare la 1.8.3 e vedere i due numeri coincidere.** Il pacchetto è in `consegna\Pathfinder 1.8.3\` e porta l'installer nuovo — quello che aggiorna anche il servizio e lo riavvia. È la prima installazione che chiede l'autorizzazione di Windows per un aggiornamento, e la prima che lascia l'applicativo giù qualche secondo: **a fine turno**. Dopo, `/api/app-info` deve dire `1.8.3` due volte | Andrea |
 | **1-bis** | **Capire chi ha cancellato `C:\Pathfinder\app\pathfinder-1.6.1`** il 17/08 alle 19:14. La cartella è stata ricostruita dal file singolo in radice e la via di ritorno è di nuovo intera, ma la causa non si conosce: se non è stato un gesto di Andrea in un'altra finestra, qualcosa cancella dentro la directory di installazione | da chiarire |
 | **2** | **Provare il pacchetto su una macchina pulita.** La strada dell'aggiornamento è provata davvero (17/08, su questo PC); quella della **prima installazione** — servizio, attività pianificate, firewall, database — è scritta e riletta ma **mai eseguita**, e serve una macchina senza Pathfinder o una virtuale. È l'unica che chiede i privilegi, ed è quella che si userà in presentazione | Andrea, prima di presentare |
 | **3** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per ore nessuno poteva creare né rinnovare un operatore. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — §6, «Il PIN smarrito» | Andrea |
@@ -326,13 +326,36 @@ Pathfinder 1.7\
   servizio\                   il servizio dati, i suoi script e il README
 ```
 
-L'installer **capisce da solo** cosa ha davanti. Se la macchina ha già
-Pathfinder aggiorna il solo applicativo — niente amministratore, niente
-riavvio, due secondi. Se è una macchina nuova chiede l'autorizzazione di
-Windows **una volta** e fa tutto: copia il servizio in
-`C:\Pathfinder\servizio`, registra l'avvio all'accensione e il backup serale,
-apre la porta sul firewall, crea il database, installa l'applicativo. In
-entrambi i casi alla fine verifica l'impronta e apre l'applicativo nel browser.
+**UNA VERSIONE È L'APPLICATIVO PIÙ IL SERVIZIO, e si installano insieme** —
+18/08/2026. Fino a quel giorno un aggiornamento toccava il solo applicativo: il
+servizio restava quello del giorno dell'installazione, e `/api/app-info`
+rispondeva due numeri diversi. Due numeri per una versione sola sono un numero
+che non vuol dire niente, e l'installazione non aveva modo di accorgersene.
+
+L'installer **capisce da solo** cosa ha davanti.
+
+- **Prima installazione**: chiede **dove** — INVIO accetta `C:\Pathfinder` — e da
+  quella cartella discendono `servizio\`, `app\`, `data\` e `backup\`. Poi fa
+  tutto: copia il servizio, registra l'avvio all'accensione e il backup serale,
+  apre la porta sul firewall, crea il database, installa l'applicativo.
+- **Aggiornamento**: **non** chiede dove, lo rilegge da `PATHFINDER_APP_DIR`, e
+  una radice diversa la **rifiuta** — spostare un'installazione non è
+  installare. Ferma il servizio, copia applicativo **e** servizio, lo riaccende.
+
+**L'autorizzazione di Windows serve adesso a ogni installazione**, non più solo
+alla prima: fermare un'attività pianificata che gira come SYSTEM la vuole. E
+l'applicativo **resta giù i secondi del riavvio** — pochi, ma non zero. È la
+promessa della 1.7 che cade, ed è il prezzo di avere un numero solo.
+
+Alla fine verifica **due** cose, non più una: l'impronta dell'applicativo e che
+`service_version` sia quel numero. Se il servizio dice ancora il numero di
+prima, il riavvio non ha avuto effetto e l'installazione è fallita — Node legge
+all'avvio.
+
+**Per vedere cosa farebbe senza toccare niente**: `.\installa.ps1 -NonChiedere
+-Prova`. Dice radice, strada e riavvio, ed esce. Si può lanciare su una macchina
+in servizio, ed è quello che esercitano cinque delle ventidue prove di
+installazione.
 
 > **Il servizio non gira mai dal pacchetto**: viene copiato in
 > `C:\Pathfinder\servizio` e registrato da lì. Registrarlo dove si trova
@@ -388,21 +411,27 @@ byte per byte. È il numero che ha sostituito il conteggio dei byte. Se invece
 compaiono `errore` e `utente`, quella riga dice di cosa è morto il servizio e con
 quale conto stava girando — §5.
 
-### Tornare indietro
+### Tornare indietro — si reinstalla il pacchetto di prima
 
-```powershell
-.\server\torna-indietro.ps1
-```
+**Dal 18/08 la via di ritorno è una sola: si reinstalla il pacchetto della
+versione che si vuole.** È il solo gesto che riporta indietro anche il servizio,
+e i pacchetti stanno in `consegna\` — l'archivio delle versioni lo tiene Andrea.
 
-Scambia il contenuto di `corrente` e `precedente`, ripescandolo dal deposito —
-simmetrico: rilanciandolo si torna avanti. Nessun riavvio, nessun
-amministratore. **Il database non si tocca mai**: la 1.2 rilegge il database
-della 1.4, e lo dimostrano le 8 prove di `collaudo-migrazione-1.4.js`.
+`torna-indietro.ps1` c'è ancora e funziona, ma **riporta indietro solo metà
+versione**: scambia due cartelle di applicativo e lascia il servizio dov'è. Chi
+lo lancia si ritrova il servizio nuovo che serve l'applicativo vecchio —
+funziona, le rotte sono compatibili all'indietro e lo dicono 77 prove, ma i due
+numeri di `/api/app-info` non coincidono più, e quello è il segno che di solito
+vuol dire «installazione non riuscita». Lo script lo scrive a chi lo esegue.
+
+**Il database non si tocca mai**: la 1.2 rilegge il database della 1.4, e lo
+dimostrano le 8 prove di `collaudo-migrazione-1.4.js`.
 
 > **Prima di tornare indietro c'è un gesto più piccolo: spegnere l'interruttore
 > della funzione che dà fastidio.** Un rilascio si disinstalla, una funzione si
 > spegne — e le due cose si confondono solo se si accendono nello stesso turno
 > in cui si installa. Per questo si installa un turno e si accende quello dopo.
+
 
 ### Dove stanno le versioni
 
@@ -502,6 +531,14 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   `index.html` e `assets/`, e la rotta accetta **un nome, non un percorso**: il
   giorno in cui la variabile punta a un albero di sorgenti, quella riga li
   pubblicherebbe tutti sulla LAN.
+- **`powershell -File script.ps1 -ParametroCheNonEsiste` NON dà errore: lo
+  scarta in silenzio e manda avanti lo script.** Chi credeva di simulare ha
+  installato — successo il 18/08/2026 su questa macchina, chiedendo `-Prova` a
+  una copia dell'installer che quel parametro non ce l'aveva ancora. Quello che
+  PowerShell scarta finisce in **`$args`**, ed è l'unico posto da cui si può
+  vedere: `installa-pathfinder.ps1` si ferma se ci trova qualcosa, e una prova
+  lo verifica. Un `.ps1` che fa qualcosa di irreversibile guardi `$args` prima
+  di muoversi.
 - **Uno script `.ps1` con caratteri non ASCII vuole il BOM**: senza, PowerShell
   5.1 lo legge come ANSI e `—` diventa `â€”`, dove `”` chiude una stringa e lo
   script muore con un errore di parentesi che non c'entra niente.
@@ -853,14 +890,14 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 | `pathfinder-server.js` | 378 | Express: rotte, SSE, TLS opzionale, la cartella dell'applicativo, avvio |
 | `lib/db.js` | 315 | Accesso SQLite, transazioni, operazioni composte, **`_migra`** |
 | `lib/schema.js` | 191 | Tabelle e indici — **due funzioni separate**, con la migrazione in mezzo |
-| `installa-pathfinder.ps1` | — | **L'installer**: capisce se è un aggiornamento o una prima installazione, si eleva solo se serve, verifica l'impronta e apre l'applicativo. Nel pacchetto diventa `installa.ps1`. `-NonChiedere` per provarlo senza una persona davanti |
+| `installa-pathfinder.ps1` | — | **L'installer**: chiede dove installare la prima volta e la rilegge dalla macchina aggiornando, capisce se è aggiornamento o prima installazione, si eleva **sempre** (ferma il servizio), porta applicativo **e** servizio, riavvia, e verifica che i due numeri coincidano. Nel pacchetto diventa `installa.ps1`. `-NonChiedere` per provarlo senza una persona davanti, **`-Prova`** per fargli dire cosa farebbe senza toccare niente |
 | `Installa Pathfinder.bat` · `LEGGIMI-pacchetto.txt` | — | Il doppio clic e le istruzioni per chi installa. Nel pacchetto diventano `Installa Pathfinder.bat` e `LEGGIMI.txt` |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate e le variabili. Da amministratore, **una volta**, **dal sorgente** o dalla copia in `C:\Pathfinder\servizio` |
 | `installa-versione.ps1` | — | **Disinstalla e reinstalla**: toglie dal deposito la cartella di quel numero, la riscrive con i byte del pacchetto e la **materializza** in `corrente`, spostando in `precedente` quella che c'era. Avvolge anche una consegna a file singolo. `-Casa` per il banco |
-| `torna-indietro.ps1` | — | Scambia il contenuto di `corrente` e `precedente`, ripescandolo dal deposito. Simmetrico |
+| `torna-indietro.ps1` | — | Scambia il contenuto di `corrente` e `precedente`. **Riporta indietro il solo applicativo**, non il servizio: dal 18/08 si torna indietro reinstallando il pacchetto della versione di prima — §4 |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata delle 20:00 |
 | `test/collaudo.js` · `test/collaudo-migrazione-1.4.js` | 520 · 158 | 81 prove sul servizio vero · 8 sul cambio di schema |
-| `test/collaudo-installazione.js` | — | **17 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte |
+| `test/collaudo-installazione.js` | — | **22 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte; e l'**installer a doppio clic** in `-Prova`, che è il modo di provarlo senza registrare attività pianificate su questa macchina |
 
 ### Collaudi — `test/`
 
