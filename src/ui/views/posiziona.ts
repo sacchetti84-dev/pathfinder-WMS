@@ -419,7 +419,12 @@ export const VistaPosiziona = {
   _ridich: null as StatoRidichiarazione | null,
   _ridichResolve: null,
 
-  _ridichiaraColli(item, titolo = "Com'è fatto adesso") {
+  /* `daZero` apre la dichiarazione VUOTA e non scrive com'e' a sistema: la
+     Conta mirata non mostra il proprio numero prima che qualcuno abbia
+     contato, e un elenco gia' compilato e' quel numero scritto per esteso.
+     Nell'inventario di vano invece la riga e' li' sopra, e ricopiarla a mano
+     sarebbe lavoro per niente. */
+  _ridichiaraColli(item, titolo = "Com'è fatto adesso", opzioni: { daZero?: boolean } = {}) {
     if (!Store.colliOn()) return null;
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
     const elenco = Store.colliDiRiga(item);
@@ -428,7 +433,9 @@ export const VistaPosiziona = {
     $('ridichOverlay')?.remove();
     this._ridich = {
       uom: cfg.uom,
-      righe: raggruppaColli(elenco, cfg.uom).map(g => ({ colli: String(g.colli), per: String(g.per) })),
+      righe: opzioni.daZero
+        ? [{ colli: '', per: '' }]
+        : raggruppaColli(elenco, cfg.uom).map(g => ({ colli: String(g.colli), per: String(g.per) })),
     };
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -438,8 +445,7 @@ export const VistaPosiziona = {
         <div class="modal-header"><h2>📦 ${this._esc(titolo)}</h2></div>
         <div class="modal-body">
           <div class="text-body-small text-sx-text-secondary mb-6">
-            <strong class="mono">${this._esc(item.article_code)}#${this._esc(item.lot_code)}</strong> in <strong class="mono">${this._esc(item.location_code)}</strong>
-            — a sistema ${this._esc(descriviElenco(elenco, cfg.uom))}
+            <strong class="mono">${this._esc(item.article_code)}#${this._esc(item.lot_code)}</strong> in <strong class="mono">${this._esc(item.location_code)}</strong>${opzioni.daZero ? '' : ` — a sistema ${this._esc(descriviElenco(elenco, cfg.uom))}`}
           </div>
           <div id="ridichRighe"></div>
           <button class="btn btn-sm mt-3" onclick="App._ridichRigaAdd()">+ altra misura</button>
