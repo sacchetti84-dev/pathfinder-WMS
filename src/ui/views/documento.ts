@@ -44,51 +44,51 @@ export const VistaDocumento: Vista = {
         const expBadge = l.expiry_date ? ` · scad. ${this._esc(l.expiry_date)}` : '';
         return `<div class="pick-cart-item" style="border-left:3px solid ${themeColor};flex-wrap:wrap;align-items:flex-start">
           <div class="pci-num" style="background:${themeColor}">${i+1}</div>
-          <div class="pci-info" style="flex:1;min-width:200px">
-            <div class="pci-code">${this._esc(l.article_code)} <span style="color:var(--sx-text-muted);font-weight:400;font-size: var(--md-sys-typescale-label-small-size)">${this._esc(l.article_description || '')}</span></div>
+          <div class="pci-info flex-1 min-w-[200px]">
+            <div class="pci-code">${this._esc(l.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(l.article_description || '')}</span></div>
             <div class="pci-loc">L:${this._esc(l.lot_code)} · 📍 ${this._esc(l.location_code)}${expBadge}</div>
-            <div style="display:flex;gap:0.4rem;align-items:center;margin-top:0.3rem;flex-wrap:wrap">
-              <label style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">Qty:</label>
-              <input class="input input-mono" type="number" min="1" step="1" value="${l.qty}" style="width:70px;text-align:center;font-weight:700;padding:0.2rem 0.3rem"
+            <div class="flex gap-4 items-center mt-3 flex-wrap">
+              <label class="text-label-small text-sx-text-muted">Qty:</label>
+              <input class="input input-mono w-[70px] text-center font-bold py-2 px-3" type="number" min="1" step="1" value="${l.qty}"
                 onchange="App._editLineQty(${i}, this.value)">
-              <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">(orig. ${l.qty_at_creation || l.qty})</span>
+              <span class="text-label-small text-sx-text-muted">(orig. ${l.qty_at_creation || l.qty})</span>
             </div>
-            <div style="margin-top:0.3rem">
-              <input class="input" placeholder="Note riga (opz.)" maxlength="${Validate.MAX.NOTES}" value="${this._esc(l.notes || '')}" style="font-size: var(--md-sys-typescale-label-small-size);padding:0.25rem 0.4rem"
+            <div class="mt-3">
+              <input class="input text-label-small py-2.5 px-4" placeholder="Note riga (opz.)" maxlength="${Validate.MAX.NOTES}" value="${this._esc(l.notes || '')}"
                 onchange="App._editLineNotes(${i}, this.value)">
             </div>
           </div>
-          <button class="btn btn-sm btn-ghost" style="color:var(--sx-danger);align-self:center" onclick="App._editRemoveLine(${i})" title="Rimuovi riga">✕</button>
+          <button class="btn btn-sm btn-ghost" class="text-sx-danger self-center" onclick="App._editRemoveLine(${i})" title="Rimuovi riga">✕</button>
         </div>`;
       }).join('');
     // Form per aggiungere nuova riga
-    const newLineHtml = `<details style="margin-top:0.6rem">
+    const newLineHtml = `<details class="mt-6">
       <summary style="cursor:pointer;font-size: var(--md-sys-typescale-body-small-size);font-weight:600;color:${themeColor};padding:0.4rem 0.5rem;background:${isRes ? 'var(--grad-soft-teal)' : 'var(--grad-soft-orange)'};border:1px solid ${themeColor};border-radius:var(--radius)">
         ➕ Aggiungi nuova riga al DDT
       </summary>
-      <div style="border:1px solid var(--sx-border);border-top:none;border-radius:0 0 var(--radius) var(--radius);padding:0.5rem;background:var(--sx-card-alt)">
-        <div class="form-group" style="margin-bottom:0.3rem">
-          <label style="font-size: var(--md-sys-typescale-label-small-size)">① Articolo</label>
-          <input class="input input-mono" id="pEditArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+      <div class="border border-sx-border [border-top:none] rounded-b-[var(--radius)] p-5 bg-sx-card-alt">
+        <div class="form-group mb-3">
+          <label class="text-label-small">① Articolo</label>
+          <input class="input input-mono uppercase" id="pEditArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();$('pEditLot')?.focus();}">
         </div>
-        <div class="form-group" style="margin-bottom:0.3rem">
-          <label style="font-size: var(--md-sys-typescale-label-small-size)">② Lotto</label>
+        <div class="form-group mb-3">
+          <label class="text-label-small">② Lotto</label>
           <input class="input input-mono" id="pEditLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._editLookupNewLine();}">
           <div id="pEditInfo"></div>
         </div>
         <div id="pEditDetails" class="hidden">
           <div id="pEditPreview"></div>
-          <div style="display:flex;gap:0.4rem;margin-bottom:0.3rem;align-items:flex-end">
-            <div class="form-group" style="width:120px;margin-bottom:0">
-              <label style="font-size: var(--md-sys-typescale-label-small-size)">Qty</label>
-              <input class="input input-mono" id="pEditQty" type="number" min="1" step="1" value="1" style="text-align:center;font-weight:700;padding:0.2rem 0.3rem"
+          <div class="flex gap-4 mb-3 items-end">
+            <div class="form-group w-[120px] mb-0">
+              <label class="text-label-small">Qty</label>
+              <input class="input input-mono text-center font-bold py-2 px-3" id="pEditQty" type="number" min="1" step="1" value="1"
                 onkeydown="if(event.key==='Enter'){event.preventDefault();App._editAddNewLine();}">
             </div>
-            <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);padding-bottom:0.3rem">Disp.: <strong id="pEditAvail" style="color:${themeColor}">—</strong></div>
+            <div class="text-label-small text-sx-text-muted pb-3">Disp.: <strong id="pEditAvail" style="color:${themeColor}">—</strong></div>
           </div>
-          <input class="input" id="pEditNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Note riga (opz.)" style="font-size: var(--md-sys-typescale-label-small-size);padding:0.25rem 0.4rem;margin-bottom:0.3rem">
+          <input class="input text-label-small py-2.5 px-4 mb-3" id="pEditNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Note riga (opz.)">
           <button class="btn btn-sm" style="width:100%;background:${themeColor};color:#fff;border-color:${themeColor};font-weight:700" onclick="App._editAddNewLine()">+ Aggiungi al DDT</button>
         </div>
       </div>
@@ -102,19 +102,19 @@ export const VistaDocumento: Vista = {
     overlay.id = 'editPendingModal';
     overlay.className = 'modal-overlay';
     overlay.addEventListener('click', (e) => { if (e.target === overlay) App._editCancel(); });
-    overlay.innerHTML = `<div class="modal" style="max-width:680px;width:95%">
+    overlay.innerHTML = `<div class="modal max-w-[680px] w-[95%]">
       <div class="modal-header">
         <h2>${themeIcon} Modifica DDT ${themeLabel} pendente</h2>
         <button class="btn btn-sm btn-icon btn-ghost" onclick="App._editCancel()">✕</button>
       </div>
       <div class="modal-body">
-        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);background:var(--grad-soft-blue);padding:0.4rem 0.5rem;border-radius:var(--radius);margin-bottom:0.6rem">
+        <div class="text-label-small text-sx-text-muted bg-[var(--grad-soft-blue)] py-4 px-5 rounded-[var(--radius)] mb-6">
           Modifiche permesse solo su DDT in stato <strong>pendente</strong>. Le righe vengono validate al salvataggio finale (re-check disponibilità).
         </div>
         <!-- TESTATA -->
         <div style="background:${isRes ? 'var(--grad-soft-teal)' : 'var(--grad-soft-orange)'};border:1px solid ${themeColor};border-radius:var(--radius);padding:0.5rem 0.6rem;margin-bottom:0.6rem">
           <div style="font-size: var(--md-sys-typescale-label-small-size);color:${themeColor};font-weight:700;margin-bottom:0.3rem">📋 TESTATA DDT</div>
-          <div class="form-row" style="margin-bottom:0.4rem">
+          <div class="form-row mb-4">
             <div class="form-group">
               <label>N° DDT</label>
               <input class="input input-mono" id="pEditDdt" maxlength="40" value="${this._esc(s.ddt_num)}">
@@ -124,7 +124,7 @@ export const VistaDocumento: Vista = {
               <input class="input" id="pEditDest" placeholder="${targetPlaceholder}" maxlength="${Validate.MAX.OPERATOR}" value="${this._esc(s.destination)}">
             </div>
           </div>
-          <div class="form-row" style="margin-bottom:0">
+          <div class="form-row mb-0">
             <div class="form-group">
               <label>📅 Data Ritiro Prevista <span style="font-size: var(--md-sys-typescale-label-small-size);color:${tmpAlert.color};font-weight:600">${tmpAlert.shortLabel || ''}</span></label>
               <input class="input" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" id="pEditExpected" value="${this._esc(this._dateISOtoIT(s.expected_pickup_date))}"
@@ -138,8 +138,8 @@ export const VistaDocumento: Vista = {
           </div>
         </div>
         <!-- RIGHE -->
-        <div style="display:flex;justify-content:space-between;align-items:center;margin:0.7rem 0 0.25rem">
-          <strong style="font-size: var(--md-sys-typescale-body-small-size)">📦 Righe DDT <span style="color:${themeColor}">(${s.lines.length})</span> · Tot. <strong style="color:${themeColor}">${totalColli} Coll.</strong></strong>
+        <div class="flex justify-between items-center mt-7 mx-0 mb-2.5">
+          <strong class="text-body-small">📦 Righe DDT <span style="color:${themeColor}">(${s.lines.length})</span> · Tot. <strong style="color:${themeColor}">${totalColli} Coll.</strong></strong>
         </div>
         <div class="pick-cart">${linesHtml}</div>
         ${newLineHtml}
@@ -232,16 +232,16 @@ export const VistaDocumento: Vista = {
     const info = $('pEditInfo');
     const details = $('pEditDetails');
     if (!art || !lot) {
-      info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ Articolo e lotto obbligatori</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Articolo e lotto obbligatori</div>`;
       return;
     }
     if (Validate.article(art) || Validate.lot(lot)) {
-      info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ Formato non valido</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Formato non valido</div>`;
       return;
     }
     const allItems = Store.findItemLocations(art).filter(it => it.lot_code === lot && !Store.isItemQuarantined(it.item_key, it.location_code));
     if (!allItems.length) {
-      info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ Item ${this._esc(art)}#${this._esc(lot)} non disponibile in magazzino</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Item ${this._esc(art)}#${this._esc(lot)} non disponibile in magazzino</div>`;
       details.classList.add('hidden');
       return;
     }
@@ -263,18 +263,18 @@ export const VistaDocumento: Vista = {
     });
     const usable = enriched.filter(it => it._availableQty > 0);
     if (!usable.length) {
-      info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-warning);margin-top:0.2rem">⚠ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`;
       details.classList.add('hidden');
       return;
     }
     if (usable.length === 1) { this._editSelectNewLineItem(usable[0]); return; }
     // Più ubicazioni: mostra elenco
-    let html = '<div style="max-height:160px;overflow-y:auto;margin-top:0.3rem"><div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.2rem">Item presente in più ubicazioni:</div>';
+    let html = '<div class="max-h-[160px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-2">Item presente in più ubicazioni:</div>';
     for (const it of usable) {
       const p = App._payload(it);
-      html += `<div class="inv-item-row" style="cursor:pointer;font-size: var(--md-sys-typescale-label-small-size)" onclick="App._editSelectNewLineEnc('${p}')">
+      html += `<div class="inv-item-row cursor-pointer text-label-small" onclick="App._editSelectNewLineEnc('${p}')">
         <div class="inv-info">
-          <div class="inv-code">${this._esc(it.article_code)} <span style="color:var(--sx-text-muted);font-weight:400;font-size: var(--md-sys-typescale-label-small-size)">${this._esc(it.article_description || '')}</span></div>
+          <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(it.article_description || '')}</span></div>
           <div class="inv-lot">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong></div>
         </div>
       </div>`;
@@ -293,9 +293,9 @@ export const VistaDocumento: Vista = {
     s.newLineState = { item: cur, availableQty: item._availableQty };
     $('pEditInfo').innerHTML = '';
     const expBadge = cur.expiry_date ? ` · scad. ${this._esc(cur.expiry_date)}` : '';
-    $('pEditPreview').innerHTML = `<div class="mov-preview" style="margin-bottom:0.3rem;font-size: var(--md-sys-typescale-label-small-size)">
-      <strong>${this._esc(cur.article_code)}</strong> <span style="color:var(--sx-text-muted)">${this._esc(cur.article_description || '')}</span><br>
-      <span style="color:var(--sx-text-muted);font-size: var(--md-sys-typescale-label-small-size)">L:${this._esc(cur.lot_code)} · 📍 ${this._esc(cur.location_code)} · disp. <strong>${item._availableQty} Coll.</strong>${expBadge}</span>
+    $('pEditPreview').innerHTML = `<div class="mov-preview mb-3 text-label-small">
+      <strong>${this._esc(cur.article_code)}</strong> <span class="text-sx-text-muted">${this._esc(cur.article_description || '')}</span><br>
+      <span class="text-sx-text-muted text-label-small">L:${this._esc(cur.lot_code)} · 📍 ${this._esc(cur.location_code)} · disp. <strong>${item._availableQty} Coll.</strong>${expBadge}</span>
     </div>`;
     const qe = $('pEditQty');
     if (qe) { qe.value = item._availableQty; qe.max = item._availableQty; }
