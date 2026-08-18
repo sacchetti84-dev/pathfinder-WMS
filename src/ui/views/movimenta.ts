@@ -18,7 +18,7 @@ export const VistaMovimenta: Vista = {
         <div class="mov-header-icon">📦</div>
         <div class="mov-header-text">
           <h2>Movimentazione Magazzino</h2>
-          <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">Scansiona con lettore barcode · ${logCount ? `<span style="color:var(--sx-success);font-weight:600">${logCount} operazioni in sessione</span>` : 'Nessuna operazione'}${(pendRes+pendShip) > 0 ? ` · <span style="color:var(--sx-warning);font-weight:600">${pendRes+pendShip} DDT pendenti</span>` : ''}</p>
+          <p class="text-body-small text-sx-text-secondary">Scansiona con lettore barcode · ${logCount ? `<span class="text-sx-success font-semibold">${logCount} operazioni in sessione</span>` : 'Nessuna operazione'}${(pendRes+pendShip) > 0 ? ` · <span class="text-sx-warning font-semibold">${pendRes+pendShip} DDT pendenti</span>` : ''}</p>
         </div>
       </div>
       <div class="mov-actions">
@@ -43,7 +43,7 @@ export const VistaMovimenta: Vista = {
     const active = this._movMode === mode ? 'active' : '';
     // v2.1.0 — badge portato a dimensione leggibile e spostato su classe dedicata
     const badge = badgeCount > 0 ? `<span class="mov-badge" style="background:${color}">${badgeCount}</span>` : '';
-    return `<div class="mov-action-card ${cls} ${active}" style="position:relative" onclick="App.startMov('${mode}')">
+    return `<div class="mov-action-card ${cls} ${active} relative" onclick="App.startMov('${mode}')">
       ${badge}
       <div class="mov-action-icon">${icon}</div>
       <h3 style="color:${color}">${title}</h3>
@@ -248,11 +248,11 @@ export const VistaMovimenta: Vista = {
     </tr>`).join('');
     this.showModal(
       `⚠ Movimenti in attesa di registrazione (${coda.length})`,
-      `<p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.6rem">
+      `<p class="text-body-small text-sx-text-secondary mb-6">
         Queste operazioni <strong>sono state eseguite sulla giacenza</strong> ma non è stato possibile scriverle
         nel registro movimenti. Restano in coda e vengono ritentate a ogni avvio e a ogni click su “Riprova”.
       </p>
-      <div style="overflow-x:auto;max-height:50vh"><table class="sx-table">
+      <div class="overflow-x-auto max-h-[50vh]"><table class="sx-table">
         <thead><tr><th>Quando</th><th>Tipo</th><th>Articolo</th><th>Lotto</th><th>Ubicazione</th><th>Operatore</th></tr></thead>
         <tbody>${righe}</tbody></table></div>`,
       `<button class="btn" onclick="App.closeModal()">Chiudi</button>
@@ -268,8 +268,8 @@ export const VistaMovimenta: Vista = {
   _renderSessionLog() {
     if (!this._movSessionLog.length) {
       return `<div class="mov-recent"><h3>📋 Registro Sessione
-        <button class="btn btn-sm" style="margin-left:auto;font-size: var(--md-sys-typescale-label-small-size)" onclick="App.exportMovLogExcel()">📊 Excel completo</button></h3>
-        <div style="padding:0.3rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">Nessuna operazione in sessione</div></div>`;
+        <button class="btn btn-sm ml-auto text-label-small" onclick="App.exportMovLogExcel()">📊 Excel completo</button></h3>
+        <div class="p-3 text-body-small text-sx-text-muted">Nessuna operazione in sessione</div></div>`;
     }
     const icons = {
       IN: { cls: 'mov-log-in', ico: '📦' },
@@ -287,7 +287,7 @@ export const VistaMovimenta: Vista = {
       PINRESET: { cls: 'mov-log-fix', ico: '🔑' }       // v2.7.0 [G6] — evento di audit, non merce
     };
     let html = `<div class="mov-recent"><h3>📋 Registro Sessione (${this._movSessionLog.length})
-      <button class="btn btn-sm" style="margin-left:auto;font-size: var(--md-sys-typescale-label-small-size)" onclick="App.exportMovLogExcel()">📊 Excel completo</button></h3>`;
+      <button class="btn btn-sm ml-auto text-label-small" onclick="App.exportMovLogExcel()">📊 Excel completo</button></h3>`;
     for (const m of this._movSessionLog.slice(0, 20)) {
       const c = (icons as any)[m.type] || icons.IN;
       const loc = (m.type === 'MOVE' || m.type === 'QUAR') && m.dest_location ? `${m.location_code} → ${m.dest_location}` : m.location_code;
@@ -330,7 +330,7 @@ export const VistaMovimenta: Vista = {
 
       <div id="ioSubForm"></div>
 
-      <div style="margin-top:0.6rem"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
     </div>`;
     this._renderIoSub();
   },
