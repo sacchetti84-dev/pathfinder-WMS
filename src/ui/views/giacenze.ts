@@ -281,7 +281,7 @@ export const VistaGiacenze: Vista = {
     const item = bucket.find(i => i.item_key === itemKey);
     if (!item) return this.toast('Item non trovato', 'error');
 
-    const fmtDate = (ts: any) => ts ? new Date(ts).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
+    const fmtDate = (ts: number | null | undefined) => ts ? new Date(ts).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
 
     this.showModal(
       `✏️ Modifica Item — ${this._esc(locationCode)}`,
