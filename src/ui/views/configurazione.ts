@@ -8,7 +8,7 @@ export const VistaConfigurazione: Vista = {
   renderConfig() {
     const el = $('viewConfig');
     el.innerHTML = `<div class="config-container">
-      <h1 style="font-size: var(--md-sys-typescale-title-large-size);color:var(--sx-primary);font-weight:700;margin-bottom:0.75rem">⚙ Configurazione</h1>
+      <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙ Configurazione</h1>
       <div class="config-tabs">
         <button class="config-tab ${this._configTab === 'sites' ? 'active' : ''}" onclick="App._configTab='sites';App.renderConfig()">Siti e Zone</button>
         <button class="config-tab ${this._configTab === 'articles' ? 'active' : ''}" onclick="App._configTab='articles';App.renderConfig()">Anagrafica Articoli</button>
@@ -80,18 +80,18 @@ export const VistaConfigurazione: Vista = {
       const on = Store.isFeatureOn(f.nome);
       const voce = log.find(v => v.nome === f.nome);
       return `<div class="config-card" style="margin-bottom:0.7rem;${on ? 'border-left:3px solid var(--sx-success)' : ''}">
-        <div style="display:flex;align-items:flex-start;gap:0.8rem;flex-wrap:wrap">
-          <div style="font-size:1.5rem;line-height:1.2">${f.icona}</div>
-          <div style="flex:1;min-width:240px">
-            <div style="display:flex;align-items:center;gap:0.5rem;flex-wrap:wrap">
+        <div class="flex items-start gap-8 flex-wrap">
+          <div class="text-[1.5rem] leading-[1.2]">${f.icona}</div>
+          <div class="flex-1 min-w-[240px]">
+            <div class="flex items-center gap-5 flex-wrap">
               <strong>${this._esc(f.label)}</strong>
-              <span class="mono" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${f.ver}</span>
-              <span class="badge ${on ? 'badge-green' : 'badge-muted'}" style="font-size: var(--md-sys-typescale-label-small-size)">${on ? 'ACCESA' : 'spenta'}</span>
-              ${f.pronta ? '' : '<span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">non ancora costruita</span>'}
+              <span class="mono text-label-small text-sx-text-muted">${f.ver}</span>
+              <span class="badge ${on ? 'badge-green' : 'badge-muted'} text-label-small">${on ? 'ACCESA' : 'spenta'}</span>
+              ${f.pronta ? '' : '<span class="text-label-small text-sx-text-muted">non ancora costruita</span>'}
             </div>
-            <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.6;margin-top:0.3rem">${this._esc(f.cosa)}</div>
-            <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);line-height:1.6;margin-top:0.2rem"><strong>Cosa cambia a video:</strong> ${this._esc(f.cambia)}</div>
-            ${voce ? `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.3rem">
+            <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">${this._esc(f.cosa)}</div>
+            <div class="text-body-small text-sx-text-muted leading-[1.6] mt-2"><strong>Cosa cambia a video:</strong> ${this._esc(f.cambia)}</div>
+            ${voce ? `<div class="text-label-small text-sx-text-muted mt-3">
               Ultimo cambio: ${voce.acceso ? 'accesa' : 'spenta'} il ${new Date(voce.at).toLocaleString('it-IT')}${voce.by ? ` da ${this._esc(voce.by)}` : ''}</div>` : ''}
           </div>
           <button class="btn btn-sm ${on ? '' : 'btn-primary'}" ${f.pronta ? '' : 'disabled'}
@@ -101,14 +101,14 @@ export const VistaConfigurazione: Vista = {
     }).join('');
 
     el.innerHTML = `
-      <div class="mov-preview" style="margin-bottom:0.8rem;line-height:1.6">
+      <div class="mov-preview mb-8 leading-[1.6]">
         Le funzioni della <strong>1.4</strong> sono installate ma spente: il codice è in magazzino,
         il comportamento no. Si accende <strong>una funzione alla volta, a inizio turno</strong>, e se
         qualcosa si muove nel verso sbagliato si rispegne — senza disinstallare niente e
         <strong>senza toccare il database</strong>.<br>
         Alzare un interruttore richiede il <strong>PIN di un Team Leader</strong>.
       </div>
-      ${recente ? `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.8rem;line-height:1.6">
+      ${recente ? `<div class="mov-preview mov-preview-warn mb-8 leading-[1.6]">
         ⚠ <strong>${this._esc(recente.nome)}</strong> è stata accesa
         ${new Date(recente.at).toLocaleString('it-IT')}${recente.by ? ` da ${this._esc(recente.by)}` : ''}.
         Accenderne una seconda adesso significa che, se qualcosa cambia, non si saprà quale delle due.
@@ -180,14 +180,14 @@ export const VistaConfigurazione: Vista = {
       <tr>
         <td><input class="input" value="${this._esc(c.label)}" maxlength="60"
               onchange="App._docCausaleEdit(${i},'label',this.value)"></td>
-        <td style="width:190px">
+        <td class="w-[190px]">
           <select class="select" onchange="App._docCausaleEdit(${i},'mov',this.value)">
             <option value="SHIP" ${c.mov !== 'RET' ? 'selected' : ''}>Spedizione (uscita)</option>
             <option value="RET"  ${c.mov === 'RET' ? 'selected' : ''}>Reso</option>
           </select>
         </td>
-        <td style="width:44px;text-align:center">
-          <button class="btn btn-sm btn-ghost" style="color:var(--sx-danger)"
+        <td class="w-[44px] text-center">
+          <button class="btn btn-sm btn-ghost text-sx-danger"
             onclick="App._docCausaleRemove(${i})" title="Rimuovi la causale">✕</button>
         </td>
       </tr>`).join('');
@@ -196,8 +196,8 @@ export const VistaConfigurazione: Vista = {
       <tr>
         <td><input class="input" value="${this._esc(r.label)}" maxlength="60"
               onchange="App._docReasonEdit(${i},this.value)"></td>
-        <td style="width:44px;text-align:center">
-          <button class="btn btn-sm btn-ghost" style="color:var(--sx-danger)"
+        <td class="w-[44px] text-center">
+          <button class="btn btn-sm btn-ghost text-sx-danger"
             onclick="App._docReasonRemove(${i})" title="Rimuovi la motivazione">✕</button>
         </td>
       </tr>`).join('');
@@ -210,17 +210,17 @@ export const VistaConfigurazione: Vista = {
       </div>`;
 
     el.innerHTML = `
-      ${gaps.length ? `<div class="mov-preview mov-preview-err" style="margin-bottom:0.7rem">
+      ${gaps.length ? `<div class="mov-preview mov-preview-err mb-7">
         ⚠ <strong>Il mittente è incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.<br>
-        <span style="font-size: var(--md-sys-typescale-body-small-size)">Finché questi campi restano vuoti i DDT si stampano, ma escono con l'avviso che il documento non è conforme.</span>
-      </div>` : `<div class="mov-preview mov-preview-ok" style="margin-bottom:0.7rem">
+        <span class="text-body-small">Finché questi campi restano vuoti i DDT si stampano, ma escono con l'avviso che il documento non è conforme.</span>
+      </div>` : `<div class="mov-preview mov-preview-ok mb-7">
         ✓ <strong>Mittente configurato</strong> — i DDT possono essere emessi.
       </div>`}
 
       <!-- ══ MITTENTE ══ -->
       <div class="config-card">
-        <h3 style="font-size: var(--md-sys-typescale-body-medium-size);font-weight:700;color:var(--sx-primary);margin-bottom:0.2rem">🏢 Mittente</h3>
-        <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
+        <h3 class="text-body-medium font-bold text-sx-primary mb-2">🏢 Mittente</h3>
+        <p class="text-body-small text-sx-text-muted mb-6">
           In alto a sinistra su ogni documento, accanto al logo. Si scrivono una volta.
         </p>
         <div class="form-row">
@@ -247,51 +247,51 @@ export const VistaConfigurazione: Vista = {
           ${fld('dcEmail', 'Email / PEC', s.email, { max: 80 })}
           ${fld('dcWarehouse', 'Indirizzo del magazzino', s.warehouse_address, { max: 140, ph: 'Solo se la merce parte da un indirizzo diverso dalla sede legale' })}
         </div>
-        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin:0.1rem 0 0.6rem">
+        <div class="text-label-small text-sx-text-muted mt-1 mx-0 mb-6">
           💡 Il luogo di partenza compare sul DDT solo se questo campo è compilato. Lasciandolo vuoto si intende la sede legale.
         </div>
-        <button class="btn btn-primary" style="font-weight:700" onclick="App._docSaveSender()">✓ Salva i dati del mittente</button>
+        <button class="btn btn-primary font-bold" onclick="App._docSaveSender()">✓ Salva i dati del mittente</button>
       </div>
 
       <!-- ══ CAUSALI ══ -->
-      <div class="config-card" style="margin-top:1rem">
-        <h3 style="font-size: var(--md-sys-typescale-body-medium-size);font-weight:700;color:var(--sx-primary);margin-bottom:0.2rem">🚚 Causali di trasporto</h3>
-        <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
+      <div class="config-card mt-10">
+        <h3 class="text-body-medium font-bold text-sx-primary mb-2">🚚 Causali di trasporto</h3>
+        <p class="text-body-small text-sx-text-muted mb-6">
           La causale compare sul DDT e <strong>decide il tipo di movimento a registro</strong>: le causali marcate
           <em>Reso</em> scrivono un movimento di reso, tutte le altre una spedizione. È così che il cruscotto continua
           a distinguerli dopo l'unificazione dei due moduli.
         </p>
-        <table class="sx-table" style="width:100%">
+        <table class="sx-table w-full">
           <thead><tr><th>Descrizione</th><th>Movimento a registro</th><th></th></tr></thead>
           <tbody>${causaliRows}</tbody>
         </table>
-        <div style="display:flex;gap:0.4rem;margin-top:0.5rem;flex-wrap:wrap">
+        <div class="flex gap-4 mt-5 flex-wrap">
           <button class="btn btn-sm" onclick="App._docCausaleAdd()">+ Aggiungi causale</button>
           <button class="btn btn-sm btn-ghost" onclick="App._docResetList('causali')">↺ Ripristina l'elenco di serie</button>
         </div>
       </div>
 
       <!-- ══ MOTIVAZIONI SMALTIMENTO ══ -->
-      <div class="config-card" style="margin-top:1rem">
-        <h3 style="font-size: var(--md-sys-typescale-body-medium-size);font-weight:700;color:var(--sx-primary);margin-bottom:0.2rem">🗑️ Motivazioni di smaltimento</h3>
-        <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
+      <div class="config-card mt-10">
+        <h3 class="text-body-medium font-bold text-sx-primary mb-2">🗑️ Motivazioni di smaltimento</h3>
+        <p class="text-body-small text-sx-text-muted mb-6">
           Compaiono come pulsanti nel modulo di scarico. Una motivazione è <strong>sempre obbligatoria</strong>:
           l'operatore sceglie fra queste oppure scrive un motivo esteso.
         </p>
-        <table class="sx-table" style="width:100%">
+        <table class="sx-table w-full">
           <thead><tr><th>Motivazione</th><th></th></tr></thead>
           <tbody>${reasonRows}</tbody>
         </table>
-        <div style="display:flex;gap:0.4rem;margin-top:0.5rem;flex-wrap:wrap">
+        <div class="flex gap-4 mt-5 flex-wrap">
           <button class="btn btn-sm" onclick="App._docReasonAdd()">+ Aggiungi motivazione</button>
           <button class="btn btn-sm btn-ghost" onclick="App._docResetList('disposalReasons')">↺ Ripristina l'elenco di serie</button>
         </div>
       </div>
 
       <!-- ══ NUMERAZIONE ══ -->
-      <div class="config-card" style="margin-top:1rem">
-        <h3 style="font-size: var(--md-sys-typescale-body-medium-size);font-weight:700;color:var(--sx-primary);margin-bottom:0.2rem">🔢 Numerazione e valori predefiniti</h3>
-        <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
+      <div class="config-card mt-10">
+        <h3 class="text-body-medium font-bold text-sx-primary mb-2">🔢 Numerazione e valori predefiniti</h3>
+        <p class="text-body-small text-sx-text-muted mb-6">
           Il numero del DDT resta <strong>a compilazione libera</strong>: qui si tiene solo l'ultimo emesso, per
           proporre il successivo. Nessun contatore, nessun numero prenotato da un documento poi annullato.
         </p>
@@ -299,8 +299,7 @@ export const VistaConfigurazione: Vista = {
           ${fld('dcLastNum', 'Ultimo n° DDT emesso', cfg.ddt.last_number, { mono: true, max: 40, ph: 'Es: 2026/000123' })}
           <div class="form-group">
             <label>Prossimo proposto</label>
-            <input class="input input-mono" value="${this._esc(Store.proposeDdtNumber() || '— nessuna proposta')}" disabled
-              style="opacity:0.7">
+            <input class="input input-mono opacity-70" value="${this._esc(Store.proposeDdtNumber() || '— nessuna proposta')}" disabled>
           </div>
         </div>
         <div class="form-row">
@@ -320,7 +319,7 @@ export const VistaConfigurazione: Vista = {
             </select>
           </div>
         </div>
-        <button class="btn btn-primary" style="font-weight:700" onclick="App._docSaveNumbering()">✓ Salva numerazione</button>
+        <button class="btn btn-primary font-bold" onclick="App._docSaveNumbering()">✓ Salva numerazione</button>
       </div>`;
   },
 
