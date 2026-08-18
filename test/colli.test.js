@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   espandi, leggiColli, validaDichiarazione,
   totaleColli, totaleUom, raggruppa, descriviColli,
-  daSuddivisione, preleva, uscite, scelteDaMisure, scelteDaUscite, verificaColli,
+  daSuddivisione, preleva, uscite, scelteDaMisure, scelteDaUscite, rettifica, verificaColli,
 } from '../src/modules/colli';
 
 /* ── La dichiarazione: 10 x 1.000 + 1 x 900 ─────────────────────────── */
@@ -355,5 +355,66 @@ describe('scelteDaUscite', () => {
     const prima = uscite(colli, [{ indice: 0, quantita: 7 }], 'KG');
     const restano = preleva(colli, scelteDaUscite(colli, prima, 'KG'), 'KG').rimasti;
     expect(restano).toEqual([18, 25, 10]);
+  });
+});
+
+/* ── Da com'era a com'e': la rettifica d'inventario ──────────────────── */
+
+/* Chi conta un vano non toglie e non aggiunge: guarda lo scaffale e dice
+   com'e' fatto adesso. La differenza fra i due elenchi la calcola il
+   sistema, e deve saperla dire come il registro la capisce — cosa e'
+   uscito, cosa e' entrato. */
+describe('rettifica', () => {
+  it('due elenchi uguali non muovono niente', () => {
+    const r = rettifica([25, 25, 10], [25, 10, 25], 'KG');
+    expect(r).toEqual({ uscite: [], entrate: [] });
+  });
+
+  it('un collo che manca esce intero', () => {
+    expect(rettifica([25, 25, 10], [25, 10], 'KG'))
+      .toEqual({ uscite: [{ da: 25, quantita: 25 }], entrate: [] });
+  });
+
+  it('UN COLLO PIU\' LEGGERO NON E\' UN COLLO USCITO E UN ALTRO ENTRATO', () => {
+    /* Il 25 che pesa 18 e' lo stesso collo con dentro 7 KG in meno: il
+       registro deve leggere un\'uscita da 7, non un collo andato via e uno
+       arrivato dal nulla. */
+    expect(rettifica([25, 25, 10], [25, 18, 10], 'KG'))
+      .toEqual({ uscite: [{ da: 25, quantita: 7 }], entrate: [] });
+  });
+
+  it('un collo trovato entra con la misura che ha', () => {
+    expect(rettifica([25, 25], [25, 25, 10], 'KG'))
+      .toEqual({ uscite: [], entrate: [10] });
+  });
+
+  it('manca e si trova insieme: due movimenti, non uno di comodo', () => {
+    expect(rettifica([25, 25, 10], [25, 18, 10, 5], 'KG'))
+      .toEqual({ uscite: [{ da: 25, quantita: 7 }], entrate: [5] });
+  });
+
+  it('il vano vuoto porta via tutto', () => {
+    expect(rettifica([25, 10], [], 'KG'))
+      .toEqual({ uscite: [{ da: 25, quantita: 25 }, { da: 10, quantita: 10 }], entrate: [] });
+  });
+
+  it('il collo calato si accoppia col piu\' piccolo che lo contiene', () => {
+    /* 24 viene da un 25 sceso di uno, non da un 30 sceso di sei. */
+    expect(rettifica([30, 25], [24], 'KG'))
+      .toEqual({ uscite: [{ da: 25, quantita: 1 }, { da: 30, quantita: 30 }], entrate: [] });
+  });
+
+  it('un collo piu\' grande di tutti quelli di prima e\' entrato, non calato', () => {
+    expect(rettifica([10], [25], 'KG'))
+      .toEqual({ uscite: [{ da: 10, quantita: 10 }], entrate: [25] });
+  });
+
+  it('senza l\'elenco di prima non c\'e\' niente da rettificare', () => {
+    expect(rettifica(null, [25], 'KG')).toBe(null);
+  });
+
+  it('i decimali non derivano: 5,5 meno 0,1 meno 0,2 resta esatto', () => {
+    expect(rettifica([5.5], [5.2], 'KG'))
+      .toEqual({ uscite: [{ da: 5.5, quantita: 0.3 }], entrate: [] });
   });
 });

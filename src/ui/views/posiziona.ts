@@ -10,7 +10,7 @@ import { formattaQuantita, descrivi as descriviColli } from '../../modules/misur
    somiglia, e per questo portano alias distinti. */
 import {
   espandi as espandiColli, validaDichiarazione, descriviColli as descriviElenco,
-  totaleUom as totaleUomElenco, preleva as prelevaElenco,
+  totaleUom as totaleUomElenco, preleva as prelevaElenco, raggruppa as raggruppaColli,
 } from '../../modules/colli';
 
 /* Le due forme che vivono solo dentro questa maschera: la dichiarazione dei
@@ -18,12 +18,16 @@ import {
    colli escono, con le scelte parziali segnate per posizione. */
 type RigaColliIn = { colli: string; per: string };
 type SceltaColli = { elenco: number[]; uom: string; scelte: Map<number, number | boolean> };
+/* 1.8.4 — la ridichiarazione: le stesse righe del posizionamento, aperte
+   gia' compilate con l'elenco che la riga porta adesso. */
+type StatoRidichiarazione = { righe: RigaColliIn[]; uom: string };
 
 /* Il gestore dell'Escape della finestra dei colli. Sta QUI e non dentro
    `App`: la superficie del monolite e' un contratto — 577 nomi, e un
    collaudo che li conta — e un ascoltatore non e' un metodo che qualcuno
    chiama. Ne vive uno per volta, come la finestra. */
 let escColli: ((e: KeyboardEvent) => void) | null = null;
+let escRidich: ((e: KeyboardEvent) => void) | null = null;
 
 export const VistaPosiziona = {
   _formPosiziona(el) {
@@ -397,6 +401,153 @@ export const VistaPosiziona = {
     this._colliSel = null;
     const resolve = this._colliResolve;
     this._colliResolve = null;
+    if (resolve) resolve(esito);
+  },
+
+  /* ═══ 1.8.4 — COM'E' FATTO ADESSO ══════════════════════════════════
+     Chi conta un vano non toglie e non aggiunge: guarda lo scaffale e dice
+     com'e' imballato quello che ha davanti. La stessa dichiarazione del
+     posizionamento — «quanti, e da quanto» — aperta gia' compilata con
+     l'elenco di adesso, perche' il piu' delle volte cambia una riga sola.
+
+     Da qui esce l'elenco NUOVO, e la differenza la calcola `rettifica`. E'
+     il gesto che ha tolto di mezzo l'unico «vai da un'altra parte» rimasto:
+     un collo trovato ha una misura che nessuno puo' indovinare, ma chi ce
+     l'ha davanti la legge.
+
+     `undefined` se si annulla, `null` se la riga non porta un elenco. */
+  _ridich: null as StatoRidichiarazione | null,
+  _ridichResolve: null,
+
+  _ridichiaraColli(item, titolo = "Com'è fatto adesso") {
+    if (!Store.colliOn()) return null;
+    const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
+    const elenco = Store.colliDiRiga(item);
+    if (!cfg || !elenco) return null;
+
+    $('ridichOverlay')?.remove();
+    this._ridich = {
+      uom: cfg.uom,
+      righe: raggruppaColli(elenco, cfg.uom).map(g => ({ colli: String(g.colli), per: String(g.per) })),
+    };
+    const overlay = document.createElement('div');
+    overlay.className = 'modal-overlay';
+    overlay.id = 'ridichOverlay';
+    overlay.innerHTML = `
+      <div class="modal max-w-[460px]">
+        <div class="modal-header"><h2>📦 ${this._esc(titolo)}</h2></div>
+        <div class="modal-body">
+          <div class="text-body-small text-sx-text-secondary mb-6">
+            <strong class="mono">${this._esc(item.article_code)}#${this._esc(item.lot_code)}</strong> in <strong class="mono">${this._esc(item.location_code)}</strong>
+            — a sistema ${this._esc(descriviElenco(elenco, cfg.uom))}
+          </div>
+          <div id="ridichRighe"></div>
+          <button class="btn btn-sm mt-3" onclick="App._ridichRigaAdd()">+ altra misura</button>
+          <div class="mt-5 font-bold" id="ridichPrev"></div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn" onclick="App._ridichAnnulla()">Annulla</button>
+          <button class="btn btn-success" onclick="App._ridichOk()">✓ È così</button>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    this._ridichRender();
+
+    escRidich = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      this._ridichAnnulla();
+    };
+    document.addEventListener('keydown', escRidich, true);
+    return new Promise(resolve => { this._ridichResolve = resolve; });
+  },
+
+  _ridichRigaAdd() {
+    this._ridich?.righe.push({ colli: '', per: '' });
+    this._ridichRender();
+  },
+
+  _ridichRigaDel(i) {
+    const s = this._ridich;
+    if (!s) return;
+    s.righe.splice(i, 1);
+    /* Una riga in fondo c'e' sempre: un vano svuotato si dichiara lasciandola
+       vuota, e senza nessuna riga non ci sarebbe dove scrivere. */
+    if (!s.righe.length) s.righe.push({ colli: '', per: '' });
+    this._ridichRender();
+  },
+
+  _ridichSet(i, campo, valore) {
+    const r = this._ridich?.righe[i];
+    if (!r) return;
+    r[campo] = valore;
+    this._ridichPrev();
+  },
+
+  _ridichRender() {
+    const s = this._ridich;
+    const box = $('ridichRighe');
+    if (!s || !box) return;
+    box.innerHTML = s.righe.map((r: RigaColliIn, i: number) => `
+      <div class="flex gap-3 items-center mb-2.5">
+        <input class="input input-mono max-w-[90px] text-center" type="number" min="0" step="1" value="${this._esc(String(r.colli ?? ''))}" placeholder="colli"
+          oninput="App._ridichSet(${i},'colli',this.value)">
+        <span class="text-sx-text-muted">×</span>
+        <input class="input input-mono max-w-[130px] text-center" type="number" min="0" step="0.001" value="${this._esc(String(r.per ?? ''))}" placeholder="dentro"
+          oninput="App._ridichSet(${i},'per',this.value)">
+        <span class="text-sx-text-muted text-label-small">${this._esc(s.uom)}</span>
+        <button class="btn btn-sm" title="Togli questa misura" onclick="App._ridichRigaDel(${i})">✕</button>
+      </div>`).join('');
+    this._ridichPrev();
+  },
+
+  /* Un vano dichiarato vuoto e' una dichiarazione, non un errore: e' la riga
+     che sparisce del tutto, e la differenza la legge chi la applica. */
+  _ridichElenco() {
+    const s = this._ridich;
+    if (!s) return null;
+    const vuota = s.righe.every((r: RigaColliIn) => !String(r.colli ?? '').trim() && !String(r.per ?? '').trim());
+    if (vuota) return [];
+    const errori = validaDichiarazione(s.righe, s.uom);
+    if (errori.length) throw new Error(errori.join(' · '));
+    return espandiColli(s.righe, s.uom) ?? [];
+  },
+
+  _ridichPrev() {
+    const s = this._ridich;
+    const prev = $('ridichPrev');
+    if (!s || !prev) return;
+    try {
+      const elenco = this._ridichElenco();
+      prev.style.color = elenco.length ? 'var(--sx-success)' : 'var(--sx-danger)';
+      prev.textContent = elenco.length
+        ? `${descriviElenco(elenco, s.uom)} — ${formattaQuantita(totaleUomElenco(elenco, s.uom), s.uom)} ${s.uom} in ${elenco.length} coll.`
+        : 'Vano vuoto: la riga sparisce dalla giacenza';
+    } catch (err) {
+      prev.style.color = 'var(--sx-warning)';
+      prev.textContent = '⚠ ' + ((err as Error).message || 'dichiarazione non valida');
+    }
+  },
+
+  _ridichOk() {
+    let elenco;
+    try { elenco = this._ridichElenco(); }
+    catch (err) { return this.toast((err as Error).message || 'Dichiarazione non valida', 'error'); }
+    this._ridichChiudi(elenco);
+  },
+
+  _ridichAnnulla() { this._ridichChiudi(undefined); },
+
+  _ridichChiudi(esito: unknown) {
+    if (escRidich) {
+      document.removeEventListener('keydown', escRidich, true);
+      escRidich = null;
+    }
+    $('ridichOverlay')?.remove();
+    this._ridich = null;
+    const resolve = this._ridichResolve;
+    this._ridichResolve = null;
     if (resolve) resolve(esito);
   },
 
