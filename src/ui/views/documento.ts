@@ -1,8 +1,16 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
+import type { DocumentoUscita, RigaDocumento, Giacenza } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { pickupAlertStatus } from '../../modules/pickupAlert';
 import { Dialog } from '../dialog';
+
+/* IL DDT PENDENTE MENTRE LO SI CORREGGE: il documento piu' la riga che si sta
+   componendo. `newLineState` non finisce nel database, muore alla chiusura
+   della maschera. */
+type ModificaDDT = DocumentoUscita & {
+  newLineState?: { item: Giacenza; availableQty: number } | null;
+};
 
 export const VistaDocumento: Vista = {
   /* Apre il modal di edit per un DDT pendente. Crea uno snapshot mutabile in
@@ -26,7 +34,7 @@ export const VistaDocumento: Vista = {
   },
 
   _renderEditModal() {
-    const s = this._editState;
+    const s: ModificaDDT | null = this._editState;
     if (!s) return;
     const isRes = s.kind === 'RES';
     const themeColor = isRes ? 'var(--sx-teal)' : 'var(--sx-orange)';
@@ -36,11 +44,11 @@ export const VistaDocumento: Vista = {
     const targetPlaceholder = isRes ? 'Fornitore a cui torna la merce' : 'Cliente destinatario';
     // Calcolo alert sulla data corrente in edit
     const tmpAlert = pickupAlertStatus({ expected_pickup_date: s.expected_pickup_date });
-    const totalColli = s.lines.reduce((acc: any, l: any) => acc + (l.qty || 0), 0);
+    const totalColli = s.lines.reduce((acc: number, l: RigaDocumento) => acc + (l.qty || 0), 0);
     // Render righe
     const linesHtml = s.lines.length === 0
       ? `<div class="pick-cart-empty">Nessuna riga — aggiungerne almeno una prima di salvare</div>`
-      : s.lines.map((l: any, i: any) => {
+      : s.lines.map((l, i) => {
         const expBadge = l.expiry_date ? ` · scad. ${this._esc(l.expiry_date)}` : '';
         return `<div class="pick-cart-item" style="border-left:3px solid ${themeColor};flex-wrap:wrap;align-items:flex-start">
           <div class="pci-num" style="background:${themeColor}">${i+1}</div>
@@ -155,7 +163,7 @@ export const VistaDocumento: Vista = {
   /* Aggiorna qty di una riga in edit. Validazione: deve essere intero ≥ 1 e
      ≤ disponibilità attuale (esclude prenotazioni di altri DDT pendenti). */
   _editLineQty(idx, value) {
-    const s = this._editState;
+    const s: ModificaDDT | null = this._editState;
     if (!s || !s.lines[idx]) return;
     const newQty = parseInt(value);
     if (!newQty || newQty < 1) {
@@ -164,8 +172,8 @@ export const VistaDocumento: Vista = {
       return;
     }
     // Verifica disponibilità: qty totale - prenotazioni altri DDT pendenti (esclude questo) - altre righe carrello stesso item
-    const line = s.lines[idx];
-    const cur = Store.getItemsAtLocation(line.location_code).find(x => x.item_key === line.item_key);
+    const line = s.lines[idx]!;
+    const cur = Store.getItemsAtLocation(line.location_code!).find(x => x.item_key === line.item_key);
     if (!cur) {
       this.toast(`Item ${line.article_code}#${line.lot_code} non più in giacenza in ${line.location_code}`, 'error');
       this._renderEditModal();
@@ -182,9 +190,9 @@ export const VistaDocumento: Vista = {
     }
     // Altre righe stesso item nel medesimo DDT in edit (escluse questa riga idx)
     const sameItemOtherRows = s.lines
-      .filter((_: any, j: any) => j !== idx)
-      .filter((l2: any) => l2.location_code === line.location_code && l2.item_key === line.item_key)
-      .reduce((acc: any, l2: any) => acc + (l2.qty || 0), 0);
+      .filter((_, j) => j !== idx)
+      .filter((l2) => l2.location_code === line.location_code && l2.item_key === line.item_key)
+      .reduce((acc: number, l2: RigaDocumento) => acc + (l2.qty || 0), 0);
     const maxAllowed = totalQty - pendingFromOthers - sameItemOtherRows;
     if (newQty > maxAllowed) {
       this.toast(`Qty (${newQty}) supera disponibilità effettiva (${maxAllowed})`, 'error');
@@ -196,7 +204,7 @@ export const VistaDocumento: Vista = {
   },
 
   _editLineNotes(idx, value) {
-    const s = this._editState;
+    const s: ModificaDDT | null = this._editState;
     if (!s || !s.lines[idx]) return;
     const v = Validate.clean(value);
     const err = Validate.notes(v);
@@ -205,7 +213,7 @@ export const VistaDocumento: Vista = {
   },
 
   async _editRemoveLine(idx) {
-    const s = this._editState;
+    const s: ModificaDDT | null = this._editState;
     if (!s || !s.lines[idx]) return;
     const line = s.lines[idx];
     if (!await Dialog.confirm({
@@ -225,7 +233,7 @@ export const VistaDocumento: Vista = {
   /* Lookup item per aggiungere una nuova riga al DDT in edit. Stesso meccanismo
      di _shipLookup ma scrive risultato in this._editState.newLineState. */
   _editLookupNewLine() {
-    const s = this._editState;
+    const s: ModificaDDT | null = this._editState;
     if (!s) return;
     const art = Validate.clean($('pEditArt')?.value, true);
     const lot = Validate.clean($('pEditLot')?.value);
@@ -256,8 +264,8 @@ export const VistaDocumento: Vista = {
         }
       }
       const inEditedDoc = s.lines
-        .filter((l2: any) => l2.location_code === it.location_code && l2.item_key === it.item_key)
-        .reduce((acc: any, l2: any) => acc + (l2.qty || 0), 0);
+        .filter((l2) => l2.location_code === it.location_code && l2.item_key === it.item_key)
+        .reduce((acc: number, l2: RigaDocumento) => acc + (l2.qty || 0), 0);
       const avail = Math.max(0, totalQty - pendingFromOthers - inEditedDoc);
       return { ...it, _totalQty: totalQty, _availableQty: avail };
     });
@@ -286,7 +294,7 @@ export const VistaDocumento: Vista = {
   _editSelectNewLineEnc(p) { this._editSelectNewLineItem(JSON.parse(decodeURIComponent(p))); },
 
   _editSelectNewLineItem(item) {
-    const s = this._editState;
+    const s: ModificaDDT | null = this._editState;
     if (!s) return;
     const cur = Store.getItemsAtLocation(item.location_code).find(i => i.item_key === item.item_key);
     if (!cur) return this.toast('Item non più disponibile', 'error');
@@ -307,7 +315,7 @@ export const VistaDocumento: Vista = {
 
   /* Aggiunge la nuova riga al DDT in edit. */
   _editAddNewLine() {
-    const s = this._editState;
+    const s: ModificaDDT | null = this._editState;
     if (!s?.newLineState?.item) return this.toast('Identifica prima un item', 'error');
     const ns = s.newLineState;
     const qty = parseInt($('pEditQty')?.value);
@@ -335,7 +343,7 @@ export const VistaDocumento: Vista = {
 
   /* Persiste i campi testata correnti dal DOM nello _editState (per non perderli a re-render). */
   _editPersistHeader() {
-    const s = this._editState;
+    const s: ModificaDDT | null = this._editState;
     if (!s) return;
     const ddt = $('pEditDdt')?.value;
     const dest = $('pEditDest')?.value;
@@ -355,7 +363,7 @@ export const VistaDocumento: Vista = {
   /* Salva le modifiche del DDT pendente: validazioni complete + Store.updatePendingDoc. */
   async _editSave() {
     if (!this._requireOperator('la modifica del DDT')) return;   // v2.0.1 [B7]
-    const s = this._editState;
+    const s: ModificaDDT | null = this._editState;
     if (!s) return;
     this._editPersistHeader();
     if (!s.ddt_num) return this.toast('N° DDT obbligatorio', 'error');
@@ -363,8 +371,8 @@ export const VistaDocumento: Vista = {
     if (!s.lines.length) return this.toast('Il DDT deve contenere almeno una riga', 'error');
     // Re-validazione disponibilità per tutte le righe (potrebbe essere cambiata)
     for (let i = 0; i < s.lines.length; i++) {
-      const l = s.lines[i];
-      const cur = Store.getItemsAtLocation(l.location_code).find(x => x.item_key === l.item_key);
+      const l = s.lines[i]!;
+      const cur = Store.getItemsAtLocation(l.location_code!).find(x => x.item_key === l.item_key);
       if (!cur) return this.toast(`Riga ${i+1}: ${l.article_code}#${l.lot_code} non più in ${l.location_code}`, 'error');
       const totalQty = cur.qty || 1;
       let pendingFromOthers = 0;
@@ -375,9 +383,9 @@ export const VistaDocumento: Vista = {
         }
       }
       const sameItemOtherRows = s.lines
-        .filter((_: any, j: any) => j !== i)
-        .filter((l2: any) => l2.location_code === l.location_code && l2.item_key === l.item_key)
-        .reduce((acc: any, l2: any) => acc + (l2.qty || 0), 0);
+        .filter((_, j) => j !== i)
+        .filter((l2) => l2.location_code === l.location_code && l2.item_key === l.item_key)
+        .reduce((acc: number, l2: RigaDocumento) => acc + (l2.qty || 0), 0);
       const maxAllowed = totalQty - pendingFromOthers - sameItemOtherRows;
       if (l.qty > maxAllowed) return this.toast(`Riga ${i+1}: qty (${l.qty}) > disponibilità effettiva (${maxAllowed})`, 'error');
     }
@@ -398,8 +406,8 @@ export const VistaDocumento: Vista = {
       if (fa) this._formSpedizioni(fa);
       // Aggiorna anche dashboard se visibile
       if (this.currentView === 'dashboard') this.renderDashboard();
-    } catch (err: any) {
-      this.toast(`Errore: ${err.message || 'sconosciuto'}`, 'error');
+    } catch (err) {
+      this.toast(`Errore: ${(err as Error).message || 'sconosciuto'}`, 'error');
     }
   },
 
