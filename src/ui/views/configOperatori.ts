@@ -1,6 +1,7 @@
 import { type Vista, $ } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
+import type { Operatore } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Auth } from '../../modules/auth';
 import { Session } from '../../modules/session';
@@ -128,7 +129,7 @@ export const VistaConfigOperatori: Vista = {
   },
 
   async doAddOperator() {
-    const err = (m: any) => { const e = $('opFormError'); if (e) e.textContent = m; };
+    const err = (m: string) => { const e = $('opFormError'); if (e) e.textContent = m; };
     const first = Validate.clean($('opFirst')?.value);
     const last  = Validate.clean($('opLast')?.value);
     const init  = ($('opInitials')?.value || '').toUpperCase().trim();
@@ -151,8 +152,8 @@ export const VistaConfigOperatori: Vista = {
       this.renderConfig();
       this.updateSyncIndicator();
       this.toast(`Operatore ${rec.initials} creato`, 'success');
-    } catch (e: any) {
-      err(e.message || 'Creazione non riuscita.');
+    } catch (e) {
+      err((e as Error).message || 'Creazione non riuscita.');
     }
   },
 
@@ -188,7 +189,7 @@ export const VistaConfigOperatori: Vista = {
   },
 
   async doEditOperator(opId) {
-    const err = (m: any) => { const e = $('opFormError'); if (e) e.textContent = m; };
+    const err = (m: string) => { const e = $('opFormError'); if (e) e.textContent = m; };
     const op = Store.getOperator(opId);
     if (!op) return this.toast('Operatore non trovato', 'error');
     const first = Validate.clean($('opFirst')?.value);
@@ -209,8 +210,8 @@ export const VistaConfigOperatori: Vista = {
       this.renderConfig();
       this.updateSyncIndicator();
       this.toast(`Operatore ${init} aggiornato`, 'success');
-    } catch (e: any) {
-      err(e.message || 'Salvataggio non riuscito.');
+    } catch (e) {
+      err((e as Error).message || 'Salvataggio non riuscito.');
     }
   },
 
@@ -282,7 +283,7 @@ export const VistaConfigOperatori: Vista = {
   },
 
   async doRenewPin(opId) {
-    const err = (m: any) => { const e = $('rpError'); if (e) e.textContent = m; };
+    const err = (m: string) => { const e = $('rpError'); if (e) e.textContent = m; };
     const op = Store.getOperator(opId);
     if (!op) return this.toast('Operatore non trovato', 'error');
     const leader = Store.getOperator($('rpLeader')?.value);
@@ -306,18 +307,18 @@ export const VistaConfigOperatori: Vista = {
       this.renderConfig();
       this.updateSyncIndicator();
       this.toast(`🔑 PIN di ${op.initials} rinnovato — autorizzato da ${leader.initials}`, 'success');
-    } catch (e: any) {
-      err(e.message || 'Rinnovo non riuscito.');
+    } catch (e) {
+      err((e as Error).message || 'Rinnovo non riuscito.');
     }
   },
 
-  _requireLeaderAuth(azione) {
+  _requireLeaderAuth(azione: string) {
     const leaders = Store.getUsableLeaders();
     if (!leaders.length) {
       this.toast('Nessun Team Leader attivo: operazione non autorizzabile', 'error');
       return Promise.resolve(null);
     }
-    return new Promise((resolve) => {
+    return new Promise<Operatore | null>((resolve) => {
       const overlay = document.createElement('div');
       overlay.className = 'modal-overlay gate-overlay';
       overlay.id = 'leaderAuthOverlay';
@@ -344,19 +345,23 @@ export const VistaConfigOperatori: Vista = {
           </div>
         </div>`;
       document.body.appendChild(overlay);
-      const close = (value: any) => { overlay.remove(); resolve(value); };
+      /* La finestra ha un id suo e vive fuori da `Dialog`: i suoi campi si
+         cercano dentro di lei, non per id globale — due finestre aperte
+         insieme si ruberebbero gli elementi. */
+      const dentro = (sel: string) => overlay.querySelector(sel) as HTMLInputElement;
+      const close = (value: Operatore | null) => { overlay.remove(); resolve(value); };
       const attempt = async () => {
-        const l = Store.getOperator((overlay.querySelector as any)('#laWho').value);
-        const pin = (overlay.querySelector as any)('#laPin').value || '';
+        const l = Store.getOperator(dentro('#laWho').value);
+        const pin = dentro('#laPin').value || '';
         if (l && await Auth.verifyPin(l, pin)) return close(l);
-        (overlay.querySelector as any)('#laError').textContent = 'PIN non corretto.';
-        (overlay.querySelector as any)('#laPin').value = '';
-        (overlay.querySelector as any)('#laPin').focus();
+        dentro('#laError').textContent = 'PIN non corretto.';
+        dentro('#laPin').value = '';
+        dentro('#laPin').focus();
       };
-      (overlay.querySelector as any)('#laCancel').onclick = () => close(null);
-      (overlay.querySelector as any)('#laOk').onclick = attempt;
-      (overlay.querySelector as any)('#laPin').onkeydown = (e: any) => { if (e.key === 'Enter') { e.preventDefault(); attempt(); } };
-      setTimeout(() => (overlay.querySelector as any)('#laPin')?.focus(), 80);
+      dentro('#laCancel').onclick = () => close(null);
+      dentro('#laOk').onclick = attempt;
+      dentro('#laPin').onkeydown = (e: KeyboardEvent) => { if (e.key === 'Enter') { e.preventDefault(); attempt(); } };
+      setTimeout(() => dentro('#laPin')?.focus(), 80);
     });
   },
 };
