@@ -99,7 +99,7 @@ export const SUPERFICIE = [
   '_searchHits', '_searchLimits', '_searchOut', '_searchOutsideHandler', '_searchQuar',
   '_searchSel', '_segnoConformita', '_selectLoginOp', '_setFeedbackPref',
   '_setScannerLayoutFix', '_shipAddToCart', '_shipAspetto', '_shipCarrier', '_shipCart',
-  '_shipCartZoneHTML', '_shipCausale', '_shipClearCart', '_shipComputeWeights',
+  '_shipCartZoneHTML', '_shipCausale', '_shipClearCart', '_shipColliLiberi', '_shipComputeWeights',
   '_shipCustomer', '_shipDdtNum', '_shipDestAddress', '_shipDestCity', '_shipDestProvince',
   '_shipDestVat', '_shipDestZip', '_shipDocDate', '_shipDocNotes', '_shipExpectedDate',
   '_shipLookup', '_shipMostraDestinazioni', '_shipOrderRef', '_shipPesoLordo',
