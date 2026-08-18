@@ -206,7 +206,7 @@ const App = {
       await Store.init();
     } catch (err) {
       document.getElementById('bootScreen').innerHTML =
-        `<div style="text-align:center;padding:2rem;color:var(--sx-danger)"><h2>Errore inizializzazione DB</h2><p style="margin-top:1rem">${this._esc(err.message)}</p><p style="margin-top:1rem;font-size: var(--md-sys-typescale-body-small-size);color:#666">Verifica che il browser supporti IndexedDB e abbia spazio sufficiente.</p></div>`;
+        `<div class="text-center p-20 text-sx-danger"><h2>Errore inizializzazione DB</h2><p class="mt-10">${this._esc(err.message)}</p><p class="mt-10 text-body-small text-[#666]">Verifica che il browser supporti IndexedDB e abbia spazio sufficiente.</p></div>`;
       return;
     }
     // v1.9.1 — Carica preferenza fix scanner layout
@@ -374,7 +374,7 @@ const App = {
     /* Nessun onclick di chiusura sul fondo e nessun tasto Esc: il popup e'
        un blocco, non un avviso. Si esce identificandosi. */
     overlay.innerHTML = `
-      <div class="modal" style="max-width:440px">
+      <div class="modal max-w-[440px]">
         <div class="modal-header">
           <h2>${title}</h2>
           ${dismissible ? '<button class="btn btn-sm btn-icon btn-ghost" onclick="App._closeIdentityGate()">✕</button>' : ''}
@@ -390,21 +390,21 @@ const App = {
   _renderFirstLeaderWizard() {
     this._gateShell(
       '👑 Primo accesso — Team Leader',
-      `<p style="font-size: var(--md-sys-typescale-body-medium-size);color:var(--sx-text-secondary);line-height:1.6;margin-bottom:0.8rem">
+      `<p class="text-body-medium text-sx-text-secondary leading-[1.6] mb-8">
         Non risulta alcun <strong>Team Leader</strong> in anagrafica. Ne serve almeno uno:
         è chi può creare gli operatori e rinnovare i PIN smarriti.<br>
         Le <strong>iniziali</strong> sono ciò che verrà scritto su ogni movimento per la tracciabilità GMP.
       </p>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Nome <span class="req">*</span></label><input class="input" id="wizFirst" maxlength="40" autofocus></div>
         <div class="form-group"><label>Cognome <span class="req">*</span></label><input class="input" id="wizLast" maxlength="40"></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.6rem">
-        <label>Iniziali <span class="req">*</span> <span style="font-weight:400;color:var(--sx-text-muted)">(2-4 caratteri, maiuscole o cifre)</span></label>
-        <input class="input input-mono" id="wizInitials" maxlength="4" style="text-transform:uppercase" placeholder="Es. AS"
+      <div class="form-group mb-6">
+        <label>Iniziali <span class="req">*</span> <span class="font-normal text-sx-text-muted">(2-4 caratteri, maiuscole o cifre)</span></label>
+        <input class="input input-mono uppercase" id="wizInitials" maxlength="4" placeholder="Es. AS"
           oninput="this.value=this.value.toUpperCase()">
       </div>
-      <div class="form-row" style="margin-bottom:0.4rem">
+      <div class="form-row mb-4">
         <div class="form-group"><label>PIN a 6 cifre <span class="req">*</span></label>
           <input class="input input-mono" id="wizPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
         <div class="form-group"><label>Conferma PIN <span class="req">*</span></label>
@@ -451,18 +451,18 @@ const App = {
     const title = initial ? '👋 Identificazione' : (reason ? '🔒 Sessione bloccata' : '👤 Cambio operatore');
     this._gateShell(
       title,
-      `${reason ? `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.7rem">${this._esc(reason)}</div>` : ''}
-      <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.6rem">
+      `${reason ? `<div class="mov-preview mov-preview-warn mb-7">${this._esc(reason)}</div>` : ''}
+      <p class="text-body-small text-sx-text-secondary mb-6">
         Seleziona il tuo nominativo e digita il PIN. Le iniziali verranno registrate su ogni movimento.
       </p>
       <div class="op-pill-grid" id="loginOps">${this._loginPillsHTML(ops)}</div>
-      <div class="form-group" style="margin-top:0.7rem">
+      <div class="form-group mt-7">
         <label>PIN a 6 cifre</label>
         <input class="input input-mono gate-pin" id="loginPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._confirmLogin()}">
       </div>
       <div id="loginError" class="gate-error"></div>
-      <div style="margin-top:0.5rem;font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">
+      <div class="mt-5 text-label-small text-sx-text-muted">
         PIN smarrito? Un <strong>Team Leader</strong> può rinnovarlo da Configurazione → Operatori.
       </div>`,
       `${initial || reason ? '' : '<button class="btn" onclick="App._closeIdentityGate()">Annulla</button>'}
@@ -477,7 +477,7 @@ const App = {
     return ops.map(o => {
       const label = (o.last_name || o.first_name)
         ? `${this._esc(o.initials)} · ${this._esc([o.first_name, o.last_name].filter(Boolean).join(' '))}`
-        : `${this._esc(o.initials)} <span style="opacity:0.7">(da completare)</span>`;
+        : `${this._esc(o.initials)} <span class="opacity-70">(da completare)</span>`;
       return `<button type="button" class="op-pill ${o.op_id === this._loginSelectedId ? 'active' : ''}"
         onclick="App._selectLoginOp('${o.op_id}')">${o.role === 'leader' ? '👑 ' : ''}${label}</button>`;
     }).join('');
@@ -521,15 +521,15 @@ const App = {
   _renderCompleteProfile(op) {
     this._gateShell(
       `📝 Completa la tua scheda — ${this._esc(op.initials)}`,
-      `<p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.6;margin-bottom:0.8rem">
+      `<p class="text-body-small text-sx-text-secondary leading-[1.6] mb-8">
         Le iniziali <strong>${this._esc(op.initials)}</strong> provengono dallo storico dei movimenti e restano invariate.
         Mancano nome, cognome e PIN.
       </p>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Nome <span class="req">*</span></label><input class="input" id="cpFirst" maxlength="40" value="${this._esc(op.first_name || '')}" autofocus></div>
         <div class="form-group"><label>Cognome <span class="req">*</span></label><input class="input" id="cpLast" maxlength="40" value="${this._esc(op.last_name || '')}"></div>
       </div>
-      <div class="form-row" style="margin-bottom:0.4rem">
+      <div class="form-row mb-4">
         <div class="form-group"><label>PIN a 6 cifre <span class="req">*</span></label>
           <input class="input input-mono" id="cpPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
         <div class="form-group"><label>Conferma PIN <span class="req">*</span></label>
@@ -605,11 +605,11 @@ const App = {
     const op = this.currentOperatorRecord;
     this.showModal(
       '👤 Operatore al lavoro',
-      `<div style="font-size: var(--md-sys-typescale-body-medium-size);line-height:1.7">
+      `<div class="text-body-medium leading-[1.7]">
         <div><strong>${this._esc([op?.first_name, op?.last_name].filter(Boolean).join(' ') || '—')}</strong></div>
-        <div>Iniziali <span class="mono" style="font-weight:700">${this._esc(this.currentOperator)}</span>
+        <div>Iniziali <span class="mono font-bold">${this._esc(this.currentOperator)}</span>
              · ${op?.role === 'leader' ? '👑 Team Leader' : 'Operatore'}</div>
-        <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-top:0.4rem">
+        <div class="text-body-small text-sx-text-muted mt-4">
           Blocco automatico dopo ${Session.getTimeoutMinutes() ? Session.getTimeoutMinutes() + ' min di inattività' : 'mai (disattivato)'}.
         </div>
       </div>`,
@@ -662,14 +662,14 @@ const App = {
     </tr>`).join('');
     this.showModal(
       `🗂 Copie locali disponibili (${list.length})`,
-      `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.7rem">
+      `<div class="mov-preview mov-preview-warn mb-7">
         Queste copie stanno sullo <strong>stesso disco e nello stesso profilo browser</strong> del database.
         Servono a rimediare a un errore recente, non a un guasto della macchina: per quello serve la copia su OneDrive.<br>
         Contengono giacenze, anagrafiche, ubicazioni e quarantene, <strong>non il registro movimenti</strong>:
         il ripristino riporta indietro lo stato del magazzino e <strong>lascia intatto lo storico</strong>.
       </div>
-      <div style="overflow-x:auto"><table class="sx-table">
-        <thead><tr><th>File</th><th>Dimensione</th><th>Data</th><th style="width:120px">Azione</th></tr></thead>
+      <div class="overflow-x-auto"><table class="sx-table">
+        <thead><tr><th>File</th><th>Dimensione</th><th>Data</th><th class="w-[120px]">Azione</th></tr></thead>
         <tbody>${righe}</tbody></table></div>`,
       '<button class="btn" onclick="App.closeModal()">Chiudi</button>'
     );
@@ -793,7 +793,7 @@ const App = {
     const el = document.getElementById('sidebarContent');
     const sites = Store.getSites();
     if (!sites.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>Nessun sito</p><button class="btn btn-sm btn-primary" style="margin-top:0.5rem" onclick="App.switchView(\'config\')">+ Configura</button></div>';
+      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>Nessun sito</p><button class="btn btn-sm btn-primary mt-5" onclick="App.switchView(\'config\')">+ Configura</button></div>';
       return;
     }
     let html = '';
@@ -817,8 +817,8 @@ const App = {
           <span class="truncate">${this._esc(zone.name)}</span>
         </div>`;
       }
-      if (!zones.length) html += '<div style="padding:0.4rem 0.75rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">Nessuna zona</div>';
-      html += `<div class="zone-item" onclick="App.showAddZoneModal('${site.id}')" style="color:var(--sx-accent)">
+      if (!zones.length) html += '<div class="py-4 px-7.5 text-body-small text-sx-text-muted">Nessuna zona</div>';
+      html += `<div class="zone-item text-sx-accent" onclick="App.showAddZoneModal('${site.id}')">
         <span>+</span><span>Aggiungi zona</span>
       </div>`;
       html += '</div></div>';
@@ -974,11 +974,11 @@ const App = {
     if (info) {
       const cls = info.status === 'blocked' ? 'err' : info.status === 'occupied' ? 'ok' : info.status === 'reserved' ? 'warn' : '';
       el.innerHTML = `<div class="mov-preview ${cls ? 'mov-preview-'+cls : ''}">
-        <div style="display:flex;justify-content:space-between;align-items:center">
-          <div><span class="mono" style="font-weight:700">${this._esc(code)}</span>
-          <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-left:0.4rem">${this._esc(info.siteName)} · ${this._esc(info.zoneName)}</span></div>
+        <div class="flex justify-between items-center">
+          <div><span class="mono font-bold">${this._esc(code)}</span>
+          <span class="text-body-small text-sx-text-muted ml-4">${this._esc(info.siteName)} · ${this._esc(info.zoneName)}</span></div>
           <div><span class="badge badge-${info.status === 'occupied' ? 'green' : info.status === 'blocked' ? 'red' : info.status === 'reserved' ? 'amber' : 'muted'}">${info.status}</span>
-          <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-left:0.3rem">${info.itemCount} item</span></div>
+          <span class="text-label-small text-sx-text-muted ml-3">${info.itemCount} item</span></div>
         </div>
       </div>`;
     } else if (code.length >= 5) {
@@ -996,27 +996,27 @@ const App = {
   _pickLoc(targetInputId, callbackName) {
     document.getElementById('pickLocOverlay')?.remove();
     const sites = Store.getSites();
-    let html = '<div style="max-height:400px;overflow-y:auto">';
+    let html = '<div class="max-h-[400px] overflow-y-auto">';
     for (const site of sites) {
       for (const zone of (site.zones || []).filter(z => z.active)) {
         const locs = Store.generateLocations(site.id, zone.id);
         const avail = locs.filter(l => { const s = Store.getLocationStatus(l.code); return s !== 'blocked' && s !== 'disabled'; });
         if (!avail.length) continue;
-        html += `<div style="margin-bottom:0.5rem"><div style="font-size: var(--md-sys-typescale-label-small-size);font-weight:700;color:var(--sx-text-muted);text-transform:uppercase;margin-bottom:0.2rem">${this._esc(site.id)} · ${this._esc(zone.name)} (${avail.length})</div>`;
+        html += `<div class="mb-5"><div class="text-label-small font-bold text-sx-text-muted uppercase mb-2">${this._esc(site.id)} · ${this._esc(zone.name)} (${avail.length})</div>`;
         for (const loc of avail.slice(0, 40)) {
           const st = Store.getLocationStatus(loc.code);
           const ic = Store.getItemsAtLocation(loc.code).length;
           const cb = callbackName ? `;App.${callbackName}()` : '';
           html += `<div class="search-result-item" onclick="document.getElementById('${targetInputId}').value='${loc.code}';App._closePickLoc()${cb}">
-            <span class="mono" style="font-weight:700">${this._esc(loc.code)}</span>
-            <span style="margin-left:auto;font-size: var(--md-sys-typescale-label-small-size)"><span class="badge badge-${st === 'occupied' ? 'green' : st === 'reserved' ? 'amber' : 'muted'}">${st}</span>${ic ? ' · ' + ic + ' item' : ''}</span>
+            <span class="mono font-bold">${this._esc(loc.code)}</span>
+            <span class="ml-auto text-label-small"><span class="badge badge-${st === 'occupied' ? 'green' : st === 'reserved' ? 'amber' : 'muted'}">${st}</span>${ic ? ' · ' + ic + ' item' : ''}</span>
           </div>`;
         }
-        if (avail.length > 40) html += `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);padding:0.2rem 0.5rem">... e altre ${avail.length - 40}</div>`;
+        if (avail.length > 40) html += `<div class="text-label-small text-sx-text-muted py-2 px-5">... e altre ${avail.length - 40}</div>`;
         html += '</div>';
       }
     }
-    if (html === '<div style="max-height:400px;overflow-y:auto">') html += '<div class="empty-state"><p>Nessuna ubicazione disponibile</p></div>';
+    if (html === '<div class="max-h-[400px] overflow-y-auto">') html += '<div class="empty-state"><p>Nessuna ubicazione disponibile</p></div>';
     html += '</div>';
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -1163,7 +1163,7 @@ const App = {
     if (!this._undoValid()) return '';
     const left = Math.max(0, Math.ceil((this.UNDO_WINDOW_MS - (Date.now() - this._undoEntry.ts)) / 1000));
     return `<div class="undo-bar">
-      <span style="font-size: var(--md-sys-typescale-body-large-size)">↩</span>
+      <span class="text-body-large">↩</span>
       <span class="undo-label">Ultima operazione: <strong>${this._esc(this._undoEntry.label)}</strong></span>
       <span class="undo-timer">${left}s</span>
       <button class="btn btn-sm btn-warning" onclick="App._undoLast()">ANNULLA</button>
