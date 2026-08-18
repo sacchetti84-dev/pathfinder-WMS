@@ -15,14 +15,14 @@ export const VistaInventario: Vista = {
        sapere in anticipo quale delle due gli serve. */
     if (this._contaState) { this._contaRenderVerify(el); return; }
     el.innerHTML = `<div class="mov-form-card">
-      <h3>📋 <span style="color:var(--sx-warning)">Inventario</span> — Verifica Ubicazione</h3>
+      <h3>📋 <span class="text-sx-warning">Inventario</span> — Verifica Ubicazione</h3>
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① UBICAZIONE</span> → INVIO per caricare → <span class="wf-step">② ✓/✗</span> per ogni item → aggiungi <strong>extra</strong> trovati → <span class="wf-step">③ APPLICA</span>.
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>Ubicazione da verificare</label>
-        <div style="display:flex;gap:0.3rem">
-          <input class="input input-mono" id="mInvLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}" style="flex:1"
+        <div class="flex gap-3">
+          <input class="input input-mono flex-1" id="mInvLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('mInvLoc');App._previewLoc('mInvLoc','mInvLocPrev')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('mInvLoc');App._loadInv();}">
           <button class="btn btn-sm" onclick="App._pickLoc('mInvLoc','_cbPickInv')">📍</button>
@@ -31,7 +31,7 @@ export const VistaInventario: Vista = {
         <div id="mInvLocPrev"></div>
       </div>
       <div id="mInvContent"></div>
-      <div style="margin-top:0.6rem"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
     </div>`;
   },
 
@@ -41,44 +41,44 @@ export const VistaInventario: Vista = {
     const loc = Validate.clean($('mInvLoc')?.value, true).replace(/'/g, '-');
     const el = $('mInvContent');
     if (!loc) return;
-    if (!Store.locationExists(loc)) { el.innerHTML = '<div style="color:var(--sx-danger);font-size: var(--md-sys-typescale-body-small-size);padding:0.3rem">Ubicazione non trovata</div>'; return; }
+    if (!Store.locationExists(loc)) { el.innerHTML = '<div class="text-sx-danger text-body-small p-3">Ubicazione non trovata</div>'; return; }
     const items = Store.getItemsAtLocation(loc);
     // v1.7.0 — counted_qty: null = non ancora contato. confirmed/missing semantica preservata per compatibilità.
     this._invState = { loc, items: items.map(i => ({ ...i, confirmed: false, missing: false, checked: false, counted_qty: null })), extras: [] };
-    let html = '<div style="margin-top:0.75rem">';
-    html += `<p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.5rem">Sistema: <strong>${items.length}</strong> lotti registrati. Verifica ciascuno: <strong style="color:var(--sx-success)">✓</strong> conferma giacenza · <strong style="color:var(--sx-danger)">✗</strong> mancante totale · <strong style="color:var(--sx-warning)">📋</strong> conta fisica diversa.</p>`;
-    if (!items.length) html += '<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);padding:0.3rem">Nessun item registrato</div>';
+    let html = '<div class="mt-7.5">';
+    html += `<p class="text-body-small text-sx-text-secondary mb-5">Sistema: <strong>${items.length}</strong> lotti registrati. Verifica ciascuno: <strong class="text-sx-success">✓</strong> conferma giacenza · <strong class="text-sx-danger">✗</strong> mancante totale · <strong class="text-sx-warning">📋</strong> conta fisica diversa.</p>`;
+    if (!items.length) html += '<div class="text-body-small text-sx-text-muted p-3">Nessun item registrato</div>';
     else {
       html += '<div>';
       items.forEach((it, idx) => {
         const sysQty = it.qty || 1;
         html += `<div class="inv-item-row" id="invRow${idx}">
           <div class="inv-info">
-            <div class="inv-code">${this._esc(it.article_code)} <span style="font-weight:400;color:var(--sx-text-secondary);font-size: var(--md-sys-typescale-body-small-size)">${this._esc(it.article_description || '')}</span></div>
-            <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · Sistema: <strong style="color:var(--sx-accent)">${sysQty} Coll.</strong> <span id="invCountInfo${idx}" style="font-size: var(--md-sys-typescale-label-small-size)"></span></div>
+            <div class="inv-code">${this._esc(it.article_code)} <span class="font-normal text-sx-text-secondary text-body-small">${this._esc(it.article_description || '')}</span></div>
+            <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · Sistema: <strong class="text-sx-accent">${sysQty} Coll.</strong> <span class="text-label-small" id="invCountInfo${idx}"></span></div>
           </div>
           <div class="inv-actions-row">
             <button class="inv-btn" onclick="App._invConfirm(${idx},true)" id="invOk${idx}" title="Conferma quantità di sistema">✓</button>
             <button class="inv-btn" onclick="App._invConfirm(${idx},false)" id="invMiss${idx}" title="Mancante totale (rimuovi tutto)">✗</button>
-            <button class="inv-btn" onclick="App._invCount(${idx})" id="invCnt${idx}" title="Conta fisica diversa" style="font-size: var(--md-sys-typescale-body-medium-size)">📋</button>
+            <button class="inv-btn text-body-medium" onclick="App._invCount(${idx})" id="invCnt${idx}" title="Conta fisica diversa">📋</button>
           </div>
         </div>`;
       });
       html += '</div>';
     }
     html += `<div class="mov-divider"></div>
-      <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.4rem"><strong>Item extra</strong> — trovati fisicamente ma non registrati</p>
+      <p class="text-body-small text-sx-text-secondary mb-4"><strong>Item extra</strong> — trovati fisicamente ma non registrati</p>
       <div id="mInvExtras"></div>
-      <div style="display:flex;gap:0.3rem;margin-bottom:0.6rem">
-        <input class="input input-mono" id="mInvExtraArt" placeholder="Cod. Articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase;flex:1"
+      <div class="flex gap-3 mb-6">
+        <input class="input input-mono uppercase flex-1" id="mInvExtraArt" placeholder="Cod. Articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('mInvExtraLot').focus();}">
-        <input class="input input-mono" id="mInvExtraLot" placeholder="Lotto" maxlength="${Validate.MAX.LOT_CODE}" style="flex:0.8"
+        <input class="input input-mono" id="mInvExtraLot" placeholder="Lotto" maxlength="${Validate.MAX.LOT_CODE}" class="flex-[0.8]"
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('mInvExtraQty').focus();}">
-        <input class="input input-mono" id="mInvExtraQty" type="number" min="1" step="1" value="1" placeholder="Coll." style="width:70px;text-align:center"
+        <input class="input input-mono w-[70px] text-center" id="mInvExtraQty" type="number" min="1" step="1" value="1" placeholder="Coll."
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._invAddExtra();}">
         <button class="btn btn-sm btn-success" onclick="App._invAddExtra()">+</button>
       </div>
-      <button class="btn btn-primary" style="width:100%;padding:0.55rem;font-weight:700" onclick="App._execInventario()">📋 APPLICA CORREZIONI</button>
+      <button class="btn btn-primary w-full p-5.5 font-bold" onclick="App._execInventario()">📋 APPLICA CORREZIONI</button>
     </div>`;
     el.innerHTML = html;
   },
@@ -171,8 +171,8 @@ export const VistaInventario: Vista = {
       const exQty = ex.qty || 1;
       html += `<div class="inv-item-row inv-row-extra">
         <div class="inv-info">
-          <div class="inv-code" style="color:var(--sx-warning)">${this._esc(ex.article_code)} <span style="font-weight:400">${this._esc(ex.article_description || '')}</span></div>
-          <div class="inv-lot">Lotto: ${this._esc(ex.lot_code)} · <strong style="color:var(--sx-warning)">${exQty} Coll.</strong></div>
+          <div class="inv-code text-sx-warning">${this._esc(ex.article_code)} <span class="font-normal">${this._esc(ex.article_description || '')}</span></div>
+          <div class="inv-lot">Lotto: ${this._esc(ex.lot_code)} · <strong class="text-sx-warning">${exQty} Coll.</strong></div>
         </div>
         <button class="btn btn-sm btn-danger btn-icon" onclick="App._invRemoveExtra(${idx})">✕</button>
       </div>`;
@@ -341,26 +341,26 @@ export const VistaInventario: Vista = {
              Un numero davanti agli occhi è un suggerimento, e un inventario
              che suggerisce la risposta non verifica niente: si confronta
              dopo, ed è il confronto a essere il risultato. -->
-        <div class="mov-preview mov-preview-warn" style="margin:0.5rem 0">
+        <div class="mov-preview mov-preview-warn my-5 mx-0">
           <strong>Conta i colli che vedi a scaffale.</strong>
           Il numero a sistema compare dopo, quando c'è qualcosa da confrontare.
         </div>
 
-        <div class="form-group" style="margin:0.6rem 0 0.4rem">
+        <div class="form-group mt-6 mx-0 mb-4">
           <label>① Scansiona UBICAZIONE <span class="req">*</span></label>
-          <div style="display:flex;gap:0.3rem">
+          <div class="flex gap-3">
             <input class="input input-mono" id="cnLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
               oninput="App._normScan('cnLoc')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('cnLoc');App._contaCheckLoc();}">
             <button class="btn btn-sm" type="button" onclick="App._pickLoc('cnLoc','_contaCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
           </div>
         </div>
-        <div class="form-group" style="margin-bottom:0.4rem">
+        <div class="form-group mb-4">
           <label>② Scansiona ARTICOLO <span class="req">*</span></label>
-          <input class="input input-mono" id="cnArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="cnArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._contaCheckArt();}">
         </div>
-        <div class="form-group" style="margin-bottom:0.4rem">
+        <div class="form-group mb-4">
           <label>③ Scansiona LOTTO <span class="req">*</span></label>
           <input class="input input-mono" id="cnLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._contaCheckLot();}">
@@ -369,23 +369,22 @@ export const VistaInventario: Vista = {
         <div id="cnFeedback"></div>
 
         <div class="disp-confirm">
-          <div class="form-group" style="width:180px;margin-bottom:0.5rem">
-            <label style="white-space:nowrap">④ Colli contati <span class="req">*</span></label>
-            <input class="input input-mono" id="cnQty" type="number" min="0" step="1"
-              style="text-align:center;font-weight:700;font-size: var(--md-sys-typescale-title-medium-size)"
+          <div class="form-group w-[180px] mb-5">
+            <label class="whitespace-nowrap">④ Colli contati <span class="req">*</span></label>
+            <input class="input input-mono text-center font-bold text-title-medium" id="cnQty" type="number" min="0" step="1"
               oninput="App._contaAnteprima()">
           </div>
           <div id="cnConfronto"></div>
-          <div class="form-group" style="margin-bottom:0">
+          <div class="form-group mb-0">
             <label>Nota (opz.) — se il conteggio non torna, perché</label>
             <input class="input" id="cnNota" maxlength="${Validate.MAX.REASON}" placeholder="Es: due colli trovati nel vano accanto">
           </div>
         </div>
 
-        <div style="display:flex;gap:0.5rem;margin-top:0.7rem;flex-wrap:wrap">
-          <button class="btn btn-primary" style="flex:1;font-weight:800;min-height:var(--md-touch)"
+        <div class="flex gap-5 mt-7 flex-wrap">
+          <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
             onclick="App._execConta()">🔢 CONFERMA CONTEGGIO</button>
-          <button class="btn" style="min-height:var(--md-touch)" onclick="App._contaBack()">← Lascia</button>
+          <button class="btn min-h-[var(--md-touch)]" onclick="App._contaBack()">← Lascia</button>
         </div>
       </article>`;
     this._contaState.scan = { loc: '', art: '', lot: '' };
@@ -404,11 +403,11 @@ export const VistaInventario: Vista = {
     if (!Number.isFinite(contati) || contati < 0) { box.innerHTML = ''; return; }
     const delta = contati - d.qty_system;
     if (delta === 0) {
-      box.innerHTML = `<div class="mov-preview mov-preview-ok" style="margin-bottom:0.5rem"><strong>✓ Torna.</strong> A sistema ci sono ${d.qty_system} Coll., e ne hai contati altrettanti.</div>`;
+      box.innerHTML = `<div class="mov-preview mov-preview-ok mb-5"><strong>✓ Torna.</strong> A sistema ci sono ${d.qty_system} Coll., e ne hai contati altrettanti.</div>`;
       return;
     }
     const segno = delta > 0 ? '+' : '';
-    box.innerHTML = `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.5rem">
+    box.innerHTML = `<div class="mov-preview mov-preview-warn mb-5">
       <strong>⚠ Non torna: ${segno}${delta} Coll.</strong>
       A sistema ${d.qty_system}, contati ${contati}. Confermando, la giacenza viene rettificata a <strong>${contati}</strong> e il movimento resta a registro con la tua sigla.
     </div>`;
