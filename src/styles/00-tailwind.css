@@ -98,11 +98,60 @@
   --text-label-medium: var(--md-sys-typescale-label-medium-size);
   --text-label-small: var(--md-sys-typescale-label-small-size);
 
-  /* Raggi e ombre restano spenti. I nomi si sovrappongono: `--radius-md`,
-     `--shadow-sm` e `--shadow-lg` sono insieme token dell'applicativo e
-     namespace di Tailwind, e lasciandoli accesi `rounded-md` direbbe una
-     misura e il token un'altra. Si accendono in F2, quando i componenti si
-     riscrivono e la geometria ha una sorgente sola. */
+  /* LA SPAZIATURA VA A PASSI DI 0,1rem, non di 0,25rem come di serie.
+
+     Il motivo e' il terminale: l'MC9400 ha un 4,3" da 800x480, che in CSS
+     sono fra i 400 e i 533 px di larghezza — sotto OGNI media query che
+     l'applicativo ha oggi, la piu' bassa e' a 700px. Su uno schermo cosi'
+     ogni rem di margine e' merce che non si vede, e la spaziatura di qui e'
+     stata tarata fitta apposta: 0,6rem · 0,4rem · 0,3rem · 0,2rem.
+
+     Sulla griglia di serie tre valori su quattro non ci stavano, e sarebbero
+     finiti tutti scritti come `mb-[0.6rem]` — piu' lunghi dello `style=` che
+     sostituiscono. A passi di 0,1rem ci stanno tutti, mezzi passi compresi:
+     0,15rem e' `1.5`, 0,25rem e' `2.5`, 0,75rem e' `7.5`. Nessun valore
+     arbitrario, nessun pixel spostato.
+
+     ATTENZIONE, il numero NON e' quello di Tailwind altrove: qui `mb-4` e'
+     0,4rem, non 1rem. Si legge «decimi di rem», e la regola sta scritta solo
+     qui. In cambio la densita' dell'intera interfaccia ha una manopola sola,
+     ed e' quella che servira' al terminale. */
+  --spacing: 0.1rem;
+
+  /* I raggi e le ombre dell'applicativo, per numero. NON si usano i nomi
+     `--radius-md`, `--shadow-sm`, `--shadow-lg`: quelli sono gia' token in
+     `01-tokens.css`, e siccome il `:root` dell'applicativo non sta in un
+     layer vincerebbe sul tema — `rounded-md` direbbe 3px mentre il tema
+     crede di dire 12px. Un numero non collide con niente. */
   --radius-*: initial;
+  --radius-1: var(--radius);          /* 2px — il filetto */
+  --radius-2: 3px;                    /* il raggio medio dell'applicativo */
+  --radius-3: var(--md-shape-xs);     /* 4px */
+  --radius-4: var(--md-shape-sm);     /* 8px */
+  --radius-5: var(--md-shape-md);     /* 12px */
+  --radius-6: var(--md-shape-lg);     /* 16px */
+  --radius-7: var(--md-shape-xl);     /* 28px */
+  --radius-full: var(--md-shape-full);
+
   --shadow-*: initial;
+  --shadow-1: 0 1px 1px rgb(24 40 48 / 0.05);
+  --shadow-2: 0 1px 3px rgb(24 40 48 / 0.10);
+  --shadow-3: 0 3px 10px rgb(24 40 48 / 0.16);
+  --shadow-elev-1: var(--md-elev-1);
+  --shadow-elev-2: var(--md-elev-2);
+  --shadow-elev-3: var(--md-elev-3);
+  --shadow-elev-4: var(--md-elev-4);
+
+  /* Le soglie che l'applicativo usa gia' nelle sue sette media query, piu'
+     quella che non ha mai avuto: `rf` e' il terminale radiofrequenza. Sotto
+     `rf` non c'e' niente da adattare — la 1.11 dice che li' probabilmente
+     serve un'interfaccia apposita, non un ridimensionamento — ma la soglia
+     serve per dire DOVE finisce l'interfaccia da scrivania. */
+  --breakpoint-*: initial;
+  --breakpoint-rf: 33.5rem;   /* 536px — l'MC9400 sta sotto */
+  --breakpoint-sm: 43.75rem;  /* 700px */
+  --breakpoint-md: 56.25rem;  /* 900px */
+  --breakpoint-lg: 68.75rem;  /* 1100px */
+  --breakpoint-xl: 80rem;     /* 1280px */
+  --breakpoint-2xl: 106.25rem;/* 1700px */
 }
