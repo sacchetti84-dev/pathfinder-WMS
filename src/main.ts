@@ -7,6 +7,7 @@ import './styles/00-tailwind.css';
 
 import { Persistence } from './core/persistence/index';
 import { App as AppBase } from './ui/app';
+import { $ } from './ui/views/vista';
 
 /* A RUNTIME `App` E' PIU' GRANDE DI QUEL CHE `tsc` VEDE.
    Le venticinque viste rientrano con `Object.assign`, e `_recoveryQueue` e'
@@ -21,7 +22,7 @@ const App = AppBase as typeof AppBase & { _recoveryQueue(): unknown[] };
    <metodo>()"` — girano nello scope globale, dove il `const` del modulo
    non arriva. L'ultima riga di questo file e' cio' che li tiene in vita. */
 declare global {
-  interface Window { App: typeof App }
+  interface Window { App: typeof App; $: typeof $ }
 }
 
 document.addEventListener('DOMContentLoaded', () => { App.init(); });
@@ -57,4 +58,17 @@ window.addEventListener('error', (e) => {
 
 // © Andrea Sacchetti — Dietopack S.r.l. — Pathfinder 1.7 — Fine script
 
+/* E `$` STA SU `window` PER LA STESSA IDENTICA RAGIONE.
+
+   Ventitre gestori inline, in dodici viste, chiamano `$('campo')` per passare
+   il fuoco al campo dopo — e un attributo `on...=` gira nello scope globale,
+   dove l'import di modulo non arriva. Prima dell'estrazione del 18/08 quelle
+   stringhe scrivevano `document.getElementById(`, che globale lo e' sempre
+   stato; l'estrazione le ha accorciate tutte, e da quel momento il primo
+   Invio su una scansione moriva con "ReferenceError: $ is not defined" senza
+   spostare il fuoco. Questa riga rimette in piedi il flusso a lettore.
+
+   La pulizia vera — togliere `$` da dentro le stringhe — resta da fare, e
+   quando sara' fatta questa riga si toglie. */
+window.$ = $;
 window.App = App;
