@@ -227,6 +227,10 @@ export interface Quarantena {
   released_ref_dept?: string;
   released_ref_person?: string;
   status: 'blocked' | 'released' | string;
+  /** 1.8 — quanti colli sono bloccati e se il blocco è parziale. Il record li
+      porta dalla 1.8, il tipo no: l'archivio li leggeva con un cast. */
+  qty?: number;
+  partial?: boolean;
 }
 
 /* ── Documenti di uscita ─────────────────────────────────────────── */
@@ -323,6 +327,17 @@ export interface ReportPrelievo {
   doc_id: string;
   odp_num?: string;
   closed_at: Istante;
+  /** Ciò che l'archivio legge di un rapporto senza aprirlo. Erano già scritti
+      nel record: mancavano solo da qui. */
+  ended_at?: Istante;
+  operator?: string;
+  rows?: RigaReportPrelievo[];
+  [extra: string]: unknown;
+}
+
+export interface RigaReportPrelievo {
+  article_code: string;
+  lot_code: string;
   [extra: string]: unknown;
 }
 
