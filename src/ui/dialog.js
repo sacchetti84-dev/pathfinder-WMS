@@ -175,7 +175,11 @@ const Dialog = {
     return frag;
   },
 
-  /* Elenco chiave/valore opzionale, per i riepiloghi documento. */
+  /* Elenco chiave/valore opzionale, per i riepiloghi documento. E' il nodo che
+     finisce in `details`, che porta un NODO e non del testo: senza
+     l'annotazione TypeScript deduce `null` dal valore predefinito e rifiuta
+     quel nodo a chi chiama. Le viste estratte in `.ts` sono il primo codice
+     controllato che passa di qua. */
   kv(pairs) {
     const dl = document.createElement('dl');
     dl.className = 'dlg-kv';
@@ -189,7 +193,7 @@ const Dialog = {
   },
 
   /* Conferma booleana. danger:true -> Invio disabilitato, fuoco su Annulla. */
-  confirm({ title, message = '', details = null, confirmLabel = 'Conferma', cancelLabel = 'Annulla',
+  confirm({ title, message = '', details = /** @type {Node|null} */ (null), confirmLabel = 'Conferma', cancelLabel = 'Annulla',
             danger = false, icon = null, guardMs = null, focusTarget = null }) {
     return this._open({
       icon: icon || (danger ? '⚠' : '❓'),
@@ -206,7 +210,7 @@ const Dialog = {
     });
   },
 
-  alert({ title, message = '', details = null, icon = 'ℹ', okLabel = 'Ho capito' }) {
+  alert({ title, message = '', details = /** @type {Node|null} */ (null), icon = 'ℹ', okLabel = 'Ho capito' }) {
     return this._open({
       icon, title,
       bodyNode: this._mkBody(message, details),
@@ -215,7 +219,7 @@ const Dialog = {
     });
   },
 
-  reason({ title, message = '', details = null, placeholder = 'Motivazione…',
+  reason({ title, message = '', details = /** @type {Node|null} */ (null), placeholder = 'Motivazione…',
            minLen = 5, icon = '\u270E', confirmLabel = 'Conferma', danger = false }) {
     const wrap = document.createElement('div');
     if (details) wrap.appendChild(details);
@@ -278,7 +282,7 @@ const Dialog = {
 
   /* Selezione quantita' senza tastiera: +/- a pollice, valore preimpostato al
      massimo disponibile. Restituisce un intero o null se annullato. */
-  qty({ title, message = '', details = null, value = 1, min = 1, max = 9999, unit = 'Coll.' }) {
+  qty({ title, message = '', details = /** @type {Node|null} */ (null), value = 1, min = 1, max = 9999, unit = 'Coll.' }) {
     const wrap = document.createElement('div');
     if (details) wrap.appendChild(details);
 
