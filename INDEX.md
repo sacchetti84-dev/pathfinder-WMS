@@ -531,14 +531,18 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   `index.html` e `assets/`, e la rotta accetta **un nome, non un percorso**: il
   giorno in cui la variabile punta a un albero di sorgenti, quella riga li
   pubblicherebbe tutti sulla LAN.
-- **OneDrive può bloccare `npm run build`**: quando ha finito di sincronizzare
-  `consegna\`, ne trasforma i file in segnaposto («file su richiesta»), e ogni
-  voce prende l'attributo `ReparsePoint`. `emptyOutDir` di Vite, che azzera la
-  cartella all'inizio di ogni build, ci sbatte contro con **`EPERM, Permission
-  denied`** e la build muore prima di compilare una riga. Il pacchetto che c'è
-  resta valido: si aspetta, o si toglie la cartella a mano prima di ricostruire.
-  Non è un difetto della build — è la stessa cosa per cui il database sta fuori
-  da OneDrive, vista da un'altra parte.
+- **Una cartella di `consegna\` tenuta aperta da un processo ferma la build.**
+  `emptyOutDir` di Vite azzera `consegna\` all'inizio di ogni build, e se
+  qualcuno tiene aperta la cartella-versione muore con **`EPERM, Permission
+  denied`** prima di compilare una riga. Il segno che lo distingue da tutto il
+  resto: **i file dentro si cancellano, la cartella no** — e nemmeno si
+  rinomina. È un handle sulla directory, tipicamente una finestra di Esplora
+  risorse aperta lì dentro o una shell che ci sta dentro col prompt.
+  Si chiude quella finestra e la build riparte; il pacchetto che c'è resta
+  valido nel frattempo.
+  **Non è l'attributo `ReparsePoint`**: OneDrive lo mette su *ogni* voce
+  sincronizzata, cartelle e file, e non dice niente su chi tiene cosa. Il
+  18/08 l'ho scritto qui come se fosse la causa, e non lo era.
 - **`powershell -File script.ps1 -ParametroCheNonEsiste` NON dà errore: lo
   scarta in silenzio e manda avanti lo script.** Chi credeva di simulare ha
   installato — successo il 18/08/2026 su questa macchina, chiedendo `-Prova` a
