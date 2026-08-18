@@ -17,6 +17,10 @@ import {
 } from '../../modules/colli';
 import { Dialog } from '../dialog';
 
+/* L avviso che un articolo si porta dietro: allergeni, temperatura,
+   pericolosita. Nasce in un punto solo e si stampa in due. */
+type AvvisoArticolo = { tipo: string; icona: string; et: string; testo: string };
+
 export const VistaConfigArticoli: Vista = {
   _onArtFilterInput(value) {
     if (!this._artFilterDebounced) {
@@ -31,7 +35,7 @@ export const VistaConfigArticoli: Vista = {
   _renderConfigArticles(el) {
     let articles = Store.getArticles();
     const total = articles.length;
-    const catCounts: any = {};
+    const catCounts: Record<string, number> = {};
     articles.forEach(a => { const c = a.category || '—'; catCounts[c] = (catCounts[c] || 0) + 1; });
     const q = this._artFilter.toLowerCase();
     if (q) articles = articles.filter(a => a.code.toLowerCase().includes(q) || (a.description || '').toLowerCase().includes(q) || (a.category || '').toLowerCase().includes(q));
@@ -210,10 +214,10 @@ export const VistaConfigArticoli: Vista = {
      Un articolo senza attributi non produce avvisi. Il silenzio qui vuol
      dire «non e' stato classificato», non «e' a posto» — e la differenza si
      legge in Configurazione, dove si conta chi manca. */
-  _avvisiArticolo(code) {
+  _avvisiArticolo(code: string): AvvisoArticolo[] {
     const a = Store.getArticle(code);
     if (!a) return [];
-    const out = [];
+    const out: AvvisoArticolo[] = [];
     if (a.temp_class) {
       out.push({ tipo: 'temp', icona: '🌡', et: 'Conservazione', testo: etichettaClasse(a.temp_class) });
     }
@@ -235,10 +239,10 @@ export const VistaConfigArticoli: Vista = {
   },
 
   /** A video: una fascia, dove c'è spazio per leggerla per intero. */
-  _avvisiBanda(code) {
-    const av = this._avvisiArticolo(code);
+  _avvisiBanda(code: string) {
+    const av: AvvisoArticolo[] = this._avvisiArticolo(code);
     if (!av.length) return '';
-    return `<div class="avv-banda">${av.map((x: any) => `
+    return `<div class="avv-banda">${av.map((x) => `
       <div class="avv-riga avv-riga--${x.tipo}">
         <span class="avv-ico">${x.icona}</span>
         <span class="avv-et">${this._esc(x.et)}</span>
@@ -247,11 +251,11 @@ export const VistaConfigArticoli: Vista = {
   },
 
   /** In stampa: una riga sola sotto la descrizione, e nient'altro. */
-  _avvisiRigaStampa(code) {
-    const av = this._avvisiArticolo(code);
+  _avvisiRigaStampa(code: string) {
+    const av: AvvisoArticolo[] = this._avvisiArticolo(code);
     if (!av.length) return '';
     return `<div class="avv-stampa">${
-      av.map((x: any) => `${x.icona} ${this._esc(x.testo)}`).join(' · ')}</div>`;
+      av.map((x) => `${x.icona} ${this._esc(x.testo)}`).join(' · ')}</div>`;
   },
 
   /* 1.4.0 — i due attributi che il motore di stoccaggio usera' come vincoli
