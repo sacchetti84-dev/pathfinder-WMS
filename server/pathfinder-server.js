@@ -40,7 +40,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
 /* La versione del SERVIZIO, non dell'applicativo — quella la dice il
    manifesto, e sono due cose diverse. Si muove quando cambia il contratto:
    qui cambia davvero, con una variabile nuova e la famiglia `/assets`. */
-const VERSION = '1.8.2';
+const VERSION = '1.8.3';
 
 const TLS_CERT = process.env.PATHFINDER_TLS_CERT || null;
 const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
