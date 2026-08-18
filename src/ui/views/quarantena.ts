@@ -44,7 +44,7 @@ export const VistaQuarantena: Vista = {
           ${activeQ.map(q => `<div class="flex items-center gap-5 py-3.5 px-5 border border-sx-purple bg-sx-purple-soft rounded-[var(--radius)] mb-2.5 text-body-small">
             <span class="mono text-sx-purple font-bold">${this._esc(q.article_code)}</span>
             <span class="mono text-sx-text-muted text-label-small">L:${this._esc(q.lot_code)}</span>
-            <span class="mono text-sx-text-muted text-label-small">📍${this._esc(q.blocked_location)} · ${q.qty || 1} Coll.${(q as any).partial ? ' (parz.)' : ''}</span>
+            <span class="mono text-sx-text-muted text-label-small">📍${this._esc(q.blocked_location)} · ${q.qty || 1} Coll.${q.partial ? ' (parz.)' : ''}</span>
             <span class="truncate text-sx-text-muted text-label-small flex-1" title="${this._esc(q.reason)}">${this._esc(q.reason)}</span>
             <button class="btn btn-sm btn-success" onclick="App._releaseQuarantine('${this._esc(q.q_id)}')">✓ Rilascia</button>
             <button class="btn btn-sm" onclick="App._printNCCard('${this._esc(q.q_id)}')" title="Ristampa il cartello NC">🖨</button>

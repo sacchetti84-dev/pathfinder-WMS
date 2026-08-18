@@ -575,9 +575,9 @@ export const VistaCruscotto: Vista = {
     </div>`;
   },
 
-  _renderTypeCounts(counts, total) {
+  _renderTypeCounts(counts: Record<string, number>, total: number) {
     if (!total) return '<div class="ct-empty">Nessun movimento registrato.</div>';
-    const segments = Object.entries<any>(counts)
+    const segments = Object.entries(counts)
       .filter(([, c]) => c > 0)
       .sort((a, b) => b[1] - a[1])
       .map(([type, count]) => ({
