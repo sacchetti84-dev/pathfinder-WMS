@@ -20,7 +20,7 @@ export const VistaConfigDati: Vista = {
     if (est.pct == null || !est.quota) {
       /* Servizio dati: c'e' un file su un disco, non una quota del browser.
          Si dice quanto pesa e dove sta, che e' l'informazione utile. */
-      return `${mb(est.usage)} MB${est.file ? ` <span style="opacity:0.7">— ${this._esc(est.file)}</span>` : ''}`;
+      return `${mb(est.usage)} MB${est.file ? ` <span class="opacity-70">— ${this._esc(est.file)}</span>` : ''}`;
     }
     return `${mb(est.usage)} MB su ${(est.quota / 1048576).toFixed(0)} MB (${est.pct.toFixed(1)}%)`;
   },
@@ -41,31 +41,31 @@ export const VistaConfigDati: Vista = {
     el.innerHTML = `<div id="resilienzaCard"></div>
     <div class="config-card">
       <h3>Stato Database</h3>
-      <table class="sx-table" style="margin-bottom:0.75rem">
+      <table class="sx-table mb-7.5">
         <tbody>
-          <tr><td style="width:40%;color:var(--sx-text-secondary)">Ultimo salvataggio</td><td class="mono">${meta.lastModified ? new Date(meta.lastModified).toLocaleString('it-IT') : 'Mai'}</td></tr>
-          <tr><td style="color:var(--sx-text-secondary)">Modifiche non salvate</td><td>${meta.unsavedChanges ? '<span class="badge badge-amber">Sì</span>' : '<span class="badge badge-green">No</span>'}</td></tr>
-          <tr><td style="color:var(--sx-text-secondary)">Item a magazzino</td><td class="mono">${invCount}</td></tr>
-          <tr><td style="color:var(--sx-text-secondary)">Articoli in anagrafica</td><td class="mono">${Store.getArticles().length}</td></tr>
-          <tr><td style="color:var(--sx-text-secondary)">Movimenti in archivio</td><td class="mono">${Store.getMovLogTotal().toLocaleString('it-IT')} <span class="badge badge-green">conservazione ${Math.round(LOG_RETENTION_DAYS/365)} anni</span></td></tr>
-          <tr><td style="color:var(--sx-text-secondary)">di cui in memoria</td><td class="mono">${Store.getMovLogWindowInfo().inMemory.toLocaleString('it-IT')} <span class="badge badge-muted">finestra ${Store.getMovLogWindowDays() || '∞'} gg</span></td></tr>
-          <tr><td style="color:var(--sx-text-secondary)">Quarantene attive</td><td class="mono">${Store.getActiveQuarantine().length}</td></tr>
-          <tr><td style="color:var(--sx-text-secondary)">${spazioLbl}</td><td class="mono">${usageStr}</td></tr>
-          <tr><td style="color:var(--sx-text-secondary)">Motore storage</td><td>${this._storageLabel()}</td></tr>
+          <tr><td class="w-[40%] text-sx-text-secondary">Ultimo salvataggio</td><td class="mono">${meta.lastModified ? new Date(meta.lastModified).toLocaleString('it-IT') : 'Mai'}</td></tr>
+          <tr><td class="text-sx-text-secondary">Modifiche non salvate</td><td>${meta.unsavedChanges ? '<span class="badge badge-amber">Sì</span>' : '<span class="badge badge-green">No</span>'}</td></tr>
+          <tr><td class="text-sx-text-secondary">Item a magazzino</td><td class="mono">${invCount}</td></tr>
+          <tr><td class="text-sx-text-secondary">Articoli in anagrafica</td><td class="mono">${Store.getArticles().length}</td></tr>
+          <tr><td class="text-sx-text-secondary">Movimenti in archivio</td><td class="mono">${Store.getMovLogTotal().toLocaleString('it-IT')} <span class="badge badge-green">conservazione ${Math.round(LOG_RETENTION_DAYS/365)} anni</span></td></tr>
+          <tr><td class="text-sx-text-secondary">di cui in memoria</td><td class="mono">${Store.getMovLogWindowInfo().inMemory.toLocaleString('it-IT')} <span class="badge badge-muted">finestra ${Store.getMovLogWindowDays() || '∞'} gg</span></td></tr>
+          <tr><td class="text-sx-text-secondary">Quarantene attive</td><td class="mono">${Store.getActiveQuarantine().length}</td></tr>
+          <tr><td class="text-sx-text-secondary">${spazioLbl}</td><td class="mono">${usageStr}</td></tr>
+          <tr><td class="text-sx-text-secondary">Motore storage</td><td>${this._storageLabel()}</td></tr>
         </tbody>
       </table>
-      <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+      <div class="flex gap-4 flex-wrap">
         <button class="btn btn-success" onclick="App.forceSave()" title="Forza checkpoint dati su IndexedDB">💾 Salva ora</button>
         <button class="btn btn-primary" onclick="App.exportData()">📤 Esporta tutto (JSON)</button>
         <button class="btn btn-accent" onclick="App.importData()">📥 Importa da JSON</button>
         <button class="btn btn-warning" onclick="App.exportMovLogExcel()">📊 Esporta Registro Movimenti (Excel)</button>
         <button class="btn btn-warning" onclick="App.exportGiacenzeExcel()" title="Esporta tutte le giacenze raggruppate per Site/Zona/Ubicazione">📦 Esporta Giacenze per Area (Excel)</button>
-        <button class="btn btn-danger" onclick="App.confirmResetData()" style="margin-left:auto">🗑 Reset completo DB</button>
+        <button class="btn btn-danger ml-auto" onclick="App.confirmResetData()">🗑 Reset completo DB</button>
       </div>
       <!-- v2.0.1 [B8] — Ritenzione e purge manuale (decisione B-2) -->
-      <div style="background:var(--grad-soft-green);border:1px solid var(--sx-success);border-radius:var(--radius-md);padding:0.6rem 0.75rem;margin-top:0.6rem">
-        <div style="font-weight:700;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-success);margin-bottom:0.3rem">🔒 Conservazione dei record</div>
-        <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.5;margin-bottom:0.5rem">
+      <div class="bg-[var(--grad-soft-green)] border border-sx-success rounded-[var(--radius-md)] py-6 px-7.5 mt-6">
+        <div class="font-bold text-body-small text-sx-success mb-3">🔒 Conservazione dei record</div>
+        <p class="text-body-small text-sx-text-secondary leading-[1.5] mb-5">
           <strong>Nessun record viene mai cancellato automaticamente.</strong>
           Il registro movimenti è conservato per <strong>${LOG_RETENTION_DAYS} giorni (${Math.round(LOG_RETENTION_DAYS/365)} anni)</strong>;
           i record di <strong>non conformità non sono mai eliminabili</strong>, nemmeno con la purge manuale.
@@ -78,71 +78,70 @@ export const VistaConfigDati: Vista = {
       </div>
     </div>
     <!-- v1.9.1 — Card impostazioni scanner barcode -->
-    <div class="config-card" style="margin-top:0.75rem">
+    <div class="config-card mt-7.5">
       <h3>Scanner Barcode</h3>
-      <div style="display:flex;align-items:flex-start;gap:0.75rem;padding:0.5rem 0">
-        <label class="switch" style="margin-top:0.15rem">
+      <div class="flex items-start gap-7.5 py-5 px-0">
+        <label class="switch mt-1.5">
           <input type="checkbox" id="scannerFixToggle" ${this._scannerLayoutFix ? 'checked' : ''} onchange="App._setScannerLayoutFix(this.checked)">
           <span class="slider"></span>
         </label>
-        <div style="flex:1">
-          <div style="font-weight:600;font-size: var(--md-sys-typescale-body-medium-size);color:var(--sx-text)">Correzione layout scanner US→IT</div>
-          <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-top:0.2rem;line-height:1.5">
+        <div class="flex-1">
+          <div class="font-semibold text-body-medium text-sx-text">Correzione layout scanner US→IT</div>
+          <div class="text-body-small text-sx-text-muted mt-2 leading-[1.5]">
             Attiva questa opzione se lo scanner barcode legge <strong>"/"</strong> come <strong>"-"</strong> (o caratteri simili).
             Lo scanner di fabbrica è in modalità tastiera US: su sistemi Windows con layout IT alcuni tasti producono caratteri sbagliati.
             Il fix usa il codice del tasto fisico (indipendente dal layout) per ricostruire il carattere originale del barcode.
             <br><strong>Disattiva</strong> solo se lo scanner è già stato programmato per il layout italiano.
           </div>
-          <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.4rem">
-            Caratteri corretti: <code style="background:var(--sx-bg-alt);padding:0 0.3rem;border-radius:2px">/</code> · <code style="background:var(--sx-bg-alt);padding:0 0.3rem;border-radius:2px">-</code> · <code style="background:var(--sx-bg-alt);padding:0 0.3rem;border-radius:2px">'</code> · <code style="background:var(--sx-bg-alt);padding:0 0.3rem;border-radius:2px">\\</code> · <code style="background:var(--sx-bg-alt);padding:0 0.3rem;border-radius:2px">=</code>
+          <div class="text-label-small text-sx-text-muted mt-4">
+            Caratteri corretti: <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">/</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">-</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">'</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">\\</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">=</code>
           </div>
         </div>
       </div>
     </div>
     <!-- v2.1.0 — Card preferenze di riscontro operativo -->
-    <div class="config-card" style="margin-top:0.75rem">
+    <div class="config-card mt-7.5">
       <h3>Riscontro Operativo (suono · vibrazione · messaggi)</h3>
-      <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.55;margin-bottom:0.6rem">
+      <p class="text-body-small text-sx-text-secondary leading-[1.55] mb-6">
         Dalla v2.1.0 l'esito di ogni operazione compare al <strong>centro dello schermo</strong>, non piu' nell'angolo,
         ed e' accompagnato da una firma sonora diversa per esito positivo, avviso ed errore.
         In reparto rumoroso alzare il volume; in ufficio disattivare l'audio.
         Le preferenze restano su questo dispositivo e non contengono alcun dato personale.
       </p>
-      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.45rem 0">
+      <div class="flex items-center gap-7.5 py-4.5 px-0">
         <label class="switch">
           <input type="checkbox" id="fbAudioToggle" ${Feedback.getPrefs().audio ? 'checked' : ''} onchange="App._setFeedbackPref('audio', this.checked)">
           <span class="slider"></span>
         </label>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size: var(--md-sys-typescale-body-medium-size)">Segnale acustico</div>
-          <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">Toni sintetizzati: nessun file, funziona offline.</div>
+        <div class="flex-1">
+          <div class="font-bold text-body-medium">Segnale acustico</div>
+          <div class="text-body-small text-sx-text-muted">Toni sintetizzati: nessun file, funziona offline.</div>
         </div>
         <button class="btn btn-sm" onclick="App._testFeedback()">Prova</button>
       </div>
-      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.45rem 0;border-top:1px solid var(--sx-border)">
+      <div class="flex items-center gap-7.5 py-4.5 px-0 border-t border-t-sx-border">
         <label class="switch">
           <input type="checkbox" id="fbVibToggle" ${Feedback.getPrefs().vibration ? 'checked' : ''} onchange="App._setFeedbackPref('vibration', this.checked)">
           <span class="slider"></span>
         </label>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size: var(--md-sys-typescale-body-medium-size)">Vibrazione</div>
-          <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">Solo su tablet e telefoni che la supportano. Su PC non ha effetto.</div>
+        <div class="flex-1">
+          <div class="font-bold text-body-medium">Vibrazione</div>
+          <div class="text-body-small text-sx-text-muted">Solo su tablet e telefoni che la supportano. Su PC non ha effetto.</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.45rem 0;border-top:1px solid var(--sx-border)">
+      <div class="flex items-center gap-7.5 py-4.5 px-0 border-t border-t-sx-border">
         <label class="switch">
           <input type="checkbox" id="fbFlashToggle" ${Feedback.getPrefs().flash ? 'checked' : ''} onchange="App._setFeedbackPref('flash', this.checked)">
           <span class="slider"></span>
         </label>
-        <div style="flex:1">
-          <div style="font-weight:700;font-size: var(--md-sys-typescale-body-medium-size)">Lampo perimetrale</div>
-          <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">Bordo colorato per mezzo secondo. Escluso da solo se il sistema chiede animazioni ridotte.</div>
+        <div class="flex-1">
+          <div class="font-bold text-body-medium">Lampo perimetrale</div>
+          <div class="text-body-small text-sx-text-muted">Bordo colorato per mezzo secondo. Escluso da solo se il sistema chiede animazioni ridotte.</div>
         </div>
       </div>
-      <div style="display:flex;align-items:center;gap:0.75rem;padding:0.6rem 0 0.2rem;border-top:1px solid var(--sx-border)">
-        <label for="fbVolume" style="font-weight:700;font-size: var(--md-sys-typescale-body-medium-size);min-width:110px">Volume</label>
-        <input type="range" id="fbVolume" min="0" max="100" step="5" value="${Math.round(Feedback.getPrefs().volume * 100)}"
-          style="flex:1" oninput="App._setFeedbackPref('volume', this.value / 100)">
+      <div class="flex items-center gap-7.5 pt-6 px-0 pb-2 border-t border-t-sx-border">
+        <label class="font-bold text-body-medium min-w-[110px]" for="fbVolume">Volume</label>
+        <input class="flex-1" type="range" id="fbVolume" min="0" max="100" step="5" value="${Math.round(Feedback.getPrefs().volume * 100)}" oninput="App._setFeedbackPref('volume', this.value / 100)">
         <span id="fbVolumeLabel" class="dlg-chip">${Math.round(Feedback.getPrefs().volume * 100)}%</span>
       </div>
     </div>`;
@@ -174,25 +173,25 @@ export const VistaConfigDati: Vista = {
 
     const vaultRiga = () => {
       if (vaultPerm === 'unsupported') {
-        return `<div style="color:var(--sx-danger)">Questo browser non consente di scegliere una cartella di destinazione.
+        return `<div class="text-sx-danger">Questo browser non consente di scegliere una cartella di destinazione.
           Usare Chrome o Edge, oppure esportare a mano il JSON e archiviarlo su OneDrive.</div>`;
       }
       if (vaultPerm === 'none') {
-        return `<div style="margin-bottom:0.4rem">Nessuna cartella configurata. Sceglierne una <strong>dentro OneDrive</strong>:
+        return `<div class="mb-4">Nessuna cartella configurata. Sceglierne una <strong>dentro OneDrive</strong>:
           da quel momento l'applicativo ci scriverà da solo una volta al giorno.</div>
           <button class="btn btn-sm btn-primary" onclick="App.vaultChooseFolder()">📁 Scegli la cartella di backup…</button>`;
       }
       if (vaultPerm !== 'granted') {
-        return `<div style="margin-bottom:0.4rem;color:var(--sx-warning)">
+        return `<div class="mb-4 text-sx-warning">
           Cartella configurata, ma il permesso di scrittura non è attivo in questa sessione.
           Il browser lo azzera a ogni riavvio e serve un clic per riattivarlo: è una sua regola, non un difetto.</div>
           <button class="btn btn-sm btn-warning" onclick="App.vaultReauthorize()">🔓 Riattiva il permesso</button>`;
       }
-      return `<div style="margin-bottom:0.5rem">
+      return `<div class="mb-5">
           Ultimo backup: <strong>${fmt(vaultLast)}</strong>
           ${manifest ? ` · ${Number(manifest.movimenti_totali || 0).toLocaleString('it-IT')} movimenti su ${manifest.mesi || 0} file mensili` : ''}
         </div>
-        <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+        <div class="flex gap-4 flex-wrap">
           <button class="btn btn-sm btn-success" onclick="App.vaultBackupNow()">💾 Esegui backup adesso</button>
           <button class="btn btn-sm btn-accent" onclick="App.vaultRestore()">♻ Ripristina da questa cartella…</button>
           <button class="btn btn-sm" onclick="App.vaultChooseFolder()">📁 Cambia cartella</button>
@@ -202,9 +201,9 @@ export const VistaConfigDati: Vista = {
     host.innerHTML = `<div class="config-card" style="border-left:4px solid ${bordo};margin-bottom:0.75rem">
       <h3 style="color:${bordo}">${titolo}</h3>
 
-      <div style="padding:0.5rem 0;border-bottom:1px solid var(--sx-border)">
-        <div style="font-weight:700;font-size: var(--md-sys-typescale-body-medium-size);margin-bottom:0.25rem">📁 Copia esterna automatica (OneDrive)</div>
-        <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.55">${vaultRiga()}</div>
+      <div class="py-5 px-0 border-b border-b-sx-border">
+        <div class="font-bold text-body-medium mb-2.5">📁 Copia esterna automatica (OneDrive)</div>
+        <div class="text-body-small text-sx-text-secondary leading-[1.55]">${vaultRiga()}</div>
       </div>
 
       ${remoto ? `
@@ -214,26 +213,26 @@ export const VistaConfigDati: Vista = {
            un operatore leggerebbe "il browser puo' cancellare il database"
            di un file SQLite che il browser non ha mai visto — e i due
            pulsanti OPFS fallirebbero, essendo supportsLocalBackup false. -->
-      <div style="padding:0.5rem 0;border-bottom:1px solid var(--sx-border)">
-        <div style="font-weight:700;font-size: var(--md-sys-typescale-body-medium-size);margin-bottom:0.25rem">
+      <div class="py-5 px-0 border-b border-b-sx-border">
+        <div class="font-bold text-body-medium mb-2.5">
           🗄 Il database non è in questo browser <span class="badge badge-green">servizio dati</span>
         </div>
-        <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.55">
-          Vive come file sulla macchina che ospita il servizio${est?.file ? `:<br><span class="mono" style="font-size: var(--md-sys-typescale-label-small-size)">${this._esc(est.file)}</span>` : '.'}
+        <div class="text-body-small text-sx-text-secondary leading-[1.55]">
+          Vive come file sulla macchina che ospita il servizio${est?.file ? `:<br><span class="mono text-label-small">${this._esc(est.file)}</span>` : '.'}
           <br>Non è soggetto alla cancellazione dei dati di navigazione né alla quota del browser,
           e non serve alcun permesso di archiviazione persistente.
           <strong>La copia di sicurezza è un compito del servizio</strong>, non di questa scheda:
           si esegue a caldo con <span class="mono">POST /api/backup</span> — vedi INSTALLAZIONE, sezione «Il backup».
         </div>
       </div>` : `
-      <div style="padding:0.5rem 0;border-bottom:1px solid var(--sx-border)">
-        <div style="font-weight:700;font-size: var(--md-sys-typescale-body-medium-size);margin-bottom:0.25rem">
+      <div class="py-5 px-0 border-b border-b-sx-border">
+        <div class="font-bold text-body-medium mb-2.5">
           🔒 Archiviazione persistente
           ${persist.granted
             ? '<span class="badge badge-green">concessa</span>'
             : '<span class="badge badge-amber">non concessa</span>'}
         </div>
-        <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.55">
+        <div class="text-body-small text-sx-text-secondary leading-[1.55]">
           ${persist.granted
             ? 'Il browser si impegna a non cancellare il database per far spazio ad altro.'
             : `Senza questo permesso il browser <strong>può cancellare il database</strong> quando il disco si riempie.
@@ -241,9 +240,9 @@ export const VistaConfigDati: Vista = {
         </div>
       </div>
 
-      <div style="padding:0.5rem 0;border-bottom:1px solid var(--sx-border)">
-        <div style="font-weight:700;font-size: var(--md-sys-typescale-body-medium-size);margin-bottom:0.25rem">🗂 Backup locali settimanali (OPFS)</div>
-        <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.55;margin-bottom:0.4rem">
+      <div class="py-5 px-0 border-b border-b-sx-border">
+        <div class="font-bold text-body-medium mb-2.5">🗂 Backup locali settimanali (OPFS)</div>
+        <div class="text-body-small text-sx-text-secondary leading-[1.55] mb-4">
           ${opfsList.length
             ? `${opfsList.length} cop${opfsList.length === 1 ? 'ia' : 'ie'} · più recente: <strong>${opfsList[0]?.name || '—'}</strong>.`
             : 'Nessuna copia presente.'}
@@ -254,23 +253,23 @@ export const VistaConfigDati: Vista = {
         <button class="btn btn-sm" onclick="App.opfsBackupNow()">💾 Crea copia locale adesso</button>
       </div>`}
 
-      <div style="padding:0.5rem 0">
-        <div style="font-weight:700;font-size: var(--md-sys-typescale-body-medium-size);margin-bottom:0.25rem">⚡ Registro in memoria</div>
-        <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.55;margin-bottom:0.4rem">
+      <div class="py-5 px-0">
+        <div class="font-bold text-body-medium mb-2.5">⚡ Registro in memoria</div>
+        <div class="text-body-small text-sx-text-secondary leading-[1.55] mb-4">
           In archivio ci sono <strong>${win.total.toLocaleString('it-IT')}</strong> movimenti; in memoria se ne tengono
           <strong>${win.inMemory.toLocaleString('it-IT')}</strong> (ultimi ${win.days || '∞'} giorni).
           Cruscotto e KPI leggono la finestra; Registro, export e ricerche per data interrogano l'archivio completo.
           Allargarla rende l'avvio più lento, stringerla lo rende più rapido: <strong>nessun dato viene perso in nessun caso</strong>.
         </div>
-        <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap">
-          <label for="movWindowDays" style="font-size: var(--md-sys-typescale-body-small-size);font-weight:600">Giorni in memoria</label>
-          <input class="input input-mono" id="movWindowDays" type="number" min="0" max="${Store.MOVLOG_WINDOW_MAX}" value="${win.days}" style="width:100px">
+        <div class="flex gap-5 items-center flex-wrap">
+          <label class="text-body-small font-semibold" for="movWindowDays">Giorni in memoria</label>
+          <input class="input input-mono w-[100px]" id="movWindowDays" type="number" min="0" max="${Store.MOVLOG_WINDOW_MAX}" value="${win.days}">
           <button class="btn btn-sm btn-primary" onclick="App._applyMovWindow()">Applica e ricarica</button>
-          <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">0 = carica tutto (sconsigliato oltre i 100.000 movimenti)</span>
+          <span class="text-label-small text-sx-text-muted">0 = carica tutto (sconsigliato oltre i 100.000 movimenti)</span>
         </div>
       </div>
 
-      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.5rem;padding-top:0.5rem;border-top:1px solid var(--sx-border)">
+      <div class="text-label-small text-sx-text-muted mt-5 pt-5 border-t border-t-sx-border">
         Spazio occupato: ${this._fmtUsage(est)}
       </div>
     </div>`;
@@ -306,7 +305,7 @@ export const VistaConfigDati: Vista = {
   async vaultBackupNow() {
     const host = $('resilienzaCard');
     const say = (t: any) => { if (host) { const s = host.querySelector('.vault-progress'); if (s) s.textContent = t; } };
-    if (host) host.insertAdjacentHTML('afterbegin', '<div class="config-card vault-progress" style="margin-bottom:0.5rem">Backup in corso…</div>');
+    if (host) host.insertAdjacentHTML('afterbegin', '<div class="config-card vault-progress mb-5">Backup in corso…</div>');
     try {
       const r: any = await Vault.runBackup({ force: true, onProgress: say });
       this.toast(`💾 Backup esterno completato · ${r.movimenti.toLocaleString('it-IT')} movimenti · ${r.mesiScritti} file mensili aggiornati`, 'success');
@@ -341,11 +340,11 @@ export const VistaConfigDati: Vista = {
       ${this._esc(s.name)} — ${(s.size/1024).toFixed(0)} KB — ${new Date(s.modified).toLocaleString('it-IT')}</option>`).join('');
     this.showModal(
       '♻ Ripristino dalla cartella di backup',
-      `<div class="mov-preview mov-preview-err" style="margin-bottom:0.7rem">
+      `<div class="mov-preview mov-preview-err mb-7">
         <strong>⚠ Il ripristino SOSTITUISCE integralmente i dati presenti.</strong>
         Prima di procedere verrà scaricato un export dello stato attuale.
       </div>
-      <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.6;margin-bottom:0.6rem">
+      <p class="text-body-small text-sx-text-secondary leading-[1.6] mb-6">
         Verranno ricomposti la fotografia scelta e <strong>tutti</strong> i file mensili dei movimenti presenti nella cartella.
         ${manifest ? `Il manifest dichiara ${Number(manifest.movimenti_totali||0).toLocaleString('it-IT')} movimenti su ${manifest.mesi||0} mesi.` : 'Nella cartella non è presente il manifest: la verifica sarà parziale.'}
       </p>
@@ -353,7 +352,7 @@ export const VistaConfigDati: Vista = {
         <label>Fotografia dello stato da usare</label>
         <select class="input select" id="vaultStatePick">${opzioni}</select>
       </div>
-      <div id="vaultRestoreLog" style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-top:0.5rem;min-height:1.2em"></div>`,
+      <div class="text-body-small text-sx-text-muted mt-5 min-h-[1.2em]" id="vaultRestoreLog"></div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
        <button class="btn btn-danger" onclick="App.doVaultRestore()">♻ Ripristina</button>`
     );
