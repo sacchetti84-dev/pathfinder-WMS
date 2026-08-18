@@ -589,26 +589,52 @@ export const VistaInventario = {
       confirmLabel: 'Rettifica', danger: true,
     })) return;
 
-    /* 1.8 — SU UNA RIGA A COLLI DICHIARATI, UNA CONTA NON È UN NUMERO SOLO.
-       In meno: si dice QUALI colli mancano, e chi conta li ha davanti. In
-       più: un collo trovato ha una misura che nessuno può indovinare, e
-       inventargliela scriverebbe una giacenza plausibile e falsa — si
-       posiziona da Movimenta, dove la suddivisione si dichiara. */
+    /* 1.8.4 — SU UNA RIGA A COLLI DICHIARATI, UNA CONTA NON È UN NUMERO SOLO.
+       Fino alla 1.8.3 qui si chiedeva QUALI colli mancano, e i colli in più
+       si rifiutavano: erano da posizionare da Movimenta. Adesso si chiede
+       com'è fatto quello che si ha davanti, come nell'inventario di vano, e
+       la differenza la calcola `rettifica` — in meno e in più.
+
+       LA DICHIARAZIONE PARTE VUOTA, e non è una svista: la Conta non mostra
+       il proprio numero prima che qualcuno abbia contato, e un elenco già
+       compilato sarebbe quel numero scritto per esteso.
+
+       Il numero di ④ resta, e fa da riscontro: se i due non dicono la stessa
+       cosa la rettifica non parte. Contare dieci colli e dichiararne nove è
+       un conto che non torna, e a dire quale dei due sia giusto non è il
+       sistema. */
     const elencoConta = Store.colliDiRiga(it);
-    let scelteConta = null;
-    if (elencoConta && delta < 0) {
-      scelteConta = await this._chiediColli(it, 'Quali colli mancano');
-      if (scelteConta === undefined) return this.toast('Conta annullata', 'info');
-    }
-    if (elencoConta && delta > 0) {
-      return this.toast('Colli in più su una riga a colli dichiarati: posizionali da Movimenta → Posiziona, dichiarando com\'è imballato ciò che hai trovato', 'warning');
+    let colliDopo = null;
+    if (elencoConta) {
+      colliDopo = await this._ridichiaraColli(it, "Com'è fatto quello che hai contato", { daZero: true });
+      if (colliDopo === undefined) return this.toast('Conta annullata', 'info');
+      if (colliDopo.length !== contati) {
+        return this.toast(`Hai contato ${contati} coll. e ne hai dichiarati ${colliDopo.length}: i due numeri devono dire la stessa cosa`, 'error');
+      }
     }
 
     try {
-      if (delta < 0) {
-        const tolti = contati === 0 && !scelteConta
+      if (colliDopo) {
+        const cfgConta = Store.getUomConfig(it.article_code, it.lot_code)!;
+        const diff = rettifica(elencoConta, colliDopo, cfgConta.uom);
+        const motivo = `${dettaglio} · ${colliDopo.length ? descriviColli(colliDopo, cfgConta.uom) : 'vano vuoto'}`;
+        if (diff?.uscite.length) {
+          const tolti = await Store.removeItem(d.location_code, d.item_key, null, null, Store.scelteDaUscite(it, diff.uscite));
+          if (!tolti) return this.toast('Rettifica non riuscita', 'error');
+          await this._logMov(MOV.FIX_OUT, d.article_code, d.article_description, d.lot_code,
+            d.location_code, null, sigla, motivo, '', tolti._qty_before, tolti._qty_after - tolti._qty_before, tolti._qty_after);
+        }
+        if (diff?.entrate.length) {
+          const res = await Store.addItem(d.location_code, d.article_code, d.article_description,
+            d.lot_code, d.expiry_date || '', '', diff.entrate.length, null, diff.entrate);
+          if (!res.ok) return this.toast('Rettifica non riuscita', 'error');
+          await this._logMov(MOV.FIX_IN, d.article_code, d.article_description, d.lot_code,
+            d.location_code, null, sigla, `${motivo} · trovati ${formattaQuantita(totaleUomColli(diff.entrate, cfgConta.uom), cfgConta.uom)} ${cfgConta.uom}`, '', res.qty_before, diff.entrate.length, res.qty_after);
+        }
+      } else if (delta < 0) {
+        const tolti = contati === 0
           ? await Store.removeItem(d.location_code, d.item_key)
-          : await Store.removeItem(d.location_code, d.item_key, Math.abs(delta), null, scelteConta);
+          : await Store.removeItem(d.location_code, d.item_key, Math.abs(delta));
         if (!tolti) return this.toast('Rettifica non riuscita', 'error');
         await this._logMov(MOV.FIX_OUT, d.article_code, d.article_description, d.lot_code,
           d.location_code, null, sigla, dettaglio, '', sistema, tolti._qty_delta ?? delta, tolti._qty_after ?? contati);
