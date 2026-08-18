@@ -329,12 +329,49 @@ export type Geometria = Map<string, Coordinate>;
 
 /* ── Prelievo ────────────────────────────────────────────────────── */
 
+/* UNA TAPPA DEL PERCORSO DI PRELIEVO.
+
+   Nasce dalla serpentina, la percorre l'operatore e la rilegge il rapporto:
+   tre file la leggono, e per questo il tipo sta qui e non dentro una vista. */
+export interface TappaPrelievo {
+  seq?: number | null;
+  status?: 'pending' | 'done' | 'missing' | string;
+  article_code: string;
+  article_description?: string;
+  lot_code: string;
+  item_key?: string;
+  location_code?: string;
+  site_id?: string;
+  kg_required?: number | null;
+  um?: string;
+  qty_available?: number;
+  qty_picked?: number;
+  expiry_iso?: string;
+  done_at?: Istante | null;
+  forced_note?: string;
+  reason?: string;
+  alternatives?: unknown[];
+}
+
+/* Una riga presa fuori percorso, o una nota lasciata su una tappa: portano
+   il motivo, che l'elenco traduce in parole. */
+export interface FuoriPercorso {
+  article_code: string;
+  description?: string;
+  lot_code: string;
+  location_code?: string;
+  kg_required?: number | null;
+  um?: string;
+  reason?: string;
+  detail?: string;
+}
+
 export interface SessionePrelievo {
   session_id: string;
   status: string;
   created_at: Istante;
   odp_num?: string;
-  stops?: unknown[];
+  stops?: TappaPrelievo[];
   /** La testata dell ODP e chi sta prelevando: erano gia nel record, e il
       rapporto di prelievo li leggeva attraverso l indice generico. */
   odp_article?: string;
@@ -342,8 +379,8 @@ export interface SessionePrelievo {
   odp_lot?: string;
   odp_qty?: string | number;
   operator?: string;
-  offroute?: unknown[];
-  notes?: unknown[];
+  offroute?: FuoriPercorso[];
+  notes?: FuoriPercorso[];
   warnings?: string[];
   [extra: string]: unknown;
 }

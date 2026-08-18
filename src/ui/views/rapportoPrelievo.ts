@@ -1,7 +1,7 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
 import { PickRoute } from '../../modules/pickRoute';
-import type { SessionePrelievo, Movimento } from '../../types/entita';
+import type { SessionePrelievo, Movimento, TappaPrelievo, FuoriPercorso } from '../../types/entita';
 
 /* Un motivo di deviazione ha un'etichetta leggibile; quello che non ce l'ha
    esce come e' scritto. */
@@ -16,31 +16,6 @@ import { Feedback } from '../feedback';
    movimenti. I tre normalizzatori qui sotto producono lo stesso oggetto, ed è
    quello che la stampa sa leggere: se una sorgente smette di riempire un
    campo, il compilatore lo dice prima della carta. */
-type TappaPrelievo = {
-  seq?: number | null;
-  status?: string;
-  article_code: string;
-  article_description?: string;
-  lot_code: string;
-  location_code?: string;
-  kg_required?: number | null;
-  um?: string;
-  qty_picked?: number;
-  done_at?: number | null;
-  forced_note?: string;
-};
-
-type FuoriPercorso = {
-  article_code: string;
-  description?: string;
-  lot_code: string;
-  location_code?: string;
-  kg_required?: number | null;
-  um?: string;
-  reason?: string;
-  detail?: string;
-};
-
 type RigaRapporto = {
   seq: number | null;
   article_code: string;
@@ -134,7 +109,7 @@ export const VistaRapportoPrelievo: Vista = {
   /* ─── NORMALIZZATORE A) sessione di prelievo guidato ─────────────── */
   _pickSnapFromSession(s: SessionePrelievo, endTs = Date.now(),
                        opt: { partial?: boolean } = {}): RapportoPrelievo {
-    const tappe = (s.stops || []) as TappaPrelievo[];
+    const tappe = s.stops || [];
     const done    = tappe.filter((x) => x.status === 'done');
     const missing = tappe.filter((x) => x.status === 'missing');
     const pending = tappe.filter((x) => x.status === 'pending');
@@ -180,18 +155,18 @@ export const VistaRapportoPrelievo: Vista = {
           label: 'Tappa non percorsa',
           detail: `Ubicazione prevista ${x.location_code}. Percorso chiuso prima della tappa.`
         })),
-        ...((s.offroute || []) as FuoriPercorso[]).map((o): CodaRapporto => ({
+        ...(s.offroute || []).map((o): CodaRapporto => ({
           article_code: o.article_code, description: o.description || '',
           lot_code: o.lot_code, kg_required: o.kg_required ?? null, um: o.um || '',
           label: etichettaMotivo(o.reason) || 'Fuori percorso',
           detail: o.detail || ''
         }))
       ],
-      notes: ((s.notes || []) as FuoriPercorso[]).map((n): NotaRapporto => ({
+      notes: (s.notes || []).map((n): NotaRapporto => ({
         article_code: n.article_code, lot_code: n.lot_code, location_code: n.location_code || '',
         label: etichettaMotivo(n.reason), detail: n.detail || ''
       })),
-      warnings: [...((s.warnings || []) as string[])]
+      warnings: [...(s.warnings || [])]
     };
   },
 
@@ -467,10 +442,10 @@ export const VistaRapportoPrelievo: Vista = {
   },
 
   /* ─── REPORT PARZIALE (percorso ancora aperto) ───────────────────── */
-  _printRouteReport(sess = null) {
+  _printRouteReport(sess: SessionePrelievo | null = null) {
     const s = sess || Store.getActivePickSession();
     if (!s) return this.toast('Nessun percorso da stampare', 'error');
-    const concluded = ((s.stops || []) as TappaPrelievo[]).filter((x) => x.status === 'done' || x.status === 'missing');
+    const concluded = (s.stops || []).filter((x) => x.status === 'done' || x.status === 'missing');
     if (!concluded.length) return this.toast('Niente da stampare: nessuna tappa conclusa', 'error');
     this._emitPickReport(this._pickSnapFromSession(s, Date.now(), { partial: true }), { reprint: false });
   },
