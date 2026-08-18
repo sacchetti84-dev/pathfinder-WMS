@@ -1,7 +1,108 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
-import { PickRoute } from '../../modules/pickRoute.js';
+import { PickRoute } from '../../modules/pickRoute';
+import type { SessionePrelievo, Movimento } from '../../types/entita';
+
+/* Un motivo di deviazione ha un'etichetta leggibile; quello che non ce l'ha
+   esce come e' scritto. */
+const etichettaMotivo = (reason?: string) =>
+  (PickRoute.REASON_LABELS as Record<string, string>)[reason || ''] || reason || '';
 import { Feedback } from '../feedback';
+
+
+/* IL RAPPORTO DI PRELIEVO HA TRE SORGENTI E UNA FORMA SOLA.
+
+   Percorso guidato, carrello, e — quando non resta altro — il registro
+   movimenti. I tre normalizzatori qui sotto producono lo stesso oggetto, ed è
+   quello che la stampa sa leggere: se una sorgente smette di riempire un
+   campo, il compilatore lo dice prima della carta. */
+type TappaPrelievo = {
+  seq?: number | null;
+  status?: string;
+  article_code: string;
+  article_description?: string;
+  lot_code: string;
+  location_code?: string;
+  kg_required?: number | null;
+  um?: string;
+  qty_picked?: number;
+  done_at?: number | null;
+  forced_note?: string;
+};
+
+type FuoriPercorso = {
+  article_code: string;
+  description?: string;
+  lot_code: string;
+  location_code?: string;
+  kg_required?: number | null;
+  um?: string;
+  reason?: string;
+  detail?: string;
+};
+
+type RigaRapporto = {
+  seq: number | null;
+  article_code: string;
+  article_description: string;
+  lot_code: string;
+  location_code: string;
+  kg_required: number | null;
+  um: string;
+  qty_picked: number;
+  done_at: number | null;
+};
+
+type CodaRapporto = {
+  article_code: string;
+  description: string;
+  lot_code: string;
+  kg_required: number | null;
+  um: string;
+  label: string;
+  detail: string;
+};
+
+type NotaRapporto = {
+  article_code: string;
+  lot_code: string;
+  location_code: string;
+  label: string;
+  detail: string;
+};
+
+type RapportoPrelievo = {
+  doc_id: string;
+  kind: 'route' | 'cart' | 'log';
+  app_ver: string;
+  partial: boolean;
+  degraded: boolean;
+  odp_num: string;
+  odp_article: string;
+  odp_article_desc: string;
+  odp_lot: string;
+  odp_qty: string | number;
+  operator: string;
+  session_id: string | null;
+  started_at: number;
+  ended_at: number;
+  closed_at: number;
+  stops_total: number;
+  rows: RigaRapporto[];
+  tail: CodaRapporto[];
+  notes: NotaRapporto[];
+  warnings: string[];
+};
+
+/* Il carrello di produzione, come lo legge il rapporto. */
+type VoceCarrello = {
+  article_code: string;
+  article_description?: string;
+  lot_code: string;
+  location_code: string;
+  qty_pick?: number;
+  _qty_delta?: number;
+};
 
 export const VistaRapportoPrelievo: Vista = {
   _PICK_REPORT_VER: '1.0',
@@ -17,24 +118,26 @@ export const VistaRapportoPrelievo: Vista = {
   _fmtClock(ts) {
     return ts ? new Date(ts).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '—';
   },
-  _fmtStamp(ts) {
+  _fmtStamp(ts: number | null | undefined) {
     return ts ? new Date(ts).toLocaleString('it-IT',
       { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—';
   },
-  _fmtDayShort(ts) {
+  _fmtDayShort(ts: number | null | undefined) {
     return ts ? new Date(ts).toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' }) : '';
   },
 
-  _pickDocId(prefix, odpNum, ts) {
+  _pickDocId(prefix: string, odpNum: string | null | undefined, ts: number) {
     const core = String(odpNum || 'NA').replace(/[^A-Za-z0-9]/g, '').toUpperCase() || 'NA';
     return `${prefix}-${core}-${ts.toString(36).toUpperCase().slice(-6)}`;
   },
 
   /* ─── NORMALIZZATORE A) sessione di prelievo guidato ─────────────── */
-  _pickSnapFromSession(s, endTs = Date.now(), opt = {}) {
-    const done    = s.stops.filter((x: any) => x.status === 'done');
-    const missing = s.stops.filter((x: any) => x.status === 'missing');
-    const pending = s.stops.filter((x: any) => x.status === 'pending');
+  _pickSnapFromSession(s: SessionePrelievo, endTs = Date.now(),
+                       opt: { partial?: boolean } = {}): RapportoPrelievo {
+    const tappe = (s.stops || []) as TappaPrelievo[];
+    const done    = tappe.filter((x) => x.status === 'done');
+    const missing = tappe.filter((x) => x.status === 'missing');
+    const pending = tappe.filter((x) => x.status === 'pending');
 
     return {
       doc_id: this._pickDocId('PG', s.odp_num, endTs),
@@ -52,48 +155,50 @@ export const VistaRapportoPrelievo: Vista = {
       started_at: s.created_at || endTs,
       ended_at: endTs,
       closed_at: endTs,
-      stops_total: s.stops.length,
-      rows: done.map((x: any) => ({
-        seq: x.seq,
+      stops_total: tappe.length,
+      rows: done.map((x): RigaRapporto => ({
+        seq: x.seq ?? null,
         article_code: x.article_code,
         article_description: x.article_description || '',
         lot_code: x.lot_code,
-        location_code: x.location_code,
-        kg_required: x.kg_required,
+        location_code: x.location_code || '',
+        kg_required: x.kg_required ?? null,
         um: x.um || '',
         qty_picked: x.qty_picked || 0,
         done_at: x.done_at || null
       })),
       tail: [
-        ...missing.map((x: any) => ({
+        ...missing.map((x): CodaRapporto => ({
           article_code: x.article_code, description: x.article_description || '',
-          lot_code: x.lot_code, kg_required: x.kg_required, um: x.um || '',
+          lot_code: x.lot_code, kg_required: x.kg_required ?? null, um: x.um || '',
           label: 'Non trovato dall’operatore',
           detail: `Ubicazione prevista ${x.location_code}. ${x.forced_note || ''}`.trim()
         })),
-        ...pending.map((x: any) => ({
+        ...pending.map((x): CodaRapporto => ({
           article_code: x.article_code, description: x.article_description || '',
-          lot_code: x.lot_code, kg_required: x.kg_required, um: x.um || '',
+          lot_code: x.lot_code, kg_required: x.kg_required ?? null, um: x.um || '',
           label: 'Tappa non percorsa',
           detail: `Ubicazione prevista ${x.location_code}. Percorso chiuso prima della tappa.`
         })),
-        ...(s.offroute || []).map((o: any) => ({
+        ...((s.offroute || []) as FuoriPercorso[]).map((o): CodaRapporto => ({
           article_code: o.article_code, description: o.description || '',
-          lot_code: o.lot_code, kg_required: o.kg_required, um: o.um || '',
-          label: (PickRoute.REASON_LABELS as any)[o.reason] || o.reason || 'Fuori percorso',
+          lot_code: o.lot_code, kg_required: o.kg_required ?? null, um: o.um || '',
+          label: etichettaMotivo(o.reason) || 'Fuori percorso',
           detail: o.detail || ''
         }))
       ],
-      notes: (s.notes || []).map((n: any) => ({
-        article_code: n.article_code, lot_code: n.lot_code, location_code: n.location_code,
-        label: (PickRoute.REASON_LABELS as any)[n.reason] || n.reason || '', detail: n.detail || ''
+      notes: ((s.notes || []) as FuoriPercorso[]).map((n): NotaRapporto => ({
+        article_code: n.article_code, lot_code: n.lot_code, location_code: n.location_code || '',
+        label: etichettaMotivo(n.reason), detail: n.detail || ''
       })),
-      warnings: [...(s.warnings || [])]
+      warnings: [...((s.warnings || []) as string[])]
     };
   },
 
   /* ─── NORMALIZZATORE B) flusso a carrello ────────────────────────── */
-  _pickSnapFromCart(cart, meta = {}) {
+  _pickSnapFromCart(cart: VoceCarrello[], meta: {
+    ended_at?: number; started_at?: number; odp_num?: string; operator?: string;
+  } = {}): RapportoPrelievo {
     const endTs = meta.ended_at || Date.now();
     return {
       doc_id: this._pickDocId('PP', meta.odp_num, endTs),
@@ -109,7 +214,7 @@ export const VistaRapportoPrelievo: Vista = {
       ended_at: endTs,
       closed_at: endTs,
       stops_total: cart.length,
-      rows: cart.map((it: any) => ({
+      rows: cart.map((it): RigaRapporto => ({
         seq: null,
         article_code: it.article_code,
         article_description: it.article_description || '',
@@ -125,9 +230,10 @@ export const VistaRapportoPrelievo: Vista = {
   },
 
   /* ─── NORMALIZZATORE C) registro movimenti (solo ripiego) ────────── */
-  _pickSnapFromLog(movs, ref) {
-    const start = movs[0].ts, end = movs[movs.length - 1].ts;
-    const notes = [...new Set(movs.map((m: any) => m.notes).filter(Boolean))];
+  _pickSnapFromLog(movs: Movimento[], ref: string): RapportoPrelievo {
+    /* Il ripiego si chiama solo con dei movimenti in mano. */
+    const start = movs[0]!.ts, end = movs[movs.length - 1]!.ts;
+    const notes = [...new Set(movs.map((m) => m.notes).filter(Boolean))];
     return {
       doc_id: this._pickDocId('PP', ref, end),
       kind: 'log',
@@ -136,13 +242,13 @@ export const VistaRapportoPrelievo: Vista = {
       degraded: true,
       odp_num: ref || '',
       odp_article: '', odp_article_desc: '', odp_lot: '', odp_qty: '',
-      operator: [...new Set(movs.map((m: any) => m.user).filter(Boolean))].join(', '),
+      operator: [...new Set(movs.map((m) => m.user).filter(Boolean))].join(', '),
       session_id: null,
       started_at: start,
       ended_at: end,
       closed_at: end,
       stops_total: movs.length,
-      rows: movs.map((m: any) => ({
+      rows: movs.map((m): RigaRapporto => ({
         seq: null,
         article_code: m.article_code || '',
         article_description: m.article_description || '',
@@ -159,8 +265,10 @@ export const VistaRapportoPrelievo: Vista = {
   },
 
   /* ─── TEMPLATE UNICO ─────────────────────────────────────────────── */
-  _buildPickReportHTML(snap, opt = {}) {
-    const E = (v: any) => this._esc(v == null ? '' : v);
+  _buildPickReportHTML(snap: RapportoPrelievo, opt: {
+    reprint?: boolean; printed_at?: number;
+  } = {}) {
+    const E = (v: unknown) => this._esc(v == null ? '' : v);
     const reprint = !!opt.reprint;
     const printTs = opt.printed_at || Date.now();
 
@@ -171,17 +279,17 @@ export const VistaRapportoPrelievo: Vista = {
     const avgSec  = nRows > 0 ? durSec / nRows : null;
     const sameDay = this._fmtDayShort(snap.started_at) === this._fmtDayShort(snap.ended_at);
 
-    const totColli   = snap.rows.reduce((a: any, r: any) => a + (r.qty_picked || 0), 0);
-    const uniqueLocs = new Set(snap.rows.map((r: any) => r.location_code).filter(Boolean)).size;
+    const totColli   = snap.rows.reduce((a, r) => a + (r.qty_picked || 0), 0);
+    const uniqueLocs = new Set(snap.rows.map((r) => r.location_code).filter(Boolean)).size;
 
-    const kgCell = (kg: any, um: any) => {
+    const kgCell = (kg: number | string | null | undefined, um: string | undefined) => {
       if (kg == null || kg === '') return '<span class="text-[#999]">—</span>';
       const u = String(um || '').trim().toUpperCase();
       const suffix = (u && u !== 'KG') ? ` <span style="font-size:7pt;color:#666">${E(um)}</span>` : '';
       return `${E(this._fmtKg(kg))}${suffix}`;
     };
 
-    const rowsHTML = snap.rows.map((r: any, i: any) => `<tr>
+    const rowsHTML = snap.rows.map((r, i) => `<tr>
       <td class="td-num">${i + 1}</td>
       <td class="td-num">${r.seq != null ? E(r.seq) : '<span class="text-[#999]">—</span>'}</td>
       <td class="td-code">${E(r.article_code || '—')}</td>
@@ -192,7 +300,7 @@ export const VistaRapportoPrelievo: Vista = {
       <td class="td-num font-bold">${E(r.qty_picked)}</td>
     </tr>`).join('');
 
-    const tailHTML = snap.tail.map((t: any, i: any) => `<tr>
+    const tailHTML = snap.tail.map((t, i) => `<tr>
       <td class="td-num">${i + 1}</td>
       <td class="td-code">${E(t.article_code || '—')}</td>
       <td>${E(t.description || '—')}${this._avvisiRigaStampa(t.article_code)}</td>
@@ -203,7 +311,7 @@ export const VistaRapportoPrelievo: Vista = {
       <td class="pr-check-col"><span class="pr-box"></span></td>
     </tr>`).join('');
 
-    const notesHTML = snap.notes.map((n: any, i: any) => `<tr>
+    const notesHTML = snap.notes.map((n, i) => `<tr>
       <td class="td-num">${i + 1}</td>
       <td class="td-code">${E(n.article_code || '—')}</td>
       <td class="td-lot">${E(n.lot_code || '—')}</td>
@@ -329,7 +437,7 @@ export const VistaRapportoPrelievo: Vista = {
       ${snap.warnings?.length ? `
       <div class="pr-sec">Avvisi rilevati sui dati dell’ordine</div>
       <ul class="pr-warn-list">
-        ${snap.warnings.map((w: any) => `<li>${E(w)}</li>`).join('')}
+        ${snap.warnings.map((w) => `<li>${E(w)}</li>`).join('')}
       </ul>` : ''}`;
 
     return this._docPageHTML({
@@ -362,7 +470,7 @@ export const VistaRapportoPrelievo: Vista = {
   _printRouteReport(sess = null) {
     const s = sess || Store.getActivePickSession();
     if (!s) return this.toast('Nessun percorso da stampare', 'error');
-    const concluded = s.stops.filter((x: any) => x.status === 'done' || x.status === 'missing');
+    const concluded = ((s.stops || []) as TappaPrelievo[]).filter((x) => x.status === 'done' || x.status === 'missing');
     if (!concluded.length) return this.toast('Niente da stampare: nessuna tappa conclusa', 'error');
     this._emitPickReport(this._pickSnapFromSession(s, Date.now(), { partial: true }), { reprint: false });
   },
