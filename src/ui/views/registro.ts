@@ -19,48 +19,48 @@ export const VistaRegistro: Vista = {
     const info = Store.getMovLogWindowInfo();
     const r = this._regRange;
     return `<div>
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:0.75rem;flex-wrap:wrap;gap:0.5rem">
+      <div class="flex items-center justify-between mb-7.5 flex-wrap gap-5">
         <div>
-          <h1 style="font-size: var(--md-sys-typescale-title-large-size);color:var(--sx-primary);font-weight:700">📋 Registro Movimentazioni</h1>
-          <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">${info.total.toLocaleString('it-IT')} movimentazioni in archivio · conservazione ${Math.round(LOG_RETENTION_DAYS/365)} anni</p>
+          <h1 class="text-title-large text-sx-primary font-bold">📋 Registro Movimentazioni</h1>
+          <p class="text-body-small text-sx-text-muted">${info.total.toLocaleString('it-IT')} movimentazioni in archivio · conservazione ${Math.round(LOG_RETENTION_DAYS/365)} anni</p>
         </div>
-        <div style="display:flex;gap:0.4rem;align-items:center;flex-wrap:wrap">
+        <div class="flex gap-4 items-center flex-wrap">
           <button class="btn btn-sm btn-accent" onclick="App.exportMovLogExcel()">📊 Excel Movimenti</button>
           <button class="btn btn-sm btn-accent" onclick="App.exportGiacenzeExcel()" title="Export Giacenze per Area">📦 Excel Giacenze</button>
           <button class="btn btn-sm" onclick="App._showRegistry=false;App.renderDashboard()">← Dashboard</button>
         </div>
       </div>
-      <div class="card" style="margin-bottom:0.6rem;padding:0.6rem 0.75rem">
-        <div style="display:flex;gap:0.5rem;align-items:flex-end;flex-wrap:wrap">
-          <div class="form-group" style="margin:0">
-            <label style="font-size: var(--md-sys-typescale-label-small-size)">Dal</label>
-            <input class="input" type="date" id="regFrom" value="${r.from}" style="width:150px" onchange="App._filterRegistry()">
+      <div class="card mb-6 py-6 px-7.5">
+        <div class="flex gap-5 items-end flex-wrap">
+          <div class="form-group m-0">
+            <label class="text-label-small">Dal</label>
+            <input class="input w-[150px]" type="date" id="regFrom" value="${r.from}" onchange="App._filterRegistry()">
           </div>
-          <div class="form-group" style="margin:0">
-            <label style="font-size: var(--md-sys-typescale-label-small-size)">Al</label>
-            <input class="input" type="date" id="regTo" value="${r.to}" style="width:150px" onchange="App._filterRegistry()">
+          <div class="form-group m-0">
+            <label class="text-label-small">Al</label>
+            <input class="input w-[150px]" type="date" id="regTo" value="${r.to}" onchange="App._filterRegistry()">
           </div>
-          <div class="form-group" style="margin:0;flex:1 1 200px">
-            <label style="font-size: var(--md-sys-typescale-label-small-size)">Filtro testo</label>
+          <div class="form-group m-0 flex-[1_1_200px]">
+            <label class="text-label-small">Filtro testo</label>
             <input class="input" id="regFilterText" placeholder="🔍 Articolo, lotto, ubicazione, operatore, documento…" oninput="App._filterRegistryDebounced()">
           </div>
-          <div class="form-group" style="margin:0">
-            <label style="font-size: var(--md-sys-typescale-label-small-size)">Tipo</label>
-            <select class="select" id="regFilterType" style="width:170px" onchange="App._filterRegistry()">
+          <div class="form-group m-0">
+            <label class="text-label-small">Tipo</label>
+            <select class="select w-[170px]" id="regFilterType" onchange="App._filterRegistry()">
               <option value="">Tutti i tipi</option>
               ${Object.entries(MOV_LABELS).map(([k,v]) => `<option value="${k}">${v}</option>`).join('')}
             </select>
           </div>
-          <div style="display:flex;gap:0.3rem">
+          <div class="flex gap-3">
             <button class="btn btn-sm" onclick="App._regQuickRange(30)">30 gg</button>
             <button class="btn btn-sm" onclick="App._regQuickRange(365)">1 anno</button>
             <button class="btn btn-sm" onclick="App._regQuickRange(0)">Tutto</button>
           </div>
         </div>
-        <div id="regStatus" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.4rem">Interrogazione in corso…</div>
+        <div class="text-label-small text-sx-text-muted mt-4" id="regStatus">Interrogazione in corso…</div>
       </div>
-      <div class="card" style="padding:0">
-        <div id="regTableWrap"><div class="empty-state" style="padding:2rem"><p>Interrogazione dell’archivio…</p></div></div>
+      <div class="card p-0">
+        <div id="regTableWrap"><div class="empty-state p-20"><p>Interrogazione dell’archivio…</p></div></div>
       </div>
     </div>`;
   },
@@ -76,10 +76,10 @@ export const VistaRegistro: Vista = {
   },
 
   _buildRegistryTable(log, maxRows = 200, totale = null) {
-    if (!log.length) return '<div class="empty-state" style="padding:2rem"><p>Nessuna movimentazione nell’intervallo selezionato</p></div>';
+    if (!log.length) return '<div class="empty-state p-20"><p>Nessuna movimentazione nell’intervallo selezionato</p></div>';
     const tot = totale === null ? log.length : totale;
-    let html = '<div style="overflow-x:auto"><table class="sx-table"><thead><tr><th style="width:40px">#</th><th>Tipo</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Ubicazione</th><th style="width:60px;text-align:center">Coll.</th><th>Operatore</th><th>Doc.</th><th>Data/Ora</th></tr></thead><tbody id="regTbody"></tbody></table></div>';
-    if (tot > maxRows) html += `<div style="text-align:center;padding:0.6rem;color:var(--sx-text-muted);font-size: var(--md-sys-typescale-body-small-size);background:var(--sx-bg-alt);border-top:1px solid var(--sx-border)">Prime ${maxRows} righe di ${tot.toLocaleString('it-IT')}. Restringi le date o esporta in Excel.</div>`;
+    let html = '<div class="overflow-x-auto"><table class="sx-table"><thead><tr><th class="w-[40px]">#</th><th>Tipo</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Ubicazione</th><th class="w-[60px] text-center">Coll.</th><th>Operatore</th><th>Doc.</th><th>Data/Ora</th></tr></thead><tbody id="regTbody"></tbody></table></div>';
+    if (tot > maxRows) html += `<div class="text-center p-6 text-sx-text-muted text-body-small bg-sx-bg-alt border-t border-t-sx-border">Prime ${maxRows} righe di ${tot.toLocaleString('it-IT')}. Restringi le date o esporta in Excel.</div>`;
     return html;
   },
 
@@ -184,7 +184,7 @@ export const VistaRegistro: Vista = {
       }
     } catch (err: any) {
       console.error('[WM] registro:', err);
-      wrap.innerHTML = '<div class="empty-state" style="padding:2rem"><p>Errore nella lettura dell’archivio</p></div>';
+      wrap.innerHTML = '<div class="empty-state p-20"><p>Errore nella lettura dell’archivio</p></div>';
       if (status) status.textContent = `Errore: ${err.message || 'sconosciuto'}`;
     }
   },
