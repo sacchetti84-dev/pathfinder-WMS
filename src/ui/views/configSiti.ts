@@ -1,5 +1,6 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
+import type { Zona } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 
@@ -27,7 +28,7 @@ export const VistaConfigSiti: Vista = {
         </td>
       </tr>`;
       for (const zone of zones) {
-        const dim = zone.type === 'RACK' ? `${zone.aisles}c × ${zone.bays_per_aisle}b × ${((zone!.levels as any[]) as any[])?.length || 1}l` :
+        const dim = zone.type === 'RACK' ? `${zone.aisles}c × ${zone.bays_per_aisle}b × ${zone.levels?.length || 1}l` :
           zone.type === 'FLOOR' ? `${zone.rows}f × ${zone.positions_per_row}p` : `${zone.positions} pos`;
         html += `<tr class="bg-sx-accent-soft">
           <td></td>
@@ -161,7 +162,7 @@ export const VistaConfigSiti: Vista = {
   updateZoneFields() {
     const type = $('newZoneType').value;
     const el = $('zoneTypeFields');
-    const fields = {
+    const fields: Record<string, string> = {
       RACK: `<div class="form-row mb-6">
         <div class="form-group"><label>Corsie</label><input class="input" id="zfAisles" type="number" min="1" max="99" value="5"></div>
         <div class="form-group"><label>Campate/corsia</label><input class="input" id="zfBays" type="number" min="1" max="99" value="10"></div>
@@ -181,21 +182,21 @@ export const VistaConfigSiti: Vista = {
         <div class="form-group"><label>Colonne griglia</label><input class="input" id="zfGridCols" type="number" min="1" max="20" value="5"></div>
       </div>`
     };
-    el.innerHTML = (fields as any)[type] || '';
+    el.innerHTML = fields[type] || '';
   },
 
-  async doAddZone(siteId) {
+  async doAddZone(siteId: string) {
     const id = Validate.clean($('newZoneId').value, true);
     const name = Validate.clean($('newZoneName').value);
     const type = $('newZoneType').value;
     const errs = [Validate.zoneId(id), Validate.siteName(name)].filter(Boolean);
     if (errs.length) return this.toast(errs[0], 'error');
-    const zone: any = { id, name, type };
+    const zone: Partial<Zona> & { id: string; name: string; type: string } = { id, name, type };
     if (type === 'RACK') {
       zone.aisles = Math.max(1, Math.min(99, parseInt($('zfAisles').value) || 1));
       zone.bays_per_aisle = Math.max(1, Math.min(99, parseInt($('zfBays').value) || 1));
-      (zone!.levels as any[]) = Validate.clean($('zfLevels').value, true).split(',').map(s => s.trim()).filter(Boolean);
-      if (!(zone!.levels as any[]).length) (zone!.levels as any[]) = ['T'];
+      zone.levels = Validate.clean($('zfLevels').value, true).split(',').map(s => s.trim()).filter(Boolean);
+      if (!zone.levels.length) zone.levels = ['T'];
       zone.mirror_frontal = $('zfMirror')?.checked === true;
     } else if (type === 'FLOOR') {
       zone.rows = Math.max(1, Math.min(99, parseInt($('zfRows').value) || 1));
@@ -303,7 +304,7 @@ export const VistaConfigSiti: Vista = {
         <div class="form-group"><label>Corsie</label><input class="input" id="ezAisles" type="number" min="1" max="99" value="${zone.aisles}"></div>
         <div class="form-group"><label>Campate/corsia</label><input class="input" id="ezBays" type="number" min="1" max="99" value="${zone.bays_per_aisle}"></div>
       </div>
-      <div class="form-group mb-6"><label>Livelli</label><input class="input input-mono" id="ezLevels" value="${this._esc(((zone!.levels as any[]) || []).join(','))}"></div>
+      <div class="form-group mb-6"><label>Livelli</label><input class="input input-mono" id="ezLevels" value="${this._esc((zone!.levels || []).join(','))}"></div>
       <div class="form-group"><label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
         <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezMirror" ${zone.mirror_frontal ? 'checked' : ''}>
         <span>Vista frontale specchiata (campate dx → sx)</span>
@@ -330,12 +331,12 @@ export const VistaConfigSiti: Vista = {
         <button class="btn btn-primary" onclick="App.doEditZone('${siteId}','${zoneId}')">Salva</button>`);
   },
 
-  async doEditZone(siteId, zoneId) {
+  async doEditZone(siteId: string, zoneId: string) {
     const name = Validate.clean($('ezName')?.value);
     const err = Validate.siteName(name);
     if (err) return this.toast(err, 'error');
     const zone = Store.getZone(siteId, zoneId);
-    const updates: any = { name };
+    const updates: Partial<Zona> = { name };
     if (zone!.type === 'RACK') {
       updates.aisles = Math.max(1, Math.min(99, parseInt($('ezAisles').value) || 1));
       updates.bays_per_aisle = Math.max(1, Math.min(99, parseInt($('ezBays').value) || 1));

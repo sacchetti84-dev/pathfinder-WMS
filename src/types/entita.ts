@@ -49,6 +49,17 @@ export interface Zona {
   hazard_zone?: boolean;
   /** Se valorizzato, le sole pericolosita' ammesse. Vuoto su zona pericolosa = tutte. */
   hazards?: string[];
+  /** LA GEOMETRIA DELLA ZONA — da qui `geometria.ts` genera le ubicazioni.
+      Una zona a scaffale ha corsie, campate e livelli; una a terra file e
+      posizioni; una alla rinfusa posizioni e colonne di griglia. Erano tutte
+      sotto l'indice generico, e ogni lettura passava da un cast. */
+  aisles?: number;
+  bays_per_aisle?: number;
+  mirror_frontal?: boolean;
+  rows?: number;
+  positions_per_row?: number;
+  positions?: number;
+  grid_cols?: number;
   /** I livelli di una zona a scaffale — ["T","1","2"]. C'erano dalla v1 e
       mancavano solo da questo tipo: sei punti fra viste e geometria li
       leggevano passando da un cast. Trovati convertendo `app.js`. */
