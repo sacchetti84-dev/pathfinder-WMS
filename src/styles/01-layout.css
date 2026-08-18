@@ -32,9 +32,7 @@ body.sidebar-collapsed .app { --sidebar-w: 0px; }
 .pf-logo-symbol { height: 32px; }
 .pf-logo-word { height: 30px; }
 .pf-logo--light { --pf-word: #ffffff; --pf-word-sub: rgba(255,255,255,0.80); --pf-mark: #ffffff; --pf-node: #4ade80; }
-.pf-logo--dark  { --pf-word: #0f3d2e; --pf-word-sub: #1e5f6b; --pf-mark: #134e4a; --pf-node: #16a34a; }
 
-.app-title { font-size: var(--md-sys-typescale-body-medium-size); font-weight: 600; letter-spacing: 0.02em; }
 .app-version { font-size: var(--md-sys-typescale-label-small-size); opacity: 0.6; font-family: var(--mono); align-self: flex-end; padding-bottom: 2px; }
 
 /* Navigazione centrale */
@@ -210,7 +208,6 @@ body.sidebar-collapsed .app { --sidebar-w: 0px; }
 .op-pill-grid { display: flex; flex-wrap: wrap; gap: 0.35rem; max-height: 34vh; overflow-y: auto; }
 .op-pill-grid .op-pill { font-family: var(--font); font-weight: 600; text-align: left; }
 .gate-pin { font-size: var(--md-sys-typescale-title-large-size); letter-spacing: 0.5em; text-align: center; padding: 0.45rem 0.6rem; }
-.op-role-leader { color: var(--sx-accent); font-weight: 700; }
 
 /* ════ Banner di stato globale ════ */
 .recovery-banner, .readonly-banner {

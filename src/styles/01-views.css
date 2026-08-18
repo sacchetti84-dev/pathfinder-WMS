@@ -422,7 +422,6 @@
 .config-card h3 { font-size: var(--md-sys-typescale-body-medium-size); color: var(--sx-primary); font-weight: 700; margin-bottom: 0.5rem; padding-bottom: 0.3rem; border-bottom: 1px solid var(--sx-border); }
 
 /* ════ Search view ════ */
-.search-container { max-width: 900px; margin: 0 auto; }
 .search-result-item {
   display: flex; align-items: center; gap: 0.5rem;
   padding: 0.4rem 0.55rem;
