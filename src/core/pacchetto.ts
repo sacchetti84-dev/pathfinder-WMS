@@ -19,9 +19,15 @@ import type { Movimento } from '../types/entita.js';
    È il motivo per cui un export della 1.2 rientra in una 1.4 e viceversa. */
 export const FORMATO = 'warehouse-mapper-v1.5';
 
-/** Si muove a ogni rilascio. È qui e in `modules/vault.ts`: due posti, perché
-    il vault scrive il proprio manifesto senza passare da `Store`. */
-export const VERSIONE_APP = '1.7';
+/** Si muove a ogni rilascio, e il timbro finisce dentro `_appVersion` di ogni
+    export e di ogni backup: dice con quale applicativo è stato scritto quel
+    pacchetto, e non decide niente — a decidere se un pacchetto si può rileggere
+    è `FORMATO`, qui sopra.
+
+    Era rimasto a `1.7` per tutta la 1.8, ed era scritto in due posti: qui e in
+    `modules/vault.ts`, che il proprio manifesto lo scrive senza passare da
+    `Store`. Adesso il vault lo importa da qui: un rilascio, una riga. */
+export const VERSIONE_APP = '1.8.3';
 
 /* L'ELENCO DELLE COLLEZIONI DA ESPORTARE STA IN UN POSTO SOLO.
    Fino alla 1.4.0 era scritto a mano in tre — `exportAll`, `_countsOf`,
