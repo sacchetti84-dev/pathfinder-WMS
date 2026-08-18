@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 // Un foglio solo: `00-tailwind.css` tira dentro gli altri nove con `@import
 // ... layer(app)`. L'ordine fra loro e' rimasto quello di sempre — e' la
 // cascata, invertirne due cambia quale regola vince — ma adesso e' scritto
@@ -5,7 +6,23 @@
 import './styles/00-tailwind.css';
 
 import { Persistence } from './core/persistence/index';
-import { App } from './ui/app.js';
+import { App as AppBase } from './ui/app';
+
+/* A RUNTIME `App` E' PIU' GRANDE DI QUEL CHE `tsc` VEDE.
+   Le venticinque viste rientrano con `Object.assign`, e `_recoveryQueue` e'
+   una di quelle — sta in `views/movimenta.ts`. Finche' `app.js` e' JavaScript
+   non c'e' un tipo che li tenga insieme: qui si nomina il solo metodo che
+   serve a questo file. Sparisce quando `app.js` diventa `app.ts`. */
+const App = AppBase as typeof AppBase & { _recoveryQueue(): unknown[] };
+
+/* `App` STA ANCHE SU `window`, E NON PER COMODITA'.
+
+   I gestori costruiti dentro le stringhe delle viste — `onclick="App.
+   <metodo>()"` — girano nello scope globale, dove il `const` del modulo
+   non arriva. L'ultima riga di questo file e' cio' che li tiene in vita. */
+declare global {
+  interface Window { App: typeof App }
+}
 
 document.addEventListener('DOMContentLoaded', () => { App.init(); });
 
@@ -17,7 +34,9 @@ window.addEventListener('beforeunload', (e) => {
 });
 
 window.addEventListener('unhandledrejection', (e) => {
-  const err = e.reason;
+  /* Una promessa puo' essere respinta con qualunque cosa: qui si guardano
+     i due campi che l'applicativo scrive davvero. */
+  const err = e.reason as { code?: string; message?: string } | undefined;
   console.error('[WM] promise non gestita:', err);
   if (typeof App === 'undefined' || !App.toast) return;
   if (err?.code === 'DISK_FULL' || Persistence.diskFull) {

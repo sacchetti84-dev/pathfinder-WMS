@@ -95,6 +95,11 @@ export interface CaricamentoIniziale {
 export interface Persistenza extends Capacita {
   readonly kind: 'local' | 'remote';
 
+  /* La alza solo l'adapter locale, quando IndexedDB dice che lo spazio e'
+     finito: da remoto il disco pieno e' un problema del servizio, non di
+     questa macchina. */
+  diskFull?: boolean;
+
   readonly COLLECTIONS: readonly Collezione[];
 
   open(): Promise<unknown>;

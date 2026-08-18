@@ -24,7 +24,7 @@ test('ogni App.qualcosa citato nel sorgente esiste', () => {
     ? fs.readdirSync('src/ui/views').filter((f) => f.endsWith('.ts') || f.endsWith('.js'))
       .map((f) => path.join('src/ui/views', f))
     : [];
-  const sorgente = ['index.html', 'src/ui/app.js', 'src/main.js', ...viste]
+  const sorgente = ['index.html', 'src/ui/app.js', 'src/main.ts', ...viste]
     .map((f) => fs.readFileSync(f, 'utf8')).join('\n');
 
   /* `App.${...}` dentro un template non e' un nome, e' un nome calcolato. */
