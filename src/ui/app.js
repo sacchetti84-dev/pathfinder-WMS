@@ -7,7 +7,7 @@ import { Auth } from '../modules/auth';
 import { Session } from '../modules/session';
 import { Feedback } from './feedback.js';
 import { Dialog } from './dialog.js';
-import { Tabs } from './tabs.js';
+import { Tabs } from './tabs';
 import { Store } from '../core/store';
 
 import { VistaDestinatari } from './views/destinatari';

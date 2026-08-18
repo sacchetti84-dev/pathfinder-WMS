@@ -4,7 +4,7 @@ import { Persistence } from '../../core/persistence/index';
 import { Store } from '../../core/store';
 import { ScanGuard } from '../../modules/scanGuard';
 import { Dialog } from '../dialog.js';
-import { Tabs } from '../tabs.js';
+import { Tabs } from '../tabs';
 
 export const VistaMovimenta: Vista = {
   renderMovimenta() {
