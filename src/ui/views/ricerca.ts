@@ -80,8 +80,8 @@ export const VistaRicerca: Vista = {
   _highlightSearchSel() {
     const pop = $('searchPop');
     if (!pop) return;
-    const rows = pop.querySelectorAll('.search-hit');
-    rows.forEach((r: any, i: any) => r.classList.toggle('sel', i === this._searchSel));
+    const rows = pop.querySelectorAll<HTMLElement>('.search-hit');
+    rows.forEach((r, i) => r.classList.toggle('sel', i === this._searchSel));
     rows[this._searchSel]?.scrollIntoView({ block: 'nearest' });
   },
 
@@ -107,8 +107,8 @@ export const VistaRicerca: Vista = {
 
   _armSearchOutsideClose() {
     if (this._searchOutsideHandler) return;
-    this._searchOutsideHandler = (ev: any) => {
-      if (!$('hdrSearch')?.contains(ev.target)) this.closeSearchPop();
+    this._searchOutsideHandler = (ev: MouseEvent) => {
+      if (!$('hdrSearch')?.contains(ev.target as Node)) this.closeSearchPop();
     };
     document.addEventListener('mousedown', this._searchOutsideHandler, true);
   },
@@ -125,7 +125,7 @@ export const VistaRicerca: Vista = {
     this._searchHits = [];
     this._searchSel = -1;
 
-    const section = (icon: any, title: any, total: any, shown: any, body: any) => `
+    const section = (icon: string, title: string, total: number, shown: number, body: string) => `
       <div class="search-pop-sec">
         <div class="search-pop-head"><span>${icon} ${title}</span><span class="search-pop-count">${total}</span></div>
         ${body}
