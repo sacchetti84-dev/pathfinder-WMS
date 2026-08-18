@@ -261,6 +261,45 @@ export function scelteDaMisure(
   });
 }
 
+/** Le uscite messe da parte — `{da, quantita}`, la forma che capisce il
+    servizio — ritrovate sull'elenco di adesso.
+
+    IL CARRELLO DEL DDT SCEGLIE I COLLI GIORNI PRIMA CHE ESCANO. Fra la riga
+    messa a documento e il vettore che arriva gli indici non valgono piu': un
+    altro terminale puo' aver mosso quella riga. Le misure invece reggono, ed
+    e' la stessa ragione per cui il servizio riceve `{da, quantita}` e non un
+    numero — un 10 preso da un collo da 25, su una riga che ha anche un collo
+    da 10, porterebbe via quello.
+
+    Un collo che non c'e' piu' ferma l'evasione, come per lo storno: chi ha
+    scritto il documento aveva in mano un collo preciso. `null` quando non
+    c'e' niente da ritrovare. */
+export function scelteDaUscite(
+  colli: number[] | null | undefined, messe: unknown, uom?: string | null,
+): Scelta[] | null {
+  const letti = leggiColli(colli, uom);
+  if (!letti || !Array.isArray(messe) || !messe.length) return null;
+  const dec = decimali(uom);
+  const presi = new Set<number>();
+  return messe.map((u: any) => {
+    const da = arrotonda(leggiNumero(u?.da), dec);
+    const q = arrotonda(leggiNumero(u?.quantita), dec);
+    if (da === null || da <= 0) throw new Error('Uscita senza la misura del collo da cui esce');
+    if (q === null || q <= 0) throw new Error(`Collo da ${formattaQuantita(da, uom)}: la quantita' che esce e' maggiore di zero`);
+    if (q > da) {
+      throw new Error(`Un collo da ${formattaQuantita(da, uom)} non ne puo' dare ${formattaQuantita(q, uom)}`);
+    }
+    const i = letti.findIndex((v, k) => v === da && !presi.has(k));
+    if (i === -1) {
+      throw new Error(`Il collo da ${formattaQuantita(da, uom)} non e' piu' su questa riga: il documento non lo ritrova`);
+    }
+    presi.add(i);
+    /* Il collo svuotato del tutto esce senza quantita': e' cosi' che
+       `preleva` lo toglie dall'elenco invece di lasciarci uno zero. */
+    return q === da ? { indice: i } : { indice: i, quantita: q };
+  });
+}
+
 /* ── La verifica, che mostra e non corregge ──────────────────────────── */
 
 export interface VerificaColli {
