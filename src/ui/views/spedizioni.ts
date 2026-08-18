@@ -241,13 +241,17 @@ export const VistaSpedizioni = {
                 <label>Peso netto (kg)</label>
                 <input class="input input-mono" id="pShipPesoNetto" inputmode="decimal" maxlength="12"
                   placeholder="kg"
-                  value="${this._esc(this._shipPesoNetto)}" onchange="App._persistShipHeader()">
+                  value="${this._esc(this._shipPesoNetto)}" oninput="App._persistShipHeader()">
               </div>
               <div class="form-group">
                 <label>Peso lordo (kg)</label>
+                <!-- I due pesi si tengono a ogni tasto, non al change: sono
+                     l'ultimo campo che si tocca prima di registrare, e un
+                     change che non scatta perche' il fuoco non e' mai uscito
+                     dal campo li perde in silenzio. -->
                 <input class="input input-mono" id="pShipPesoLordo" inputmode="decimal" maxlength="12"
                   placeholder="netto + tara imballi"
-                  value="${this._esc(this._shipPesoLordo)}" onchange="App._persistShipHeader()">
+                  value="${this._esc(this._shipPesoLordo)}" oninput="App._persistShipHeader()">
               </div>
             </div>
             <div class="text-label-small text-sx-text-muted mt-3">

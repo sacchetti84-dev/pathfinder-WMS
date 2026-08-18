@@ -36,6 +36,7 @@ import {
   componiDestinatario, conDestinazione, normalizzaPIva,
 } from '../modules/destinatari';
 import { UNITA_MISURA } from '../modules/misure';
+import { rigaDocumento } from '../modules/documenti';
 import {
   leggiColli, daSuddivisione, totaleUom as totaleUomColli,
   descriviColli, preleva as prelevaColli, uscite as uscitePerIlServizio,
@@ -1876,17 +1877,7 @@ const Store = {
       created_at: Date.now(),
       evaded_at: null,
       cancelled_at: null,
-      lines: (entry.lines || []).map((l: RigaDocumento) => ({
-        article_code: l.article_code,
-        article_description: l.article_description || '',
-        lot_code: l.lot_code,
-        location_code: l.location_code,
-        item_key: l.item_key,
-        expiry_date: l.expiry_date || '',
-        qty: l.qty,
-        qty_at_creation: l.qty_at_creation || l.qty,
-        notes: l.notes || ''
-      }))
+      lines: (entry.lines || []).map(rigaDocumento)
     };
     await Persistence.add('pending_outbound', rec);
     this._applyToCache('pending_outbound', 'put', rec);
@@ -1921,17 +1912,7 @@ const Store = {
     if (patch.carrier !== undefined) rec.carrier = patch.carrier;
     if (patch.expected_pickup_date !== undefined) rec.expected_pickup_date = patch.expected_pickup_date;
     if (Array.isArray(patch.lines)) {
-      rec.lines = patch.lines.map((l: RigaDocumento) => ({
-        article_code: l.article_code,
-        article_description: l.article_description || '',
-        lot_code: l.lot_code,
-        location_code: l.location_code,
-        item_key: l.item_key,
-        expiry_date: l.expiry_date || '',
-        qty: l.qty,
-        qty_at_creation: l.qty_at_creation || l.qty,
-        notes: l.notes || ''
-      }));
+      rec.lines = patch.lines.map(rigaDocumento);
     }
     rec.updated_at = Date.now();
     this._applyToCache('pending_outbound', 'put', rec);
