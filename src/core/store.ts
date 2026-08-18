@@ -775,6 +775,17 @@ const Store = {
     return prelevaColli(elenco, scelteDaUsciteColli(elenco, impegnate, cfg.uom), cfg.uom).rimasti;
   },
 
+  /* Le uscite scritte su un documento, ritrovate sulla riga di adesso: la
+     usa l'evasione del DDT, che esegue una scelta fatta giorni prima. `null`
+     se la riga non porta un elenco, o se il documento non porta le uscite —
+     un DDT scritto prima della 1.8.4, e allora i colli si chiedono. */
+  scelteDaUscite(item: Giacenza | null | undefined, messe: unknown): Scelta[] | null {
+    if (!item || !this.colliOn()) return null;
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    if (!cfg) return null;
+    return scelteDaUsciteColli(this.colliDiRiga(item), messe, cfg.uom);
+  },
+
   /* Come si legge una riga: dall'elenco quando c'e', dalla suddivisione
      calcolata quando no. Una sola funzione perche' due formattazioni dello
      stesso numero, per chi legge, sono due numeri diversi. */

@@ -968,10 +968,21 @@ export const VistaSpedizioni = {
         // Snapshot pre-rimozione per rollback
         const before = Store.getItemsAtLocation(l.location_code!).find(x => x.item_key === l.item_key);
         const backup = before ? { ...before } : null;
-        /* 1.8 — anche il DDT esce a colli scelti: quello che sale sul camion
-           è merce precisa, e il documento la nomina. */
-        const scelteDdt = before ? await this._chiediColli(before, `Quali colli · riga ${i + 1} di ${doc.lines.length}`) : null;
-        if (scelteDdt === undefined) { failedAt = i; failMsg = 'Evasione annullata alla scelta dei colli'; break; }
+        /* 1.8.4 — I COLLI LI HA GIA' SCELTI CHI HA SCRITTO IL DOCUMENTO.
+           Qui non si chiede piu' niente: si ritrovano per misura sull'elenco
+           di adesso, e una misura che non c'e' piu' ferma l'evasione con il
+           collo scritto nel motivo — la merce che sale sul camion e' quella
+           che il DDT nomina, non un'altra della stessa quantita'.
+
+           I documenti scritti prima della 1.8.4 le uscite non le portano, e
+           allora i colli si chiedono qui come si faceva allora. */
+        let scelteDdt = null;
+        if (before && Array.isArray(l.packs_out) && l.packs_out.length) {
+          scelteDdt = Store.scelteDaUscite(before, l.packs_out);
+        } else if (before) {
+          scelteDdt = await this._chiediColli(before, `Quali colli · riga ${i + 1} di ${doc.lines.length}`);
+          if (scelteDdt === undefined) { failedAt = i; failMsg = 'Evasione annullata alla scelta dei colli'; break; }
+        }
         const removed = await Store.removeItem(l.location_code!, l.item_key as string, l.qty, null, scelteDdt);
         if (!removed) { failedAt = i; failMsg = `Rimozione fallita (riga ${i+1})`; break; }
         performed.push({ backup, mode: removed._mode, location_code: l.location_code!, item_key: l.item_key, qty_removed: l.qty, qty_before: removed._qty_before, qty_after: removed._qty_after, packs_out: removed._packs_out ?? null });
