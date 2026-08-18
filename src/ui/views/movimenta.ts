@@ -2,6 +2,12 @@ import { type Vista, $ } from './vista';
 import { MOV_LABELS } from '../../core/costanti';
 import { Persistence } from '../../core/persistence/index';
 import { Store } from '../../core/store';
+import type { Movimento } from '../../types/entita';
+import type { MOV as TipoMovimento } from '../../types/contratto';
+
+/* Un movimento in coda di recupero è un movimento che il registro non ha
+   accettato, più l'ora del rifiuto. */
+type MovInAttesa = Movimento & { _failedAt: number };
 import { ScanGuard } from '../../modules/scanGuard';
 import { Dialog } from '../dialog';
 import { Tabs } from '../tabs';
@@ -39,7 +45,8 @@ export const VistaMovimenta: Vista = {
     </div>`;
   },
 
-  _movCard(mode, cls, icon, title, sub, color, badgeCount = 0) {
+  _movCard(mode: string, cls: string, icon: string, title: string, sub: string,
+           color: string, badgeCount = 0) {
     const active = this._movMode === mode ? 'active' : '';
     // v2.1.0 — badge portato a dimensione leggibile e spostato su classe dedicata
     const badge = badgeCount > 0 ? `<span class="mov-badge" style="background:${color}">${badgeCount}</span>` : '';
@@ -51,19 +58,22 @@ export const VistaMovimenta: Vista = {
     </div>`;
   },
 
-  startMov(mode, dir = null) {
+  startMov(mode: string, dir: string | null = null) {
     if (mode === 'in')  { dir = 'in';  mode = 'io'; }
     if (mode === 'out') { dir = 'out'; mode = 'io'; }
     if (mode === 'returns') mode = 'shipping';
     if (mode === 'io' && dir && dir !== this._ioMode) { this._ioMode = dir; this._dispReset(); }
     this._movMode = mode;
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
-    const map = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal' };
-    document.querySelector(`.mov-action-card.${(map as any)[mode]}`)?.classList.add('active');
+    const map: Record<string, string> = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal' };
+    document.querySelector(`.mov-action-card.${map[mode]}`)?.classList.add('active');
     const fa = $('movFormArea');
-    const forms = { io: this._formCaricoScarico, pick: this._formPrelievo, inv: this._formInventario,
-                    quarantine: this._formQuarantena, shipping: this._formSpedizioni, sampling: this._formCampionamento };
-    (forms as any)[mode]?.call(this, fa);
+    /* Ogni maschera si disegna dentro la stessa area, e `call` le passa il
+       monolite: sono metodi di `App`, non funzioni libere. */
+    const forms: Record<string, ((el: HTMLElement) => void) | undefined> = {
+      io: this._formCaricoScarico, pick: this._formPrelievo, inv: this._formInventario,
+      quarantine: this._formQuarantena, shipping: this._formSpedizioni, sampling: this._formCampionamento };
+    forms[mode]?.call(this, fa);
   },
 
   cancelMov() {
@@ -90,7 +100,10 @@ export const VistaMovimenta: Vista = {
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
   },
 
-  async _logMov(type, art, desc, lot, loc, destLoc = null, user = '', notes = '', docRef = '', qtyBefore = null, qtyDelta = null, qtyAfter = null, qtyUomDelta = null) {
+  async _logMov(type: TipoMovimento, art: string, desc: string, lot: string, loc: string,
+                destLoc: string | null = null, user = '', notes = '', docRef = '',
+                qtyBefore: number | null = null, qtyDelta: number | null = null,
+                qtyAfter: number | null = null, qtyUomDelta: number | null = null) {
     const effectiveUser = user || Store.getCurrentIdentity().initials;
     /* 1.4.2 — l'unita' viene dal lotto, non dal chiamante: e' l'unico posto
        dove non puo' essere sbagliata, e i chiamanti sono trentotto. */
@@ -120,20 +133,20 @@ export const VistaMovimenta: Vista = {
 
   _MOVQUEUE_KEY: 'wm_mov_recovery_queue',
 
-  _queueFailedMovement(entry, err) {
+  _queueFailedMovement(entry: Movimento, err: unknown) {
     console.error('[WM] movimento NON registrato a log:', err, entry);
     let coda = [];
     try {
       coda = JSON.parse(localStorage.getItem(this._MOVQUEUE_KEY) || '[]');
       if (!Array.isArray(coda)) coda = [];
-      coda.push({ ...entry, _failedAt: Date.now(), _error: String(err?.message || err) });
+      coda.push({ ...entry, _failedAt: Date.now(), _error: String((err as Error | null)?.message || err) });
       localStorage.setItem(this._MOVQUEUE_KEY, JSON.stringify(coda));
     } catch (e2) {
       /* Anche localStorage e' pieno o disabilitato. Non resta che dirlo con
          la massima forza disponibile: il dato esiste solo a schermo. */
       console.error('[WM] coda di recupero non scrivibile:', e2);
     }
-    const spazio = (Persistence as any).diskFull;
+    const spazio = Persistence.diskFull;
     Dialog.confirm({
       title: '⚠ MOVIMENTO NON REGISTRATO A REGISTRO',
       message: (spazio
@@ -143,7 +156,7 @@ export const VistaMovimenta: Vista = {
         `Il movimento è stato messo in una coda di recupero (${coda.length} in attesa) e verrà riscritto al prossimo avvio. ` +
         'Non spegnere il terminale prima di aver liberato spazio, e annotare l’operazione.',
       details: Dialog.kv([
-        ['Tipo', (MOV_LABELS as any)[entry.type] || entry.type],
+        ['Tipo', MOV_LABELS[entry.type] || entry.type],
         ['Articolo', entry.article_code || '—'],
         ['Lotto', entry.lot_code || '—'],
         ['Ubicazione', entry.dest_location ? `${entry.location_code} → ${entry.dest_location}` : (entry.location_code || '—')],
@@ -238,9 +251,9 @@ export const VistaMovimenta: Vista = {
   _showRecoveryQueue() {
     const coda = this._recoveryQueue();
     if (!coda.length) return this.toast('Nessun movimento in attesa', 'info');
-    const righe = coda.map((e: any) => `<tr>
+    const righe = (coda as MovInAttesa[]).map((e) => `<tr>
       <td>${new Date(e._failedAt).toLocaleString('it-IT')}</td>
-      <td>${this._esc((MOV_LABELS as any)[e.type] || e.type)}</td>
+      <td>${this._esc(MOV_LABELS[e.type] || e.type)}</td>
       <td class="mono">${this._esc(e.article_code || '—')}</td>
       <td class="mono">${this._esc(e.lot_code || '—')}</td>
       <td class="mono">${this._esc(e.dest_location ? `${e.location_code} → ${e.dest_location}` : (e.location_code || '—'))}</td>
@@ -288,8 +301,8 @@ export const VistaMovimenta: Vista = {
     };
     let html = `<div class="mov-recent"><h3>📋 Registro Sessione (${this._movSessionLog.length})
       <button class="btn btn-sm ml-auto text-label-small" onclick="App.exportMovLogExcel()">📊 Excel completo</button></h3>`;
-    for (const m of this._movSessionLog.slice(0, 20)) {
-      const c = (icons as any)[m.type] || icons.IN;
+    for (const m of (this._movSessionLog as Movimento[]).slice(0, 20)) {
+      const c = (icons as Partial<Record<TipoMovimento, { cls: string; ico: string }>>)[m.type] || icons.IN;
       const loc = (m.type === 'MOVE' || m.type === 'QUAR') && m.dest_location ? `${m.location_code} → ${m.dest_location}` : m.location_code;
       // v1.7.0: indicatore qty se presente
       let qtyInfo = '';
@@ -301,7 +314,7 @@ export const VistaMovimenta: Vista = {
       html += `<div class="mov-log-item">
         <div class="mov-log-icon ${c.cls}">${c.ico}</div>
         <div class="mov-log-info">
-          <div class="mov-log-primary">${this._esc((MOV_LABELS as any)[m.type] || m.type)} · ${this._esc(m.article_code)}${qtyInfo}</div>
+          <div class="mov-log-primary">${this._esc(MOV_LABELS[m.type] || m.type)} · ${this._esc(m.article_code)}${qtyInfo}</div>
           <div class="mov-log-secondary">L:${this._esc(m.lot_code)} · 📍${this._esc(loc)} · ${new Date(m.ts).toLocaleTimeString('it-IT')}</div>
         </div>
       </div>`;
