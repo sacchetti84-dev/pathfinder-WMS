@@ -41,13 +41,13 @@ export const VistaParametri: Vista = {
         </tr>`).join('')
         : `<tr><td colspan="3" class="text-sx-text-muted">Nessuna voce.</td></tr>`;
       return `
-      <div class="mb-[0.9rem]">
-        <h3 class="m-0 mb-1">${s.icona} ${this._esc(s.titolo)}</h3>
-        <div class="text-label-small text-sx-text-muted mb-2">${this._esc(s.nota)}</div>
+      <div class="mb-9">
+        <h3 class="m-0 mb-2.5">${s.icona} ${this._esc(s.titolo)}</h3>
+        <div class="text-label-small text-sx-text-muted mb-5">${this._esc(s.nota)}</div>
         <table><thead><tr>
           <th class="w-[170px]">Codice</th><th>Etichetta</th><th class="w-[110px]"></th>
         </tr></thead><tbody>${righe}</tbody></table>
-        <div class="form-row mt-[0.4rem]">
+        <div class="form-row mt-4">
           <div class="form-group"><label>Codice nuovo</label>
             <input class="input input-mono uppercase" id="pp_${s.chiave}_code" maxlength="24" placeholder="ES_NUOVO"></div>
           <div class="form-group"><label>Etichetta</label>
@@ -59,7 +59,7 @@ export const VistaParametri: Vista = {
     }).join('');
 
     el.innerHTML = `
-      <div class="mb-[0.7rem] text-body-small text-sx-text-secondary">
+      <div class="mb-7 text-body-small text-sx-text-secondary">
         Le tendine dell'anagrafica articoli e della caratterizzazione delle zone si compilano da qui.
         <strong>I valori di legge si vedono e non si tolgono</strong>: sopra si aggiunge.
       </div>
