@@ -8,9 +8,37 @@
    documento, e l'interfaccia di qui e' scritta a mano sopra le impostazioni
    del browser: accenderlo cambierebbe a video mille cose in un colpo, senza
    che nessuno le abbia chieste. */
-@layer theme, base, components, utilities;
+/* L'ORDINE DEI LAYER E' IL CONTRATTO, e `app` sta sotto `utilities`.
+
+   In F0 il CSS dell'applicativo stava fuori dai layer, dove batte tutto:
+   serviva a garantire che accendere Tailwind non cambiasse niente. Adesso che
+   le viste cominciano a usare le utility quella garanzia si e' rovesciata in
+   un difetto — `style="max-width:440px"` vinceva sul `.modal` che dice 500px,
+   ma `max-w-[440px]` no, e la conversione avrebbe cambiato la misura in
+   silenzio. Stessa cosa fra `opacity-70` e `.empty-icon`, che dice 0,3.
+
+   Quindi il CSS dell'applicativo entra in `app`, e le utility vincono su di
+   lui come vincono in qualunque progetto Tailwind. Le uniche classi che si
+   scontrano davvero coi nomi delle utility sono quattro, gia' contate in F0:
+   `.hidden`, `.flex` e `.truncate` dicono la stessa identica cosa, e `table`
+   sta solo su elementi `<table>`, dove `display:table` non cambia niente. */
+@layer theme, base, components, app, utilities;
 @import 'tailwindcss/theme.css' layer(theme);
 @import 'tailwindcss/utilities.css' layer(utilities) source(none);
+
+/* I fogli dell'applicativo, NELL'ORDINE IN CUI STAVANO IN `main.js`: fra loro
+   l'ordine e' la cascata come sempre, e invertirne due cambia quale regola
+   vince. Stanno qui e non piu' in `main.js` perche' e' l'`@import` che sa
+   metterli in un layer. */
+@import './01-tokens.css' layer(app);
+@import './01-base.css' layer(app);
+@import './01-components.css' layer(app);
+@import './01-layout.css' layer(app);
+@import './01-views.css' layer(app);
+@import './02-dash-charts.css' layer(app);
+@import './03-dash-sections.css' layer(app);
+@import './04-dash-quick.css' layer(app);
+@import './05-pick-report.css' layer(app);
 
 /* Dove si leggono le classi. `source(none)` spegne la ricerca automatica, che
    partirebbe dalla radice e finirebbe dentro `pathfinder-1.6.html` — 1,6 MB di

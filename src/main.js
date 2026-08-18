@@ -1,18 +1,8 @@
-// I fogli di stile, NELL'ORDINE IN CUI STAVANO NEL FILE. L'ordine non è
-// estetico: è la cascata. Invertirne due cambia quale regola vince.
-// Tailwind sta in cima, ma non perche' la cascata lo pretenda: le sue utility
-// vivono in `@layer utilities`, e qualunque regola senza layer le batte. Sta in
-// cima perche' e' il primo foglio che si legge.
+// Un foglio solo: `00-tailwind.css` tira dentro gli altri nove con `@import
+// ... layer(app)`. L'ordine fra loro e' rimasto quello di sempre — e' la
+// cascata, invertirne due cambia quale regola vince — ma adesso e' scritto
+// li', perche' e' l'`@import` che sa mettere un foglio dentro un layer.
 import './styles/00-tailwind.css';
-import './styles/01-tokens.css';
-import './styles/01-base.css';
-import './styles/01-components.css';
-import './styles/01-layout.css';
-import './styles/01-views.css';
-import './styles/02-dash-charts.css';
-import './styles/03-dash-sections.css';
-import './styles/04-dash-quick.css';
-import './styles/05-pick-report.css';
 
 import { Persistence } from './core/persistence/index';
 import { App } from './ui/app.js';
