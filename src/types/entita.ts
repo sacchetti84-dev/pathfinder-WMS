@@ -280,6 +280,22 @@ export interface DocumentoUscita {
       prelievo si chiude all'evasione, non alla registrazione: fra le due
       può passare qualche giorno. */
   task_id?: string | null;
+  /* I DIECI CAMPI CHE IL DDT PORTA DA SEMPRE E IL TIPO NON DICEVA.
+
+     Erano dodici cast in `spedizioni.ts`, e la stampa li leggeva comunque:
+     la data del documento, il riferimento all'ordine, l'aspetto dei colli,
+     porto e vettore, i pesi e le annotazioni. Dichiararli non cambia un
+     record — cambia che adesso chi ne dimentica uno se lo sente dire. */
+  doc_date?: Giorno;
+  order_ref?: string;
+  aspetto?: string;
+  porto?: string;
+  transport_by?: string;
+  start_transport?: string;
+  doc_notes?: string;
+  pieces_total?: number | null;
+  peso_netto?: string;
+  peso_lordo?: string;
   lines: RigaDocumento[];
 }
 

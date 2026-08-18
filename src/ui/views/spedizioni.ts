@@ -1,6 +1,7 @@
 import { type Vista, $ } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
+import type { DocumentoUscita, Destinatario } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { pickupAlertStatus } from '../../modules/pickupAlert';
 import {
@@ -8,6 +9,20 @@ import {
 } from '../../modules/destinatari';
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
+
+/* Una riga del carrello DDT: la merce scelta, quanti colli, e quanti ce
+   n'erano quando la riga è nata — serve a dire se nel frattempo è cambiata. */
+type VoceCarrelloDDT = {
+  article_code: string;
+  article_description: string;
+  lot_code: string;
+  location_code: string;
+  item_key: string;
+  expiry_date: string;
+  qty: number;
+  qty_at_creation: number;
+  notes: string;
+};
 
 export const VistaSpedizioni: Vista = {
   _formSpedizioni(el) {
@@ -286,9 +301,9 @@ export const VistaSpedizioni: Vista = {
     const name = Validate.clean($('pShipCustomer')?.value);
     this._shipCustomer = name;
     if (!name) { this._persistShipHeader(); return; }
-    const fill = (id: any, val: any) => {
+    const fill = (id: string, val: string | number | null | undefined) => {
       const e = $(id);
-      if (e && !e.value.trim() && val) e.value = val;
+      if (e && !e.value.trim() && val) e.value = String(val);
     };
 
     const rcp = Store.getRecipients()
@@ -330,9 +345,9 @@ export const VistaSpedizioni: Vista = {
   /* Il selettore delle destinazioni. Overlay con id PROPRIO e chiusura
      propria — trappola 31: `showModal` riusa `modalOverlay`, e aperto da
      dentro un'altra finestra chiuderebbe quella sotto. */
-  _shipMostraDestinazioni(rcp) {
+  _shipMostraDestinazioni(rcp: Destinatario) {
     $('destPickOverlay')?.remove();
-    const righe = (rcp.destinations || []).map((d: any, i: any) => `
+    const righe = (rcp.destinations || []).map((d, i) => `
       <button class="btn w-full text-left mb-3"
         onclick="App._shipScegliDestinazione('${this._esc(rcp.rcp_id)}',${i})">
         <strong>${this._esc(d.label || `Destinazione ${i + 1}`)}</strong>${d.predefinita ? ' <span class="badge badge-teal">predefinita</span>' : ''}<br>
@@ -353,7 +368,7 @@ export const VistaSpedizioni: Vista = {
     const d = Store.getRecipient(rcpId)?.destinations?.[i];
     $('destPickOverlay')?.remove();
     if (!d) return;
-    const set = (id: any, val: any) => { const e = $(id); if (e) e.value = val || ''; };
+    const set = (id: string, val: string | null | undefined) => { const e = $(id); if (e) e.value = val || ''; };
     set('pShipDestAddress', d.address);
     set('pShipDestZip', d.zip);
     set('pShipDestCity', d.city);
@@ -366,7 +381,7 @@ export const VistaSpedizioni: Vista = {
     const rows = lines || this._shipCart;
     if (!rows.length) return { net: null, pieces: null, missing: [] };
     let net = 0, pieces = 0, anyPieces = false;
-    const missing: any[] = [];
+    const missing: string[] = [];
     for (const r of rows) {
       const a = Store.getArticle(r.article_code);
       const wu = a && Number(a.weight_net_kg) > 0 ? Number(a.weight_net_kg) : null;
@@ -388,22 +403,22 @@ export const VistaSpedizioni: Vista = {
     if (!pending.length) {
       return `<div class="py-5 px-7 bg-sx-card-alt [border:1px_dashed_var(--sx-border)] rounded-[var(--radius)] text-body-small text-sx-text-muted text-center">Nessun DDT pendente — componine uno nuovo qui sotto</div>`;
     }
-    const sorted = pending.slice().sort((a: any, b: any) => {
+    const sorted = (pending as DocumentoUscita[]).slice().sort((a, b) => {
       const sa = pickupAlertStatus(a).sortKey;
       const sb = pickupAlertStatus(b).sortKey;
       if (sa !== sb) return sa - sb;
       return b.created_at - a.created_at;  // a parità → più recente in alto
     });
-    return sorted.map((d: any) => this._renderPendingDocCard(d)).join('');
+    return sorted.map((d) => this._renderPendingDocCard(d)).join('');
   },
 
-  _renderPendingDocCard(doc) {
+  _renderPendingDocCard(doc: DocumentoUscita) {
     const isRet = this._docIsReturn(doc);
     const themeColor = isRet ? 'var(--sx-teal)' : 'var(--sx-orange)';
     const themeBg = isRet ? 'var(--grad-soft-teal)' : 'var(--grad-soft-orange)';
     const themeBadge = isRet ? 'badge-teal' : 'badge-orange';
     const causale = this._docCausaleLabel(doc);
-    const totalColli = doc.lines.reduce((s: any, l: any) => s + (l.qty || 1), 0);
+    const totalColli = doc.lines.reduce((s, l) => s + (l.qty || 1), 0);
     const created = new Date(doc.created_at).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const ageMs = Date.now() - doc.created_at;
     const ageH = Math.floor(ageMs / (1000 * 60 * 60));
@@ -422,7 +437,7 @@ export const VistaSpedizioni: Vista = {
     const warnings = integrity.issues.length;
     const issueByLine = new Map(integrity.issues.map(x => [x.lineIndex, x]));
     const warnBadge = warnings > 0 ? `<span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3" title="${warnings} riga/e non allineata/e alla giacenza attuale">⚠ ${warnings}</span>` : '';
-    const linesHtml = doc.lines.map((l: any, i: any) => {
+    const linesHtml = doc.lines.map((l, i) => {
       const issue = issueByLine.get(i);
       const rowStyle = issue ? 'background:var(--sx-danger-soft);' : '';
       const issueHtml = issue
@@ -483,15 +498,15 @@ export const VistaSpedizioni: Vista = {
     if (!matched.length) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Item ${this._esc(art)}#${this._esc(lot)} non trovato in magazzino</div>`; details.classList.add('hidden'); return; }
     const notQuar = matched.filter(it => !Store.isItemQuarantined(it.item_key, it.location_code));
     if (!notQuar.length) { info.innerHTML = `<div class="text-body-small text-sx-purple mt-2">⚠ L'item ${this._esc(art)}#${this._esc(lot)} è in quarantena in tutte le ubicazioni in cui si trova</div>`; details.classList.add('hidden'); return; }
-    const inCartByKey = {};
+    const inCartByKey: Record<string, number> = {};
     for (const c of this._shipCart) {
       const k = `${c.location_code}#${c.item_key}`;
-      (inCartByKey as any)[k] = ((inCartByKey as any)[k] || 0) + c.qty;
+      inCartByKey[k] = (inCartByKey[k] || 0) + c.qty;
     }
     const enriched = notQuar.map(it => {
       const totalQty = it.qty || 1;
       const pendingQty = Store.getPendingQtyForItem(it.location_code, it.item_key);
-      const cartQty = (inCartByKey as any)[`${it.location_code}#${it.item_key}`] || 0;
+      const cartQty = inCartByKey[`${it.location_code}#${it.item_key}`] || 0;
       const availableQty = Math.max(0, totalQty - pendingQty - cartQty);
       return { ...it, _totalQty: totalQty, _pendingQty: pendingQty, _availableQty: availableQty };
     });
@@ -522,8 +537,8 @@ export const VistaSpedizioni: Vista = {
     const totalQty = full.qty || 1;
     const pendingQty = Store.getPendingQtyForItem(item.location_code, item.item_key);
     const cartQty = this._shipCart
-      .filter((c: any) => c.location_code === item.location_code && c.item_key === item.item_key)
-      .reduce((s: any, c: any) => s + c.qty, 0);
+      .filter((c: VoceCarrelloDDT) => c.location_code === item.location_code && c.item_key === item.item_key)
+      .reduce((s: number, c: VoceCarrelloDDT) => s + c.qty, 0);
     const availableQty = Math.max(0, totalQty - pendingQty - cartQty);
     if (availableQty <= 0) {
       $('pShipInfo').innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠ Giacenza tutta impegnata</div>`;
@@ -581,8 +596,8 @@ export const VistaSpedizioni: Vista = {
   },
 
   _persistShipHeader() {
-    const g = (id: any) => Validate.clean($(id)?.value);
-    const sel = (id: any) => $(id)?.value;
+    const g = (id: string) => Validate.clean($(id)?.value);
+    const sel = (id: string) => $(id)?.value;
 
     if ($('pShipCausale')) this._shipCausale = sel('pShipCausale') || this._shipCausale;
     this._shipDdtNum = g('pShipDdt') || this._shipDdtNum;
@@ -591,7 +606,7 @@ export const VistaSpedizioni: Vista = {
 
     /* Questi campi possono essere legittimamente SVUOTATI (un indirizzo
        ripreso per sbaglio va potuto cancellare), quindi niente `||`. */
-    const opt = (id: any, cur: any) => $(id) ? g(id) : cur;
+    const opt = (id: string, cur: string) => $(id) ? g(id) : cur;
     this._shipDestAddress  = opt('pShipDestAddress', this._shipDestAddress);
     this._shipDestZip      = opt('pShipDestZip', this._shipDestZip);
     this._shipDestCity     = opt('pShipDestCity', this._shipDestCity);
@@ -637,7 +652,7 @@ export const VistaSpedizioni: Vista = {
   /* v2.1.0 — contenuto della sola zona carrello */
   _shipCartZoneHTML() {
     const n = this._shipCart.length;
-    const totalColli = this._shipCart.reduce((s: any, r: any) => s + (r.qty || 0), 0);
+    const totalColli = (this._shipCart as VoceCarrelloDDT[]).reduce((s, r) => s + (r.qty || 0), 0);
     const w = this._shipComputeWeights();
     const wLabel = w.net != null ? ` <span class="dlg-chip">${this._fmtKg(w.net)} kg</span>` : '';
     return `<div class="flex justify-between items-center mt-7 mx-0 mb-3.5">
@@ -656,7 +671,7 @@ export const VistaSpedizioni: Vista = {
 
   _renderShipCart() {
     if (!this._shipCart.length) return '<div class="pick-cart-empty">Carrello vuoto — scansiona articolo e lotto, identifica in giacenza, poi aggiungi</div>';
-    return this._shipCart.map((it: any, i: any) => {
+    return (this._shipCart as VoceCarrelloDDT[]).map((it, i) => {
       const expBadge = it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : '';
       const notesBadge = it.notes ? ` · <span class="text-sx-text-muted italic">${this._esc(it.notes)}</span>` : '';
       const partial = it.qty < (it.qty_at_creation || it.qty) ? ` <span class="badge badge-amber ml-2">PARZIALE</span>` : '';
@@ -727,13 +742,13 @@ export const VistaSpedizioni: Vista = {
       const totalQty = cur.qty || 1;
       const pendingQty = Store.getPendingQtyForItem(it.location_code, it.item_key);
       const otherCart = this._shipCart
-        .filter((x: any, j: any) => j !== i && x.location_code === it.location_code && x.item_key === it.item_key)
-        .reduce((s: any, x: any) => s + x.qty, 0);
+        .filter((x: VoceCarrelloDDT, j: number) => j !== i && x.location_code === it.location_code && x.item_key === it.item_key)
+        .reduce((s: number, x: VoceCarrelloDDT) => s + x.qty, 0);
       const avail = totalQty - pendingQty - otherCart;
       if (it.qty > avail) return this.toast(`Riga ${i+1}: qty richiesta (${it.qty}) > disponibilità effettiva (${avail})`, 'error');
     }
 
-    const totalColli = this._shipCart.reduce((s: any, it: any) => s + (it.qty || 1), 0);
+    const totalColli = (this._shipCart as VoceCarrelloDDT[]).reduce((s, it) => s + (it.qty || 1), 0);
     const causale = Store.getCausale(this._shipCausale);
     const w = this._shipComputeWeights();
 
@@ -814,12 +829,12 @@ export const VistaSpedizioni: Vista = {
          passare giorni, e la fa chi spedisce. Tenere il compito aperto fino
          al ritiro voleva dire lasciare in coda, addosso a chi ha prelevato,
          un'attività che non poteva più concludere. */
-      const colliDdt = this._shipCart.reduce((s: any, l: any) => s + (l.qty || 1), 0);
+      const colliDdt = (this._shipCart as VoceCarrelloDDT[]).reduce((s, l) => s + (l.qty || 1), 0);
       await this._taskAvanza(colliDdt, ['PICK_SHIP', 'PICK_RET']);
       this._shipResetHeader();
       this._formSpedizioni($('movFormArea'));
-    } catch (err: any) {
-      this.toast(`Errore salvataggio: ${err.message || 'sconosciuto'}`, 'error');
+    } catch (err) {
+      this.toast(`Errore salvataggio: ${(err as Error).message || 'sconosciuto'}`, 'error');
     }
   },
 
@@ -870,9 +885,9 @@ export const VistaSpedizioni: Vista = {
         const removed = await Store.removeItem(l.location_code!, l.item_key as string, l.qty, null, scelteDdt);
         if (!removed) { failedAt = i; failMsg = `Rimozione fallita (riga ${i+1})`; break; }
         performed.push({ backup, mode: removed._mode, location_code: l.location_code!, item_key: l.item_key, qty_removed: l.qty, qty_before: removed._qty_before, qty_after: removed._qty_after, packs_out: removed._packs_out ?? null });
-      } catch (err: any) {
+      } catch (err) {
         failedAt = i;
-        failMsg = `Errore riga ${i+1}: ${err.message || 'sconosciuto'}`;
+        failMsg = `Errore riga ${i+1}: ${(err as Error).message || 'sconosciuto'}`;
         break;
       }
     }
@@ -948,17 +963,17 @@ export const VistaSpedizioni: Vista = {
     const isDraft = doc.status === 'pending';
     const totalColli = doc.lines.reduce((s, l) => s + (l.qty || 1), 0);
 
-    const fmtDate = (iso: any) => iso
+    const fmtDate = (iso: string | null | undefined) => iso
       ? new Date(iso + 'T00:00:00').toLocaleDateString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric' })
       : '—';
-    const fmtTs = (ms: any) => ms
+    const fmtTs = (ms: number | null | undefined) => ms
       ? new Date(ms).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
       : '—';
 
     const w = this._shipComputeWeights(doc.lines);
-    const pesoNetto = (doc as any).peso_netto || (w.net != null ? this._fmtKg(w.net) : '');
-    const pesoLordo = (doc as any).peso_lordo || '';
-    const pezzi = (doc as any).pieces_total != null ? (doc as any).pieces_total : w.pieces;
+    const pesoNetto = doc.peso_netto || (w.net != null ? this._fmtKg(w.net) : '');
+    const pesoLordo = doc.peso_lordo || '';
+    const pezzi = doc.pieces_total != null ? doc.pieces_total : w.pieces;
 
     // Mittente congelato nel documento, altrimenti quello corrente
     const sender = (doc.sender && doc.sender.name) ? doc.sender : null;
@@ -992,7 +1007,7 @@ export const VistaSpedizioni: Vista = {
       kind: 'DOCUMENTO DI TRASPORTO',
       kindSub: `D.P.R. 472/96 — ${isRet ? 'Reso · uscita merce' : 'Uscita merce'}`,
       num: doc.ddt_num,
-      dateVal: fmtDate((doc as any).doc_date) === '—' ? fmtTs(doc.created_at) : fmtDate((doc as any).doc_date),
+      dateVal: fmtDate(doc.doc_date) === '—' ? fmtTs(doc.created_at) : fmtDate(doc.doc_date),
       sender,
       docId: doc.doc_id,
       pageClass: 'doc-page--ddt',
@@ -1017,7 +1032,7 @@ export const VistaSpedizioni: Vista = {
         <div class="ddt-strip">
           <span class="ddt-strip-lbl">Causale del trasporto</span>
           <span class="ddt-strip-val">${this._esc(causale)}</span>
-          ${(doc as any).order_ref ? `<span class="ddt-strip-ref">Rif. ordine: <strong>${this._esc((doc as any).order_ref)}</strong></span>` : ''}
+          ${doc.order_ref ? `<span class="ddt-strip-ref">Rif. ordine: <strong>${this._esc(doc.order_ref)}</strong></span>` : ''}
         </div>`,
 
       body: `
@@ -1054,17 +1069,17 @@ export const VistaSpedizioni: Vista = {
           ${this._docCell('Pezzi totali', pezzi != null ? String(pezzi) : '')}
           ${this._docCell('Peso netto (kg)', pesoNetto)}
           ${this._docCell('Peso lordo (kg)', pesoLordo)}
-          ${this._docCell('Porto', (doc as any).porto)}
+          ${this._docCell('Porto', doc.porto)}
           ${this._docCell('Ritiro previsto', doc.expected_pickup_date ? fmtDate(doc.expected_pickup_date) : '')}
 
-          ${this._docCell('Aspetto esteriore dei beni', (doc as any).aspetto, 'doc-cell--wide')}
+          ${this._docCell('Aspetto esteriore dei beni', doc.aspetto, 'doc-cell--wide')}
           ${this._docCell('Vettore', doc.carrier, 'doc-cell--wide')}
-          ${this._docCell('Trasporto a cura di', (doc as any).transport_by, 'doc-cell--wide')}
+          ${this._docCell('Trasporto a cura di', doc.transport_by, 'doc-cell--wide')}
 
-          ${this._docCell('Data e ora inizio trasporto', (doc as any).start_transport, 'doc-cell--wide')}
+          ${this._docCell('Data e ora inizio trasporto', doc.start_transport, 'doc-cell--wide')}
           <div class="doc-cell doc-cell--rest">
             <div class="doc-cell-lbl">Annotazioni</div>
-            <div class="ddt-notes-val">${(doc as any).doc_notes ? this._esc((doc as any).doc_notes) : ''}</div>
+            <div class="ddt-notes-val">${doc.doc_notes ? this._esc(doc.doc_notes) : ''}</div>
           </div>
         </div>`,
 
