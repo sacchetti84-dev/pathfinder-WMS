@@ -396,6 +396,47 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
      s1.stato === 200 && s2.stato === 200 && c1bis.qty_uom === 273.95,
      'saldo ' + c1bis.qty_uom);
 
+  /* ── 1.8.4 — IL CAMPIONE ESCE DA UN COLLO PRECISO ──────────────────
+     Fino alla 1.8.3 il campionamento scalava `qty_uom` e lasciava `packs`
+     com'era: su una riga a colli dichiarati l'elenco continuava a sommare
+     il vecchio totale, e siccome dove c'e' l'elenco comanda l'elenco, il
+     campione SPARIVA alla lettura dopo. E' la forma dell'incoerenza vista
+     al banco su MAG-SCA-01-03-B: colli per 101, `qty_uom` 81. */
+  await call('POST', '/api/c/inventory/bulk', [
+    { location_code: 'DP-D-01-03', item_key: 'MP-5#S1', article_code: 'MP-5', lot_code: 'S1',
+      qty: 3, qty_uom: 60, packs: [25, 25, 10] }
+  ]);
+
+  const campCollo = await call('POST', '/api/op/sampleItem',
+    { location_code: 'DP-D-01-03', item_key: 'MP-5#S1', packs_out: [{ da: 25, quantita: 0.05 }] });
+  const s1riga = await leggiRiga('MP-5#S1');
+  ok('il campione apre il collo scelto e lo lascia a scaffale',
+     campCollo.stato === 200 && s1riga.qty === 3
+       && JSON.stringify(s1riga.packs) === JSON.stringify([24.95, 25, 10])
+       && s1riga.qty_uom === 59.95,
+     `${s1riga.qty} colli · ${JSON.stringify(s1riga.packs)} · ${s1riga.qty_uom} UM`);
+
+  /* Il collo da cui esce il campione e' quello che l'operatore ha in mano:
+     una misura che non c'e' piu' non ripiega su un'altra comoda. */
+  const campMisuraAssente = await call('POST', '/api/op/sampleItem',
+    { location_code: 'DP-D-01-03', item_key: 'MP-5#S1', packs_out: [{ da: 7, quantita: 0.05 }] });
+  ok("un campione da una misura che non c'e' viene respinto",
+     campMisuraAssente.stato === 409, campMisuraAssente.dati.error);
+
+  /* UN CAMPIONE VALE UN COLLO DI RESIDUO: svuotare un collo non e'
+     campionare, e' prelevarlo. La rotta si ferma invece di far sparire un
+     collo da una funzione che promette di non toccarli. */
+  const campSvuota = await call('POST', '/api/op/sampleItem',
+    { location_code: 'DP-D-01-03', item_key: 'MP-5#S1', packs_out: [{ da: 10, quantita: 10 }] });
+  ok('un campione che svuota il collo viene respinto: il collo resta sempre',
+     campSvuota.stato === 409, campSvuota.dati.error);
+
+  const campDueColli = await call('POST', '/api/op/sampleItem',
+    { location_code: 'DP-D-01-03', item_key: 'MP-5#S1',
+      packs_out: [{ da: 25, quantita: 0.05 }, { da: 10, quantita: 0.05 }] });
+  ok("un campione esce da un collo solo: due non e' un campione",
+     campDueColli.stato === 400, campDueColli.dati.error);
+
   /* ── 1.8 — L'ELENCO DEI COLLI, ARBITRATO DAL SERVIZIO ──────────────
      Dalla 1.8 la suddivisione non si calcola da un per-collo costante: si
      dichiara, e la riga porta `packs`, un numero per collo. Il client sceglie

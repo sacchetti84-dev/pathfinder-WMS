@@ -391,15 +391,56 @@ app.post('/api/op/removeItem', wrap((req, res) => {
    Come ovunque, il saldo di partenza si legge dalla RIGA: `qty_uom_before`
    e' solo il seme per la riga che un `qty_uom` non lo ha mai avuto. */
 app.post('/api/op/sampleItem', wrap((req, res) => {
-  const { location_code, item_key, qty_uom, qty_uom_before } = req.body || {};
+  const { location_code, item_key, qty_uom, qty_uom_before, packs_out } = req.body || {};
   const n = arrotondaUom(qty_uom);
-  if (!location_code || !item_key || n === null || n <= 0)
+
+  /* 1.8.4 — DA QUALE COLLO ESCE IL CAMPIONE.
+     Fino alla 1.8.3 questa rotta scalava `qty_uom` e lasciava `packs` com'era.
+     Su una riga a colli dichiarati l'elenco continuava a sommare il totale di
+     prima, e siccome dove c'e' l'elenco COMANDA l'elenco, il campione spariva
+     alla lettura dopo: cinquanta grammi usciti dal magazzino e nessuno che se
+     ne accorgesse. E' la forma dell'incoerenza vista al banco il 18/08 —
+     colli per 101 e qty_uom 81.
+
+     Un campione esce da UN collo, quello che l'operatore ha in mano, e la sua
+     misura fa parte della richiesta come per ogni altra uscita. */
+  const campione = packs_out === undefined ? null : leggiUscite(packs_out);
+  if (packs_out !== undefined && (!campione || campione.length !== 1)) {
+    throw Object.assign(new Error('un campione esce da un collo solo: serve una misura sola'), { status: 400 });
+  }
+  if (!location_code || !item_key || (!campione && (n === null || n <= 0)))
     throw Object.assign(new Error('servono location_code, item_key e una quantita\' di campione valida'), { status: 400 });
 
   const out = db.transaction(['inventory'], () => {
     const rows = db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
     const item = rows.find(r => r.item_key === item_key);
     if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
+
+    if (campione) {
+      const elenco = leggiPacks(item.packs);
+      if (!elenco) throw Object.assign(new Error(`${item_key}: la riga non porta l'elenco dei colli`), { status: 409 });
+      const { da, q } = campione[0];
+      const i = elenco.findIndex(v => v === da);
+      if (i === -1) {
+        throw Object.assign(new Error(`Il collo da ${da} non e' piu' su questa riga: il campione non puo' uscirne`), { status: 409 });
+      }
+      /* UN CAMPIONE VALE UN COLLO DI RESIDUO: svuotare un collo non e'
+         campionare, e' prelevarlo. Questa rotta promette che i colli non
+         calano, e una promessa con un'eccezione non e' una promessa. */
+      if (q >= da) {
+        throw Object.assign(new Error(`Un campione lascia sempre un residuo: per prendere tutto il collo da ${da} serve un prelievo`), { status: 409 });
+      }
+      const dopoElenco = elenco.slice();
+      dopoElenco[i] = arrotondaUom(da - q);
+      const primaUm = sommaPacks(elenco);
+      const dopoUm = sommaPacks(dopoElenco);
+      item.packs = dopoElenco;
+      item.qty_uom = dopoUm;
+      item.updated_at = Date.now();
+      db.put('inventory', item);
+      return { ok: true, qty_uom_before: primaUm, qty_uom_after: dopoUm, qty_uom_delta: -q,
+               qty: item.qty, packs: dopoElenco };
+    }
 
     const prima = arrotondaUom(item.qty_uom) ?? arrotondaUom(qty_uom_before);
     if (prima === null)
