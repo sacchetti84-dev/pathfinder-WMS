@@ -77,6 +77,45 @@ amministratore, nessun riavvio, ritorno indietro in un comando. Verificato in
 servizio il 17/08: indice **8.542 byte** compressi e `no-cache`, i tre assets
 `immutable`, **251 kB** al primo caricamento, `xlsx` solo a richiesta.
 
+### La 1.8.4 chiude i tre buchi che il collaudo ha trovato
+
+Il 18/08 sera, dopo l'installazione della 1.8.3, tre funzioni sono state
+riscritte perché tutte e tre mentivano nello stesso modo: **scrivevano un
+saldo giusto sopra un elenco di colli che era rimasto indietro.**
+
+1. **Il DDT chiede i colli nel carrello**, non all'evasione. Il documento si
+   stampa PRIMA che la merce esca, e con colli di misura diversa «3 colli»
+   non dice quanta merce sia: per scrivere le UM sulla riga bisogna sapere da
+   quali colli esce. La riga porta `packs_out`, `qty_uom` e `uom` —
+   **l'unità è della riga, non del documento**, perché su un DDT convivono
+   una riga in KG e una in PZ, ed è la ragione per cui i pesi si scrivono a
+   mano. In stampa la colonna «Pezzi» era `pieces_per_pack × colli`: tre
+   colli da 25+25+7 uscivano **75 invece di 57**.
+2. **L'inventario di vano e la Conta rettificano ridichiarando la riga.** Su
+   una riga a colli dichiarati «quanti ne hai contati» non è una domanda a
+   cui si possa rispondere bene: tre colli da 25, 25 e 18 fanno tre come tre
+   colli da 25, e sono diciassette chili di differenza. Si dichiara com'è
+   fatto lo scaffale, e `rettifica` traduce la differenza in movimenti. **I
+   colli in più non si rifiutano più**: era l'ultimo «vai da un'altra parte».
+3. **Il campione esce da un collo preciso.** `sampleItem` scalava `qty_uom` e
+   lasciava `packs` com'era: dove comanda l'elenco, il campione **spariva
+   alla lettura dopo**. È la forma dell'incoerenza vista su
+   `MAG-SCA-01-03-B` — colli per 101 e `qty_uom` 81.
+
+**Il difetto peggiore non era in nessuno dei tre.** `savePendingOutbound` e
+`updatePendingDoc` ricostruivano la riga di documento **campo per campo, in
+due copie identiche**, e nessuna delle due nominava i campi nuovi: i colli
+scelti a schermo venivano buttati al salvataggio, senza un errore, e
+l'evasione li richiedeva da capo. `RigaDocumento` ha un indice libero e il
+tipo non si è lamentato. È la trappola del «`meta` non è un sacco», in due
+posti. Adesso la ricostruzione è **una sola** — `modules/documenti.ts` — e
+chi aggiunge un campo lo aggiunge lì.
+
+Nove commit, tutti con build e collaudo in mezzo. **Provata al banco**
+(4199, copia della giacenza vera): quel che pretende il PIN — registrazione,
+evasione, applicazione delle rettifiche — **l'ha provato Andrea**, e il DDT
+funziona.
+
 ### La 1.8 è scritta per intero, e aspetta un PIN e un turno
 
 Dal 17/08 sera il codice non è più quello della 1.7: **la suddivisione dei
@@ -99,16 +138,16 @@ prove.
 
 | Voce | Valore |
 |---|---|
-| In servizio — prova su questo PC | `corrente` contiene la **1.8.3**, impronta `f7762989…`, costruita il **18/08 alle 15:28** — chiesto al servizio a fine giornata. **Non contiene né la migrazione né le nove correzioni della sera**: quelle stanno in `origin/main` e in `consegna\`, e si vedono solo dopo un'installazione. La riga di prima diceva `3d765c51…` delle 10:04 — è la build con Tailwind acceso e nient'altro cambiato (F0 della migrazione, §2). Il servizio risponde `service_version 1.8.3` **e** `versione 1.8.3`: **i due numeri coincidono**, ed è la prima volta. Chiesto al servizio il 18/08 nel pomeriggio |
+| In servizio — prova su questo PC | `corrente` contiene la **1.8.3**, impronta `85dcbee9…`, costruita il **18/08 alle 19:57** — chiesto al servizio a fine giornata, e **la riga di prima diceva `f7762989…` delle 15:28**: il documento era già indietro di un'installazione. **Non contiene niente della 1.8.4**: quella sta in `origin/main` e in `consegna\`, e si vede solo dopo un'installazione. Il servizio risponde `service_version 1.8.3` **e** `versione 1.8.3`: i due numeri coincidono |
 | Via di ritorno | **Si reinstalla il pacchetto della versione di prima** — §4: è il solo gesto che riporta indietro anche il servizio. `precedente` contiene la **1.8.1** (`12c2e4cf…`) e serve agli assets di chi stava caricando durante uno scambio, non più a tornare indietro. Il deposito tiene `pathfinder-1.8.2\`, `pathfinder-1.7\` e `pathfinder-1.6.1\`; i pacchetti li archivia Andrea |
 | Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.8.3`**, come il sorgente: l'installer porta anche il servizio e lo riavvia, e da qui in poi i due numeri non divergono. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
-| Collaudi | **485 client** (15 suite, ~1,5 s) · **81 servizio** · **22 installazione** · **8 migrazione** — tutti verdi il 18/08. Le due del client sono la **rete dell'estrazione** (§7); cinque delle ventidue sono nuove e guardano l'**installer a doppio clic** |
+| Collaudi | **509 client** (16 suite, ~2 s) · **85 servizio** · **22 installazione** · **8 migrazione** — tutti verdi il 18/08 sera. Le ventiquattro nuove del client sono la 1.8.4: otto su `scelteDaUscite`, dieci su `rettifica`, sei sulla riga di documento. **Ognuna provata rompendo il codice** |
 | Tipi | `npm run check` a 0 su client e servizio, con `strict` e `noUncheckedIndexedAccess` accesi su **tutto** il sorgente: `allowJs` è spento dal 18/08 |
-| Sorgente | **63 TypeScript** · **zero JavaScript** · **10 CSS** · `index.html`. La migrazione si è chiusa il **18/08**: `tabs`, `feedback`, `dialog`, `main` e `app` (1.328 righe) sono passati a `.ts`, e `tsconfig` ha `allowJs: false` — un `.js` in `src/` adesso non compila. Il CSS in più è `00-tailwind.css`: il tema |
-| Numero di build | **1.8.3** in `vite.config.js`, `package.json` e nel servizio. La 1.8.2 è in servizio: una build in avanzamento non porta il numero di ciò che sta girando, se no `consegna\` dice una cosa e la macchina un'altra — §5 |
+| Sorgente | **64 TypeScript** · **zero JavaScript** · **10 CSS** · `index.html`. La migrazione si è chiusa il **18/08**: `tabs`, `feedback`, `dialog`, `main` e `app` (1.328 righe) sono passati a `.ts`, e `tsconfig` ha `allowJs: false` — un `.js` in `src/` adesso non compila. Il CSS in più è `00-tailwind.css`: il tema |
+| Numero di build | **1.8.4** in `vite.config.js`, `package.json`, `VERSIONE_APP` e nel servizio. La 1.8.3 è in servizio: una build in avanzamento non porta il numero di ciò che sta girando, se no `consegna\` dice una cosa e la macchina un'altra — §5. Ultima costruita: impronta `fefa508e…`, **1.626.669 byte** |
 | Git | `main`, **allineato con `origin/main`** — spinto il 18/08 |
 
 ### Cosa fa la 1.7, e cosa ha misurato il banco
@@ -150,10 +189,10 @@ collauda al banco e si consegna il pacchetto.
 | **3** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per ore nessuno poteva creare né rinnovare un operatore. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — §6, «Il PIN smarrito» | Andrea |
 | **4** | **Annullare a mano quattro attività** rimaste `in_progress` prima della 1.4.4, col motivo «chiusa dalla 1.4.4, lavoro già eseguito»: `TA-MSRAXA3Q-PQ11` (prelievo), `TA-MSRB4JXK-04C7` (quarantena), `TA-MSRB80C2-2JLC` (campionamento), `TA-MSRBEZLU-5M3E` (conta). **Non si riavviano**: rifare il gesto muoverebbe la merce due volte | Andrea, dalla vista Attività |
 | 5 | **Caratterizzare le zone** in Configurazione → Zone: classe di conservazione, zona allergeni, zona pericolosi, refrigerata. Finché non è fatto **la mappa resta muta**, per quanti articoli si classifichino: la verifica confronta due metà e una manca | Andrea |
-| 6 | **Compilare `pieces_per_pack`** in anagrafica (colonna `Pezzi_Per_Collo` dell'import Excel). È la riga che **decide se un articolo è gestito a UM**: senza, resta a soli colli anche a interruttore acceso | import Excel |
+| 6 | **Compilare `pieces_per_pack`** in anagrafica (colonna `Pezzi_Per_Collo` dell'import Excel). **A `colli` acceso non è più il gate**: chi dichiara la suddivisione ha bisogno solo di un `unit` valido. Resta (a) il ponte per le righe vecchie senza elenco, (b) il valore proposto nella maschera. **Va compilato PRIMA di accendere `colli`**: un lotto congelato senza `uom_per_collo` non lo recupera più dall'anagrafica — la confezione del lotto vince sempre | import Excel |
 | 7 | **Partita IVA e dati mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare | Andrea |
 | 8 | **Nome DNS interno e certificato** dalla CA aziendale. Il codice è pronto: due variabili e HTTPS si accende | IT — non blocca |
-| 9 | **Confermare due scelte del 12/08**: la colonna UM è `unit` — quella che c'è già — e la quantità per collo è `pieces_per_pack`. Il piano ne chiedeva due nuove, e sarebbero state due colonne con lo stesso nome | Andrea |
+| ~~9~~ | ~~**Confermare due scelte del 12/08**~~: **confermate il 18/08**. La colonna UM è `unit`, la quantità per collo è `pieces_per_pack` — è già così in `configurazione()` | fatto |
 
 ### Le versioni da costruire
 
@@ -360,13 +399,9 @@ uscire incoerente.
 
 **Aperto, e deciso con Andrea:**
 
-- **I colli vanno chiesti nel carrello del DDT**, non solo all'evasione
-  (`spedizioni.ts`: `_shipAddToCart` non li chiede, `_evadiSpedizione` sì, a
-  riga 883). Finché non si fa, per dire «5 pieni più 1 aperto» servono due
-  righe a mano — ed è esattamente quello che si vedeva nello screenshot del
-  carrello, non un difetto di righe da unire. È la più invasiva: cambia cosa
-  porta una riga di documento, che viene scritta, riletta all'evasione,
-  stampata e usata per lo storno.
+- ~~**I colli vanno chiesti nel carrello del DDT**~~ — **fatto il 18/08 sera**,
+  ed era davvero la più invasiva: cambia cosa porta una riga di documento.
+  Vedi §1, la 1.8.4.
 - **Il trasferimento che diceva «servono location_code, item_key e una
   quantita' valida» non si è riprodotto** sulla copia della giacenza vera, in
   quattro combinazioni (totale e parziale, riga con e senza colli dichiarati).
@@ -375,7 +410,10 @@ uscire incoerente.
 - **Due incoerenze nei dati**, viste passando: su `MAG-SCA-01-03-B` la somma
   dei colli dichiarati fa 101 e `qty_uom` dice 81; su `MAG-ACC-07` i 75 colli
   non sono tutti uguali — ce n'è uno da 19,9, ed è il solo motivo per cui lì
-  esce l'elenco lungo invece della domanda breve.
+  esce l'elenco lungo invece della domanda breve. **La prima ha un colpevole**:
+  fino alla 1.8.4 il campionamento scalava `qty_uom` e lasciava `packs` intatto
+  — vedi §1. Le righe già storte **non si riscrivono da sole**: `verificaColli`
+  le mostra, e si raddrizzano con una conta.
 - Restano i due difetti noti qui sotto: la data delle copie locali e la
   descrizione `undefined`.
 
@@ -405,11 +443,11 @@ uscire incoerente.
 npm run dev      # sviluppo, ricarica a caldo — ATTENZIONE: parla col servizio VERO
 npm run build    # produce "consegna/Pathfinder <ver>/" — il pacchetto da consegnare
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest, 13 suite, 435 prove
+npm test         # vitest, 16 suite, 509 prove
 ```
 
 ```bash
-node test/collaudo.js                    # 81 prove sul servizio, da server/
+node test/collaudo.js                    # 85 prove sul servizio, da server/
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server/
 node test/collaudo-installazione.js      # 17 prove sugli script di installazione, da server/
 ```
@@ -803,6 +841,14 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 - **`meta` non è un sacco**: `_loadCache` la ricostruisce campo per campo. Chi
   aggiunge una chiave la aggiunga anche lì, o avrà scritto un dato che il
   database ha e la pagina no.
+- **E NEMMENO LA RIGA DI UN DOCUMENTO.** Stessa trappola, e per due giorni in
+  due copie: `savePendingOutbound` e `updatePendingDoc` ricostruivano la riga
+  ognuna per conto suo. I colli scelti nel carrello si vedevano a schermo e
+  non arrivavano al DDT — **nessun errore**, perché `RigaDocumento` ha un
+  indice libero e il tipo tace. Adesso la ricostruzione è **una**,
+  `modules/documenti.ts`, con una prova che chiede conto dei campi nuovi.
+  La regola generale: **dove un record si ricostruisce campo per campo, quel
+  posto dev'essere uno solo.**
 - **`MOV.MOVE` scrive `qty_delta: 0` su uno spostamento totale**, e non è un
   difetto: cambia l'ubicazione, non la quantità. Chi legge il registro per sapere
   quanti colli si sono mossi trova zero — è la ragione per cui l'avanzamento di
@@ -929,6 +975,18 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   lo scarto lo **mostra** `verificaUom`, che non corregge niente.
 - **Le UM escono dentro la stessa transazione dei colli**, e il saldo di partenza
   si legge dalla riga, non da ciò che manda il client.
+- **Un campione lascia sempre un residuo.** Svuotare un collo non è
+  campionare, è prelevarlo: la rotta si rifiuta, con il motivo. È ciò che
+  rende vera la promessa per cui `sampleItem` esiste separata da
+  `removeItem` — i colli non calano, mai.
+- **Chi conta non toglie e non aggiunge: dichiara com'è fatto lo scaffale**, e
+  la differenza la traduce `rettifica`. Un collo più leggero è un'uscita
+  PARZIALE dallo stesso collo, non uno che se ne va e un altro che arriva: il
+  24 si accoppia col 25 sceso di uno, non col 30 sceso di sei.
+- **Un elenco messo da parte si ritrova per MISURA, mai per indice.** Fra la
+  riga scritta a documento e il vettore che arriva passano giorni, e un altro
+  terminale può aver mosso la riga. È la stessa ragione per cui il servizio
+  riceve `{da, quantita}` e non un numero.
 
 ### Metodo e interfaccia
 
@@ -991,7 +1049,8 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `core/schema.ts` · `utils.ts` · `costanti.ts` | 173 · 46 · 44 | Schema IndexedDB e migrazioni · `debounce` e `_h` · causali e ritenzione |
 | `modules/compiti.ts` | 445 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. **Puro**: non tocca Store né il DOM |
 | `modules/misure.ts` | 319 | Le cinque unità, la suddivisione per collo, il collo incompleto. Puro |
-| `modules/colli.ts` | 256 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, le uscite come le capisce il servizio, il ritrovamento per misura, il ponte con la 1.7. Puro |
+| `modules/colli.ts` | 387 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, le uscite come le capisce il servizio, il ritrovamento per misura, il ponte con la 1.7. **1.8.4**: `scelteDaUscite` (le uscite messe da parte, ritrovate) e `rettifica` (da com'era a com'è). Puro |
+| `modules/documenti.ts` | 39 | **1.8.4** — la riga di un documento di uscita, ricostruita in **un posto solo**. Nasce da un difetto: era in due copie, e i colli scelti sparivano al salvataggio. Puro |
 | `modules/vault.ts` | 303 | Backup su cartella locale (File System Access API) |
 | `modules/pickRoute.ts` | 246 | Percorso di prelievo a serpentina |
 | `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
@@ -1026,7 +1085,7 @@ estrarre è spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `smaltimento.ts` | 664 | Scarico in tre stadi, e i **mattoni del documento** che usano tutti |
 | `prelievo.ts` | 600 | Trasferimento e carrello di produzione |
 | `inventario.ts` | 557 | Inventario di vano e conta mirata |
-| `posiziona.ts` | 521 | Posizionamento, la dichiarazione dei colli e `_scegliColli` |
+| `posiziona.ts` | 781 | Posizionamento, la dichiarazione dei colli, `_scegliColli` e **`_ridichiaraColli`** — la maschera che chiede com'è fatto adesso, condivisa con l'inventario e la Conta |
 | `giacenze.ts` | 500 | Dettaglio di un'ubicazione e i cinque gesti che partono da lì |
 | `configArticoli.ts` | 498 | Anagrafica articoli, allergeni, classi, certificazioni, UM |
 | `configurazione.ts` | 437 | Le nove schede, gli interruttori, il DDT |
@@ -1075,7 +1134,7 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
-`compiti` (114) · `misure` (65) · `colli` (48) · `parametri` (19) ·
+`compiti` (114) · `misure` (65) · `colli` (66) · `parametri` (19) · `documenti` (6) ·
 `destinatari` (27) · **`superficie-app` (2)** — **485 prove**. `ambiente.js` è
 il preambolo comune.
 
