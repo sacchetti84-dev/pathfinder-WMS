@@ -32,31 +32,31 @@ export const VistaPercorso: Vista = {
       ${session ? `<div class="route-resume">
         <strong>⏸ Percorso gi&agrave; in corso</strong>
         <div>Ordine ${this._esc(session.odp_num)} — ${(session.stops as any[]).filter((s: any) => s.status !== 'pending').length} di ${(session.stops as any[]).length} tappe completate.</div>
-        <div style="display:flex;gap:0.5rem;margin-top:0.6rem;flex-wrap:wrap">
+        <div class="flex gap-5 mt-6 flex-wrap">
           <button class="btn btn-accent" onclick="App._routeResume()">▶ Riprendi</button>
           <button class="btn btn-danger" onclick="App._routeAbandon()">✕ Chiudi percorso</button>
         </div>
-        <div style="font-size: var(--md-sys-typescale-body-small-size);margin-top:0.5rem;opacity:0.85">
+        <div class="text-body-small mt-5 opacity-85">
           Caricando un nuovo ordine questo percorso verr&agrave; chiuso.
         </div>
       </div>` : ''}
 
-      <div class="form-group" style="margin-bottom:0.6rem">
+      <div class="form-group mb-6">
         <label>Operatore <span class="req">*</span></label>
         <input class="input" id="pRouteOperator" placeholder="Nome operatore" maxlength="${Validate.MAX.OPERATOR}"
           value="${this._esc(this._prodOperator)}" onchange="App._prodOperator=this.value">
       </div>
 
-      <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-bottom:0.7rem">
-        <button class="btn btn-primary" style="min-height:var(--md-touch)"
+      <div class="flex gap-5 flex-wrap mb-7">
+        <button class="btn btn-primary min-h-[var(--md-touch)]"
           onclick="$('fileImportOdp').click()">📄 Carica ordine (.xlsx)</button>
         ${parsed ? '<button class="btn btn-ghost" onclick="App._routeClearImport()">Scarta</button>' : ''}
       </div>
 
       <section id="routeImportResult">${parsed ? this._routeImportResultHTML() : ''}</section>
 
-      <div class="kbd-hint" style="margin-top:0.7rem">
-        <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">
+      <div class="kbd-hint mt-7">
+        <span class="text-body-small text-sx-text-muted">
           Sorgente accettata: solo il file <strong>.xlsx</strong> esportato da Sage X3.
           Il PDF dello stesso ordine espone quantit&agrave; arrotondate ed &egrave; meno affidabile.
         </span>
@@ -132,15 +132,15 @@ export const VistaPercorso: Vista = {
     const warnHTML = p.warnings.length ? `
       <div class="route-warn">
         <strong>⚠ ${p.warnings.length} avviso/i sui dati dell'ordine</strong>
-        <ul style="margin:0.4rem 0 0 1rem;padding:0">
-          ${p.warnings.map((w: any) => `<li style="margin-bottom:0.25rem">${this._esc(w)}</li>`).join('')}
+        <ul class="mt-4 mr-0 mb-0 ml-10 p-0">
+          ${p.warnings.map((w: any) => `<li class="mb-2.5">${this._esc(w)}</li>`).join('')}
         </ul>
       </div>` : '';
 
     const notesHTML = p.notes.length ? `
       <div class="route-note-box">
         <strong>ℹ ${p.notes.length} segnalazione/i — merce esistente ma non prelevabile</strong>
-        <div style="font-size: var(--md-sys-typescale-body-small-size);margin-top:0.3rem;opacity:0.85">
+        <div class="text-body-small mt-3 opacity-85">
           Non entra nel percorso. &Egrave; solo un'informazione per l'operatore.
         </div>
         ${p.notes.map((n: any) => `<div class="route-note-row">
@@ -174,7 +174,7 @@ export const VistaPercorso: Vista = {
       ${this._routeSiteOrderHTML()}
 
       ${(p.stops as any[]).length ? `<div class="route-preview">
-        <strong style="font-size: var(--md-sys-typescale-body-medium-size)">🧭 Anteprima percorso</strong>
+        <strong class="text-body-medium">🧭 Anteprima percorso</strong>
         ${(p.stops as any[]).map((s: any) => `<div class="route-prev-row">
           <span class="route-prev-seq">${s.seq}</span>
           <span class="mono route-prev-loc">${this._esc(s.location_code)}</span>
@@ -186,8 +186,8 @@ export const VistaPercorso: Vista = {
 
       ${notesHTML}
 
-      <div style="display:flex;gap:0.5rem;margin-top:0.8rem">
-        <button class="btn btn-primary" style="flex:1;font-weight:800;min-height:var(--md-touch)"
+      <div class="flex gap-5 mt-8">
+        <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
           onclick="App._routeStart()" ${(p.stops as any[]).length ? '' : 'disabled'}>🧭 AVVIA PERCORSO (${(p.stops as any[]).length})</button>
       </div>`;
   },
@@ -208,8 +208,8 @@ export const VistaPercorso: Vista = {
     const order = PickRoute.getSiteOrder();
     if (order.length < 2) return '';
     return `<div class="route-siteorder">
-      <strong style="font-size: var(--md-sys-typescale-body-medium-size)">🏭 Ordine di visita dei siti</strong>
-      <div style="font-size: var(--md-sys-typescale-body-small-size);opacity:0.8;margin:0.2rem 0 0.4rem">
+      <strong class="text-body-medium">🏭 Ordine di visita dei siti</strong>
+      <div class="text-body-small opacity-80 mt-2 mx-0 mb-4">
         Il percorso &egrave; costruito un sito per volta, in questa sequenza.
       </div>
       ${order.map((id, i) => {
@@ -358,7 +358,7 @@ export const VistaPercorso: Vista = {
         <div class="route-list">${(s.stops as any[]).map(st => this._routeListRowHTML(st, current)).join('')}</div>
       </details>
 
-      <div style="display:flex;gap:0.5rem;margin-top:0.7rem;flex-wrap:wrap">
+      <div class="flex gap-5 mt-7 flex-wrap">
         <button class="btn btn-sm" onclick="App._printRouteReport()">🖨 Report parziale</button>
         <button class="btn btn-sm btn-danger" onclick="App._routeAbandon()">✕ Chiudi percorso</button>
       </div>`;
@@ -397,24 +397,24 @@ export const VistaPercorso: Vista = {
         ${st.alternatives.length ? `<div class="route-alt">
           <strong>Altre ubicazioni con lo stesso articolo e lotto:</strong>
           ${st.alternatives.map((a: any) => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_available} Coll.</span>`).join(' ')}
-          <div style="font-size: var(--md-sys-typescale-label-small-size);margin-top:0.25rem;opacity:0.8">Scansionandone una, la tappa si sposta l&agrave;.</div>
+          <div class="text-label-small mt-2.5 opacity-80">Scansionandone una, la tappa si sposta l&agrave;.</div>
         </div>` : ''}
 
-        <div class="form-group" style="margin:0.6rem 0 0.4rem">
+        <div class="form-group mt-6 mx-0 mb-4">
           <label>① Scansiona UBICAZIONE <span class="req">*</span></label>
-          <div style="display:flex;gap:0.3rem">
+          <div class="flex gap-3">
           <input class="input input-mono" id="rLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('rLoc')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('rLoc');App._routeCheckLoc();}">
           <button class="btn btn-sm" type="button" onclick="App._pickLoc('rLoc','_routeCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
           </div>
         </div>
-        <div class="form-group" style="margin-bottom:0.4rem">
+        <div class="form-group mb-4">
           <label>② Scansiona ARTICOLO <span class="req">*</span></label>
-          <input class="input input-mono" id="rArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="rArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._routeCheckArt();}">
         </div>
-        <div class="form-group" style="margin-bottom:0.4rem">
+        <div class="form-group mb-4">
           <label>③ Scansiona LOTTO <span class="req">*</span></label>
           <input class="input input-mono" id="rLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._routeCheckLot();}">
@@ -422,10 +422,10 @@ export const VistaPercorso: Vista = {
 
         <div id="rFeedback"></div>
 
-        <div style="display:flex;gap:0.5rem;margin-top:0.6rem;flex-wrap:wrap">
-          <button class="btn btn-primary" style="flex:1;font-weight:800;min-height:var(--md-touch)"
+        <div class="flex gap-5 mt-6 flex-wrap">
+          <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
             onclick="App._routeConfirmStop()">✓ CONFERMA PRELIEVO</button>
-          <button class="btn btn-warning" style="min-height:var(--md-touch)"
+          <button class="btn btn-warning min-h-[var(--md-touch)]"
             onclick="App._routeMarkMissing()">✗ Non trovato</button>
         </div>
       </article>`;
@@ -595,7 +595,7 @@ export const VistaPercorso: Vista = {
     const el = $(fbId);
     if (!el) return;
     const cls = kind === 'ok' ? 'mov-preview-ok' : kind === 'warn' ? 'mov-preview-warn' : 'mov-preview-err';
-    el.innerHTML = `<div class="mov-preview ${cls}"><span style="font-weight:700">${this._esc(msg)}</span></div>`;
+    el.innerHTML = `<div class="mov-preview ${cls}"><span class="font-bold">${this._esc(msg)}</span></div>`;
   },
 
   _routeFb(kind, msg) { this._scanFb('rFeedback', kind, msg); },
@@ -755,8 +755,8 @@ export const VistaPercorso: Vista = {
       </div>
 
       ${tail.length ? `<div class="route-tail">
-        <strong style="font-size: var(--md-sys-typescale-body-medium-size)">📋 Da recuperare fuori percorso (${tail.length})</strong>
-        <div style="font-size: var(--md-sys-typescale-body-small-size);opacity:0.85;margin:0.2rem 0 0.4rem">
+        <strong class="text-body-medium">📋 Da recuperare fuori percorso (${tail.length})</strong>
+        <div class="text-body-small opacity-85 mt-2 mx-0 mb-4">
           Righe non prelevabili dalle aree mappate: materiale stoccato fuori mappatura,
           lotti assenti o merce non reperita.
         </div>
@@ -772,8 +772,8 @@ export const VistaPercorso: Vista = {
         </div>`).join('')}
       </div>` : ''}
 
-      <div style="display:flex;gap:0.5rem;margin-top:0.8rem;flex-wrap:wrap">
-        <button class="btn btn-primary" style="flex:1;font-weight:800;min-height:var(--md-touch)"
+      <div class="flex gap-5 mt-8 flex-wrap">
+        <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
           onclick="App._routeClose()">✓ CHIUDI E STAMPA REPORT</button>
       </div>`;
   },
