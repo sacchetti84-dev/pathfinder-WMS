@@ -19,36 +19,36 @@ export const VistaQuarantena: Vista = {
   _qRenderSearch(el) {
     const activeQ = Store.getActiveQuarantine();
     el.innerHTML = `<div class="mov-form-card">
-      <h3>🚫 <span style="color:var(--sx-purple)">Quarantena</span> — Blocco Qualità</h3>
+      <h3>🚫 <span class="text-sx-purple">Quarantena</span> — Blocco Qualità</h3>
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① ARTICOLO</span> → <span class="wf-step">② LOTTO</span> → INVIO per cercare →
         <span class="wf-step">③ SCEGLI L'UBICAZIONE</span> → <span class="wf-step">④ VERIFICA A SCAFFALE</span> → colli e motivo → <span class="wf-step">⑤ Cartello NC</span>.
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>① Scansiona Articolo <span class="req">*</span></label>
-        <input class="input input-mono" id="qArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase" autofocus
+        <input class="input input-mono uppercase" id="qArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" autofocus
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('qLot')?.focus();}">
       </div>
-      <div class="form-group" style="margin-bottom:0.6rem">
+      <div class="form-group mb-6">
         <label>② Scansiona Lotto <span class="req">*</span></label>
         <input class="input input-mono" id="qLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._searchQuar();}">
       </div>
-      <div id="qResults"><div style="font-size: var(--md-sys-typescale-body-medium-size);color:var(--sx-text-muted);padding:0.4rem">Scansiona articolo e lotto, poi premi INVIO</div></div>
-      ${activeQ.length ? `<div style="margin-top:1rem;border-top:1px solid var(--sx-border);padding-top:0.75rem">
-        <strong style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">🔒 Attive (${activeQ.length})</strong>
-        <div style="max-height:180px;overflow-y:auto;margin-top:0.4rem">
-          ${activeQ.map(q => `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.35rem 0.5rem;border:1px solid var(--sx-purple);background:var(--sx-purple-soft);border-radius:var(--radius);margin-bottom:0.25rem;font-size: var(--md-sys-typescale-body-small-size)">
-            <span class="mono" style="color:var(--sx-purple);font-weight:700">${this._esc(q.article_code)}</span>
-            <span class="mono" style="color:var(--sx-text-muted);font-size: var(--md-sys-typescale-label-small-size)">L:${this._esc(q.lot_code)}</span>
-            <span class="mono" style="color:var(--sx-text-muted);font-size: var(--md-sys-typescale-label-small-size)">📍${this._esc(q.blocked_location)} · ${(q as any).qty || 1} Coll.${(q as any).partial ? ' (parz.)' : ''}</span>
-            <span style="color:var(--sx-text-muted);font-size: var(--md-sys-typescale-label-small-size);flex:1" class="truncate" title="${this._esc(q.reason)}">${this._esc(q.reason)}</span>
+      <div id="qResults"><div class="text-body-medium text-sx-text-muted p-4">Scansiona articolo e lotto, poi premi INVIO</div></div>
+      ${activeQ.length ? `<div class="mt-10 border-t border-t-sx-border pt-7.5">
+        <strong class="text-body-small text-sx-text-secondary">🔒 Attive (${activeQ.length})</strong>
+        <div class="max-h-[180px] overflow-y-auto mt-4">
+          ${activeQ.map(q => `<div class="flex items-center gap-5 py-3.5 px-5 border border-sx-purple bg-sx-purple-soft rounded-[var(--radius)] mb-2.5 text-body-small">
+            <span class="mono text-sx-purple font-bold">${this._esc(q.article_code)}</span>
+            <span class="mono text-sx-text-muted text-label-small">L:${this._esc(q.lot_code)}</span>
+            <span class="mono text-sx-text-muted text-label-small">📍${this._esc(q.blocked_location)} · ${(q as any).qty || 1} Coll.${(q as any).partial ? ' (parz.)' : ''}</span>
+            <span class="truncate text-sx-text-muted text-label-small flex-1" title="${this._esc(q.reason)}">${this._esc(q.reason)}</span>
             <button class="btn btn-sm btn-success" onclick="App._releaseQuarantine('${this._esc(q.q_id)}')">✓ Rilascia</button>
             <button class="btn btn-sm" onclick="App._printNCCard('${this._esc(q.q_id)}')" title="Ristampa il cartello NC">🖨</button>
           </div>`).join('')}
         </div>
       </div>` : ''}
-      <div style="margin-top:0.6rem"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
     </div>`;
     this.setPrimaryScanField('qArt');
   },
@@ -60,38 +60,38 @@ export const VistaQuarantena: Vista = {
     const lot = Validate.clean($('qLot')?.value);
     const el = $('qResults');
     if (!art) {
-      el.innerHTML = '<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);padding:0.3rem">✗ Scansiona il codice articolo</div>';
+      el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice articolo</div>';
       $('qArt')?.focus();
       return;
     }
     if (!lot) {
-      el.innerHTML = '<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);padding:0.3rem">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>';
+      el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>';
       $('qLot')?.focus();
       return;
     }
 
     const tutte = Store.findItemLocations(art).filter(it => it.lot_code === lot);
     if (!tutte.length) {
-      el.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);padding:0.3rem">Nessun item trovato per ${this._esc(art)}#${this._esc(lot)}</div>`;
+      el.innerHTML = `<div class="text-body-small text-sx-text-muted p-3">Nessun item trovato per ${this._esc(art)}#${this._esc(lot)}</div>`;
       return;
     }
 
     const gia = tutte.filter(it => Store.isItemQuarantined(it.item_key, it.location_code));
     const libere = tutte.filter(it => !Store.isItemQuarantined(it.item_key, it.location_code));
-    const avvisoGia = gia.length ? `<div class="mov-preview" style="background:var(--sx-purple-soft);border-color:var(--sx-purple);margin:0.4rem 0">
-      🔒 <strong style="color:var(--sx-purple)">Già in quarantena</strong>:
+    const avvisoGia = gia.length ? `<div class="mov-preview bg-sx-purple-soft border-sx-purple my-4 mx-0">
+      🔒 <strong class="text-sx-purple">Già in quarantena</strong>:
       ${gia.map(g => `<span class="mono">${this._esc(g.location_code)}</span> (${g.qty || 1} Coll.)`).join(' · ')}
     </div>` : '';
 
     if (!libere.length) {
-      el.innerHTML = avvisoGia + `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-purple);padding:0.3rem">Tutta la merce di ${this._esc(art)}#${this._esc(lot)} è già bloccata.</div>`;
+      el.innerHTML = avvisoGia + `<div class="text-body-small text-sx-purple p-3">Tutta la merce di ${this._esc(art)}#${this._esc(lot)} è già bloccata.</div>`;
       return;
     }
 
     const items = Store.sortByFEFO(libere);
-    let html = `${avvisoGia}<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin:0.3rem 0 0.2rem">
+    let html = `${avvisoGia}<div class="text-label-small text-sx-text-muted mt-3 mx-0 mb-2">
       Seleziona quale ubicazione bloccare: si aprirà la verifica a scaffale.</div>
-      <div style="max-height:320px;overflow-y:auto">`;
+      <div class="max-h-[320px] overflow-y-auto">`;
     items.forEach((it, idx) => {
       const isFEFO = idx === 0;
       const expiryLabel = it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : '';
@@ -99,14 +99,14 @@ export const VistaQuarantena: Vista = {
       const qtyAvail = Store.getAvailableQty(it.location_code, it.item_key);
       const reserved = qtyPhys - qtyAvail;
       const reservedLabel = reserved > 0
-        ? ` · <span style="color:var(--sx-orange);font-weight:700">${reserved} impegnati su DDT</span>`
+        ? ` · <span class="text-sx-orange font-bold">${reserved} impegnati su DDT</span>`
         : '';
       html += `<div class="inv-item-row${isFEFO ? ' fefo-row' : ''}">
         <div class="inv-info">
-          <div class="inv-code" style="color:var(--sx-purple)">${this._esc(it.article_code)} <span style="color:var(--sx-text-muted);font-weight:400;font-size: var(--md-sys-typescale-body-small-size)">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong style="color:var(--sx-purple)">${qtyPhys} Coll. fisici</strong>${reservedLabel}${expiryLabel}</div>
+          <div class="inv-code text-sx-purple">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-body-small">${this._esc(it.article_description || '')}</span></div>
+          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-purple">${qtyPhys} Coll. fisici</strong>${reservedLabel}${expiryLabel}</div>
         </div>
-        <button class="btn btn-sm" style="background:var(--sx-purple);color:#fff" onclick="App._qSelect('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">➜ Vai e verifica</button>
+        <button class="btn btn-sm bg-sx-purple text-white" onclick="App._qSelect('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">➜ Vai e verifica</button>
       </div>`;
     });
     el.innerHTML = html + '</div>';
@@ -176,16 +176,16 @@ export const VistaQuarantena: Vista = {
         </div>
 
         ${nc
-          ? `<div class="mov-preview mov-preview-err" style="margin:0.5rem 0">
+          ? `<div class="mov-preview mov-preview-err my-5 mx-0">
               <strong>📍 La merce bloccata andrà in ${this._esc(nc.code)}</strong>
-              <span style="color:var(--sx-text-muted);font-size: var(--md-sys-typescale-label-small-size)"> (${this._esc(nc.zoneName)}${nc.hasItems ? ' — già contiene item' : ' — vuota'})</span>
+              <span class="text-sx-text-muted text-label-small"> (${this._esc(nc.zoneName)}${nc.hasItems ? ' — già contiene item' : ' — vuota'})</span>
             </div>`
-          : `<div class="mov-preview mov-preview-warn" style="margin:0.5rem 0">
+          : `<div class="mov-preview mov-preview-warn my-5 mx-0">
               <strong>⛔ Nessuna ubicazione BLOCCATA configurata.</strong>
               La quarantena non può partire: aprire Mappa, scegliere un'ubicazione da destinare alle NC e premere «Blocca».
             </div>`}
 
-        ${riservati > 0 ? `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.5rem">
+        ${riservati > 0 ? `<div class="mov-preview mov-preview-warn mb-5">
           <strong>⚠ ${riservati} Coll. sono impegnati su un DDT pendente.</strong>
           Bloccandoli, quel documento non sarà più evadibile e andrà corretto.
         </div>` : ''}
@@ -193,24 +193,24 @@ export const VistaQuarantena: Vista = {
         ${d.alternatives.length ? `<div class="route-alt">
           <strong>Stesso articolo e lotto anche in:</strong>
           ${d.alternatives.map((a: any) => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_physical} Coll.</span>`).join(' ')}
-          <div style="font-size: var(--md-sys-typescale-label-small-size);margin-top:0.25rem;opacity:0.8">Scansionandone una, il blocco si sposta là.</div>
+          <div class="text-label-small mt-2.5 opacity-80">Scansionandone una, il blocco si sposta là.</div>
         </div>` : ''}
 
-        <div class="form-group" style="margin:0.6rem 0 0.4rem">
+        <div class="form-group mt-6 mx-0 mb-4">
           <label>① Scansiona UBICAZIONE <span class="req">*</span></label>
-          <div style="display:flex;gap:0.3rem">
+          <div class="flex gap-3">
           <input class="input input-mono" id="qvLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('qvLoc')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('qvLoc');App._qCheckLoc();}">
           <button class="btn btn-sm" type="button" onclick="App._pickLoc('qvLoc','_qCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
           </div>
         </div>
-        <div class="form-group" style="margin-bottom:0.4rem">
+        <div class="form-group mb-4">
           <label>② Scansiona ARTICOLO <span class="req">*</span></label>
-          <input class="input input-mono" id="qvArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="qvArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._qCheckArt();}">
         </div>
-        <div class="form-group" style="margin-bottom:0.4rem">
+        <div class="form-group mb-4">
           <label>③ Scansiona LOTTO <span class="req">*</span></label>
           <input class="input input-mono" id="qvLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._qCheckLot();}">
@@ -219,36 +219,36 @@ export const VistaQuarantena: Vista = {
         <div id="qFeedback"></div>
 
         <div class="disp-confirm">
-          <div style="display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.5rem">
-            <div class="form-group" style="width:165px;margin-bottom:0">
-              <label style="white-space:nowrap">④ Colli da bloccare <span class="req">*</span></label>
-              <input class="input input-mono" id="qQty" type="number" min="1" step="1" max="${d.qty_physical}"
-                value="${d.qty_physical}" style="text-align:center;font-weight:700">
+          <div class="flex gap-6 items-end flex-wrap mb-5">
+            <div class="form-group w-[165px] mb-0">
+              <label class="whitespace-nowrap">④ Colli da bloccare <span class="req">*</span></label>
+              <input class="input input-mono text-center font-bold" id="qQty" type="number" min="1" step="1" max="${d.qty_physical}"
+                value="${d.qty_physical}">
             </div>
-            <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);padding-bottom:0.4rem">
-              Presenti: <strong style="color:var(--sx-purple)">${d.qty_physical} Coll.</strong><br>
+            <div class="text-label-small text-sx-text-muted pb-4">
+              Presenti: <strong class="text-sx-purple">${d.qty_physical} Coll.</strong><br>
               <span>Bloccarne meno lascia gli altri conformi e utilizzabili.</span>
             </div>
           </div>
 
-          <div class="form-group" style="margin-bottom:0.5rem">
+          <div class="form-group mb-5">
             <label>⑤ Motivo del blocco <span class="req">*</span></label>
             <textarea class="input" id="qReason" rows="2" maxlength="${Validate.MAX.REASON}" placeholder="Descrivi il motivo della non conformità..."></textarea>
           </div>
-          <div class="form-row" style="margin-bottom:0.5rem">
+          <div class="form-row mb-5">
             <div class="form-group"><label>Operatore <span class="req">*</span></label><input class="input" id="qOperator" maxlength="${Validate.MAX.OPERATOR}" placeholder="Nome operatore" value="${this._esc(this.currentOperator || '')}"></div>
             <div class="form-group"><label>Reparto/Ufficio <span class="req">*</span></label><input class="input" id="qRefDept" maxlength="${Validate.MAX.REF_DEPT}" placeholder="Es: CQ, Produzione"></div>
           </div>
-          <div class="form-group" style="margin-bottom:0">
+          <div class="form-group mb-0">
             <label>Referente (opz.)</label>
             <input class="input" id="qRefPerson" maxlength="${Validate.MAX.OPERATOR}" placeholder="Nome specifico">
           </div>
         </div>
 
-        <div style="display:flex;gap:0.5rem;margin-top:0.7rem;flex-wrap:wrap">
-          <button class="btn btn-warning" style="flex:1;font-weight:800;min-height:var(--md-touch)"
+        <div class="flex gap-5 mt-7 flex-wrap">
+          <button class="btn btn-warning flex-1 font-extrabold min-h-[var(--md-touch)]"
             onclick="App._execQuarantena()">🚫 CONFERMA QUARANTENA</button>
-          <button class="btn" style="min-height:var(--md-touch)" onclick="App._qBack()">← Cambia ubicazione</button>
+          <button class="btn min-h-[var(--md-touch)]" onclick="App._qBack()">← Cambia ubicazione</button>
         </div>
       </article>`;
     this._qState.scan = { loc: '', art: '', lot: '' };
@@ -548,28 +548,28 @@ export const VistaQuarantena: Vista = {
     overlay.className = 'modal-overlay';
     overlay.id = 'releaseDestOverlay';
     overlay.innerHTML = `
-      <div class="modal" style="max-width:420px">
+      <div class="modal max-w-[420px]">
         <div class="modal-header">
           <h2>✓ Rilascio Quarantena — Ubicazione Destinazione</h2>
         </div>
         <div class="modal-body">
-          <div style="background:var(--sx-success-soft);border:1px solid var(--sx-success);border-radius:var(--radius-md);padding:0.65rem 0.85rem;margin-bottom:0.85rem">
-            <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-bottom:0.2rem">Item rilasciato dalla quarantena:</div>
-            <div style="font-weight:700;color:var(--sx-primary);font-family:var(--mono)">${this._esc(qRec.article_code)}</div>
-            <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">Lotto: <strong>${this._esc(qRec.lot_code)}</strong> · Da: <strong>${this._esc(qRec.blocked_location)}</strong></div>
+          <div class="bg-sx-success-soft border border-sx-success rounded-[var(--radius-md)] py-6.5 px-8.5 mb-8.5">
+            <div class="text-body-small text-sx-text-muted mb-2">Item rilasciato dalla quarantena:</div>
+            <div class="font-bold text-sx-primary font-mono">${this._esc(qRec.article_code)}</div>
+            <div class="text-body-small text-sx-text-secondary">Lotto: <strong>${this._esc(qRec.lot_code)}</strong> · Da: <strong>${this._esc(qRec.blocked_location)}</strong></div>
           </div>
-          <div style="background:var(--sx-warning-soft);border:1px solid var(--sx-warning);border-radius:var(--radius);padding:0.5rem 0.65rem;margin-bottom:0.85rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-warning)">
+          <div class="bg-sx-warning-soft border border-sx-warning rounded-[var(--radius)] py-5 px-6.5 mb-8.5 text-body-small text-sx-warning">
             ⚠ <strong>Obbligatorio:</strong> un item conforme non può stazionare in un'ubicazione bloccata o di non conformità. Scansiona l'ubicazione di destinazione idonea.
           </div>
           <div class="form-group">
             <label>Scansiona Ubicazione di Destinazione <span class="req">*</span></label>
-            <div style="display:flex;gap:0.3rem">
-              <input class="input input-mono" id="releaseDestLoc" placeholder="Scansiona barcode ubicazione" maxlength="${Validate.MAX.LOC_CODE}" style="flex:1"
+            <div class="flex gap-3">
+              <input class="input input-mono flex-1" id="releaseDestLoc" placeholder="Scansiona barcode ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
                 oninput="App._normScan('releaseDestLoc');App._previewReleaseDest()"
                 onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('releaseDestLoc');$('releaseOperator')?.focus();}">
               <button class="btn btn-sm" onclick="App._pickLoc('releaseDestLoc','_cbPickReleaseDest')">📍</button>
             </div>
-            <div id="releaseDestPrev" style="margin-top:0.3rem"></div>
+            <div class="mt-3" id="releaseDestPrev"></div>
           </div>
           <!-- v2.0.1 [B6] — Il rilascio da quarantena è una decisione di qualità:
                prima veniva loggato senza alcun operatore. Ora esecutore e
