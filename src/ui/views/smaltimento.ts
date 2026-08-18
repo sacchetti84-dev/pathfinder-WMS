@@ -6,6 +6,12 @@ import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 import { descriviColli as descriviElenco, preleva as prelevaElenco } from '../../modules/colli';
 
+/* Dove altro sta lo stesso lotto, quando lo scarico non lo trova qui. */
+type Alternativa = { location_code: string; item_key: string; qty_available: number };
+
+/* Una firma in calce a un documento: chi firma, e cosa scrive sotto. */
+type Firma = { role: string; hint?: string };
+
 export const VistaSmaltimento: Vista = {
   // ── 1B. SCARICO ─────────────────────────────────────────────────────
   // Tre stadi, uno stato solo: this._dispState.
@@ -172,7 +178,7 @@ export const VistaSmaltimento: Vista = {
 
         ${d.alternatives.length ? `<div class="route-alt">
           <strong>Stesso articolo e lotto anche in:</strong>
-          ${d.alternatives.map((a: any) => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_available} Coll.</span>`).join(' ')}
+          ${(d.alternatives as Alternativa[]).map((a) => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_available} Coll.</span>`).join(' ')}
           <div class="text-label-small mt-2.5 opacity-80">Scansionandone una, lo scarico si sposta là.</div>
         </div>` : ''}
 
@@ -274,13 +280,13 @@ export const VistaSmaltimento: Vista = {
       $('dArt')?.focus();
       return;
     }
-    const alt = d.alternatives.find((a: any) => a.location_code === val);
+    const alt = (d.alternatives as Alternativa[]).find((a) => a.location_code === val);
     if (alt) { this._dispSwitchToAlternative(alt); return; }
     this._scanBlock({
       fieldId: 'dLoc', fbId: 'dFeedback',
       title: 'Ubicazione errata',
       message: `Attesa ${d.location_code}, scansionata ${val}.`,
-      onForce: async (note: any) => {
+      onForce: async (note: string) => {
         if (!Store.locationExists(val)) {
           this.toast(`L'ubicazione ${val} non esiste a sistema`, 'error');
           return false;
@@ -298,7 +304,7 @@ export const VistaSmaltimento: Vista = {
     const old = d.location_code;
     d.alternatives = [
       { location_code: old, item_key: d.item_key, qty_available: Store.getAvailableQty(old, d.item_key) },
-      ...d.alternatives.filter((a: any) => a.location_code !== alt.location_code)
+      ...(d.alternatives as Alternativa[]).filter((a) => a.location_code !== alt.location_code)
     ].filter(a => a.qty_available > 0);
     d.location_code = alt.location_code;
     d.item_key = alt.item_key;
@@ -337,7 +343,7 @@ export const VistaSmaltimento: Vista = {
       fieldId: 'dArt', fbId: 'dFeedback',
       title: 'Articolo errato',
       message: `Atteso ${d.article_code}, scansionato ${val}.`,
-      onForce: async (note: any) => {
+      onForce: async (note: string) => {
         d.forced_note = `${d.forced_note ? d.forced_note + ' | ' : ''}Articolo forzato (atteso ${d.article_code}, letto ${val}): ${note}`;
         d.scan.art = d.article_code;
         return true;
@@ -367,7 +373,7 @@ export const VistaSmaltimento: Vista = {
       fieldId: 'dLot', fbId: 'dFeedback',
       title: 'Lotto errato',
       message: `Atteso ${d.lot_code}, scansionato ${val}. Smaltire un lotto per un altro è un errore che non si recupera.`,
-      onForce: async (note: any) => {
+      onForce: async (note: string) => {
         d.forced_note = `${d.forced_note ? d.forced_note + ' | ' : ''}Lotto forzato (atteso ${d.lot_code}, letto ${val}): ${note}`;
         d.scan.lot = d.lot_code;
         return true;
@@ -564,7 +570,7 @@ export const VistaSmaltimento: Vista = {
                  watermark = '', pageClass = '', printedLabel = 'stampato il' }) {
     const fmt = new Date().toLocaleString('it-IT',
       { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
-    const firme = signs.length ? `<div class="doc-signs">${signs.map((f: any) => `
+    const firme = signs.length ? `<div class="doc-signs">${(signs as Firma[]).map((f) => `
         <div><div class="doc-sign-role">${this._esc(f.role)}</div><div class="doc-sign-hint">${this._esc(f.hint || '')}</div><div class="doc-sign-line"></div></div>`).join('')}
       </div>` : '';
 
@@ -616,7 +622,7 @@ export const VistaSmaltimento: Vista = {
     const v = Store.getDisposal(doc_id);
     if (!v) return this.toast('Verbale non trovato in archivio', 'error');
 
-    const fmtTs = (ms: any) => ms
+    const fmtTs = (ms: number | null | undefined) => ms
       ? new Date(ms).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
       : '—';
 
@@ -652,7 +658,7 @@ export const VistaSmaltimento: Vista = {
       kind: 'VERBALE DI SMALTIMENTO',
       kindSub: 'Uscita definitiva dalla giacenza',
       num: v.doc_id, dateVal: fmtTs(v.created_at),
-      sender: (v.sender && (v.sender as any).name) ? v.sender : null,
+      sender: v.sender?.name ? v.sender : null,
       headExtra, body, docId: v.doc_id, pageClass: 'doc-page--vb',
       signs: [
         { role: 'Operatore magazzino', hint: v.operator || '' },

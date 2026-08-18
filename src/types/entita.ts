@@ -371,6 +371,10 @@ export interface VerbaleSmaltimento {
   created_at: Istante;
   article_code?: string;
   lot_code?: string;
+  /** Il mittente congelato all'emissione, come sul DDT: una ristampa
+      deve dare lo stesso foglio. */
+  sender?: Mittente;
+  operator?: string;
   [extra: string]: unknown;
 }
 
