@@ -27,11 +27,11 @@ export const VistaGiacenze: Vista = {
       <div class="detail-section-title">Informazioni</div>
       <div class="detail-field"><span class="df-label">Codice</span><span class="df-value mono">${this._esc(code)}</span></div>
       <div class="detail-field"><span class="df-label">Stato</span><span class="df-value"><span class="badge badge-${status === 'occupied' ? 'green' : status === 'blocked' ? 'red' : status === 'reserved' ? 'amber' : 'muted'}">${status}</span></span></div>
-      ${meta?.blocked_reason ? `<div class="detail-field"><span class="df-label">Motivo</span><span class="df-value" style="font-size: var(--md-sys-typescale-body-small-size)">${this._esc(meta.blocked_reason)}</span></div>` : ''}
+      ${meta?.blocked_reason ? `<div class="detail-field"><span class="df-label">Motivo</span><span class="df-value text-body-small">${this._esc(meta.blocked_reason)}</span></div>` : ''}
     </div>
     <div class="detail-section">
       <div class="detail-section-title">Azioni Stato</div>
-      <div class="flex gap-sm" style="flex-wrap:wrap">
+      <div class="flex gap-sm flex-wrap">
         ${status !== 'blocked' && status !== 'disabled' ? `<button class="btn btn-sm btn-danger" onclick="App.setLocStatus('${code}','blocked')">🚫 Blocca</button>` : ''}
         ${status !== 'reserved' && status !== 'disabled' ? `<button class="btn btn-sm btn-warning" onclick="App.setLocStatus('${code}','reserved')">📋 Riserva</button>` : ''}
         ${(status === 'blocked' || status === 'reserved') ? `<button class="btn btn-sm btn-success" onclick="App.setLocStatus('${code}','empty')">✓ Libera</button>` : ''}
@@ -42,7 +42,7 @@ export const VistaGiacenze: Vista = {
     <div class="detail-section">
       <div class="detail-section-title">Item presenti (${items.length})</div>`;
     if (!items.length) {
-      html += '<div class="empty-state" style="padding:0.75rem"><p>Nessun item</p></div>';
+      html += '<div class="empty-state p-7.5"><p>Nessun item</p></div>';
     } else {
       html += '<div class="item-list">';
       for (const item of items) {
@@ -52,8 +52,8 @@ export const VistaGiacenze: Vista = {
         html += `<div class="item-card">
           <div class="item-card-header">
             <span class="item-code">${this._esc(item.article_code)}</span>
-            <span style="font-weight:700;color:var(--sx-accent);font-size: var(--md-sys-typescale-body-small-size)">${qty} Coll.</span>
-            ${quarantined ? '<span class="badge" style="background:var(--sx-purple-soft);color:var(--sx-purple);border:1px solid var(--sx-purple)" title="Item già in quarantena">🔒 NC</span>' : ''}
+            <span class="font-bold text-sx-accent text-body-small">${qty} Coll.</span>
+            ${quarantined ? '<span class="badge bg-sx-purple-soft text-sx-purple border border-sx-purple" title="Item già in quarantena">🔒 NC</span>' : ''}
           </div>
           <div class="item-desc">${this._esc(item.article_description || '—')}</div>
           <div class="item-lot">Lotto: ${this._esc(item.lot_code)}</div>
@@ -76,8 +76,8 @@ export const VistaGiacenze: Vista = {
     }
     html += `</div>
       <div class="detail-section">
-        <button class="btn btn-success" style="width:100%" onclick="App.showAddItemModal('${code}')">+ Aggiungi item</button>
-        <p style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.45rem;line-height:1.5">
+        <button class="btn btn-success w-full" onclick="App.showAddItemModal('${code}')">+ Aggiungi item</button>
+        <p class="text-label-small text-sx-text-muted mt-4.5 leading-[1.5]">
           L’uscita di giacenza non si esegue da qui: usare <strong>Movimenta → Smaltire</strong>,
           che registra il movimento con la sua causale.
         </p>
@@ -91,25 +91,24 @@ export const VistaGiacenze: Vista = {
     const qty = item.qty || 1;
     this.showModal(
       `🔀 Trasferimento — da ${this._esc(locationCode)}`,
-      `<div style="background:var(--sx-bg-alt);border:1px solid var(--sx-border);border-radius:var(--radius-md);padding:0.55rem 0.75rem;margin-bottom:0.85rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">
-        <span class="mono" style="font-weight:700;color:var(--sx-primary)">${this._esc(item.article_code)}</span>
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+        <span class="mono font-bold text-sx-primary">${this._esc(item.article_code)}</span>
         ${this._esc(item.article_description || '')}<br>
-        Lotto <strong>${this._esc(item.lot_code)}</strong> · giacenza <strong style="color:var(--sx-accent)">${qty} Coll.</strong>
+        Lotto <strong>${this._esc(item.lot_code)}</strong> · giacenza <strong class="text-sx-accent">${qty} Coll.</strong>
         ${item.expiry_date ? ` · Scad. ${this._esc(item.expiry_date)}` : ''}
       </div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group">
           <label>Ubicazione di destinazione <span class="req">*</span></label>
-          <input class="input input-mono" id="moveItemDest" placeholder="Scansiona o digita" autofocus
-            style="text-transform:uppercase" maxlength="${Validate.MAX.LOC_CODE}"
+          <input class="input input-mono uppercase" id="moveItemDest" placeholder="Scansiona o digita" autofocus maxlength="${Validate.MAX.LOC_CODE}"
             oninput="this.value=this.value.toUpperCase();App._moveItemDestPreview()"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App.doMoveItem('${this._esc(locationCode)}','${this._esc(itemKey)}')}">
-          <div id="moveItemDestPrev" style="font-size: var(--md-sys-typescale-label-small-size);margin-top:0.2rem;min-height:1em"></div>
+          <div class="text-label-small mt-2 min-h-[1em]" id="moveItemDestPrev"></div>
         </div>
         <div class="form-group">
           <label>Colli da spostare <span class="req">*</span></label>
           <input class="input input-mono" id="moveItemQty" type="number" min="1" max="${qty}" value="${qty}">
-          <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.2rem">Massimo ${qty} — lasciando ${qty} si sposta l’intera riga</div>
+          <div class="text-label-small text-sx-text-muted mt-2">Massimo ${qty} — lasciando ${qty} si sposta l’intera riga</div>
         </div>
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
@@ -125,14 +124,14 @@ export const VistaGiacenze: Vista = {
     const dest = Validate.clean($('moveItemDest')?.value, true).replace(/'/g, '-');
     if (!dest) { el.innerHTML = ''; return; }
     if (!Store.locationExists(dest)) {
-      el.innerHTML = '<span style="color:var(--sx-danger)">✗ Ubicazione inesistente</span>';
+      el.innerHTML = '<span class="text-sx-danger">✗ Ubicazione inesistente</span>';
       return;
     }
     const st = Store.getLocationStatus(dest);
     const n = Store.getItemsAtLocation(dest).length;
-    if (st === 'blocked')  { el.innerHTML = '<span style="color:var(--sx-danger)">✗ Ubicazione BLOCCATA</span>'; return; }
-    if (st === 'disabled') { el.innerHTML = '<span style="color:var(--sx-danger)">✗ Ubicazione DISATTIVATA</span>'; return; }
-    el.innerHTML = `<span style="color:var(--sx-success)">✓ ${this._esc(dest)}</span> <span style="color:var(--sx-text-muted)">— ${st}${n ? ` · ${n} item già presenti` : ' · vuota'}</span>`;
+    if (st === 'blocked')  { el.innerHTML = '<span class="text-sx-danger">✗ Ubicazione BLOCCATA</span>'; return; }
+    if (st === 'disabled') { el.innerHTML = '<span class="text-sx-danger">✗ Ubicazione DISATTIVATA</span>'; return; }
+    el.innerHTML = `<span class="text-sx-success">✓ ${this._esc(dest)}</span> <span class="text-sx-text-muted">— ${st}${n ? ` · ${n} item già presenti` : ' · vuota'}</span>`;
   },
 
   async doMoveItem(locationCode, itemKey) {
@@ -157,39 +156,39 @@ export const VistaGiacenze: Vista = {
     /* v1.1.0 [N3] — Senza area NC la quarantena non parte piu': il messaggio
        lo dice qui, prima che l'operatore compili tre campi per niente. */
     const destInfo = nearest
-      ? `<div class="mov-preview mov-preview-err" style="margin-bottom:0.6rem">
-          <strong>📍 Ubicazione NC di destinazione:</strong> <span class="mono" style="font-weight:700">${this._esc(nearest.code)}</span>
-          <span style="color:var(--sx-text-muted);font-size: var(--md-sys-typescale-label-small-size)"> (${this._esc(nearest.zoneName)}${nearest.hasItems ? ' — già contiene item' : ' — vuota'})</span>
+      ? `<div class="mov-preview mov-preview-err mb-6">
+          <strong>📍 Ubicazione NC di destinazione:</strong> <span class="mono font-bold">${this._esc(nearest.code)}</span>
+          <span class="text-sx-text-muted text-label-small"> (${this._esc(nearest.zoneName)}${nearest.hasItems ? ' — già contiene item' : ' — vuota'})</span>
         </div>`
-      : `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.6rem">
+      : `<div class="mov-preview mov-preview-warn mb-6">
           <strong>⛔ Nessuna ubicazione BLOCCATA configurata.</strong> La quarantena non può partire:
           scegliere in Mappa un'ubicazione da destinare alle NC e premere «Blocca».
         </div>`;
     this.showModal(
       `🚫 Quarantena item — ${this._esc(locationCode)}`,
-      `<div style="background:var(--sx-bg-alt);border:1px solid var(--sx-border);border-radius:var(--radius-md);padding:0.55rem 0.75rem;margin-bottom:0.85rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">
-        <span class="mono" style="font-weight:700;color:var(--sx-purple)">${this._esc(item.article_code)}</span>
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+        <span class="mono font-bold text-sx-purple">${this._esc(item.article_code)}</span>
         ${this._esc(item.article_description || '')}<br>
         Lotto <strong>${this._esc(item.lot_code)}</strong> · <strong>${item.qty || 1} Coll.</strong>
       </div>
       ${destInfo}
       <!-- v1.1.0 [N2] — Colli da bloccare: la scheda ubicazione ha l'item
            davanti e puo' bloccarne una parte, come la maschera di Movimenta. -->
-      <div style="display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.6rem">
-        <div class="form-group" style="width:150px;margin-bottom:0">
-          <label style="white-space:nowrap">Colli da bloccare <span class="req">*</span></label>
-          <input class="input input-mono" id="qiQty" type="number" min="1" step="1" max="${item.qty || 1}"
-            value="${item.qty || 1}" style="text-align:center;font-weight:700">
+      <div class="flex gap-6 items-end flex-wrap mb-6">
+        <div class="form-group w-[150px] mb-0">
+          <label class="whitespace-nowrap">Colli da bloccare <span class="req">*</span></label>
+          <input class="input input-mono text-center font-bold" id="qiQty" type="number" min="1" step="1" max="${item.qty || 1}"
+            value="${item.qty || 1}">
         </div>
-        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);padding-bottom:0.4rem;flex:1">
+        <div class="text-label-small text-sx-text-muted pb-4 flex-1">
           Presenti <strong>${item.qty || 1} Coll.</strong> — bloccarne meno lascia gli altri conformi e utilizzabili.
         </div>
       </div>
-      <div class="form-group" style="margin-bottom:0.6rem">
+      <div class="form-group mb-6">
         <label>Motivo del blocco <span class="req">*</span></label>
         <textarea class="input textarea" id="qiReason" rows="2" maxlength="${Validate.MAX.REASON}" placeholder="Descrivi il motivo della non conformità…" autofocus></textarea>
       </div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group">
           <label>Operatore <span class="req">*</span></label>
           <input class="input" id="qiOperator" maxlength="${Validate.MAX.OPERATOR}" placeholder="Nome operatore" value="${this._esc(this.currentOperator || '')}">
@@ -286,22 +285,22 @@ export const VistaGiacenze: Vista = {
 
     this.showModal(
       `✏️ Modifica Item — ${this._esc(locationCode)}`,
-      `<div style="background:var(--sx-bg-alt);border:1px solid var(--sx-border);border-radius:var(--radius-md);padding:0.55rem 0.75rem;margin-bottom:0.85rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">
-        <span class="mono" style="font-weight:700;color:var(--sx-primary)">${this._esc(item.article_code)}</span> ·
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+        <span class="mono font-bold text-sx-primary">${this._esc(item.article_code)}</span> ·
         Lotto <strong>${this._esc(item.lot_code)}</strong> ·
         📅 Inserito: ${fmtDate(item.placed_at)}
       </div>
 
-      <div style="background:var(--sx-warning-soft);border:1px solid var(--sx-warning);border-radius:var(--radius);padding:0.45rem 0.6rem;margin-bottom:0.85rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-warning)">
+      <div class="bg-sx-warning-soft border border-sx-warning rounded-[var(--radius)] py-4.5 px-6 mb-8.5 text-body-small text-sx-warning">
         ⚠ Modificare <strong>Codice Articolo</strong> o <strong>Lotto</strong> cambia l'identificativo dell'item e viene registrato nel log.
       </div>
 
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group">
           <label>Codice Articolo <span class="req">*</span></label>
-          <input class="input input-mono" id="editItemArt" value="${this._esc(item.article_code)}" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="editItemArt" value="${this._esc(item.article_code)}" maxlength="${Validate.MAX.ARTICLE_CODE}"
             oninput="this.value=this.value.toUpperCase();App._editItemArtLookup()">
-          <div id="editItemArtInfo" style="font-size: var(--md-sys-typescale-label-small-size);margin-top:0.15rem;color:var(--sx-text-muted)"></div>
+          <div class="text-label-small mt-1.5 text-sx-text-muted" id="editItemArtInfo"></div>
         </div>
         <div class="form-group">
           <label>Lotto <span class="req">*</span></label>
@@ -309,12 +308,12 @@ export const VistaGiacenze: Vista = {
         </div>
       </div>
 
-      <div class="form-group" style="margin-bottom:0.6rem">
+      <div class="form-group mb-6">
         <label>Descrizione Articolo</label>
         <input class="input" id="editItemDesc" value="${this._esc(item.article_description || '')}" maxlength="120" placeholder="Descrizione articolo">
       </div>
 
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group">
           <label>Data Scadenza</label>
           <input class="input" id="editItemExp" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10"
@@ -327,12 +326,12 @@ export const VistaGiacenze: Vista = {
         </div>
       </div>
 
-      <div class="form-group" style="margin-bottom:0.4rem">
+      <div class="form-group mb-4">
         <label>Note</label>
         <textarea class="input textarea" id="editItemNotes" rows="2" maxlength="${Validate.MAX.NOTES}" placeholder="Note operative (opzionale)">${this._esc(item.notes || '')}</textarea>
       </div>
 
-      <div id="editItemKeyWarn" style="display:none;background:var(--sx-danger-soft);border:1px solid var(--sx-danger);border-radius:var(--radius);padding:0.45rem 0.6rem;margin-top:0.5rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger)">
+      <div class="hidden bg-sx-danger-soft border border-sx-danger rounded-[var(--radius)] py-4.5 px-6 mt-5 text-body-small text-sx-danger" id="editItemKeyWarn">
         ⚠ <strong>Cambio identificativo:</strong> il codice articolo o il lotto sono stati modificati. L'operazione ricreerà l'item con il nuovo ID e verrà tracciata nel log movimenti.
       </div>`,
 
@@ -352,12 +351,12 @@ export const VistaGiacenze: Vista = {
     if (!info) return;
     const art = Store.getArticle(code);
     if (art) {
-      info.innerHTML = `<span style="color:var(--sx-success)">✓</span> ${this._esc(art.description)} <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
+      info.innerHTML = `<span class="text-sx-success">✓</span> ${this._esc(art.description)} <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
       // Suggerisce descrizione se campo vuoto
       const descEl = $('editItemDesc');
       if (descEl && !descEl.value.trim()) descEl.value = art.description;
     } else if (code) {
-      info.innerHTML = `<span style="color:var(--sx-warning)">⚠ Codice non in anagrafica — verrà aggiunto automaticamente al salvataggio</span>`;
+      info.innerHTML = `<span class="text-sx-warning">⚠ Codice non in anagrafica — verrà aggiunto automaticamente al salvataggio</span>`;
     } else {
       info.innerHTML = '';
     }
@@ -440,25 +439,25 @@ export const VistaGiacenze: Vista = {
     let artOptions = '<option value="">— Seleziona o digita nuovo —</option>';
     for (const a of articles) artOptions += `<option value="${this._esc(a.code)}" data-desc="${this._esc(a.description)}">${this._esc(a.code)} — ${this._esc(a.description)}</option>`;
     this.showModal(`Aggiungi Item — ${locationCode}`, `
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Articolo esistente</label>
+      <div class="form-group mb-6"><label>Articolo esistente</label>
         <select class="select" id="itemArticleSelect" onchange="App.onArticleSelect()">${artOptions}</select></div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Codice Articolo <span class="req">*</span></label>
-          <input class="input input-mono" id="itemArticleCode" placeholder="MP-001234" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"></div>
+          <input class="input input-mono uppercase" id="itemArticleCode" placeholder="MP-001234" maxlength="${Validate.MAX.ARTICLE_CODE}"></div>
         <div class="form-group"><label>Descrizione <span class="req">*</span></label>
           <input class="input" id="itemArticleDesc" placeholder="Vitamina C 500mg" maxlength="${Validate.MAX.ARTICLE_DESC}"></div>
       </div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Codice Lotto <span class="req">*</span></label>
           <input class="input input-mono" id="itemLotCode" placeholder="L240815" maxlength="${Validate.MAX.LOT_CODE}"></div>
         <div class="form-group"><label>Scadenza (opz.)</label>
           <input class="input" id="itemExpiry" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" oninput="App._dateMaskInput(this)" onblur="App._dateMaskBlur(this)"></div>   <!-- v2.3.0 [D1]: era type=month -->
       </div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Colli <span class="req">*</span></label>
-          <input class="input input-mono" id="itemQty" type="number" min="1" step="1" value="1" style="text-align:center;font-weight:700"></div>
+          <input class="input input-mono text-center font-bold" id="itemQty" type="number" min="1" step="1" value="1"></div>
         <div class="form-group"><label>&nbsp;</label>
-          <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);padding-top:0.4rem">Se il lotto è già presente, i colli si sommano.</div></div>
+          <div class="text-label-small text-sx-text-muted pt-4">Se il lotto è già presente, i colli si sommano.</div></div>
       </div>
       <div class="form-group"><label>Note</label>
         <input class="input" id="itemNotes" placeholder="Opzionale" maxlength="${Validate.MAX.NOTES}"></div>
