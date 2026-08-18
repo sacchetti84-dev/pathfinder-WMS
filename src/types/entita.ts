@@ -332,6 +332,16 @@ export interface SessionePrelievo {
   created_at: Istante;
   odp_num?: string;
   stops?: unknown[];
+  /** La testata dell ODP e chi sta prelevando: erano gia nel record, e il
+      rapporto di prelievo li leggeva attraverso l indice generico. */
+  odp_article?: string;
+  odp_article_desc?: string;
+  odp_lot?: string;
+  odp_qty?: string | number;
+  operator?: string;
+  offroute?: unknown[];
+  notes?: unknown[];
+  warnings?: string[];
   [extra: string]: unknown;
 }
 
