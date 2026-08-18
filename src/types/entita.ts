@@ -293,6 +293,10 @@ export interface DocumentoUscita {
   transport_by?: string;
   start_transport?: string;
   doc_notes?: string;
+  /** LEGACY 1.8.3 — i pezzi totali, quando un documento poteva averne uno
+      solo. Dalla 1.8.4 non si scrive piu': le UM stanno sulla riga, e con
+      righe in unita' diverse un totale unico non significa niente. Resta
+      dichiarato perche' i documenti gia' scritti lo portano. */
   pieces_total?: number | null;
   peso_netto?: string;
   peso_lordo?: string;

@@ -8,7 +8,7 @@ import {
   normalizzaNome as normalizzaNomeRcp, destinazionePredefinita, descriviDestinazione,
 } from '../../modules/destinatari';
 import { uscite as uscitePerIlServizio, totaleUom as totaleUomColli, descriviColli } from '../../modules/colli';
-import { formattaQuantita } from '../../modules/misure';
+import { formattaQuantita, sommaUom as sommaUomColli } from '../../modules/misure';
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 
@@ -76,7 +76,7 @@ export const VistaSpedizioni = {
       ? `<datalist id="shipRecipients">${nomi.map(n => `<option value="${this._esc(n)}"></option>`).join('')}</datalist>`
       : '';
 
-    const w = this._shipComputeWeights();
+    const totaliUom = this._ddtTotaliUom(cart);
 
     el.innerHTML = `<div class="mov-form-card">
       <h3>🚚 <span class="text-sx-orange">Spedizioni</span> — Documenti di trasporto in uscita</h3>
@@ -235,12 +235,12 @@ export const VistaSpedizioni = {
 
           <!-- ── TESTATA: pesi ── -->
           <div class="ddt-block">
-            <div class="ddt-block-lbl">⚖ Pesi <span class="font-normal normal-case tracking-[0]">— calcolati dall'anagrafica, correggibili a mano</span></div>
+            <div class="ddt-block-lbl">⚖ Pesi <span class="font-normal normal-case tracking-[0]">— si scrivono a mano</span></div>
             <div class="form-row mb-0">
               <div class="form-group">
                 <label>Peso netto (kg)</label>
                 <input class="input input-mono" id="pShipPesoNetto" inputmode="decimal" maxlength="12"
-                  placeholder="${w.net != null ? this._fmtKg(w.net) : 'non calcolabile'}"
+                  placeholder="kg"
                   value="${this._esc(this._shipPesoNetto)}" onchange="App._persistShipHeader()">
               </div>
               <div class="form-group">
@@ -251,11 +251,9 @@ export const VistaSpedizioni = {
               </div>
             </div>
             <div class="text-label-small text-sx-text-muted mt-3">
-              ${w.missing.length
-                ? `⚠ Peso non censito in anagrafica per: <strong>${this._esc(w.missing.slice(0, 4).join(', '))}${w.missing.length > 4 ? ` e altri ${w.missing.length - 4}` : ''}</strong> — il netto va scritto a mano.`
-                : (w.net != null
-                    ? `Netto calcolato sulle righe in carrello: <strong>${this._fmtKg(w.net)} kg</strong>${w.pieces != null ? ` · ${w.pieces} pz` : ''}. Lasciando il campo vuoto va sul DDT questo valore.`
-                    : 'Aggiungi righe al carrello per il calcolo automatico.')}
+              I pesi non si calcolano: un documento puo' portare una riga in KG e una in PZ,
+              e nessun conto sull'anagrafica sa quanto pesa insieme. Li scrive chi ha caricato.
+              ${totaliUom ? `Sul carrello: <strong>${this._esc(totaliUom)}</strong>.` : ''}
             </div>
           </div>
 
@@ -386,24 +384,21 @@ export const VistaSpedizioni = {
     this.toast(`Destinazione: ${descriviDestinazione(d)}`, 'success');
   },
 
-  _shipComputeWeights(lines = null) {
-    const rows = lines || this._shipCart;
-    if (!rows.length) return { net: null, pieces: null, missing: [] };
-    let net = 0, pieces = 0, anyPieces = false;
-    const missing: string[] = [];
-    for (const r of rows) {
-      const a = Store.getArticle(r.article_code);
-      const wu = a && Number(a.weight_net_kg) > 0 ? Number(a.weight_net_kg) : null;
-      if (wu === null) { if (!missing.includes(r.article_code)) missing.push(r.article_code); }
-      else net += wu * (r.qty || 0);
-      const pp = a && Number(a.pieces_per_pack) > 0 ? Number(a.pieces_per_pack) : null;
-      if (pp !== null) { pieces += pp * (r.qty || 0); anyPieces = true; }
+  /* I TOTALI IN UM, UNO PER UNITA'.
+
+     Un DDT puo' portare una riga in KG e una in PZ, e sommarle darebbe un
+     numero che non significa niente. Si contano separatamente e si scrivono
+     accanto: «57 KG · 120 PZ». E' anche la ragione per cui i pesi netto e
+     lordo si digitano a mano — fino alla 1.8.3 il netto lo proponeva
+     l'anagrafica, moltiplicando un peso per collo per il numero di colli, e
+     su colli di misura diversa quel prodotto e' falso. */
+  _ddtTotaliUom(lines) {
+    const per = new Map<string, number>();
+    for (const l of lines) {
+      if (l.qty_uom == null || !l.uom) continue;
+      per.set(l.uom, sommaUomColli(per.get(l.uom) ?? 0, l.qty_uom, l.uom));
     }
-    return {
-      net: missing.length ? null : Math.round(net * 1000) / 1000,
-      pieces: anyPieces ? pieces : null,
-      missing
-    };
+    return [...per.entries()].map(([u, q]) => `${formattaQuantita(q, u)} ${u}`).join(' · ');
   },
 
   /* Lista dei DDT pendenti, tutti, ordinati per urgenza di ritiro.
@@ -727,8 +722,8 @@ export const VistaSpedizioni = {
   _shipCartZoneHTML() {
     const n = this._shipCart.length;
     const totalColli = (this._shipCart as VoceCarrelloDDT[]).reduce((s, r) => s + (r.qty || 0), 0);
-    const w = this._shipComputeWeights();
-    const wLabel = w.net != null ? ` <span class="dlg-chip">${this._fmtKg(w.net)} kg</span>` : '';
+    const totaliUom = this._ddtTotaliUom(this._shipCart);
+    const wLabel = totaliUom ? ` <span class="dlg-chip">${this._esc(totaliUom)}</span>` : '';
     return `<div class="flex justify-between items-center mt-7 mx-0 mb-3.5">
         <strong class="text-body-medium">🛒 Carrello Bozza <span class="text-sx-orange">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>${wLabel}` : ''}</strong>
         ${n ? '<button class="btn btn-sm btn-ghost" onclick="App._shipClearCart()">Svuota</button>' : ''}
@@ -840,7 +835,6 @@ export const VistaSpedizioni = {
 
     const totalColli = (this._shipCart as VoceCarrelloDDT[]).reduce((s, it) => s + (it.qty || 1), 0);
     const causale = Store.getCausale(this._shipCausale);
-    const w = this._shipComputeWeights();
 
     // v2.0.0+ — warning se data ritiro è oggi/passata o non specificata
     let dateWarn = '';
@@ -888,9 +882,11 @@ export const VistaSpedizioni = {
         transport_by: this._shipTrasporto,
         porto: this._shipPorto,
         aspetto: this._shipAspetto,
-        peso_netto: this._shipPesoNetto || (w.net != null ? String(w.net) : ''),
+        /* 1.8.4 — quel che c'e' scritto, e nient'altro: il netto proposto
+           dall'anagrafica moltiplicava un peso per collo per il numero di
+           colli, ed e' falso appena i colli hanno misure diverse. */
+        peso_netto: this._shipPesoNetto,
         peso_lordo: this._shipPesoLordo,
-        pieces_total: w.pieces,
         start_transport: this._shipStartTransport,
         doc_notes: this._shipDocNotes,
         expected_pickup_date: this._shipExpectedDate, // v2.0.0+
@@ -1071,10 +1067,9 @@ export const VistaSpedizioni = {
       ? new Date(ms).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
       : '—';
 
-    const w = this._shipComputeWeights(doc.lines);
-    const pesoNetto = doc.peso_netto || (w.net != null ? this._fmtKg(w.net) : '');
+    const pesoNetto = doc.peso_netto || '';
     const pesoLordo = doc.peso_lordo || '';
-    const pezzi = doc.pieces_total != null ? doc.pieces_total : w.pieces;
+    const totaliUom = this._ddtTotaliUom(doc.lines);
 
     // Mittente congelato nel documento, altrimenti quello corrente
     const sender = (doc.sender && doc.sender.name) ? doc.sender : null;
@@ -1089,8 +1084,13 @@ export const VistaSpedizioni = {
     ].filter(Boolean).join(' — ');
 
     const rows = doc.lines.map((l, i) => {
-      const a = Store.getArticle(l.article_code);
-      const pp = a && Number(a.pieces_per_pack) > 0 ? Number(a.pieces_per_pack) : null;
+      /* 1.8.4 — LA QUANTITA' DELLA RIGA E' QUELLA DEI COLLI CHE ESCONO, non
+         un prodotto sull'anagrafica: `pieces_per_pack × colli` e' falso
+         appena la riga porta colli di misura diversa, ed e' quel che questa
+         colonna stampava. Un documento scritto prima della 1.8.4 le UM non
+         le porta, e allora la cella resta vuota: un documento si rilegge,
+         non si ricostruisce. */
+      const um = (l.qty_uom != null && l.uom) ? `${formattaQuantita(l.qty_uom, l.uom)} ${l.uom}` : '—';
       return `<tr>
         <td class="c-idx">${i+1}</td>
         <td class="c-art">${this._esc(l.article_code)}</td>
@@ -1098,7 +1098,7 @@ export const VistaSpedizioni = {
         <td class="c-lot">${this._esc(l.lot_code)}</td>
         <td class="c-exp">${this._esc(this._dateISOtoIT(l.expiry_date) || l.expiry_date || '—')}</td>
         <td class="c-qty">${l.qty}</td>
-        <td class="c-pcs">${pp != null ? pp * l.qty : '—'}</td>
+        <td class="c-pcs">${this._esc(um)}</td>
         <td class="c-note">${this._esc(l.notes || '')}</td>
       </tr>`;
     }).join('');
@@ -1152,7 +1152,7 @@ export const VistaSpedizioni = {
             <th class="c-lot">Lotto</th>
             <th class="c-exp">Scadenza</th>
             <th class="c-qty">Colli</th>
-            <th class="c-pcs">Pezzi</th>
+            <th class="c-pcs">Quantità</th>
             <th class="c-note">Note</th>
           </tr></thead>
           <tbody>${rows}</tbody>
@@ -1167,7 +1167,7 @@ export const VistaSpedizioni = {
              riga della griglia. -->
         <div class="ddt-totals">
           ${this._docCell('Numero colli', String(totalColli))}
-          ${this._docCell('Pezzi totali', pezzi != null ? String(pezzi) : '')}
+          ${this._docCell('Quantità totale', totaliUom)}
           ${this._docCell('Peso netto (kg)', pesoNetto)}
           ${this._docCell('Peso lordo (kg)', pesoLordo)}
           ${this._docCell('Porto', doc.porto)}
