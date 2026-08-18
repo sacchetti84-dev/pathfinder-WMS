@@ -19,55 +19,55 @@ export const VistaPosiziona: Vista = {
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① UBICAZIONE</span> → <span class="wf-step">② ARTICOLO</span> → <span class="wf-step">③ LOTTO</span> → INVIO per confermare. L'ubicazione resta fissa per posizionamenti multipli.
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>① Ubicazione <span class="req">*</span></label>
-        <div style="display:flex;gap:0.3rem">
-          <input class="input input-mono" id="mInLoc" placeholder="Scansiona ubicazione" maxlength="${Validate.MAX.LOC_CODE}" style="flex:1"
+        <div class="flex gap-3">
+          <input class="input input-mono flex-1" id="mInLoc" placeholder="Scansiona ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('mInLoc');App._previewLoc('mInLoc','mInLocPrev')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('mInLoc');App._previewLoc('mInLoc','mInLocPrev');$('mInArtCode').focus();}">
           <button class="btn btn-sm" onclick="App._pickLoc('mInLoc','_cbPickIn')" title="Sfoglia">📍</button>
         </div>
         <div id="mInLocPrev"></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>② Codice Articolo <span class="req">*</span></label>
-        <input class="input input-mono" id="mInArtCode" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+        <input class="input input-mono uppercase" id="mInArtCode" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
           oninput="App._anteprimaUmIn()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._autoLookupArticle('mInArtCode','mInArtInfo','mInArtDesc');$('mInLot').focus();}">
-        <div id="mInArtInfo" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem"></div>
+        <div class="text-label-small text-sx-text-muted mt-1.5" id="mInArtInfo"></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>③ Codice Lotto <span class="req">*</span></label>
         <input class="input input-mono" id="mInLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           oninput="App._anteprimaUmIn()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('mInQty').focus();$('mInQty').select();}">
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>④ Colli <span class="req">*</span></label>
-        <input class="input input-mono" id="mInQty" type="number" min="1" step="1" value="1" style="max-width:120px;text-align:center;font-weight:700"
+        <input class="input input-mono max-w-[120px] text-center font-bold" id="mInQty" type="number" min="1" step="1" value="1"
           oninput="App._colliQtyInput()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._execPosiziona();}">
-        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">Se il lotto è già in ubicazione, i colli si sommano.</div>
+        <div class="text-label-small text-sx-text-muted mt-1.5">Se il lotto è già in ubicazione, i colli si sommano.</div>
       </div>
       ${this._campoUmIngresso()}
-      <details id="mInDetails" style="margin-bottom:0.5rem">
-        <summary style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);cursor:pointer">▾ Descrizione · Scadenza · Note</summary>
-        <div style="padding-top:0.4rem">
-          <div class="form-group" style="margin-bottom:0.4rem"><label>Descrizione</label><input class="input" id="mInArtDesc" maxlength="${Validate.MAX.ARTICLE_DESC}" placeholder="Auto-compilata se articolo noto"></div>
-          <div style="display:flex;gap:0.4rem">
-            <div class="form-group" style="flex:1"><label>Scadenza</label><input class="input" id="mInExp" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" oninput="App._dateMaskInput(this)" onblur="App._dateMaskBlur(this)"></div>
-            <div class="form-group" style="flex:1"><label>Note</label><input class="input" id="mInNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Opzionale"></div>
+      <details class="mb-5" id="mInDetails">
+        <summary class="text-body-small text-sx-text-muted cursor-pointer">▾ Descrizione · Scadenza · Note</summary>
+        <div class="pt-4">
+          <div class="form-group mb-4"><label>Descrizione</label><input class="input" id="mInArtDesc" maxlength="${Validate.MAX.ARTICLE_DESC}" placeholder="Auto-compilata se articolo noto"></div>
+          <div class="flex gap-4">
+            <div class="form-group flex-1"><label>Scadenza</label><input class="input" id="mInExp" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" oninput="App._dateMaskInput(this)" onblur="App._dateMaskBlur(this)"></div>
+            <div class="form-group flex-1"><label>Note</label><input class="input" id="mInNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Opzionale"></div>
           </div>
         </div>
       </details>
-      <div style="display:flex;gap:0.4rem">
-        <button class="btn btn-success" style="flex:1;padding:0.55rem;font-weight:700" onclick="App._execPosiziona()">✓ CONFERMA POSIZIONAMENTO</button>
+      <div class="flex gap-4">
+        <button class="btn btn-success flex-1 p-5.5 font-bold" onclick="App._execPosiziona()">✓ CONFERMA POSIZIONAMENTO</button>
       </div>
-      <div id="mInFeedback" style="margin-top:0.4rem"></div>
+      <div class="mt-4" id="mInFeedback"></div>
       <div class="kbd-hint">
-        <span class="kbd">INVIO</span><span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">avanza al campo successivo</span>
-        <span class="kbd">ESC</span><span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">chiude il modulo</span>
-        <span class="kbd">F9</span><span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">annulla l'ultima operazione</span>
+        <span class="kbd">INVIO</span><span class="text-body-small text-sx-text-muted">avanza al campo successivo</span>
+        <span class="kbd">ESC</span><span class="text-body-small text-sx-text-muted">chiude il modulo</span>
+        <span class="kbd">F9</span><span class="text-body-small text-sx-text-muted">annulla l'ultima operazione</span>
       </div>`;
     this.setPrimaryScanField('mInLoc');
   },
@@ -86,11 +86,10 @@ export const VistaPosiziona: Vista = {
        come la merce arriva davvero. */
     if (Store.colliOn()) return this._campoColliIngresso();
     return `
-      <div class="form-group" style="margin-bottom:0.5rem" id="mInUmBox" hidden>
-        <label>Quantità totale in <span id="mInUmSigla" class="mono"></span> <span style="font-weight:400;color:var(--sx-text-muted)">— solo se l'ultimo collo non è pieno</span></label>
-        <input class="input input-mono" id="mInUmQty" type="number" min="0" step="0.001" placeholder="vuoto = colli pieni"
-          style="max-width:180px;text-align:center" oninput="App._anteprimaUmIn()">
-        <div id="mInUmPrev" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem"></div>
+      <div class="form-group mb-5" id="mInUmBox" hidden>
+        <label>Quantità totale in <span id="mInUmSigla" class="mono"></span> <span class="font-normal text-sx-text-muted">— solo se l'ultimo collo non è pieno</span></label>
+        <input class="input input-mono max-w-[180px] text-center" id="mInUmQty" type="number" min="0" step="0.001" placeholder="vuoto = colli pieni" oninput="App._anteprimaUmIn()">
+        <div class="text-label-small text-sx-text-muted mt-1.5" id="mInUmPrev"></div>
       </div>`;
   },
 
@@ -105,11 +104,11 @@ export const VistaPosiziona: Vista = {
 
   _campoColliIngresso() {
     return `
-      <div class="form-group" style="margin-bottom:0.5rem" id="mInColliBox" hidden>
+      <div class="form-group mb-5" id="mInColliBox" hidden>
         <label>Suddivisione dei colli — <span id="mInColliSigla" class="mono"></span></label>
         <div id="mInColliRighe"></div>
-        <button class="btn btn-sm" style="margin-top:0.3rem" onclick="App._colliRigaAdd()">+ altra misura</button>
-        <div id="mInColliPrev" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.25rem"></div>
+        <button class="btn btn-sm mt-3" onclick="App._colliRigaAdd()">+ altra misura</button>
+        <div class="text-label-small text-sx-text-muted mt-2.5" id="mInColliPrev"></div>
       </div>`;
   },
 
@@ -146,13 +145,11 @@ export const VistaPosiziona: Vista = {
     const box = $('mInColliRighe');
     if (!box) return;
     box.innerHTML = this._colliIn.map((r: any, i: any) => `
-      <div style="display:flex;gap:0.3rem;align-items:center;margin-bottom:0.25rem">
-        <input class="input input-mono" type="number" min="1" step="1" value="${this._esc(String(r.colli ?? ''))}"
-          style="max-width:90px;text-align:center" placeholder="colli"
+      <div class="flex gap-3 items-center mb-2.5">
+        <input class="input input-mono max-w-[90px] text-center" type="number" min="1" step="1" value="${this._esc(String(r.colli ?? ''))}" placeholder="colli"
           oninput="App._colliRigaSet(${i},'colli',this.value)">
-        <span style="color:var(--sx-text-muted)">×</span>
-        <input class="input input-mono" type="number" min="0" step="0.001" value="${this._esc(String(r.per ?? ''))}"
-          style="max-width:130px;text-align:center" placeholder="dentro"
+        <span class="text-sx-text-muted">×</span>
+        <input class="input input-mono max-w-[130px] text-center" type="number" min="0" step="0.001" value="${this._esc(String(r.per ?? ''))}" placeholder="dentro"
           oninput="App._colliRigaSet(${i},'per',this.value)">
         <button class="btn btn-sm" title="Togli questa misura" onclick="App._colliRigaDel(${i})">✕</button>
       </div>`).join('');
@@ -264,15 +261,15 @@ export const VistaPosiziona: Vista = {
     overlay.className = 'modal-overlay';
     overlay.id = 'colliOverlay';
     overlay.innerHTML = `
-      <div class="modal" style="max-width:460px">
+      <div class="modal max-w-[460px]">
         <div class="modal-header"><h2>📦 ${this._esc(titolo)}</h2></div>
         <div class="modal-body">
-          <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.6rem">
+          <div class="text-body-small text-sx-text-secondary mb-6">
             <strong class="mono">${this._esc(item.article_code)}#${this._esc(item.lot_code)}</strong> in <strong class="mono">${this._esc(item.location_code)}</strong>
             — ${this._esc(descriviElenco(elenco, uom))}
           </div>
           <div id="colliSelRighe"></div>
-          <div id="colliSelPrev" style="margin-top:0.5rem;font-weight:700"></div>
+          <div class="mt-5 font-bold" id="colliSelPrev"></div>
         </div>
         <div class="modal-footer">
           <button class="btn" onclick="App._colliSelAnnulla()">Annulla</button>
@@ -292,11 +289,10 @@ export const VistaPosiziona: Vista = {
       const scelto = s.scelte.has(i);
       const parziale = s.scelte.get(i);
       return `
-        <div style="display:flex;gap:0.4rem;align-items:center;padding:0.25rem 0;border-bottom:1px solid var(--sx-border)">
+        <div class="flex gap-4 items-center py-2.5 px-0 border-b border-b-sx-border">
           <input type="checkbox" ${scelto ? 'checked' : ''} onchange="App._colliSelToggle(${i})">
-          <span style="flex:1">Collo ${i + 1} · <strong class="mono">${this._esc(formattaQuantita(q, s.uom))} ${this._esc(s.uom)}</strong></span>
-          ${scelto ? `<input class="input input-mono" type="number" min="0" step="0.001" max="${q}"
-              style="max-width:110px;text-align:center" placeholder="tutto"
+          <span class="flex-1">Collo ${i + 1} · <strong class="mono">${this._esc(formattaQuantita(q, s.uom))} ${this._esc(s.uom)}</strong></span>
+          ${scelto ? `<input class="input input-mono max-w-[110px] text-center" type="number" min="0" step="0.001" max="${q}" placeholder="tutto"
               value="${parziale === null || parziale === undefined ? '' : this._esc(String(parziale))}"
               title="Vuoto = il collo esce intero. Un numero più piccolo apre il collo e il resto torna a scaffale."
               oninput="App._colliSelQta(${i},this.value)">` : ''}
@@ -402,10 +398,10 @@ export const VistaPosiziona: Vista = {
     const info = $(infoId);
     const descEl = descId ? $(descId) : null;
     if (art) {
-      info.innerHTML = `<span style="color:var(--sx-success)">✓</span> <strong>${this._esc(art.description)}</strong> <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
+      info.innerHTML = `<span class="text-sx-success">✓</span> <strong>${this._esc(art.description)}</strong> <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
       if (descEl) descEl.value = art.description;
     } else {
-      info.innerHTML = `<span style="color:var(--sx-warning)">⚠ Nuovo articolo — compilare descrizione (obbligatoria)</span>`;
+      info.innerHTML = `<span class="text-sx-warning">⚠ Nuovo articolo — compilare descrizione (obbligatoria)</span>`;
       if (descEl) descEl.value = '';
       // espandi details per forzare compilazione
       $('mInDetails')?.setAttribute('open', '');
@@ -491,8 +487,8 @@ export const VistaPosiziona: Vista = {
     await this._logMov(MOV.IN, art, effectiveDesc, lot, loc, null, '', '', '', res.qty_before, qty, res.qty_after, res.qty_uom_delta);
 
     const fb = $('mInFeedback');
-    const modeLabel = res.mode === 'incremented' ? `<span style="color:var(--sx-warning)">⊕ INCREMENTATO</span>` : '';
-    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><span style="font-weight:700">✓ ${this._esc(art)}#${this._esc(lot)} → ${this._esc(loc)}</span> · <strong>+${qty} Coll.</strong> (saldo: ${res.qty_after}) ${modeLabel}</div>`;
+    const modeLabel = res.mode === 'incremented' ? `<span class="text-sx-warning">⊕ INCREMENTATO</span>` : '';
+    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><span class="font-bold">✓ ${this._esc(art)}#${this._esc(lot)} → ${this._esc(loc)}</span> · <strong>+${qty} Coll.</strong> (saldo: ${res.qty_after}) ${modeLabel}</div>`;
     const incrSuffix = res.mode === 'incremented' ? ` (saldo: ${res.qty_after})` : '';
     this.toast(`✓ Posizionato: ${art}#${lot} → ${loc} · +${qty} Coll.${incrSuffix}`, 'success');
     this.updateSyncIndicator();
