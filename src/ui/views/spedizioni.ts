@@ -539,8 +539,8 @@ export const VistaSpedizioni: Vista = {
       <span class="text-body-small text-sx-text-muted">Lotto: <strong>${this._esc(full.lot_code)}</strong> · Ubic: <strong class="mono">${this._esc(full.location_code)}</strong> · Disp. effettiva: <strong class="text-sx-orange">${availableQty} Coll.</strong> (tot. ${totalQty}${pendBadge})${expBadge}</span>
     </div>`;
     const qe = $('pShipQty');
-    if (qe) { qe.value = availableQty; qe.max = availableQty; }
-    const av = $('pShipAvail'); if (av) av.textContent = availableQty;
+    if (qe) { qe.value = String(availableQty); qe.max = String(availableQty); }
+    const av = $('pShipAvail'); if (av) av.textContent = String(availableQty);
     const notesEl = $('pShipNotes'); if (notesEl) notesEl.value = '';
     $('pShipDetails').classList.remove('hidden');
     qe?.focus();

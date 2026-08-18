@@ -399,7 +399,9 @@ export const VistaPosiziona: Vista = {
     const descEl = descId ? $(descId) : null;
     if (art) {
       info.innerHTML = `<span class="text-sx-success">✓</span> <strong>${this._esc(art.description)}</strong> <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
-      if (descEl) descEl.value = art.description;
+      /* DIFETTO NOTO — vedi `giacenze.ts`: senza descrizione qui finisce
+         la parola «undefined». */
+      if (descEl) descEl.value = art.description as string;
     } else {
       info.innerHTML = `<span class="text-sx-warning">⚠ Nuovo articolo — compilare descrizione (obbligatoria)</span>`;
       if (descEl) descEl.value = '';

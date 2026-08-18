@@ -1,4 +1,4 @@
-import { type Vista, $ } from './vista';
+import { type Vista, $, $sel } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
@@ -354,7 +354,10 @@ export const VistaGiacenze: Vista = {
       info.innerHTML = `<span class="text-sx-success">✓</span> ${this._esc(art.description)} <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
       // Suggerisce descrizione se campo vuoto
       const descEl = $('editItemDesc');
-      if (descEl && !descEl.value.trim()) descEl.value = art.description;
+      /* DIFETTO NOTO — un articolo senza descrizione scrive qui dentro la
+         parola «undefined», e da lì finisce sulla riga di giacenza. Si
+         corregge nel ciclo di debug: durante un trasloco non si tocca. */
+      if (descEl && !descEl.value.trim()) descEl.value = art.description as string;
     } else if (code) {
       info.innerHTML = `<span class="text-sx-warning">⚠ Codice non in anagrafica — verrà aggiunto automaticamente al salvataggio</span>`;
     } else {
@@ -466,8 +469,9 @@ export const VistaGiacenze: Vista = {
   },
 
   onArticleSelect() {
-    const sel = $('itemArticleSelect');
-    const opt = sel.options[sel.selectedIndex];
+    const sel = $sel('itemArticleSelect');
+    /* Il gestore parte da un cambio della tendina: una voce scelta c'e'. */
+    const opt = sel.options[sel.selectedIndex]!;
     if (opt.value) {
       $('itemArticleCode').value = opt.value;
       $('itemArticleDesc').value = opt.dataset.desc || '';

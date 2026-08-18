@@ -26,11 +26,17 @@ export type Vista = Record<
 
    `document.getElementById` restituisce `HTMLElement | null`, e queste
    maschere leggono `.value` da un campo che hanno appena disegnato loro.
-   Scriverci sopra un `as HTMLInputElement | null` sarebbe un ritocco su
-   duecento punti fatto durante un trasloco, ed è il modo in cui un trasloco
-   diventa una regressione.
 
-   `$` restituisce esattamente ciò che restituiva prima: se l'elemento non
-   c'è, `.value` esplode adesso come esplodeva ieri. */
-export const $ = (id: string): any => document.getElementById(id);
-export const $q = (sel: string): any => document.querySelector(sel);
+   `$` continua a comportarsi come prima — se l'elemento non c'è, `.value`
+   esplode adesso come esplodeva ieri — ma non è più `any`: dice
+   `HTMLInputElement`, che è quel che sono i duecento campi che passano di
+   qua, e da adesso chi ci scrive dentro un numero se lo sente dire. La
+   tendina ha un tipo suo, perché `options` e `selectedIndex` su un campo di
+   testo non esistono.
+
+   Quel che NON è un campo — un pannello, una fascia, una cella — si prende
+   con `document.getElementById` e basta: lì serve `HTMLElement | null`, e
+   quattro punti fra `movimenta` e `giacenze` lo facevano già. */
+export const $ = (id: string) => document.getElementById(id) as HTMLInputElement;
+export const $q = (sel: string) => document.querySelector(sel) as HTMLInputElement;
+export const $sel = (id: string) => document.getElementById(id) as HTMLSelectElement;

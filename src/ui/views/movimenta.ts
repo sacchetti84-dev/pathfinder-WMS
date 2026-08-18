@@ -155,7 +155,7 @@ export const VistaMovimenta: Vista = {
   },
 
   _onReadOnlyChange(readOnly) {
-    let el = $('readonlyBanner');
+    let el = document.getElementById('readonlyBanner');
     if (!readOnly) { el?.remove(); return; }
     if (!el) {
       el = document.createElement('div');
@@ -222,7 +222,7 @@ export const VistaMovimenta: Vista = {
      scopo e' essere fastidiosa. */
   _renderRecoveryBanner() {
     const n = this._recoveryQueue().length;
-    let el = $('recoveryBanner');
+    let el = document.getElementById('recoveryBanner');
     if (!n) { el?.remove(); return; }
     if (!el) {
       el = document.createElement('div');
