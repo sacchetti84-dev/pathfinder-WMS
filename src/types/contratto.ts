@@ -149,5 +149,6 @@ export interface Persistenza extends Capacita {
   deleteBackup?(filename: string): Promise<boolean>;
   readBackup?(filename: string): Promise<string>;
 
-  estimateUsage(): Promise<{ usage: number; quota: number | null; pct: number | null } | null>;
+  estimateUsage(): Promise<{ usage: number; quota: number | null; pct: number | null;
+                             remote?: boolean; file?: string } | null>;
 }

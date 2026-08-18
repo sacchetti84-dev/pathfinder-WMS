@@ -3,6 +3,7 @@ import { caricaExcel } from '../../modules/excel';
 import { LOG_RETENTION_DAYS, LOG_RETENTION_MS, MOV, MOV_LABELS } from '../../core/costanti';
 import { Persistence } from '../../core/persistence/index';
 import { Store } from '../../core/store';
+import type { Movimento, Articolo, Sito } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Vault } from '../../modules/vault';
 import { valoriAmmessi as valoriAmmessiUM } from '../../modules/misure';
@@ -13,10 +14,40 @@ import {
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 
+
+/* LE FORME DEGLI EXPORT.
+
+   Un foglio Excel è una matrice di celle, e le tabelle qui sotto la
+   costruiscono riga per riga. `Cella` è quel che ci si può mettere: il
+   resto sono i raggruppamenti che ogni foglio calcola prima di stenderlo. */
+type Cella = string | number | null | undefined;
+type Foglio = Cella[][];
+
+/* Una riga di giacenza arricchita di dove sta: sito, zona, e i nomi
+   leggibili che l'ubicazione da sola non porta. */
+type GiacenzaEstesa = {
+  siteName: string;
+  zoneName: string;
+  siteId: string;
+  location_code: string;
+  article_code: string;
+  article_description: string;
+  lot_code: string;
+  qty: number;
+  expiry_date: string;
+  placed_at_str: string;
+  last_updated_str: string;
+  placed_by: string;
+  notes: string;
+};
+
+/* Le righe che arrivano da un foglio Excel letto: intestazione → valore. */
+type RigaFoglio = Record<string, string | number | undefined>;
+
 export const VistaConfigDati: Vista = {
   _fmtUsage(est) {
     if (!est) return 'Non disponibile';
-    const mb = (b: any) => ((b || 0) / 1048576).toFixed(1);
+    const mb = (b: number | null | undefined) => ((b || 0) / 1048576).toFixed(1);
     if (est.pct == null || !est.quota) {
       /* Servizio dati: c'e' un file su un disco, non una quota del browser.
          Si dice quanto pesa e dove sta, che e' l'informazione utile. */
@@ -35,7 +66,7 @@ export const VistaConfigDati: Vista = {
   async _renderConfigData(el) {
     const meta = Store.getMeta();
     const invCount = Store.getInventoryCount();
-    const est: any = await Store.estimateUsage();
+    const est = await Store.estimateUsage();
     const usageStr = this._fmtUsage(est);
     const spazioLbl = Persistence.kind === 'remote' ? 'Spazio occupato dal database' : 'Spazio IndexedDB utilizzato';
     el.innerHTML = `<div id="resilienzaCard"></div>
@@ -154,13 +185,13 @@ export const VistaConfigDati: Vista = {
 
     const remoto = Persistence.kind === 'remote';
     const persist = await Store.storagePersistenceState();
-    const est: any = await Store.estimateUsage();
+    const est = await Store.estimateUsage();
     const vaultPerm = Vault.supported() ? await Vault.permissionState() : 'unsupported';
     const vaultLast = await Vault.lastBackupTs();
     const manifest = vaultPerm === 'granted' ? await Vault.readManifest() : null;
     const opfsList = await Store.listOPFSBackups();
     const win = Store.getMovLogWindowInfo();
-    const fmt = (ts: any) => ts ? new Date(ts).toLocaleString('it-IT') : 'mai';
+    const fmt = (ts: number | null | undefined) => ts ? new Date(ts).toLocaleString('it-IT') : 'mai';
 
     const copiaEsternaFresca = vaultLast && (Date.now() - vaultLast) < 48 * 3600 * 1000;
     const livello = copiaEsternaFresca ? 'ok' : (vaultPerm === 'granted' ? 'warn' : 'bad');
@@ -288,9 +319,9 @@ export const VistaConfigDati: Vista = {
       await Vault.chooseFolder();
       this.toast('Cartella di backup configurata — eseguo la prima copia…', 'success');
       await this.vaultBackupNow();
-    } catch (err: any) {
-      if (err?.name === 'AbortError') return;   // l'utente ha chiuso il selettore
-      this.toast(`Cartella non configurata: ${err.message}`, 'error');
+    } catch (err) {
+      if ((err as Error | null)?.name === 'AbortError') return;   // l'utente ha chiuso il selettore
+      this.toast(`Cartella non configurata: ${(err as Error).message}`, 'error');
     }
     this.renderConfig();
   },
@@ -304,14 +335,14 @@ export const VistaConfigDati: Vista = {
 
   async vaultBackupNow() {
     const host = $('resilienzaCard');
-    const say = (t: any) => { if (host) { const s = host.querySelector('.vault-progress'); if (s) s.textContent = t; } };
+    const say = (t: string) => { if (host) { const s = host.querySelector('.vault-progress'); if (s) s.textContent = t; } };
     if (host) host.insertAdjacentHTML('afterbegin', '<div class="config-card vault-progress mb-5">Backup in corso…</div>');
     try {
-      const r: any = await Vault.runBackup({ force: true, onProgress: say });
+      const r = (await Vault.runBackup({ force: true, onProgress: say }))!;
       this.toast(`💾 Backup esterno completato · ${r.movimenti.toLocaleString('it-IT')} movimenti · ${r.mesiScritti} file mensili aggiornati`, 'success');
-    } catch (err: any) {
+    } catch (err) {
       console.error('[WM] backup esterno:', err);
-      this.toast(`Backup esterno non riuscito: ${err.message}`, 'error');
+      this.toast(`Backup esterno non riuscito: ${(err as Error).message}`, 'error');
     } finally {
       document.querySelector('.vault-progress')?.remove();
       if (this.currentView === 'config' && this._configTab === 'data') this.renderConfig();
@@ -326,9 +357,9 @@ export const VistaConfigDati: Vista = {
       if (!(await Vault.isDue())) return;
       const r = await Vault.runBackup();
       if (r) this.toast(`💾 Copia esterna aggiornata · ${r.movimenti.toLocaleString('it-IT')} movimenti`, 'info');
-    } catch (err: any) {
+    } catch (err) {
       console.warn('[WM] backup esterno automatico:', err);
-      this.toast(`⚠ Copia esterna non riuscita: ${err.message}`, 'warning');
+      this.toast(`⚠ Copia esterna non riuscita: ${(err as Error).message}`, 'warning');
     }
   },
 
@@ -360,7 +391,7 @@ export const VistaConfigDati: Vista = {
 
   async doVaultRestore() {
     const nome = $('vaultStatePick')?.value;
-    const log = (t: any) => { const e = $('vaultRestoreLog'); if (e) e.textContent = t; };
+    const log = (t: string) => { const e = $('vaultRestoreLog'); if (e) e.textContent = t; };
     try {
       log('Export di sicurezza dello stato attuale…');
       await this.exportData();
@@ -374,15 +405,15 @@ export const VistaConfigDati: Vista = {
         confirmLabel: 'Ripristina comunque', danger: true
       })) return;
 
-      const c = pacchetto._counts;
+      const c = (pacchetto._counts || {}) as Record<string, number>;
       if (!await Dialog.confirm({
         title: 'Confermare il ripristino?',
         message: 'I dati attualmente in questo database verranno sostituiti.',
         details: Dialog.kv([
-          ['Movimenti', Number((c as any).mov_log).toLocaleString('it-IT')],
-          ['Giacenze', Number((c as any).inventory).toLocaleString('it-IT')],
-          ['Articoli', Number((c as any).articles).toLocaleString('it-IT')],
-          ['Operatori', Number((c as any).operators).toLocaleString('it-IT')]
+          ['Movimenti', Number(c.mov_log).toLocaleString('it-IT')],
+          ['Giacenze', Number(c.inventory).toLocaleString('it-IT')],
+          ['Articoli', Number(c.articles).toLocaleString('it-IT')],
+          ['Operatori', Number(c.operators).toLocaleString('it-IT')]
         ]),
         confirmLabel: 'Sostituisci i dati', danger: true
       })) return;
@@ -393,11 +424,11 @@ export const VistaConfigDati: Vista = {
       this.renderSidebar();
       this.renderConfig();
       this.updateSyncIndicator();
-      this.toast(`♻ Ripristino completato · ${Number((c as any).mov_log).toLocaleString('it-IT')} movimenti`, 'success');
-    } catch (err: any) {
+      this.toast(`♻ Ripristino completato · ${Number(c.mov_log).toLocaleString('it-IT')} movimenti`, 'success');
+    } catch (err) {
       console.error('[WM] ripristino:', err);
-      log(`Errore: ${err.message}`);
-      this.toast(`Ripristino non riuscito: ${err.message}`, 'error');
+      log(`Errore: ${(err as Error).message}`);
+      this.toast(`Ripristino non riuscito: ${(err as Error).message}`, 'error');
     }
   },
 
@@ -424,8 +455,8 @@ export const VistaConfigDati: Vista = {
     let count = 0;
     try {
       count = await Store.countPurgeableMovements(cutoffTs);
-    } catch (err: any) {
-      return this.toast(`Errore nel conteggio: ${err.message || 'sconosciuto'}`, 'error');
+    } catch (err) {
+      return this.toast(`Errore nel conteggio: ${(err as Error).message || 'sconosciuto'}`, 'error');
     }
     if (count === 0) {
       return this.toast(`Nessun movimento antecedente al ${cutoffLabel} — niente da eliminare`, 'info');
@@ -446,8 +477,8 @@ export const VistaConfigDati: Vista = {
 
     try {
       await this.exportData();
-    } catch (err: any) {
-      return this.toast(`Export preventivo fallito: ${err.message || 'sconosciuto'} — purge annullata`, 'error');
+    } catch (err) {
+      return this.toast(`Export preventivo fallito: ${(err as Error).message || 'sconosciuto'} — purge annullata`, 'error');
     }
 
     // Step 2 — conferma esplicita digitata
@@ -476,8 +507,8 @@ export const VistaConfigDati: Vista = {
       this.toast(`🗄 Purge completata: ${removed} movimenti eliminati · operazione registrata a log`, 'success');
       this.updateSyncIndicator();
       this.renderConfig();
-    } catch (err: any) {
-      this.toast(`Errore durante la purge: ${err.message || 'sconosciuto'}`, 'error');
+    } catch (err) {
+      this.toast(`Errore durante la purge: ${(err as Error).message || 'sconosciuto'}`, 'error');
     }
   },
 
@@ -499,7 +530,7 @@ export const VistaConfigDati: Vista = {
   importData() { $('fileImport').click(); },
 
   async forceSave() {
-    const btn = (event?.target as any)?.closest('button');
+    const btn = (event?.target as HTMLElement | null)?.closest('button');
     const originalLabel = btn?.innerHTML;
     if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Salvataggio…'; }
     try {
@@ -514,7 +545,7 @@ export const VistaConfigDati: Vista = {
     try {
       const result = await Store.forceSave();
       const ts = new Date(result.ts).toLocaleString('it-IT');
-      const total = Object.values<any>(result.counts).reduce((s, n) => s + n, 0);
+      const total = Object.values<number>(result.counts as Record<string, number>).reduce((s, n) => s + n, 0);
       this.updateSyncIndicator();
       if (this.currentView === 'dashboard') this.renderDashboard();
       else if (this.currentView === 'config' && this._configTab === 'data') this.renderConfig();
@@ -534,9 +565,9 @@ export const VistaConfigDati: Vista = {
         this.toast(`✓ Salvataggio verificato — ${total.toLocaleString('it-IT')} record · ${ts}`, 'success');
       }
       return result;
-    } catch (err: any) {
+    } catch (err) {
       console.error('[WM] forceSave error:', err);
-      this.toast(`Errore salvataggio: ${err.message}`, 'error');
+      this.toast(`Errore salvataggio: ${(err as Error).message}`, 'error');
       throw err;
     }
   },
@@ -567,7 +598,7 @@ export const VistaConfigDati: Vista = {
                              && Store.getMovLogTotal() === 0;
 
       const NON_PORTATE = 'registro movimenti, quarantene, DDT, verbali, report di prelievo, anagrafica operatori (PIN compresi) e dati del mittente';
-      const contenuto = Object.entries<any>(Store._countsOf(data))
+      const contenuto = Object.entries<number>(Store._countsOf(data))
         .filter(([, n]) => n > 0).map(([k, n]) => `${k}: ${n}`).join(' · ') || 'nessun record';
 
       let mode = null;
@@ -616,8 +647,8 @@ export const VistaConfigDati: Vista = {
         this.updateSyncIndicator();
         this.toast(`✓ Dati importati (${mode})`, 'success');
       }
-    } catch (err: any) {
-      this.toast(`Errore import: ${err.message}`, 'error');
+    } catch (err) {
+      this.toast(`Errore import: ${(err as Error).message}`, 'error');
     }
     event.target.value = '';
   },
@@ -635,7 +666,7 @@ export const VistaConfigDati: Vista = {
     })) return;
 
     this.toast(`Lettura di ${totale.toLocaleString('it-IT')} movimenti dall’archivio…`, 'info');
-    const log: any[] = [];
+    const log: Movimento[] = [];
     await Store.eachMovement(rows => { for (const r of rows) log.push(r); });
     log.sort((a, b) => b.ts - a.ts);
     if (!log.length) return this.toast('Nessuna movimentazione da esportare', 'error');
@@ -648,7 +679,7 @@ export const VistaConfigDati: Vista = {
       const qDelta  = (typeof m.qty_delta  === 'number') ? m.qty_delta  : '';
       const qAfter  = (typeof m.qty_after  === 'number') ? m.qty_after  : '';
       return [
-        i+1, (MOV_LABELS as any)[m.type] || m.type,
+        i+1, MOV_LABELS[m.type] || m.type,
         m.article_code || '', m.article_description || '', m.lot_code || '',
         m.location_code || '', m.dest_location || '',
         qBefore, qDelta, qAfter,
@@ -662,27 +693,27 @@ export const VistaConfigDati: Vista = {
     XLSX.utils.book_append_sheet(wb, ws, 'Registro');
 
     // Foglio 2 — Riepilogo per tipo
-    const typeSum: any = {};
+    const typeSum: Record<string, number> = {};
     for (const m of log) typeSum[m.type] = (typeSum[m.type] || 0) + 1;
-    const sumRows: any[] = [['Tipo', 'Quantità', '% Totale']];
-    for (const [t, c] of Object.entries<any>(typeSum).sort((a,b)=>b[1]-a[1])) sumRows.push([(MOV_LABELS as any)[t] || t, c, Math.round(c/log.length*100)+'%']);
+    const sumRows: Foglio = [['Tipo', 'Quantità', '% Totale']];
+    for (const [t, c] of Object.entries(typeSum).sort((a,b)=>b[1]-a[1])) sumRows.push([MOV_LABELS[t as keyof typeof MOV_LABELS] || t, c, Math.round(c/log.length*100)+'%']);
     sumRows.push(['TOTALE', log.length, '100%']);
     const ws2 = XLSX.utils.aoa_to_sheet(sumRows);
     ws2['!cols'] = [{wch:24},{wch:12},{wch:10}];
     XLSX.utils.book_append_sheet(wb, ws2, 'Riepilogo Tipo');
 
     // Foglio 3 — Riepilogo giornaliero
-    const daily: any = {};
+    const daily: Record<string, Record<string, number>> = {};
     for (const m of log) {
       const d = m.ts ? new Date(m.ts).toISOString().slice(0,10) : 'N/A';
       if (!daily[d]) daily[d] = { tot:0, IN:0, OUT:0, MOVE:0, PICK:0, REPOS:0, FIX:0, QUAR:0, RET:0, SHIP:0, EDIT:0 };
-      daily[d].tot++;
+      daily[d]!.tot!++;
       const k = m.type === 'FIX+' || m.type === 'FIX-' ? 'FIX' : (m.type === 'QREL' ? 'QUAR' : m.type);
-      daily[d][k] = (daily[d][k] || 0) + 1;
+      daily[d]![k] = (daily[d]![k] || 0) + 1;
     }
     // v2.0 — colonne RET, SHIP, EDIT aggiunte al riepilogo giornaliero
-    const dRows: any[] = [['Data','Totale','Posizionamenti','Smaltimenti','Cambi','Prelievi','Riposizion.','Correzioni','Quarantene','Resi','Spedizioni','Modifiche']];
-    for (const [d, v] of Object.entries<any>(daily).sort()) {
+    const dRows: Foglio = [['Data','Totale','Posizionamenti','Smaltimenti','Cambi','Prelievi','Riposizion.','Correzioni','Quarantene','Resi','Spedizioni','Modifiche']];
+    for (const [d, v] of Object.entries(daily).sort()) {
       dRows.push([d !== 'N/A' ? new Date(d).toLocaleDateString('it-IT') : d, v.tot, v.IN, v.OUT, v.MOVE, v.PICK, v.REPOS, v.FIX, v.QUAR, v.RET || 0, v.SHIP || 0, v.EDIT || 0]);
     }
     const ws3 = XLSX.utils.aoa_to_sheet(dRows);
@@ -690,15 +721,15 @@ export const VistaConfigDati: Vista = {
     XLSX.utils.book_append_sheet(wb, ws3, 'Riepilogo Giornaliero');
 
     // Foglio 4 — Top articoli
-    const artFreq = {};
+    const artFreq: Record<string, { desc: string; count: number; last: number }> = {};
     for (const m of log) {
       if (!m.article_code) continue;
-      if (!(artFreq as any)[m.article_code]) (artFreq as any)[m.article_code] = { desc: m.article_description || '', count: 0, last: m.ts };
-      (artFreq as any)[m.article_code].count++;
-      if (m.ts > (artFreq as any)[m.article_code].last) { (artFreq as any)[m.article_code].last = m.ts; if (m.article_description) (artFreq as any)[m.article_code].desc = m.article_description; }
+      if (!artFreq[m.article_code]) artFreq[m.article_code] = { desc: m.article_description || '', count: 0, last: m.ts };
+      artFreq[m.article_code]!.count++;
+      if (m.ts > artFreq[m.article_code]!.last) { artFreq[m.article_code]!.last = m.ts; if (m.article_description) artFreq[m.article_code]!.desc = m.article_description; }
     }
-    const tRows = [['Rank','Codice','Descrizione','N° Movimenti','Ultima Movimentazione']];
-    Object.entries<any>(artFreq).sort((a,b) => b[1].count - a[1].count).forEach(([c, v], i) => {
+    const tRows: Foglio = [['Rank','Codice','Descrizione','N° Movimenti','Ultima Movimentazione']];
+    Object.entries(artFreq).sort((a,b) => b[1].count - a[1].count).forEach(([c, v], i) => {
       tRows.push([i+1, c, v.desc, v.count, v.last ? new Date(v.last).toLocaleDateString('it-IT') : '']);
     });
     const ws4 = XLSX.utils.aoa_to_sheet(tRows);
@@ -716,8 +747,8 @@ export const VistaConfigDati: Vista = {
     if (!inventory.length) return this.toast('Nessuna giacenza da esportare', 'warning');
 
     const sites = Store.getSites();
-    const siteByCode: any = {};
-    const zoneByLoc: any = {};   // location_code → { siteId, siteName, zoneId, zoneName }
+    const siteByCode: Record<string, Sito> = {};
+    const zoneByLoc: Record<string, { siteId: string; siteName: string; zoneId: string; zoneName: string }> = {};
     sites.forEach(s => {
       siteByCode[s.id] = s;
       (s.zones || []).forEach(z => {
@@ -753,21 +784,21 @@ export const VistaConfigDati: Vista = {
     const wb = XLSX.utils.book_new();
     const headers = ['Site', 'Zona', 'Ubicazione', 'Articolo', 'Descrizione', 'Lotto', 'Coll.', 'Scadenza', 'Posizionato il', 'Ultimo agg.', 'Operatore', 'Note'];
     const colWidths = [{wch:18},{wch:18},{wch:18},{wch:18},{wch:32},{wch:15},{wch:8},{wch:12},{wch:14},{wch:14},{wch:16},{wch:25}];
-    const rowOf = (e: any) => [e.siteName, e.zoneName, e.location_code, e.article_code, e.article_description, e.lot_code, e.qty, e.expiry_date, e.placed_at_str, e.last_updated_str, e.placed_by, e.notes];
+    const rowOf = (e: GiacenzaEstesa): Cella[] => [e.siteName, e.zoneName, e.location_code, e.article_code, e.article_description, e.lot_code, e.qty, e.expiry_date, e.placed_at_str, e.last_updated_str, e.placed_by, e.notes];
 
     // FOGLIO 1 — Riepilogo per Site
-    const siteSummary: any = {};
+    const siteSummary: Record<string, { lotti: number; colli: number; articoli: Set<string>; ubicazioni: Set<string> }> = {};
     enriched.forEach(e => {
       if (!siteSummary[e.siteName]) siteSummary[e.siteName] = { lotti: 0, colli: 0, articoli: new Set(), ubicazioni: new Set() };
-      const s = siteSummary[e.siteName];
+      const s = siteSummary[e.siteName]!;
       s.lotti++;
       s.colli += e.qty;
       s.articoli.add(e.article_code);
       s.ubicazioni.add(e.location_code);
     });
-    const sumRows: any[] = [['Site', 'N° Lotti', 'Colli Totali', 'Articoli Univoci', 'Ubicazioni Occupate']];
+    const sumRows: Foglio = [['Site', 'N° Lotti', 'Colli Totali', 'Articoli Univoci', 'Ubicazioni Occupate']];
     let totLotti = 0, totColli = 0;
-    Object.entries<any>(siteSummary).sort().forEach(([name, s]) => {
+    Object.entries(siteSummary).sort().forEach(([name, s]) => {
       sumRows.push([name, s.lotti, s.colli, s.articoli.size, s.ubicazioni.size]);
       totLotti += s.lotti; totColli += s.colli;
     });
@@ -789,10 +820,10 @@ export const VistaConfigDati: Vista = {
     XLSX.utils.book_append_sheet(wb, wsAll, 'Tutte le Giacenze');
 
     // FOGLI 3..N — uno per Site
-    const bySite: any = {};
+    const bySite: Record<string, GiacenzaEstesa[]> = {};
     enriched.forEach(e => { (bySite[e.siteName] ||= []).push(e); });
-    Object.entries<any>(bySite).sort().forEach(([siteName, list]) => {
-      list.sort((a: any,b: any) => {
+    Object.entries(bySite).sort().forEach(([siteName, list]) => {
+      list.sort((a, b) => {
         if (a.zoneName !== b.zoneName) return a.zoneName.localeCompare(b.zoneName);
         if (a.location_code !== b.location_code) return a.location_code.localeCompare(b.location_code);
         return a.article_code.localeCompare(b.article_code);
@@ -806,17 +837,17 @@ export const VistaConfigDati: Vista = {
     });
 
     // FOGLIO FINALE — Pivot Articoli (somma colli per articolo trasversale)
-    const byArt: any = {};
+    const byArt: Record<string, { desc: string; totColli: number; lotti: Set<string>; ubicazioni: Set<string>; siti: Set<string> }> = {};
     enriched.forEach(e => {
       if (!byArt[e.article_code]) byArt[e.article_code] = { desc: e.article_description, totColli: 0, lotti: new Set(), ubicazioni: new Set(), siti: new Set() };
-      const a = byArt[e.article_code];
+      const a = byArt[e.article_code]!;
       a.totColli += e.qty;
       a.lotti.add(e.lot_code);
       a.ubicazioni.add(e.location_code);
       a.siti.add(e.siteName);
     });
-    const pivotRows = [['Articolo', 'Descrizione', 'Colli Totali', 'N° Lotti', 'N° Ubicazioni', 'Site Coinvolti']];
-    Object.entries<any>(byArt).sort((a,b) => b[1].totColli - a[1].totColli).forEach(([code, a]) => {
+    const pivotRows: Foglio = [['Articolo', 'Descrizione', 'Colli Totali', 'N° Lotti', 'N° Ubicazioni', 'Site Coinvolti']];
+    Object.entries(byArt).sort((a,b) => b[1].totColli - a[1].totColli).forEach(([code, a]) => {
       pivotRows.push([code, a.desc, a.totColli, a.lotti.size, a.ubicazioni.size, [...a.siti].join(', ')]);
     });
     const wsPivot = XLSX.utils.aoa_to_sheet(pivotRows);
@@ -856,21 +887,21 @@ export const VistaConfigDati: Vista = {
       this.updateSyncIndicator();
       this.toast(`✓ ${esito.creati} creati · ${esito.modificati} aggiornati`,
         esito.creati + esito.modificati > 0 ? 'success' : 'info');
-    } catch (err: any) { this.toast(`Errore Excel: ${err.message}`, 'error'); }
+    } catch (err) { this.toast(`Errore Excel: ${(err as Error).message}`, 'error'); }
     event.target.value = '';
   },
 
   /* Dal foglio alle righe da scrivere. Nessuna scrittura qui dentro: legge,
      valida e racconta. Le colonne assenti restano `undefined`, che a valle
      significa «non toccare», non «azzera». */
-  _leggiFoglioArticoli(rows) {
-    const righe: any[] = [];
-    const problemi: any[] = [];
+  _leggiFoglioArticoli(rows: RigaFoglio[]) {
+    const righe: Partial<Articolo>[] = [];
+    const problemi: string[] = [];
     let senzaCodice = 0;
     const nuoviCodici = new Set();
     let conAllergeni = 0, conTemperatura = 0, conCertificazioni = 0;
 
-    rows.forEach((row: any, i: any) => {
+    rows.forEach((row, i) => {
       const foglio = i + 2;                      // +1 intestazione, +1 base uno
       const code = Validate.clean(row['Codice'], true);
       if (!code) { senzaCodice++; return; }
@@ -878,12 +909,12 @@ export const VistaConfigDati: Vista = {
       if (errCode) { problemi.push(`Riga ${foglio} — codice "${code}": ${errCode}`); return; }
 
       const esiste = !!Store.getArticle(code);
-      const rec: any = { code };
-      const testo = (col: any, campo: any, upper = false) => {
+      const rec: Record<string, unknown> = { code };
+      const testo = (col: string, campo: string, upper = false) => {
         if (row[col] === undefined) return;
         rec[campo] = Validate.clean(row[col], upper);
       };
-      const numero = (col: any, campo: any) => { if (row[col] !== undefined) rec[campo] = row[col]; };
+      const numero = (col: string, campo: string) => { if (row[col] !== undefined) rec[campo] = row[col]; };
 
       testo('Descrizione', 'description');
       testo('Categoria', 'category', true);
@@ -898,7 +929,7 @@ export const VistaConfigDati: Vista = {
       numero('Stock_Min', 'min_stock'); numero('Stock_Max', 'max_stock');
 
       if (rec.description !== undefined) {
-        const errDesc = Validate.articleDesc(rec.description, !esiste);
+        const errDesc = Validate.articleDesc(rec.description as string, !esiste);
         if (errDesc) { problemi.push(`Riga ${foglio} — ${code}: ${errDesc}`); return; }
       } else if (!esiste) {
         problemi.push(`Riga ${foglio} — ${code}: articolo nuovo senza descrizione`);
