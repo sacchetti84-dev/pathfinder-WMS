@@ -188,7 +188,8 @@ export interface Movimento {
   article_description?: string;
   lot_code?: string;
   location_code?: string;
-  dest_location?: string;
+  /* Un movimento senza destinazione scrive `null`, non l'assenza del campo. */
+  dest_location?: string | null;
   user: string;
   notes?: string;
   doc_ref?: string;
