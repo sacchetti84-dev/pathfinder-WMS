@@ -5,6 +5,9 @@ import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 
+/* Dove altro sta lo stesso lotto: la quarantena le propone come lo scarico. */
+type Alternativa = { location_code: string; item_key: string; qty_available: number; qty_physical: number };
+
 export const VistaQuarantena: Vista = {
   // ═══ 5. QUARANTENA ═══
   // v1.8.0: richiede scansione ARTICOLO + LOTTO (doppia identificazione obbligatoria)
@@ -41,7 +44,7 @@ export const VistaQuarantena: Vista = {
           ${activeQ.map(q => `<div class="flex items-center gap-5 py-3.5 px-5 border border-sx-purple bg-sx-purple-soft rounded-[var(--radius)] mb-2.5 text-body-small">
             <span class="mono text-sx-purple font-bold">${this._esc(q.article_code)}</span>
             <span class="mono text-sx-text-muted text-label-small">L:${this._esc(q.lot_code)}</span>
-            <span class="mono text-sx-text-muted text-label-small">📍${this._esc(q.blocked_location)} · ${(q as any).qty || 1} Coll.${(q as any).partial ? ' (parz.)' : ''}</span>
+            <span class="mono text-sx-text-muted text-label-small">📍${this._esc(q.blocked_location)} · ${q.qty || 1} Coll.${(q as any).partial ? ' (parz.)' : ''}</span>
             <span class="truncate text-sx-text-muted text-label-small flex-1" title="${this._esc(q.reason)}">${this._esc(q.reason)}</span>
             <button class="btn btn-sm btn-success" onclick="App._releaseQuarantine('${this._esc(q.q_id)}')">✓ Rilascia</button>
             <button class="btn btn-sm" onclick="App._printNCCard('${this._esc(q.q_id)}')" title="Ristampa il cartello NC">🖨</button>
@@ -192,7 +195,7 @@ export const VistaQuarantena: Vista = {
 
         ${d.alternatives.length ? `<div class="route-alt">
           <strong>Stesso articolo e lotto anche in:</strong>
-          ${d.alternatives.map((a: any) => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_physical} Coll.</span>`).join(' ')}
+          ${(d.alternatives as Alternativa[]).map((a) => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_physical} Coll.</span>`).join(' ')}
           <div class="text-label-small mt-2.5 opacity-80">Scansionandone una, il blocco si sposta là.</div>
         </div>` : ''}
 
@@ -274,13 +277,13 @@ export const VistaQuarantena: Vista = {
       $('qvArt')?.focus();
       return;
     }
-    const alt = d.alternatives.find((a: any) => a.location_code === val);
+    const alt = (d.alternatives as Alternativa[]).find((a) => a.location_code === val);
     if (alt) { this._qSwitchToAlternative(alt); return; }
     this._scanBlock({
       fieldId: 'qvLoc', fbId: 'qFeedback',
       title: 'Ubicazione errata',
       message: `Attesa ${d.location_code}, scansionata ${val}.`,
-      onForce: async (note: any) => {
+      onForce: async (note: string) => {
         if (!Store.locationExists(val)) {
           this.toast(`L'ubicazione ${val} non esiste a sistema`, 'error');
           return false;
@@ -301,7 +304,7 @@ export const VistaQuarantena: Vista = {
 
     d.alternatives = [
       { location_code: old, item_key: d.item_key, qty_physical: d.qty_physical },
-      ...d.alternatives.filter((a: any) => a.location_code !== alt.location_code)
+      ...(d.alternatives as Alternativa[]).filter((a) => a.location_code !== alt.location_code)
     ];
     d.location_code = alt.location_code;
     d.item_key = alt.item_key;
@@ -341,7 +344,7 @@ export const VistaQuarantena: Vista = {
       fieldId: 'qvArt', fbId: 'qFeedback',
       title: 'Articolo errato',
       message: `Atteso ${d.article_code}, scansionato ${val}.`,
-      onForce: async (note: any) => {
+      onForce: async (note: string) => {
         d.forced_note = `${d.forced_note ? d.forced_note + ' | ' : ''}Articolo forzato (atteso ${d.article_code}, letto ${val}): ${note}`;
         d.scan.art = d.article_code;
         return true;
@@ -371,7 +374,7 @@ export const VistaQuarantena: Vista = {
       fieldId: 'qvLot', fbId: 'qFeedback',
       title: 'Lotto errato',
       message: `Atteso ${d.lot_code}, scansionato ${val}. Bloccare un lotto per un altro lascia in giro quello davvero non conforme.`,
-      onForce: async (note: any) => {
+      onForce: async (note: string) => {
         d.forced_note = `${d.forced_note ? d.forced_note + ' | ' : ''}Lotto forzato (atteso ${d.lot_code}, letto ${val}): ${note}`;
         d.scan.lot = d.lot_code;
         return true;
@@ -426,12 +429,12 @@ export const VistaQuarantena: Vista = {
       const res = await Store.addItem(nearest.code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', 'QUARANTENA: ' + reason, qtyToMove, umNC, colliNC);
       if (!res.ok) throw new Error('addItem non riuscito');
       await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, nearest.code, operator, 'Spostamento in quarantena', '', qtyToMove, 0, qtyToMove);
-    } catch (err: any) {
+    } catch (err) {
       if (removed._mode === 'partial')
         await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', '', qtyToMove, umNC, colliNC);
       else
         await Store.restoreItem(backup);
-      this.toast(`Spostamento in area NC fallito (${err.message || 'errore'}) — operazione annullata, nessuna quarantena registrata`, 'error');
+      this.toast(`Spostamento in area NC fallito (${(err as Error).message || 'errore'}) — operazione annullata, nessuna quarantena registrata`, 'error');
       return { ok: false };
     }
 
@@ -643,7 +646,7 @@ export const VistaQuarantena: Vista = {
 
     if (srcItem) {
       const inNC = srcItem.qty || 1;
-      let qtyToMove = Math.min((rec as any).qty || inNC, inNC);
+      let qtyToMove = Math.min(rec.qty || inNC, inNC);
       const backup = { ...srcItem };
       /* 1.8 — il rilascio non è una scelta: esce dall'area NC ciò che ci era
          entrato, e i colli viaggiano com'erano. Solo un rilascio parziale
@@ -695,11 +698,11 @@ export const VistaQuarantena: Vista = {
   },
 
   _printNCCardFromRecord(rec) {
-    const fmtDate = (d: any) => new Date(d).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
+    const fmtDate = (d: number | string) => new Date(d).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
 
     /* v1.1.0 [N2] — I colli bloccati stanno in testata, accanto a lotto e
        ubicazione: e' la prima domanda di chi trova il cartello appeso. */
-    const colli = (rec as any).qty || 1;
+    const colli = rec.qty || 1;
     const headExtra = `<div class="doc-idblock doc-idblock--3">
         ${this._docCell('Articolo', rec.article_code)}
         ${this._docCell('Lotto', rec.lot_code)}
