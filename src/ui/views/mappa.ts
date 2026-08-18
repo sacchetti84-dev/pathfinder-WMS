@@ -1,6 +1,9 @@
 import { type Vista, $ } from './vista';
 import { caricaExcel } from '../../modules/excel';
 import { Store } from '../../core/store';
+import type { Ubicazione } from '../../core/geometria';
+import type { NonConformita, Deroga } from '../../modules/conformita';
+import type { CodiceAllergene } from '../../modules/anagrafica';
 
 export const VistaMappa: Vista = {
   // ═══ MAPPA ═══
@@ -27,9 +30,9 @@ export const VistaMappa: Vista = {
           <button class="map-vt-btn ${this.mapViewMode === 'frontal' ? 'active' : ''}" onclick="App.setMapView('frontal')">▤ Frontale</button>
         </div>
         ${(zone.type === 'RACK' && this.mapViewMode === 'frontal') ? `<button class="btn btn-sm ${zone.mirror_frontal ? 'btn-warning' : ''} text-body-small" onclick="App.toggleMirrorFrontal()" title="Specchia vista frontale (dx↔sx)">${zone.mirror_frontal ? '↔ Specchiata' : '↔ Specchia'}</button>` : ''}`;
-    if (zone.type === 'RACK' && (zone.levels as any[])?.length > 1 && this.mapViewMode === 'plan') {
+    if (zone.type === 'RACK' && (zone.levels?.length ?? 0) > 1 && this.mapViewMode === 'plan') {
       toolbar += '<div class="level-selector">';
-      for (const lvl of (zone.levels as any[])) {
+      for (const lvl of (zone.levels || [])) {
         toolbar += `<button class="level-btn ${lvl === this.currentLevel ? 'active' : ''}" onclick="App.changeLevel('${lvl}')">${lvl}</button>`;
       }
       toolbar += '</div>';
@@ -64,10 +67,10 @@ export const VistaMappa: Vista = {
   _fasciaConformita(locs) {
     const conf = this._conf;
     if (!conf) return '';
-    const qui = new Set(locs.map((l: any) => l.code));
-    const righe = conf.nonConformita.filter((n: any) => qui.has(n.location_code));
+    const qui = new Set(locs.map((l: Ubicazione) => l.code));
+    const righe = conf.nonConformita.filter((n: NonConformita) => qui.has(n.location_code));
     const senzaAttributi = conf.articoliSenzaAttributi.size;
-    const deroghe = conf.deroghe.filter((d: any) => qui.has(d.location_code)).length;
+    const deroghe = conf.deroghe.filter((d: Deroga) => qui.has(d.location_code)).length;
     const nastroDeroghe = deroghe
       ? `<button class="conf-deroghe" onclick="App.mostraDeroghe()" title="Allergeni ammessi per riserva della cella">
           🔓 ${deroghe} in deroga</button>`
@@ -92,7 +95,7 @@ export const VistaMappa: Vista = {
       return '';
     }
 
-    const alte = righe.filter((n: any) => n.gravita === 'alta').length;
+    const alte = righe.filter((n: NonConformita) => n.gravita === 'alta').length;
     return `<div class="conf-bar ${alte ? 'conf-bar--alta' : 'conf-bar--media'}">
       <span>⚠ <strong>${righe.length}</strong> ${righe.length === 1 ? 'giacenza fuori posto' : 'giacenze fuori posto'} in questa zona${alte ? ` — <strong>${alte}</strong> ${alte === 1 ? 'grave' : 'gravi'}` : ''}</span>
       <button class="btn btn-sm" onclick="App.mostraNonConformita()">Vedi elenco</button>
@@ -110,7 +113,7 @@ export const VistaMappa: Vista = {
     const perTipo = new Map();
     for (const n of conf.nonConformita) perTipo.set(n.tipo, (perTipo.get(n.tipo) || 0) + 1);
 
-    const righe = conf.nonConformita.slice(0, 300).map((n: any) => `
+    const righe = conf.nonConformita.slice(0, 300).map((n: NonConformita) => `
       <tr class="${n.gravita === 'alta' ? 'conf-riga-alta' : ''}">
         <td>${n.gravita === 'alta' ? '⛔' : '⚠'}</td>
         <td class="mono"><button class="conf-vai" onclick="App.closeModal();App.goToLocation('${this._esc(n.location_code)}')">${this._esc(n.location_code)}</button></td>
@@ -144,13 +147,13 @@ export const VistaMappa: Vista = {
     const d = conf?.deroghe || [];
     if (!d.length) return this.toast('Nessuna deroga attiva', 'info');
 
-    const righe = d.map((x: any) => `
+    const righe = d.map((x: Deroga) => `
       <tr>
         <td class="mono"><button class="conf-vai" onclick="App.closeModal();App.goToLocation('${this._esc(x.location_code)}')">${this._esc(x.location_code)}</button></td>
         <td class="mono">${this._esc(x.article_code)}</td>
         <td>${this._esc(x.article_description || '')}</td>
         <td class="mono">${this._esc(x.lot_code || '')}</td>
-        <td>${this._esc(x.allergens.map((c: any) => this._etAllergene(c)).join(', '))}</td>
+        <td>${this._esc(x.allergens.map((c: CodiceAllergene) => this._etAllergene(c)).join(', '))}</td>
       </tr>`).join('');
 
     this.showModal(`Allergeni in deroga — ${d.length}`, `
@@ -174,29 +177,29 @@ export const VistaMappa: Vista = {
     if (!d.length) return this.toast('Niente da esportare', 'warning');
     const XLSX = await caricaExcel();
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map((x: any) => ({
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map((x: Deroga) => ({
       'Ubicazione': x.location_code, 'Articolo': x.article_code,
       'Descrizione': x.article_description || '', 'Lotto': x.lot_code || '',
-      'Colli': x.qty ?? '', 'Allergeni': x.allergens.map((c: any) => this._etAllergene(c)).join(', '),
+      'Colli': x.qty ?? '', 'Allergeni': x.allergens.map((c: CodiceAllergene) => this._etAllergene(c)).join(', '),
     }))), 'Deroghe');
     XLSX.writeFile(wb, `allergeni-in-deroga-${new Date().toISOString().slice(0,10)}.xlsx`);
     this.toast('✓ Excel esportato', 'success');
   },
 
-  _etichettaTipoNC(tipo: any) {
+  _etichettaTipoNC(tipo: string) {
     return ({
       TEMPERATURA: 'Temperatura',
       ALLERGENE_FUORI_ZONA: 'Allergeni fuori zona',
       ALLERGENE_NON_AMMESSO: 'Allergene non ammesso',
       PULITO_IN_ZONA_ALLERGENI: 'Senza allergeni in zona riservata',
-    } as any)[tipo] || tipo;
+    } as Record<string, string>)[tipo] || tipo;
   },
 
   async esportaNonConformita() {
     const conf = this._conf || this._aggiornaConformita();
     if (!conf?.nonConformita.length) return this.toast('Niente da esportare', 'warning');
     const XLSX = await caricaExcel();
-    const data = conf.nonConformita.map((n: any) => ({
+    const data = conf.nonConformita.map((n: NonConformita) => ({
       'Gravità': n.gravita === 'alta' ? 'ALTA' : 'MEDIA',
       'Tipo': this._etichettaTipoNC(n.tipo),
       'Ubicazione': n.location_code, 'Articolo': n.article_code,
@@ -227,7 +230,7 @@ export const VistaMappa: Vista = {
     const cellSize = 42;
     let html = '<div class="grid-wrapper">';
     if (zone.type === 'RACK') {
-      const filtered = locs.filter((l: any) => l.level === this.currentLevel);
+      const filtered = locs.filter((l: Ubicazione) => l.level === this.currentLevel);
       const cols = zone.bays_per_aisle || 1;
       const rows = zone.aisles || 1;
       html += '<div class="grid-labels-top">';
@@ -236,7 +239,7 @@ export const VistaMappa: Vista = {
       for (let r = 1; r <= rows; r++) {
         html += `<div class="grid-row-wrapper"><div class="grid-label-row">A${String(r).padStart(2,'0')}</div><div class="grid-row">`;
         for (let c = 1; c <= cols; c++) {
-          const loc = filtered.find((l: any) => l.aisle === r && l.bay === c);
+          const loc = filtered.find((l: Ubicazione) => l.aisle === r && l.bay === c);
           if (loc) html += this._renderCell(loc.code, cellSize);
         }
         html += '</div></div>';
@@ -250,7 +253,7 @@ export const VistaMappa: Vista = {
       for (let r = 1; r <= rows; r++) {
         html += `<div class="grid-row-wrapper"><div class="grid-label-row">F${String(r).padStart(2,'0')}</div><div class="grid-row">`;
         for (let c = 1; c <= cols; c++) {
-          const loc = locs.find((l: any) => l.row === r && l.position === c);
+          const loc = locs.find((l: Ubicazione) => l.row === r && l.position === c);
           if (loc) html += this._renderCell(loc.code, cellSize);
         }
         html += '</div></div>';
@@ -330,7 +333,7 @@ export const VistaMappa: Vista = {
         for (const lvl of levels) {
           html += `<div class="front-level"><div class="front-level-label">${lvl}</div>`;
           for (const b of bayOrder) {
-            const loc = locs.find((l: any) => l.aisle === a && l.bay === b && l.level === lvl);
+            const loc = locs.find((l: Ubicazione) => l.aisle === a && l.bay === b && l.level === lvl);
             if (loc) {
               const status = Store.getLocationStatus(loc.code);
               const items = Store.getItemsAtLocation(loc.code);
@@ -360,7 +363,7 @@ export const VistaMappa: Vista = {
       for (let r = 1; r <= rows; r++) {
         html += `<div class="floor-row-label">F${String(r).padStart(2,'0')}</div>`;
         for (let c = 1; c <= cols; c++) {
-          const loc = locs.find((l: any) => l.row === r && l.position === c);
+          const loc = locs.find((l: Ubicazione) => l.row === r && l.position === c);
           if (loc) {
             const status = Store.getLocationStatus(loc.code);
             const items = Store.getItemsAtLocation(loc.code);
