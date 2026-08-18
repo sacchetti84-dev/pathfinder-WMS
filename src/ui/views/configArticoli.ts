@@ -43,18 +43,18 @@ export const VistaConfigArticoli: Vista = {
     });
     // Chrome statico via template literal
     let html = `<div class="config-card">
-      <h3>Anagrafica Articoli (${total}) <button class="btn btn-sm btn-primary" style="float:right" onclick="App.showAddArticleModal()">+ Nuovo</button></h3>
-      <div style="display:flex;gap:0.3rem;margin-bottom:0.5rem;flex-wrap:wrap;font-size: var(--md-sys-typescale-label-small-size)">
+      <h3>Anagrafica Articoli (${total}) <button class="btn btn-sm btn-primary float-right" onclick="App.showAddArticleModal()">+ Nuovo</button></h3>
+      <div class="flex gap-3 mb-5 flex-wrap text-label-small">
         ${Object.entries(catCounts).sort().map(([c,n]) => `<span class="badge badge-muted">${this._esc(c)}: ${n}</span>`).join('')}
       </div>
-      <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem;flex-wrap:wrap">
+      <div class="flex gap-4 mb-5 flex-wrap">
         <button class="btn btn-sm btn-success" onclick="App.importArticlesExcel()">📥 Import Excel</button>
         <button class="btn btn-sm btn-accent" onclick="App.exportArticlesExcel()">📊 Export Excel</button>
       </div>
-      <div style="display:flex;gap:0.4rem;margin-bottom:0.5rem;flex-wrap:wrap">
-        <input class="input" id="artFilterInput" value="${this._esc(this._artFilter)}" placeholder="🔍 Filtra... (debounce 300ms)" style="flex:1;min-width:140px"
+      <div class="flex gap-4 mb-5 flex-wrap">
+        <input class="input flex-1 min-w-[140px]" id="artFilterInput" value="${this._esc(this._artFilter)}" placeholder="🔍 Filtra... (debounce 300ms)"
           oninput="App._onArtFilterInput(this.value)">
-        <select class="select" style="width:auto;min-width:140px" onchange="App._artSort=this.value;App._renderConfigArticles($('configContent'))">
+        <select class="select" class="w-auto min-w-[140px]" onchange="App._artSort=this.value;App._renderConfigArticles($('configContent'))">
           <option value="code_asc" ${this._artSort==='code_asc'?'selected':''}>Codice A→Z</option>
           <option value="code_desc" ${this._artSort==='code_desc'?'selected':''}>Codice Z→A</option>
           <option value="desc_asc" ${this._artSort==='desc_asc'?'selected':''}>Descrizione A→Z</option>
@@ -66,22 +66,22 @@ export const VistaConfigArticoli: Vista = {
       html += `</div>
         <div class="config-card">
           <h3>Import da CSV</h3>
-          <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.3rem">Formato: <span class="mono">codice;descrizione;categoria</span></p>
+          <p class="text-body-small text-sx-text-secondary mb-3">Formato: <span class="mono">codice;descrizione;categoria</span></p>
           <textarea class="textarea" id="csvImportArea" placeholder="MP-001234;Vitamina C 500mg;MP&#10;PF-005678;Omega 3 60cps;PF" rows="3"></textarea>
-          <button class="btn btn-sm btn-success" style="margin-top:0.3rem" onclick="App.importArticlesCSV()">📥 Importa CSV</button>
+          <button class="btn btn-sm btn-success mt-3" onclick="App.importArticlesCSV()">📥 Importa CSV</button>
         </div>`;
       el.innerHTML = html;
       return;
     }
     // Chrome con tabella vuota da popolare via DOM API
-    html += `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.2rem">${articles.length}${q ? ' / ' + total : ''} articoli</div>
-      <div style="overflow-x:auto"><table class="sx-table"><thead><tr><th>Codice</th><th>Descrizione</th><th>Cat.</th><th>UM</th><th style="width:100px">Azioni</th></tr></thead><tbody id="artTbody"></tbody></table></div>`;
+    html += `<div class="text-label-small text-sx-text-muted mb-2">${articles.length}${q ? ' / ' + total : ''} articoli</div>
+      <div class="overflow-x-auto"><table class="sx-table"><thead><tr><th>Codice</th><th>Descrizione</th><th>Cat.</th><th>UM</th><th class="w-[100px]">Azioni</th></tr></thead><tbody id="artTbody"></tbody></table></div>`;
     html += `</div>
       <div class="config-card">
         <h3>Import da CSV</h3>
-        <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.3rem">Formato: <span class="mono">codice;descrizione;categoria</span></p>
+        <p class="text-body-small text-sx-text-secondary mb-3">Formato: <span class="mono">codice;descrizione;categoria</span></p>
         <textarea class="textarea" id="csvImportArea" placeholder="MP-001234;Vitamina C 500mg;MP&#10;PF-005678;Omega 3 60cps;PF" rows="3"></textarea>
-        <button class="btn btn-sm btn-success" style="margin-top:0.3rem" onclick="App.importArticlesCSV()">📥 Importa CSV</button>
+        <button class="btn btn-sm btn-success mt-3" onclick="App.importArticlesCSV()">📥 Importa CSV</button>
       </div>`;
     el.innerHTML = html;
     // Costruisco le righe in un DocumentFragment (singolo reflow finale)
@@ -116,36 +116,36 @@ export const VistaConfigArticoli: Vista = {
     if (fi && q) { fi.focus(); try { fi.setSelectionRange(q.length, q.length); } catch {} }
   },  showAddArticleModal() {
     this.showModal('Nuovo Articolo', `
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Codice <span class="req">*</span></label>
-          <input class="input input-mono" id="artCode" placeholder="MP-001234" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="artCode" placeholder="MP-001234" maxlength="${Validate.MAX.ARTICLE_CODE}"
             oninput="App._precompilaCategoria()"></div>
         <div class="form-group"><label>Categoria</label>
-          <input class="input input-mono" id="artCategory" placeholder="MP" maxlength="5" value="MP" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="artCategory" placeholder="MP" maxlength="5" value="MP"
             oninput="this.dataset.tocca='1'"></div>
       </div>
-      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin:-0.35rem 0 0.6rem">
+      <div class="text-label-small text-sx-text-muted -mt-3.5 mx-0 mb-6">
         La categoria si compila da sé coi <strong>primi 3 caratteri</strong> del codice — è la forma più comune, non una regola: si può riscrivere.
       </div>
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Descrizione <span class="req">*</span></label>
+      <div class="form-group mb-6"><label>Descrizione <span class="req">*</span></label>
         <input class="input" id="artDesc" placeholder="Descrizione articolo" maxlength="${Validate.MAX.ARTICLE_DESC}"></div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Fornitore / Cliente</label>
           <input class="input" id="artSupplier" maxlength="80"></div>
         <div class="form-group"><label>UM</label>
-          <input class="input input-mono" id="artUnit" value="PZ" maxlength="5" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="artUnit" value="PZ" maxlength="5"
             list="umAmmesse" oninput="App._aggiornaNotaUM('art')"></div>
       </div>
       ${this._datalistUM()}
       <!-- 1.6 — PESO UNITARIO E PESO NETTO PER COLLO SONO USCITI (D15).
            Non erano dati che il magazzino gestisce, e stando accanto alla
            quantità per collo facevano credere che servissero tutti e tre. -->
-      <div class="form-row-3" style="margin-bottom:0.3rem">
+      <div class="form-row-3 mb-3">
         <div class="form-group"><label>Quantità per collo (UM)</label><input class="input" id="artPiecesPack" type="number" step="0.001" min="0" value="0" oninput="App._aggiornaNotaUM('art')"></div>
         <div class="form-group"><label>Stock Min</label><input class="input" id="artMinStock" type="number" step="1" min="0" value="0"></div>
         <div class="form-group"><label>Stock Max</label><input class="input" id="artMaxStock" type="number" step="1" min="0" value="0"></div>
       </div>
-      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
+      <div class="text-label-small text-sx-text-muted mb-6">
         📄 La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
       </div>
       ${this._notaUM('art')}
@@ -277,7 +277,7 @@ export const VistaConfigArticoli: Vista = {
      errore — e con l'interruttore spento questa riga non compare affatto. */
   _notaUM(p) {
     if (!Store.isFeatureOn('uom')) return '';
-    return `<div id="${p}NotaUM" style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem"></div>`;
+    return `<div class="text-label-small text-sx-text-muted mb-6" id="${p}NotaUM"></div>`;
   },
 
   _aggiornaNotaUM(p) {
@@ -383,17 +383,17 @@ export const VistaConfigArticoli: Vista = {
         ${this._esc(c.label)}</label>`
     ).join('');
     return `
-      <div class="form-group" style="margin-bottom:0.5rem"><label>Classe di conservazione</label>
+      <div class="form-group mb-5"><label>Classe di conservazione</label>
         <select class="input" id="${p}TempClass">
           <option value="">— non classificato —</option>${opzioni}
         </select></div>
-      <div class="form-group" style="margin-bottom:0.3rem"><label>Allergeni (Reg. UE 1169/2011, più le voci aziendali •)</label>
+      <div class="form-group mb-3"><label>Allergeni (Reg. UE 1169/2011, più le voci aziendali •)</label>
         <div class="all-grid">${caselle}</div></div>
-      ${pericolose ? `<div class="form-group" style="margin-bottom:0.3rem"><label>Pericolosità</label>
+      ${pericolose ? `<div class="form-group mb-3"><label>Pericolosità</label>
         <div class="all-grid">${pericolose}</div></div>` : ''}
-      <div class="form-group" style="margin-bottom:0.3rem"><label>Certificazioni</label>
+      <div class="form-group mb-3"><label>Certificazioni</label>
         <div class="all-grid">${certificati}</div></div>
-      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
+      <div class="text-label-small text-sx-text-muted mb-6">
         🧭 Con questi la <strong>mappa</strong> segnala la merce fuori posto, e prelievo e DDT
         avvisano l'operatore. Lasciati vuoti, l'articolo non viene verificato.
       </div>`;
@@ -427,29 +427,29 @@ export const VistaConfigArticoli: Vista = {
     const art = Store.getArticle(code);
     if (!art) return;
     this.showModal(`Modifica Articolo — ${code}`, `
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Codice (non mod.)</label>
           <input class="input input-mono" value="${this._esc(code)}" disabled></div>
         <div class="form-group"><label>Categoria</label>
-          <input class="input input-mono" id="eaCategory" value="${this._esc(art.category || 'MP')}" maxlength="5" style="text-transform:uppercase"></div>
+          <input class="input input-mono uppercase" id="eaCategory" value="${this._esc(art.category || 'MP')}" maxlength="5"></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Descrizione <span class="req">*</span></label>
+      <div class="form-group mb-6"><label>Descrizione <span class="req">*</span></label>
         <input class="input" id="eaDesc" value="${this._esc(art.description)}" maxlength="${Validate.MAX.ARTICLE_DESC}"></div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Fornitore / Cliente</label>
           <input class="input" id="eaSupplier" value="${this._esc(art.supplier || '')}" maxlength="80"></div>
         <div class="form-group"><label>UM</label>
-          <input class="input input-mono" id="eaUnit" value="${this._esc(art.unit || 'PZ')}" maxlength="5" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="eaUnit" value="${this._esc(art.unit || 'PZ')}" maxlength="5"
             list="umAmmesse" oninput="App._aggiornaNotaUM('ea')"></div>
       </div>
       ${this._datalistUM()}
       <!-- 1.6 — i due pesi sono usciti, D15: non sono dati che il magazzino gestisce -->
-      <div class="form-row-3" style="margin-bottom:0.3rem">
+      <div class="form-row-3 mb-3">
         <div class="form-group"><label>Quantità per collo (UM)</label><input class="input" id="eaPiecesPack" type="number" step="0.001" min="0" value="${art.pieces_per_pack || 0}" oninput="App._aggiornaNotaUM('ea')"></div>
         <div class="form-group"><label>Stock Min</label><input class="input" id="eaMinStock" type="number" step="1" min="0" value="${art.min_stock || 0}"></div>
         <div class="form-group"><label>Stock Max</label><input class="input" id="eaMaxStock" type="number" step="1" min="0" value="${art.max_stock || 0}"></div>
       </div>
-      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.6rem">
+      <div class="text-label-small text-sx-text-muted mb-6">
         📄 La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
       </div>
       ${this._notaUM('ea')}
