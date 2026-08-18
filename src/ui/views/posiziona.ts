@@ -419,6 +419,31 @@ export const VistaPosiziona = {
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
     const elenco = Store.colliDiRiga(item);
     if (!cfg || !elenco) return null;
+
+    /* COLLI TUTTI UGUALI: LA DOMANDA «QUALI» NON HA RISPOSTA.
+
+       Settantacinque colli da 20 KG sono indistinguibili, e chiederne
+       l'elenco costa settantacinque caselle per ottenere un numero. Qui si
+       chiede il numero, e le scelte si scrivono da sole prendendo i primi.
+
+       Non e' il ritorno al difetto del 17/08 — «una quantita' non dice da
+       quale collo esce» — perche' il servizio riceve comunque la misura di
+       ognuno: quando sono tutte identiche, quale collo si prenda e' una
+       differenza che non esiste. La finestra resta dove serve davvero: sui
+       lotti con misure diverse, dove prendere il collo aperto o quello
+       intero cambia il saldo. */
+    const uguali = elenco.length > 1 && elenco.every(q => q === elenco[0]);
+    if (uguali) {
+      const misura = `${formattaQuantita(elenco[0]!, cfg.uom)} ${cfg.uom}`;
+      const quanti = await Dialog.qty({
+        title: titolo,
+        message: `Sono tutti uguali — ${misura} l'uno. Quanti ne servono?`,
+        value: elenco.length, min: 1, max: elenco.length, unit: 'Coll.',
+      });
+      if (quanti === null) return undefined;
+      return Array.from({ length: quanti }, (_, i) => ({ indice: i }));
+    }
+
     const scelte = await this._scegliColli(item, elenco, cfg.uom, titolo);
     return scelte === null ? undefined : scelte;
   },
