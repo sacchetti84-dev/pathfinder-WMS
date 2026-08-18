@@ -5,6 +5,25 @@ import { Validate } from '../../modules/validate';
 import { ALLERGENI, etichettaClasse } from '../../modules/anagrafica';
 import { formattaQuantita } from '../../modules/misure';
 
+/* IL VERBALE DEL CAMPIONE: non e' un record del database, e' cio' che si
+   stampa. Nasce in due punti — dal campionamento appena fatto e dalla
+   ristampa di un movimento — e i due devono dire le stesse cose. */
+type VerbaleCampione = {
+  rif: string;
+  article_code: string;
+  article_description?: string;
+  lot_code: string;
+  location_code?: string;
+  qty_colli: number;
+  quantita: string | null;
+  per_chi: string;
+  note: string;
+  pulito: boolean;
+  pulitoAuto: boolean;
+  ts: number;
+  operatore: string;
+};
+
 export const VistaCampionamento: Vista = {
   /* ═══ 5bis. CAMPIONAMENTO — 1.4.2.1 ════════════════════════════════
      © Andrea Sacchetti — Dietopack S.r.l.
@@ -185,8 +204,8 @@ export const VistaCampionamento: Vista = {
       if (!(qta > 0)) { $('cpQty')?.focus(); return this.toast(`Quantità del campione in ${cfg.uom}: deve essere maggiore di zero`, 'error'); }
       try {
         esito = await Store.sampleItem(d.location_code, d.item_key, qta);
-      } catch (err: any) {
-        return this.toast(err.message || 'Campionamento non riuscito', 'error');
+      } catch (err) {
+        return this.toast((err as Error).message || 'Campionamento non riuscito', 'error');
       }
       if (!esito) return this.toast('Item non più presente', 'error');
     }
@@ -220,11 +239,11 @@ export const VistaCampionamento: Vista = {
           automatica: pulitoAuto,
           note: pulitoAuto ? 'Pulizia obbligatoria: la merce campionata porta allergeni' : '',
         });
-      } catch (err: any) {
+      } catch (err) {
         /* La pulizia non registrata non fa saltare il campionamento: la
            merce si è già mossa. Resta scritta nel dettaglio del movimento,
            e l'operatore lo sa. */
-        this.toast(`Campione registrato, ma la pulizia non è finita nel registro attività: ${err.message || err}`, 'warning');
+        this.toast(`Campione registrato, ma la pulizia non è finita nel registro attività: ${(err as Error).message || err}`, 'warning');
       }
     }
 
@@ -270,8 +289,8 @@ export const VistaCampionamento: Vista = {
      I dati arrivano dal chiamante e non si rileggono dal magazzino: al
      momento della ristampa la giacenza è già cambiata, e un verbale che
      cambia dopo la firma non è un verbale. */
-  _stampaVerbaleCampione(v) {
-    const fmtTs = (ms: any) => ms
+  _stampaVerbaleCampione(v: VerbaleCampione) {
+    const fmtTs = (ms: number | null | undefined) => ms
       ? new Date(ms).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
       : '—';
     const art = Store.getArticle(v.article_code);
