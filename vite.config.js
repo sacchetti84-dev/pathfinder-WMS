@@ -195,12 +195,27 @@ function cartellaDiConsegna(versione) {
   };
 }
 
+/* IL NUMERO DI VERSIONE IN PAGINA LO SCRIVE LA BUILD.
+
+   Stava a mano in tre punti di `index.html` — titolo, fascia in alto, piede —
+   ed e' rimasto **1.7** per tutta la 1.8: nessuno guarda tre stringhe quando
+   cambia un numero, e la pagina diceva una versione che non era quella che
+   girava. Adesso c'e' un segnaposto e questo lo sostituisce, in sviluppo come
+   nella consegna: la sorgente resta `VERSIONE`, qui sopra, la stessa che da'
+   il nome alla cartella. */
+const versioneInPagina = (versione) => ({
+  name: 'versione-in-pagina',
+  transformIndexHtml: (html) => html.replaceAll('__VERSIONE__', versione),
+});
+
 export default defineConfig({
+
   plugins: [
     /* Tailwind legge i sorgenti e scrive le sole utility che trova scritte.
        Va per primo: produce il CSS che gli altri due poi impacchettano. */
     tailwindcss(),
     ...(UNICO ? [viteSingleFile()] : []),
+    versioneInPagina(VERSIONE),
     cartellaDiConsegna(VERSIONE),
   ],
 
