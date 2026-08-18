@@ -7,20 +7,20 @@ export const VistaConfigSiti: Vista = {
   _renderConfigSites(el) {
     const sites = Store.getSites();
     let html = `<div class="config-card">
-      <h3>Siti di Stoccaggio <button class="btn btn-sm btn-primary" style="float:right" onclick="App.showAddSiteModal()">+ Nuovo Sito</button></h3>
-      <div style="overflow-x:auto">
+      <h3>Siti di Stoccaggio <button class="btn btn-sm btn-primary float-right" onclick="App.showAddSiteModal()">+ Nuovo Sito</button></h3>
+      <div class="overflow-x-auto">
       <table class="sx-table">
-        <thead><tr><th>Codice</th><th>Nome</th><th>Tipo</th><th>Zone</th><th>Ubic.</th><th style="width:180px">Azioni</th></tr></thead><tbody>`;
+        <thead><tr><th>Codice</th><th>Nome</th><th>Tipo</th><th>Zone</th><th>Ubic.</th><th class="w-[180px]">Azioni</th></tr></thead><tbody>`;
     for (const site of sites) {
       const zones = (site.zones || []).filter(z => z.active);
       const stats = Store.getSiteStats(site.id);
       html += `<tr>
-        <td><span class="mono" style="font-weight:700;color:var(--sx-primary)">${this._esc(site.id)}</span></td>
+        <td><span class="mono font-bold text-sx-primary">${this._esc(site.id)}</span></td>
         <td>${this._esc(site.name)}</td>
         <td><span class="badge ${site.type === 'proprio' ? 'badge-blue' : 'badge-amber'}">${this._esc(site.type)}</span></td>
         <td>${zones.length}</td>
         <td>${stats.total}</td>
-        <td style="white-space:nowrap">
+        <td class="whitespace-nowrap">
           <button class="btn btn-sm" onclick="App.showEditSiteModal('${site.id}')" title="Modifica">✏</button>
           <button class="btn btn-sm" onclick="App.showAddZoneModal('${site.id}')" title="Aggiungi zona">+ Zona</button>
           <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteSite('${site.id}')" title="Elimina">🗑</button>
@@ -29,12 +29,12 @@ export const VistaConfigSiti: Vista = {
       for (const zone of zones) {
         const dim = zone.type === 'RACK' ? `${zone.aisles}c × ${zone.bays_per_aisle}b × ${((zone!.levels as any[]) as any[])?.length || 1}l` :
           zone.type === 'FLOOR' ? `${zone.rows}f × ${zone.positions_per_row}p` : `${zone.positions} pos`;
-        html += `<tr style="background:var(--sx-accent-soft)">
+        html += `<tr class="bg-sx-accent-soft">
           <td></td>
-          <td style="padding-left:1.25rem">↳ <span class="badge ${zone.type === 'RACK' ? 'badge-blue' : zone.type === 'FLOOR' ? 'badge-green' : 'badge-amber'}">${zone.type}</span> ${this._esc(zone.name)}</td>
-          <td class="mono" style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">${dim}</td>
+          <td class="pl-12.5">↳ <span class="badge ${zone.type === 'RACK' ? 'badge-blue' : zone.type === 'FLOOR' ? 'badge-green' : 'badge-amber'}">${zone.type}</span> ${this._esc(zone.name)}</td>
+          <td class="mono text-body-small text-sx-text-muted">${dim}</td>
           <td colspan="2">${Store.getZoneStats(site.id, zone.id).total}</td>
-          <td style="white-space:nowrap">
+          <td class="whitespace-nowrap">
             <button class="btn btn-sm" onclick="App.showEditZoneModal('${site.id}','${zone.id}')">✏</button>
             <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteZone('${site.id}','${zone.id}')">🗑</button>
           </td>
@@ -45,11 +45,11 @@ export const VistaConfigSiti: Vista = {
     el.innerHTML = html;
   },  showAddSiteModal() {
     this.showModal('Nuovo Sito di Stoccaggio', `
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Codice Sito (2-4 car.) <span class="req">*</span></label>
-        <input class="input input-mono" id="newSiteId" placeholder="Es: MOP1, UNT" maxlength="${Validate.MAX.SITE_ID}" style="text-transform:uppercase"></div>
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Nome <span class="req">*</span></label>
+      <div class="form-group mb-6"><label>Codice Sito (2-4 car.) <span class="req">*</span></label>
+        <input class="input input-mono uppercase" id="newSiteId" placeholder="Es: MOP1, UNT" maxlength="${Validate.MAX.SITE_ID}"></div>
+      <div class="form-group mb-6"><label>Nome <span class="req">*</span></label>
         <input class="input" id="newSiteName" placeholder="Es: Magazzino Operativo 1" maxlength="${Validate.MAX.SITE_NAME}"></div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Tipo</label>
           <select class="select" id="newSiteType"><option value="proprio">Proprio</option><option value="terzista">Terzista</option></select></div>
         <div class="form-group"><label>Indirizzo</label>
@@ -83,11 +83,11 @@ export const VistaConfigSiti: Vista = {
     const site = Store.getSite(siteId);
     if (!site) return;
     this.showModal(`Modifica Sito — ${siteId}`, `
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Codice (non modificabile)</label>
+      <div class="form-group mb-6"><label>Codice (non modificabile)</label>
         <input class="input input-mono" value="${this._esc(siteId)}" disabled></div>
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Nome <span class="req">*</span></label>
+      <div class="form-group mb-6"><label>Nome <span class="req">*</span></label>
         <input class="input" id="editSiteName" value="${this._esc(site.name)}" maxlength="${Validate.MAX.SITE_NAME}"></div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Tipo</label>
           <select class="select" id="editSiteType">
             <option value="proprio" ${site.type === 'proprio' ? 'selected' : ''}>Proprio</option>
@@ -140,9 +140,9 @@ export const VistaConfigSiti: Vista = {
   showAddZoneModal(siteId) {
     this._editingSiteId = siteId;
     this.showModal(`Nuova Zona in ${siteId}`, `
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Codice Zona <span class="req">*</span></label>
-          <input class="input input-mono" id="newZoneId" placeholder="Es: A, B, BULK1" maxlength="${Validate.MAX.ZONE_ID}" style="text-transform:uppercase"></div>
+          <input class="input input-mono uppercase" id="newZoneId" placeholder="Es: A, B, BULK1" maxlength="${Validate.MAX.ZONE_ID}"></div>
         <div class="form-group"><label>Tipo</label>
           <select class="select" id="newZoneType" onchange="App.updateZoneFields()">
             <option value="RACK">RACK — Scaffalature</option>
@@ -150,7 +150,7 @@ export const VistaConfigSiti: Vista = {
             <option value="BULK">BULK — Area libera</option>
           </select></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Nome <span class="req">*</span></label>
+      <div class="form-group mb-6"><label>Nome <span class="req">*</span></label>
         <input class="input" id="newZoneName" placeholder="Es: Zona Rack MP" maxlength="${Validate.MAX.ZONE_NAME}"></div>
       <div id="zoneTypeFields"></div>
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
@@ -162,16 +162,16 @@ export const VistaConfigSiti: Vista = {
     const type = $('newZoneType').value;
     const el = $('zoneTypeFields');
     const fields = {
-      RACK: `<div class="form-row" style="margin-bottom:0.6rem">
+      RACK: `<div class="form-row mb-6">
         <div class="form-group"><label>Corsie</label><input class="input" id="zfAisles" type="number" min="1" max="99" value="5"></div>
         <div class="form-group"><label>Campate/corsia</label><input class="input" id="zfBays" type="number" min="1" max="99" value="10"></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Livelli (virgola)</label><input class="input input-mono" id="zfLevels" value="T,A,B,C,D" placeholder="T,A,B,C,D"></div>
-      <div class="form-group"><label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;font-size: var(--md-sys-typescale-body-small-size)">
-        <input type="checkbox" id="zfMirror" style="width:16px;height:16px;cursor:pointer">
+      <div class="form-group mb-6"><label>Livelli (virgola)</label><input class="input input-mono" id="zfLevels" value="T,A,B,C,D" placeholder="T,A,B,C,D"></div>
+      <div class="form-group"><label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
+        <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="zfMirror">
         <span>Vista frontale specchiata (campate dx → sx)</span>
       </label>
-      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.2rem;padding-left:1.4rem">💡 Per chi lavora dal lato opposto alla numerazione delle campate</div></div>`,
+      <div class="text-label-small text-sx-text-muted mt-2 pl-14">💡 Per chi lavora dal lato opposto alla numerazione delle campate</div></div>`,
       FLOOR: `<div class="form-row">
         <div class="form-group"><label>File</label><input class="input" id="zfRows" type="number" min="1" max="99" value="4"></div>
         <div class="form-group"><label>Posizioni/fila</label><input class="input" id="zfPosPerRow" type="number" min="1" max="99" value="8"></div>
@@ -242,23 +242,23 @@ export const VistaConfigSiti: Vista = {
         ${this._esc(h.label)}</label>`
     ).join('');
     return `
-      <div style="border-top:1px dashed var(--sx-border);margin:0.8rem 0 0.6rem;padding-top:0.7rem">
-        <div class="form-group" style="margin-bottom:0.5rem"><label>Classe di conservazione della zona</label>
+      <div class="[border-top:1px_dashed_var(--sx-border)] mt-8 mx-0 mb-6 pt-7">
+        <div class="form-group mb-5"><label>Classe di conservazione della zona</label>
           <select class="input" id="ezTempClass">
             <option value="">— non caratterizzata —</option>${opzioni}
           </select></div>
-        <div class="form-group" style="margin-bottom:0.4rem">
-          <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;font-size: var(--md-sys-typescale-body-small-size)">
-            <input type="checkbox" id="ezAllergenZone" style="width:16px;height:16px;cursor:pointer" ${riservata ? 'checked' : ''}
+        <div class="form-group mb-4">
+          <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
+            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezAllergenZone" ${riservata ? 'checked' : ''}
               onchange="$('ezAllergenList').hidden=!this.checked">
             <span>Zona riservata alla merce con allergeni</span>
           </label></div>
         <div class="form-group" id="ezAllergenList" ${riservata ? '' : 'hidden'}>
           <label>Allergeni ammessi — nessuno spuntato = tutti</label>
           <div class="all-grid">${caselle}</div></div>
-        <div class="form-group" style="margin-bottom:0.4rem">
-          <label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;font-size: var(--md-sys-typescale-body-small-size)">
-            <input type="checkbox" id="ezHazardZone" style="width:16px;height:16px;cursor:pointer" ${pericolosa ? 'checked' : ''}
+        <div class="form-group mb-4">
+          <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
+            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezHazardZone" ${pericolosa ? 'checked' : ''}
               onchange="$('ezHazardList').hidden=!this.checked">
             <span>Zona dedicata alla merce pericolosa</span>
           </label></div>
@@ -266,8 +266,8 @@ export const VistaConfigSiti: Vista = {
           <label>Pericolosità ammesse — nessuna spuntata = tutte</label>
           ${pericoli.length
             ? `<div class="all-grid">${hazCaselle}</div>`
-            : `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">Nessuna pericolosità configurata — si aggiungono in Configurazione → Parametri articolo.</div>`}</div>
-        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.3rem">
+            : `<div class="text-label-small text-sx-text-muted">Nessuna pericolosità configurata — si aggiungono in Configurazione → Parametri articolo.</div>`}</div>
+        <div class="text-label-small text-sx-text-muted mt-3">
           🧭 Lasciata non caratterizzata, la zona non segnala nulla.<br>
           🔓 Una singola ubicazione marcata <strong>Riservata</strong> ammette allergeni
           comunque, ovunque si trovi — la deroga si vede in mappa e si elenca.
@@ -299,16 +299,16 @@ export const VistaConfigSiti: Vista = {
     if (!zone) return;
     let configFields = '';
     if (zone.type === 'RACK') {
-      configFields = `<div class="form-row" style="margin-bottom:0.6rem">
+      configFields = `<div class="form-row mb-6">
         <div class="form-group"><label>Corsie</label><input class="input" id="ezAisles" type="number" min="1" max="99" value="${zone.aisles}"></div>
         <div class="form-group"><label>Campate/corsia</label><input class="input" id="ezBays" type="number" min="1" max="99" value="${zone.bays_per_aisle}"></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Livelli</label><input class="input input-mono" id="ezLevels" value="${this._esc(((zone!.levels as any[]) || []).join(','))}"></div>
-      <div class="form-group"><label style="display:flex;align-items:center;gap:0.4rem;cursor:pointer;text-transform:none;font-size: var(--md-sys-typescale-body-small-size)">
-        <input type="checkbox" id="ezMirror" style="width:16px;height:16px;cursor:pointer" ${zone.mirror_frontal ? 'checked' : ''}>
+      <div class="form-group mb-6"><label>Livelli</label><input class="input input-mono" id="ezLevels" value="${this._esc(((zone!.levels as any[]) || []).join(','))}"></div>
+      <div class="form-group"><label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
+        <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezMirror" ${zone.mirror_frontal ? 'checked' : ''}>
         <span>Vista frontale specchiata (campate dx → sx)</span>
       </label>
-      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.2rem;padding-left:1.4rem">💡 Per chi lavora dal lato opposto alla numerazione delle campate</div></div>`;
+      <div class="text-label-small text-sx-text-muted mt-2 pl-14">💡 Per chi lavora dal lato opposto alla numerazione delle campate</div></div>`;
     } else if (zone.type === 'FLOOR') {
       configFields = `<div class="form-row">
         <div class="form-group"><label>File</label><input class="input" id="ezRows" type="number" min="1" max="99" value="${zone.rows}"></div>
@@ -321,9 +321,9 @@ export const VistaConfigSiti: Vista = {
       </div>`;
     }
     this.showModal(`Modifica Zona — ${zoneId} (${zone.type})`, `
-      <div class="form-group" style="margin-bottom:0.6rem"><label>Nome <span class="req">*</span></label>
+      <div class="form-group mb-6"><label>Nome <span class="req">*</span></label>
         <input class="input" id="ezName" value="${this._esc(zone.name)}" maxlength="${Validate.MAX.ZONE_NAME}"></div>
-      <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-warning);margin-bottom:0.5rem">⚠ Modificare le dimensioni può generare ubicazioni orfane per item già posizionati oltre la nuova griglia.</p>
+      <p class="text-body-small text-sx-warning mb-5">⚠ Modificare le dimensioni può generare ubicazioni orfane per item già posizionati oltre la nuova griglia.</p>
       ${configFields}
       ${this._campiDestinazioneZona(zone)}
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
