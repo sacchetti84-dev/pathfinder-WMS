@@ -218,9 +218,9 @@ export const VistaDestinatari: Vista = {
       if (esito.creato) this.toast(`📇 ${esito.record.name} aggiunto all'anagrafica destinatari`, 'info');
       else if (esito.destinazioneNuova) this.toast(`📇 Nuova destinazione salvata per ${esito.record.name}`, 'info');
       else if (permanente) this.toast(`📇 Anagrafica di ${esito.record.name} aggiornata`, 'info');
-    } catch (err: any) {
+    } catch (err) {
       /* La rubrica non deve mai far sembrare fallito un DDT che è passato. */
-      this.toast(`DDT registrato. L'anagrafica destinatari non si è aggiornata: ${err.message || err}`, 'warning');
+      this.toast(`DDT registrato. L'anagrafica destinatari non si è aggiornata: ${(err as Error).message || err}`, 'warning');
     }
   },
 };
