@@ -4,9 +4,23 @@ import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { OdpParser } from '../../modules/odpParser';
-import { PickRoute } from '../../modules/pickRoute.js';
+import { PickRoute } from '../../modules/pickRoute';
+import type { Percorso, Tappa } from '../../modules/pickRoute';
+import type { TestataODP } from '../../modules/odpParser';
+import type { SessionePrelievo } from '../../types/entita';
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
+
+/* Dove altro sta lo stesso lotto, quando la tappa non lo trova. */
+type Alternativa = { location_code: string; item_key: string; qty_available: number };
+
+/* L'ordine appena letto da Excel, prima che diventi un percorso avviato: il
+   risultato del parser piu' quello della serpentina, piu' il nome del file. */
+type OrdineLetto = Percorso & {
+  header: TestataODP;
+  warnings: string[];
+  file_name: string;
+};
 
 export const VistaPercorso: Vista = {
   _routeStage: 'import',        // 'import' | 'run'
@@ -31,7 +45,7 @@ export const VistaPercorso: Vista = {
 
       ${session ? `<div class="route-resume">
         <strong>⏸ Percorso gi&agrave; in corso</strong>
-        <div>Ordine ${this._esc(session.odp_num)} — ${(session.stops as any[]).filter((s: any) => s.status !== 'pending').length} di ${(session.stops as any[]).length} tappe completate.</div>
+        <div>Ordine ${this._esc(session.odp_num)} — ${(session.stops || []).filter((s) => s.status !== 'pending').length} di ${(session.stops || []).length} tappe completate.</div>
         <div class="flex gap-5 mt-6 flex-wrap">
           <button class="btn btn-accent" onclick="App._routeResume()">▶ Riprendi</button>
           <button class="btn btn-danger" onclick="App._routeAbandon()">✕ Chiudi percorso</button>
@@ -92,26 +106,26 @@ export const VistaPercorso: Vista = {
       const route = PickRoute.build(res.lines);
       this._routeParsed = { ...res, ...route, file_name: file.name };
       this._formOrdine($('pickSubForm'));
-      const n = (route.stops as any[]).length, o = route.offroute.length;
+      const n = (route.stops || []).length, o = route.offroute.length;
       this.toast(`Ordine ${res.header.odp_num} letto · ${n} tappe, ${o} righe in coda`, n ? 'success' : 'warning');
-    } catch (err: any) {
+    } catch (err) {
       console.error('[WM] handleImportOdp:', err);
       this._routeParsed = null;
       this._formOrdine($('pickSubForm'));
-      this.toast(`Errore di lettura · ${err.message}`, 'error');
+      this.toast(`Errore di lettura · ${(err as Error).message}`, 'error');
     }
   },
 
   /* Esito dell'import: testata, avvisi, ordine siti, anteprima tappe e coda. */
   _routeImportResultHTML() {
-    const p = this._routeParsed;
+    const p: OrdineLetto | null = this._routeParsed;
     if (!p) return '';
     const h = p.header;
-    const bySite = {};
-    for (const s of p.stops) ((bySite as any)[s.site_id] = (bySite as any)[s.site_id] || []).push(s);
+    const bySite: Record<string, Tappa[]> = {};
+    for (const s of p.stops) (bySite[s.site_id!] = bySite[s.site_id!] || []).push(s);
 
     const SEV = { not_mapped: 0, lot_absent_other_lots: 1, no_lot_in_odp: 2, all_blocked: 3 };
-    const blockers = [...p.offroute].sort((a, b) => ((SEV as any)[a.reason] ?? 9) - ((SEV as any)[b.reason] ?? 9));
+    const blockers = [...p.offroute].sort((a, b) => (SEV[a.reason as keyof typeof SEV] ?? 9) - (SEV[b.reason as keyof typeof SEV] ?? 9));
     const alertHTML = blockers.length ? `
       <div class="route-alert">
         <div class="route-alert-head">
@@ -133,7 +147,7 @@ export const VistaPercorso: Vista = {
       <div class="route-warn">
         <strong>⚠ ${p.warnings.length} avviso/i sui dati dell'ordine</strong>
         <ul class="mt-4 mr-0 mb-0 ml-10 p-0">
-          ${p.warnings.map((w: any) => `<li class="mb-2.5">${this._esc(w)}</li>`).join('')}
+          ${(p.warnings || []).map((w) => `<li class="mb-2.5">${this._esc(w)}</li>`).join('')}
         </ul>
       </div>` : '';
 
@@ -143,8 +157,8 @@ export const VistaPercorso: Vista = {
         <div class="text-body-small mt-3 opacity-85">
           Non entra nel percorso. &Egrave; solo un'informazione per l'operatore.
         </div>
-        ${p.notes.map((n: any) => `<div class="route-note-row">
-          <span class="badge badge-${n.reason === 'quarantine' ? 'red' : 'amber'}">${this._esc((PickRoute.REASON_LABELS as any)[n.reason] || n.reason)}</span>
+        ${(p.notes || []).map((n) => `<div class="route-note-row">
+          <span class="badge badge-${n.reason === 'quarantine' ? 'red' : 'amber'}">${this._esc((PickRoute.REASON_LABELS as Record<string, string>)[n.reason || ''] || n.reason)}</span>
           <span class="mono">${this._esc(n.article_code)}#${this._esc(n.lot_code)}</span>
           <span class="mono">${this._esc(n.location_code)}</span>
         </div>`).join('')}
@@ -165,7 +179,7 @@ export const VistaPercorso: Vista = {
       ${warnHTML}
 
       <div class="route-stats">
-        <div class="route-stat"><span class="route-stat-val">${(p.stops as any[]).length}</span><span class="route-stat-lbl">Tappe</span></div>
+        <div class="route-stat"><span class="route-stat-val">${(p.stops || []).length}</span><span class="route-stat-lbl">Tappe</span></div>
         <div class="route-stat"><span class="route-stat-val">${Object.keys(bySite).length}</span><span class="route-stat-lbl">Siti</span></div>
         <div class="route-stat"><span class="route-stat-val">${p.offroute.length}</span><span class="route-stat-lbl">Da verificare</span></div>
         <div class="route-stat"><span class="route-stat-val">${p.notes.length}</span><span class="route-stat-lbl">Segnalazioni</span></div>
@@ -173,9 +187,9 @@ export const VistaPercorso: Vista = {
 
       ${this._routeSiteOrderHTML()}
 
-      ${(p.stops as any[]).length ? `<div class="route-preview">
+      ${(p.stops || []).length ? `<div class="route-preview">
         <strong class="text-body-medium">🧭 Anteprima percorso</strong>
-        ${(p.stops as any[]).map((s: any) => `<div class="route-prev-row">
+        ${(p.stops || []).map((s) => `<div class="route-prev-row">
           <span class="route-prev-seq">${s.seq}</span>
           <span class="mono route-prev-loc">${this._esc(s.location_code)}</span>
           <span class="route-prev-art"><span class="mono">${this._esc(s.article_code)}</span> · <span class="mono">${this._esc(s.lot_code)}</span></span>
@@ -188,13 +202,13 @@ export const VistaPercorso: Vista = {
 
       <div class="flex gap-5 mt-8">
         <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
-          onclick="App._routeStart()" ${(p.stops as any[]).length ? '' : 'disabled'}>🧭 AVVIA PERCORSO (${(p.stops as any[]).length})</button>
+          onclick="App._routeStart()" ${(p.stops || []).length ? '' : 'disabled'}>🧭 AVVIA PERCORSO (${(p.stops || []).length})</button>
       </div>`;
   },
 
   _routeTailRowHTML(o) {
     return `<div class="route-tail-row">
-      <span class="badge badge-${o.reason === 'not_mapped' ? 'muted' : o.reason === 'marked_missing' ? 'red' : 'amber'}">${this._esc((PickRoute.REASON_LABELS as any)[o.reason] || o.reason)}</span>
+      <span class="badge badge-${o.reason === 'not_mapped' ? 'muted' : o.reason === 'marked_missing' ? 'red' : 'amber'}">${this._esc((PickRoute.REASON_LABELS as Record<string, string>)[o.reason] || o.reason)}</span>
       <span class="mono">${this._esc(o.article_code)}#${this._esc(o.lot_code)}</span>
       <span class="route-tail-desc">${this._esc(o.description || '')}</span>
       <span class="route-tail-kg">${this._fmtKg(o.kg_required)} ${this._esc(o.um || '')}</span>
@@ -242,7 +256,7 @@ export const VistaPercorso: Vista = {
   /* ─── AVVIO DEL PERCORSO ────────────────────────────────────────── */
   async _routeStart() {
     if (!this._requireOperator('il prelievo guidato da ordine')) return;
-    const p = this._routeParsed;
+    const p: OrdineLetto | null = this._routeParsed;
     if (!p?.stops!.length) return this.toast('Nessuna tappa da percorrere', 'error');
     this._prodOperator = Validate.clean($('pRouteOperator')?.value) || this._prodOperator;
     const opErr = Validate.operator(this._prodOperator);
@@ -255,7 +269,7 @@ export const VistaPercorso: Vista = {
         message: 'Esiste gi\u00e0 un percorso attivo. Avviandone uno nuovo il precedente viene chiuso.',
         details: Dialog.kv([
           ['Ordine in corso', existing.odp_num],
-          ['Tappe completate', `${(existing.stops as any[]).filter(s => s.status !== 'pending').length} di ${(existing.stops as any[]).length}`],
+          ['Tappe completate', `${(existing.stops || []).filter(s => s.status !== 'pending').length} di ${(existing.stops || []).length}`],
           ['Nuovo ordine', p.header.odp_num]
         ]),
         confirmLabel: 'Chiudi e avvia il nuovo', danger: true, icon: '\u26A0'
@@ -283,15 +297,15 @@ export const VistaPercorso: Vista = {
     };
     try {
       await Store.startPickSession(session);
-    } catch (err: any) {
-      return this.toast(`Avvio non riuscito · ${err.message}`, 'error');
+    } catch (err) {
+      return this.toast(`Avvio non riuscito · ${(err as Error).message}`, 'error');
     }
     this._routeParsed = null;
     this._routeStage = 'run';
     this._routeStartTime = Date.now();
     this._routeScan = { loc: '', art: '', lot: '' };
     this._formOrdine($('pickSubForm'));
-    this.toast(`Percorso avviato · ${(session.stops as any[]).length} tappe`, 'success');
+    this.toast(`Percorso avviato · ${(session.stops || []).length} tappe`, 'success');
     this.updateSyncIndicator();
   },
 
@@ -305,8 +319,8 @@ export const VistaPercorso: Vista = {
   async _routeAbandon() {
     const s = Store.getActivePickSession();
     if (!s) return;
-    const done = (s.stops as any[]).filter(x => x.status === 'done').length;
-    const left = (s.stops as any[]).filter(x => x.status === 'pending').length;
+    const done = (s.stops || []).filter(x => x.status === 'done').length;
+    const left = (s.stops || []).filter(x => x.status === 'pending').length;
     const ok = await Dialog.confirm({
       title: 'Chiudere il percorso?',
       message: 'I prelievi gi\u00e0 confermati restano registrati a magazzino e a registro: sono stati scritti tappa per tappa. Viene chiusa soltanto la guida al cammino.',
@@ -331,17 +345,17 @@ export const VistaPercorso: Vista = {
     const s = Store.getActivePickSession();
     if (!s) { this._routeStage = 'import'; this._formOrdine(el); return; }
 
-    const done    = (s.stops as any[]).filter(x => x.status === 'done').length;
-    const missing = (s.stops as any[]).filter(x => x.status === 'missing').length;
-    const pending = (s.stops as any[]).filter(x => x.status === 'pending');
+    const done    = (s.stops || []).filter(x => x.status === 'done').length;
+    const missing = (s.stops || []).filter(x => x.status === 'missing').length;
+    const pending = (s.stops || []).filter(x => x.status === 'pending');
     const current = pending[0] || null;
-    const pct     = Math.round(((done + missing) / (s.stops as any[]).length) * 100);
+    const pct     = Math.round(((done + missing) / (s.stops || []).length) * 100);
 
     el.innerHTML = `
       <div class="route-runbar">
         <div class="route-runbar-top">
           <span class="mono route-runbar-odp">${this._esc(s.odp_num)}</span>
-          <span class="route-runbar-count">${done + missing} / ${(s.stops as any[]).length}</span>
+          <span class="route-runbar-count">${done + missing} / ${(s.stops || []).length}</span>
         </div>
         <div class="route-progress"><i style="width:${pct}%"></i></div>
         <div class="route-runbar-legend">
@@ -354,8 +368,8 @@ export const VistaPercorso: Vista = {
       <section id="routeCurrent">${current ? this._routeCurrentHTML(current) : this._routeFinishHTML(s)}</section>
 
       <details class="route-details">
-        <summary>Elenco completo delle tappe (${(s.stops as any[]).length})</summary>
-        <div class="route-list">${(s.stops as any[]).map(st => this._routeListRowHTML(st, current)).join('')}</div>
+        <summary>Elenco completo delle tappe (${(s.stops || []).length})</summary>
+        <div class="route-list">${(s.stops || []).map(st => this._routeListRowHTML(st, current)).join('')}</div>
       </details>
 
       <div class="flex gap-5 mt-7 flex-wrap">
@@ -396,7 +410,7 @@ export const VistaPercorso: Vista = {
 
         ${st.alternatives.length ? `<div class="route-alt">
           <strong>Altre ubicazioni con lo stesso articolo e lotto:</strong>
-          ${st.alternatives.map((a: any) => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_available} Coll.</span>`).join(' ')}
+          ${(st.alternatives as Alternativa[]).map((a) => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_available} Coll.</span>`).join(' ')}
           <div class="text-label-small mt-2.5 opacity-80">Scansionandone una, la tappa si sposta l&agrave;.</div>
         </div>` : ''}
 
@@ -461,7 +475,7 @@ export const VistaPercorso: Vista = {
       $('rArt')?.focus();
       return;
     }
-    const alt = st.alternatives.find((a: any) => a.location_code === val);
+    const alt = (st.alternatives as Alternativa[]).find((a) => a.location_code === val);
     if (alt) {
       this._routeScan.loc = val;
       this._routeSwitchToAlternative(st, alt);
@@ -469,7 +483,7 @@ export const VistaPercorso: Vista = {
     }
     this._routeBlock('rLoc', 'Ubicazione errata',
       `Attesa ${st.location_code}, scansionata ${val}.`,
-      async (note: any) => {
+      async (note: string) => {
         if (!Store.locationExists(val)) {
           this.toast(`L'ubicazione ${val} non esiste a sistema`, 'error');
           return false;
@@ -487,7 +501,7 @@ export const VistaPercorso: Vista = {
     const old = st.location_code;
     st.alternatives = [
       { location_code: old, item_key: st.item_key, qty_available: Store.getAvailableQty(old, st.item_key) },
-      ...st.alternatives.filter((a: any) => a.location_code !== alt.location_code)
+      ...(st.alternatives as Alternativa[]).filter((a) => a.location_code !== alt.location_code)
     ];
     st.location_code = alt.location_code;
     st.item_key = alt.item_key;
@@ -522,7 +536,7 @@ export const VistaPercorso: Vista = {
     }
     this._routeBlock('rArt', 'Articolo errato',
       `Atteso ${st.article_code}, scansionato ${val}.`,
-      async (note: any) => {
+      async (note: string) => {
         st.forced_note = `${st.forced_note ? st.forced_note + ' | ' : ''}Articolo forzato (atteso ${st.article_code}, letto ${val}): ${note}`;
         this._routeScan.art = st.article_code;
         await this._routeSave();
@@ -547,7 +561,7 @@ export const VistaPercorso: Vista = {
     }
     this._routeBlock('rLot', 'Lotto errato',
       `Atteso ${st.lot_code}, scansionato ${val}. Il lotto \u00e8 assegnato dall\u2019ordine di produzione: forzarlo altera la tracciabilit\u00e0.`,
-      async (note: any) => {
+      async (note: string) => {
         st.forced_note = `${st.forced_note ? st.forced_note + ' | ' : ''}Lotto forzato (atteso ${st.lot_code}, letto ${val}): ${note}`;
         this._routeScan.lot = st.lot_code;
         await this._routeSave();
@@ -602,7 +616,7 @@ export const VistaPercorso: Vista = {
 
   _routeCurrentStop() {
     const s = Store.getActivePickSession();
-    return s ? ((s.stops as any[]).find(x => x.status === 'pending') || null) : null;
+    return s ? ((s.stops || []).find(x => x.status === 'pending') || null) : null;
   },
 
   async _routeSave() {
@@ -677,17 +691,17 @@ export const VistaPercorso: Vista = {
           article_description: st.article_description,
           lot_code: st.lot_code,
           location_code: st.location_code,
-          dest_location: null as any,
+          dest_location: null,
           user: effectiveUser,
           notes,
           doc_ref: session.odp_num,
           ts: Date.now()
         }
       });
-    } catch (err: any) {
+    } catch (err) {
       console.error('[WM] _routeConfirmStop:', err);
       st.status = 'pending'; st.qty_picked = 0; st.done_at = null;
-      return this.toast(`Prelievo non registrato \u00b7 ${err.message} \u2014 nessuna modifica applicata`, 'error');
+      return this.toast(`Prelievo non registrato \u00b7 ${(err as Error).message} \u2014 nessuna modifica applicata`, 'error');
     }
 
     /* Il registro di sessione a video e la finestra di storno restano
@@ -727,31 +741,31 @@ export const VistaPercorso: Vista = {
     st.done_at = Date.now();
     try {
       await Store.savePickSession(session);
-    } catch (err: any) {
+    } catch (err) {
       st.status = 'pending';
-      return this.toast(`Salvataggio non riuscito · ${err.message}`, 'error');
+      return this.toast(`Salvataggio non riuscito · ${(err as Error).message}`, 'error');
     }
     Feedback.signal('warn', 'Tappa marcata come non trovata', 'Finir\u00e0 in coda al percorso.');
     this._renderRouteRun($('pickSubForm'));
   },
 
   /* ─── SCHERMATA 3: CHIUSURA ─────────────────────────────────────── */
-  _routeFinishHTML(s) {
-    const done    = (s.stops as any[]).filter((x: any) => x.status === 'done');
-    const missing = (s.stops as any[]).filter((x: any) => x.status === 'missing');
+  _routeFinishHTML(s: SessionePrelievo) {
+    const done    = (s.stops || []).filter((x) => x.status === 'done');
+    const missing = (s.stops || []).filter((x) => x.status === 'missing');
     const tail    = [
-      ...missing.map((x: any) => ({
+      ...missing.map((x) => ({
         article_code: x.article_code, description: x.article_description, lot_code: x.lot_code,
         kg_required: x.kg_required, um: x.um, reason: 'marked_missing',
         detail: `Ubicazione prevista ${x.location_code}.`, forced_note: x.forced_note
       })),
-      ...s.offroute
+      ...(s.offroute || [])
     ];
     return `
       <div class="route-done">
         <div class="route-done-ico">✓</div>
         <strong>Percorso completato</strong>
-        <div>${done.length} tappe prelevate su ${(s.stops as any[]).length} per l'ordine ${this._esc(s.odp_num)}.</div>
+        <div>${done.length} tappe prelevate su ${(s.stops || []).length} per l'ordine ${this._esc(s.odp_num)}.</div>
       </div>
 
       ${tail.length ? `<div class="route-tail">
@@ -765,8 +779,8 @@ export const VistaPercorso: Vista = {
 
       ${s.notes?.length ? `<div class="route-note-box">
         <strong>ℹ ${s.notes.length} segnalazione/i — merce esistente ma non prelevabile</strong>
-        ${s.notes.map((n: any) => `<div class="route-note-row">
-          <span class="badge badge-${n.reason === 'quarantine' ? 'red' : 'amber'}">${this._esc((PickRoute.REASON_LABELS as any)[n.reason] || n.reason)}</span>
+        ${(s.notes || []).map((n) => `<div class="route-note-row">
+          <span class="badge badge-${n.reason === 'quarantine' ? 'red' : 'amber'}">${this._esc((PickRoute.REASON_LABELS as Record<string, string>)[n.reason || ''] || n.reason)}</span>
           <span class="mono">${this._esc(n.article_code)}#${this._esc(n.lot_code)}</span>
           <span class="mono">${this._esc(n.location_code)}</span>
         </div>`).join('')}
@@ -795,9 +809,9 @@ export const VistaPercorso: Vista = {
   async _checkPendingPickSession() {
     const s = Store.getActivePickSession();
     if (!s) return;
-    const done    = (s.stops as any[]).filter(x => x.status === 'done').length;
-    const missing = (s.stops as any[]).filter(x => x.status === 'missing').length;
-    const left    = (s.stops as any[]).filter(x => x.status === 'pending').length;
+    const done    = (s.stops || []).filter(x => x.status === 'done').length;
+    const missing = (s.stops || []).filter(x => x.status === 'missing').length;
+    const left    = (s.stops || []).filter(x => x.status === 'pending').length;
     if (!left) return;                       // già concluso: si riprende dalla scheda
     const resume = await Dialog.confirm({
       title: 'Percorso di prelievo in corso',
