@@ -1,8 +1,17 @@
 import { type Vista, $ } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
+import type { Giacenza } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
+
+/* Una riga del carrello di produzione: la giacenza da cui si preleva, più
+   quanto se ne porta via e quanto ce n'era. */
+type VoceCarrelloProd = Giacenza & {
+  qty_pick: number;
+  qty_avail: number;
+  qty_phys: number;
+};
 
 export const VistaPrelievo: Vista = {
   // ═══ 3. PRELIEVO (3 sub-flussi) ═══
@@ -289,7 +298,7 @@ export const VistaPrelievo: Vista = {
 
   _prodCartZoneHTML() {
     const n = this._pickCart.length;
-    const totalColli = this._pickCart.reduce((s: any, it: any) => s + (it.qty_pick || 1), 0);
+    const totalColli = (this._pickCart as VoceCarrelloProd[]).reduce((s, it) => s + (it.qty_pick || 1), 0);
     return `<div class="flex justify-between items-center mt-7 mx-0 mb-3.5">
         <strong class="text-body-large">🛒 Carrello Prelievo <span class="text-sx-accent">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>` : ''}</strong>
         ${n ? '<button class="btn btn-sm btn-ghost" onclick="App._prodClearCart()">Svuota</button>' : ''}
@@ -347,7 +356,7 @@ export const VistaPrelievo: Vista = {
     // Stesso lotto in più ubicazioni → mostra selezione
     let html = '<div class="max-h-[200px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Stesso lotto in più ubicazioni — seleziona:</div>';
     for (const it of itemsRaw) {
-      const inCart = this._pickCart.some((c: any) => c.item_key === it.item_key && c.location_code === it.location_code);
+      const inCart = (this._pickCart as VoceCarrelloProd[]).some((c) => c.item_key === it.item_key && c.location_code === it.location_code);
       // v2.0.1 [A1] — si espone il DISPONIBILE, non la giacenza fisica
       const qtyPhys = it.qty || 1;
       const qtyAvail = Store.getAvailableQty(it.location_code, it.item_key);
@@ -369,7 +378,7 @@ export const VistaPrelievo: Vista = {
   /* v2.1.0 — resa asincrona: i dialoghi applicativi sostituiscono
      confirm()/prompt() nativi, che il lettore barcode poteva confermare da solo. */
   async _prodAddToCart(item) {
-    const dup = this._pickCart.find((c: any) => c.item_key === item.item_key && c.location_code === item.location_code);
+    const dup = (this._pickCart as VoceCarrelloProd[]).find((c) => c.item_key === item.item_key && c.location_code === item.location_code);
     if (dup) { this.toast('Item già nel carrello', 'warning'); return; }
     // Avviso non-FEFO al picking produzione
     if (!Store.isFEFOItem(item)) {
@@ -392,8 +401,8 @@ export const VistaPrelievo: Vista = {
     const qtyPhys = item.qty || 1;
     const qtyReserved = Store.getPendingQtyForItem(item.location_code, item.item_key);
     const qtyInCart = this._pickCart
-      .filter((c: any) => c.item_key === item.item_key && c.location_code === item.location_code)
-      .reduce((sum: any, c: any) => sum + (c.qty_pick || 0), 0);
+      .filter((c: VoceCarrelloProd) => c.item_key === item.item_key && c.location_code === item.location_code)
+      .reduce((sum: number, c: VoceCarrelloProd) => sum + (c.qty_pick || 0), 0);
     const qtyAvail = Math.max(0, qtyPhys - qtyReserved - qtyInCart);
     if (qtyAvail < 1) {
       this.toast(`${item.article_code}#${item.lot_code}: nessun collo disponibile (fisici ${qtyPhys}, impegnati su DDT ${qtyReserved})`, 'error');
@@ -451,7 +460,7 @@ export const VistaPrelievo: Vista = {
 
   _renderPickCart() {
     if (!this._pickCart.length) return '<div class="pick-cart-empty">Carrello vuoto — scansiona articoli</div>';
-    return this._pickCart.map((it: any, i: any) => {
+    return (this._pickCart as VoceCarrelloProd[]).map((it, i) => {
       const qtyPick = it.qty_pick || 1;
       const qtyAvail = it.qty_avail || qtyPick;
       const isPartial = qtyPick < qtyAvail;
@@ -477,8 +486,8 @@ export const VistaPrelievo: Vista = {
     if (opErr) return this.toast(opErr, 'error');
 
     const count = this._pickCart.length;
-    const totalColli = this._pickCart.reduce((s: any, it: any) => s + (it.qty_pick || 1), 0);
-    const partialCount = this._pickCart.filter((it: any) => (it.qty_pick || 1) < (it.qty_avail || 1)).length;
+    const totalColli = (this._pickCart as VoceCarrelloProd[]).reduce((s, it) => s + (it.qty_pick || 1), 0);
+    const partialCount = (this._pickCart as VoceCarrelloProd[]).filter((it) => (it.qty_pick || 1) < (it.qty_avail || 1)).length;
     const partialNote = partialCount > 0 ? `\n(${partialCount} prelievi parziali)` : '';
     if (!await Dialog.confirm({
       title: 'Confermare il prelievo di produzione?',
