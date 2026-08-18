@@ -259,6 +259,7 @@ export const VistaPosiziona = {
      quella sotto. */
   _colliSel: null as SceltaColli | null,
   _colliResolve: null,
+  _colliEsc: null as ((e: KeyboardEvent) => void) | null,
 
   _scegliColli(item, elenco, uom, titolo = 'Quali colli') {
     $('colliOverlay')?.remove();
@@ -284,6 +285,24 @@ export const VistaPosiziona = {
       </div>`;
     document.body.appendChild(overlay);
     this._colliSelRender();
+
+    /* ESCAPE CHIUDE ANCHE QUESTA, come chiude quelle di `Dialog`.
+
+       Questa finestra e' costruita a mano — non passa da `Dialog`, perche'
+       deve disegnare una riga per collo — e per questo non aveva nessun
+       gestore di tasti: l'unica uscita erano i due pulsanti in fondo. In
+       cattura, come fa `Dialog`, cosi' nessun campo sotto se lo mangia
+       prima; e `_colliSelChiudi` lo stacca, che un ascoltatore lasciato
+       vivo chiuderebbe la finestra dopo. Annullare qui e' `null`, cioe'
+       "non ho scelto": la stessa cosa che dice il pulsante Annulla. */
+    this._colliEsc = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.preventDefault();
+      e.stopPropagation();
+      this._colliSelAnnulla();
+    };
+    document.addEventListener('keydown', this._colliEsc, true);
+
     return new Promise(resolve => { this._colliResolve = resolve; });
   },
 
@@ -364,7 +383,11 @@ export const VistaPosiziona = {
 
   _colliSelAnnulla() { this._colliSelChiudi(null); },
 
-  _colliSelChiudi(esito) {
+  _colliSelChiudi(esito: unknown) {
+    if (this._colliEsc) {
+      document.removeEventListener('keydown', this._colliEsc, true);
+      this._colliEsc = null;
+    }
     $('colliOverlay')?.remove();
     this._colliSel = null;
     const resolve = this._colliResolve;
