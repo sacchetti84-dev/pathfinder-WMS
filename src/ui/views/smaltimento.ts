@@ -29,17 +29,17 @@ export const VistaSmaltimento: Vista = {
         <strong>Flusso:</strong> <span class="wf-step">① ARTICOLO</span> → <span class="wf-step">② LOTTO</span> → INVIO per cercare →
         <span class="wf-step">③ SCEGLI L'UBICAZIONE</span> → <span class="wf-step">④ VERIFICA A SCAFFALE</span> → colli e motivazione.
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>① Scansiona Articolo <span class="req">*</span></label>
-        <input class="input input-mono" id="mOutArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase" autofocus
+        <input class="input input-mono uppercase" id="mOutArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" autofocus
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('mOutLot')?.focus();}">
       </div>
-      <div class="form-group" style="margin-bottom:0.6rem">
+      <div class="form-group mb-6">
         <label>② Scansiona Lotto <span class="req">*</span></label>
         <input class="input input-mono" id="mOutLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._searchOut();}">
       </div>
-      <div id="mOutResults"><div style="font-size: var(--md-sys-typescale-body-medium-size);color:var(--sx-text-muted);padding:0.4rem">Scansiona articolo e lotto, poi premi INVIO</div></div>`;
+      <div id="mOutResults"><div class="text-body-medium text-sx-text-muted p-4">Scansiona articolo e lotto, poi premi INVIO</div></div>`;
     this.setPrimaryScanField('mOutArt');
   },
 
@@ -48,39 +48,39 @@ export const VistaSmaltimento: Vista = {
     const lot = Validate.clean($('mOutLot')?.value);
     const el = $('mOutResults');
     if (!art) {
-      el.innerHTML = '<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);padding:0.3rem">✗ Scansiona il codice articolo</div>';
+      el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice articolo</div>';
       $('mOutArt')?.focus();
       return;
     }
     if (!lot) {
-      el.innerHTML = '<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);padding:0.3rem">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>';
+      el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>';
       $('mOutLot')?.focus();
       return;
     }
     const allItems = Store.findItemLocations(art);
     const tutte = allItems.filter(it => it.lot_code === lot);
     if (!tutte.length) {
-      el.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);padding:0.3rem">Nessun item trovato per ${this._esc(art)}#${this._esc(lot)}</div>`;
+      el.innerHTML = `<div class="text-body-small text-sx-text-muted p-3">Nessun item trovato per ${this._esc(art)}#${this._esc(lot)}</div>`;
       return;
     }
 
     const itemsRaw = tutte.filter(it => !Store.isItemQuarantined(it.item_key, it.location_code));
     const bloccate = tutte.filter(it => Store.isItemQuarantined(it.item_key, it.location_code));
-    const avvisoNC = bloccate.length ? `<div class="mov-preview mov-preview-err" style="margin:0.4rem 0">
+    const avvisoNC = bloccate.length ? `<div class="mov-preview mov-preview-err my-4 mx-0">
       🚫 <strong>In quarantena</strong>, non smaltibile da qui:
       ${bloccate.map(b => `<span class="mono">${this._esc(b.location_code)}</span> (${b.qty || 1} Coll.)`).join(' · ')}<br>
-      <span style="font-size: var(--md-sys-typescale-label-small-size)">Gestire l'esito tramite <strong>Quarantena → Rilascio</strong>.</span>
+      <span class="text-label-small">Gestire l'esito tramite <strong>Quarantena → Rilascio</strong>.</span>
     </div>` : '';
 
     if (!itemsRaw.length) {
-      el.innerHTML = avvisoNC || `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);padding:0.3rem">Nessun item trovato per ${this._esc(art)}#${this._esc(lot)}</div>`;
+      el.innerHTML = avvisoNC || `<div class="text-body-small text-sx-text-muted p-3">Nessun item trovato per ${this._esc(art)}#${this._esc(lot)}</div>`;
       return;
     }
     // Ordina FEFO: lotti in scadenza per primi
     const items = Store.sortByFEFO(itemsRaw);
-    let html = `${avvisoNC}<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin:0.3rem 0 0.2rem">
+    let html = `${avvisoNC}<div class="text-label-small text-sx-text-muted mt-3 mx-0 mb-2">
       Seleziona da quale ubicazione scaricare: si aprirà la verifica a scaffale.</div>
-      <div style="max-height:320px;overflow-y:auto">`;
+      <div class="max-h-[320px] overflow-y-auto">`;
     items.forEach((it, idx) => {
       const isFEFO = idx === 0;
       const expiryLabel = it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : '';
@@ -89,16 +89,16 @@ export const VistaSmaltimento: Vista = {
       const qtyAvail = Store.getAvailableQty(it.location_code, it.item_key);
       const reserved = qtyPhys - qtyAvail;
       const reservedLabel = reserved > 0
-        ? ` · <span style="color:var(--sx-orange);font-weight:700">${reserved} impegnati su DDT</span>`
+        ? ` · <span class="text-sx-orange font-bold">${reserved} impegnati su DDT</span>`
         : '';
       html += `<div class="inv-item-row${isFEFO ? ' fefo-row' : ''}">
         <div class="inv-info">
-          <div class="inv-code">${this._esc(it.article_code)} <span style="color:var(--sx-text-muted);font-weight:400;font-size: var(--md-sys-typescale-body-small-size)">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong style="color:var(--sx-accent)">${qtyAvail} Coll. disp.</strong> (fisici ${qtyPhys})${reservedLabel}${expiryLabel}</div>
+          <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-body-small">${this._esc(it.article_description || '')}</span></div>
+          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${qtyAvail} Coll. disp.</strong> (fisici ${qtyPhys})${reservedLabel}${expiryLabel}</div>
         </div>
         ${qtyAvail > 0
           ? `<button class="btn btn-sm btn-danger" onclick="App._dispSelect('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">➜ Vai e verifica</button>`
-          : `<span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">Interamente impegnato</span>`}
+          : `<span class="text-label-small text-sx-text-muted">Interamente impegnato</span>`}
       </div>`;
     });
     el.innerHTML = html + '</div>';
@@ -173,24 +173,24 @@ export const VistaSmaltimento: Vista = {
         ${d.alternatives.length ? `<div class="route-alt">
           <strong>Stesso articolo e lotto anche in:</strong>
           ${d.alternatives.map((a: any) => `<span class="badge badge-muted mono">${this._esc(a.location_code)} · ${a.qty_available} Coll.</span>`).join(' ')}
-          <div style="font-size: var(--md-sys-typescale-label-small-size);margin-top:0.25rem;opacity:0.8">Scansionandone una, lo scarico si sposta là.</div>
+          <div class="text-label-small mt-2.5 opacity-80">Scansionandone una, lo scarico si sposta là.</div>
         </div>` : ''}
 
-        <div class="form-group" style="margin:0.6rem 0 0.4rem">
+        <div class="form-group mt-6 mx-0 mb-4">
           <label>① Scansiona UBICAZIONE <span class="req">*</span></label>
-          <div style="display:flex;gap:0.3rem">
+          <div class="flex gap-3">
           <input class="input input-mono" id="dLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('dLoc')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('dLoc');App._dispCheckLoc();}">
           <button class="btn btn-sm" type="button" onclick="App._pickLoc('dLoc','_dispCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
           </div>
         </div>
-        <div class="form-group" style="margin-bottom:0.4rem">
+        <div class="form-group mb-4">
           <label>② Scansiona ARTICOLO <span class="req">*</span></label>
-          <input class="input input-mono" id="dArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase"
+          <input class="input input-mono uppercase" id="dArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._dispCheckArt();}">
         </div>
-        <div class="form-group" style="margin-bottom:0.4rem">
+        <div class="form-group mb-4">
           <label>③ Scansiona LOTTO <span class="req">*</span></label>
           <input class="input input-mono" id="dLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._dispCheckLot();}">
@@ -200,33 +200,33 @@ export const VistaSmaltimento: Vista = {
 
         <!-- ⑤ COLLI E MOTIVAZIONE -->
         <div class="disp-confirm">
-          <div style="display:flex;gap:0.6rem;align-items:flex-end;flex-wrap:wrap;margin-bottom:0.5rem">
-            <div class="form-group" style="width:165px;margin-bottom:0">
-              <label style="white-space:nowrap">④ Colli da smaltire <span class="req">*</span></label>
-              <input class="input input-mono" id="dQty" type="number" min="1" step="1" max="${d.qty_available}"
-                value="${d.qty_available}" style="text-align:center;font-weight:700">
+          <div class="flex gap-6 items-end flex-wrap mb-5">
+            <div class="form-group w-[165px] mb-0">
+              <label class="whitespace-nowrap">④ Colli da smaltire <span class="req">*</span></label>
+              <input class="input input-mono text-center font-bold" id="dQty" type="number" min="1" step="1" max="${d.qty_available}"
+                value="${d.qty_available}">
             </div>
-            <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);padding-bottom:0.4rem">
-              Disponibili: <strong style="color:var(--sx-danger)">${d.qty_available} Coll.</strong>
-              ${d.qty_physical > d.qty_available ? `<br><span style="color:var(--sx-orange)">${d.qty_physical - d.qty_available} impegnati su DDT, non smaltibili</span>` : ''}
+            <div class="text-label-small text-sx-text-muted pb-4">
+              Disponibili: <strong class="text-sx-danger">${d.qty_available} Coll.</strong>
+              ${d.qty_physical > d.qty_available ? `<br><span class="text-sx-orange">${d.qty_physical - d.qty_available} impegnati su DDT, non smaltibili</span>` : ''}
             </div>
           </div>
 
-          <label style="display:block;margin-bottom:0.25rem">⑤ Motivazione <span class="req">*</span></label>
+          <label class="block mb-2.5">⑤ Motivazione <span class="req">*</span></label>
           <div class="disp-reasons">${reasonBtns}</div>
           <input class="input" id="dReasonFree" maxlength="${Validate.MAX.NOTES}"
             placeholder="…oppure scrivi qui un motivo esteso (minimo 8 caratteri)"
             value="${this._esc(d.reason_id ? '' : d.reason_label)}"
             oninput="App._dispFreeReasonInput()">
-          <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.25rem">
+          <div class="text-label-small text-sx-text-muted mt-2.5">
             Finisce nelle note del movimento e sul verbale. Obbligatoria.
           </div>
         </div>
 
-        <div style="display:flex;gap:0.5rem;margin-top:0.7rem;flex-wrap:wrap">
-          <button class="btn btn-danger" style="flex:1;font-weight:800;min-height:var(--md-touch)"
+        <div class="flex gap-5 mt-7 flex-wrap">
+          <button class="btn btn-danger flex-1 font-extrabold min-h-[var(--md-touch)]"
             onclick="App._execSmaltire()">🗑️ CONFERMA SMALTIMENTO</button>
-          <button class="btn" style="min-height:var(--md-touch)" onclick="App._dispBack()">← Cambia ubicazione</button>
+          <button class="btn min-h-[var(--md-touch)]" onclick="App._dispBack()">← Cambia ubicazione</button>
         </div>
       </article>`;
     this._dispState.scan = { loc: '', art: '', lot: '' };
@@ -544,7 +544,7 @@ export const VistaSmaltimento: Vista = {
         <div class="doc-brand">
           <svg class="doc-logo" viewBox="0 0 282 52" role="img" aria-label="Naturacare"><use href="#ncLogo"/></svg>
           <div class="doc-sender">
-            <div class="doc-sender-name">${s.name ? this._esc(s.name) : '<span class="doc-empty">Ragione sociale non configurata</span>'}${s.legal_form ? ` <span style="font-weight:400;color:#666">· ${this._esc(s.legal_form)}</span>` : ''}</div>
+            <div class="doc-sender-name">${s.name ? this._esc(s.name) : '<span class="doc-empty">Ragione sociale non configurata</span>'}${s.legal_form ? ` <span class="font-normal text-[#666]">· ${this._esc(s.legal_form)}</span>` : ''}</div>
             ${sede ? `<div>${this._esc(sede)}</div>` : ''}
             ${fisco ? `<div>${this._esc(fisco)}</div>` : ''}
             ${contatti ? `<div>${this._esc(contatti)}</div>` : ''}
