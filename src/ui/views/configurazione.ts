@@ -1,8 +1,26 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
+import type { Mittente } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 import { Tabs } from '../tabs';
+
+/* UNA FUNZIONE DIETRO INTERRUTTORE, COME LA VEDE LA SCHEDA.
+
+   `nome` è la chiave dell'interruttore in `Store`, `pronta` dice se si può
+   accendere: una funzione scritta a metà resta elencata e spenta. */
+type FunzioneOpzionale = {
+  nome: string;
+  ver: string;
+  label: string;
+  icona: string;
+  cosa: string;
+  cambia: string;
+  pronta: boolean;
+};
+
+/* Il campo del mittente, e la sua etichetta a video. */
+type CampoMittente = [chiave: keyof Mittente, etichetta: string];
 
 export const VistaConfigurazione: Vista = {
   renderConfig() {
@@ -70,13 +88,13 @@ export const VistaConfigurazione: Vista = {
   /* 12 ore: un turno, con il margine di chi accende a fine giornata. */
   _TURNO_MS: 12 * 3600 * 1000,
 
-  _renderConfigFeatures(el) {
+  _renderConfigFeatures(el: HTMLElement) {
     const log = Store.getFeatureLog();
     const ultimaAccensione = log.find(v => v.acceso);
     const recente = ultimaAccensione && (Date.now() - ultimaAccensione.at) < this._TURNO_MS
       ? ultimaAccensione : null;
 
-    const righe = this._FUNZIONI.map((f: any) => {
+    const righe = (this._FUNZIONI as FunzioneOpzionale[]).map((f) => {
       const on = Store.isFeatureOn(f.nome);
       const voce = log.find(v => v.nome === f.nome);
       return `<div class="config-card" style="margin-bottom:0.7rem;${on ? 'border-left:3px solid var(--sx-success)' : ''}">
@@ -117,8 +135,8 @@ export const VistaConfigurazione: Vista = {
       ${righe}`;
   },
 
-  async _toggleFeature(nome) {
-    const f = this._FUNZIONI.find((x: any) => x.nome === nome);
+  async _toggleFeature(nome: string) {
+    const f = (this._FUNZIONI as FunzioneOpzionale[]).find((x) => x.nome === nome);
     if (!f) return;
     const on = Store.isFeatureOn(nome);
     const conferma = await Dialog.confirm({
@@ -137,8 +155,8 @@ export const VistaConfigurazione: Vista = {
       this.toast(`${f.icona} ${f.label}: ${!on ? 'ACCESA' : 'spenta'}`, 'success');
       this._syncFeatureNav();
       this.renderConfig();
-    } catch (err: any) {
-      this.toast(`Interruttore non cambiato: ${err.message}`, 'error');
+    } catch (err) {
+      this.toast(`Interruttore non cambiato: ${(err as Error).message}`, 'error');
     }
   },
 
@@ -164,11 +182,11 @@ export const VistaConfigurazione: Vista = {
 
   /* Cosa manca al mittente per poter emettere un DDT. Array vuoto = a posto.
      Usata sia dalla scheda di configurazione sia dalla stampa. */
-  _docSenderGaps(sender = null) {
-    const s = sender || Store.getDocConfig().sender;
-    return this._DOC_REQUIRED
-      .filter(([k]: any) => !String((s as any)[k] || '').trim())
-      .map(([, label]: any) => label);
+  _docSenderGaps(sender: Mittente | null = null) {
+    const s: Mittente = sender || Store.getDocConfig().sender;
+    return (this._DOC_REQUIRED as CampoMittente[])
+      .filter(([k]) => !String(s[k] || '').trim())
+      .map(([, label]) => label);
   },
 
   _renderConfigDocs(el) {
@@ -202,7 +220,9 @@ export const VistaConfigurazione: Vista = {
         </td>
       </tr>`).join('');
 
-    const fld = (id: any, label: any, value: any, opts: any = {}) => `
+    const fld = (id: string, label: string, value: string | number | null | undefined, opts: {
+      style?: string; req?: boolean; mono?: boolean; max?: number; ph?: string;
+    } = {}) => `
       <div class="form-group" style="${opts.style || ''}">
         <label>${label}${opts.req ? ' <span class="req">*</span>' : ''}</label>
         <input class="input${opts.mono ? ' input-mono' : ''}" id="${id}" value="${this._esc(value || '')}"
@@ -324,7 +344,7 @@ export const VistaConfigurazione: Vista = {
   },
 
   async _docSaveSender() {
-    const g = (id: any) => Validate.clean($(id)?.value);
+    const g = (id: string) => Validate.clean($(id)?.value);
     const sender = {
       name: g('dcName'), legal_form: g('dcLegalForm'),
       address: g('dcAddress'), zip: g('dcZip'), city: g('dcCity'),
@@ -378,12 +398,12 @@ export const VistaConfigurazione: Vista = {
     this.renderConfig();
   },
 
-  async _docCausaleRemove(i) {
+  async _docCausaleRemove(i: number) {
     const cfg = Store.getDocConfig();
     const c = cfg.causali[i];
     if (!c) return;
     if (cfg.causali.length <= 1) return this.toast('Deve restare almeno una causale', 'error');
-    const usata = Store._cache.pendingOut.some(d => (d as any).causale_id === c.id);
+    const usata = Store._cache.pendingOut.some(d => d.causale_id === c.id);
     if (!await Dialog.confirm({
       title: 'Rimuovere la causale?',
       message: usata
@@ -422,14 +442,14 @@ export const VistaConfigurazione: Vista = {
     this.renderConfig();
   },
 
-  async _docResetList(which) {
+  async _docResetList(which: 'causali' | 'disposalReasons') {
     const label = which === 'causali' ? 'le causali di trasporto' : 'le motivazioni di smaltimento';
     if (!await Dialog.confirm({
       title: 'Ripristinare l’elenco di serie?',
       message: `Le voci personalizzate vengono sostituite da quelle predefinite. I documenti già emessi non vengono toccati.`,
       confirmLabel: 'Ripristina', danger: true
     })) return;
-    await Store.saveDocConfig({ [which]: (Store.DOC_CONFIG_DEFAULTS as any)[which].slice() });
+    await Store.saveDocConfig({ [which]: Store.DOC_CONFIG_DEFAULTS[which].slice() });
     this.toast(`✓ Ripristinate ${label}`, 'success');
     this.renderConfig();
   },

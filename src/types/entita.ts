@@ -251,6 +251,9 @@ export interface DocumentoUscita {
   doc_id: string;
   kind?: 'return' | 'shipment' | string;
   causale?: string;
+  /** L id della causale scelta: e quello che il registro rilegge per sapere
+      se il documento e una spedizione o un reso. */
+  causale_id?: string;
   ddt_num?: string;
   destination?: string;
   carrier?: string;
