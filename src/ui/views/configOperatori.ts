@@ -13,9 +13,9 @@ export const VistaConfigOperatori: Vista = {
     const rows = ops.map(o => {
       const nome = [o.first_name, o.last_name].filter(Boolean).join(' ');
       const inactive = o.active === false;
-      return `<tr${inactive ? ' style="opacity:0.55"' : ''}>
-        <td><span class="mono" style="font-weight:700;color:var(--sx-primary)">${this._esc(o.initials)}</span></td>
-        <td>${nome ? this._esc(nome) : '<span style="color:var(--sx-warning);font-style:italic">da completare</span>'}</td>
+      return `<tr${inactive ? ' class="opacity-55"' : ''}>
+        <td><span class="mono font-bold text-sx-primary">${this._esc(o.initials)}</span></td>
+        <td>${nome ? this._esc(nome) : '<span class="text-sx-warning italic">da completare</span>'}</td>
         <td>${o.role === 'leader'
               ? '<span class="badge badge-blue">👑 Team Leader</span>'
               : '<span class="badge badge-muted">Operatore</span>'}</td>
@@ -23,7 +23,7 @@ export const VistaConfigOperatori: Vista = {
               ? '<span class="badge badge-green">impostato</span>'
               : '<span class="badge badge-amber">mancante</span>'}</td>
         <td>${inactive ? '<span class="badge badge-red">disattivato</span>' : '<span class="badge badge-green">attivo</span>'}</td>
-        <td style="white-space:nowrap">
+        <td class="whitespace-nowrap">
           <button class="btn btn-sm" onclick="App.showEditOperatorModal('${o.op_id}')" title="Modifica dati e ruolo">✏</button>
           <button class="btn btn-sm btn-warning" onclick="App.showRenewPinModal('${o.op_id}')" title="Rinnova il PIN (serve un Team Leader)">🔑</button>
           ${inactive
@@ -35,16 +35,16 @@ export const VistaConfigOperatori: Vista = {
 
     el.innerHTML = `<div class="config-card">
       <h3>Anagrafica Operatori
-        <button class="btn btn-sm btn-primary" style="float:right" onclick="App.showAddOperatorModal()">+ Nuovo operatore</button></h3>
-      <div style="overflow-x:auto">
+        <button class="btn btn-sm btn-primary float-right" onclick="App.showAddOperatorModal()">+ Nuovo operatore</button></h3>
+      <div class="overflow-x-auto">
         <table class="sx-table">
-          <thead><tr><th style="width:80px">Iniziali</th><th>Nome e cognome</th><th style="width:150px">Ruolo</th><th style="width:110px">PIN</th><th style="width:110px">Stato</th><th style="width:140px">Azioni</th></tr></thead>
-          <tbody>${rows || '<tr><td colspan="6" style="text-align:center;color:var(--sx-text-muted);font-style:italic">Nessun operatore</td></tr>'}</tbody>
+          <thead><tr><th class="w-[80px]">Iniziali</th><th>Nome e cognome</th><th class="w-[150px]">Ruolo</th><th class="w-[110px]">PIN</th><th class="w-[110px]">Stato</th><th class="w-[140px]">Azioni</th></tr></thead>
+          <tbody>${rows || '<tr><td class="text-center text-sx-text-muted italic" colspan="6">Nessun operatore</td></tr>'}</tbody>
         </table>
       </div>
-      <div style="background:var(--grad-soft-green);border:1px solid var(--sx-success);border-radius:var(--radius-md);padding:0.6rem 0.75rem;margin-top:0.7rem">
-        <div style="font-weight:700;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-success);margin-bottom:0.3rem">🔒 Come funzionano PIN e ruoli</div>
-        <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.6">
+      <div class="bg-[var(--grad-soft-green)] border border-sx-success rounded-[var(--radius-md)] py-6 px-7.5 mt-7">
+        <div class="font-bold text-body-small text-sx-success mb-3">🔒 Come funzionano PIN e ruoli</div>
+        <p class="text-body-small text-sx-text-secondary leading-[1.6]">
           Il PIN è di <strong>6 cifre</strong> e non viene mai conservato in chiaro: sul disco resta solo la sua
           impronta crittografica con un sale casuale, e lo stesso vale per i backup JSON.
           Un PIN smarrito <strong>non è recuperabile</strong> — si rinnova, e il rinnovo lo autorizza un
@@ -62,7 +62,7 @@ export const VistaConfigOperatori: Vista = {
     const min = Session.getTimeoutMinutes();
     el.innerHTML = `<div class="config-card">
       <h3>Blocco per inattività</h3>
-      <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.6;margin-bottom:0.7rem">
+      <p class="text-body-small text-sx-text-secondary leading-[1.6] mb-7">
         Trascorso questo tempo senza attività, l'applicazione <strong>salva i dati</strong> e si blocca dietro
         la richiesta di identificazione. Serve a impedire che il movimento successivo venga firmato
         da chi non l'ha eseguito: su un terminale di reparto è la differenza fra un registro
@@ -70,15 +70,15 @@ export const VistaConfigOperatori: Vista = {
         Se rientra un operatore diverso, eventuali carrelli aperti (prelievo, resi, spedizioni)
         vengono azzerati con avviso.
       </p>
-      <div style="display:flex;align-items:center;gap:0.6rem;flex-wrap:wrap">
-        <label for="sessTimeout" style="font-size: var(--md-sys-typescale-body-small-size);font-weight:600">Minuti di inattività</label>
-        <input class="input input-mono" id="sessTimeout" type="number" min="0" max="${Session.MAX_MIN}" value="${min}" style="width:100px">
+      <div class="flex items-center gap-6 flex-wrap">
+        <label class="text-body-small font-semibold" for="sessTimeout">Minuti di inattività</label>
+        <input class="input input-mono w-[100px]" id="sessTimeout" type="number" min="0" max="${Session.MAX_MIN}" value="${min}">
         <button class="btn btn-primary btn-sm" onclick="App._applySessionTimeout()">Applica</button>
-        <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">
+        <span class="text-body-small text-sx-text-muted">
           ${Session.MIN_MIN}–${Session.MAX_MIN} minuti · <strong>0 = blocco disattivato</strong>
         </span>
       </div>
-      <div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-top:0.6rem;line-height:1.6">
+      <div class="text-body-small text-sx-text-muted mt-6 leading-[1.6]">
         Stato attuale: <strong>${min ? `blocco dopo ${min} minuti` : 'blocco disattivato'}</strong>.
         L'impostazione vale per <strong>questo dispositivo</strong>: non entra nel database né negli export,
         perché un tablet in reparto e un PC in ufficio non hanno le stesse esigenze.
@@ -96,15 +96,15 @@ export const VistaConfigOperatori: Vista = {
   showAddOperatorModal() {
     this.showModal(
       '➕ Nuovo operatore',
-      `<div class="form-row" style="margin-bottom:0.6rem">
+      `<div class="form-row mb-6">
         <div class="form-group"><label>Nome <span class="req">*</span></label><input class="input" id="opFirst" maxlength="40" autofocus></div>
         <div class="form-group"><label>Cognome <span class="req">*</span></label><input class="input" id="opLast" maxlength="40"></div>
       </div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group">
           <label>Iniziali <span class="req">*</span></label>
-          <input class="input input-mono" id="opInitials" maxlength="4" style="text-transform:uppercase" placeholder="Es. AS" oninput="this.value=this.value.toUpperCase()">
-          <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.2rem">2-4 caratteri, uniche: finiscono su ogni movimento</div>
+          <input class="input input-mono uppercase" id="opInitials" maxlength="4" placeholder="Es. AS" oninput="this.value=this.value.toUpperCase()">
+          <div class="text-label-small text-sx-text-muted mt-2">2-4 caratteri, uniche: finiscono su ogni movimento</div>
         </div>
         <div class="form-group">
           <label>Ruolo <span class="req">*</span></label>
@@ -112,10 +112,10 @@ export const VistaConfigOperatori: Vista = {
             <option value="operator">Operatore</option>
             <option value="leader">Team Leader</option>
           </select>
-          <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.2rem">Solo i Team Leader rinnovano i PIN</div>
+          <div class="text-label-small text-sx-text-muted mt-2">Solo i Team Leader rinnovano i PIN</div>
         </div>
       </div>
-      <div class="form-row" style="margin-bottom:0.4rem">
+      <div class="form-row mb-4">
         <div class="form-group"><label>PIN a 6 cifre <span class="req">*</span></label>
           <input class="input input-mono" id="opPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
         <div class="form-group"><label>Conferma PIN <span class="req">*</span></label>
@@ -161,15 +161,15 @@ export const VistaConfigOperatori: Vista = {
     if (!op) return this.toast('Operatore non trovato', 'error');
     this.showModal(
       `✏ Modifica operatore — ${this._esc(op.initials)}`,
-      `<div class="form-row" style="margin-bottom:0.6rem">
+      `<div class="form-row mb-6">
         <div class="form-group"><label>Nome <span class="req">*</span></label><input class="input" id="opFirst" maxlength="40" value="${this._esc(op.first_name || '')}" autofocus></div>
         <div class="form-group"><label>Cognome <span class="req">*</span></label><input class="input" id="opLast" maxlength="40" value="${this._esc(op.last_name || '')}"></div>
       </div>
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group">
           <label>Iniziali <span class="req">*</span></label>
-          <input class="input input-mono" id="opInitials" maxlength="4" style="text-transform:uppercase" value="${this._esc(op.initials)}" oninput="this.value=this.value.toUpperCase()">
-          <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-warning);margin-top:0.2rem">
+          <input class="input input-mono uppercase" id="opInitials" maxlength="4" value="${this._esc(op.initials)}" oninput="this.value=this.value.toUpperCase()">
+          <div class="text-label-small text-sx-warning mt-2">
             ⚠ Cambiandole, i movimenti già registrati continueranno a riportare le vecchie
           </div>
         </div>
@@ -253,21 +253,21 @@ export const VistaConfigOperatori: Vista = {
     const nome = [op.first_name, op.last_name].filter(Boolean).join(' ') || op.initials;
     this.showModal(
       `🔑 Rinnovo PIN — ${this._esc(op.initials)}`,
-      `<p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);line-height:1.6;margin-bottom:0.7rem">
+      `<p class="text-body-small text-sx-text-secondary leading-[1.6] mb-7">
         Nuovo PIN per <strong>${this._esc(nome)}</strong>. Il PIN precedente cessa di valere immediatamente.
         L'operazione richiede l'autorizzazione di un <strong>Team Leader</strong> e viene registrata nel registro movimenti.
       </p>
-      <div class="form-group" style="margin-bottom:0.6rem">
+      <div class="form-group mb-6">
         <label>① Team Leader che autorizza <span class="req">*</span></label>
         <select class="input select" id="rpLeader">
           ${leaders.map(l => `<option value="${l.op_id}">${this._esc(l.initials)} — ${this._esc([l.first_name, l.last_name].filter(Boolean).join(' ') || 'dati incompleti')}</option>`).join('')}
         </select>
       </div>
-      <div class="form-group" style="margin-bottom:0.8rem">
+      <div class="form-group mb-8">
         <label>PIN del Team Leader <span class="req">*</span></label>
         <input class="input input-mono gate-pin" id="rpLeaderPin" type="password" inputmode="numeric" maxlength="6" autocomplete="off">
       </div>
-      <div class="form-row" style="margin-bottom:0.4rem">
+      <div class="form-row mb-4">
         <div class="form-group"><label>② Nuovo PIN <span class="req">*</span></label>
           <input class="input input-mono" id="rpNewPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
         <div class="form-group"><label>Conferma nuovo PIN <span class="req">*</span></label>
@@ -322,11 +322,11 @@ export const VistaConfigOperatori: Vista = {
       overlay.className = 'modal-overlay gate-overlay';
       overlay.id = 'leaderAuthOverlay';
       overlay.innerHTML = `
-        <div class="modal" style="max-width:400px">
+        <div class="modal max-w-[400px]">
           <div class="modal-header"><h2>👑 Autorizzazione Team Leader</h2></div>
           <div class="modal-body">
-            <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary);margin-bottom:0.7rem">${this._esc(azione)}</p>
-            <div class="form-group" style="margin-bottom:0.6rem">
+            <p class="text-body-small text-sx-text-secondary mb-7">${this._esc(azione)}</p>
+            <div class="form-group mb-6">
               <label>Team Leader</label>
               <select class="input select" id="laWho">
                 ${leaders.map(l => `<option value="${l.op_id}">${this._esc(l.initials)} — ${this._esc([l.first_name, l.last_name].filter(Boolean).join(' ') || 'dati incompleti')}</option>`).join('')}
