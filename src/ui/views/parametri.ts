@@ -2,6 +2,25 @@ import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
 import { Dialog } from '../dialog';
 import { validaVoce, normalizzaCodice, etichettaDi } from '../../modules/parametri';
+import type { Voce, ParametriArticolo } from '../../modules/parametri';
+
+/* UNA SCHEDA È UNA TENDINA DELL'ANAGRAFICA.
+
+   `chiave` è il campo dentro `ParametriArticolo`, `elenco` è il metodo di
+   `Store` che restituisce le voci **già unite** a quelle di legge. Sono due
+   nomi, non due stringhe: scritti come unione, una scheda nuova con un nome
+   sbagliato non compila, e prima usciva `undefined is not a function` in
+   faccia all'operatore. */
+type ChiaveParam = keyof ParametriArticolo;
+type ElencoVoci = 'getUnitaAmmesse' | 'getAllergeniAmmessi' | 'getClassiConservazione' | 'getPericoli';
+
+type SchedaParam = {
+  chiave: ChiaveParam;
+  titolo: string;
+  icona: string;
+  nota: string;
+  elenco: ElencoVoci;
+};
 
 export const VistaParametri: Vista = {
   /* ═══ PARAMETRI ARTICOLO — 1.6, PIANO §9.3 ═════════════════════════
@@ -26,12 +45,12 @@ export const VistaParametri: Vista = {
     { chiave: 'pericoli', titolo: 'Pericolosità', icona: '☣',
       nota: 'Configurabile per intero: non è una norma di etichettatura ma una politica di magazzino — dice dove una cosa non si può mettere, e quel «dove» cambia con le zone.',
       elenco: 'getPericoli' },
-  ],
+  ] as SchedaParam[],
 
-  _renderConfigParams(el) {
-    const schede = this._PARAM_SCHEDE.map((s: any) => {
-      const voci = (Store as any)[s.elenco]();
-      const righe = voci.length ? voci.map((v: any) => `
+  _renderConfigParams(el: HTMLElement) {
+    const schede = (this._PARAM_SCHEDE as SchedaParam[]).map((s) => {
+      const voci = Store[s.elenco]();
+      const righe = voci.length ? voci.map((v: Voce) => `
         <tr>
           <td class="mono font-bold">${this._esc(v.code)}</td>
           <td>${this._esc(v.label)}</td>
@@ -66,17 +85,18 @@ export const VistaParametri: Vista = {
       ${schede}`;
   },
 
-  async doAggiungiParam(chiave) {
+  async doAggiungiParam(chiave: ChiaveParam) {
     const code = $(`pp_${chiave}_code`)?.value;
     const label = $(`pp_${chiave}_label`)?.value;
     const errori = validaVoce({ code, label });
     if (errori.length) return this.toast(errori[0], 'error');
-    const attuali = (Store.getArticleParams() as any)[chiave] || [];
+    const attuali = Store.getArticleParams()[chiave] || [];
     const codeN = normalizzaCodice(code);
     /* Un codice che ripete un valore di legge non si aggiunge e non si
        sovrascrive: sparirebbe in silenzio dentro `unisci`, e chi l'ha
        digitato crederebbe di averlo fatto. */
-    if ((Store as any)[this._PARAM_SCHEDE.find((s: any) => s.chiave === chiave).elenco]().some((v: any) => v.code === codeN)) {
+    const scheda = (this._PARAM_SCHEDE as SchedaParam[]).find((s) => s.chiave === chiave)!;
+    if (Store[scheda.elenco]().some((v: Voce) => v.code === codeN)) {
       return this.toast(`${codeN} c'è già`, 'error');
     }
     await Store.saveArticleParams({ [chiave]: [...attuali, { code: codeN, label: String(label).trim() }] });
@@ -85,7 +105,7 @@ export const VistaParametri: Vista = {
     this.toast(`✓ ${codeN} aggiunto`, 'success');
   },
 
-  async doRimuoviParam(chiave, code) {
+  async doRimuoviParam(chiave: ChiaveParam, code: string) {
     /* Togliere una voce NON tocca gli articoli che la portano: resterebbe
        un codice senza etichetta in tendina, che `etichettaDi` mostra com'è.
        È voluto — cancellare un attributo da 11.180 articoli perché qualcuno
@@ -96,7 +116,7 @@ export const VistaParametri: Vista = {
       details: Dialog.kv([['Voce', code]]),
       confirmLabel: 'Togli', danger: true,
     })) return;
-    const attuali = ((Store.getArticleParams() as any)[chiave] || []).filter((v: any) => v.code !== code);
+    const attuali = (Store.getArticleParams()[chiave] || []).filter((v: Voce) => v.code !== code);
     await Store.saveArticleParams({ [chiave]: attuali });
     this.renderConfig();
     this.updateSyncIndicator();
