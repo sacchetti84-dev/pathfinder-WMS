@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder`, branch `main` · agg. **17/08/2026**
+Repo privato `sacchetti84-dev/pathfinder`, branch `main` · agg. **18/08/2026**
 
 ---
 
@@ -99,17 +99,17 @@ prove.
 
 | Voce | Valore |
 |---|---|
-| In servizio — prova su questo PC | **`corrente` contiene la 1.8.1**, impronta `ff73a5a8…`, installata il **18/08 alle 00:10:04** dall'installer del pacchetto — lanciato a mano, come quello delle 23:30:44 che aveva portato l'impronta `1d40ea6e`. È il codice fino al **quarto blocco** della 1.8: c'è la correzione del protocollo, non c'è il quinto blocco. Con `feature.colli` assente dal database si comporta in tutto come la 1.7, e il servizio in esecuzione è ancora il processo della 1.7 |
+| In servizio — prova su questo PC | **`corrente` contiene la 1.8.1 finita**, impronta `12c2e4cf…`, costruita il **17/08 alle 22:47**: è la 1.8 per intero, quinto blocco compreso. Il servizio è stato riavviato e risponde `service_version 1.8.1`. Con `feature.colli` spento si comporta in tutto come la 1.7 — e nel database vero l'interruttore non c'è |
 | Via di ritorno | `precedente` contiene la **1.7**, impronta `5df67f5c…`, e il deposito tiene `pathfinder-1.7\` intatta: si torna indietro con un comando, `.\server\torna-indietro.ps1`. Anche `pathfinder-1.6.1\` è in deposito |
-| Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.7`** — il processo è partito prima —, il **sorgente dice `1.8.1`**. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
+| Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.8.1`**; il **sorgente dice `1.8.2`** — cambierà da sé al primo riavvio, come è già successo. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
-| Collaudi | **483 client** (14 suite, ~1,5 s) · **81 servizio** · **17 installazione** · **8 migrazione** — tutti verdi il 18/08 |
+| Collaudi | **485 client** (15 suite, ~1,5 s) · **81 servizio** · **17 installazione** · **8 migrazione** — tutti verdi il 18/08. Le due nuove sono la **rete dell'estrazione**: la superficie di `App` — §7 |
 | Tipi | `npm run check` a 0 su client e servizio |
-| Sorgente | 31 TypeScript · 5 JavaScript · 9 CSS · `index.html`. Ancora JavaScript: `main.js` e `ui/` (4 file) |
-| Numero di build | **1.8.1** in `vite.config.js`, `package.json` e nel servizio: una build in avanzamento non deve chiamarsi come la versione in servizio — §5 |
-| Git | `main`, **13 commit avanti e 1 indietro** rispetto a `origin/main` — da allineare |
+| Sorgente | **58 TypeScript** · 5 JavaScript · 9 CSS · `index.html`. Ancora JavaScript: `main.js`, `ui/app.js` (**1.328 righe**, era 13.893) e i tre di `ui/` — `dialog`, `feedback`, `tabs` |
+| Numero di build | **1.8.2** in `vite.config.js`, `package.json` e nel servizio, dal 18/08: la 1.8.1 sta girando, e ogni build riscriveva `consegna\Pathfinder 1.8.1\` con byte diversi. Un numero deve voler dire dei byte — §5 |
+| Git | `main`, **24 commit avanti** rispetto a `origin/main` — da allineare |
 
 ### Cosa fa la 1.7, e cosa ha misurato il banco
 
@@ -144,7 +144,7 @@ collauda al banco e si consegna il pacchetto.
 
 | # | Cosa | Chi |
 |---|---|---|
-| **1** | **`corrente` non è più la 1.8.1 del quarto blocco: rifare l'installazione con la build finita**, o tornare alla 1.7 con `.\server\torna-indietro.ps1`. Quella installata alle 00:10 è la build `ff73a5a8`, ferma al quarto blocco; il pacchetto in `consegna\Pathfinder 1.8.1\` porta ora l'impronta `12c2e4cf`. **Funzionalmente non cambia niente finché `feature.colli` resta spento** — e nel database vero non c'è | Andrea |
+| **1** | **Chiusa il 18/08**: `corrente` porta la 1.8.1 finita (`12c2e4cf`) e il servizio, riavviato, lo conferma. Resta da sapere **quando** è stato riavviato e da chi: nessuno l'ha scritto, e riavviare il servizio non è un gesto che si fa per sbaglio | — |
 | **1-bis** | **Capire chi ha cancellato `C:\Pathfinder\app\pathfinder-1.6.1`** il 17/08 alle 19:14. La cartella è stata ricostruita dal file singolo in radice e la via di ritorno è di nuovo intera, ma la causa non si conosce: se non è stato un gesto di Andrea in un'altra finestra, qualcosa cancella dentro la directory di installazione | da chiarire |
 | **2** | **Provare il pacchetto su una macchina pulita.** La strada dell'aggiornamento è provata davvero (17/08, su questo PC); quella della **prima installazione** — servizio, attività pianificate, firewall, database — è scritta e riletta ma **mai eseguita**, e serve una macchina senza Pathfinder o una virtuale. È l'unica che chiede i privilegi, ed è quella che si userà in presentazione | Andrea, prima di presentare |
 | **3** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per ore nessuno poteva creare né rinnovare un operatore. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — §6, «Il PIN smarrito» | Andrea |
@@ -208,12 +208,29 @@ installare.
 
 ### Lavoro di fondo, non una versione
 
-- **Estrazione delle viste da `ui/app.js`** (12.420 righe) verso `src/ui/views/`,
-  a blocchi come è stato fatto per `store.ts`: destinatari → parametri → compiti
-  → campionamento → movimenta → giacenze/mappa → configurazione. Regole: `App`
-  continua a esporre i metodi che l'HTML chiama per nome, nessuna variabile
-  globale nuova, file nuovi direttamente in `.ts`, `check`+`test`+`build` verdi
-  a ogni blocco, e prova nel browser sulla 4199. **Mai in un commit solo.**
+- **L'estrazione delle viste è finita il 18/08.** `ui/app.js` è passato da
+  **13.893 righe a 1.328** in ventitré blocchi, uno per commit, e le viste
+  stanno in `src/ui/views/` — venticinque file `.ts`. Quel che resta in `app.js` ci
+  resta apposta: avvio e riallineamento, identità e sessione, il telaio
+  (`switchView`, barra laterale, modali, toast, scorciatoie), l'annulla e le
+  utilità comuni. Come si lavora di qua adesso sta in §7.
+- **I corpi delle viste non sono ancora tipizzati.** Sono usciti identici riga
+  per riga — un trasloco non è il posto dove si riscrive — e portano `any` dove
+  `tsc` lo ha chiesto. Tipizzarli è il lavoro dopo, **un file per volta**: chi
+  lo fa parta dai file piccoli (`parametri.ts`, `registro.ts`, `archivio.ts`) e
+  tenga il collaudo della superficie come rete.
+- **Quel che l'estrazione ha fatto vedere**, e che nessuno ha corretto perché
+  correggere durante un trasloco è il modo di romperlo:
+  - `DocumentoUscita` non dichiara dieci campi che il DDT porta davvero —
+    `doc_date`, `order_ref`, `aspetto`, `porto`, `transport_by`,
+    `start_transport`, `doc_notes`, `pieces_total`, `peso_netto`, `peso_lordo`.
+    In `spedizioni.ts` sono dodici cast.
+  - `Quarantena` non dichiara `qty` e `partial`, che il record porta.
+  - Il rollback del carrello di produzione passa `article_description` a
+    `Store.addItem`, che la vuole `string` e la può ricevere `undefined`; e
+    indicizza `backups[j]` e `results[j]` senza guardia.
+  - `_groupProdOrders` confronta il tipo con `MOV.PICK` **e** con `'PICK'`, che
+    sono la stessa stringa: una cintura in più, non un difetto.
 - **`TODO F1-REVIEW` ×3**: cache svuotata prima della conferma del supporto
   (`store.ts` ×2), riallineamento ridondante dopo `resetAll()` (`app.js`).
 - **`pathfinder-1.4.2.1.html`** in `ARCHIVIO/VERSIONI PRECEDENTI/` porta un nome
@@ -251,6 +268,22 @@ Invoke-RestMethod -Method Post http://127.0.0.1:4173/api/backup -ContentType 'ap
 .\server\installa-versione.ps1 -Da ".\consegna\Pathfinder 1.7\app" -Versione 1.7 -Casa "$BANCO\app"
 $env:PATHFINDER_PORT='4199'; $env:PATHFINDER_DB="$BANCO\db\pathfinder-<data>.db"; $env:PATHFINDER_APP_DIR="$BANCO\app\corrente"; node server\pathfinder-server.js
 ```
+
+**Per provare il front end** — quello che serve a un'estrazione o a una vista
+nuova — al banco basta accendere Vite e dirgli con chi parlare, invece di
+costruire e installare:
+
+```powershell
+$env:PATHFINDER_DEV_API='http://127.0.0.1:4199'; npm run dev     # 5173, ricarica a caldo, parla col banco
+```
+
+Senza quella variabile `npm run dev` parla col servizio **vero** sulla 4173: è
+scritto in §5, ed è la ragione per cui la variabile si scrive nella stessa riga.
+
+> **Il banco sulla 4199 va spento prima di `node test/collaudo.js`**: le 81
+> prove del servizio si aprono una porta loro, ed è la 4199. Con il banco
+> acceso muoiono su `EADDRINUSE` — un errore che parla di socket e non dice
+> che basta chiudere una finestra.
 
 > **Il banco non va mai in `C:\Pathfinder\`.** Ci è finito una volta, il 17/08,
 > ed è esattamente la confusione che le due cartelle esistono per evitare: una
@@ -482,6 +515,14 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   era scritta qui sotto. Per riscrivere in blocco si passa da Node, UTF-8 senza
   BOM, LF; e per rimediare si rileggono i byte come UTF-8 e si riscrivono come
   CP1252, che è l'operazione inversa esatta.
+- **`app.js`, `package.json` e i `.ts` di `core/` sono CRLF, e uno script che li
+  rilegge in Python li converte senza dirlo**: `io.open(p).read()` traduce i
+  fine riga di Windows in quelli di Unix (universal newlines), e riscrivendo il
+  file la differenza diventa 13.900 righe per un import aggiunto — una
+  revisione illeggibile e un commit che non si può guardare. Si legge e si
+  scrive **sempre** con `newline=''`. `.gitattributes` dice `* -text`: i byte
+  vanno e tornano com'erano, e nessuno li raddrizza per conto nostro. **I file
+  nuovi nascono LF**, come `modules/colli.ts` e le viste.
 - **Il servizio gira come SYSTEM**: non si ferma da una shell normale, e
   `Get-ScheduledTask` omette le sue attività **in silenzio**. Modificarne i file
   non basta: Node legge all'avvio.
@@ -730,7 +771,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 
 | File | Righe | Ruolo |
 |---|---:|---|
-| `ui/app.js` | 12.420 | Tutta l'interfaccia: viste, render, gestori. Il pezzo grosso, da estrarre a blocchi |
+| `ui/app.js` | 1.328 | **Quel che non è una vista**: avvio e riallineamento col servizio, identità e sessione, il telaio (`switchView`, barra laterale, `showModal`, `toast`, scorciatoie), l'annulla, e le utilità che chiamano tutti — `_esc`, `_requireOperator`, le maschere di data, `_pickLoc`. In coda, il **rientro delle viste** |
 | `core/store.ts` | 2.283 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` |
 | `core/cache.ts` | 321 | Punto unico di mutazione della cache: 5 forme, 4 indici derivati |
 | `core/statistiche.ts` | 181 | Stato di una cella, conteggi, cruscotto |
@@ -755,7 +796,55 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `styles/*.css` | 2.463 | 9 file: token, base, componenti, layout, viste, grafici e report |
 | `ui/dialog.js` · `feedback.js` · `tabs.js` | 367 · 181 · 59 | Modali · toast e spinner · schede |
 | `main.js` · `index.html` | 46 · 200 | Avvio e gancio globale · scheletro del DOM e marchi SVG |
-| `ui/views/` | — | Dove vanno le viste estratte da `app.js` |
+| `ui/views/` | 10.520 | **Le venticinque viste**, più `vista.ts` (il tipo e i due aiuti al DOM) e `globale.d.ts`. Elenco e regole qui sotto |
+
+### Le viste — `src/ui/views/`
+
+**Una vista è un pezzo di `App` che vive in un file suo.** Non è un modulo che
+si istanzia: `App` resta un oggetto solo, perché l'indice e i 258 gestori
+costruiti dentro le stringhe lo chiamano **per nome**. In coda ad `app.js` un
+ciclo le rimette dentro, e **esplode se un metodo è rimasto anche di qua** —
+estrarre è spostare, e un doppione verrebbe sovrascritto in silenzio.
+
+| File | Righe | Cosa disegna |
+|---|---:|---|
+| `configDati.ts` | 1.101 | Dati, resilienza, copia esterna, i tre fogli Excel, purga e reset |
+| `spedizioni.ts` | 1.080 | DDT: testata, carrello, documento pendente, evasione, stampa |
+| `compiti.ts` | 885 | Attività: coda, misure, registro, richiesta, i quattro gesti |
+| `percorso.ts` | 822 | Prelievo guidato: ODP, serpentina, corsia, chiusura |
+| `quarantena.ts` | 755 | Blocco, rilascio, cartellino di non conformità |
+| `cruscotto.ts` | 750 | Le otto sezioni della Dashboard e i suoi grafici |
+| `smaltimento.ts` | 664 | Scarico in tre stadi, e i **mattoni del documento** che usano tutti |
+| `prelievo.ts` | 600 | Trasferimento e carrello di produzione |
+| `inventario.ts` | 557 | Inventario di vano e conta mirata |
+| `posiziona.ts` | 521 | Posizionamento, la dichiarazione dei colli e `_scegliColli` |
+| `giacenze.ts` | 500 | Dettaglio di un'ubicazione e i cinque gesti che partono da lì |
+| `configArticoli.ts` | 498 | Anagrafica articoli, allergeni, classi, certificazioni, UM |
+| `configurazione.ts` | 437 | Le nove schede, gli interruttori, il DDT |
+| `mappa.ts` | 418 | Pianta, frontale, conformità e deroghe |
+| `documento.ts` | 410 | La correzione di un DDT pendente, su uno snapshot |
+| `rapportoPrelievo.ts` | 380 | Un rapporto, tre sorgenti |
+| `configSiti.ts` | 375 | Siti e zone |
+| `configOperatori.ts` | 362 | Operatori, PIN, scadenza della sessione |
+| `campionamento.ts` | 359 | Campionamento GMP e il verbale |
+| `movimenta.ts` | 354 | Il telaio dei moduli, la coda di recupero, il registro di sessione |
+| `ricerca.ts` | 227 | La ricerca in barra |
+| `destinatari.ts` | 226 | Rubrica DDT, e quando un dato cambiato vale per sempre |
+| `archivio.ts` | 197 | I cinque tipi di documento emesso |
+| `registro.ts` | 191 | Registro movimenti completo |
+| `parametri.ts` | 106 | Le quattro schede che sono un dato |
+| `vista.ts` | 36 | Il tipo `Vista`, e `$`/`$q` — `getElementById` col tipo `any` |
+| `globale.d.ts` | 10 | `declare const App`: il nome globale che qualche corpo usa da dentro un `setTimeout` |
+
+**Chi ne aggiunge una** la scrive `.ts`, la tipa `Vista`, la importa in
+`app.js` e la mette nell'elenco del rientro. **I corpi non sono tipizzati**:
+sono usciti identici da `app.js` e portano `any` dove `tsc` lo ha chiesto —
+tipizzarli è un lavoro a parte, un file per volta (§2).
+
+**La rete**: `test/superficie-app.test.js` tiene i **577 nomi** che `App`
+esponeva prima dell'estrazione, e controlla che ogni `App.qualcosa` citato
+nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
+`superficie-app.dati.js` per farlo tacere: se suona, un metodo non è rientrato.
 
 ### Servizio — `server/`
 
@@ -778,7 +867,13 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
 `compiti` (114) · `misure` (65) · `colli` (48) · `parametri` (19) ·
-`destinatari` (27) — **483 prove**. `ambiente.js` è il preambolo comune.
+`destinatari` (27) · **`superficie-app` (2)** — **485 prove**. `ambiente.js` è
+il preambolo comune.
+
+`superficie-app` è la rete dell'estrazione, ed è l'unica prova che guarda
+`app.js`: i nomi che `App` espone stanno in `superficie-app.dati.js`, e la
+seconda prova rilegge indice e sorgenti per controllare che ogni `App.qualcosa`
+scritto lì dentro trovi a chi rispondere — §7.
 
 ---
 
