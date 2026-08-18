@@ -8,14 +8,14 @@ export const VistaPrelievo: Vista = {
   // ═══ 3. PRELIEVO (3 sub-flussi) ═══
   _formPrelievo(el) {
     el.innerHTML = `<div class="mov-form-card">
-      <h3>🏗️ <span style="color:var(--sx-accent)">Prelievo</span></h3>
+      <h3>🏗️ <span class="text-sx-accent">Prelievo</span></h3>
       <div class="prel-tabs">
         <button class="prel-tab ${this._pickSubMode === 'cambio' ? 'active' : ''}" onclick="App._pickSub('cambio')"><span class="prel-tab-icon">🔄</span>Trasferimento</button>
         <button class="prel-tab ${this._pickSubMode === 'produzione' ? 'active' : ''}" onclick="App._pickSub('produzione')"><span class="prel-tab-icon">🏭</span>Prelievo Produzione</button>
         <button class="prel-tab ${this._pickSubMode === 'ordine' ? 'active' : ''}" onclick="App._pickSub('ordine')"><span class="prel-tab-icon">🧭</span>Da Ordine (XLSX)</button>
       </div>
       <div id="pickSubForm"></div>
-      <div style="margin-top:0.6rem"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
     </div>`;
     this._renderPickSub();
   },
@@ -46,22 +46,22 @@ export const VistaPrelievo: Vista = {
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① ARTICOLO</span> → <span class="wf-step">② LOTTO</span> → INVIO per cercare → <span class="wf-step">③ NUOVA UBICAZIONE</span> → INVIO per trasferire.
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>① Scansiona Articolo <span class="req">*</span></label>
-        <input class="input input-mono" id="pCambioArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase" autofocus
+        <input class="input input-mono uppercase" id="pCambioArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" autofocus
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('pCambioLot')?.focus();}">
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>② Scansiona Lotto <span class="req">*</span></label>
         <input class="input input-mono" id="pCambioLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._cambioLookup();}">
         <div id="pCambioInfo"></div>
       </div>
       <div id="pCambioDestArea" class="hidden">
-        <div class="form-group" style="margin-bottom:0.5rem">
+        <div class="form-group mb-5">
           <label>③ Nuova Ubicazione <span class="req">*</span></label>
-          <div style="display:flex;gap:0.3rem">
-            <input class="input input-mono" id="pCambioDest" placeholder="Scansiona destinazione" maxlength="${Validate.MAX.LOC_CODE}" style="flex:1"
+          <div class="flex gap-3">
+            <input class="input input-mono flex-1" id="pCambioDest" placeholder="Scansiona destinazione" maxlength="${Validate.MAX.LOC_CODE}"
               oninput="App._normScan('pCambioDest');App._previewLoc('pCambioDest','pCambioDestPrev')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('pCambioDest');App._execCambio();}">
             <button class="btn btn-sm" onclick="App._pickLoc('pCambioDest','_cbPickCambio')">📍</button>
@@ -73,15 +73,14 @@ export const VistaPrelievo: Vista = {
              lotto intero, ed e' cosi' da sempre. Un compito invece puo' chiederne
              una parte, e i parziali lasciano il residuo — decisione 45. */
           this._taskRun?.type === 'TRANSFER' ? `
-        <div class="form-group" style="margin-bottom:0.5rem">
+        <div class="form-group mb-5">
           <label>Colli da spostare <span class="req">*</span></label>
-          <input class="input input-mono" id="pCambioQty" type="number" min="1" step="1"
-            style="max-width:120px;text-align:center;font-weight:700">
-          <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">Spostarne meno lascia il resto in attività.</div>
+          <input class="input input-mono max-w-[120px] text-center font-bold" id="pCambioQty" type="number" min="1" step="1">
+          <div class="text-label-small text-sx-text-muted mt-1.5">Spostarne meno lascia il resto in attività.</div>
         </div>` : ''}
-        <button class="btn btn-primary" style="width:100%;padding:0.55rem;font-weight:700" onclick="App._execCambio()">🔄 CONFERMA CAMBIO</button>
+        <button class="btn btn-primary w-full p-5.5 font-bold" onclick="App._execCambio()">🔄 CONFERMA CAMBIO</button>
       </div>
-      <div id="pCambioFeedback" style="margin-top:0.4rem"></div>`;
+      <div class="mt-4" id="pCambioFeedback"></div>`;
     $('pCambioArt')?.focus();
   },
 
@@ -93,40 +92,40 @@ export const VistaPrelievo: Vista = {
     const lot = Validate.clean($('pCambioLot')?.value);
     const info = $('pCambioInfo');
     if (!art) {
-      info.innerHTML = `<div class="mov-preview mov-preview-err" style="margin-top:0.3rem">✗ Scansiona prima il codice articolo</div>`;
+      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">✗ Scansiona prima il codice articolo</div>`;
       $('pCambioArt')?.focus();
       return;
     }
     if (!lot) {
-      info.innerHTML = `<div class="mov-preview mov-preview-err" style="margin-top:0.3rem">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
+      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
       $('pCambioLot')?.focus();
       return;
     }
     const itemKey = `${art}#${lot}`;
     if (Store.isItemQuarantined(itemKey)) {
-      info.innerHTML = `<div class="mov-preview mov-preview-err" style="margin-top:0.3rem">
+      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">
         🚫 <strong>Item in QUARANTENA</strong> — spostamento non consentito.<br>
-        <span style="font-size: var(--md-sys-typescale-label-small-size)">Per rimetterlo in circolo usare <strong>Quarantena → Rilascio</strong>, che registra operatore, responsabile e ubicazione di destinazione conforme.</span>
+        <span class="text-label-small">Per rimetterlo in circolo usare <strong>Quarantena → Rilascio</strong>, che registra operatore, responsabile e ubicazione di destinazione conforme.</span>
       </div>`;
       return;
     }
     const allItems = Store.findItemLocations(art);
     const matched = allItems.filter(it => it.lot_code === lot);
     if (!matched.length) {
-      info.innerHTML = `<div class="mov-preview mov-preview-err" style="margin-top:0.3rem">✗ Item ${this._esc(art)}#${this._esc(lot)} non trovato in nessuna ubicazione</div>`;
+      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">✗ Item ${this._esc(art)}#${this._esc(lot)} non trovato in nessuna ubicazione</div>`;
       return;
     }
     if (matched.length === 1) { this._cambioSelect(matched[0]); return; }
     // Multipli (stesso lotto in ubicazioni diverse)
-    let html = '<div style="max-height:180px;overflow-y:auto;margin-top:0.3rem"><div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.3rem">Stesso lotto presente in più ubicazioni — seleziona la partenza:</div>';
+    let html = '<div class="max-h-[180px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Stesso lotto presente in più ubicazioni — seleziona la partenza:</div>';
     for (const it of matched) {
       const payload = App._payload({ loc: it.location_code, key: it.item_key, art: it.article_code, lot: it.lot_code, desc: it.article_description || '' });
-      html += `<div class="inv-item-row" style="cursor:pointer" onclick="App._cambioSelectEnc('${payload}')">
+      html += `<div class="inv-item-row cursor-pointer" onclick="App._cambioSelectEnc('${payload}')">
         <div class="inv-info">
-          <div class="inv-code">${this._esc(it.article_code)} <span style="color:var(--sx-text-muted);font-weight:400">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong style="color:var(--sx-accent)">${it.qty || 1} Coll.</strong></div>
+          <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal">${this._esc(it.article_description || '')}</span></div>
+          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${it.qty || 1} Coll.</strong></div>
         </div>
-        <span style="color:var(--sx-accent)">→</span>
+        <span class="text-sx-accent">→</span>
       </div>`;
     }
     info.innerHTML = html + '</div>';
@@ -140,9 +139,9 @@ export const VistaPrelievo: Vista = {
     const full = Store.getItemsAtLocation(locCode).find(i => i.item_key === keyCode);
     if (!full) return this.toast('Item non più disponibile', 'error');
     this._moveSelection = full;
-    $('pCambioInfo').innerHTML = `<div class="mov-preview mov-preview-ok" style="margin-top:0.3rem">
-      <span class="mono" style="font-weight:700">${this._esc(full.article_code)}</span> — ${this._esc(full.article_description || '')}
-      <div class="mono" style="font-size: var(--md-sys-typescale-body-small-size);margin-top:2px">Lotto: ${this._esc(full.lot_code)} · DA: <strong>${this._esc(full.location_code)}</strong></div>
+    $('pCambioInfo').innerHTML = `<div class="mov-preview mov-preview-ok mt-3">
+      <span class="mono font-bold">${this._esc(full.article_code)}</span> — ${this._esc(full.article_description || '')}
+      <div class="mono" class="text-body-small mt-[2px]">Lotto: ${this._esc(full.lot_code)} · DA: <strong>${this._esc(full.location_code)}</strong></div>
     </div>`;
     $('pCambioDestArea')?.classList.remove('hidden');
     $('pCambioDest')?.focus();
@@ -240,7 +239,7 @@ export const VistaPrelievo: Vista = {
     if (!out.ok) return;
 
     const fb = $('pCambioFeedback');
-    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><span style="font-weight:700">✓ Trasferimento completato — ${out.qtyMoved} Coll.${out.mergeMsg}</span></div>`;
+    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><span class="font-bold">✓ Trasferimento completato — ${out.qtyMoved} Coll.${out.mergeMsg}</span></div>`;
     this._moveSelection = null;
     $('pCambioArt').value = '';
     $('pCambioLot').value = '';
@@ -260,7 +259,7 @@ export const VistaPrelievo: Vista = {
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① Compila ordine e operatore</span> → <span class="wf-step">② Scansiona ARTICOLO</span> (lotti multipli OK) → si accumula nel carrello → <span class="wf-step">③ CONFERMA</span>.
       </div>
-      <div class="form-row" style="margin-bottom:0.5rem">
+      <div class="form-row mb-5">
         <div class="form-group"><label>N° Ordine Produzione <span class="req">*</span></label>
           <input class="input input-mono" id="pProdOrder" placeholder="Scansiona o digita ordine" maxlength="40" value="${this._esc(this._prodOrderNum)}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._prodOrderNum=this.value;$('pProdOperator')?.focus();}"></div>
@@ -268,22 +267,22 @@ export const VistaPrelievo: Vista = {
           <input class="input" id="pProdOperator" placeholder="Nome operatore" maxlength="${Validate.MAX.OPERATOR}" value="${this._esc(this._prodOperator)}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._prodOperator=this.value;$('pProdArt')?.focus();}"></div>
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>② Scansiona Articolo <span class="req">*</span></label>
-        <input class="input input-mono" id="pProdArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase" autofocus
+        <input class="input input-mono uppercase" id="pProdArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}" autofocus
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('pProdLot')?.focus();}">
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>③ Scansiona Lotto <span class="req">*</span></label>
         <input class="input input-mono" id="pProdLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._prodLookup();}">
         <div id="pProdInfo"></div>
       </div>
       <section id="prodCartZone">${this._prodCartZoneHTML()}</section>
-      <div id="pProdFeedback" style="margin-top:0.4rem"></div>
+      <div class="mt-4" id="pProdFeedback"></div>
       <div class="kbd-hint">
-        <span class="kbd">INVIO</span><span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">articolo → lotto → ricerca</span>
-        <span class="kbd">ESC</span><span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">chiude il modulo</span>
+        <span class="kbd">INVIO</span><span class="text-body-small text-sx-text-muted">articolo → lotto → ricerca</span>
+        <span class="kbd">ESC</span><span class="text-body-small text-sx-text-muted">chiude il modulo</span>
       </div>`;
     this.setPrimaryScanField('pProdArt');
   },
@@ -291,14 +290,14 @@ export const VistaPrelievo: Vista = {
   _prodCartZoneHTML() {
     const n = this._pickCart.length;
     const totalColli = this._pickCart.reduce((s: any, it: any) => s + (it.qty_pick || 1), 0);
-    return `<div style="display:flex;justify-content:space-between;align-items:center;margin:0.7rem 0 0.35rem">
-        <strong style="font-size: var(--md-sys-typescale-body-large-size)">🛒 Carrello Prelievo <span style="color:var(--sx-accent)">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>` : ''}</strong>
+    return `<div class="flex justify-between items-center mt-7 mx-0 mb-3.5">
+        <strong class="text-body-large">🛒 Carrello Prelievo <span class="text-sx-accent">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>` : ''}</strong>
         ${n ? '<button class="btn btn-sm btn-ghost" onclick="App._prodClearCart()">Svuota</button>' : ''}
       </div>
       <div class="pick-cart">${this._renderPickCart()}</div>
-      ${n ? `<div style="display:flex;gap:0.5rem;margin-top:0.6rem">
-        <button class="btn btn-primary" style="flex:1;font-weight:800;min-height:var(--md-touch)" onclick="App._execProduzione()">🏭 CONFERMA PRELIEVO (${n})</button>
-        <button class="btn" style="min-height:var(--md-touch)" onclick="App._printProdReport()" title="Stampa report">🖨</button>
+      ${n ? `<div class="flex gap-5 mt-6">
+        <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]" onclick="App._execProduzione()">🏭 CONFERMA PRELIEVO (${n})</button>
+        <button class="btn min-h-[var(--md-touch)]" onclick="App._printProdReport()" title="Stampa report">🖨</button>
       </div>` : ''}`;
   },
 
@@ -314,12 +313,12 @@ export const VistaPrelievo: Vista = {
     const lot = Validate.clean($('pProdLot')?.value);
     const info = $('pProdInfo');
     if (!art) {
-      info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ Scansiona prima il codice articolo</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona prima il codice articolo</div>`;
       $('pProdArt')?.focus();
       return;
     }
     if (!lot) {
-      info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
       $('pProdLot')?.focus();
       return;
     }
@@ -335,32 +334,32 @@ export const VistaPrelievo: Vista = {
       const allReserved = allForLot.length > 0 && !inQuar &&
         allForLot.every(it => Store.getAvailableQty(it.location_code, it.item_key) === 0);
       if (allReserved) {
-        info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-orange);margin-top:0.2rem">
+        info.innerHTML = `<div class="text-body-small text-sx-orange mt-2">
           ⚠ ${this._esc(art)}#${this._esc(lot)} è <strong>interamente impegnato su DDT pendenti</strong> — non prelevabile.<br>
-          <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">Modificare o annullare il DDT in Movimenta → Resi / Spedizioni.</span>
+          <span class="text-label-small text-sx-text-muted">Modificare o annullare il DDT in Movimenta → Resi / Spedizioni.</span>
         </div>`;
         return;
       }
-      info.innerHTML = `<div style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-danger);margin-top:0.2rem">✗ Item ${this._esc(art)}#${this._esc(lot)} non disponibile${inQuar ? ' <span style="color:var(--sx-purple)">(in quarantena)</span>' : !allForLot.length ? ' — non trovato in magazzino' : ''}</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Item ${this._esc(art)}#${this._esc(lot)} non disponibile${inQuar ? ' <span class="text-sx-purple">(in quarantena)</span>' : !allForLot.length ? ' — non trovato in magazzino' : ''}</div>`;
       return;
     }
     if (itemsRaw.length === 1) { this._prodAddToCart(itemsRaw[0]); return; }
     // Stesso lotto in più ubicazioni → mostra selezione
-    let html = '<div style="max-height:200px;overflow-y:auto;margin-top:0.3rem"><div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.3rem">Stesso lotto in più ubicazioni — seleziona:</div>';
+    let html = '<div class="max-h-[200px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Stesso lotto in più ubicazioni — seleziona:</div>';
     for (const it of itemsRaw) {
       const inCart = this._pickCart.some((c: any) => c.item_key === it.item_key && c.location_code === it.location_code);
       // v2.0.1 [A1] — si espone il DISPONIBILE, non la giacenza fisica
       const qtyPhys = it.qty || 1;
       const qtyAvail = Store.getAvailableQty(it.location_code, it.item_key);
       const reservedLbl = (qtyPhys - qtyAvail) > 0
-        ? ` <span style="color:var(--sx-orange);font-size: var(--md-sys-typescale-label-small-size)">(${qtyPhys - qtyAvail} su DDT)</span>` : '';
+        ? ` <span class="text-sx-orange text-label-small">(${qtyPhys - qtyAvail} su DDT)</span>` : '';
       const payload = App._payload(it);
       html += `<div class="inv-item-row" style="cursor:pointer;${inCart ? 'opacity:0.4' : ''}" onclick="App._prodAddEnc('${payload}')">
         <div class="inv-info">
-          <div class="inv-code">${this._esc(it.article_code)} <span style="color:var(--sx-text-muted);font-weight:400">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">L:${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong style="color:var(--sx-accent)">${qtyAvail} Coll. disp.</strong>${reservedLbl}</div>
+          <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal">${this._esc(it.article_description || '')}</span></div>
+          <div class="inv-lot">L:${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${qtyAvail} Coll. disp.</strong>${reservedLbl}</div>
         </div>
-        ${inCart ? '<span style="color:var(--sx-text-muted);font-size: var(--md-sys-typescale-body-small-size)">✓ In carrello</span>' : '<span style="color:var(--sx-success)">+ Aggiungi</span>'}
+        ${inCart ? '<span class="text-sx-text-muted text-body-small">✓ In carrello</span>' : '<span class="text-sx-success">+ Aggiungi</span>'}
       </div>`;
     }
     info.innerHTML = html + '</div>';
@@ -456,14 +455,14 @@ export const VistaPrelievo: Vista = {
       const qtyPick = it.qty_pick || 1;
       const qtyAvail = it.qty_avail || qtyPick;
       const isPartial = qtyPick < qtyAvail;
-      const partialBadge = isPartial ? ` <span style="color:var(--sx-warning);font-size: var(--md-sys-typescale-label-small-size);font-weight:700">PARZIALE (${qtyPick}/${qtyAvail})</span>` : '';
+      const partialBadge = isPartial ? ` <span class="text-sx-warning text-label-small font-bold">PARZIALE (${qtyPick}/${qtyAvail})</span>` : '';
       return `<div class="pick-cart-item">
       <div class="pci-num">${i+1}</div>
       <div class="pci-info">
-        <div class="pci-code">${this._esc(it.article_code)} <span style="color:var(--sx-text-muted);font-weight:400;font-size: var(--md-sys-typescale-label-small-size)">${this._esc(it.article_description || '')}</span></div>
-        <div class="pci-loc">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong style="color:var(--sx-accent)">${qtyPick} Coll.</strong>${partialBadge}</div>
+        <div class="pci-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(it.article_description || '')}</span></div>
+        <div class="pci-loc">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong class="text-sx-accent">${qtyPick} Coll.</strong>${partialBadge}</div>
       </div>
-      <button class="btn btn-sm btn-ghost" style="color:var(--sx-danger)" onclick="App._prodRemoveFromCart(${i})">✕</button>
+      <button class="btn btn-sm btn-ghost text-sx-danger" onclick="App._prodRemoveFromCart(${i})">✕</button>
     </div>`;
     }).join('');
   },
