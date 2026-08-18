@@ -13,6 +13,12 @@ import {
   totaleUom as totaleUomElenco, preleva as prelevaElenco,
 } from '../../modules/colli';
 
+/* Le due forme che vivono solo dentro questa maschera: la dichiarazione dei
+   colli in ingresso — «quanti, e da quanto» — e la finestra che chiede quali
+   colli escono, con le scelte parziali segnate per posizione. */
+type RigaColliIn = { colli: string; per: string };
+type SceltaColli = { elenco: number[]; uom: string; scelte: Map<number, number | boolean> };
+
 export const VistaPosiziona: Vista = {
   _formPosiziona(el) {
     el.innerHTML = `
@@ -100,7 +106,7 @@ export const VistaPosiziona: Vista = {
      Il campo ④ Colli non si digita piu' quando questo blocco e' aperto: lo
      conta la dichiarazione, e due numeri che dicono la stessa cosa sono il
      modo piu' corto per scriverne uno sbagliato. */
-  _colliIn: [],
+  _colliIn: [] as RigaColliIn[],
 
   _campoColliIngresso() {
     return `
@@ -144,7 +150,7 @@ export const VistaPosiziona: Vista = {
   _renderColliIn() {
     const box = $('mInColliRighe');
     if (!box) return;
-    box.innerHTML = this._colliIn.map((r: any, i: any) => `
+    box.innerHTML = (this._colliIn as RigaColliIn[]).map((r, i) => `
       <div class="flex gap-3 items-center mb-2.5">
         <input class="input input-mono max-w-[90px] text-center" type="number" min="1" step="1" value="${this._esc(String(r.colli ?? ''))}" placeholder="colli"
           oninput="App._colliRigaSet(${i},'colli',this.value)">
@@ -251,7 +257,7 @@ export const VistaPosiziona: Vista = {
      se chi guarda ha annullato. L'overlay ha un id suo e una chiusura sua:
      `modalOverlay` e' uno solo, e una finestra aperta sopra un'altra chiude
      quella sotto. */
-  _colliSel: null,
+  _colliSel: null as SceltaColli | null,
   _colliResolve: null,
 
   _scegliColli(item, elenco, uom, titolo = 'Quali colli') {
@@ -282,10 +288,10 @@ export const VistaPosiziona: Vista = {
   },
 
   _colliSelRender() {
-    const s = this._colliSel;
+    const s: SceltaColli | null = this._colliSel;
     const box = $('colliSelRighe');
     if (!s || !box) return;
-    box.innerHTML = s.elenco.map((q: any, i: any) => {
+    box.innerHTML = s.elenco.map((q, i) => {
       const scelto = s.scelte.has(i);
       const parziale = s.scelte.get(i);
       return `
@@ -331,9 +337,9 @@ export const VistaPosiziona: Vista = {
       const esito = prelevaElenco(s.elenco, this._colliSelScelte(), s.uom);
       prev.style.color = 'var(--sx-success)';
       prev.textContent = `Escono ${esito.usciti.length} coll. · ${formattaQuantita(esito.uom, s.uom)} ${s.uom} — restano ${descriviElenco(esito.rimasti, s.uom)}`;
-    } catch (err: any) {
+    } catch (err) {
       prev.style.color = 'var(--sx-warning)';
-      prev.textContent = '⚠ ' + (err.message || 'scelta non valida');
+      prev.textContent = '⚠ ' + ((err as Error).message || 'scelta non valida');
     }
   },
 
@@ -350,8 +356,8 @@ export const VistaPosiziona: Vista = {
     const scelte = this._colliSelScelte();
     try {
       prelevaElenco(s.elenco, scelte, s.uom);
-    } catch (err: any) {
-      return this.toast(err.message || 'Scelta dei colli non valida', 'error');
+    } catch (err) {
+      return this.toast((err as Error).message || 'Scelta dei colli non valida', 'error');
     }
     this._colliSelChiudi(scelte);
   },
@@ -476,13 +482,13 @@ export const VistaPosiziona: Vista = {
       /* 1.8 — dove la suddivisione e' dichiarata comanda lei: i colli sono
          quanti sono nell'elenco, e `qty` qui e' gia' il suo specchio. */
       elenco = this._elencoDichiarato();
-    } catch (err: any) {
-      return this.toast(err.message || 'Suddivisione dei colli incompleta', 'error');
+    } catch (err) {
+      return this.toast((err as Error).message || 'Suddivisione dei colli incompleta', 'error');
     }
     try {
       res = await Store.addItem(loc, art, effectiveDesc, lot, exp, notes, qty, qtyUom, elenco);
-    } catch (err: any) {
-      return this.toast(err.message || 'Errore posizionamento', 'error');
+    } catch (err) {
+      return this.toast((err as Error).message || 'Errore posizionamento', 'error');
     }
     if (!res.ok) return this.toast('Errore posizionamento', 'error');
     // v1.7.0 — log con qty info
