@@ -26,21 +26,21 @@ export const VistaCampionamento: Vista = {
 
   _formCampionamento(el) {
     el.innerHTML = `<div class="mov-form-card">
-      <h3>🧪 <span style="color:var(--sx-teal)">Campionamento</span></h3>
+      <h3>🧪 <span class="text-sx-teal">Campionamento</span></h3>
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① CERCA la merce</span> → <span class="wf-step">② scegli la riga</span> →
         <span class="wf-step">③ quantità prelevata e per chi</span> → CONFERMA.
         I colli non calano: cala la quantità dentro il collo.
       </div>
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>① Articolo <span class="req">*</span></label>
-        <input class="input input-mono" id="cpQuery" placeholder="Codice o descrizione — cerca a magazzino"
-          maxlength="${Validate.MAX.ARTICLE_CODE}" style="text-transform:uppercase" autocomplete="off"
+        <input class="input input-mono uppercase" id="cpQuery" placeholder="Codice o descrizione — cerca a magazzino"
+          maxlength="${Validate.MAX.ARTICLE_CODE}" autocomplete="off"
           oninput="App._campCerca()">
       </div>
-      <div id="cpList" style="margin-bottom:0.5rem"></div>
+      <div class="mb-5" id="cpList"></div>
       <div id="cpDetails"></div>
-      <div style="margin-top:0.6rem"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
     </div>`;
     if (this._campState) this._campRenderDettaglio();
     else $('cpQuery')?.focus();
@@ -55,18 +55,18 @@ export const VistaCampionamento: Vista = {
     if (q.length < 2) { box.innerHTML = ''; return; }
     const righe = Store.findItemLocations(q).filter(it => (it.qty || 0) > 0);
     if (!righe.length) {
-      box.innerHTML = `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-warning)">⚠ Nessuna giacenza per «${this._esc(q)}»</div>`;
+      box.innerHTML = `<div class="text-label-small text-sx-warning">⚠ Nessuna giacenza per «${this._esc(q)}»</div>`;
       return;
     }
     /* FEFO come ovunque: il campione si prende dal lotto che scade prima,
        se non c'è una ragione per prenderne un altro. */
     const ordinate = Store.sortByFEFO(righe).slice(0, 12);
-    box.innerHTML = `<div style="max-height:190px;overflow-y:auto;border:1px solid var(--sx-border);border-radius:var(--radius-md)">${
+    box.innerHTML = `<div class="max-h-[190px] overflow-y-auto border border-sx-border rounded-[var(--radius-md)]">${
       ordinate.map(it => `<div class="search-result-item" onclick="App._campSelect('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">
-          <span class="mono" style="font-weight:700">${this._esc(it.article_code)}</span>
-          <span class="mono" style="color:var(--sx-text-secondary)">${this._esc(it.lot_code)}</span>
-          <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">${this._esc(it.location_code)}${it.expiry_date ? ' · scad ' + this._esc(it.expiry_date) : ''}</span>
-          <span style="margin-left:auto;font-weight:700;color:var(--sx-teal)">${it.qty || 0} Coll.</span>
+          <span class="mono font-bold">${this._esc(it.article_code)}</span>
+          <span class="mono text-sx-text-secondary">${this._esc(it.lot_code)}</span>
+          <span class="text-label-small text-sx-text-muted">${this._esc(it.location_code)}${it.expiry_date ? ' · scad ' + this._esc(it.expiry_date) : ''}</span>
+          <span class="ml-auto font-bold text-sx-teal">${it.qty || 0} Coll.</span>
         </div>`).join('')}</div>`;
   },
 
@@ -92,37 +92,36 @@ export const VistaCampionamento: Vista = {
     const dentro = um ? um.pieni * cfg!.per_collo! + um.resto : null;
 
     el.innerHTML = `
-      <div class="mov-preview" style="background:var(--grad-soft-teal);border-color:var(--sx-teal);margin-bottom:0.5rem">
-        <strong class="mono" style="color:var(--sx-teal)">${this._esc(it.article_code)}</strong>
-        <span style="color:var(--sx-text-muted)">${this._esc(it.article_description || '')}</span><br>
-        <span style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted)">
+      <div class="mov-preview bg-[var(--grad-soft-teal)] border-sx-teal mb-5">
+        <strong class="mono text-sx-teal">${this._esc(it.article_code)}</strong>
+        <span class="text-sx-text-muted">${this._esc(it.article_description || '')}</span><br>
+        <span class="text-body-small text-sx-text-muted">
           Lotto <strong>${this._esc(it.lot_code)}</strong> · Ubic. <strong class="mono">${this._esc(it.location_code)}</strong> ·
           <strong>${it.qty || 0} Coll.</strong>${dentro !== null ? ` · ⚖ ${this._esc(Store.descriviRiga(it))}` : ''}</span>
       </div>
       ${scalabile ? `
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label>② Quantità prelevata in <span class="mono">${this._esc(cfg.uom)}</span> <span class="req">*</span></label>
-        <input class="input input-mono" id="cpQty" type="number" min="0" step="0.001"
-          style="max-width:180px;text-align:center;font-weight:700"
+        <input class="input input-mono max-w-[180px] text-center font-bold" id="cpQty" type="number" min="0" step="0.001"
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('cpFor')?.focus();}">
-        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">
+        <div class="text-label-small text-sx-text-muted mt-1.5">
           I colli restano ${it.qty || 0}. Cala solo la quantità dentro.</div>
       </div>`
-      : `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.5rem">
+      : `<div class="mov-preview mov-preview-warn mb-5">
           ⚠ <strong>${this._esc(it.article_code)} non ha una quantità per collo</strong>${Store.isFeatureOn('uom') ? '' : ' (e le unità di misura sono spente)'}:
           il prelievo si registra a registro, ma nessuna quantità cala.
           Si scioglie da sé compilando <span class="mono">Pezzi_Per_Collo</span> in anagrafica.
         </div>`}
-      <div class="form-row" style="margin-bottom:0.5rem">
+      <div class="form-row mb-5">
         <div class="form-group"><label>③ Campione per chi <span class="req">*</span></label>
           <input class="input" id="cpFor" maxlength="60" placeholder="Laboratorio interno, cliente, ente…"></div>
       </div>
       ${this._campBloccoPulizia(it)}
-      <div class="form-group" style="margin-bottom:0.5rem"><label>Note</label>
+      <div class="form-group mb-5"><label>Note</label>
         <input class="input" id="cpNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Opzionale"></div>
-      <button class="btn btn-primary" style="width:100%;padding:0.55rem;font-weight:700;background:var(--sx-teal);border-color:var(--sx-teal)"
+      <button class="btn btn-primary w-full p-5.5 font-bold bg-sx-teal border-sx-teal"
         onclick="App._execCampione()">🧪 REGISTRA IL CAMPIONE</button>
-      <div id="cpFeedback" style="margin-top:0.4rem"></div>`;
+      <div class="mt-4" id="cpFeedback"></div>`;
     $(scalabile ? 'cpQty' : 'cpFor')?.focus();
   },
 
@@ -142,19 +141,19 @@ export const VistaCampionamento: Vista = {
     return `
       <input type="hidden" id="cpCleanAuto" value="${auto ? '1' : '0'}">
       ${auto ? `
-      <div class="mov-preview mov-preview-warn" style="margin-bottom:0.5rem">
+      <div class="mov-preview mov-preview-warn mb-5">
         <strong>⚠ ${this._esc(it.article_code)} porta allergeni: ${this._esc(nomi)}</strong><br>
-        <span style="font-size: var(--md-sys-typescale-body-small-size)">
+        <span class="text-body-small">
           Pulire la zona di prelievo a campionamento terminato. La pulizia è
           <strong>obbligatoria</strong> e viene registrata da sé nel registro attività.</span>
       </div>` : ''}
-      <div class="form-group" style="margin-bottom:0.5rem">
+      <div class="form-group mb-5">
         <label style="display:flex;align-items:center;gap:0.45rem;font-weight:600;text-transform:none;cursor:${auto ? 'default' : 'pointer'}">
-          <input type="checkbox" id="cpClean" style="width:17px;height:17px"
+          <input class="w-[17px] h-[17px]" type="checkbox" id="cpClean"
             ${auto ? 'checked disabled' : ''}>
           <span>🧽 Ho pulito l'area di campionamento${auto ? ' — obbligatorio' : ''}</span>
         </label>
-        <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-top:0.15rem">
+        <div class="text-label-small text-sx-text-muted mt-1.5">
           Spuntata, la pulizia finisce nel registro attività col riferimento a questo campionamento — è richiesto dalla GMP.</div>
       </div>`;
   },
@@ -296,7 +295,7 @@ export const VistaCampionamento: Vista = {
         ${allergeni ? `<div class="vb-forced">Allergeni dichiarati: ${this._esc(allergeni)}</div>` : ''}
       </div>
 
-      <div class="vb-reason" style="margin-top:0.4rem">
+      <div class="vb-reason mt-4">
         <div class="vb-reason-lbl">Pulizia dell'area di campionamento</div>
         <div class="vb-reason-val">${v.pulito
           ? (v.pulitoAuto
