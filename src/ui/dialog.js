@@ -19,7 +19,8 @@ const Dialog = {
   _overlay() { return document.getElementById('dlgOverlay'); },
 
   /* Costruisce e apre il dialogo. Ritorna una Promise risolta alla chiusura. */
-  _open({ icon = 'ℹ', title, bodyNode, actions, danger = false, kind = 'confirm', guardMs = null, focusTarget = null }) {
+  _open({ icon = 'ℹ', title, bodyNode, actions, danger = false, kind = 'confirm',
+          guardMs = /** @type {number|null} */ (null), focusTarget = /** @type {string|null} */ (null) }) {
     const overlay = this._overlay();
     if (!overlay) return Promise.resolve(null);
     if (this.isOpen) this._finish(null);   // un dialogo per volta
@@ -194,7 +195,8 @@ const Dialog = {
 
   /* Conferma booleana. danger:true -> Invio disabilitato, fuoco su Annulla. */
   confirm({ title, message = '', details = /** @type {Node|null} */ (null), confirmLabel = 'Conferma', cancelLabel = 'Annulla',
-            danger = false, icon = null, guardMs = null, focusTarget = null }) {
+            danger = false, icon = /** @type {string|null} */ (null),
+            guardMs = /** @type {number|null} */ (null), focusTarget = /** @type {string|null} */ (null) }) {
     return this._open({
       icon: icon || (danger ? '⚠' : '❓'),
       title,
