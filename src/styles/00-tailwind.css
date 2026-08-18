@@ -72,6 +72,32 @@
   --color-sx-text-muted: var(--sx-text-muted);
   --color-sx-disabled: var(--sx-disabled);
 
+  /* La scala tipografica M3. Nei sorgenti `font-size: var(--md-sys-typescale-
+     body-small-size)` e' scritto 303 volte a mano dentro un `style=`: qui
+     diventa `text-body-small`, e il valore resta uno solo, in `01-tokens.css`.
+
+     SOLO la misura, non l'interlinea. M3 accoppia size, line-height, weight e
+     tracking, ma l'applicativo ha sempre preso la sola misura: se `text-body-
+     small` portasse dentro anche l'interlinea, trecento righe cambierebbero
+     altezza tutte insieme. Le altre tre parti si prendono a parte, quando
+     servono. */
+  --text-*: initial;
+  --text-display-large: var(--md-sys-typescale-display-large-size);
+  --text-display-medium: var(--md-sys-typescale-display-medium-size);
+  --text-display-small: var(--md-sys-typescale-display-small-size);
+  --text-headline-large: var(--md-sys-typescale-headline-large-size);
+  --text-headline-medium: var(--md-sys-typescale-headline-medium-size);
+  --text-headline-small: var(--md-sys-typescale-headline-small-size);
+  --text-title-large: var(--md-sys-typescale-title-large-size);
+  --text-title-medium: var(--md-sys-typescale-title-medium-size);
+  --text-title-small: var(--md-sys-typescale-title-small-size);
+  --text-body-large: var(--md-sys-typescale-body-large-size);
+  --text-body-medium: var(--md-sys-typescale-body-medium-size);
+  --text-body-small: var(--md-sys-typescale-body-small-size);
+  --text-label-large: var(--md-sys-typescale-label-large-size);
+  --text-label-medium: var(--md-sys-typescale-label-medium-size);
+  --text-label-small: var(--md-sys-typescale-label-small-size);
+
   /* Raggi e ombre restano spenti. I nomi si sovrappongono: `--radius-md`,
      `--shadow-sm` e `--shadow-lg` sono insieme token dell'applicativo e
      namespace di Tailwind, e lasciandoli accesi `rounded-md` direbbe una
