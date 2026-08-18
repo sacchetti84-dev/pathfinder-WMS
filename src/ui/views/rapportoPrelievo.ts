@@ -175,7 +175,7 @@ export const VistaRapportoPrelievo: Vista = {
     const uniqueLocs = new Set(snap.rows.map((r: any) => r.location_code).filter(Boolean)).size;
 
     const kgCell = (kg: any, um: any) => {
-      if (kg == null || kg === '') return '<span style="color:#999">—</span>';
+      if (kg == null || kg === '') return '<span class="text-[#999]">—</span>';
       const u = String(um || '').trim().toUpperCase();
       const suffix = (u && u !== 'KG') ? ` <span style="font-size:7pt;color:#666">${E(um)}</span>` : '';
       return `${E(this._fmtKg(kg))}${suffix}`;
@@ -183,13 +183,13 @@ export const VistaRapportoPrelievo: Vista = {
 
     const rowsHTML = snap.rows.map((r: any, i: any) => `<tr>
       <td class="td-num">${i + 1}</td>
-      <td class="td-num">${r.seq != null ? E(r.seq) : '<span style="color:#999">—</span>'}</td>
+      <td class="td-num">${r.seq != null ? E(r.seq) : '<span class="text-[#999]">—</span>'}</td>
       <td class="td-code">${E(r.article_code || '—')}</td>
       <td>${E(r.article_description || '—')}${this._avvisiRigaStampa(r.article_code)}</td>
       <td class="td-lot">${E(r.lot_code || '—')}</td>
       <td class="td-loc">${E(r.location_code || '—')}</td>
       <td class="td-num">${kgCell(r.kg_required, r.um)}</td>
-      <td class="td-num" style="font-weight:700">${E(r.qty_picked)}</td>
+      <td class="td-num font-bold">${E(r.qty_picked)}</td>
     </tr>`).join('');
 
     const tailHTML = snap.tail.map((t: any, i: any) => `<tr>
@@ -198,7 +198,7 @@ export const VistaRapportoPrelievo: Vista = {
       <td>${E(t.description || '—')}${this._avvisiRigaStampa(t.article_code)}</td>
       <td class="td-lot">${E(t.lot_code || '—')}</td>
       <td class="td-num">${kgCell(t.kg_required, t.um)}</td>
-      <td style="font-weight:600">${E(t.label)}</td>
+      <td class="font-semibold">${E(t.label)}</td>
       <td style="font-size:7.5pt">${E(t.detail)}</td>
       <td class="pr-check-col"><span class="pr-box"></span></td>
     </tr>`).join('');
@@ -283,14 +283,14 @@ export const VistaRapportoPrelievo: Vista = {
       <div class="pr-sec">Righe prelevate</div>
       <table class="pr-table">
         <thead><tr>
-          <th style="width:22px">#</th>
-          <th style="width:40px;text-align:center">Tappa</th>
-          <th style="width:86px">Codice</th>
+          <th class="w-[22px]">#</th>
+          <th class="w-[40px] text-center">Tappa</th>
+          <th class="w-[86px]">Codice</th>
           <th>Descrizione</th>
-          <th style="width:76px">Lotto</th>
-          <th style="width:100px">Ubicazione</th>
-          <th style="width:66px;text-align:center">Kg ordine</th>
-          <th style="width:58px;text-align:center">Colli prelevati</th>
+          <th class="w-[76px]">Lotto</th>
+          <th class="w-[100px]">Ubicazione</th>
+          <th class="w-[66px] text-center">Kg ordine</th>
+          <th class="w-[58px] text-center">Colli prelevati</th>
         </tr></thead>
         <tbody>${rowsHTML || '<tr class="pr-empty-row"><td colspan="8">Nessuna riga prelevata</td></tr>'}</tbody>
       </table>
@@ -300,12 +300,12 @@ export const VistaRapportoPrelievo: Vista = {
         <span class="pr-sec-note">— barrare la casella a recupero avvenuto</span></div>
       <table class="pr-table">
         <thead><tr>
-          <th style="width:22px">#</th>
-          <th style="width:86px">Codice</th>
+          <th class="w-[22px]">#</th>
+          <th class="w-[86px]">Codice</th>
           <th>Descrizione</th>
-          <th style="width:76px">Lotto</th>
-          <th style="width:66px;text-align:center">Kg ordine</th>
-          <th style="width:104px">Motivo</th>
+          <th class="w-[76px]">Lotto</th>
+          <th class="w-[66px] text-center">Kg ordine</th>
+          <th class="w-[104px]">Motivo</th>
           <th>Dettaglio</th>
           <th class="pr-check-col">Recuperato</th>
         </tr></thead>
@@ -317,10 +317,10 @@ export const VistaRapportoPrelievo: Vista = {
         <span class="pr-sec-note">— merce presente in ubicazione ma non prelevabile</span></div>
       <table class="pr-table">
         <thead><tr>
-          <th style="width:22px">#</th>
-          <th style="width:86px">Codice</th>
-          <th style="width:76px">Lotto</th>
-          <th style="width:100px">Ubicazione</th>
+          <th class="w-[22px]">#</th>
+          <th class="w-[86px]">Codice</th>
+          <th class="w-[76px]">Lotto</th>
+          <th class="w-[100px]">Ubicazione</th>
           <th>Motivo</th>
         </tr></thead>
         <tbody>${notesHTML}</tbody>
