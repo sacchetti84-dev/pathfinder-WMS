@@ -7,6 +7,9 @@ import { Feedback } from '../feedback.js';
 import { descriviColli as descriviElenco, preleva as prelevaElenco } from '../../modules/colli';
 
 export const VistaSmaltimento: Vista = {
+  // ── 1B. SCARICO ─────────────────────────────────────────────────────
+  // Tre stadi, uno stato solo: this._dispState.
+
   _dispReset() {
     this._dispStage = 'search';
     this._dispState = null;
