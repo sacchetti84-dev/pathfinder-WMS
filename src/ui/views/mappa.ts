@@ -26,7 +26,7 @@ export const VistaMappa: Vista = {
           <button class="map-vt-btn ${this.mapViewMode === 'plan' ? 'active' : ''}" onclick="App.setMapView('plan')">▦ Piano</button>
           <button class="map-vt-btn ${this.mapViewMode === 'frontal' ? 'active' : ''}" onclick="App.setMapView('frontal')">▤ Frontale</button>
         </div>
-        ${(zone.type === 'RACK' && this.mapViewMode === 'frontal') ? `<button class="btn btn-sm ${zone.mirror_frontal ? 'btn-warning' : ''}" onclick="App.toggleMirrorFrontal()" title="Specchia vista frontale (dx↔sx)" style="font-size: var(--md-sys-typescale-body-small-size)">${zone.mirror_frontal ? '↔ Specchiata' : '↔ Specchia'}</button>` : ''}`;
+        ${(zone.type === 'RACK' && this.mapViewMode === 'frontal') ? `<button class="btn btn-sm ${zone.mirror_frontal ? 'btn-warning' : ''} text-body-small" onclick="App.toggleMirrorFrontal()" title="Specchia vista frontale (dx↔sx)">${zone.mirror_frontal ? '↔ Specchiata' : '↔ Specchia'}</button>` : ''}`;
     if (zone.type === 'RACK' && (zone.levels as any[])?.length > 1 && this.mapViewMode === 'plan') {
       toolbar += '<div class="level-selector">';
       for (const lvl of (zone.levels as any[])) {
@@ -36,20 +36,20 @@ export const VistaMappa: Vista = {
     }
     toolbar += `
         <div class="map-stats-bar">
-          <div class="map-stat"><div class="dot" style="background:var(--sx-text-muted)"></div>${stats.total} Tot</div>
-          <div class="map-stat"><div class="dot" style="background:var(--sx-success)"></div>${stats.occupied} Occ</div>
-          <div class="map-stat"><div class="dot" style="background:var(--sx-border)"></div>${stats.empty} Vuote</div>
-          <div class="map-stat"><div class="dot" style="background:var(--sx-danger)"></div>${stats.blocked} Bloc</div>
-          <div class="map-stat"><div class="dot" style="background:var(--sx-warning)"></div>${stats.reserved} Ris</div>
-          ${stats.disabled ? `<div class="map-stat"><div class="dot" style="background:var(--sx-disabled)"></div>${stats.disabled} Disatt</div>` : ''}
+          <div class="map-stat"><div class="dot bg-sx-text-muted"></div>${stats.total} Tot</div>
+          <div class="map-stat"><div class="dot bg-sx-success"></div>${stats.occupied} Occ</div>
+          <div class="map-stat"><div class="dot bg-sx-border"></div>${stats.empty} Vuote</div>
+          <div class="map-stat"><div class="dot bg-sx-danger"></div>${stats.blocked} Bloc</div>
+          <div class="map-stat"><div class="dot bg-sx-warning"></div>${stats.reserved} Ris</div>
+          ${stats.disabled ? `<div class="map-stat"><div class="dot bg-sx-disabled"></div>${stats.disabled} Disatt</div>` : ''}
         </div>
         <div class="legend">
-          <div class="legend-item"><div class="legend-dot" style="background:var(--sx-border)"></div>Vuota</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--sx-success)"></div>Occupata</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--sx-danger)"></div>Bloccata</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--sx-warning)"></div>Riservata</div>
-          <div class="legend-item"><div class="legend-dot" style="background:var(--sx-disabled)"></div>Disatt.</div>
-          <div class="legend-item" style="margin-left:auto;color:var(--sx-text-muted)">💡 Tasto dx = Attiva/Disattiva</div>
+          <div class="legend-item"><div class="legend-dot bg-sx-border"></div>Vuota</div>
+          <div class="legend-item"><div class="legend-dot bg-sx-success"></div>Occupata</div>
+          <div class="legend-item"><div class="legend-dot bg-sx-danger"></div>Bloccata</div>
+          <div class="legend-item"><div class="legend-dot bg-sx-warning"></div>Riservata</div>
+          <div class="legend-item"><div class="legend-dot bg-sx-disabled"></div>Disatt.</div>
+          <div class="legend-item ml-auto text-sx-text-muted">💡 Tasto dx = Attiva/Disattiva</div>
         </div>
         ${this._fasciaConformita(locs)}
       </div>`;
@@ -126,9 +126,9 @@ export const VistaMappa: Vista = {
         <span class="conf-chip conf-chip--muta">verificate ${conf.verificabili} di ${conf.righe} giacenze</span>
         ${conf.deroghe.length ? `<button class="conf-deroghe" onclick="App.mostraDeroghe()">🔓 ${conf.deroghe.length} in deroga su celle riservate</button>` : ''}
       </div>
-      <div style="overflow-x:auto;max-height:56vh">
+      <div class="overflow-x-auto max-h-[56vh]">
         <table class="sx-table">
-          <thead><tr><th style="width:34px"></th><th>Ubicazione</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Perché</th></tr></thead>
+          <thead><tr><th class="w-[34px]"></th><th>Ubicazione</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Perché</th></tr></thead>
           <tbody>${righe}</tbody>
         </table>
       </div>
@@ -154,12 +154,12 @@ export const VistaMappa: Vista = {
       </tr>`).join('');
 
     this.showModal(`Allergeni in deroga — ${d.length}`, `
-      <p style="font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-muted);margin-bottom:0.7rem">
+      <p class="text-body-small text-sx-text-muted mb-7">
         Merce con allergeni stoccata fuori dalla zona riservata, ammessa perché
         l'ubicazione è marcata <strong>Riservata</strong>. La deroga vale sugli
         allergeni: sulla temperatura la verifica resta attiva.
       </p>
-      <div style="overflow-x:auto;max-height:56vh">
+      <div class="overflow-x-auto max-h-[56vh]">
         <table class="sx-table">
           <thead><tr><th>Ubicazione</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Allergeni ammessi</th></tr></thead>
           <tbody>${righe}</tbody>
@@ -315,7 +315,7 @@ export const VistaMappa: Vista = {
     let html = '<div class="front-combined">';
     if (zone.type === 'RACK') {
       const mirrored = zone.mirror_frontal === true;
-      const dirLabel = mirrored ? ' <span style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-warning);font-weight:600;text-transform:none">← specchiata (dx→sx)</span>' : '';
+      const dirLabel = mirrored ? ' <span class="text-label-small text-sx-warning font-semibold normal-case">← specchiata (dx→sx)</span>' : '';
       html += `<div class="front-section"><div class="front-section-title">🏗️ Rack — Vista Frontale${dirLabel}</div>`;
       const levels = [...(zone.levels || ['T'])].reverse();
       const bays = zone.bays_per_aisle || 1;
