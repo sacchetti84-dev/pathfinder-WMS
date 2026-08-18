@@ -1389,7 +1389,9 @@ const Store = {
     };
   },
 
-  async queryMovements({ from = null, to = null, type = '', text = '', limit = 2000 } = {}) {
+  async queryMovements({ from = null, to = null, type = '', text = '', limit = 2000 }: {
+    from?: number | null; to?: number | null; type?: string; text?: string; limit?: number;
+  } = {}) {
     let criteria: Criterio | null = null;
     if (from !== null && to !== null)      criteria = { field: 'ts', op: 'between', value: [from, to] };
     else if (from !== null)                criteria = { field: 'ts', op: 'aboveOrEqual', value: from };
