@@ -3,7 +3,7 @@ import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog.js';
-import { Feedback } from '../feedback.js';
+import { Feedback } from '../feedback';
 
 export const VistaQuarantena: Vista = {
   // ═══ 5. QUARANTENA ═══

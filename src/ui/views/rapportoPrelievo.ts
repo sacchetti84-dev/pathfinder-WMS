@@ -1,7 +1,7 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
 import { PickRoute } from '../../modules/pickRoute.js';
-import { Feedback } from '../feedback.js';
+import { Feedback } from '../feedback';
 
 export const VistaRapportoPrelievo: Vista = {
   _PICK_REPORT_VER: '1.0',

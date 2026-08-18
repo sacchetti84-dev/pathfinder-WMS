@@ -7,7 +7,7 @@ import {
   normalizzaNome as normalizzaNomeRcp, destinazionePredefinita, descriviDestinazione,
 } from '../../modules/destinatari';
 import { Dialog } from '../dialog.js';
-import { Feedback } from '../feedback.js';
+import { Feedback } from '../feedback';
 
 export const VistaSpedizioni: Vista = {
   _formSpedizioni(el) {

@@ -6,7 +6,7 @@ import { Validate } from '../../modules/validate';
 import { OdpParser } from '../../modules/odpParser';
 import { PickRoute } from '../../modules/pickRoute.js';
 import { Dialog } from '../dialog.js';
-import { Feedback } from '../feedback.js';
+import { Feedback } from '../feedback';
 
 export const VistaPercorso: Vista = {
   _routeStage: 'import',        // 'import' | 'run'
