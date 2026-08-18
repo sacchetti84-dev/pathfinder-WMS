@@ -4,6 +4,8 @@ import { Store } from '../../core/store';
 import type { Giacenza } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
+import { rettifica, descriviColli, totaleUom as totaleUomColli } from '../../modules/colli';
+import { formattaQuantita } from '../../modules/misure';
 
 /* L'inventario di un vano mentre lo si conta: le righe a sistema con la
    spunta di chi le ha viste, e le righe trovate che a sistema non c'erano. */
@@ -12,6 +14,11 @@ type RigaInventario = Giacenza & {
   missing: boolean;
   checked: boolean;
   counted_qty: number | null;
+  /* 1.8.4 — l'elenco com'e' a scaffale, dichiarato da chi ha contato. Su
+     una riga a colli dichiarati «tre colli» non dice niente: dice tutto
+     «due da 25 e uno da 18». */
+  colli_dopo: number[] | null;
+  uom_dopo?: string | null;
 };
 
 type RigaExtra = {
@@ -63,7 +70,7 @@ export const VistaInventario = {
     if (!Store.locationExists(loc)) { el.innerHTML = '<div class="text-sx-danger text-body-small p-3">Ubicazione non trovata</div>'; return; }
     const items = Store.getItemsAtLocation(loc);
     // v1.7.0 — counted_qty: null = non ancora contato. confirmed/missing semantica preservata per compatibilità.
-    this._invState = { loc, items: items.map(i => ({ ...i, confirmed: false, missing: false, checked: false, counted_qty: null })), extras: [] };
+    this._invState = { loc, items: items.map(i => ({ ...i, confirmed: false, missing: false, checked: false, counted_qty: null, colli_dopo: null, uom_dopo: null })), extras: [] };
     let html = '<div class="mt-7.5">';
     html += `<p class="text-body-small text-sx-text-secondary mb-5">Sistema: <strong>${items.length}</strong> lotti registrati. Verifica ciascuno: <strong class="text-sx-success">✓</strong> conferma giacenza · <strong class="text-sx-danger">✗</strong> mancante totale · <strong class="text-sx-warning">📋</strong> conta fisica diversa.</p>`;
     if (!items.length) html += '<div class="text-body-small text-sx-text-muted p-3">Nessun item registrato</div>';
@@ -108,6 +115,8 @@ export const VistaInventario = {
     this._invState.items[idx].missing = !present;
     this._invState.items[idx].checked = true;
     this._invState.items[idx].counted_qty = null;  // reset eventuale conta precedente
+    this._invState.items[idx].colli_dopo = null;
+    this._invState.items[idx].uom_dopo = null;
     const row = $(`invRow${idx}`);
     row.className = `inv-item-row ${present ? 'inv-row-confirmed' : 'inv-row-missing'}`;
     $(`invOk${idx}`).className = `inv-btn ${present ? 'inv-ok' : ''}`;
@@ -116,24 +125,47 @@ export const VistaInventario = {
     const info = $(`invCountInfo${idx}`); if (info) info.innerHTML = '';
   },
 
-  /* v1.7.0 — conta fisica diversa: applica delta qty (FIX+/FIX- con qty_delta) */
+  /* v1.7.0 — conta fisica diversa: applica delta qty (FIX+/FIX- con qty_delta)
+
+     1.8.4 — E LA DOMANDA CAMBIA CON LA RIGA. Dove i colli sono dichiarati
+     «quanti ne hai contati» non e' una domanda a cui si possa rispondere
+     bene: tre colli da 25, 25 e 18 fanno tre come tre colli da 25 — e sono
+     diciassette chili di differenza. Si chiede com'e' fatto adesso, con la
+     stessa dichiarazione del posizionamento, e la differenza la calcola
+     `rettifica`.
+
+     E' cosi' che sparisce l'ultimo «vai da un'altra parte»: anche i colli
+     IN PIU' si rettificano qui. Una misura trovata nessuno la puo'
+     indovinare, ma chi ha il collo davanti la legge. */
   async _invCount(idx) {
     if (!this._invState) return;
     const it = this._invState.items[idx];
     const sysQty = it.qty || 1;
-    const inp = await Dialog.qty({
-      title: 'Conta fisica',
-      message: 'Inserire il numero di colli effettivamente contati a scaffale.',
-      details: Dialog.kv([
-        ['Articolo', it.article_code],
-        ['Lotto', it.lot_code],
-        ['Quantità a sistema', `${sysQty} Coll.`]
-      ]),
-      value: sysQty, min: 0, max: 99999
-    });
-    if (inp === null) return;
-    const counted = inp;   // `Dialog.qty` da' gia' un intero
-    if (isNaN(counted) || counted < 0) return this.toast('Numero non valido', 'error');
+    let counted;
+
+    const elenco = Store.colliDiRiga(it);
+    if (elenco) {
+      const cfg = Store.getUomConfig(it.article_code, it.lot_code)!;
+      const nuovo = await this._ridichiaraColli(it, `Com'è fatto adesso · ${it.article_code}#${it.lot_code}`);
+      if (nuovo === undefined) return;
+      it.colli_dopo = nuovo;
+      it.uom_dopo = cfg.uom;
+      counted = nuovo.length;
+    } else {
+      const inp = await Dialog.qty({
+        title: 'Conta fisica',
+        message: 'Inserire il numero di colli effettivamente contati a scaffale.',
+        details: Dialog.kv([
+          ['Articolo', it.article_code],
+          ['Lotto', it.lot_code],
+          ['Quantità a sistema', `${sysQty} Coll.`]
+        ]),
+        value: sysQty, min: 0, max: 99999
+      });
+      if (inp === null) return;
+      counted = inp;   // `Dialog.qty` da' gia' un intero
+      if (isNaN(counted) || counted < 0) return this.toast('Numero non valido', 'error');
+    }
     it.counted_qty = counted;
     it.checked = true;
     if (counted === 0) {
@@ -156,7 +188,11 @@ export const VistaInventario = {
     if (info) {
       const sign = delta > 0 ? '+' : '';
       const color = delta === 0 ? 'var(--sx-success)' : (delta > 0 ? 'var(--sx-warning)' : 'var(--sx-danger)');
-      info.innerHTML = ` · Contati: <strong style="color:${color}">${counted} (${sign}${delta})</strong>`;
+      /* Dove i colli sono dichiarati si rilegge la dichiarazione, non il
+         conto: e' quella che dice se il vano torna. */
+      info.innerHTML = it.colli_dopo
+        ? ` · Contato: <strong style="color:${color}">${this._esc(it.colli_dopo.length ? descriviColli(it.colli_dopo, it.uom_dopo) : 'vano vuoto')}</strong>`
+        : ` · Contati: <strong style="color:${color}">${counted} (${sign}${delta})</strong>`;
     }
   },
 
@@ -231,22 +267,37 @@ export const VistaInventario = {
        misura che nessuno può indovinare, e inventargliela scriverebbe una
        giacenza plausibile e falsa: quello si posiziona da Movimenta, dove la
        suddivisione si dichiara. */
-    const rimandate = [];
     for (const it of items) {
       const sysQty = it.qty || 1;
-      let scelteConta = null;
-      if (!it.missing && typeof it.counted_qty === 'number' && it.counted_qty !== sysQty
-          && Store.colliDiRiga(it)) {
-        if (it.counted_qty > sysQty) {
-          rimandate.push(`${it.article_code}#${it.lot_code} (in più)`);
-          continue;
+
+      /* 1.8.4 — LA RIGA RIDICHIARATA: da com'era a com'e', in due movimenti
+         veri. Cio' che manca esce, cio' che si e' trovato entra, e un collo
+         piu' leggero e' un'uscita parziale dallo stesso collo — non uno che
+         se ne va e un altro che arriva. Il rimando a Movimenta non c'e'
+         piu': anche i colli in piu' si rettificano qui. */
+      if (!it.missing && it.colli_dopo) {
+        const cfg = Store.getUomConfig(it.article_code, it.lot_code);
+        const diff = cfg ? rettifica(Store.colliDiRiga(it), it.colli_dopo, cfg.uom) : null;
+        if (!diff || (!diff.uscite.length && !diff.entrate.length)) continue;
+        const motivo = `Inventario: ${it.colli_dopo.length ? descriviColli(it.colli_dopo, cfg!.uom) : 'vano vuoto'}`;
+        if (diff.uscite.length) {
+          const scelte = Store.scelteDaUscite(it, diff.uscite);
+          const removed = await Store.removeItem(loc, it.item_key, null, null, scelte);
+          if (removed) {
+            await this._logMov(MOV.FIX_OUT, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, motivo, '', removed._qty_before, removed._qty_after - removed._qty_before, removed._qty_after);
+            corrections++;
+          }
         }
-        scelteConta = await this._chiediColli(it, `Quali colli mancano · ${it.article_code}#${it.lot_code}`);
-        if (scelteConta === undefined) {
-          rimandate.push(`${it.article_code}#${it.lot_code} (scelta annullata)`);
-          continue;
+        if (diff.entrate.length) {
+          const res = await Store.addItem(loc, it.article_code, it.article_description as string, it.lot_code, it.expiry_date || '', '', diff.entrate.length, null, diff.entrate);
+          if (res.ok) {
+            await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `${motivo} · trovati ${formattaQuantita(totaleUomColli(diff.entrate, cfg!.uom), cfg!.uom)} ${cfg!.uom}`, '', res.qty_before, diff.entrate.length, res.qty_after);
+            corrections++;
+          }
         }
+        continue;
       }
+
       // Caso 1: missing totale → FIX- intero
       if (it.missing) {
         const removed = await Store.removeItem(loc, it.item_key);
@@ -261,7 +312,7 @@ export const VistaInventario = {
         if (delta === 0) continue;  // nessuna azione
         if (delta < 0) {
           // FIX-: rimuovi |delta| colli — e quali, se la riga li dichiara
-          const removed = await Store.removeItem(loc, it.item_key, Math.abs(delta), null, scelteConta);
+          const removed = await Store.removeItem(loc, it.item_key, Math.abs(delta));
           if (removed) {
             await this._logMov(MOV.FIX_OUT, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `Conta fisica: ${it.counted_qty}/${sysQty}`, '', sysQty, delta, it.counted_qty);   // v2.0.1 [B7]
             corrections++;
@@ -290,9 +341,6 @@ export const VistaInventario = {
     }
     if (corrections === 0) this.toast('Nessuna correzione — inventario confermato ✓', 'info');
     else this.toast(`✓ ${corrections} correzion${corrections === 1 ? 'e applicata' : 'i applicate'}`, 'success');
-    if (rimandate.length) {
-      this.toast(`⚠ ${rimandate.length} rig${rimandate.length === 1 ? 'a non rettificata' : 'he non rettificate'} — i colli in più si posizionano da Movimenta, dichiarando com'è imballato ciò che hai trovato: ${rimandate.join(', ')}`, 'warning');
-    }
     this.updateSyncIndicator();
     /* 1.4.4 — QUI NON SI CHIUDE NESSUN COMPITO. L'inventario di vano è una
        funzione di magazzino che esiste da sempre e non nasce mai da

@@ -300,6 +300,65 @@ export function scelteDaUscite(
   });
 }
 
+/* ── La rettifica: da com'era a com'e' ───────────────────────────────── */
+
+export interface Rettifica {
+  /** I colli da togliere, nella forma che capisce il servizio. */
+  uscite: { da: number; quantita: number }[];
+  /** Le misure dei colli da aggiungere. */
+  entrate: number[];
+}
+
+/** La differenza fra l'elenco di prima e quello che l'operatore ha davanti.
+
+    CHI CONTA UN VANO NON TOGLIE E NON AGGIUNGE: guarda lo scaffale e dice
+    com'e' fatto adesso. Tradurlo in movimenti e' lavoro del sistema, e va
+    fatto come il registro lo capisce.
+
+    I colli che ci sono in tutti e due restano fermi. Di quelli che restano,
+    un collo piu' leggero SI ACCOPPIA con il piu' piccolo che lo conteneva —
+    il 25 che pesa 18 e' lo stesso collo con dentro 7 KG in meno, non un
+    collo uscito e uno arrivato dal nulla. Quel che avanza da una parte e'
+    uscito intero, quel che avanza dall'altra e' entrato.
+
+    `null` se l'elenco di prima non si legge: senza non c'e' niente da cui
+    misurare una differenza. */
+export function rettifica(
+  prima: number[] | null | undefined, dopo: unknown, uom?: string | null,
+): Rettifica | null {
+  const vecchi = leggiColli(prima, uom);
+  if (!vecchi) return null;
+  const nuovi = Array.isArray(dopo) ? (leggiColli(dopo, uom) ?? []) : null;
+  if (nuovi === null) return null;
+  const dec = decimali(uom);
+
+  /* Quel che c'e' da entrambe le parti non si muove: si tolgono a coppie. */
+  const restaPrima = vecchi.slice().sort((a, b) => b - a);
+  const restaDopo = nuovi.slice().sort((a, b) => b - a);
+  for (const q of [...restaDopo]) {
+    const i = restaPrima.indexOf(q);
+    if (i === -1) continue;
+    restaPrima.splice(i, 1);
+    restaDopo.splice(restaDopo.indexOf(q), 1);
+  }
+
+  const uscite: { da: number; quantita: number }[] = [];
+  for (const d of [...restaDopo]) {
+    /* Il piu' PICCOLO che lo contiene: 24 viene da un 25 sceso di uno, non
+       da un 30 sceso di sei. */
+    let scelto = -1;
+    for (let i = 0; i < restaPrima.length; i++) {
+      if (restaPrima[i]! > d && (scelto === -1 || restaPrima[i]! < restaPrima[scelto]!)) scelto = i;
+    }
+    if (scelto === -1) continue;
+    uscite.push({ da: restaPrima[scelto]!, quantita: arrotonda(restaPrima[scelto]! - d, dec)! });
+    restaPrima.splice(scelto, 1);
+    restaDopo.splice(restaDopo.indexOf(d), 1);
+  }
+  for (const p of restaPrima) uscite.push({ da: p, quantita: p });
+  return { uscite, entrate: restaDopo };
+}
+
 /* ── La verifica, che mostra e non corregge ──────────────────────────── */
 
 export interface VerificaColli {
