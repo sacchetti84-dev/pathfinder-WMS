@@ -39,7 +39,8 @@ import { UNITA_MISURA } from '../modules/misure';
 import {
   leggiColli, daSuddivisione, totaleUom as totaleUomColli,
   descriviColli, preleva as prelevaColli, uscite as uscitePerIlServizio,
-  scelteDaMisure as scelteDaMisureColli, type Scelta,
+  scelteDaMisure as scelteDaMisureColli, scelteDaUscite as scelteDaUsciteColli,
+  type Scelta,
 } from '../modules/colli';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
@@ -739,6 +740,39 @@ const Store = {
     const cfg = this.getUomConfig(item.article_code, item.lot_code);
     if (!cfg) return null;
     return scelteDaMisureColli(this.colliDiRiga(item), misure, cfg.uom);
+  },
+
+  /* I COLLI ANCORA LIBERI SU UNA RIGA.
+
+     Un DDT pendente non toglie niente dalla giacenza: prenota. Fino alla
+     1.8.3 la prenotazione era un numero — tre colli su cinque — e bastava,
+     perche' i colli erano indistinguibili. Con l'elenco non lo sono piu': se
+     un documento ha gia' impegnato il collo aperto da 7, chi scrive il
+     documento dopo non lo puo' scegliere di nuovo.
+
+     `ancheQueste` sono le uscite che chi chiama sta per impegnare e che a
+     documento non ci sono ancora — il carrello in corso. `excludeDocId`
+     salta un documento: serve a chi riapre il proprio.
+
+     Lancia se un documento pendente nomina un collo che non c'e' piu': e'
+     un fatto che qualcuno deve sapere, non un elenco da accorciare in
+     silenzio. `null` se la riga non porta un elenco. */
+  colliLiberi(item: Giacenza | null | undefined, ancheQueste: unknown[] | null = null, excludeDocId: string | null = null): number[] | null {
+    const elenco = this.colliDiRiga(item);
+    if (!item || !elenco) return null;
+    const cfg = this.getUomConfig(item.article_code, item.lot_code);
+    if (!cfg) return null;
+    const impegnate: unknown[] = [];
+    for (const d of this._cache.pendingOut) {
+      if (d.status !== 'pending' || (excludeDocId && d.doc_id === excludeDocId)) continue;
+      for (const l of d.lines) {
+        if (l.location_code === item.location_code && l.item_key === item.item_key
+            && Array.isArray(l.packs_out)) impegnate.push(...l.packs_out);
+      }
+    }
+    if (Array.isArray(ancheQueste)) impegnate.push(...ancheQueste);
+    if (!impegnate.length) return elenco;
+    return prelevaColli(elenco, scelteDaUsciteColli(elenco, impegnate, cfg.uom), cfg.uom).rimasti;
   },
 
   /* Come si legge una riga: dall'elenco quando c'e', dalla suddivisione

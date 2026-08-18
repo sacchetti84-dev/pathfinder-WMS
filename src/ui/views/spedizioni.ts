@@ -7,6 +7,8 @@ import { pickupAlertStatus } from '../../modules/pickupAlert';
 import {
   normalizzaNome as normalizzaNomeRcp, destinazionePredefinita, descriviDestinazione,
 } from '../../modules/destinatari';
+import { uscite as uscitePerIlServizio, totaleUom as totaleUomColli, descriviColli } from '../../modules/colli';
+import { formattaQuantita } from '../../modules/misure';
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 
@@ -22,6 +24,12 @@ type VoceCarrelloDDT = {
   qty: number;
   qty_at_creation: number;
   notes: string;
+  /* 1.8.4 — i colli si scelgono QUI, non all'evasione. Il documento nomina
+     la merce, e con colli di misura diversa il numero da solo non la dice:
+     senza queste tre, la colonna delle UM sul DDT non si puo' stampare. */
+  packs_out: { da: number; quantita: number }[] | null;
+  qty_uom: number | null;
+  uom: string | null;
 };
 
 export const VistaSpedizioni = {
@@ -265,16 +273,17 @@ export const VistaSpedizioni = {
           </div>
           <div id="pShipDetails" class="hidden">
             <div id="pShipItemPreview"></div>
-            <div class="flex gap-4 mb-4 items-end">
+            <div class="flex gap-4 mb-4 items-end" id="pShipQtyRow">
               <div class="form-group w-[130px]"><label>Colli <span class="req">*</span></label><input class="input input-mono text-center font-bold" id="pShipQty" type="number" min="1" step="1" value="1"
                 onkeydown="if(event.key==='Enter'){event.preventDefault();App._shipAddToCart();}"></div>
               <div class="text-label-small text-sx-text-muted pb-4">Disponibili (esclusi pendenti): <strong class="text-sx-orange" id="pShipAvail">—</strong> Coll.</div>
             </div>
+            <div class="hidden mb-4" id="pShipColliRow"></div>
             <div class="form-group mb-5">
               <label>Note riga (opz.)</label>
               <input class="input" id="pShipNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Es: riferimento riga d'ordine">
             </div>
-            <button class="btn w-full bg-sx-orange text-white border-sx-orange p-5 font-bold" onclick="App._shipAddToCart()">+ AGGIUNGI AL CARRELLO</button>
+            <button class="btn w-full bg-sx-orange text-white border-sx-orange p-5 font-bold" id="pShipAddBtn" onclick="App._shipAddToCart()">+ AGGIUNGI AL CARRELLO</button>
           </div>
 
           <!-- ── CARRELLO ── -->
@@ -558,20 +567,82 @@ export const VistaSpedizioni = {
     const av = $('pShipAvail'); if (av) av.textContent = String(availableQty);
     const notesEl = $('pShipNotes'); if (notesEl) notesEl.value = '';
     $('pShipDetails').classList.remove('hidden');
+
+    /* UN CAMPO CHE DIVENTA MUTO E' PEGGIO DI UN CAMPO CHE NON C'E'.
+       Su una riga a colli dichiarati il numero digitato qui non deciderebbe
+       niente — a decidere e' la scelta dei colli — e chi scansiona arriva
+       lì col dito. Sparisce, e al suo posto si legge cosa c'e' ancora
+       libero. Il campo si svuota: nascosto e' comunque scritto. */
+    let liberi = null;
+    try { liberi = this._shipColliLiberi(full); } catch { liberi = null; }
+    const qtyRow = $('pShipQtyRow'), colliRow = $('pShipColliRow');
+    const cfg = liberi ? Store.getUomConfig(full.article_code, full.lot_code) : null;
+    if (liberi && cfg) {
+      qtyRow?.classList.add('hidden');
+      if (qe) qe.value = '';
+      if (colliRow) {
+        colliRow.classList.remove('hidden');
+        colliRow.innerHTML = `<div class="text-label-small text-sx-text-muted">Colli liberi su questa riga: <strong class="text-sx-orange">${this._esc(descriviColli(liberi, cfg.uom))}</strong> — quali escono si sceglie aggiungendo al carrello.</div>`;
+      }
+      /* Il gesto centrale resta «scansiona, Invio, avanti»: senza il campo
+         dei colli il passo dopo e' il pulsante, e ci si arriva da tastiera. */
+      $('pShipAddBtn')?.focus();
+      return;
+    }
+    qtyRow?.classList.remove('hidden');
+    colliRow?.classList.add('hidden');
     qe?.focus();
     qe?.select();
   },
 
-  _shipAddToCart() {
+  /* I colli ancora liberi per questa riga: quelli che i DDT pendenti non
+     hanno impegnato, meno quelli che il carrello in corso ha gia' preso.
+     `null` sulla riga senza elenco — e allora si conta a colli, come nella
+     1.7. Lancia se un pendente nomina un collo che non c'e' piu': lo dice
+     chi chiama, invece di aggiungere una riga su una prenotazione rotta. */
+  _shipColliLiberi(item) {
+    const gia = (this._shipCart as VoceCarrelloDDT[])
+      .filter(r => r.location_code === item.location_code && r.item_key === item.item_key && r.packs_out)
+      .flatMap(r => r.packs_out!);
+    return Store.colliLiberi(item, gia);
+  },
+
+  /* IL CARRELLO CHIEDE I COLLI, E NON L'EVASIONE.
+
+     Fino alla 1.8.3 la riga portava un numero e i colli si sceglievano al
+     ritiro del vettore. Ma il documento si stampa PRIMA, e con colli di
+     misura diversa «3 colli» non dice quanta merce sia: per scrivere le UM
+     sulla riga bisogna sapere da quali colli esce. Da qui in poi la scelta
+     sta dove nasce la riga, e l'evasione esegue cio' che c'e' scritto. */
+  async _shipAddToCart() {
     if (!this._shipState?.item) return this.toast('Identifica prima un item in giacenza', 'error');
     const item = this._shipState.item;
     const availableQty = this._shipState.availableQty;
     const notes = Validate.clean($('pShipNotes')?.value);
-    const qtyRaw = $('pShipQty')?.value;
-    const qty = parseInt(qtyRaw);
-    if (!qty || qty < 1) return this.toast('Numero di colli non valido', 'error');
-    if (qty > availableQty) return this.toast(`Qty richiesta (${qty}) supera disponibilità (${availableQty})`, 'error');
     if (Validate.notes(notes)) return this.toast(Validate.notes(notes), 'error');
+
+    let liberi = null;
+    try { liberi = this._shipColliLiberi(item); }
+    catch (err) { return this.toast((err as Error).message, 'error'); }
+
+    let packsOut = null, qty, qtyUom = null, uom = null;
+    if (liberi) {
+      if (!liberi.length) return this.toast('Tutti i colli di questa riga sono già impegnati da un DDT pendente', 'error');
+      const cfg = Store.getUomConfig(item.article_code, item.lot_code)!;
+      const scelte = await this._chiediColli(item, `Quali colli · ${item.article_code}#${item.lot_code}`, liberi);
+      if (scelte === undefined) return;
+      if (!scelte) return this.toast('I colli di questa riga non si sono potuti leggere', 'error');
+      packsOut = uscitePerIlServizio(liberi, scelte, cfg.uom);
+      qty = packsOut.length;
+      qtyUom = totaleUomColli(packsOut.map(u => u.quantita), cfg.uom);
+      uom = cfg.uom;
+    } else {
+      const qtyRaw = $('pShipQty')?.value;
+      qty = parseInt(qtyRaw);
+      if (!qty || qty < 1) return this.toast('Numero di colli non valido', 'error');
+      if (qty > availableQty) return this.toast(`Qty richiesta (${qty}) supera disponibilità (${availableQty})`, 'error');
+    }
+
     if (!this._shipCart.length && !this._shipStartTime) this._shipStartTime = Date.now();
     this._shipCart.push({
       article_code: item.article_code,
@@ -582,7 +653,10 @@ export const VistaSpedizioni = {
       expiry_date: item.expiry_date || '',
       qty,
       qty_at_creation: availableQty,
-      notes
+      notes,
+      packs_out: packsOut,
+      qty_uom: qtyUom,
+      uom
     });
     this.toast(`+ ${item.article_code}#${item.lot_code} (${qty}/${availableQty} Coll.) da ${item.location_code}`, 'success');
     for (const id of ['pShipArt','pShipLot','pShipNotes']) { const e = $(id); if (e) e.value = ''; }
@@ -675,11 +749,14 @@ export const VistaSpedizioni = {
       const expBadge = it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : '';
       const notesBadge = it.notes ? ` · <span class="text-sx-text-muted italic">${this._esc(it.notes)}</span>` : '';
       const partial = it.qty < (it.qty_at_creation || it.qty) ? ` <span class="badge badge-amber ml-2">PARZIALE</span>` : '';
+      /* Le UM accanto ai colli: con misure diverse il numero di colli non
+         dice quanta merce sia, ed e' quello che il DDT deve riportare. */
+      const umBadge = it.qty_uom != null ? ` · <strong class="text-sx-orange">${this._esc(formattaQuantita(it.qty_uom, it.uom))} ${this._esc(it.uom || '')}</strong>` : '';
       return `<div class="pick-cart-item border-l-[3px] border-l-sx-orange">
         <div class="pci-num bg-sx-orange">${i+1}</div>
         <div class="pci-info">
           <div class="pci-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(it.article_description || '')}</span>${partial}</div>
-          <div class="pci-loc">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong class="text-sx-orange">${it.qty} Coll.</strong>${expBadge}${notesBadge}</div>
+          <div class="pci-loc">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong class="text-sx-orange">${it.qty} Coll.</strong>${umBadge}${expBadge}${notesBadge}</div>
         </div>
         <button class="btn btn-sm btn-ghost text-sx-danger" onclick="App._shipRemoveFromCart(${i})">✕</button>
       </div>`;
@@ -739,6 +816,19 @@ export const VistaSpedizioni = {
       const it = this._shipCart[i];
       const cur = Store.getItemsAtLocation(it.location_code).find(x => x.item_key === it.item_key);
       if (!cur) return this.toast(`Riga ${i+1}: ${it.article_code}#${it.lot_code} non più in ${it.location_code}`, 'error');
+      /* SULLE RIGHE A COLLI SCELTI IL CONTO NON BASTA: fra la scelta e la
+         registrazione un altro terminale puo' aver preso proprio quel collo,
+         lasciandone lo stesso numero di misura diversa. Si verifica che le
+         misure messe da parte ci siano ancora tutte — quella prova la fa
+         `colliLiberi`, che lancia con il collo scritto nel motivo. */
+      if (it.packs_out) {
+        const tutte = (this._shipCart as VoceCarrelloDDT[])
+          .filter(x => x.location_code === it.location_code && x.item_key === it.item_key && x.packs_out)
+          .flatMap(x => x.packs_out!);
+        try { Store.colliLiberi(cur, tutte); }
+        catch (err) { return this.toast(`Riga ${i+1}: ${(err as Error).message}`, 'error'); }
+        continue;
+      }
       const totalQty = cur.qty || 1;
       const pendingQty = Store.getPendingQtyForItem(it.location_code, it.item_key);
       const otherCart = this._shipCart

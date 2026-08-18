@@ -304,7 +304,25 @@ export interface RigaDocumento {
   article_description?: string;
   lot_code?: string;
   location_code?: string;
+  expiry_date?: Giorno | string;
+  /** Quanti colli: sull'elenco dichiarato e' la lunghezza di `packs_out`. */
   qty: number;
+  /* 1.8.4 — QUALI COLLI, E QUANTE UM. Il documento nomina la merce che
+     salira' sul camion, e la nomina quando la riga entra in carrello: fra
+     quel momento e il ritiro del vettore possono passare giorni. Le misure
+     reggono, gli indici no — `modules/colli.ts`, `scelteDaUscite`.
+
+     Assenti sulla riga di un documento scritto prima della 1.8.4, e allora
+     i colli si scelgono all'evasione come si faceva allora. */
+  packs_out?: { da: number; quantita: number }[] | null;
+  /** Le UM totali della riga: la somma di cio' che esce dai colli scelti.
+      E' quella che va stampata, perche' con colli di misura diversa il
+      numero di colli non la dice. */
+  qty_uom?: number | null;
+  /** L'unita' della riga, non del documento: su un DDT possono convivere
+      una riga in KG e una in PZ, ed e' la ragione per cui i pesi si
+      scrivono a mano. */
+  uom?: string | null;
   [extra: string]: unknown;
 }
 

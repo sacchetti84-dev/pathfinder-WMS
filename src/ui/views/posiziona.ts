@@ -414,11 +414,20 @@ export const VistaPosiziona = {
     return elenco ? elenco.map((_, indice) => ({ indice })) : null;
   },
 
-  async _chiediColli(item, titolo) {
+  /* `elencoIn` restringe la domanda a una parte della riga: il carrello del
+     DDT sceglie sui colli ancora LIBERI, non su tutti — quelli che un altro
+     documento pendente ha gia' impegnato non si possono prenotare due volte.
+     Chi non lo passa chiede sulla riga intera, come sempre.
+
+     Un elenco ristretto e VUOTO non e' un'assenza di elenco: e' una riga
+     tutta impegnata, e vale un annullamento — se tornasse `null` la maschera
+     che chiama scriverebbe una riga senza colli. */
+  async _chiediColli(item, titolo, elencoIn: number[] | null = null) {
     if (!Store.colliOn()) return null;
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
-    const elenco = Store.colliDiRiga(item);
+    const elenco = elencoIn ?? Store.colliDiRiga(item);
     if (!cfg || !elenco) return null;
+    if (!elenco.length) return undefined;
 
     /* COLLI TUTTI UGUALI: LA DOMANDA «QUALI» NON HA RISPOSTA.
 
