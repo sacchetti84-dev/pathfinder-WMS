@@ -99,7 +99,7 @@ prove.
 
 | Voce | Valore |
 |---|---|
-| In servizio — prova su questo PC | `corrente` contiene la **1.8.3**, impronta `3d765c51…`, costruita il **18/08 alle 10:04** — è la build con Tailwind acceso e nient'altro cambiato (F0 della migrazione, §2). Il servizio risponde `service_version 1.8.3` **e** `versione 1.8.3`: **i due numeri coincidono**, ed è la prima volta. Chiesto al servizio il 18/08 nel pomeriggio |
+| In servizio — prova su questo PC | `corrente` contiene la **1.8.3**, impronta `f7762989…`, costruita il **18/08 alle 15:28** — chiesto al servizio a fine giornata. **Non contiene né la migrazione né le nove correzioni della sera**: quelle stanno in `origin/main` e in `consegna\`, e si vedono solo dopo un'installazione. La riga di prima diceva `3d765c51…` delle 10:04 — è la build con Tailwind acceso e nient'altro cambiato (F0 della migrazione, §2). Il servizio risponde `service_version 1.8.3` **e** `versione 1.8.3`: **i due numeri coincidono**, ed è la prima volta. Chiesto al servizio il 18/08 nel pomeriggio |
 | Via di ritorno | **Si reinstalla il pacchetto della versione di prima** — §4: è il solo gesto che riporta indietro anche il servizio. `precedente` contiene la **1.8.1** (`12c2e4cf…`) e serve agli assets di chi stava caricando durante uno scambio, non più a tornare indietro. Il deposito tiene `pathfinder-1.8.2\`, `pathfinder-1.7\` e `pathfinder-1.6.1\`; i pacchetti li archivia Andrea |
 | Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.8.3`**, come il sorgente: l'installer porta anche il servizio e lo riavvia, e da qui in poi i due numeri non divergono. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
@@ -312,6 +312,73 @@ installare.
   - **Un articolo senza descrizione scrive «undefined»** nel campo descrizione
     di giacenza (`giacenze.ts`, `posiziona.ts`, `inventario.ts`): `.value` di
     un `undefined` diventa la stringa, e da lì finisce sulla riga.
+### La sera del 18/08 — nove correzioni, tutte provate al banco
+
+Il banco di questa sessione è `banco/prova-migrata.cjs`: serve la cartella
+`consegna/Pathfinder 1.8.3/app` sulla **4199** con una copia della giacenza
+vera. La copia si chiede al servizio — `POST /api/backup` accetta `dir`, quindi
+la scrive **direttamente in `banco/db/`** e in `C:\Pathfinder\` non si scrive
+niente. È la via giusta: una copia a caldo del file `.db` con SQLite in WAL può
+uscire incoerente.
+
+1. **`$` non era definito nei gestori inline** — 23 punti in 12 viste. Durante
+   l'estrazione del 17/08 `document.getElementById(` dentro gli attributi
+   `on…=` è diventato `$(`, che è un import di modulo: un attributo gira nello
+   scope globale e lì quel nome non esiste. Moriva il gesto centrale —
+   scansiona, Invio, campo dopo — su spedizioni, prelievo, posizionamento,
+   quarantena, inventario. **`main.ts` mette `$` su `window`**, accanto a
+   `window.App` che sta lì per la stessa ragione. Provato togliendolo a caldo:
+   ricompare l'errore identico allo screenshot.
+2. **Il contatore sulla tessera Quarantena era una fascia viola.** La regola
+   `.mov-action-card .mov-badge` era stata cancellata il 17/08 con la divisione
+   dei CSS (`73a43bf`) e nessuno l'aveva rimessa: il badge nasceva `static`,
+   largo quanto la tessera. **Zero regole lo coprivano, non una sbagliata.**
+3. **Le finestre alte non si potevano chiudere.** `.modal` aveva
+   `max-height: 90vh` e `overflow-y: auto`; una regola più in basso, dello
+   stesso file e stessa specificità, diceva `overflow: hidden` e vinceva. La
+   scelta dei colli con 75 righe teneva i pulsanti a **2.413 px** sotto il
+   bordo. Adesso `.modal` è una colonna: testata e piede fermi, **corpo che
+   scorre** (`min-height: 0`, senza il quale un figlio flex non scrolla mai).
+4. **`Escape` chiude anche la finestra dei colli**, che è costruita a mano e
+   non passa da `Dialog`. In cattura, e l'ascoltatore si stacca alla chiusura.
+5. **Colli tutti uguali: si chiede quanti, non quali.** Settantacinque caselle
+   per ottenere un numero non sono una domanda. L'elenco resta dove le misure
+   differiscono, che è dove quale collo prendi cambia il saldo.
+6. **Un collo si può sempre aprire**, anche a misura unica: nella finestrella
+   c'è il campo «una parte di un altro collo». Provato 3 interi + 7,5 KG → in
+   destinazione `packs [20,20,20,7.5]`, `qty_uom 67,5`.
+7. **L'inventario di vano rettifica anche le righe a colli dichiarati**: chiede
+   quali mancano, con la stessa finestra delle altre maschere. Era l'unico
+   punto in cui una maschera diceva «vai da un'altra parte». Resta fuori il
+   caso dei colli **in più**: una misura trovata nessuno la può indovinare.
+8. **Il numero di versione in pagina lo scrive la build.** Titolo, fascia e
+   piede erano fermi a `1.7` per tutta la 1.8: adesso `index.html` porta un
+   segnaposto e un plugin di `vite.config.js` ci mette `VERSIONE`.
+9. **`VERSIONE_APP` in pari a 1.8.3**, e `vault.ts` la importa invece di
+   riscriverla. `FORMATO` (`warehouse-mapper-v1.5`) **non si tocca**: quello
+   decide se un pacchetto si rilegge, non con che cosa è stato scritto.
+
+**Aperto, e deciso con Andrea:**
+
+- **I colli vanno chiesti nel carrello del DDT**, non solo all'evasione
+  (`spedizioni.ts`: `_shipAddToCart` non li chiede, `_evadiSpedizione` sì, a
+  riga 883). Finché non si fa, per dire «5 pieni più 1 aperto» servono due
+  righe a mano — ed è esattamente quello che si vedeva nello screenshot del
+  carrello, non un difetto di righe da unire. È la più invasiva: cambia cosa
+  porta una riga di documento, che viene scritta, riletta all'evasione,
+  stampata e usata per lo storno.
+- **Il trasferimento che diceva «servono location_code, item_key e una
+  quantita' valida» non si è riprodotto** sulla copia della giacenza vera, in
+  quattro combinazioni (totale e parziale, riga con e senza colli dichiarati).
+  Quel messaggio nasce in `pathfinder-server.js:349` e vuole due assenze
+  insieme: nessun `packs_out` **e** nessuna quantità valida.
+- **Due incoerenze nei dati**, viste passando: su `MAG-SCA-01-03-B` la somma
+  dei colli dichiarati fa 101 e `qty_uom` dice 81; su `MAG-ACC-07` i 75 colli
+  non sono tutti uguali — ce n'è uno da 19,9, ed è il solo motivo per cui lì
+  esce l'elenco lungo invece della domanda breve.
+- Restano i due difetti noti qui sotto: la data delle copie locali e la
+  descrizione `undefined`.
+
 - **Quel che l'estrazione ha fatto vedere**, e che nessuno ha corretto perché
   correggere durante un trasloco è il modo di romperlo:
   - `DocumentoUscita` non dichiara dieci campi che il DDT porta davvero —
