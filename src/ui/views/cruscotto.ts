@@ -32,12 +32,12 @@ export const VistaCruscotto: Vista = {
     const dailyVals = kpi.dailyTrend.map(d => d.total);
 
     let html = `
-      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;flex-wrap:wrap;gap:0.5rem">
+      <div class="flex justify-between items-center mb-10 flex-wrap gap-5">
         <div>
           <h1 class="dash-h1">Dashboard Operativa</h1>
           <p class="dash-sub">Ultimo salvataggio: ${meta.lastModified ? new Date(meta.lastModified).toLocaleString('it-IT') : 'Mai'}</p>
         </div>
-        <div style="display:flex;gap:0.4rem;flex-wrap:wrap">
+        <div class="flex gap-4 flex-wrap">
           <!-- v2.7.0 [G3] — "Salva ora" ed "Export JSON" sono usciti di qui:
                il primo e' diventato l'indicatore in barra, il secondo vive in
                Configurazione -> Dati insieme agli altri comandi di esportazione. -->
@@ -249,7 +249,7 @@ export const VistaCruscotto: Vista = {
       const sameDay = new Date(g.first).toDateString() === new Date(g.last).toDateString();
       const when = sameDay ? this._fmtDateTime(g.last) : `${this._fmtDateTime(g.first)} — ${this._fmtDateTime(g.last)}`;
       return `<div class="dl-row" title="Ordine ${this._esc(g.ref)}: ${g.rows} lotti, ${g.colli} colli, ${g.articles.size} articoli">
-        <span class="dl-tag" style="border-left-color:var(--ct-cat-pick)">ORDINE</span>
+        <span class="dl-tag" class="[border-left-color:var(--ct-cat-pick)]">ORDINE</span>
         <div class="dl-main">
           <div class="dl-p"><span class="mono">${this._esc(g.ref)}</span></div>
           <div class="dl-s">${g.rows} lotti · ${g.articles.size} articoli · ${this._esc(users)} · ${this._esc(when)}</div>
@@ -322,7 +322,7 @@ export const VistaCruscotto: Vista = {
       return `<div class="card">${head}<div class="dl-empty">Nessuno smaltimento registrato. I verbali compaiono qui appena emessi e restano ristampabili.</div></div>`;
     }
     const rows = list.map(v => `<div class="dl-row" title="${this._esc(v.reason || '')}">
-        <span class="dl-tag" style="border-left-color:var(--ct-cat-out)">SMALT.</span>
+        <span class="dl-tag" class="[border-left-color:var(--ct-cat-out)]">SMALT.</span>
         <div class="dl-main">
           <div class="dl-p"><span class="mono">${this._esc(v.article_code)}</span> · lotto <span class="mono">${this._esc(v.lot_code)}</span></div>
           <div class="dl-s"><span class="mono">${this._esc(v.doc_id)}</span> · ${this._esc(v.location_code)} · ${this._esc(v.reason || 'motivo n.d.')} · ${this._esc(v.operator || 'n.d.')}</div>
@@ -368,7 +368,7 @@ export const VistaCruscotto: Vista = {
       const aging = days === 0 ? 'oggi' : days === 1 ? '1 giorno' : `${days} giorni`;
       const who = [q.reference_dept, q.reference_person].filter(Boolean).join(' / ') || 'reparto n.d.';
       return `<div class="dl-row" title="${this._esc(q.reason || 'motivo non indicato')}">
-        <span class="dl-tag" style="border-left-color:var(--ct-cat-quar)">NC</span>
+        <span class="dl-tag" class="[border-left-color:var(--ct-cat-quar)]">NC</span>
         <div class="dl-main">
           <div class="dl-p"><span class="mono">${this._esc(q.article_code)}</span> · lotto <span class="mono">${this._esc(q.lot_code)}</span></div>
           <div class="dl-s">${this._esc(q.blocked_location || '—')} · ${this._esc(who)} · ${this._esc(q.reason || 'motivo non indicato')}</div>
@@ -606,8 +606,8 @@ export const VistaCruscotto: Vista = {
       return `<div class="ct-bar-row" title="${this._esc(tip)}">
         <div class="ct-bar-head">
           <span class="ct-bar-rank">${i + 1}</span>
-          <span class="mono truncate" style="flex:1 1 auto;font-weight:700;color:var(--md-sys-color-on-surface)">${this._esc(art.code)}</span>
-          <span class="ct-legend-val" style="white-space:nowrap">${art.count} <span style="font-weight:400;color:var(--md-sys-color-on-surface-variant)">mov.</span></span>
+          <span class="mono truncate" class="flex-[1_1_auto] font-bold text-[var(--md-sys-color-on-surface)]">${this._esc(art.code)}</span>
+          <span class="ct-legend-val whitespace-nowrap">${art.count} <span class="font-normal text-[var(--md-sys-color-on-surface-variant)]">mov.</span></span>
         </div>
         <div class="ct-bar-track"><div class="ct-bar-fill" style="width:${pct}%"></div></div>
       </div>`;
@@ -645,17 +645,17 @@ export const VistaCruscotto: Vista = {
     else if (none > 0 && ok === 0) cls = '';
     // Composizione sub-label sintetica
     const subParts = [];
-    if (overdue > 0) subParts.push(`<span style="color:var(--sx-danger);font-weight:700">⚠ ${overdue} scaduti</span>`);
-    if (today > 0) subParts.push(`<span style="color:var(--sx-danger);font-weight:700">${today} oggi</span>`);
-    if (tomorrow > 0) subParts.push(`<span style="color:var(--sx-warning);font-weight:600">${tomorrow} domani</span>`);
-    if (soon > 0) subParts.push(`<span style="color:var(--sx-warning)">${soon} a breve</span>`);
-    if (none > 0) subParts.push(`<span style="color:var(--sx-text-muted)">${none} senza data</span>`);
-    if (subParts.length === 0 && ok > 0) subParts.push(`<span style="color:var(--sx-success)">${ok} programmati</span>`);
+    if (overdue > 0) subParts.push(`<span class="text-sx-danger font-bold">⚠ ${overdue} scaduti</span>`);
+    if (today > 0) subParts.push(`<span class="text-sx-danger font-bold">${today} oggi</span>`);
+    if (tomorrow > 0) subParts.push(`<span class="text-sx-warning font-semibold">${tomorrow} domani</span>`);
+    if (soon > 0) subParts.push(`<span class="text-sx-warning">${soon} a breve</span>`);
+    if (none > 0) subParts.push(`<span class="text-sx-text-muted">${none} senza data</span>`);
+    if (subParts.length === 0 && ok > 0) subParts.push(`<span class="text-sx-success">${ok} programmati</span>`);
     const sub = subParts.join(' · ') || `${total} aperti`;
-    return `<div class="kpi-card ${cls}" style="cursor:pointer" onclick="App.switchView('movimenta');setTimeout(()=>App.startMov('returns'),50)" title="Vai a Resi/Spedizioni">
+    return `<div class="kpi-card ${cls} cursor-pointer" onclick="App.switchView('movimenta');setTimeout(()=>App.startMov('returns'),50)" title="Vai a Resi/Spedizioni">
       <div class="kpi-label">📋 DDT Pendenti Uscita</div>
       <div class="kpi-value">${total}</div>
-      <div class="kpi-sub" style="line-height:1.3">${sub}</div>
+      <div class="kpi-sub leading-[1.3]">${sub}</div>
     </div>`;
   },
 
@@ -680,22 +680,22 @@ export const VistaCruscotto: Vista = {
     const rows = broken.map(({ doc, integrity }) => {
       const kindLabel = doc.kind === 'SHIP' ? 'Spedizione' : 'Reso';
       const detail = integrity.issues
-        .map(i => `<div style="font-size:var(--dash-fs-meta);color:var(--sx-danger);padding-left:0.9rem">• ${this._esc(i.message)}</div>`)
+        .map(i => `<div class="text-[var(--dash-fs-meta)] text-sx-danger pl-9">• ${this._esc(i.message)}</div>`)
         .join('');
-      return `<div style="padding:0.4rem 0.55rem;border-bottom:1px solid var(--sx-border)">
-        <div style="display:flex;justify-content:space-between;align-items:center;gap:0.5rem;flex-wrap:wrap">
-          <span style="font-size:var(--dash-fs-body)"><strong>DDT ${this._esc(doc.ddt_num)}</strong>
-            <span style="color:var(--sx-text-muted)">· ${kindLabel} · ${this._esc(doc.destination)}</span>
-            <span class="badge" style="background:var(--sx-danger-soft);color:var(--sx-danger);border-color:var(--sx-danger);margin-left:0.3rem">⚠ ${integrity.issues.length}</span>
+      return `<div class="py-4 px-5.5 border-b border-b-sx-border">
+        <div class="flex justify-between items-center gap-5 flex-wrap">
+          <span class="text-[var(--dash-fs-body)]"><strong>DDT ${this._esc(doc.ddt_num)}</strong>
+            <span class="text-sx-text-muted">· ${kindLabel} · ${this._esc(doc.destination)}</span>
+            <span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3">⚠ ${integrity.issues.length}</span>
           </span>
           <button class="btn btn-sm" onclick="App._gotoPendingDoc('${this._esc(doc.doc_id)}','${this._esc(doc.kind)}')" title="Vai al DDT">→ Apri</button>
         </div>
         ${detail}
       </div>`;
     }).join('');
-    return `<section class="card" style="margin-bottom:0.6rem;border-left:3px solid var(--sx-danger)">
-      <div class="card-title" style="color:var(--sx-danger)">⚠ DDT non allineati alla giacenza (${broken.length})</div>
-      <div style="font-size:var(--dash-fs-meta);color:var(--sx-text-secondary);padding:0 0.55rem 0.4rem">
+    return `<section class="card mb-6 border-l-[3px] border-l-sx-danger">
+      <div class="card-title text-sx-danger">⚠ DDT non allineati alla giacenza (${broken.length})</div>
+      <div class="text-[var(--dash-fs-meta)] text-sx-text-secondary pt-0 px-5.5 pb-4">
         Documenti registrati le cui righe non trovano più riscontro in magazzino: la merce è stata spostata,
         prelevata o rettificata dopo la registrazione. Vanno modificati o annullati prima dell'evasione.
       </div>
@@ -727,23 +727,23 @@ export const VistaCruscotto: Vista = {
       const totalColli = d.lines.reduce((s, l) => s + (l.qty || 1), 0);
       const targetLabel = 'Destinatario';
       return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.6rem;background:${alert.bg};border:1px solid ${alert.color};border-radius:var(--radius);margin-bottom:0.3rem">
-        <div style="font-size:var(--dash-fs-head)">${themeIcon}</div>
-        <div style="flex:1;min-width:0">
+        <div class="text-[var(--dash-fs-head)]">${themeIcon}</div>
+        <div class="flex-1 min-w-0">
           <div style="font-size:var(--dash-fs-body);font-weight:700;color:${alert.color}">${this._esc(alert.shortLabel)} · DDT ${this._esc(d.ddt_num)}</div>
-          <div style="font-size:var(--dash-fs-meta);color:var(--sx-text-secondary);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+          <div class="text-[var(--dash-fs-meta)] text-sx-text-secondary truncate">
             ${targetLabel}: <strong>${this._esc(d.destination)}</strong>${d.carrier ? ' · ' + this._esc(d.carrier) : ''} · ${d.lines.length} righe · ${totalColli} Coll.
           </div>
         </div>
-        <div style="display:flex;gap:0.3rem;flex-shrink:0">
+        <div class="flex gap-3 shrink-0">
           <button class="btn btn-sm" style="background:${themeColor};color:#fff;border-color:${themeColor};font-weight:700" onclick="App.switchView('movimenta');setTimeout(()=>{App.startMov('shipping');setTimeout(()=>{const det=document.querySelector('details[data-doc-id=\\'${this._esc(d.doc_id)}\\']');if(det){det.open=true;det.scrollIntoView({behavior:'smooth',block:'center'});}},80);},50)" title="Vai al DDT">→ Apri</button>
           <button class="btn btn-sm" style="background:${themeColor};color:#fff;border-color:${themeColor};font-weight:700" onclick="App._evadiSpedizione('${this._esc(d.doc_id)}')" title="Evadi DDT">✓ EVADI</button>
           <button class="btn btn-sm btn-ghost" onclick="App._printDDT('${this._esc(d.doc_id)}')" title="Stampa">🖨</button>
         </div>
       </div>`;
     }).join('');
-    return `<div class="card" style="margin-bottom:1rem;border-left:3px solid var(--sx-danger);background:var(--grad-soft-red)">
-      <div class="card-title" style="color:var(--sx-danger)">🔔 DDT in Scadenza <span class="badge" style="background:var(--sx-danger);color:#fff;border-color:var(--sx-danger);margin-left:0.4rem">${urgent.length}</span></div>
-      <div style="font-size:var(--dash-fs-meta);color:var(--sx-text-secondary);margin-bottom:0.5rem">Documenti pendenti il cui ritiro è scaduto, oggi o domani — verificare disponibilità giacenza e contattare vettore.</div>
+    return `<div class="card mb-10 border-l-[3px] border-l-sx-danger bg-[var(--grad-soft-red)]">
+      <div class="card-title text-sx-danger">🔔 DDT in Scadenza <span class="badge bg-sx-danger text-white border-sx-danger ml-4">${urgent.length}</span></div>
+      <div class="text-[var(--dash-fs-meta)] text-sx-text-secondary mb-5">Documenti pendenti il cui ritiro è scaduto, oggi o domani — verificare disponibilità giacenza e contattare vettore.</div>
       ${rows}
     </div>`;
   },
