@@ -175,7 +175,7 @@ export const VistaRicerca: Vista = {
         where.length === 1 ? { kind: 'loc', code: where[0]!.location_code } : { kind: 'article', code: a.code, count: where.length }
       );
       const stock = where.length === 0
-        ? '<span class="search-pop-empty" style="padding:0">non a magazzino</span>'
+        ? '<span class="search-pop-empty p-0">non a magazzino</span>'
         : where.length === 1
           ? `📍 <span class="search-hit-loc">${this._esc(where[0]!.location_code)}</span>`
           : `📍 ${where.length} ubicazioni`;
