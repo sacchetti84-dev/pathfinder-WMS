@@ -25,39 +25,39 @@ export const VistaDestinatari: Vista = {
       .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'it'))
       .map(r => {
         const dest = (r.destinations || []).map(d =>
-          `<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">
+          `<div class="text-label-small text-sx-text-muted">
             ${d.predefinita ? '★ ' : '· '}${this._esc(d.label ? `${d.label} — ` : '')}${this._esc(descriviDestinazione(d))}</div>`).join('')
-          || '<div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">nessuna destinazione</div>';
+          || '<div class="text-label-small text-sx-text-muted">nessuna destinazione</div>';
         return `<tr>
           <td><strong>${this._esc(r.name)}</strong>${dest}</td>
           <td class="mono">${this._esc(r.vat || r.fiscal_code || '')}</td>
           <td class="td-center">${(r.destinations || []).length}</td>
-          <td class="td-center" style="white-space:nowrap">
+          <td class="td-center whitespace-nowrap">
             <button class="btn btn-sm" onclick="App.showEditRecipientModal('${this._esc(r.rcp_id)}')">✏</button>
             <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteRecipient('${this._esc(r.rcp_id)}')">🗑</button>
           </td></tr>`;
       }).join('')
-      : `<tr><td colspan="4" style="color:var(--sx-text-muted)">${tutti.length ? 'Nessun riscontro.' : 'Vuota — si riempie da sé al primo DDT.'}</td></tr>`;
+      : `<tr><td class="text-sx-text-muted" colspan="4">${tutti.length ? 'Nessun riscontro.' : 'Vuota — si riempie da sé al primo DDT.'}</td></tr>`;
 
     el.innerHTML = `
-      <div style="margin-bottom:0.6rem;font-size: var(--md-sys-typescale-body-small-size);color:var(--sx-text-secondary)">
+      <div class="mb-6 text-body-small text-sx-text-secondary">
         <strong>Si popola da sé compilando i DDT.</strong> Un destinatario nuovo entra al primo documento;
         un indirizzo diverso si aggiunge accanto agli altri, e la volta dopo si sceglie.
         Due DDT parlano dello stesso destinatario quando coincide la <strong>partita IVA</strong>.
       </div>
-      ${senzaPiva ? `<div class="mov-preview mov-preview-warn" style="margin-bottom:0.6rem">
+      ${senzaPiva ? `<div class="mov-preview mov-preview-warn mb-6">
         ⚠ <strong>${senzaPiva}</strong> ${senzaPiva === 1 ? 'destinatario è' : 'destinatari sono'} senza partita IVA: ${senzaPiva === 1 ? 'viene riconosciuto' : 'vengono riconosciuti'} dalla ragione sociale,
         e due grafie diverse ${senzaPiva === 1 ? 'ne farebbero' : 'ne farebbero'} due record.
       </div>` : ''}
-      <div class="form-group" style="margin-bottom:0.5rem;max-width:340px">
+      <div class="form-group mb-5 max-w-[340px]">
         <input class="input" placeholder="Cerca per nome o partita IVA" value="${this._esc(this._rcpFiltro)}"
           oninput="App._rcpFiltro=this.value;App._renderConfigRecipients($('configContent'))">
       </div>
       <table class="table table-sm"><thead><tr>
-        <th>Destinatario e destinazioni</th><th style="width:150px">P. IVA / C.F.</th>
-        <th style="width:70px" class="td-center">Dest.</th><th style="width:110px"></th>
+        <th>Destinatario e destinazioni</th><th class="w-[150px]">P. IVA / C.F.</th>
+        <th class="td-center w-[70px]">Dest.</th><th class="w-[110px]"></th>
       </tr></thead><tbody>${corpo}</tbody></table>
-      <div style="margin-top:0.4rem;font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted)">
+      <div class="mt-4 text-label-small text-sx-text-muted">
         ${tutti.length} in anagrafica · ★ è la destinazione che il DDT propone
       </div>`;
   },
@@ -66,32 +66,32 @@ export const VistaDestinatari: Vista = {
     const r = Store.getRecipient(rcpId);
     if (!r) return;
     const dest = (r.destinations || []).map((d, i) => `
-      <div style="border:1px solid var(--sx-border);border-radius:var(--radius-md);padding:0.45rem;margin-bottom:0.35rem">
-        <div class="form-row" style="margin-bottom:0.3rem">
+      <div class="border border-sx-border rounded-[var(--radius-md)] p-4.5 mb-3.5">
+        <div class="form-row mb-3">
           <div class="form-group"><label>Etichetta</label>
             <input class="input" id="rcD${i}Label" value="${this._esc(d.label || '')}" maxlength="40"></div>
-          <div class="form-group" style="max-width:150px"><label>&nbsp;</label>
-            <label style="display:flex;align-items:center;gap:0.35rem;font-weight:400;padding-top:0.4rem">
+          <div class="form-group max-w-[150px]"><label>&nbsp;</label>
+            <label class="flex items-center gap-3.5 font-normal pt-4">
               <input type="radio" name="rcDefault" value="${i}" ${d.predefinita ? 'checked' : ''}> Predefinita</label></div>
         </div>
-        <div class="form-row" style="margin-bottom:0.3rem">
+        <div class="form-row mb-3">
           <div class="form-group"><label>Indirizzo</label>
             <input class="input" id="rcD${i}Address" value="${this._esc(d.address || '')}" maxlength="120"></div>
-          <div class="form-group" style="max-width:110px"><label>CAP</label>
+          <div class="form-group max-w-[110px]"><label>CAP</label>
             <input class="input input-mono" id="rcD${i}Zip" value="${this._esc(d.zip || '')}" maxlength="10"></div>
         </div>
         <div class="form-row">
           <div class="form-group"><label>Comune</label>
             <input class="input" id="rcD${i}City" value="${this._esc(d.city || '')}" maxlength="60"></div>
-          <div class="form-group" style="max-width:100px"><label>Prov.</label>
+          <div class="form-group max-w-[100px]"><label>Prov.</label>
             <input class="input input-mono" id="rcD${i}Province" value="${this._esc(d.province || '')}" maxlength="4"></div>
-          <div class="form-group" style="max-width:110px"><label>&nbsp;</label>
-            <button class="btn btn-sm btn-danger" style="width:100%" onclick="App.doRimuoviDestinazione('${this._esc(rcpId)}',${i})">Togli</button></div>
+          <div class="form-group max-w-[110px]"><label>&nbsp;</label>
+            <button class="btn btn-sm btn-danger w-full" onclick="App.doRimuoviDestinazione('${this._esc(rcpId)}',${i})">Togli</button></div>
         </div>
-      </div>`).join('') || '<div style="color:var(--sx-text-muted);margin-bottom:0.4rem">Nessuna destinazione: si aggiunge al primo DDT.</div>';
+      </div>`).join('') || '<div class="text-sx-text-muted mb-4">Nessuna destinazione: si aggiunge al primo DDT.</div>';
 
     this.showModal(`Destinatario — ${this._esc(r.name)}`, `
-      <div class="form-row" style="margin-bottom:0.6rem">
+      <div class="form-row mb-6">
         <div class="form-group"><label>Ragione sociale <span class="req">*</span></label>
           <input class="input" id="rcName" value="${this._esc(r.name)}" maxlength="120"></div>
         <div class="form-group"><label>Partita IVA</label>
@@ -99,10 +99,10 @@ export const VistaDestinatari: Vista = {
         <div class="form-group"><label>Codice fiscale</label>
           <input class="input input-mono" id="rcCf" value="${this._esc(r.fiscal_code || '')}" maxlength="20"></div>
       </div>
-      <div style="font-size: var(--md-sys-typescale-label-small-size);color:var(--sx-text-muted);margin-bottom:0.5rem">
+      <div class="text-label-small text-sx-text-muted mb-5">
         La partita IVA è la chiave: cambiandola, i DDT futuri con la vecchia creeranno un secondo record.
       </div>
-      <div style="font-weight:700;margin-bottom:0.35rem">Destinazioni</div>
+      <div class="font-bold mb-3.5">Destinazioni</div>
       ${dest}
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
         <button class="btn btn-primary" onclick="App.doSaveRecipient('${this._esc(rcpId)}')">Salva</button>`);
