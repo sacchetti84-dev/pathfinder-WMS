@@ -277,6 +277,21 @@
 .mov-action-card.c-teal { border-top-color: var(--sx-teal); }
 .mov-action-card.c-orange { border-top-color: var(--sx-orange); }
 .mov-action-card.active { background: var(--sx-accent-soft); border-color: var(--sx-border-strong); border-top-width: 4px; box-shadow: none; }
+/* IL CONTATORE SULL'ANGOLO DELLA TESSERA.
+
+   La regola era sparita il 17/08 con la divisione dei CSS in cinque file, e
+   `movimenta.ts` continuava a scrivere `<span class="mov-badge">`: senza
+   posizionamento il badge tornava un blocco largo quanto la tessera, e la
+   quarantena con una NC aperta mostrava una fascia viola sopra l'icona.
+   La tessera ha gia' `relative` fra le utility: qui serve solo l'angolo. */
+.mov-action-card .mov-badge {
+  position: absolute; top: 0.45rem; right: 0.45rem;
+  font-size: var(--md-sys-typescale-body-small-size); font-weight: 800;
+  padding: 0.12rem 0.5rem; min-width: 1.55rem;
+  border-radius: var(--md-shape-full);
+  text-align: center; color: #fff;
+  box-shadow: var(--md-elev-1);
+}
 .mov-action-card .mov-action-icon { font-size: var(--md-sys-typescale-headline-small-size); margin-bottom: 0.3rem; }
 .mov-action-card h3 { font-size: var(--md-sys-typescale-body-small-size); font-weight: 600; color: var(--sx-text); margin-bottom: 0.15rem; letter-spacing: 0.01em; }
 .mov-action-card p { font-size: var(--md-sys-typescale-label-small-size); color: var(--sx-text-muted); }
