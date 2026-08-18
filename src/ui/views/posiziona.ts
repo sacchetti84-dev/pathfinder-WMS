@@ -434,14 +434,51 @@ export const VistaPosiziona = {
        intero cambia il saldo. */
     const uguali = elenco.length > 1 && elenco.every(q => q === elenco[0]);
     if (uguali) {
-      const misura = `${formattaQuantita(elenco[0]!, cfg.uom)} ${cfg.uom}`;
-      const quanti = await Dialog.qty({
-        title: titolo,
-        message: `Sono tutti uguali — ${misura} l'uno. Quanti ne servono?`,
-        value: elenco.length, min: 1, max: elenco.length, unit: 'Coll.',
-      });
-      if (quanti === null) return undefined;
-      return Array.from({ length: quanti }, (_, i) => ({ indice: i }));
+      const misura = elenco[0]!;
+      const etichetta = `${formattaQuantita(misura, cfg.uom)} ${cfg.uom}`;
+
+      /* E UN COLLO SI PUO' SEMPRE APRIRE.
+
+         Il campo in fondo prende la parte che esce da un collo in piu' di
+         quelli interi: e' la stessa cosa che l'elenco permette riga per
+         riga, e senza non si potrebbe piu' prelevare mezzo collo dai lotti
+         a misura unica. Si legge mentre si digita, perche' alla conferma la
+         finestra e' gia' smontata. */
+      let parte = '';
+      while (true) {
+        const extra = document.createElement('div');
+        extra.className = 'form-group mt-5';
+        extra.innerHTML = `<label>E in piu', una parte di un altro collo (${this._esc(cfg.uom)}) — facoltativo</label>
+          <input class="input input-mono" id="colliParte" inputmode="decimal" autocomplete="off" value="${this._esc(parte)}">`;
+        extra.addEventListener('input', (e) => { parte = (e.target as HTMLInputElement).value; });
+
+        const quanti = await Dialog.qty({
+          title: titolo,
+          message: `Sono tutti uguali — ${etichetta} l'uno. Quanti ne servono?`,
+          details: extra,
+          value: elenco.length, min: 0, max: elenco.length, unit: 'Coll.',
+        });
+        if (quanti === null) return undefined;
+
+        const scelte = Array.from({ length: quanti }, (_, i) => ({ indice: i }));
+        const scritto = parte.trim();
+        if (!scritto) {
+          if (!scelte.length) { this.toast('Nessun collo scelto', 'error'); continue; }
+          return scelte;
+        }
+
+        const q = Number(scritto.replace(',', '.'));
+        if (!Number.isFinite(q) || q <= 0) { this.toast('La parte da prelevare non e un numero', 'error'); continue; }
+        if (q >= misura) {
+          this.toast(`Una parte e' meno di un collo intero (${etichetta}): per prenderlo tutto conta un collo in piu'`, 'error');
+          continue;
+        }
+        if (quanti >= elenco.length) {
+          this.toast(`Ci sono ${elenco.length} colli in tutto: per aprirne uno lasciane almeno uno intero`, 'error');
+          continue;
+        }
+        return [...scelte, { indice: quanti, quantita: q }];
+      }
     }
 
     const scelte = await this._scegliColli(item, elenco, cfg.uom, titolo);
