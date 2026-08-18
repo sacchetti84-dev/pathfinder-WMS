@@ -5,7 +5,7 @@ import { Validate } from '../modules/validate';
 import { pickupAlertStatus } from '../modules/pickupAlert';
 import { Auth } from '../modules/auth';
 import { Session } from '../modules/session';
-import { Feedback } from './feedback.js';
+import { Feedback } from './feedback';
 import { Dialog } from './dialog.js';
 import { Tabs } from './tabs';
 import { Store } from '../core/store';

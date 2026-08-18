@@ -11,7 +11,7 @@ import {
   leggiCertificazioni, scriviCertificazioni, leggiClasseTemperatura, fogliValoriAmmessi,
 } from '../../modules/anagrafica';
 import { Dialog } from '../dialog.js';
-import { Feedback } from '../feedback.js';
+import { Feedback } from '../feedback';
 
 export const VistaConfigDati: Vista = {
   _fmtUsage(est) {

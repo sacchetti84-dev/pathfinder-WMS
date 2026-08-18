@@ -1,4 +1,4 @@
-import { Feedback } from './feedback.js';
+import { Feedback } from './feedback';
 
 const Dialog = {
   GUARD_MS: 900,          // finestra anti-ritorno-a-capo del lettore
