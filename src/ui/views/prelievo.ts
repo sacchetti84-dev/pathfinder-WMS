@@ -2,7 +2,7 @@ import { type Vista, $ } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 
 export const VistaPrelievo: Vista = {
   // ═══ 3. PRELIEVO (3 sub-flussi) ═══
@@ -414,7 +414,7 @@ export const VistaPrelievo: Vista = {
       value: qtyAvail, min: 1, max: qtyAvail
     });
     if (qtyInput === null) return;  // annullato
-    const qtyPick = parseInt(qtyInput, 10);
+    const qtyPick = qtyInput;   // `Dialog.qty` da' gia' un intero
     if (!Number.isInteger(qtyPick) || qtyPick < 1) { this.toast('Quantità non valida — inserire un intero maggiore di zero', 'error'); return; }
     if (qtyPick > qtyAvail) { this.toast(`Quantità superiore al disponibile (${qtyAvail} Coll.)`, 'error'); return; }
     // Fix B5 raffinato: il timer parte al primo item, non all'apertura del form

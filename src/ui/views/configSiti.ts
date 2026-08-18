@@ -1,7 +1,7 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 
 export const VistaConfigSiti: Vista = {
   _renderConfigSites(el) {

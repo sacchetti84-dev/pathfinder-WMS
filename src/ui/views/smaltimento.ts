@@ -2,7 +2,7 @@ import { type Vista, $ } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 import { descriviColli as descriviElenco, preleva as prelevaElenco } from '../../modules/colli';
 

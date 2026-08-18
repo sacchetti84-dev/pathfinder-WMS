@@ -6,7 +6,7 @@ import { pickupAlertStatus } from '../../modules/pickupAlert';
 import {
   normalizzaNome as normalizzaNomeRcp, destinazionePredefinita, descriviDestinazione,
 } from '../../modules/destinatari';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 
 export const VistaSpedizioni: Vista = {

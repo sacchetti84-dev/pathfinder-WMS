@@ -3,7 +3,7 @@ import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { ScanGuard } from '../../modules/scanGuard';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 import { formattaQuantita, descrivi as descriviColli } from '../../modules/misure';
 /* 1.8 - `descriviColli` qui sopra e' la suddivisione CALCOLATA della 1.4.2, e
    questi sono l'elenco DICHIARATO: due cose diverse con un nome che si

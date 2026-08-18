@@ -3,7 +3,7 @@ import { MOV_LABELS } from '../../core/costanti';
 import { Persistence } from '../../core/persistence/index';
 import { Store } from '../../core/store';
 import { ScanGuard } from '../../modules/scanGuard';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 import { Tabs } from '../tabs';
 
 export const VistaMovimenta: Vista = {

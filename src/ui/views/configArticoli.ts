@@ -15,7 +15,7 @@ import {
 import {
   descriviColli as descriviElenco, verificaColli as verificaElenco,
 } from '../../modules/colli';
-import { Dialog } from '../dialog.js';
+import { Dialog } from '../dialog';
 
 export const VistaConfigArticoli: Vista = {
   _onArtFilterInput(value) {
