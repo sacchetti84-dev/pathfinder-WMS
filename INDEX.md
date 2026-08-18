@@ -106,8 +106,8 @@ prove.
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
 | Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
 | Collaudi | **485 client** (15 suite, ~1,5 s) · **81 servizio** · **22 installazione** · **8 migrazione** — tutti verdi il 18/08. Le due del client sono la **rete dell'estrazione** (§7); cinque delle ventidue sono nuove e guardano l'**installer a doppio clic** |
-| Tipi | `npm run check` a 0 su client e servizio |
-| Sorgente | **58 TypeScript** · 5 JavaScript · **10 CSS** · `index.html`. Ancora JavaScript: `main.js`, `ui/app.js` (**1.328 righe**, era 13.893) e i tre di `ui/` — `dialog`, `feedback`, `tabs`. Il CSS in più è `00-tailwind.css`: il tema |
+| Tipi | `npm run check` a 0 su client e servizio, con `strict` e `noUncheckedIndexedAccess` accesi su **tutto** il sorgente: `allowJs` è spento dal 18/08 |
+| Sorgente | **63 TypeScript** · **zero JavaScript** · **10 CSS** · `index.html`. La migrazione si è chiusa il **18/08**: `tabs`, `feedback`, `dialog`, `main` e `app` (1.328 righe) sono passati a `.ts`, e `tsconfig` ha `allowJs: false` — un `.js` in `src/` adesso non compila. Il CSS in più è `00-tailwind.css`: il tema |
 | Numero di build | **1.8.3** in `vite.config.js`, `package.json` e nel servizio. La 1.8.2 è in servizio: una build in avanzamento non porta il numero di ciò che sta girando, se no `consegna\` dice una cosa e la macchina un'altra — §5 |
 | Git | `main`, **allineato con `origin/main`** — spinto il 18/08 |
 
@@ -265,11 +265,53 @@ installare.
   resta apposta: avvio e riallineamento, identità e sessione, il telaio
   (`switchView`, barra laterale, modali, toast, scorciatoie), l'annulla e le
   utilità comuni. Come si lavora di qua adesso sta in §7.
-- **I corpi delle viste non sono ancora tipizzati.** Sono usciti identici riga
-  per riga — un trasloco non è il posto dove si riscrive — e portano `any` dove
-  `tsc` lo ha chiesto. Tipizzarli è il lavoro dopo, **un file per volta**: chi
-  lo fa parta dai file piccoli (`parametri.ts`, `registro.ts`, `archivio.ts`) e
-  tenga il collaudo della superficie come rete.
+- **La migrazione a TypeScript è finita il 18/08**, in trentadue commit, uno
+  per file. Nel sorgente non c'è più JavaScript e i **446 `any`** delle viste
+  sono a zero. Cosa è servito saperlo:
+
+  1. **`App` è più grande del file che lo dichiara.** Metà dei suoi metodi
+     arriva dalle viste, che rientrano con `Object.assign` in coda ad
+     `app.ts`. Il ponte è `DalleViste`, un elenco di 23 metodi e 4 proprietà
+     con la firma vera presa dal file dove stanno; `monolite()` è una funzione
+     che a runtime non fa niente e serve solo a dare quel tipo a `this`
+     dentro `app.ts`. Se una vista cambia una firma, il primo a dirlo è
+     `app.ts`.
+  2. **`$` non è più `any`**: dice `HTMLInputElement`, che è quel che sono i
+     duecento campi che ci passano; la tendina ha `$sel`. Nove punti in quattro
+     viste hanno smesso di compilare, e ognuno diceva qualcosa di vero.
+  3. **Le viste sono `satisfies Vista`, non `: Vista`.** Con l'annotazione il
+     tipo di ogni metodo veniva schiacciato su `Metodo` e chi importava una
+     vista non vedeva più niente.
+  4. **Il `this` delle viste resta `any`, e non per pigrizia.** Dargli il tipo
+     vero è un ciclo che il compilatore non scioglie — TS7022 su tutte e
+     venticinque, «referenced directly or indirectly in its own initializer»:
+     il tipo di una vista dipenderebbe da `Monolite`, che dipende dal tipo di
+     quella vista. La via d'uscita c'è ed è generare la superficie da
+     `test/superficie-app.dati.js`, che quei trecento nomi già li elenca.
+
+- **Quel che la migrazione ha fatto vedere, e che è stato dichiarato nei tipi
+  invece che aggirato con un cast**: i dieci campi del DDT (`doc_date`,
+  `order_ref`, `aspetto`, `porto`, `transport_by`, `start_transport`,
+  `doc_notes`, `pieces_total`, `peso_netto`, `peso_lordo`) — erano dodici cast
+  in `spedizioni.ts`; `qty` e `partial` sulla quarantena; `causale_id` sul
+  documento; la **geometria della zona** (`levels`, `aisles`, `bays_per_aisle`,
+  `mirror_frontal`, `rows`, `positions_per_row`, `positions`, `grid_cols`), che
+  otto punti fra viste e `geometria.ts` leggevano passando da un cast; il
+  mittente e l'operatore sul verbale di smaltimento; `diskFull` e la forma vera
+  di `estimateUsage` sul contratto della persistenza; la tappa di prelievo
+  (`TappaPrelievo`, `FuoriPercorso`), che adesso è una sola per le tre viste
+  che la leggono.
+
+- **Due difetti trovati dal compilatore e NON corretti**, perché correggere
+  durante un trasloco è il modo di romperlo — sono la coda del ciclo di debug:
+  - **La data delle copie locali è sempre vuota** (`app.ts`, tabella «Copie
+    locali disponibili»): stampa `b.modified`, ma `listBackups` restituisce
+    `lastModified`. La colonna mostra «—» su ogni riga, e nessuno se n'era
+    accorto perché non è un errore, è un trattino. **La correzione è una
+    parola.**
+  - **Un articolo senza descrizione scrive «undefined»** nel campo descrizione
+    di giacenza (`giacenze.ts`, `posiziona.ts`, `inventario.ts`): `.value` di
+    un `undefined` diventa la stringa, e da lì finisce sulla riga.
 - **Quel che l'estrazione ha fatto vedere**, e che nessuno ha corretto perché
   correggere durante un trasloco è il modo di romperlo:
   - `DocumentoUscita` non dichiara dieci campi che il DDT porta davvero —
