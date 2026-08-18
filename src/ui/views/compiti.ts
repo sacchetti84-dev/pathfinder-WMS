@@ -310,8 +310,8 @@ export const VistaCompiti: Vista = {
         if (m.attesa !== null && m.durata !== null) { v.attesa += m.attesa; v.durata += m.durata; v.conclusi++; }
       }
     }
-    const sum = [['Tipo', 'Totale', 'Aperte', 'Completate', 'Annullate', 'Attesa media (min)', 'Durata media (min)']];
-    for (const [k, v] of Object.entries<any>(perTipo).sort((a, b) => b[1].tot - a[1].tot)) {
+    const sum: (string | number)[][] = [['Tipo', 'Totale', 'Aperte', 'Completate', 'Annullate', 'Attesa media (min)', 'Durata media (min)']];
+    for (const [k, v] of Object.entries(perTipo).sort((a, b) => b[1].tot - a[1].tot)) {
       sum.push([k, v.tot, v.aperte, v.fatte, v.annullate,
         v.conclusi ? Math.round(v.attesa / v.conclusi / 60000) : '',
         v.conclusi ? Math.round(v.durata / v.conclusi / 60000) : '']);
