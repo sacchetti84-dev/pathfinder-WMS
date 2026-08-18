@@ -2,15 +2,16 @@ import { type Vista, $ } from './vista';
 import { LOG_RETENTION_DAYS, MOV, MOV_LABELS } from '../../core/costanti';
 import { debounce, _h } from '../../core/utils';
 import { Store } from '../../core/store';
+import type { Movimento } from '../../types/entita';
 
 export const VistaRegistro: Vista = {
   /* Registro movimenti completo */
-  _regRange: null,     // { from: 'AAAA-MM-GG', to: 'AAAA-MM-GG' }
+  _regRange: null as { from: string; to: string } | null,
 
   _regDefaultRange() {
     const to = new Date();
     const from = new Date(to.getTime() - 30 * 86400000);
-    const iso = (d: any) => d.toISOString().slice(0, 10);
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
     return { from: iso(from), to: iso(to) };
   },
 
@@ -65,8 +66,8 @@ export const VistaRegistro: Vista = {
     </div>`;
   },
 
-  _regQuickRange(days) {
-    const iso = (d: any) => d.toISOString().slice(0, 10);
+  _regQuickRange(days: number) {
+    const iso = (d: Date) => d.toISOString().slice(0, 10);
     const to = new Date();
     const from = days === 0 ? new Date('2020-01-01T00:00:00') : new Date(to.getTime() - days * 86400000);
     this._regRange = { from: iso(from), to: iso(to) };
@@ -75,7 +76,7 @@ export const VistaRegistro: Vista = {
     this._filterRegistry();
   },
 
-  _buildRegistryTable(log, maxRows = 200, totale = null) {
+  _buildRegistryTable(log: Movimento[], maxRows = 200, totale: number | null = null) {
     if (!log.length) return '<div class="empty-state p-20"><p>Nessuna movimentazione nell’intervallo selezionato</p></div>';
     const tot = totale === null ? log.length : totale;
     let html = '<div class="overflow-x-auto"><table class="sx-table"><thead><tr><th class="w-[40px]">#</th><th>Tipo</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Ubicazione</th><th class="w-[60px] text-center">Coll.</th><th>Operatore</th><th>Doc.</th><th>Data/Ora</th></tr></thead><tbody id="regTbody"></tbody></table></div>';
@@ -85,7 +86,7 @@ export const VistaRegistro: Vista = {
 
   /* Popola il tbody #regTbody con righe costruite via DOM API (no innerHTML).
      Va chiamato DOPO che il chrome HTML è già stato inserito nel DOM. */
-  _populateRegistryRows(log, maxRows = 200) {
+  _populateRegistryRows(log: Movimento[], maxRows = 200) {
     const tbody = $('regTbody');
     if (!tbody) return;
     // v2.0 — aggiunti colori per EDIT, RET, SHIP
@@ -98,9 +99,11 @@ export const VistaRegistro: Vista = {
     };
     const shown = log.slice(0, maxRows);
     const frag = document.createDocumentFragment();
-    shown.forEach((m: any, i: any) => {
-      const lbl = (MOV_LABELS as any)[m.type] || m.type;
-      const color = (colors as any)[m.type] || 'var(--sx-text-muted)';
+    shown.forEach((m, i) => {
+      const lbl = MOV_LABELS[m.type] || m.type;
+      /* La tavolozza copre i movimenti che si vedono in registro; gli altri —
+         `SAMPLE`, `PURGE`, `PINRESET` — escono grigi, come prima. */
+      const color = (colors as Partial<Record<Movimento['type'], string>>)[m.type] || 'var(--sx-text-muted)';
       const ts = m.ts ? new Date(m.ts) : null;
       const locStr = (m.type === 'MOVE' || m.type === 'QUAR') && m.dest_location ? `${m.location_code} → ${m.dest_location}` : (m.location_code || '');
       const tsStr = ts ? ts.toLocaleDateString('it-IT') + ' ' + ts.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' }) : '';
@@ -182,10 +185,10 @@ export const VistaRegistro: Vista = {
         const ms = Math.round(performance.now() - t0);
         status.textContent = `${res.matched.toLocaleString('it-IT')} movimenti corrispondenti su ${res.scanned.toLocaleString('it-IT')} esaminati nell’intervallo · ${ms} ms`;
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error('[WM] registro:', err);
       wrap.innerHTML = '<div class="empty-state p-20"><p>Errore nella lettura dell’archivio</p></div>';
-      if (status) status.textContent = `Errore: ${err.message || 'sconosciuto'}`;
+      if (status) status.textContent = `Errore: ${(err as Error).message || 'sconosciuto'}`;
     }
   },
 };
