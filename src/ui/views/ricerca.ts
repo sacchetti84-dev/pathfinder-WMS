@@ -3,7 +3,7 @@ import { debounce } from '../../core/utils';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 
-export const VistaRicerca: Vista = {
+export const VistaRicerca = {
   _searchLimits: { items: 50, locs: 30, arts: 30 },
   _searchHits: [],        // risultati appiattiti nell'ordine di visualizzazione
   _searchSel: -1,         // indice della riga evidenziata (navigazione a frecce)
@@ -224,4 +224,4 @@ export const VistaRicerca: Vista = {
     this._renderSearchPopup();
     this.toast(`${hit.code} presente in ${hit.count} ubicazioni — scegli quale aprire`, 'info');
   },
-};
+} satisfies Vista;

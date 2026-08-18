@@ -12,7 +12,7 @@ type ModificaDDT = DocumentoUscita & {
   newLineState?: { item: Giacenza; availableQty: number } | null;
 };
 
-export const VistaDocumento: Vista = {
+export const VistaDocumento = {
   /* Apre il modal di edit per un DDT pendente. Crea uno snapshot mutabile in
      this._editState (NO mutazione diretta del cache fino al salvataggio). */
   _editPendingDoc(doc_id) {
@@ -415,4 +415,4 @@ export const VistaDocumento: Vista = {
     this._editState = null;
     $('editPendingModal')?.remove();
   },
-};
+} satisfies Vista;

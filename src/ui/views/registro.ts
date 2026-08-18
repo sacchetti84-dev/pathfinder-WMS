@@ -4,7 +4,7 @@ import { debounce, _h } from '../../core/utils';
 import { Store } from '../../core/store';
 import type { Movimento } from '../../types/entita';
 
-export const VistaRegistro: Vista = {
+export const VistaRegistro = {
   /* Registro movimenti completo */
   _regRange: null as { from: string; to: string } | null,
 
@@ -191,4 +191,4 @@ export const VistaRegistro: Vista = {
       if (status) status.textContent = `Errore: ${(err as Error).message || 'sconosciuto'}`;
     }
   },
-};
+} satisfies Vista;

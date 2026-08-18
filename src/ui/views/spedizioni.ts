@@ -24,7 +24,7 @@ type VoceCarrelloDDT = {
   notes: string;
 };
 
-export const VistaSpedizioni: Vista = {
+export const VistaSpedizioni = {
   _formSpedizioni(el) {
     /* IL DDT SI EVADE ANCHE DA FUORI MOVIMENTA — dal riquadro in Dashboard, e
        dalla 1.4.2.1 anche dalla coda delle attività. Là dentro `movFormArea`
@@ -1092,4 +1092,4 @@ export const VistaSpedizioni: Vista = {
     window.print();
     setTimeout(() => { $('printReport').innerHTML = ''; }, 1500);
   },
-};
+} satisfies Vista;

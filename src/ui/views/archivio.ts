@@ -18,7 +18,7 @@ type RigaArchivio = {
   print: string;
 };
 
-export const VistaArchivio: Vista = {
+export const VistaArchivio = {
   _arcType: 'all' as GenereArchivio | 'all',
   _arcText: '',
   _arcFrom: '',
@@ -214,4 +214,4 @@ export const VistaArchivio: Vista = {
     if (!snap) return this.toast('Report non trovato in archivio', 'error');
     this._emitPickReport(snap, { reprint: true });
   },
-};
+} satisfies Vista;

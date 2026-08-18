@@ -7,7 +7,7 @@ import { Auth } from '../../modules/auth';
 import { Session } from '../../modules/session';
 import { Dialog } from '../dialog';
 
-export const VistaConfigOperatori: Vista = {
+export const VistaConfigOperatori = {
   _renderConfigOperators(el) {
     const ops = Store.getOperators();
     const leaders = Store.getActiveLeaders();
@@ -364,4 +364,4 @@ export const VistaConfigOperatori: Vista = {
       setTimeout(() => dentro('#laPin')?.focus(), 80);
     });
   },
-};
+} satisfies Vista;

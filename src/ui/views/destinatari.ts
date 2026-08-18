@@ -6,7 +6,7 @@ import {
   destinazionePredefinita, descriviDestinazione, differenze as differenzeRcp,
 } from '../../modules/destinatari';
 
-export const VistaDestinatari: Vista = {
+export const VistaDestinatari = {
   /* ═══ ANAGRAFICA DESTINATARI — 1.6, PIANO §9.5 ═════════════════════
      QUESTA SCHEDA NON SI COMPILA: si guarda. L'anagrafica si popola da sé
      compilando i DDT, ed è la differenza che regge la funzione — nessuno
@@ -223,4 +223,4 @@ export const VistaDestinatari: Vista = {
       this.toast(`DDT registrato. L'anagrafica destinatari non si è aggiornata: ${(err as Error).message || err}`, 'warning');
     }
   },
-};
+} satisfies Vista;
