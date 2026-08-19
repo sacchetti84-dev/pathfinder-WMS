@@ -511,7 +511,7 @@ prove.
 | Tipi | `npm run check` a 0 su client e servizio, con `strict` e `noUncheckedIndexedAccess` accesi su **tutto** il sorgente: `allowJs` è spento dal 18/08 |
 | Sorgente | **73 TypeScript** — il nuovo e' `modules/kpi.ts` — · **zero JavaScript** · **10 CSS** · `index.html`. I **sei** moduli nati il 19/08 — `giacenzaArticolo`, `trasferimentiOdp`, `dispositivo`, `udc`, `stoccaggio`, `wip` — sono tutti **puri**: nessuno tocca Store, nessuno tocca il DOM, tutti si collaudano da fermo. Le due viste nuove sono `udc.ts` e il ramo «Per articolo» dentro `inventario.ts` |
 | Numero di build | **2.0** in `vite.config.js`, `package.json`, `VERSIONE_APP` e nel servizio. Il pacchetto `consegna\Pathfinder 2.0\` esiste: impronta `33e3ae3b…`, **1.708.669 byte**, 4 file, **436 kB sul filo**. `FORMATO` resta `warehouse-mapper-v1.5`: descrive la forma del file, non con cosa e' stato scritto |
-| Git | `main`. **`origin/main` era indietro di dieci commit**, non allineato come diceva la riga di prima: l'intero blocco della **1.8.4** era committato in locale e mai spinto. Sopra ci stava, tutto nell'albero e senza un commit, il lavoro dalla **1.9 alla 1.14** (sessione del 19/08) e poi la **2.0**. Rimesso in pari il 19/08 |
+| Git | `main`, **in pari con `origin/main`** dal 19/08. Com'era prima: `origin/main` indietro di dieci commit — l'intero blocco della **1.8.4**, committato in locale e mai spinto, mentre la riga qui diceva «allineato» — e sopra, tutto nell'albero e senza un commit, il lavoro dalla **1.9 alla 1.14** e poi la **2.0**. Sul remoto c'erano anche due caricamenti dal browser che avevano scritto l'INDEX della 1.8.4 **senza il codice della 1.8.4**: risolti con una fusione, §5. Il repository non ospita `banco/ciclo/ricetta.js`, `verbale.md` e `difetti.json` — sono dato, e la ricetta si rifà con `node banco/ciclo/rifai-ricetta.cjs` |
 
 ### Cosa fa la 1.7, e cosa ha misurato il banco
 
@@ -1036,6 +1036,27 @@ percorso una volta l'anno.
 Ognuna è costata almeno una volta. Non sono opinioni.
 
 ### Consegna e ambiente
+
+- **CARICARE FILE DALL'INTERFACCIA WEB DI GITHUB SCRIVE UN ALBERO CHE NON
+  ESISTE.** Il 19/08, alle 00:31 e alle 00:32, `INDEX.md`, `package.json` e
+  `vite.config.js` sono finiti su `origin/main` caricati a mano dal browser,
+  allo stato della 1.8.4 — **sopra un albero che alla 1.8.4 non c'era ancora
+  arrivato**, perché i dieci commit veri erano in locale e non erano mai
+  stati spinti. Il risultato: il remoto **dichiarava build 1.8.4 e non aveva
+  `src/modules/documenti.ts`**, che della 1.8.4 è il pezzo centrale — la riga
+  di documento ricostruita in un posto solo. Mancava anche il suo collaudo.
+  Chi avesse clonato avrebbe avuto un applicativo che diceva un numero e ne
+  conteneva un altro, e i colli scelti sarebbero tornati a sparire al
+  salvataggio.
+
+  **Un caricamento dal browser non è un commit: è un commit su una base che
+  non si è scelta.** Git non se ne accorge, perché dal suo punto di vista è
+  una modifica come un'altra. Si è risolto con una **fusione**, tenendo il
+  locale sui tre file — il contenuto caricato era identico byte per byte al
+  nostro `779f2c1`, verificato file per file, quindi non si è perso niente e
+  non si è forzato niente. **Il codice si spinge con `git push`**, e se il
+  push viene rifiutato si guarda cosa c'è dall'altra parte prima di
+  insistere.
 
 - **IL SERVIZIO, CHE GIRA COME SYSTEM, NON ATTRAVERSA UNA GIUNZIONE.**
   `stat` su `C:\Pathfinder\app\corrente` muore con **`UNKNOWN: unknown error`**,
