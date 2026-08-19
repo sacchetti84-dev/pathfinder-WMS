@@ -36,7 +36,31 @@ Pathfinder 1.*/
 # Il banco di prova: copia del database vero (dati operativi e sigle operatore)
 # e cartelle-versione con le loro giunzioni. Si rifa' in due comandi, e una
 # giunzione in un repository non ha senso.
-banco/
+#
+# Si esclude il CONTENUTO e non la cartella — `banco/` avrebbe impedito a git
+# di scendere dentro, e nessuna eccezione piu' sotto avrebbe funzionato: una
+# riga che non si puo' riaprire dall'interno.
+banco/*
+
+# ECCEZIONE — il ciclo 2.0 e' CODICE, e il codice si versiona. `banco/ciclo/`
+# sono le prove che esercitano il client vero contro una copia del magazzino:
+# senza, chi clona il repository non ha modo di rifare il collaudo della 2.0.
+!banco/ciclo/
+banco/ciclo/*
+!banco/ciclo/*.js
+!banco/ciclo/*.cjs
+!banco/ciclo/*.md
+
+# ...ma NON quello che porta il dato vero, che resta fuori come tutto il resto:
+#   ricetta.js   la formulazione completa di un prodotto e i lotti fornitore
+#   verbale.md   il referto di un giro: lotti, ubicazioni, sigle operatore
+#   difetti.json / esito.json  lo stesso, in forma di elenco
+# La ricetta si rifa' in un comando dall'ODP che sta in ARCHIVIO:
+#   node banco/ciclo/rifai-ricetta.cjs
+banco/ciclo/ricetta.js
+banco/ciclo/verbale.md
+banco/ciclo/difetti.json
+banco/ciclo/esito.json
 
 # Rumore di Windows e degli editor.
 Thumbs.db
