@@ -7,7 +7,9 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder`, branch `main` · agg. **18/08/2026**
+Repo privato `sacchetti84-dev/pathfinder`, branch `main` · agg. **19/08/2026**
+
+**Versione corrente: 2.0.**
 
 ---
 
@@ -60,6 +62,147 @@ porta dati veri, e per questo un collaudo si fa sempre su una **copia** — §5.
 ---
 
 ## 1. Stato
+
+### La 2.0 è costruita, e ha chiuso otto difetti che nessuno aveva visto leggendo
+
+**Il numero di build è `2.0`** e `consegna\Pathfinder 2.0\` esiste: 4 file,
+impronta `33e3ae3b…`, **436 kB sul filo**. Non è installata: quello lo fa
+Andrea, a fine turno e con un backup davanti.
+
+**Il ciclo di debug del 19/08 non ha letto il codice: l'ha esercitato.** Un
+banco headless — `banco/ciclo/` — carica il **client vero** (`Store`, i
+moduli, le rotte composte) contro una copia a caldo del magazzino di
+produzione, e gli fa fare quello che fa un turno: carico a scaffale con la
+suddivisione dichiarata, prelievo di produzione, WIP, reso, chiusura del
+conto, e poi UDC, quarantena, campionamento, conta, DDT, smaltimento,
+attività, stoccaggio, FEFO, storno, export, conformità. **Quattro ordini
+costruiti dall'ODP vero** (`07082026_gluc.xlsx`, quindici componenti,
+380,25 kg che sommano esatti).
+
+**Gli otto difetti, e sono tutti dello stesso ceppo**: un saldo scritto sopra
+un elenco di colli rimasto indietro — la trappola che la 1.8.4 aveva chiuso
+in tre posti e che era rimasta aperta in altri cinque.
+
+1. **Una riga a colli dichiarati si scaricava «a numero».** `esceDaWip`
+   chiedeva «togline tre» a `removeItem` senza dire QUALI: il servizio calava
+   `qty` e lasciava `packs` e `qty_uom` dov'erano. Al banco: **7 colli → 6,
+   elenco fermo a 7 voci, 93,795 KG fermi a 93,795**. Adesso `removeItem`
+   **rifiuta** una rimozione parziale su una riga che i colli li dichiara, e
+   il rifiuto dice quale riga.
+2. **Il reso dal conto di produzione non scriveva le UM.** I colli calavano,
+   i chili no: `tornato_uom` restava `null`.
+3. **La chiusura del conto non scriveva le UM del consumo.** Su quattro
+   ordini, **0 KG consumati su 702 entrati** — cioè «l'unico numero che oggi
+   non si può avere», che è il motivo per cui la 1.14 esiste, non arrivava a
+   registro.
+4. **Il conto contava i colli col calo dello scaffale.** Prelevando 50,7 kg
+   da `[25,25,25,18.795]` escono TRE colli — due interi e la parte del terzo
+   — ma a scaffale i posti calano di due. Il vano WIP nasceva con tre e il
+   conto ne dichiarava due, e l'ordine **non si chiudeva più**.
+5. **Dopo `moveUdc` la merce risultava in DUE vani.** Il servizio aveva
+   ragione — una transazione sola — ma il client modificava l'ubicazione
+   sull'oggetto che la cache già teneva: `indicizzaGiacenza` confronta
+   `prev` con `next` per togliere la riga dal bucket vecchio, e passandogli
+   lo stesso oggetto due volte non trovava niente da riparare. **Chi sposta
+   una riga scrive un oggetto nuovo**, e adesso c'è una prova che lo fissa.
+6. **Un'unità di carico svuotata prelevandone l'ultima riga non si chiudeva
+   mai.** `chiudiUdcSeVuota` la chiamava solo `assegnaAUdc` — il caso in cui
+   una riga viene SCARICATA dal pallet — mentre l'ultima riga esce da
+   `removeItem`: prelievo, spedizione, smaltimento, quarantena. Il pallet
+   restava contato fra quelli in giro e ancora spostabile senza niente sopra.
+7. **Lo storno creava un collo che a scaffale non c'era.** Da `[25,25,6]` si
+   prendevano 10 KG e lo storno lasciava `[15,25,6,10]`: il totale tornava —
+   56 KG prima, 56 dopo — e l'elenco no. Quattro colli dove lo scaffale ne ha
+   tre, e a scoprirlo sarebbe andato chi conta. Adesso l'azione di
+   annullamento porta `packs_prima` e lo storno **ridichiara la riga com'era**,
+   traducendo la differenza con `rettifica` — la stessa strada dell'inventario.
+8. **Due maschere su quattro scrivevano un'azione di annullamento
+   incompleta**: `prelievo.ts` senza `packs`, `percorso.ts` senza `packs`
+   **e senza `qty_uom`**. C'è una prova che rilegge il sorgente e lo controlla.
+
+**E una regola che valeva solo per metà.** «Il percorso dell'ODP parte dal
+magazzino con più prelievi» stava scritta in `sitoDiCasa`, ma la usava solo
+l'avviso «articolo in un altro magazzino»: **l'ordine delle tappe lo dava
+ancora il solo ordine di visita**, e sull'ODP vero la prima tappa era in
+`MAG` per una riga sola mentre le tredici di `M03` venivano dopo. Adesso
+`build` e `riordina` mettono casa davanti — `M03 → MAG → MAG1`.
+
+**Il ciclo quadra a zero.** Quattro ordini, 702,594 KG dentro il conto,
+702,594 nel vano WIP, e alla chiusura tutto ritrovato fra scaffale, resi e
+consumato: **scarto complessivo 0 KG**.
+
+### Gli interruttori non ci sono più
+
+Al 19/08 tutte e sei le funzioni erano accese in produzione da giorni, e
+`areaWip` era già configurata su `M06-COM-01`. Un interruttore che nessuno
+abbassa più non è una via di ritorno: è un ramo di codice che nessuno percorre
+e che nessun collaudo esercita — cioè il posto dove un difetto vive più a
+lungo. Tolti da **74 punti in 12 file**: `isFeatureOn`, `setFeature`,
+`featureLog`, le cinque guardie `_assert*On`, `colliOn`, `wipOn`, la scheda
+«Funzioni», gli attributi `data-feature` e i due rami morti che vivevano solo
+a interruttore spento (il campo UM singolo del posizionamento e le tre viste
+che disegnavano «questa funzione è spenta»).
+
+**Le chiavi `feature.*` restano scritte in `meta` e non si cancellano** —
+nessun dato viene riscritto all'installazione, §6 — ma nessuno le legge più.
+La scheda diventa **«Produzione ed etichette»** e tiene i due parametri che
+parametri sono sempre stati: l'area WIP e il prefisso GS1. «Regole di
+stoccaggio» non compare più a intermittenza.
+
+**Una funzione che dà fastidio adesso si toglie reinstallando il pacchetto di
+prima**, che dal 18/08 è comunque l'unica via di ritorno intera.
+
+### I KPI di articoli, movimenti e persone
+
+`modules/kpi.ts`, puro, 32 prove. Nessun campo nuovo, nessuna migrazione:
+esce tutto da quello che il database porta già.
+
+- **Le persone.** Ogni movimento porta la sigla di chi l'ha fatto — è la
+  firma GMP, tenuta a sei anni — e nessuno l'aveva mai sommata. Movimenti per
+  causale, colli e UM mossi, giorni davvero lavorati, le ventiquattro ore,
+  compiti presi/chiusi/annullati, e i due tempi che lo schedulatore già scrive:
+  quanto un compito resta in coda e quanto ci si mette a farlo, **in mediana**
+  — un compito lasciato aperto per il fine settimana sposterebbe una media di
+  ore e non direbbe niente su come si lavora.
+- **I movimenti.** Per causale, per sito, per ora, per giorno; colli e UM in
+  valore assoluto; le rettifiche in percentuale; e due numeri che si vedono
+  solo sommando: quanti movimenti **non portano una firma** (oggi: zero) e
+  quanti non portano le quantità (12, tutti storici).
+- **Gli articoli.** Rotazione, giacenza in colli e UM, giorni fermi, prima
+  scadenza, e la **copertura dell'anagrafica sotto la merce che si muove**,
+  che è la sola misura di quanto gli altri numeri valgano.
+
+**Quello che oggi NON si può misurare sta scritto nel modulo**, con accanto
+il campo che servirebbe: la durata di un singolo movimento, i colli all'ora
+per operatore, la distanza percorsa, la saturazione di un vano. Chi cerca un
+numero che non trova capisce in dieci secondi se manca la funzione o manca il
+dato.
+
+**Cosa hanno detto sul magazzino vero**: quattro sigle firmano movimenti e
+**due di quelle quattro non sono in anagrafica operatori** — `DP` con 14
+movimenti e `AS` con 2. Fra tre anni quella firma non risponde a un nome.
+E **151 articoli su 153 a giacenza non hanno `pieces_per_pack`**, 152 non
+hanno allergeni, 151 non hanno la classe di conservazione.
+
+### Cosa il ciclo ha guardato e non ha trovato niente
+
+Quarantena col blocco parziale, campionamento (i colli non calano, il collo
+non si svuota, il rifiuto c'è), conta e rettifica su riga a colli dichiarati,
+DDT (il documento prenota e non toglie, l'evasione ritrova i colli per
+misura), spostamento, smaltimento parziale, attività (residuo sui parziali,
+chiusura automatica, nessuna transizione da uno stato chiuso, annullamento
+col motivo), motore di stoccaggio (274 ubicazioni in 3 ms, ogni proposta col
+perché e ogni escluso col motivo), FEFO, inventario di vano su tre righe in
+fila, ramo «Per articolo», export e import del pacchetto.
+
+**La conformità funziona e non ha con cosa lavorare.** Il motore distingue
+già l'ignoto — l'esito porta `verificabili` e `articoliSenzaAttributi`
+accanto a `nonConformita` — e sulle dodici righe che riesce a guardare trova
+tre non conformità vere (LECITINA DI SOIA fuori zona in due vani, una
+temperatura) e una deroga. Ma **copre il 6% delle righe**: sul resto non tace
+perché va bene, tace perché non ha con cosa confrontare. Una zona su
+quattordici porta la classe di conservazione. È §2, voce 5, con un numero
+davanti.
 
 ### La 1.7 è in servizio dal 17/08 sera, e la giunzione non c'è più
 
@@ -116,6 +259,226 @@ Nove commit, tutti con build e collaudo in mezzo. **Provata al banco**
 evasione, applicazione delle rettifiche — **l'ha provato Andrea**, e il DDT
 funziona.
 
+### La 1.9, la 1.10 e la 1.11 sono scritte, e la 1.12 è cominciata
+
+Il 19/08, in una sessione sola, quattro voci della coda hanno smesso di essere
+un elenco. **Nessuna è installata e nessuna è stata costruita in un pacchetto**:
+il numero di build resta `1.8.4`, e il perché sta due righe più sotto.
+
+**La 1.9 — le viste giacenza.** Il pannello della mappa dice adesso quanto c'è
+in un vano **in colli e in UM**, e i totali si fanno per unità: in un'ubicazione
+convivono una riga a KG e una a PZ, e sommarle sarebbe scrivere un numero che
+non significa niente. La riga compare solo dove un'unità c'è — un vano a soli
+colli ha già il suo numero nel titolo, e ripeterlo non aggiunge niente.
+
+La pagina nuova **non è una pagina**: è il secondo ramo di Inventario, «Per
+articolo», e l'INDEX lo prevedeva («se costa meno»). Costa meno davvero, e non
+per pigrizia: la conta che ne esce è quella di sempre, riga per riga, con le
+sue tre scansioni — cambia solo che alla fine di una parte la successiva. Si
+cerca un articolo, si vedono i lotti raggruppati e ordinati FEFO, se ne
+spuntano uno o più, e **le righe spuntate diventano un giro di conte**
+nell'ordine dello scaffale, non in quello in cui si è spuntato. Il riepilogo si
+stampa con intestazione, piede e firma, e **la colonna «Contati» esce vuota**:
+un foglio che porta già il numero di sistema non è una verifica, è un
+suggerimento — la stessa ragione per cui la maschera della Conta lo nasconde.
+
+**La 1.10 — i trasferimenti generati dall'ODP.** La riga di avviso «articolo in
+un altro magazzino» che questo documento dava per esistente **non esisteva**:
+il percorso mandava a prelevare nell'altro capannone senza dire niente, e la
+richiesta che nessuno ci andasse viveva a voce. Adesso, nell'anteprima del
+percorso, ogni tappa il cui sito non è il primo dell'ordine di visita porta il
+nome del magazzino in chiaro e un pulsante: nasce un'attività di
+**TRASFERIMENTO**, si dichiara in quale ubicazione ricevere la merce, e la
+tappa si sposta lì — resta un prelievo, cambia il dove. **La merce non si muove
+da qui**: il compito nasce in coda e lo esegue chi lo prende in carico. Il vano
+di arrivo risulta vuoto finché non è eseguito, ed è scritto nella maschera.
+
+Le richieste già fatte **sopravvivono alla ricostruzione del percorso**: cambiare
+l'ordine di visita dei siti rifà `build` da zero, e senza quella memoria una
+tappa già spostata tornerebbe nell'altro magazzino con il compito già in coda —
+due volte la stessa merce.
+
+**La 1.11 — il terminale.** La manopola l'aveva lasciata la migrazione a
+Tailwind: `--spacing`, e le utility che sono `calc(var(--spacing) * N)`.
+Mancava chi la gira. Adesso `modules/dispositivo.ts` guarda la larghezza e
+mette una classe sul body, e sotto i 560 px la densità dell'intera interfaccia
+si stringe in un colpo — **senza toccare una vista**. Quel che resta sotto sono
+le poche misure che una manopola non raggiunge: il bersaglio del dito, che
+**non si stringe mai** perché si lavora coi guanti, e ciò che su una striscia
+di vetro non ci sta.
+
+**A decidere è la larghezza, non il sistema operativo.** Android si riconosce e
+si registra — la 1.11 lo chiede — ma un terminale è tale perché lo schermo è
+stretto: la stessa pagina in una finestra da 500 px ha lo stesso problema, e
+risolverlo per uno solo dei due casi vorrebbe dire scrivere due volte le stesse
+regole. Provata a **533 e a 480 px**: nessun trabocco in orizzontale, pulsanti
+a 48 px, `mb-6` che scende da 9,6 a 6,72 px.
+
+**Quel che la 1.11 NON è**: un'interfaccia apposita. Questo documento la dava
+per «probabile», ed è una decisione di prodotto che nessuno ha ancora preso:
+qui c'è l'adattamento, fatto bene e su una manopola sola.
+
+**La 1.12 — solo il codice dell'UDC.** `modules/udc.ts` genera il codice che
+finisce sull'etichetta: interno finché il prefisso GS1 in Configurazione è
+vuoto, **SSCC vero** appena qualcuno lo compila, con la cifra di controllo
+modulo 10. Sta da solo e si collauda da fermo perché **un'etichetta dura**: si
+stampa una volta e resta incollata al legno per mesi, e se il modo di generarla
+dipendesse da Store o dallo schermo non ci sarebbe modo di provarla se non
+stampandola. **Un seriale che non ci sta più non si accorcia: si rifiuta** — un
+codice più corto è un codice che un altro pallet ha già avuto. Il resto
+dell'UDC — nascere, riempirsi, morire, la rotta composta `moveUdc` — **non è
+cominciato**, e tocca lo schema.
+
+**Il difetto trovato passando, e corretto**: il piede di **ogni foglio
+stampato** — DDT, verbali, cartellini, report — diceva «Pathfinder 1.7» mentre
+in servizio girava la 1.8.3. Era scritto a mano in `_docPageHTML`; adesso lo
+porta `VERSIONE_APP`. Su carta che va in audit un numero di versione sbagliato
+è un difetto, non un dettaglio.
+
+### La 1.14 è costruita, e la coda delle versioni è finita
+
+Il numero di build è **1.14** e `consegna\Pathfinder 1.14\` esiste: **4 file,
+1,63 MB, 437 kB sul filo**, impronta `86d1e7e1…`. Provato servendo il pacchetto
+vero al banco: `/api/app-info` dice `service_version 1.14` **e** `versione
+1.14`, e dentro ci sono davvero il riquadro del motore e la scheda del conto di
+produzione. Non è `npm run dev`: sono i byte che si installano.
+
+**Le sei versioni della coda sono scritte.** Restano da fare due cose che il
+codice non può fare da solo: provarle in magazzino, e accendere gli
+interruttori un turno per volta.
+
+### La 1.13 e la 1.14 sono cablate, e non solo scritte
+
+**La 1.13 — il motore propone, la persona decide.** Nel posizionamento, dopo
+articolo e lotto, compare un riquadro: l'ubicazione proposta e il **perché** di
+quella scelta. Si accetta con un tasto; si può aprire l'elenco delle altre e
+quello degli **esclusi col motivo**. Se il vano già digitato viola un vincolo
+il riquadro lo dice in rosso, e **non impedisce niente**: chi ha la merce in
+mano vede cose che il sistema non sa, e scavalcando scrive il motivo — che
+finisce nel movimento e resta a registro. È l'unico dato che fra tre mesi dirà
+se le regole valgono o se le si scavalca tutte allo stesso modo.
+
+**Misurato al banco su dati veri: 274 ubicazioni valutate in 2 millisecondi**,
+mentre qualcuno scansiona. Le regole si scrivono nella scheda «Regole di
+stoccaggio», che compare con l'interruttore.
+
+**La 1.14 — la merce non sparisce, va nel conto dell'ordine.** Il prelievo di
+produzione porta la merce nell'ubicazione WIP invece di farla uscire dal
+magazzino, e la scheda «Conto produzione» in Prelievo mostra per ogni ordine
+quanto è entrato, quanto è tornato, quanto è ancora fuori. Da lì si rende
+quello che avanza e si **chiude il conto** — ed è la chiusura a dichiarare il
+residuo **consumato**.
+
+**Il ciclo intero, provato al banco**: prelievo di 5 colli dal vano 89 → il
+vano scende a 84 e il conto dice «entrato 5, in lavorazione 5»; reso di 2 → il
+vano risale a 86 e il conto dice «reso 2, resta 3»; chiusura → «reso 2 ·
+consumato 3 · in lavorazione 0», e il vano WIP resta vuoto. **89 − 5 + 2 = 86**:
+i numeri quadrano.
+
+**Se il conto non riesce, il prelievo NON si annulla.** La merce è già fuori
+dallo scaffale, e rimetterla dentro per un problema di contabilità sarebbe
+muovere merce vera per un numero: si dice, e la riga resta a registro.
+
+### I quattro difetti che il cablaggio ha fatto uscire
+
+1. **«Tornato» e «consumato» erano la stessa cosa.** Alla prima chiusura al
+   banco il conto diceva «tornato 1» per merce che a magazzino non era tornata
+   affatto. Il saldo era giusto e la parola era falsa — e quella parola la
+   legge chi cerca il consumo di un ordine fra sei mesi. Adesso i versi sono
+   tre: `in`, `out`, `consumo`.
+2. **Un vano WIP per ordine non sta in piedi.** `WIP-ODP2603889` avrebbe
+   preteso di mappare un'ubicazione nuova a ogni ordine: al banco il controllo
+   sull'area passava e la merce sarebbe finita in un vano che nessuno aveva
+   disegnato. **L'area WIP è UNA ubicazione mappata**, e a tenere distinti i
+   conti sono le righe, che portano l'ordine. `wip.ubicazioneDi` resta nel
+   modulo — la regola torna giusta il giorno in cui i vani per ordine si
+   generano dalla configurazione della zona.
+3. **«Prefisso o codice esatto» non si indovina.** La maschera delle regole
+   deduceva il tipo dal fatto che il valore esistesse in anagrafica: «6000366»
+   è un codice vero **e** il prefisso di «6000366B», e indovinando si sceglieva
+   sempre il primo — la regola non copriva l'articolo che si voleva. Chi voleva
+   il prefisso non aveva modo di dirlo. Adesso la scelta è una tendina.
+4. **`_formOrdine` non aveva la guardia `if (!el) return`** che hanno tutte le
+   altre maschere — vedi §5.
+
+### La 1.12 chiude le unità di carico, e la 1.13 e la 1.14 hanno il motore
+
+**La 1.12 — le unità di carico.** `inventory.udc_id` e la collezione `udc`
+esistevano dalla 1.4, vuote: **nessuna migrazione di schema**, ed è la ragione
+per cui questa versione si è potuta costruire in una sessione. Un'unità nasce
+su comando in un vano, ci si carica sopra le righe di quel vano, e si sposta
+intera — `/api/op/moveUdc`, **una transazione**: l'unità e le sue righe
+cambiano ubicazione insieme, o non cambia niente.
+
+**Muore da sola.** Non c'è nessun pulsante «elimina»: quando esce l'ultima
+riga il contenitore si chiude, sparisce dall'elenco, e il record resta come
+storia. **Il codice non si riusa mai** — provato al banco: chiusa la
+`UDC-000001`, la successiva è nata `UDC-000002`.
+
+**Due forme di etichetta, una scelta sola.** Il prefisso GS1 è un parametro in
+Configurazione → Funzioni: vuoto, i codici sono interni; compilato, sono
+**SSCC** a 18 cifre con la cifra di controllo. Provato al banco compilando
+`0712345`: è uscito `007123450000000033`, e la somma pesata chiude a multiplo
+di dieci — il conto rifatto nel browser, non chiesto al modulo che lo scrive.
+Le due forme **convivono**: un'etichetta stampata non si riscrive.
+
+**Il difetto peggiore l'ha trovato la prima prova.** Spostando un'unità in un
+vano dove lo stesso lotto stava già **fuori** dall'unità nascevano due righe
+con la stessa chiave nello stesso vano. L'indice `[location_code+item_key]` è
+di ricerca e **non è unico**: il database le accettava senza dire niente, e il
+client — che cerca con `find` — ne avrebbe letta **una**, quale a seconda
+dell'ordine di caricamento. Un saldo che cambia da solo. Adesso si rifiuta, e
+il rifiuto dice quale lotto è di mezzo. Non si fondono: unire una riga che sta
+su un pallet con una sciolta vuol dire decidere al posto di chi lavora.
+
+**La 1.13 — il motore di stoccaggio.** `modules/stoccaggio.ts`: prima i
+vincoli **duri** — stato del vano, regola che impone, temperatura, allergeni,
+capienza — e chi non li passa **esce**, senza punteggio che lo recuperi; poi
+un **punteggio** sui morbidi, che ordina e basta. Le regole sono un dato:
+«`article_code` inizia per 700 → MAG2» è un record di `storage_rules` con
+`modo: impone` o `preferisce`. Ogni proposta porta i suoi **perché**, ogni
+escluso il suo motivo, e `scavalco()` compone la riga da registrare quando
+l'operatore sceglie un altro vano. **La maschera di posizionamento non lo
+interroga ancora**: l'interruttore resta `pronta: false`, e acceso oggi non
+cambierebbe niente a video.
+
+**La 1.14 — il conto di produzione.** `modules/wip.ts` tiene il conto per
+ordine: quanto è entrato in lavorazione, quanto è tornato, quanto resta. **Il
+consumo si dichiara a ordine CHIUSO**, e `consumo()` restituisce `null`
+finché è aperto — il residuo di un ordine in corso è merce ancora sul bancone,
+e chiamarlo consumo scriverebbe un numero che alle sette di sera è sempre
+sbagliato. Un reso più grande dell'entrata **si mostra** invece di essere
+nascosto. Anche qui il cablaggio nel prelievo guidato non c'è: si installa
+spenta, e si accende a gennaio.
+
+### La sera del 19/08 — quattro difetti trovati provando, non leggendo
+
+1. **Il piede di OGNI foglio stampato diceva «Pathfinder 1.7»** mentre girava
+   la 1.8.3. Era scritto a mano in `_docPageHTML`; adesso lo porta
+   `VERSIONE_APP`. Su carta che va in audit è un difetto, non un dettaglio.
+2. **L'ODP 2603889 chiedeva 260.594 KG di VITAMINA A** — il numero di lotto
+   letto come quantità, al posto di 0,315 kg, su una miscela da 380 kg in
+   tutto. Finché Sage esportava i lotti come **testo** il primo numero della
+   riga era davvero la quantità; un lotto tutto cifre esce **numerico**. Il
+   percorso si costruiva lo stesso: la tappa c'era, ed era il numero a essere
+   assurdo. Adesso la colonna del lotto si salta.
+3. **`_formOrdine` non aveva la guardia `if (!el) return`** che hanno tutte le
+   altre maschere: usciti dal ramo «Da ordine», `$('pickSubForm')` è null e
+   saltava un TypeError che a video sembrava un errore di lettura del file.
+   Visto due volte nella stessa sera.
+4. **Il compito di trasferimento diceva «44.42 coll.»** per 44,42 **KG**: un
+   ordine di produzione chiede chili, e il payload portava quel numero sotto
+   il nome dei colli. Adesso porta `qty_uom` e `uom`, e la coda li scrive con
+   la loro unità. I compiti già in coda restano come sono: è il dato che è
+   stato scritto allora.
+
+**E una regola che il codice aveva indovinato male.** «Il percorso dell'ODP
+parte sempre dal magazzino con più prelievi» — detta da Andrea il 19/08. Il
+codice prendeva il primo dell'ordine di visita: sull'ODP vero era `MAG`, dove
+quell'ordine non ha una riga, e **tutte e dieci** le tappe risultavano «in un
+altro magazzino». Vero, e inutile. Con la regola giusta casa è M03, con sette
+tappe, e le tre di MAG1 sono quelle da farsi portare.
+
 ### La 1.8 è scritta per intero, e aspetta un PIN e un turno
 
 Dal 17/08 sera il codice non è più quello della 1.7: **la suddivisione dei
@@ -143,12 +506,12 @@ prove.
 | Servizio | Node + Express + SQLite, porta **4173**, `modo: cartella`. Risponde `service_version` **`1.8.3`**, come il sorgente: l'installer porta anche il servizio e lo riavvia, e da qui in poi i due numeri non divergono. Gira come SYSTEM da un'attività pianificata, **dal sorgente** `MAPPER\server\` |
 | Database | `C:\Pathfinder\data\pathfinder.db` — fuori da OneDrive. Revisione **23175**, 11.181 articoli, 188 righe di giacenza, 20 collezioni |
 | Backup | serale automatico alle 20:00 in `C:\Pathfinder\backup\`, più a richiesta con `/api/backup` |
-| Interruttori | **DUE accesi**: `feature.tasks` (13/08 10:31:06, `ANDS`) e `feature.uom` (13/08 13:54:36, `BABB`). Spenti: `colli` (nuovo, 1.8), `udc`, `putaway`, `wip`. **17/08: `uom` resta acceso** — si raccoglie cosa sbaglia, materiale per la 1.8 |
-| Collaudi | **509 client** (16 suite, ~2 s) · **85 servizio** · **22 installazione** · **8 migrazione** — tutti verdi il 18/08 sera. Le ventiquattro nuove del client sono la 1.8.4: otto su `scelteDaUscite`, dieci su `rettifica`, sei sulla riga di documento. **Ognuna provata rompendo il codice** |
+| Interruttori | **NON CI SONO PIU'** — 2.0. Al 19/08 erano accesi tutti e sei in produzione e `areaWip` era gia' `M06-COM-01`: un interruttore che nessuno abbassa non e' una via di ritorno. Le chiavi `feature.*` restano scritte in `meta` e nessuno le legge. Si torna indietro reinstallando il pacchetto di prima |
+| Collaudi | **716 client** (23 suite, ~2 s) · **96 servizio** · **22 installazione** · **8 migrazione** · **47 passi del ciclo al banco** (`banco/ciclo/`, 7 file, contro una copia del magazzino vero). Tutti verdi. Le 43 prove nuove sono `kpi` (32), `colliFuori` in `wip` (8) e l'aliasing della cache in `cache` (3) — ognuna nata da un difetto trovato provando |
 | Tipi | `npm run check` a 0 su client e servizio, con `strict` e `noUncheckedIndexedAccess` accesi su **tutto** il sorgente: `allowJs` è spento dal 18/08 |
-| Sorgente | **64 TypeScript** · **zero JavaScript** · **10 CSS** · `index.html`. La migrazione si è chiusa il **18/08**: `tabs`, `feedback`, `dialog`, `main` e `app` (1.328 righe) sono passati a `.ts`, e `tsconfig` ha `allowJs: false` — un `.js` in `src/` adesso non compila. Il CSS in più è `00-tailwind.css`: il tema |
-| Numero di build | **1.8.4** in `vite.config.js`, `package.json`, `VERSIONE_APP` e nel servizio. La 1.8.3 è in servizio: una build in avanzamento non porta il numero di ciò che sta girando, se no `consegna\` dice una cosa e la macchina un'altra — §5. Ultima costruita: impronta `fefa508e…`, **1.626.669 byte** |
-| Git | `main`, **allineato con `origin/main`** — spinto il 18/08 |
+| Sorgente | **73 TypeScript** — il nuovo e' `modules/kpi.ts` — · **zero JavaScript** · **10 CSS** · `index.html`. I **sei** moduli nati il 19/08 — `giacenzaArticolo`, `trasferimentiOdp`, `dispositivo`, `udc`, `stoccaggio`, `wip` — sono tutti **puri**: nessuno tocca Store, nessuno tocca il DOM, tutti si collaudano da fermo. Le due viste nuove sono `udc.ts` e il ramo «Per articolo» dentro `inventario.ts` |
+| Numero di build | **2.0** in `vite.config.js`, `package.json`, `VERSIONE_APP` e nel servizio. Il pacchetto `consegna\Pathfinder 2.0\` esiste: impronta `33e3ae3b…`, **1.708.669 byte**, 4 file, **436 kB sul filo**. `FORMATO` resta `warehouse-mapper-v1.5`: descrive la forma del file, non con cosa e' stato scritto |
+| Git | `main`. **`origin/main` era indietro di dieci commit**, non allineato come diceva la riga di prima: l'intero blocco della **1.8.4** era committato in locale e mai spinto. Sopra ci stava, tutto nell'albero e senza un commit, il lavoro dalla **1.9 alla 1.14** (sessione del 19/08) e poi la **2.0**. Rimesso in pari il 19/08 |
 
 ### Cosa fa la 1.7, e cosa ha misurato il banco
 
@@ -192,7 +555,26 @@ collauda al banco e si consegna il pacchetto.
 | 6 | **Compilare `pieces_per_pack`** in anagrafica (colonna `Pezzi_Per_Collo` dell'import Excel). **A `colli` acceso non è più il gate**: chi dichiara la suddivisione ha bisogno solo di un `unit` valido. Resta (a) il ponte per le righe vecchie senza elenco, (b) il valore proposto nella maschera. **Va compilato PRIMA di accendere `colli`**: un lotto congelato senza `uom_per_collo` non lo recupera più dall'anagrafica — la confezione del lotto vince sempre | import Excel |
 | 7 | **Partita IVA e dati mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare | Andrea |
 | 8 | **Nome DNS interno e certificato** dalla CA aziendale. Il codice è pronto: due variabili e HTTPS si accende | IT — non blocca |
+| ~~10~~ | ~~**Cablare il motore di stoccaggio**~~ — **fatto il 19/08**: riquadro nel posizionamento, esclusi col motivo, scavalco a registro, scheda delle regole. `storage_rules` resta **vuota**: le prime regole le scrive Andrea, e finche' non ci sono valgono i quattro vincoli | fatto |
+| ~~11~~ | ~~**Cablare il conto WIP**~~ — **fatto il 19/08**: il prelievo di produzione porta la merce nel vano WIP, la scheda mostra il conto, la chiusura dichiara il consumo | fatto |
+| **15** | **Configurare l'area WIP** prima di accendere `wip`: e' **un'ubicazione mappata**, non un prefisso. Senza, il prelievo di produzione non ha dove portare la merce e lo dice | Andrea |
+| **16** | **Scrivere le prime regole di stoccaggio**, se servono. Senza regole il motore lavora sui soli vincoli — allergeni, temperatura, stato del vano, capienza — e propone gia' qualcosa di sensato | Andrea |
+| **17** | **La capienza dei vani non e' dichiarata da nessuna parte.** Il motore la userebbe — il vincolo c'e' ed e' collaudato — ma nessuna zona la porta, quindi non esclude mai per pieno. Va aggiunta alla configurazione della zona il giorno che serve | da costruire |
+| **12** | **Provare le unita' di carico in magazzino, con un pallet vero.** Al banco funzionano — creazione, carico, spostamento, chiusura automatica, etichetta — ma nessuno le ha ancora usate con il muletto in mano. `feature.udc` e' **spento** in produzione | Andrea |
+| **13** | **Decidere il prefisso GS1**, o lasciarlo vuoto. Vuoto: codici interni, che bastano dentro l'azienda. Compilato: SSCC veri, che un cliente legge — e allora serve il prefisso assegnato dal consorzio. Si cambia in Configurazione → Funzioni, e vale solo per le etichette nuove | Andrea |
+| **14** | **`updated_at` contro `last_updated_at`** sulle giacenze: il servizio scrive il primo, il client legge il secondo. `moveUdc` usa quello giusto, le altre tre rotte composte no. E' un ciclo di debug con la sua prova, non una riga da cambiare di passaggio. **Confermato ancora aperto il 19/08**: `pathfinder-server.js` scrive `item.updated_at` in `removeItem`. Il ciclo non l'ha fatto emergere perche' il client si riallinea sulla risposta del servizio, ma il campo a database resta doppio | da correggere |
+| **18** | **Due sigle firmano movimenti e non sono in anagrafica operatori** — `DP` (14 movimenti) e `AS` (2). Il registro si tiene sei anni e la domanda che ci si fa fra tre e' «chi»: una sigla senza un nome dietro non risponde. O sono operatori cancellati, o sigle digitate a mano. Trovato dai KPI del 19/08 | Andrea |
+| **19** | **`6001055` MANGANESE SOLFATO: l'ODP lo chiede in KG, l'anagrafica lo dichiara PZ.** Il magazzino conta pezzi dove la produzione pesa chili, e nessuna delle due parti se ne accorge. E' un dato, non un difetto — ma va raddrizzato prima che qualcuno prelevi quella riga | Andrea |
+| **20** | **Provare le maschere che pretendono l'identita', col PIN.** Il banco del 19/08 ha esercitato la catena intera senza browser, e il browser ha confermato che la 2.0 si carica pulita a 480 px. Quello che resta fuori sono le maschere che chiedono un operatore identificato — smaltimento, trasferimento, prelievo, quarantena, conta, DDT, reso e chiusura del conto: **un minuto a maschera, e il PIN lo digita Andrea** | Andrea, prima di installare |
 | ~~9~~ | ~~**Confermare due scelte del 12/08**~~: **confermate il 18/08**. La colonna UM è `unit`, la quantità per collo è `pieces_per_pack` — è già così in `configurazione()` | fatto |
+
+**Quanto pesano le due voci qui sopra, misurato il 19/08.** La voce 5 (zone
+da caratterizzare) e la voce 6 (`pieces_per_pack`) non sono due righe di
+manutenzione: sono il motivo per cui **la verifica di conformità copre il 6%
+delle righe a scaffale** — 12 su 194 — e per cui **151 articoli su 153 a
+giacenza non hanno una quantità per collo**. Su tutto il resto la mappa non
+tace perché va bene: tace perché non ha con cosa confrontare, e chi la guarda
+vede un verde che non significa niente.
 
 ### Le versioni da costruire
 
@@ -238,12 +620,12 @@ c'era.
 identificato. Si provano in un minuto col PIN — smaltimento parziale,
 trasferimento, prelievo guidato, quarantena — e sono l'ultimo passo prima di
 installare.
-| **1.9** | **Viste giacenza.** Selezionando un'ubicazione dalla mappa, il pannello a destra mostra la giacenza **in colli e in UM**. Più una pagina nuova: si cerca un articolo, si vedono tutti i lotti, se ne selezionano uno o più e si **apre la conta su tutti insieme**; PDF con intestazioni, piè di pagina e la lista dei lotti con ubicazione e quantità. Se costa meno, può diventare un ramo di Inventario |
-| **1.10** | **Trasferimenti generati dall'ODP.** Sulla riga di avviso «articolo in un altro magazzino» — che già c'è — compare una spunta: genera un'**attività di trasferimento** nello schedulatore, il sistema **chiede in quale ubicazione** ricevere la merce, e **quell'ubicazione entra nel percorso come tappa di prelievo** |
-| **1.11** | **UI mobile.** Il sistema riconosce se gira su Android e ridimensiona. Probabilmente serve **un'interfaccia apposita**, non un adattamento |
-| 1.12 | **UDC** — contenitori che stanno in un'ubicazione e portano la merce con sé. `inventory.udc_id` esiste già, vuoto. Nasce su comando, **muore quando è vuota** (svuotamento automatico, creazione no), il record resta come storia e `udc_id` non si riusa mai. **L'etichetta si stampa alla creazione**, `100 × 80 mm` su A4 dal browser. Il prefisso GS1 è un **parametro di Configurazione**: vuoto → codice interno, compilato → SSCC. Lo spostamento passa da una rotta composta `moveUdc`, in **una** transazione |
-| 1.13 | **Motore di stoccaggio** — dice dove mettere la merce. Funzione pura come `pickRoute`. Vincoli **duri** (sito imposto, segregazione allergeni, temperatura, capienza) e poi un **punteggio** sui morbidi. Le regole sono **un dato** in `storage_rules`, non codice: «`article_code` inizia per 700 → `MAG2`» è un record. Ogni proposta **dice perché**, e lo scavalco si registra col motivo |
-| 1.14 | **WIP** — il prelievo per ODP finisce in un'ubicazione WIP invece di sparire; ciò che entra e non torna **è il consumo reale di produzione**. È l'unica funzione che cambia il significato di un movimento esistente: a `feature.wip` spento, `PICK` resta quello di sempre. Si installa il 19/12 **spento** e si accende a gennaio |
+| ~~**1.9**~~ | **Viste giacenza — scritta il 19/08.** Il pannello della mappa dice colli e UM; il resto e' il ramo «Per articolo» di Inventario, con il giro di conte e il riepilogo stampabile. §1. **Non installata, non impacchettata.** Originale: Selezionando un'ubicazione dalla mappa, il pannello a destra mostra la giacenza **in colli e in UM**. Più una pagina nuova: si cerca un articolo, si vedono tutti i lotti, se ne selezionano uno o più e si **apre la conta su tutti insieme**; PDF con intestazioni, piè di pagina e la lista dei lotti con ubicazione e quantità. Se costa meno, può diventare un ramo di Inventario |
+| ~~**1.10**~~ | **Trasferimenti dall'ODP — scritta il 19/08.** La riga d'avviso non esisteva: adesso e' la tappa fuori sito nell'anteprima del percorso. §1. **Non installata.** Originale: Sulla riga di avviso «articolo in un altro magazzino» — che già c'è — compare una spunta: genera un'**attività di trasferimento** nello schedulatore, il sistema **chiede in quale ubicazione** ricevere la merce, e **quell'ubicazione entra nel percorso come tappa di prelievo** |
+| ~~**1.11**~~ | **Il terminale — scritta il 19/08**, come adattamento su `--spacing`, non come interfaccia apposita: quella resta da decidere. §1. **Non installata.** Originale: Il sistema riconosce se gira su Android e ridimensiona. Probabilmente serve **un'interfaccia apposita**, non un adattamento |
+| ~~**1.12**~~ | **UDC — FATTA il 19/08**, e senza toccare lo schema: la collezione c'era gia' vuota dalla 1.4. Modulo del codice, Store, rotta composta `moveUdc`, maschera, etichetta 100x80. §1. **Costruita nel pacchetto 1.12, non installata.** Originale: contenitori che stanno in un'ubicazione e portano la merce con sé. `inventory.udc_id` esiste già, vuoto. Nasce su comando, **muore quando è vuota** (svuotamento automatico, creazione no), il record resta come storia e `udc_id` non si riusa mai. **L'etichetta si stampa alla creazione**, `100 × 80 mm` su A4 dal browser. Il prefisso GS1 è un **parametro di Configurazione**: vuoto → codice interno, compilato → SSCC. Lo spostamento passa da una rotta composta `moveUdc`, in **una** transazione |
+| ~~**1.13**~~ | **Motore di stoccaggio — FATTO il 19/08**, motore e faccia: riquadro nel posizionamento, elenco degli esclusi col motivo, scavalco a registro, scheda delle regole. 274 ubicazioni in 2 ms. §1. **Non installata.** Originale: dice dove mettere la merce. Funzione pura come `pickRoute`. Vincoli **duri** (sito imposto, segregazione allergeni, temperatura, capienza) e poi un **punteggio** sui morbidi. Le regole sono **un dato** in `storage_rules`, non codice: «`article_code` inizia per 700 → `MAG2`» è un record. Ogni proposta **dice perché**, e lo scavalco si registra col motivo |
+| ~~**1.14**~~ | **Conto di produzione — FATTO il 19/08**: il prelievo porta la merce nel vano WIP, la scheda «Conto produzione» mostra entrato/reso/consumato, e la chiusura dichiara il consumo. Ciclo provato al banco. §1. **Non installata, e si accende a gennaio.** Originale: il prelievo per ODP finisce in un'ubicazione WIP invece di sparire; ciò che entra e non torna **è il consumo reale di produzione**. È l'unica funzione che cambia il significato di un movimento esistente: a `feature.wip` spento, `PICK` resta quello di sempre. Si installa il 19/12 **spento** e si accende a gennaio |
 
 ### Lavoro di fondo, non una versione
 
@@ -798,6 +1180,81 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   arrotondamento, `0,3 − 0,1` no.
 - **I collaudi si scrivono prima** del codice, non dopo.
 
+- **UNA COSTRUZIONE «PER VEDERE SE COMPILA» SOSTITUISCE UN PACCHETTO PRONTO.**
+  Il 19/08 `npm run build` e' stata lanciata per verificare che quattro
+  versioni nuove compilassero — compilano — e ha riscritto
+  `consegna\Pathfinder 1.8.4\` con un pacchetto che conteneva anche la 1.9,
+  la 1.10, la 1.11 e la 1.12, **sotto il numero della 1.8.4**. Non e' un
+  difetto della build: `emptyOutDir` fa quel che dice, ed e' scritto qui
+  sotto. E' un difetto del gesto. **Prima di costruire si copia il pacchetto
+  che sta in `consegna\`**, se e' uno che aspetta un'installazione; e a
+  ripristino avvenuto **si chiede al servizio**, non alla cartella:
+  `/api/app-info` ha detto `fefa508e…` e 1.626.669 byte, ed e' l'unica
+  conferma che vale. Il numero di build si alza **prima** di costruire, mai
+  dopo.
+- **UN VALORE ATTESO SCRITTO A MEMORIA NON E' UNA PROVA.** La prima prova
+  sulla cifra di controllo GS1 diceva `1` perche' quel numero era stato
+  scritto senza calcolarlo: l'implementazione diceva `8`, ed era
+  l'implementazione ad avere ragione. Quando un valore atteso e' il
+  risultato di un algoritmo, o si rifa' il conto a mano **e lo si scrive nel
+  commento**, o si prova una **proprieta'** — per l'SSCC, che la somma
+  pesata chiuda a multiplo di dieci — che resta vera anche se il codice
+  cambia. Le due cose insieme sono meglio di ognuna delle due.
+- **UN PANNELLO CHE RIDIMENSIONA NON MANDA `resize` ALLA PAGINA.** Provando
+  la 1.11 il ridimensionamento del browser di prova cambiava `innerWidth` e
+  faceva valutare bene le media query CSS, ma **non consegnava alcun evento**
+  — verificato con una spia: zero. Il codice che ascolta `resize`,
+  `orientationchange` e `matchMedia` non e' esercitabile li', e **il
+  ricalcolo dinamico della classe di dispositivo resta da provare su un
+  terminale vero**. La classe iniziale, quella si': provata a 533 e a 480 px.
+
+- **UN INDICE «composite» NON E' «compositeUnique».** `inventory` indicizza
+  `[location_code+item_key]` per CERCARE, non per vietare: due righe con la
+  stessa chiave nello stesso vano il database le accetta senza fiatare, e il
+  client — che le cerca con `find` — ne legge UNA, quale a seconda
+  dell'ordine di caricamento. E' un saldo che cambia da solo. Trovato il
+  19/08 alla prima prova dello spostamento di un'unita' di carico. Chi scrive
+  una rotta che sposta righe fra ubicazioni **controlla lui** che la chiave
+  non collida: lo schema non lo fa.
+- **IL CLIENT SCRIVE `last_updated_at`, IL SERVIZIO SCRIVE `updated_at`.**
+  Sulle giacenze sono due campi diversi, e il secondo non lo legge nessuno:
+  la data di ultima modifica non si muove quando la riga passa da una rotta
+  composta. `moveUdc` usa quello giusto; `removeItem`, `sampleItem` e
+  `commitPickStop` no, e **non sono state toccate** — correggerle e' un
+  ciclo di debug con la sua prova, non una riga da cambiare di passaggio.
+- **UN PARSER CHE LEGGE «IL PRIMO NUMERO DELLA RIGA» E' UNA SCOMMESSA SUL
+  TIPO DELLA CELLA.** Finche' Sage esportava i lotti come testo funzionava;
+  il primo lotto tutto cifre e' diventato la quantita' — 260.594 KG al posto
+  di 0,315, su un ordine da 380 kg. Nessuno se n'era accorto perche' il
+  percorso si costruisce lo stesso: la tappa c'e', ed e' il numero a essere
+  assurdo. Dove una colonna ha un significato noto, **si salta per posizione**.
+- **UNA REGOLA DI MAGAZZINO NON SI DEDUCE DAL CODICE.** Il sito «di casa» di
+  un ODP era stato dedotto dall'ordine di visita, che e' una preferenza di
+  interfaccia; la regola vera — «si parte dal magazzino con piu' prelievi» —
+  l'ha detta Andrea in una riga, e ha cambiato l'avviso da «10 tappe su 10»
+  a «3 su 10». Prima di indovinare una regola di mestiere, si chiede.
+
+- **UN SALDO GIUSTO CON LA PAROLA SBAGLIATA E' UNA BUGIA.** La chiusura del
+  conto di produzione contava il consumo come «tornato»: il numero tornava,
+  ma diceva che la merce era rientrata a magazzino quando era finita nel
+  prodotto. Nessun collaudo se ne sarebbe accorto — i totali erano esatti —
+  e a leggerlo sarebbe stato chi cerca il consumo di un ordine fra sei mesi.
+  Dove due cose escono dallo stesso conto per ragioni diverse, servono due
+  nomi: `out` e `consumo`.
+- **UN'AREA NON E' UN'UBICAZIONE.** Il conto di produzione doveva tenere un
+  vano per ordine — `WIP-ODP2603889` — e il controllo verificava che
+  QUALCHE ubicazione cominciasse per «WIP»: passava, e poi la merce sarebbe
+  finita in un vano che nessuno aveva mai disegnato. Un vano per ordine
+  pretende di mapparne uno nuovo a ogni ordine, che in corsia non succede.
+  L'area WIP e' **un'ubicazione mappata**, e a tenere distinti i conti sono
+  le righe.
+- **QUANDO DUE COSE SI SOMIGLIANO, LA SCELTA LA DICHIARA CHI SCRIVE.** La
+  maschera delle regole deduceva «prefisso o codice esatto» dal fatto che il
+  valore esistesse in anagrafica: «6000366» e' un codice vero E il prefisso
+  di «6000366B», e indovinando si sceglieva sempre il primo. La regola
+  sembrava scritta e non si applicava a niente — il modo peggiore di
+  sbagliare, perche' non da' errore.
+
 ### Codice
 
 - **UNA QUANTITÀ NON DICE DA QUALE COLLO ESCE.** La 1.8 mandava al servizio
@@ -987,15 +1444,36 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   riga scritta a documento e il vettore che arriva passano giorni, e un altro
   terminale può aver mosso la riga. È la stessa ragione per cui il servizio
   riceve `{da, quantita}` e non un numero.
+- **UNA RIGA CHE DICHIARA I COLLI NON SI SCARICA A NUMERO — 2.0.** Senza le
+  scelte il servizio cala `qty` e lascia dov'erano `packs` e `qty_uom`: la
+  riga esce dicendo tre colli con l'elenco e il peso di sette. `removeItem`
+  adesso **si rifiuta**, e il rifiuto dice quale riga. Il rifiuto guarda i
+  `packs` DICHIARATI e non `colliDiRiga`, che legge un elenco anche dove
+  nessuno l'ha mai scritto: rifiutare lì fermerebbe la rettifica di inventario
+  sulle righe della 1.7. Lo svuotamento totale resta libero — la riga sparisce
+  intera, e non resta niente a cui l'elenco possa sopravvivere.
+- **Chi rimette a posto ridichiara, non aggiunge.** Rimettere dieci chili
+  presi da un sacco da venticinque non è aggiungere un sacco da dieci: il
+  sacco torna pieno. L'azione di annullamento porta `packs_prima` e la
+  differenza la traduce `rettifica`, come nell'inventario e nella conta.
+- **Chi sposta una riga di giacenza scrive un OGGETTO NUOVO.**
+  `indicizzaGiacenza` toglie la riga dal bucket del vano vecchio confrontando
+  `prev` con `next`, e `prev` lo ritrova per `_id` dentro la cache:
+  modificando l'ubicazione sull'oggetto che la cache già tiene, i due
+  diventano lo stesso oggetto e il confronto non ha più niente da riparare.
+  È successo a `moveUdc`, e a video la merce stava in due vani insieme.
 
 ### Metodo e interfaccia
 
 - **Un blocco per commit**, con build e collaudo in mezzo. **Chi sposta non
   corregge.**
-- **Ogni funzione entra dietro un interruttore `feature.*` in `meta`, spento alla
-  consegna, una chiave per una.** **Non se ne accendono due nello stesso turno**:
-  se qualcosa non torna, non si sa quale dei due è stato. **Installare non è
-  accendere.**
+- **Gli interruttori `feature.*` sono stati tolti con la 2.0**, dopo che tutte
+  e sei erano rimaste accese in produzione. Servivano a tornare indietro senza
+  disinstallare, nei mesi in cui il codice arrivava più in fretta di quanto il
+  magazzino potesse provarlo. **Da qui in poi si torna indietro reinstallando
+  il pacchetto di prima**, che dal 18/08 è comunque l'unica via di ritorno
+  intera — un `torna-indietro.ps1` riporta solo metà versione. Chi rimette un
+  interruttore rimette anche un ramo che nessun collaudo esercita.
 - **Italiano ovunque**, commenti compresi. Nessun `font-size` fuori dai token
   MD3. Il marchio Naturacare non si adatta al tema: verde `#94BC47`, blu
   `#21305A`. I documenti di stampa restano in `pt` e `mm`: la carta non ha un rem.
@@ -1051,6 +1529,14 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/misure.ts` | 319 | Le cinque unità, la suddivisione per collo, il collo incompleto. Puro |
 | `modules/colli.ts` | 387 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, le uscite come le capisce il servizio, il ritrovamento per misura, il ponte con la 1.7. **1.8.4**: `scelteDaUscite` (le uscite messe da parte, ritrovate) e `rettifica` (da com'era a com'è). Puro |
 | `modules/documenti.ts` | 39 | **1.8.4** — la riga di un documento di uscita, ricostruita in **un posto solo**. Nasce da un difetto: era in due copie, e i colli scelti sparivano al salvataggio. Puro |
+| `modules/giacenzaArticolo.ts` | 175 | **1.9** — la giacenza di un articolo raggruppata per lotto e ordinata FEFO, i totali per unita', e la coda di conte nell'ordine dello scaffale. Le UM **non** si calcolano qui: arrivano risolte da `Store.righeLette`, perche' due letture della stessa riga sono due saldi. Puro |
+| `modules/trasferimentiOdp.ts` | 142 | **1.10** — quali tappe stanno in un altro magazzino, il compito di trasferimento che ne nasce, e la tappa spostata sull'ubicazione di ricezione. Puro |
+| `modules/dispositivo.ts` | 74 | **1.11** — su che cosa sta girando. A decidere e' la larghezza, non il sistema operativo; Android si riconosce e si registra. Puro |
+| `modules/udc.ts` | 162 | **1.12** — il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perche' **un'etichetta dura**, e provarla altrimenti vorrebbe dire stamparla. Puro |
+| `modules/udc.ts` | 162 | **1.12** — il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perche' **un'etichetta dura**, e provarla altrimenti vorrebbe dire stamparla. Puro |
+| `modules/stoccaggio.ts` | 355 | **1.13** — dove si mette la merce: vincoli duri, poi punteggio. Le regole sono un dato di `storage_rules`. Ogni proposta dice perche'. Puro |
+| `modules/wip.ts` | 240 | **1.14** — il conto di un ordine: entrato, tornato, residuo. Il consumo si dichiara **a ordine chiuso**, mai prima. **2.0**: `colliFuori` — le misure dei colli che un ordine ha ancora nel vano WIP, entrate meno quelle gia' tornate o consumate. Il vano e' UNO e ci convivono le righe di piu' ordini: senza queste misure, «rendi tre colli» non ha una risposta. Puro |
+| `modules/kpi.ts` | 330 | **2.0** — i numeri di articoli, movimenti e persone, che stanno gia' a database e nessuno sommava. Ogni movimento porta la sigla di chi l'ha fatto e ogni compito i suoi due tempi. `NON_MISURABILE` elenca cosa oggi non si puo' chiedere e quale campo servirebbe: chi cerca un numero che non trova capisce in dieci secondi se manca la funzione o manca il dato. Puro |
 | `modules/vault.ts` | 303 | Backup su cartella locale (File System Access API) |
 | `modules/pickRoute.ts` | 246 | Percorso di prelievo a serpentina |
 | `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
@@ -1079,14 +1565,14 @@ estrarre è spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `configDati.ts` | 1.101 | Dati, resilienza, copia esterna, i tre fogli Excel, purga e reset |
 | `spedizioni.ts` | 1.080 | DDT: testata, carrello, documento pendente, evasione, stampa |
 | `compiti.ts` | 885 | Attività: coda, misure, registro, richiesta, i quattro gesti |
-| `percorso.ts` | 822 | Prelievo guidato: ODP, serpentina, corsia, chiusura |
+| `percorso.ts` | 970 | Prelievo guidato: ODP, serpentina, corsia, chiusura, e **1.10** il trasferimento chiesto dall'ordine |
 | `quarantena.ts` | 755 | Blocco, rilascio, cartellino di non conformità |
 | `cruscotto.ts` | 750 | Le otto sezioni della Dashboard e i suoi grafici |
 | `smaltimento.ts` | 664 | Scarico in tre stadi, e i **mattoni del documento** che usano tutti |
 | `prelievo.ts` | 600 | Trasferimento e carrello di produzione |
-| `inventario.ts` | 557 | Inventario di vano e conta mirata |
+| `inventario.ts` | 1.035 | Inventario di vano, conta mirata, e **1.9** il ramo «Per articolo» col giro di conte e il riepilogo stampabile |
 | `posiziona.ts` | 781 | Posizionamento, la dichiarazione dei colli, `_scegliColli` e **`_ridichiaraColli`** — la maschera che chiede com'è fatto adesso, condivisa con l'inventario e la Conta |
-| `giacenze.ts` | 500 | Dettaglio di un'ubicazione e i cinque gesti che partono da lì |
+| `giacenze.ts` | 527 | Dettaglio di un'ubicazione, i cinque gesti che partono da lì, e **1.9** il totale del vano in colli e UM |
 | `configArticoli.ts` | 498 | Anagrafica articoli, allergeni, classi, certificazioni, UM |
 | `configurazione.ts` | 437 | Le nove schede, gli interruttori, il DDT |
 | `mappa.ts` | 418 | Pianta, frontale, conformità e deroghe |
@@ -1100,6 +1586,8 @@ estrarre è spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `destinatari.ts` | 226 | Rubrica DDT, e quando un dato cambiato vale per sempre |
 | `archivio.ts` | 197 | I cinque tipi di documento emesso |
 | `registro.ts` | 191 | Registro movimenti completo |
+| `wip.ts` | 231 | **1.14** — il conto di un ordine: entrato, reso, consumato, e la chiusura che dichiara il consumo |
+| `udc.ts` | 322 | **1.12** — le unita' di carico: elenco, creazione, carico e scarico delle righe, spostamento intero, etichetta |
 | `parametri.ts` | 106 | Le quattro schede che sono un dato |
 | `vista.ts` | 36 | Il tipo `Vista`, e `$`/`$q` — `getElementById` col tipo `any` |
 | `globale.d.ts` | 10 | `declare const App`: il nome globale che qualche corpo usa da dentro un `setTimeout` |
@@ -1135,7 +1623,7 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
 `compiti` (114) · `misure` (65) · `colli` (66) · `parametri` (19) · `documenti` (6) ·
-`destinatari` (27) · **`superficie-app` (2)** — **485 prove**. `ambiente.js` è
+`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (22) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (38) · `wip` (24) · **`superficie-app` (2)** — **673 prove**. `ambiente.js` è
 il preambolo comune.
 
 `superficie-app` è la rete dell'estrazione, ed è l'unica prova che guarda
@@ -1152,7 +1640,7 @@ scritto lì dentro trovi a chi rispondere — §7.
 | **Applicativo** | `/` e `/app` → l'indice, **`no-cache`** · `/assets/:file` → gli assets, **`immutable` un anno**, col ripiego su `precedente` |
 | **Colli (1.8)** | `packs_out` è un elenco di `{da, quantita}` — la misura del collo e quanto ne esce; un numero solo significa «quel collo, intero». `packs_before` è il seme, come `qty_uom_before` |
 | Collezioni | `GET/POST/PUT/PATCH/DELETE /api/c/:col[/:key]` · `/bulk` · `/count` · `/query` |
-| Operazioni composte | `/api/tx` · `/api/op/removeItem` · `/api/op/commitPickStop` · `/api/op/sampleItem` · `/api/op/verifyPin` · `/api/op/hashPin`. **1.8**: le prime due accettano `packs_out` e `packs_before`, e con l'elenco `qty` diventa facoltativo — un prelievo che apre un collo senza svuotarlo non toglie colli |
+| Operazioni composte | `/api/tx` · `/api/op/removeItem` · `/api/op/commitPickStop` · `/api/op/sampleItem` · **`/api/op/moveUdc`** · `/api/op/verifyPin` · `/api/op/hashPin`. **1.12**: `moveUdc` sposta l'unita' di carico e tutte le sue righe in una transazione, e rifiuta se nel vano di arrivo la stessa chiave sta gia' fuori dall'unita'. **1.8**: le prime due accettano `packs_out` e `packs_before`, e con l'elenco `qty` diventa facoltativo — un prelievo che apre un collo senza svuotarlo non toglie colli |
 | Servizio | `/api/health` · `/api/load` · `/api/clear` · `/api/deleteWhere/:col` · `/api/backup` · `/api/events` (SSE) · `/api/app-info` |
 
 | Variabile di macchina | Valore |
