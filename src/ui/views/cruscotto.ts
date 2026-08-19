@@ -113,7 +113,7 @@ export const VistaCruscotto = {
 
       ${this._renderPickupAlertsSection()}
 
-      ${Store.isFeatureOn('tasks') ? `<div class="panels-row">${this._renderTasksPanel()}</div>` : ''}
+      <div class="panels-row">${this._renderTasksPanel()}</div>
 
       <div class="panels-row">
         <!-- Andamento movimenti: serie temporale a curva morbida -->

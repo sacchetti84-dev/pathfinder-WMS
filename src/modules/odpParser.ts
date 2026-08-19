@@ -199,7 +199,17 @@ const OdpParser = {
         }
         const lotCode = String(row[1] ?? '').trim();
         if (!lotCode) continue;
-        const nums = this._numericCells(row);
+        /* IL NUMERO DI LOTTO NON È UNA QUANTITÀ, e sta sempre in colonna 1 —
+           la stessa da cui `lotCode` lo ha appena letto. Finché i lotti
+           uscivano da Sage come testo, `_numericCells` non li vedeva e il
+           primo numero della riga era davvero la quantità. Un lotto tutto
+           cifre esce invece NUMERICO, e diventava lui la quantità: nell'ODP
+           2603889 il lotto 260594 di VITAMINA A si è presentato come
+           «260.594 KG» al posto di 0,315 — quattro ordini di grandezza,
+           su una miscela da 380 kg in tutto. Trovato il 19/08 su un file
+           vero, e nessuno se n'era accorto perché il percorso si costruisce
+           lo stesso: la tappa c'è, ed è il numero che è assurdo. */
+        const nums = this._numericCells(row).filter(n => n.idx > 1);
         const scadIdx = row.findIndex(c => this._norm(c).startsWith('SCAD'));
         let qty: number | null = null, expSerial: number | null = null;
         for (const n of nums) {

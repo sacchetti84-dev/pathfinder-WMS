@@ -5,6 +5,8 @@ import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { OdpParser } from '../../modules/odpParser';
 import { PickRoute } from '../../modules/pickRoute';
+import { tappeAltrove, richiestaTrasferimento, tappaInAttesa, sitoDiCasa } from '../../modules/trasferimentiOdp';
+import { etichettaTipo } from '../../modules/compiti';
 import type { Percorso, Tappa } from '../../modules/pickRoute';
 import type { TestataODP } from '../../modules/odpParser';
 import type { SessionePrelievo } from '../../types/entita';
@@ -30,6 +32,12 @@ export const VistaPercorso = {
 
   /* ─── SCHERMATA 1: IMPORT ───────────────────────────────────────── */
   _formOrdine(el) {
+    /* La guardia che hanno tutte le altre maschere e questa non aveva. Chi
+       chiama passa `$('pickSubForm')`, che è null ogni volta che si è usciti
+       dal ramo «Da ordine» — e allora saltava un TypeError che a video
+       sembrava un errore di lettura del file. Visto due volte il 19/08:
+       all'import e alla richiesta di trasferimento. */
+    if (!el) return;
     const session = Store.getActivePickSession();
     if (session && this._routeStage === 'run') { this._renderRouteRun(el); return; }
 
@@ -124,6 +132,13 @@ export const VistaPercorso = {
     const bySite: Record<string, Tappa[]> = {};
     for (const s of p.stops) (bySite[s.site_id!] = bySite[s.site_id!] || []).push(s);
 
+    /* 1.10 — quali tappe stanno fuori dal magazzino di partenza. Il
+       magazzino di partenza e' il primo dell'ordine di visita, che e' gia'
+       in questa schermata: non serve un secondo posto dove dichiararlo. */
+    const casa = sitoDiCasa(p.stops, PickRoute.getSiteOrder());
+    const lontane = tappeAltrove(p.stops, casa, (id) => Store.getSite(id)?.name || id);
+    const altrove = new Map(lontane.map((f) => [f.tappa.location_code + '|' + f.tappa.item_key, f]));
+
     const SEV = { not_mapped: 0, lot_absent_other_lots: 1, no_lot_in_odp: 2, all_blocked: 3 };
     const blockers = [...p.offroute].sort((a, b) => (SEV[a.reason as keyof typeof SEV] ?? 9) - (SEV[b.reason as keyof typeof SEV] ?? 9));
     const alertHTML = blockers.length ? `
@@ -189,12 +204,17 @@ export const VistaPercorso = {
 
       ${(p.stops || []).length ? `<div class="route-preview">
         <strong class="text-body-medium">🧭 Anteprima percorso</strong>
+        ${lontane.length ? `<div class="text-body-small opacity-85 mt-2 mb-3">
+          🏭 <strong>${lontane.length} tapp${lontane.length === 1 ? 'a sta' : 'e stanno'} in un altro magazzino.</strong>
+          Chiedere il trasferimento mette la merce in coda allo schedulatore e sposta la tappa sull'ubicazione in cui la si riceve.
+        </div>` : ''}
         ${(p.stops || []).map((s) => `<div class="route-prev-row">
           <span class="route-prev-seq">${s.seq}</span>
           <span class="mono route-prev-loc">${this._esc(s.location_code)}</span>
           <span class="route-prev-art"><span class="mono">${this._esc(s.article_code)}</span> · <span class="mono">${this._esc(s.lot_code)}</span></span>
           <span class="route-prev-kg">${this._fmtKg(s.kg_required)} ${this._esc(s.um)}</span>
           ${s.alternatives.length ? `<span class="badge badge-muted">+${s.alternatives.length} alt.</span>` : ''}
+          ${this._routeRigaAltrove(s, altrove)}
         </div>`).join('')}
       </div>` : '<div class="pick-cart-empty">Nessuna tappa percorribile: tutte le righe finiscono in coda.</div>'}
 
@@ -204,6 +224,121 @@ export const VistaPercorso = {
         <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
           onclick="App._routeStart()" ${(p.stops || []).length ? '' : 'disabled'}>🧭 AVVIA PERCORSO (${(p.stops || []).length})</button>
       </div>`;
+  },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     1.10 — IL TRASFERIMENTO CHIESTO DALL'ORDINE
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Quando un lotto sta nel magazzino sbagliato il percorso ci mandava
+     comunque: una tappa in fondo, in un altro capannone, per tre chili.
+     Nessuno ci va — si chiede che la merce arrivi, e quella richiesta
+     viveva a voce, come tutto ciò che lo schedulatore ha portato a registro.
+
+     Qui la spunta scrive: nasce un'attività di TRASFERIMENTO, si dichiara in
+     quale ubicazione ricevere la merce, e la tappa si sposta lì. Chi cammina
+     continua a vedere un prelievo: cambia dove, non cosa.
+
+     LA MERCE NON SI MUOVE DA QUI. Nasce un compito, e il trasferimento lo
+     esegue chi lo prende in carico: la coda non muove niente da sola.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* Le richieste già fatte su questo ordine, per item. Servono a
+     sopravvivere alla RICOSTRUZIONE del percorso: cambiare l'ordine di
+     visita dei siti rifà `build` da zero, e senza questa mappa una tappa già
+     spostata tornerebbe nell'altro magazzino con il compito già in coda —
+     due volte la stessa merce. */
+  _routeTrasf: {},
+
+  _routeRigaAltrove(s, altrove) {
+    const chiesto = this._routeTrasf[s.item_key];
+    if (chiesto && chiesto.to === s.location_code) {
+      return `<span class="badge badge-amber" title="${this._esc(s.forced_note || '')}">↔ in arrivo${chiesto.task_id ? ` · ${this._esc(chiesto.task_id)}` : ''}</span>`;
+    }
+    const f = altrove.get(s.location_code + '|' + s.item_key);
+    if (!f) return '';
+    const badge = `<span class="badge badge-amber" title="Questa merce sta in un altro magazzino">🏭 ${this._esc(f.site_name)}</span>`;
+    return `${badge}<button class="btn btn-sm" title="Chiedi che la merce venga trasferita qui" onclick="App._routeChiediTrasf('${this._esc(s.item_key)}','${this._esc(s.location_code)}')">↔ Trasferisci</button>`;
+  },
+
+  _routeChiediTrasf(itemKey, fromLoc) {
+    const p = this._routeParsed;
+    const s = (p?.stops || []).find((x: Tappa) => x.item_key === itemKey && x.location_code === fromLoc);
+    if (!s) return this.toast('Tappa non più in anteprima', 'error');
+    const sito = Store.getSite(s.site_id);
+    this.showModal(
+      '↔ Trasferimento richiesto dall’ordine',
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+        <span class="mono font-bold text-sx-primary">${this._esc(s.article_code)}</span>
+        ${this._esc(s.article_description || '')}<br>
+        Lotto <strong>${this._esc(s.lot_code)}</strong> · <strong>${this._fmtKg(s.kg_required)} ${this._esc(s.um)}</strong> richiesti dall’ordine<br>
+        Adesso in <strong class="mono">${this._esc(s.location_code)}</strong> — ${this._esc(sito?.name || s.site_id || 'altro magazzino')}
+      </div>
+      <div class="form-group mb-6">
+        <label>Ubicazione in cui ricevere la merce <span class="req">*</span></label>
+        <div class="flex gap-3">
+          <input class="input input-mono uppercase flex-1" id="trfTo" placeholder="Scansiona o digita" autofocus maxlength="${Validate.MAX.LOC_CODE}"
+            oninput="this.value=this.value.toUpperCase();App._previewLoc('trfTo','trfToPrev')"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._routeCreaTrasf('${this._esc(itemKey)}','${this._esc(fromLoc)}')}">
+          <button class="btn btn-sm" type="button" onclick="App._pickLoc('trfTo',null)" title="Sfoglia le ubicazioni">📍</button>
+        </div>
+        <div id="trfToPrev"></div>
+      </div>
+      <div class="mov-preview mov-preview-warn">
+        La tappa del percorso si sposta su questa ubicazione, e il vano resta
+        <strong>vuoto finché il trasferimento non è eseguito</strong>: il compito nasce in coda,
+        e la merce si muove quando qualcuno lo prende in carico.
+      </div>`,
+      `<button class="btn" onclick="App.closeModal()">Annulla</button>
+       <button class="btn btn-primary" onclick="App._routeCreaTrasf('${this._esc(itemKey)}','${this._esc(fromLoc)}')">↔ Metti in coda</button>`
+    );
+  },
+
+  async _routeCreaTrasf(itemKey, fromLoc) {
+    if (!this._requireOperator('la richiesta di trasferimento')) return;
+    const p = this._routeParsed;
+    const s = (p?.stops || []).find((x: Tappa) => x.item_key === itemKey && x.location_code === fromLoc);
+    if (!s) return this.toast('Tappa non più in anteprima', 'error');
+
+    const dest = Validate.clean($('trfTo')?.value, true).replace(/'/g, '-');
+    if (!dest) return this.toast('Indica l’ubicazione in cui ricevere la merce', 'error');
+    if (!Store.locationExists(dest)) return this.toast(`Ubicazione ${dest} inesistente`, 'error');
+    const stato = Store.getLocationStatus(dest);
+    if (stato === 'blocked' || stato === 'disabled') {
+      return this.toast(`Ubicazione ${dest} ${stato === 'blocked' ? 'BLOCCATA' : 'DISATTIVATA'}: la merce non ci può arrivare`, 'error');
+    }
+
+    const richiesta = richiestaTrasferimento(s, dest, { odp_num: p?.header?.odp_num });
+    if (!richiesta) return this.toast('Dalla stessa ubicazione a se stessa non è un trasferimento', 'error');
+
+    let rec = null;
+    try {
+      rec = await Store.createTask({ ...richiesta, requested_by: Store.getCurrentIdentity().initials });
+    } catch (e) {
+      return this.toast((e as Error).message, 'error');
+    }
+
+    this._routeTrasf[itemKey] = { to: dest, from: fromLoc, task_id: rec?.task_id || '' };
+    this._routeApplicaTrasf(sitoDiCasa(p?.stops, PickRoute.getSiteOrder()));
+    this.closeModal();
+    this._formOrdine($('pickSubForm'));
+    this.toast(`↔ ${etichettaTipo('TRANSFER')} in coda — ${rec?.task_id}: ${s.article_code}#${s.lot_code} verso ${dest}`, 'success');
+  },
+
+  /* Riapplica al percorso le richieste già fatte e rimette in fila le tappe.
+     Si chiama dopo ogni costruzione, non solo alla prima. */
+  _routeApplicaTrasf(casa) {
+    const p = this._routeParsed;
+    if (!p?.stops?.length) return;
+    let toccato = false;
+    const stops = p.stops.map((s: Tappa) => {
+      const t = this._routeTrasf[s.item_key];
+      if (!t || s.location_code === t.to) return s;
+      toccato = true;
+      return tappaInAttesa(s, t.to, casa || s.site_id, t.task_id);
+    });
+    if (!toccato) return;
+    this._routeParsed = { ...p, stops: PickRoute.riordina(stops) };
   },
 
   _routeTailRowHTML(o) {
@@ -248,6 +383,8 @@ export const VistaPercorso = {
     if (this._routeParsed) {
       const route = PickRoute.build(this._routeParsed.lines);
       this._routeParsed = { ...this._routeParsed, ...route };
+      /* 1.10 - le richieste gia' fatte sopravvivono alla ricostruzione. */
+      this._routeApplicaTrasf(sitoDiCasa(this._routeParsed.stops, order));
     }
     this._formOrdine($('pickSubForm'));
     Feedback.sound('scan');
@@ -714,9 +851,18 @@ export const VistaPercorso = {
     });
     if (this._movSessionLog.length > 100) this._movSessionLog.length = 100;
 
+    /* 2.0 — L'AZIONE DI ANNULLAMENTO PORTA LE MISURE, non solo un numero di
+       colli. Era l'unica delle quattro a non portare nemmeno `qty_uom`:
+       stornare una tappa rimetteva colli PIENI, e un collo aperto per
+       prendere dieci chili tornava da venticinque. `packs_prima` serve a
+       richiudere quel collo invece di accodarne uno nuovo. */
     this._pushUndo(`Tappa ${st.seq} — ${st.article_code}#${st.lot_code} da ${st.location_code} (${qty} Coll.)`,
       [{ op: 'add', loc: st.location_code, art: st.article_code, desc: st.article_description,
-         lot: st.lot_code, exp: full.expiry_date || '', notes: full.notes || '', qty }]);
+         lot: st.lot_code, exp: full.expiry_date || '', notes: full.notes || '',
+         qty: removed!._packs_out?.length || qty,
+         qty_uom: this._umMossa(removed),
+         packs: removed!._packs_out ?? null,
+         packs_prima: removed!._packs_before ?? null }]);
 
     Feedback.signal('ok', `Tappa ${st.seq} completata`, `${qty} Coll. da ${st.location_code}`);
     this.updateSyncIndicator();

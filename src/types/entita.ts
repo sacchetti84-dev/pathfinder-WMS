@@ -172,6 +172,11 @@ export interface GiacenzaRimossa extends Giacenza {
       `null` su una riga che l'elenco non ce l'ha. */
   _packs_out?: number[] | null;
   _packs_after?: number[] | null;
+  /** 2.0 — l'elenco COM'ERA prima dell'uscita. Lo storno non ha altro modo
+      di richiudere il collo che ha aperto: senza, rimette la quantità come
+      un collo NUOVO, e lo scaffale si ritrova a dichiarare quattro colli
+      dove ne ha tre. */
+  _packs_before?: number[] | null;
 }
 
 export interface StatoUbicazione {
@@ -498,6 +503,12 @@ export interface Udc {
   location_code?: string;
   site_id?: string;
   status: 'open' | 'closed' | 'shipped' | 'empty' | string;
+  /** 1.12 — il numero progressivo da cui è nato `udc_id`. Sta sul record
+      perché il prossimo si ricava dal più alto già emesso, comprese le UDC
+      morte: i buchi non si riempiono, e ricavarlo dal codice vorrebbe dire
+      saperlo leggere in due forme — interna e SSCC. */
+  serial?: number;
+  updated_at?: Istante;
   /** Predisposto e vuoto finché non arriva il prefisso GS1, che è un
       parametro di Configurazione e non una costante del sorgente. */
   sscc?: string | null;

@@ -36,7 +36,11 @@ export const VistaMovimenta = {
         ${/* 1.4.2.1 — l'ottava operazione, che prima non c'era. Compare con lo
              schedulatore perché è lui che l'ha fatta nascere; quanto cala lo
              decide `feature.uom`, dentro la maschera. */
-          Store.isFeatureOn('tasks') ? this._movCard('sampling', 'c-teal', '🧪', 'Campionamento', 'Il collo resta, cala ciò che c\'è dentro', 'var(--sx-teal)') : ''}
+          this._movCard('sampling', 'c-teal', '🧪', 'Campionamento', 'Il collo resta, cala ciò che c\'è dentro', 'var(--sx-teal)')}
+        ${/* 1.12 — la nona. Compare solo a interruttore acceso: senza unità di
+             carico sarebbe una tessera che porta a una maschera che dice
+             «spento», ed è la stessa regola del Campionamento qui sopra. */
+          this._movCard('udc', 'c-indigo', '📦', 'Unità di carico', 'Il pallet porta con sé quello che ha sopra', 'var(--sx-primary)', Store.getUdcAperte().length)}
       </div>
       <div id="undoBarArea">${this._undoBarHTML()}</div>
       <div id="taskRunBanner"></div>
@@ -65,14 +69,15 @@ export const VistaMovimenta = {
     if (mode === 'io' && dir && dir !== this._ioMode) { this._ioMode = dir; this._dispReset(); }
     this._movMode = mode;
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
-    const map: Record<string, string> = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal' };
+    const map: Record<string, string> = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal', udc: 'c-indigo' };
     document.querySelector(`.mov-action-card.${map[mode]}`)?.classList.add('active');
     const fa = $('movFormArea');
     /* Ogni maschera si disegna dentro la stessa area, e `call` le passa il
        monolite: sono metodi di `App`, non funzioni libere. */
     const forms: Record<string, ((el: HTMLElement) => void) | undefined> = {
       io: this._formCaricoScarico, pick: this._formPrelievo, inv: this._formInventario,
-      quarantine: this._formQuarantena, shipping: this._formSpedizioni, sampling: this._formCampionamento };
+      quarantine: this._formQuarantena, shipping: this._formSpedizioni, sampling: this._formCampionamento,
+      udc: this._formUdc };
     forms[mode]?.call(this, fa);
   },
 
@@ -95,6 +100,11 @@ export const VistaMovimenta = {
     /* 1.4.4 — la conta mirata è uno stato di lavorazione come gli altri: una
        verifica lasciata a metà non deve ricomparire alla riapertura. */
     this._contaState = null;
+    /* 1.9 — e nemmeno un giro di conte lasciato a metà. */
+    this._contaCoda = [];
+    this._contaFatte = 0;
+    this._contaTotale = 0;
+    this._udcSel = null;                 // 1.12
     const fa = $('movFormArea');
     if (fa) fa.innerHTML = '';
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));

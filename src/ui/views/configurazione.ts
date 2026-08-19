@@ -1,23 +1,9 @@
-import { type Vista, $ } from './vista';
+import { type Vista, $, $sel } from './vista';
 import { Store } from '../../core/store';
 import type { Mittente } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 import { Tabs } from '../tabs';
-
-/* UNA FUNZIONE DIETRO INTERRUTTORE, COME LA VEDE LA SCHEDA.
-
-   `nome` è la chiave dell'interruttore in `Store`, `pronta` dice se si può
-   accendere: una funzione scritta a metà resta elencata e spenta. */
-type FunzioneOpzionale = {
-  nome: string;
-  ver: string;
-  label: string;
-  icona: string;
-  cosa: string;
-  cambia: string;
-  pronta: boolean;
-};
 
 /* Il campo del mittente, e la sua etichetta a video. */
 type CampoMittente = [chiave: keyof Mittente, etichetta: string];
@@ -35,7 +21,8 @@ export const VistaConfigurazione = {
         <button class="config-tab ${this._configTab === 'operators' ? 'active' : ''}" onclick="App._configTab='operators';App.renderConfig()">Operatori</button>
         <button class="config-tab ${this._configTab === 'docs' ? 'active' : ''}" onclick="App._configTab='docs';App.renderConfig()">DDT e Documenti</button>
         <button class="config-tab ${this._configTab === 'session' ? 'active' : ''}" onclick="App._configTab='session';App.renderConfig()">Sessione</button>
-        <button class="config-tab ${this._configTab === 'features' ? 'active' : ''}" onclick="App._configTab='features';App.renderConfig()">Funzioni</button>
+        <button class="config-tab ${this._configTab === 'features' ? 'active' : ''}" onclick="App._configTab='features';App.renderConfig()">Produzione ed etichette</button>
+        <button class="config-tab ${this._configTab === 'rules' ? 'active' : ''}" onclick="App._configTab='rules';App.renderConfig()">Regole di stoccaggio</button>
         <button class="config-tab ${this._configTab === 'data' ? 'active' : ''}" onclick="App._configTab='data';App.renderConfig()">Dati e Backup</button>
       </div>
       <div id="configContent"></div>
@@ -46,129 +33,271 @@ export const VistaConfigurazione = {
     else if (this._configTab === 'params') this._renderConfigParams(content);
     else if (this._configTab === 'recipients') this._renderConfigRecipients(content);
     else if (this._configTab === 'operators') this._renderConfigOperators(content);
+    else if (this._configTab === 'rules') this._renderConfigRules(content);
     else if (this._configTab === 'docs') this._renderConfigDocs(content);   // v3.0.0 [M4]
     else if (this._configTab === 'session') this._renderConfigSession(content);
     else if (this._configTab === 'features') this._renderConfigFeatures(content);
     else this._renderConfigData(content);
   },
 
-  /* ═══ INTERRUTTORI DI FUNZIONE — 1.4 ═══════════════════════════════
-     Le cinque funzioni della 1.4 entrano in magazzino spente e si accendono
-     una alla volta. Questa scheda e' l'unico posto da cui si alzano, e ogni
-     interruttore e' un gesto suo: accenderne due nello stesso turno deve
-     costare due volte, se no il giorno dopo non si sa quale delle due ha
-     mosso qualcosa.
-
-     La riga «Cosa cambia» non e' cortesia: chi alza l'interruttore deve
-     leggere cosa vedra' il turno dopo, prima e non dopo. */
-  _FUNZIONI: [
-    { nome: 'tasks', ver: '1.4.1', label: 'Schedulatore di attività', icona: '📋',
-      cosa: 'Le attività che il magazzino fa già — trasferimenti, prelievi, quarantene, campionamenti — diventano richieste con una coda, una priorità e dei tempi.',
-      cambia: 'Compare la voce «Attività» in barra e il riquadro delle attività aperte in Dashboard. Nessuna operazione cambia: cambia che si può chiedere prima di fare.',
-      pronta: true },
-    { nome: 'uom', ver: '1.4.2', label: 'Unità di misura e colli', icona: '⚖',
-      cosa: 'PZ, MT, LT, KG, GR accanto ai colli. Al primo posizionamento la confezione del lotto si congela, e da lì il sistema calcola la suddivisione e quantifica il collo incompleto.',
-      cambia: 'Sotto ogni riga di giacenza compare com\'è imballata — «10 × 1.000 + 1 × 100 PZ» — e nel posizionamento un campo per dichiarare il totale quando l\'ultimo collo non è pieno. Gli articoli senza quantità per collo restano a soli colli, come oggi.',
-      pronta: true },
-    { nome: 'colli', ver: '1.8', label: 'Colli dichiarati', icona: '📦',
-      cosa: 'La suddivisione non si calcola più da una quantità per collo costante: al posizionamento si dichiara com\'è imballata la merce — «10 × 1.000 + 1 × 900» — e più colli incompleti sono ammessi. A prelievo, smaltimento e trasferimento si sceglie quali colli e quanto prenderne.',
-      cambia: 'Il posizionamento chiede la suddivisione invece della sola quantità, e ogni funzione che toglie merce — smaltimento, trasferimento, prelievo, spedizione, quarantena, conta — chiede prima quali colli. Le righe già a scaffale continuano a leggersi come oggi finché non le si muove. Richiede le unità di misura accese, e l\'inventario di vano rimanda alla Conta mirata le righe a colli dichiarati.',
-      pronta: true },
-    { nome: 'udc', ver: '1.4.3', label: 'UDC — unità di carico', icona: '🟫',
-      cosa: 'Pallet, cassoni e carrelli che si spostano interi, con l\'etichetta stampata alla creazione.',
-      cambia: 'Non ancora costruita: arriva con la 1.4.3.', pronta: false },
-    { nome: 'putaway', ver: '1.4.4', label: 'Motore di stoccaggio', icona: '🎯',
-      cosa: 'Propone dove mettere la merce, e dice perché.',
-      cambia: 'Non ancora costruita: arriva con la 1.4.4.', pronta: false },
-    { nome: 'wip', ver: '1.4.5', label: 'WIP — conto di produzione', icona: '🏭',
-      cosa: 'Il prelievo di produzione diventa un trasferimento verso l\'ubicazione WIP, e ciò che non torna è il consumo reale.',
-      cambia: 'Non ancora costruita: arriva con la 1.4.5, e si accende a gennaio.', pronta: false },
-  ],
-
-  /* 12 ore: un turno, con il margine di chi accende a fine giornata. */
-  _TURNO_MS: 12 * 3600 * 1000,
-
+  /* ═══ PRODUZIONE ED ETICHETTE ══════════════════════════════════════
+     2.0 — QUI STAVANO GLI INTERRUTTORI, e non ci sono piu': dalla 1.4 ogni
+     funzione entrava spenta e si accendeva un turno per volta, ma al
+     19/08/2026 erano accese tutte e sei e nessuno le abbassava. Restano i
+     due parametri che quella scheda ospitava, e che parametri sono sempre
+     stati: dove va la merce in lavorazione, e che forma hanno i codici
+     sulle etichette. */
   _renderConfigFeatures(el: HTMLElement) {
-    const log = Store.getFeatureLog();
-    const ultimaAccensione = log.find(v => v.acceso);
-    const recente = ultimaAccensione && (Date.now() - ultimaAccensione.at) < this._TURNO_MS
-      ? ultimaAccensione : null;
+    el.innerHTML = `
+      <div class="mov-preview mb-8 leading-[1.6]">
+        Due impostazioni, e nessuna delle due si cambia a cuor leggero:
+        l'<strong>area WIP</strong> è il vano dove la produzione tiene quello
+        che sta lavorando, e il <strong>prefisso GS1</strong> decide se le
+        etichette portano un codice interno o un SSCC vero — e vale solo per
+        le etichette nuove, perché una già stampata non si riscrive.
+      </div>
+      ${this._areaWipHTML()}
+      ${this._prefissoGS1HTML()}`;
+  },
 
-    const righe = (this._FUNZIONI as FunzioneOpzionale[]).map((f) => {
-      const on = Store.isFeatureOn(f.nome);
-      const voce = log.find(v => v.nome === f.nome);
-      return `<div class="config-card" style="margin-bottom:0.7rem;${on ? 'border-left:3px solid var(--sx-success)' : ''}">
-        <div class="flex items-start gap-8 flex-wrap">
-          <div class="text-[1.5rem] leading-[1.2]">${f.icona}</div>
-          <div class="flex-1 min-w-[240px]">
-            <div class="flex items-center gap-5 flex-wrap">
-              <strong>${this._esc(f.label)}</strong>
-              <span class="mono text-label-small text-sx-text-muted">${f.ver}</span>
-              <span class="badge ${on ? 'badge-green' : 'badge-muted'} text-label-small">${on ? 'ACCESA' : 'spenta'}</span>
-              ${f.pronta ? '' : '<span class="text-label-small text-sx-text-muted">non ancora costruita</span>'}
-            </div>
-            <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">${this._esc(f.cosa)}</div>
-            <div class="text-body-small text-sx-text-muted leading-[1.6] mt-2"><strong>Cosa cambia a video:</strong> ${this._esc(f.cambia)}</div>
-            ${voce ? `<div class="text-label-small text-sx-text-muted mt-3">
-              Ultimo cambio: ${voce.acceso ? 'accesa' : 'spenta'} il ${new Date(voce.at).toLocaleString('it-IT')}${voce.by ? ` da ${this._esc(voce.by)}` : ''}</div>` : ''}
+  /* ═══════════════════════════════════════════════════════════════════
+     1.13 — LE REGOLE DI STOCCAGGIO SONO UN DATO
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     «Gli articoli che iniziano per 700 vanno in MAG2» è un record che
+     scrive un Team Leader, non una riga di codice da ricompilare e
+     reinstallare. Questa scheda è dove si scrive.
+
+     DUE MODI, E LA DIFFERENZA È TUTTA. «Impone» è un vincolo duro: fuori da
+     lì il motore non propone niente. «Preferisce» alza il punteggio e non
+     esclude nessuno. Chi scrive una regola deve sapere quale delle due sta
+     scrivendo, e per questo la tendina dice cosa fanno invece di dire i
+     loro nomi.
+
+     Una tabella VUOTA non è un errore: senza regole valgono i soli vincoli
+     — allergeni, temperatura, stato del vano, capienza — che sono già
+     quattro, e bastano al primo giorno.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  _renderConfigRules(el: HTMLElement) {
+    const regole = Store.getStorageRules();
+    const siti = Store.getSites();
+    const zone = siti.flatMap((s) => (s.zones || []).filter((z) => z.active).map((z) => ({ ...z, siteName: s.name })));
+
+    const righe = regole.length ? regole
+      .slice()
+      .sort((a, b) => (Number(b.priority) || 0) - (Number(a.priority) || 0))
+      .map((r) => `<div class="inv-item-row ${r.attiva === false ? 'opacity-60' : ''}">
+        <div class="inv-info">
+          <div class="inv-code">
+            ${r.article_code ? `articolo <span class="mono">${this._esc(r.article_code)}</span>` : `codici che iniziano per <span class="mono">${this._esc(r.article_prefix || '')}</span>`}
+            <span class="badge ${r.modo === 'impone' ? 'badge-red' : 'badge-muted'}">${r.modo === 'impone' ? 'impone' : 'preferisce'}</span>
+            ${r.attiva === false ? '<span class="badge badge-muted">spenta</span>' : ''}
           </div>
-          <button class="btn btn-sm ${on ? '' : 'btn-primary'}" ${f.pronta ? '' : 'disabled'}
-            onclick="App._toggleFeature('${f.nome}')">${on ? 'Spegni' : 'Accendi'}</button>
+          <div class="inv-lot">
+            → ${r.zone_id ? `zona <span class="mono">${this._esc(r.zone_id)}</span>` : `sito <span class="mono">${this._esc(r.site_id || '')}</span>`}
+            · priorità ${Number(r.priority) || 0}${r.nota ? ` · ${this._esc(r.nota)}` : ''}
+          </div>
         </div>
-      </div>`;
-    }).join('');
+        <div class="inv-actions-row">
+          <button class="inv-btn" title="${r.attiva === false ? 'Riaccendi' : 'Spegni'} la regola" onclick="App._toggleRegola('${this._esc(r.rule_id)}')">${r.attiva === false ? '✓' : '⊘'}</button>
+          <button class="inv-btn" title="Elimina la regola" onclick="App._eliminaRegola('${this._esc(r.rule_id)}')">🗑</button>
+        </div>
+      </div>`).join('')
+      : '<div class="empty-state p-7.5"><p>Nessuna regola. Valgono i soli vincoli: allergeni, temperatura, stato del vano, capienza.</p></div>';
 
     el.innerHTML = `
       <div class="mov-preview mb-8 leading-[1.6]">
-        Le funzioni della <strong>1.4</strong> sono installate ma spente: il codice è in magazzino,
-        il comportamento no. Si accende <strong>una funzione alla volta, a inizio turno</strong>, e se
-        qualcosa si muove nel verso sbagliato si rispegne — senza disinstallare niente e
-        <strong>senza toccare il database</strong>.<br>
-        Alzare un interruttore richiede il <strong>PIN di un Team Leader</strong>.
+        Una regola dice <strong>su quali articoli</strong> vale e <strong>dove</strong> devono andare.
+        <strong>Impone</strong> è un vincolo: fuori da lì il motore non propone niente, e lo dice.
+        <strong>Preferisce</strong> alza il punteggio e non esclude nessuno.<br>
+        Le regole non impediscono un posizionamento: il motore consiglia, e uno scavalco
+        resta a registro col suo motivo.
       </div>
-      ${recente ? `<div class="mov-preview mov-preview-warn mb-8 leading-[1.6]">
-        ⚠ <strong>${this._esc(recente.nome)}</strong> è stata accesa
-        ${new Date(recente.at).toLocaleString('it-IT')}${recente.by ? ` da ${this._esc(recente.by)}` : ''}.
-        Accenderne una seconda adesso significa che, se qualcosa cambia, non si saprà quale delle due.
-        Meglio aspettare il turno dopo.
-      </div>` : ''}
-      ${righe}`;
+      <div class="config-card mb-8">
+        <strong>Nuova regola</strong>
+        <div class="form-row mt-5 mb-5">
+          <div class="form-group">
+            <label>Su quali articoli <span class="req">*</span></label>
+            <div class="flex gap-3">
+              <select class="select w-[200px]" id="srSuCosa">
+                <option value="prefisso">Codici che iniziano per…</option>
+                <option value="esatto">Questo articolo esatto</option>
+              </select>
+              <input class="input input-mono uppercase flex-1" id="srPrefisso" maxlength="${Validate.MAX.ARTICLE_CODE}" placeholder="Es: 700">
+            </div>
+            <!-- 1.13 — LA SCELTA E' ESPLICITA, e non si indovina dal fatto che
+                 il valore esista in anagrafica: «6000366» e' un codice vero E
+                 il prefisso di «6000366B», e indovinando si sceglieva sempre
+                 il primo. Chi voleva il prefisso non aveva modo di dirlo.
+                 Trovato al banco il 19/08, alla prima regola scritta. -->
+            <div class="text-label-small text-sx-text-muted mt-2">Un prefisso vale per tutti i codici che iniziano così — anche se quel prefisso è a sua volta un codice.</div>
+          </div>
+          <div class="form-group">
+            <label>Dove <span class="req">*</span></label>
+            <select class="select" id="srDove">
+              <option value="">— scegli —</option>
+              ${siti.map((s) => `<option value="sito:${this._esc(s.id)}">Sito ${this._esc(s.name)}</option>`).join('')}
+              ${zone.map((z) => `<option value="zona:${this._esc(z.id)}">Zona ${this._esc(z.name)} — ${this._esc(z.siteName)}</option>`).join('')}
+            </select>
+          </div>
+        </div>
+        <div class="form-row mb-5">
+          <div class="form-group">
+            <label>Come vale</label>
+            <select class="select" id="srModo">
+              <option value="preferisce">Preferisce — sale nella proposta, non esclude nessuno</option>
+              <option value="impone">Impone — fuori da lì non si propone niente</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label>Priorità</label>
+            <input class="input input-mono" id="srPriorita" type="number" min="0" max="99" value="0">
+            <div class="text-label-small text-sx-text-muted mt-2">Più alta = decide prima, fra regole che si sovrappongono.</div>
+          </div>
+        </div>
+        <div class="form-group mb-5">
+          <label>Perché — lo legge chi vede la proposta</label>
+          <input class="input" id="srNota" maxlength="${Validate.MAX.REASON}" placeholder="Es: i 700 stanno in MAG2 per la temperatura">
+        </div>
+        <button class="btn btn-primary" onclick="App._salvaRegola()">+ Aggiungi regola</button>
+      </div>
+      <strong class="text-body-medium">Regole scritte (${regole.length})</strong>
+      <div class="mt-4">${righe}</div>`;
   },
 
-  async _toggleFeature(nome: string) {
-    const f = (this._FUNZIONI as FunzioneOpzionale[]).find((x) => x.nome === nome);
-    if (!f) return;
-    const on = Store.isFeatureOn(nome);
-    const conferma = await Dialog.confirm({
-      title: on ? `Spegnere ${f.label}?` : `Accendere ${f.label}?`,
-      message: on
-        ? `La funzione sparisce dalle schermate al prossimo disegno. I dati già scritti restano dove sono: spegnere non cancella niente.`
-        : `${f.cambia}\n\nSi accende una funzione alla volta, a inizio turno. Se qualcosa si muove nel verso sbagliato, si rispegne da qui.`,
-      confirmLabel: on ? 'Spegni' : 'Accendi',
-      danger: on,
-    });
-    if (!conferma) return;
-    const leader = await this._requireLeaderAuth(`${on ? 'Spegnimento' : 'Accensione'} di «${f.label}»`);
-    if (!leader) return;
+  async _salvaRegola() {
+    if (!this._requireOperator('la scrittura di una regola di stoccaggio')) return;
+    const su = Validate.clean($('srPrefisso')?.value, true);
+    const dove = String($sel('srDove')?.value || '');
+    const [tipo, id] = dove.split(':');
+    /* La distinzione la dichiara chi scrive, non il sistema: vedi il
+       commento nella maschera. */
+    const esatto = $sel('srSuCosa')?.value === 'esatto' ? su : '';
     try {
-      await Store.setFeature(nome, !on);
-      this.toast(`${f.icona} ${f.label}: ${!on ? 'ACCESA' : 'spenta'}`, 'success');
-      this._syncFeatureNav();
+      await Store.saveStorageRule({
+        article_code: esatto || undefined,
+        article_prefix: esatto ? undefined : (su || undefined),
+        site_id: tipo === 'sito' ? id : undefined,
+        zone_id: tipo === 'zona' ? id : undefined,
+        modo: String($sel('srModo')?.value || 'preferisce'),
+        priority: parseInt($('srPriorita')?.value, 10) || 0,
+        nota: Validate.clean($('srNota')?.value),
+      });
       this.renderConfig();
-    } catch (err) {
-      this.toast(`Interruttore non cambiato: ${(err as Error).message}`, 'error');
+      this.toast('Regola scritta', 'success');
+    } catch (e) {
+      this.toast((e as Error).message, 'error');
     }
   },
 
-  /* Le voci di barra che dipendono da un interruttore. Si chiama all'avvio e
-     ogni volta che un interruttore si muove: un pulsante che porta a una
-     funzione spenta e' peggio di un pulsante che non c'e'. */
-  _syncFeatureNav() {
-    const acceso = Store.isFeatureOn('tasks');
-    for (const el of document.querySelectorAll('[data-feature="tasks"]')) {
-      el.classList.toggle('hidden', !acceso);
+  /* Spegnere invece di cancellare: una regola spenta si riaccende, e nel
+     frattempo si vede che qualcuno l'aveva pensata. */
+  async _toggleRegola(ruleId: string) {
+    if (!this._requireOperator('la modifica di una regola')) return;
+    const r = Store.getStorageRules().find((x) => x.rule_id === ruleId);
+    if (!r) return;
+    try {
+      await Store.saveStorageRule({ ...r, attiva: r.attiva === false });
+      this.renderConfig();
+    } catch (e) {
+      this.toast((e as Error).message, 'error');
     }
-    if (!acceso && this.currentView === 'tasks') this.switchView('dashboard');
+  },
+
+  async _eliminaRegola(ruleId: string) {
+    if (!this._requireOperator('l’eliminazione di una regola')) return;
+    if (!await Dialog.confirm({
+      title: 'Eliminare la regola?',
+      message: 'Sparisce dall’elenco e il motore smette di applicarla. Per toglierla temporaneamente basta spegnerla.',
+      details: Dialog.kv([['Regola', ruleId]]),
+      confirmLabel: 'Elimina', danger: true,
+    })) return;
+    await Store.deleteStorageRule(ruleId);
+    this.renderConfig();
+    this.toast('Regola eliminata', 'success');
+  },
+
+  /* 1.12 — IL PREFISSO GS1 È UN PARAMETRO, NON UNA COSTANTE DEL SORGENTE.
+     Vuoto, i codici delle unità di carico sono interni e valgono dentro
+     l'azienda; compilato, sono SSCC veri, che un cliente legge col suo
+     lettore. Chi lo compila cambia forma alle etichette NUOVE, e a quelle
+     sole: un'etichetta già stampata non si riscrive, e le due forme
+     convivono in magazzino. Sta qui, accanto all'interruttore che lo usa. */
+  _prefissoGS1HTML() {
+    const p = Store.getPrefissoGS1();
+    return `<div class="config-card mt-8">
+      <strong>Prefisso GS1 per le unità di carico</strong>
+      <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+        Vuoto: i codici sono <strong>interni</strong> — <span class="mono">UDC-000001</span>.
+        Compilato: sono <strong>SSCC</strong> a 18 cifre con la cifra di controllo, leggibili da chiunque.
+        Cambia le etichette <strong>nuove</strong>: quelle già stampate restano valide.
+      </div>
+      <div class="flex gap-3 items-end flex-wrap mt-5">
+        <div class="form-group mb-0 w-[220px]">
+          <label>Prefisso assegnato dal consorzio</label>
+          <input class="input input-mono" id="cfgGS1" maxlength="10" placeholder="da 7 a 10 cifre"
+            value="${this._esc(p)}" inputmode="numeric">
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="App._salvaPrefissoGS1()">Salva</button>
+        <div class="text-label-small text-sx-text-muted pb-3">
+          ${p ? `Adesso: <strong class="mono">${this._esc(p)}</strong> — etichette SSCC` : 'Adesso: nessuno — etichette interne'}
+        </div>
+      </div>
+    </div>`;
+  },
+
+  /* 1.14 — L'AREA DEL CONTO DI PRODUZIONE. Ogni ordine ha il suo vano
+     dentro quest'area — `WIP-ODP2603889` — perché due ordini nello stesso
+     vano sarebbero due consumi mescolati, e nessuno saprebbe più quale
+     merce è finita in quale prodotto.
+
+     Senza area configurata il prelievo di produzione non ha dove portare la
+     merce: l'interruttore si può accendere lo stesso, e il primo prelievo
+     lo dice invece di scrivere giacenza in un vano che nessuno ha mappato. */
+  _areaWipHTML() {
+    const a = Store.getAreaWip();
+    return `<div class="config-card mt-8">
+      <strong>Area del conto di produzione (WIP)</strong>
+      <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+        <strong>Un'ubicazione mappata</strong>, dove la merce sta mentre la produzione la lavora.
+        A tenere distinti i conti dei vari ordini sono le righe, che portano il numero d'ordine:
+        un vano per ordine vorrebbe dire mapparne uno nuovo a ogni ordine.
+      </div>
+      <div class="flex gap-3 items-end flex-wrap mt-5">
+        <div class="form-group mb-0 w-[220px]">
+          <label>Prefisso dell'area</label>
+          <input class="input input-mono uppercase" id="cfgAreaWip" maxlength="${Validate.MAX.LOC_CODE}"
+            placeholder="Es: WIP" value="${this._esc(a)}">
+        </div>
+        <button class="btn btn-sm btn-primary" onclick="App._salvaAreaWip()">Salva</button>
+        <div class="text-label-small text-sx-text-muted pb-3">
+          ${a ? `Adesso: <strong class="mono">${this._esc(a)}</strong>` : 'Adesso: nessuna — il conto di produzione non può partire'}
+        </div>
+      </div>
+    </div>`;
+  },
+
+  async _salvaAreaWip() {
+    if (!this._requireOperator('la modifica dell’area WIP')) return;
+    try {
+      const a = await Store.setAreaWip($('cfgAreaWip')?.value ?? '');
+      this.renderConfig();
+      this.toast(a ? `Area WIP: ${a}` : 'Nessuna area WIP', 'success');
+    } catch (e) {
+      this.toast((e as Error).message, 'error');
+    }
+  },
+
+  async _salvaPrefissoGS1() {
+    if (!this._requireOperator('la modifica del prefisso GS1')) return;
+    try {
+      const p = await Store.setPrefissoGS1($('cfgGS1')?.value ?? '');
+      this.renderConfig();
+      this.toast(p ? `Prefisso GS1 ${p}: le etichette nuove sono SSCC` : 'Nessun prefisso: le etichette nuove sono interne', 'success');
+    } catch (e) {
+      this.toast((e as Error).message, 'error');
+    }
   },
 
   /* Campi del mittente senza i quali il DDT non e' conforme. Il resto

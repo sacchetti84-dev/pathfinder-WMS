@@ -730,6 +730,78 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   const mancante = await chiedi('/assets/index-CCCC3333.js');
   ok('un asset inesistente da 404', mancante.stato === 404, 'stato ' + mancante.stato);
 
+  /* ── 1.12 — L'UNITA' DI CARICO SI SPOSTA INTERA ────────────────────
+     Un pallet porta con se' quello che ha sopra. Se le righe si
+     riscrivessero una per una, un errore a meta' lascerebbe mezza UDC di
+     qua e mezza di la' — e nessuno saprebbe quale meta'. */
+  await call('POST', '/api/c/udc/bulk', [
+    { udc_id: 'UDC-000001', location_code: 'DP-U-01', status: 'open', created_at: Date.now() },
+    { udc_id: 'UDC-000002', location_code: 'DP-U-02', status: 'shipped', created_at: Date.now() },
+  ]);
+  await call('POST', '/api/c/inventory/bulk', [
+    { location_code: 'DP-U-01', item_key: 'MP-9#U1', article_code: 'MP-9', lot_code: 'U1', qty: 4, udc_id: 'UDC-000001' },
+    { location_code: 'DP-U-01', item_key: 'MP-9#U2', article_code: 'MP-9', lot_code: 'U2', qty: 2, qty_uom: 50, packs: [25, 25], udc_id: 'UDC-000001' },
+    { location_code: 'DP-U-01', item_key: 'MP-9#U3', article_code: 'MP-9', lot_code: 'U3', qty: 7 },
+  ]);
+
+  const spost = await call('POST', '/api/op/moveUdc', { udc_id: 'UDC-000001', to: 'DP-U-09' });
+  const riga1 = await leggiRiga('MP-9#U1');
+  const riga2 = await leggiRiga('MP-9#U2');
+  const riga3 = await leggiRiga('MP-9#U3');
+  ok('l\'UDC porta con se\' tutte le sue righe, e solo le sue',
+     spost.stato === 200 && spost.dati.righe === 2
+       && riga1.location_code === 'DP-U-09' && riga2.location_code === 'DP-U-09'
+       && riga3.location_code === 'DP-U-01',
+     `${spost.dati.righe} righe · la riga senza UDC e' rimasta in ${riga3.location_code}`);
+
+  ok('IL CONTENUTO NON SI TOCCA: uno spostamento non e\' un prelievo',
+     riga2.qty === 2 && riga2.qty_uom === 50 && JSON.stringify(riga2.packs) === JSON.stringify([25, 25]),
+     `${riga2.qty} colli · ${JSON.stringify(riga2.packs)} · ${riga2.qty_uom} UM`);
+
+  const udcDopo = (await call('GET', '/api/c/udc/UDC-000001')).dati;
+  ok('anche la riga dell\'UDC si sposta, nella stessa transazione',
+     udcDopo.location_code === 'DP-U-09', udcDopo.location_code);
+
+  ok('la rotta dice da dove a dove, per il registro',
+     spost.dati.from === 'DP-U-01' && spost.dati.to === 'DP-U-09',
+     `${spost.dati.from} -> ${spost.dati.to}`);
+
+  const fermo = await call('POST', '/api/op/moveUdc', { udc_id: 'UDC-000001', to: 'DP-U-09' });
+  ok('spostarla dove gia\' sta non e\' uno spostamento', fermo.stato === 409, fermo.dati.error);
+
+  const spedita = await call('POST', '/api/op/moveUdc', { udc_id: 'UDC-000002', to: 'DP-U-09' });
+  ok('un\'UDC gia\' spedita non si sposta piu\'', spedita.stato === 409, spedita.dati.error);
+
+  const inesistente = await call('POST', '/api/op/moveUdc', { udc_id: 'UDC-999999', to: 'DP-U-09' });
+  ok('un\'UDC che non esiste da 404, non un movimento a vuoto',
+     inesistente.stato === 404, 'stato ' + inesistente.stato);
+
+  const senzaDove = await call('POST', '/api/op/moveUdc', { udc_id: 'UDC-000001' });
+  ok('senza destinazione non si sposta niente', senzaDove.stato === 400, 'stato ' + senzaDove.stato);
+
+  /* IL DOPPIONE DI CHIAVE. L'indice [location_code+item_key] e' di ricerca,
+     non unico: senza questa guardia il database accetterebbe due righe
+     uguali nello stesso vano, e il client ne leggerebbe una a caso.
+     Trovato al banco il 19/08, alla prima prova dello spostamento. */
+  await call('POST', '/api/c/inventory/bulk', [
+    { location_code: 'DP-U-20', item_key: 'MP-9#U1', article_code: 'MP-9', lot_code: 'U1', qty: 3 }
+  ]);
+  const scontro = await call('POST', '/api/op/moveUdc', { udc_id: 'UDC-000001', to: 'DP-U-20' });
+  const restata = await leggiRiga('MP-9#U1');
+  ok("non si sposta dove la stessa chiave sta gia fuori dall unita",
+     scontro.stato === 409 && restata.location_code === 'DP-U-09',
+     scontro.dati.error);
+
+  ok("e il rifiuto dice QUALE lotto e di mezzo",
+     String(scontro.dati.error || '').includes('MP-9#U1'), scontro.dati.error);
+
+  const conMov = await call('POST', '/api/op/moveUdc',
+    { udc_id: 'UDC-000001', to: 'DP-U-10',
+      movement: { type: 'MOVE', article_code: 'MP-9', location_code: 'DP-U-09', dest_location: 'DP-U-10', user: 'ANDS' } });
+  const registro = (await call('GET', '/api/c/mov_log')).dati.filter(m => m.dest_location === 'DP-U-10');
+  ok('il movimento entra a registro dentro la stessa transazione',
+     conMov.stato === 200 && registro.length === 1, `${registro.length} righe a registro`);
+
   const info = await call('GET', '/api/app-info');
   ok('app-info dice modo, versione e impronta del manifesto',
      info.dati.modo === 'cartella'

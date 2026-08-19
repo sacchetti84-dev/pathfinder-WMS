@@ -40,7 +40,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
 /* La versione del SERVIZIO, non dell'applicativo — quella la dice il
    manifesto, e sono due cose diverse. Si muove quando cambia il contratto:
    qui cambia davvero, con una variabile nuova e la famiglia `/assets`. */
-const VERSION = '1.8.4';
+const VERSION = '2.0';
 
 const TLS_CERT = process.env.PATHFINDER_TLS_CERT || null;
 const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
@@ -454,6 +454,81 @@ app.post('/api/op/sampleItem', wrap((req, res) => {
     db.put('inventory', item);
     /* `qty` non compare in questo oggetto, ed e' il punto: il collo resta. */
     return { ok: true, qty_uom_before: prima, qty_uom_after: dopo, qty_uom_delta: -n, qty: item.qty };
+  }, originOf(req));
+
+  res.json(out);
+}));
+
+/* 1.12 — L'UNITA' DI CARICO SI SPOSTA INTERA, IN UNA TRANSAZIONE SOLA.
+   Un pallet che si muove porta con se' tutto quello che ha sopra: se le righe
+   si riscrivessero una per una dal client, un errore a meta' lascerebbe
+   mezza UDC in un vano e mezza nell'altro — e nessuno saprebbe quale meta'.
+   Qui la riga dell'UDC e le righe di giacenza cambiano ubicazione insieme, o
+   non cambia niente.
+
+   IL CONTENUTO NON SI TOCCA: colli, quantita' ed elenco restano quelli. Uno
+   spostamento non e' un prelievo, ed e' la ragione per cui questa rotta non
+   ha ne' `qty` ne' `packs_out`.
+
+   L'ubicazione di partenza NON e' un parametro: e' quella scritta sull'UDC.
+   Chiederla al client vorrebbe dire fidarsi di due dati che possono
+   divergere, e sceglierne uno a caso quando divergono. */
+app.post('/api/op/moveUdc', wrap((req, res) => {
+  const { udc_id, to, movement } = req.body || {};
+  if (!udc_id || !to)
+    throw Object.assign(new Error('servono udc_id e l\'ubicazione di destinazione'), { status: 400 });
+
+  const out = db.transaction(['udc', 'inventory', 'mov_log', 'meta'], () => {
+    const udc = db.get('udc', udc_id);
+    if (!udc) throw Object.assign(new Error(`${udc_id} non esiste`), { status: 404 });
+    if (udc.status === 'shipped' || udc.status === 'empty')
+      throw Object.assign(new Error(`${udc_id} e' ${udc.status}: non si sposta piu'`), { status: 409 });
+    const da = udc.location_code || '';
+    if (da === to)
+      throw Object.assign(new Error(`${udc_id} e' gia' in ${to}`), { status: 409 });
+
+    /* Le righe si prendono per `udc_id`, non per ubicazione: se una riga
+       fosse rimasta indietro da uno spostamento non riuscito, e' proprio
+       quella che deve raggiungere le altre. */
+    const righe = db.query('inventory', { criteria: { field: 'udc_id', op: 'equals', value: udc_id } });
+
+    /* DUE RIGHE CON LA STESSA CHIAVE NELLO STESSO VANO NON DEVONO NASCERE.
+       L'indice [location_code+item_key] e' di ricerca, non unico: il
+       database accetterebbe il doppione senza dire niente, e il client, che
+       cerca con `find`, ne leggerebbe UNA — quale, dipende dall'ordine di
+       caricamento. Sarebbe un saldo che cambia da solo.
+
+       Non si fondono: unire una riga che sta su un pallet con una che sta
+       sciolta nel vano vuol dire decidere al posto di chi lavora se quella
+       merce sale sul pallet. Si rifiuta e si dice quale lotto e' di mezzo —
+       chi ha la merce davanti sposta prima l'altra riga, o carica anche
+       quella sull'unita'. Trovato al banco il 19/08, alla prima prova. */
+    const gia = db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: to } });
+    const nostre = new Set(righe.map(r => r._id));
+    const scontro = gia.filter(r => !nostre.has(r._id) && righe.some(n => n.item_key === r.item_key));
+    if (scontro.length) {
+      const quali = [...new Set(scontro.map(r => r.item_key))].join(', ');
+      throw Object.assign(
+        new Error(`In ${to} c'e' gia' ${quali} fuori da questa unita': spostare quella riga prima, o caricarla sull'unita'`),
+        { status: 409 });
+    }
+    const ora = Date.now();
+    for (const r of righe) {
+      r.location_code = to;
+      /* `last_updated_at`, NON `updated_at`. Sulle giacenze il client scrive
+         e legge il primo; le altre rotte di qui scrivono il secondo, che
+         nessuno legge — un campo fantasma che si porta dietro dalla 1.4.
+         Non si allarga: si usa quello giusto e si segnala. */
+      r.last_updated_at = ora;
+      db.put('inventory', r);
+    }
+
+    udc.location_code = to;
+    udc.updated_at = ora;
+    db.put('udc', udc);
+
+    if (movement) db.add('mov_log', { ...movement, ts: movement.ts || ora });
+    return { ok: true, udc_id, from: da, to, righe: righe.length };
   }, originOf(req));
 
   res.json(out);

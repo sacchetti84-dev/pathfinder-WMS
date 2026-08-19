@@ -277,10 +277,9 @@ export const VistaConfigArticoli = {
   },
 
   /* La riga sotto «quantita' per collo» che dice cosa si sta configurando.
-     Non blocca niente: un'anagrafica a meta' e' il punto di partenza, non un
-     errore — e con l'interruttore spento questa riga non compare affatto. */
+     Non blocca niente: un'anagrafica a meta' e' il punto di partenza, non
+     un errore. */
   _notaUM(p) {
-    if (!Store.isFeatureOn('uom')) return '';
     return `<div class="text-label-small text-sx-text-muted mb-6" id="${p}NotaUM"></div>`;
   },
 

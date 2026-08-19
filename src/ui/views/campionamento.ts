@@ -110,7 +110,7 @@ export const VistaCampionamento = {
     /* 1.8.4 — una riga a colli DICHIARATI si campiona anche senza il
        per-collo d'anagrafica: le UM ce le ha l'elenco. */
     const elenco = Store.colliDiRiga(it);
-    const scalabile = Store.isFeatureOn('uom') && (!!cfg?.per_collo || !!elenco);
+    const scalabile = !!cfg?.per_collo || !!elenco;
     const um = (scalabile && cfg?.per_collo) ? Store.suddivisioneDi(it) : null;
     const dentro = (um && cfg?.per_collo) ? um.pieni * cfg.per_collo + um.resto : (elenco ? 1 : null);
 
@@ -142,7 +142,7 @@ export const VistaCampionamento = {
           per prendere tutto il collo serve un prelievo.</div>
       </div>` : ''}`
       : `<div class="mov-preview mov-preview-warn mb-5">
-          ⚠ <strong>${this._esc(it.article_code)} non ha una quantità per collo</strong>${Store.isFeatureOn('uom') ? '' : ' (e le unità di misura sono spente)'}:
+          ⚠ <strong>${this._esc(it.article_code)} non ha una quantità per collo</strong>:
           il prelievo si registra a registro, ma nessuna quantità cala.
           Si scioglie da sé compilando <span class="mono">Pezzi_Per_Collo</span> in anagrafica.
         </div>`}
@@ -211,7 +211,7 @@ export const VistaCampionamento = {
     if (Validate.notes(note)) return this.toast(Validate.notes(note), 'error');
 
     const cfg = Store.getUomConfig(it.article_code, it.lot_code);
-    const scalabile = Store.isFeatureOn('uom') && !!cfg?.per_collo;
+    const scalabile = !!cfg?.per_collo;
     let esito = null;
     if (scalabile) {
       const raw = $('cpQty')?.value;

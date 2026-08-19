@@ -187,6 +187,20 @@ describe('ODP — blocchi lotto', () => {
     });
   });
 
+  /* IL DIFETTO DELL'ODP 2603889, trovato il 19/08 su un file vero. Finche'
+     Sage esportava i lotti come TESTO il primo numero della riga era davvero
+     la quantita'; un lotto tutto cifre esce NUMERICO, e diventava lui la
+     quantita' — «260.594 KG» al posto di 0,315, su una miscela da 380 kg. */
+  it("UN LOTTO NUMERICO NON DIVENTA LA QUANTITA", () => {
+    const r = OdpParser.parse(odp(CALCIO, ['Lotto', 260594, 'Lotto fornitore', '2024081203', 'KG', 0.315]));
+    expect(r.lines[0].lots[0]).toMatchObject({ lot_code: '260594', qty: 0.315 });
+  });
+
+  it("e nemmeno quando la quantita manca del tutto: resta zero, non il lotto", () => {
+    const r = OdpParser.parse(odp(CALCIO, ['Lotto', 260594, 'Lotto fornitore', '2024081203', 'KG']));
+    expect(r.lines[0].lots[0]).toMatchObject({ lot_code: '260594', qty: 0 });
+  });
+
   it('un lotto senza unità eredita quella dell’articolo', () => {
     const r = OdpParser.parse(odp(CALCIO, ['Lotto', '261571', 'Lotto fornitore', '3071555', '', 194.9922]));
     expect(r.lines[0].lots[0].um).toBe('KG');

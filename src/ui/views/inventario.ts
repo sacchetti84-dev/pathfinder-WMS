@@ -6,6 +6,8 @@ import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 import { rettifica, descriviColli, totaleUom as totaleUomColli } from '../../modules/colli';
 import { formattaQuantita } from '../../modules/misure';
+import { riepiloga, codaDiConta, chiaveRiga } from '../../modules/giacenzaArticolo';
+import type { RigaArticolo } from '../../modules/giacenzaArticolo';
 
 /* L'inventario di un vano mentre lo si conta: le righe a sistema con la
    spunta di chi le ha viste, e le righe trovate che a sistema non c'erano. */
@@ -34,14 +36,43 @@ export const VistaInventario = {
   // ═══ 4. INVENTARIO ═══
   _formInventario(el) {
     if (!el) return;
-    /* 1.4.4 — DUE RAMI, UNA FUNZIONE. Di serie l'inventario di vano, quello
-       di sempre. Con una Conta avviata, la finestra di guida sulla riga sola
-       che il compito indica: è lo stesso mestiere a due granularità, e
-       tenerle nella stessa voce di Movimenta evita a chi lavora di dover
-       sapere in anticipo quale delle due gli serve. */
+    /* 1.4.4 — Con una Conta avviata comanda lei: la finestra di guida sulla
+       riga sola, e nessuna scelta di ramo da rifare. */
     if (this._contaState) { this._contaRenderVerify(el); return; }
+    /* 1.9 — DUE RAMI, DUE DOMANDE. «Per vano» è l'inventario di sempre: si
+       apre un'ubicazione e si verifica cosa c'è dentro. «Per articolo» è la
+       domanda che si fa in corsia — di questo codice, quanto ne ho e dove
+       sta — e da lì si conta, su uno o su tutti i lotti in fila. Lo stesso
+       mestiere a due granularità, nella stessa voce di Movimenta: chi lavora
+       non deve sapere in anticipo quale delle due gli serve. */
     el.innerHTML = `<div class="mov-form-card">
-      <h3>📋 <span class="text-sx-warning">Inventario</span> — Verifica Ubicazione</h3>
+      <h3>📋 <span class="text-sx-warning">Inventario</span></h3>
+      <div class="prel-tabs">
+        <button class="prel-tab ${this._invSubMode === 'vano' ? 'active' : ''}" onclick="App._invSub('vano')"><span class="prel-tab-icon">📍</span>Per vano</button>
+        <button class="prel-tab ${this._invSubMode === 'articolo' ? 'active' : ''}" onclick="App._invSub('articolo')"><span class="prel-tab-icon">📦</span>Per articolo</button>
+      </div>
+      <div id="invSubForm"></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+    </div>`;
+    this._renderInvSub();
+  },
+
+  _invSubMode: 'vano',
+
+  _invSub(mode) {
+    this._invSubMode = mode;
+    this._formInventario($('movFormArea'));
+  },
+
+  _renderInvSub() {
+    const el = $('invSubForm');
+    if (!el) return;
+    if (this._invSubMode === 'articolo') this._invFormArticolo(el);
+    else this._invFormVano(el);
+  },
+
+  _invFormVano(el) {
+    el.innerHTML = `<div>
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① UBICAZIONE</span> → INVIO per caricare → <span class="wf-step">② ✓/✗</span> per ogni item → aggiungi <strong>extra</strong> trovati → <span class="wf-step">③ APPLICA</span>.
       </div>
@@ -57,7 +88,6 @@ export const VistaInventario = {
         <div id="mInvLocPrev"></div>
       </div>
       <div id="mInvContent"></div>
-      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
     </div>`;
   },
 
@@ -372,10 +402,68 @@ export const VistaInventario = {
 
   _contaState: null,
 
+  /* 1.9 — LE RIGHE CHE ASPETTANO IL LORO TURNO. Vuota quando la conta è
+     una sola, che è il caso del compito. Una conta per volta resta la
+     regola: la coda dice solo quale sia la prossima. */
+  _contaCoda: [],
+  _contaFatte: 0,
+  _contaTotale: 0,
+
   /* Apre la riga indicata dal compito. La giacenza si rilegge ADESSO: fra
      la richiesta e l'arrivo davanti allo scaffale può essere passato un
-     turno, e contro un numero vecchio si conterebbe a vuoto. */
+     turno, e contro un numero vecchio si conterebbe a vuoto.
+
+     Chiude la coda: una conta chiesta dal compito non è la prosecuzione di
+     un giro che qualcun altro aveva impostato. */
   _contaSelect(loc, itemKey) {
+    this._contaCoda = [];
+    this._contaFatte = 0;
+    this._contaTotale = 0;
+    this._contaApri(loc, itemKey);
+  },
+
+  /* 1.9 — Un giro di conte: la prima si apre, le altre aspettano. */
+  _contaAvviaCoda(righe) {
+    if (!righe?.length) return;
+    this._contaCoda = righe.slice(1);
+    this._contaFatte = 0;
+    this._contaTotale = righe.length;
+    this._contaApri(righe[0].location_code, righe[0].item_key);
+  },
+
+  /* La prossima della coda. Una riga sparita nel frattempo NON ferma il
+     giro: si salta e si va avanti, perché chi sta in corsia ha altre
+     quattro ubicazioni da fare e una riga uscita non è un errore suo. */
+  _contaProssima() {
+    while (this._contaCoda.length) {
+      const p = this._contaCoda.shift();
+      if (Store.getItemsAtLocation(p.location_code).some(i => i.item_key === p.item_key)) {
+        this._contaApri(p.location_code, p.item_key);
+        return;
+      }
+      this.toast(`${p.location_code} — quella riga non è più in giacenza: saltata`, 'warning');
+    }
+    this._contaFineCoda();
+  },
+
+  _contaSalta() {
+    if (!this._contaCoda.length) return this._contaBack();
+    this._contaState = null;
+    this._contaProssima();
+  },
+
+  _contaFineCoda() {
+    const fatte = this._contaFatte;
+    const totale = this._contaTotale;
+    this._contaCoda = [];
+    this._contaFatte = 0;
+    this._contaTotale = 0;
+    this._contaState = null;
+    if (totale > 1) this.toast(`✓ Giro di conte concluso: ${fatte} rig${fatte === 1 ? 'a contata' : 'he contate'} su ${totale}`, 'success');
+    this._formInventario($('movFormArea'));
+  },
+
+  _contaApri(loc, itemKey) {
     const it = Store.getItemsAtLocation(loc).find(i => i.item_key === itemKey);
     if (!it) {
       this._contaState = null;
@@ -396,16 +484,26 @@ export const VistaInventario = {
     this._formInventario($('movFormArea'));
   },
 
+  /* «Lascia» lascia TUTTO, coda compresa: chi esce da un giro esce dal giro,
+     e ritrovarsi davanti la riga successiva sarebbe il contrario. */
   _contaBack() {
     this._contaState = null;
+    if (this._contaTotale) { this._contaFineCoda(); return; }
     this._formInventario($('movFormArea'));
   },
 
   _contaRenderVerify(el) {
     const d = this._contaState;
     const dove = this._getLocInfo(d.location_code);
+    /* Dentro un giro, a che punto si è. Il numero serve a decidere se
+       prendere il carrello o finire a mano. */
+    const indice = this._contaTotale ? this._contaTotale - this._contaCoda.length : 0;
     el.innerHTML = `
       <article class="route-stop-card">
+        ${this._contaTotale > 1 ? `<div class="mov-preview mov-preview-ok m-0 mb-4">
+          <strong>Giro di conte — riga ${indice} di ${this._contaTotale}.</strong>
+          ${this._contaCoda.length ? `Dopo questa ne restano ${this._contaCoda.length}.` : 'È l\'ultima.'}
+        </div>` : ''}
         <header class="route-stop-head">
           <span class="route-stop-seq">🔢</span>
           <div class="route-stop-title">
@@ -468,6 +566,7 @@ export const VistaInventario = {
         <div class="flex gap-5 mt-7 flex-wrap">
           <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
             onclick="App._execConta()">🔢 CONFERMA CONTEGGIO</button>
+          ${this._contaCoda.length ? `<button class="btn min-h-[var(--md-touch)]" onclick="App._contaSalta()" title="Passa alla riga successiva senza contare questa">↷ Salta</button>` : ''}
           <button class="btn min-h-[var(--md-touch)]" onclick="App._contaBack()">← Lascia</button>
         </div>
       </article>`;
@@ -661,6 +760,276 @@ export const VistaInventario = {
        servono al registro delle attività per dire quanto ha pesato. */
     await this._taskAvanza(Math.abs(delta), ['COUNT']);
     this._contaState = null;
+    /* 1.9 — se questa conta faceva parte di un giro, la successiva si apre
+       da sola: chi ha spuntato cinque lotti ha chiesto un giro, non cinque
+       volte la stessa maschera. */
+    if (this._contaTotale) { this._contaFatte++; this._contaProssima(); return; }
     this._formInventario($('movFormArea'));
+  },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     1.9 — L'INVENTARIO PER ARTICOLO
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Di un articolo si vuole sapere quanto ce n'è e dove sta, e da lì
+     partire a contarlo. Fino alla 1.8 la risposta si otteneva dalla ricerca
+     in barra, che restituisce un elenco piatto: lo stesso lotto compariva
+     tre volte perché sta in tre ubicazioni, e il totale se lo faceva a
+     mente chi guardava.
+
+     Qui i lotti si raggruppano e si ordinano FEFO — `modules/giacenzaArticolo`
+     — e ogni riga si può spuntare. Le righe spuntate diventano UNA CODA DI
+     CONTE, che è la ragione per cui questo ramo sta in Inventario e non in
+     una pagina sua: la conta è quella di sempre, riga per riga, con le sue
+     tre scansioni. Cambia solo che alla fine di una parte la successiva,
+     nell'ordine dello scaffale e non in quello in cui si è spuntato.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /* L'articolo aperto e le righe spuntate. La giacenza NON sta qui dentro:
+     si rilegge a ogni disegno, perché fra una spunta e l'altra un altro
+     terminale può aver mosso una riga. */
+  _gaState: null,
+
+  _invFormArticolo(el) {
+    const st = this._gaState;
+    el.innerHTML = `<div>
+      <div class="wf-instructions">
+        <strong>Flusso:</strong> <span class="wf-step">① ARTICOLO</span> → INVIO per cercare → <span class="wf-step">② spunta i lotti</span> da verificare → <span class="wf-step">③ CONTA</span> o <span class="wf-step">🖨 STAMPA</span>.
+      </div>
+      <div class="form-group mb-5">
+        <label>Articolo — codice o descrizione</label>
+        <div class="flex gap-3">
+          <input class="input input-mono uppercase flex-1" id="invArtQ" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
+            value="${this._esc(st?.code || '')}"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._invArtCerca();}">
+          <button class="btn btn-sm btn-primary" onclick="App._invArtCerca()">Cerca</button>
+        </div>
+      </div>
+      <div id="invArtContent"></div>
+    </div>`;
+    if (st) this._invArtRender();
+    setTimeout(() => $('invArtQ')?.focus(), 30);
+  },
+
+  /* Un codice esatto apre direttamente; altrimenti si mostrano i candidati.
+     Cercare per descrizione è il caso di chi ha in mano il cartellino e non
+     il codice, ed è quello in cui un elenco serve davvero. */
+  _invArtCerca() {
+    const q = Validate.clean($('invArtQ')?.value, true);
+    const box = $('invArtContent');
+    if (!box) return;
+    if (!q || q.length < 2) {
+      this._gaState = null;
+      box.innerHTML = '<div class="text-body-small text-sx-text-muted p-3">Digita almeno due caratteri.</div>';
+      return;
+    }
+    if (Store.getArticle(q)) { this._invArtApri(q); return; }
+    const cand = Store.getArticles().filter(a =>
+      a.code.toUpperCase().includes(q) || (a.description || '').toUpperCase().includes(q));
+    if (cand.length === 1) { this._invArtApri(cand[0]!.code); return; }
+    this._gaState = null;
+    if (!cand.length) {
+      box.innerHTML = `<div class="text-sx-danger text-body-small p-3">Nessun articolo trovato per «${this._esc(q)}»</div>`;
+      return;
+    }
+    const righe = cand.slice(0, 30).map(a => {
+      const dove = Store.findItemLocations(a.code).filter(i => i.article_code === a.code);
+      return `<div class="inv-item-row" onclick="App._invArtApri('${this._esc(a.code)}')">
+        <div class="inv-info">
+          <div class="inv-code">${this._esc(a.code)} <span class="font-normal text-sx-text-secondary text-body-small">${this._esc(a.description || '')}</span></div>
+          <div class="inv-lot">${dove.length ? `📍 ${dove.length} ubicazion${dove.length === 1 ? 'e' : 'i'}` : 'non a magazzino'}</div>
+        </div>
+        <div class="inv-actions-row"><span class="text-sx-text-muted">→</span></div>
+      </div>`;
+    }).join('');
+    box.innerHTML = `<p class="text-body-small text-sx-text-secondary mb-4"><strong>${cand.length}</strong> articoli corrispondono — scegli quale aprire${cand.length > 30 ? ' (primi 30)' : ''}.</p>${righe}`;
+  },
+
+  _invArtApri(code) {
+    const art = Store.getArticle(code);
+    this._gaState = { code, desc: art?.description || '', sel: [] };
+    const campo = $('invArtQ');
+    if (campo) campo.value = code;
+    this._invArtRender();
+  },
+
+  /* Le righe dell'articolo con le UM già risolte: la regola di lettura è
+     quella di Store, e resta una sola — dove c'è l'elenco dei colli comanda
+     l'elenco. */
+  _invArtRighe() {
+    const code = this._gaState?.code;
+    if (!code) return [];
+    return Store.righeLette(Store.findItemLocations(code).filter(i => i.article_code === code));
+  },
+
+  _invArtRender() {
+    const st = this._gaState;
+    const box = $('invArtContent');
+    if (!st || !box) return;
+    const righe = this._invArtRighe();
+    /* Le spunte su righe sparite si buttano: la selezione non deve
+       sopravvivere alla merce che nominava. */
+    const vive = new Set(righe.map((r: RigaArticolo) => chiaveRiga(r)));
+    st.sel = st.sel.filter((k: string) => vive.has(k));
+    const r = riepiloga(righe);
+
+    if (!righe.length) {
+      box.innerHTML = `<div class="mov-preview mov-preview-warn">
+        <strong>${this._esc(st.code)}</strong> ${this._esc(st.desc || '')} — <strong>non è a magazzino.</strong>
+        Non c'è niente da contare.</div>`;
+      return;
+    }
+
+    const uom = r.totali.map(t => `${formattaQuantita(t.quantita, t.uom)} ${this._esc(t.uom)}`).join(' · ');
+    let html = `<div class="mov-preview mov-preview-ok mb-5">
+      <strong class="mono">${this._esc(st.code)}</strong> ${this._esc(st.desc || '')}<br>
+      <strong>${r.colli} Coll.</strong>${uom ? ` · <strong>${uom}</strong>` : ''} —
+      ${r.lotti.length} lott${r.lotti.length === 1 ? 'o' : 'i'} su ${r.ubicazioni} ubicazion${r.ubicazioni === 1 ? 'e' : 'i'}
+      ${r.senzaUnita ? `<br><span class="text-sx-warning">⚠ ${r.senzaUnita} righe senza unità: il totale in UM non racconta tutta la giacenza</span>` : ''}
+    </div>`;
+
+    for (const g of r.lotti) {
+      const chiavi = g.righe.map(x => chiaveRiga(x));
+      const tutte = chiavi.every(k => st.sel.includes(k));
+      html += `<div class="mt-5">
+        <div class="flex items-center gap-3 mb-2">
+          <input type="checkbox" id="gaLot${this._esc(g.lot_code)}" ${tutte ? 'checked' : ''}
+            onchange="App._invArtToggleLotto('${this._esc(g.lot_code)}')">
+          <label class="mb-0 font-bold" for="gaLot${this._esc(g.lot_code)}">Lotto ${this._esc(g.lot_code)}</label>
+          <span class="text-label-small text-sx-text-muted">
+            ${g.expiry_date ? `⏱ Scad. ${this._esc(this._dateISOtoIT(g.expiry_date))} · ` : ''}
+            ${g.colli} Coll.${typeof g.uom_qty === 'number' && g.uom ? ` · ${formattaQuantita(g.uom_qty, g.uom)} ${this._esc(g.uom)}` : ''}
+          </span>
+        </div>`;
+      for (const riga of g.righe) {
+        const k = chiaveRiga(riga);
+        html += `<div class="inv-item-row">
+          <div class="inv-info flex items-center gap-3">
+            <input type="checkbox" ${st.sel.includes(k) ? 'checked' : ''} onchange="App._invArtToggle('${this._esc(k)}')">
+            <div>
+              <div class="inv-code">📍 ${this._esc(riga.location_code)}</div>
+              <div class="inv-lot">${riga.colli} Coll.${riga.descrizione && riga.descrizione !== '—' ? ` · ⚖ ${this._esc(riga.descrizione)}` : ''}</div>
+            </div>
+          </div>
+          <div class="inv-actions-row">
+            <button class="inv-btn" title="Apri l'ubicazione sulla mappa" onclick="App.goToLocation('${this._esc(riga.location_code)}')">🗺</button>
+          </div>
+        </div>`;
+      }
+      html += '</div>';
+    }
+
+    const n = st.sel.length;
+    html += `<div class="mov-divider"></div>
+      <div class="flex gap-3 flex-wrap mb-5">
+        <button class="btn btn-sm" onclick="App._invArtTutti(true)">Seleziona tutto</button>
+        <button class="btn btn-sm" onclick="App._invArtTutti(false)">Nessuno</button>
+        <button class="btn btn-sm" onclick="App._invArtStampa()">🖨 Stampa riepilogo</button>
+      </div>
+      <button class="btn btn-primary w-full p-5.5 font-bold" ${n ? '' : 'disabled'} onclick="App._invArtConta()">
+        🔢 CONTA ${n ? `${n} rig${n === 1 ? 'a' : 'he'}` : '— spunta almeno una riga'}
+      </button>`;
+    box.innerHTML = html;
+  },
+
+  _invArtToggle(chiave) {
+    const st = this._gaState;
+    if (!st) return;
+    const i = st.sel.indexOf(chiave);
+    if (i >= 0) st.sel.splice(i, 1); else st.sel.push(chiave);
+    this._invArtRender();
+  },
+
+  _invArtToggleLotto(lot) {
+    const st = this._gaState;
+    if (!st) return;
+    const chiavi: string[] = this._invArtRighe()
+      .filter((r: RigaArticolo) => r.lot_code === lot)
+      .map((r: RigaArticolo) => chiaveRiga(r));
+    const tutte = chiavi.every((k: string) => st.sel.includes(k));
+    st.sel = tutte
+      ? st.sel.filter((k: string) => !chiavi.includes(k))
+      : [...new Set([...st.sel, ...chiavi])];
+    this._invArtRender();
+  },
+
+  _invArtTutti(on) {
+    const st = this._gaState;
+    if (!st) return;
+    st.sel = on ? this._invArtRighe().map((r: RigaArticolo) => chiaveRiga(r)) : [];
+    this._invArtRender();
+  },
+
+  /* Le righe spuntate diventano la coda, nell'ordine dello scaffale. */
+  _invArtConta() {
+    const st = this._gaState;
+    if (!st) return;
+    if (!this._requireOperator('la conta')) return;
+    const coda = codaDiConta(this._invArtRighe(), st.sel);
+    if (!coda.length) return this.toast('Nessuna riga da contare: quelle spuntate non sono più in giacenza', 'error');
+    this._contaAvviaCoda(coda.map(r => ({ location_code: r.location_code, item_key: r.item_key })));
+  },
+
+  /* IL RIEPILOGO SU CARTA: si porta a scaffale e ci si scrive sopra. Per
+     questo la colonna «Contati» esce vuota — un foglio che porta già il
+     numero di sistema non è una verifica, è un suggerimento, ed è la stessa
+     ragione per cui la maschera della Conta lo nasconde finché non si è
+     contato. */
+  _invArtStampa() {
+    const st = this._gaState;
+    if (!st) return;
+    const righe = this._invArtRighe();
+    if (!righe.length) return this.toast('Niente da stampare: articolo non a magazzino', 'error');
+    const r = riepiloga(righe);
+    const E = (v: unknown) => this._esc(v);
+
+    let corpo = '';
+    for (const g of r.lotti) {
+      for (const riga of g.righe) {
+        corpo += `<tr>
+          <td class="td-lot">${E(g.lot_code)}</td>
+          <td class="td-num">${g.expiry_date ? E(this._dateISOtoIT(g.expiry_date)) : '—'}</td>
+          <td class="td-loc">${E(riga.location_code)}</td>
+          <td class="td-num">${riga.colli}</td>
+          <td class="td-num">${typeof riga.uom_qty === 'number' && riga.uom ? `${E(formattaQuantita(riga.uom_qty, riga.uom))} ${E(riga.uom)}` : '—'}</td>
+          <td class="td-num"></td>
+        </tr>`;
+      }
+    }
+
+    const totali = r.totali.map(t => `${formattaQuantita(t.quantita, t.uom)} ${t.uom}`).join(' · ');
+    const body = `
+      <div class="pr-sec">Riepilogo
+        <span class="pr-sec-note">— lotti in ordine di scadenza, il primo è il primo che esce</span></div>
+      <table class="pr-table">
+        <thead><tr>
+          <th>Lotto</th>
+          <th class="w-[86px]">Scadenza</th>
+          <th class="w-[110px]">Ubicazione</th>
+          <th class="w-[60px] text-center">Colli</th>
+          <th class="w-[90px] text-center">Quantità</th>
+          <th class="w-[80px] text-center">Contati</th>
+        </tr></thead>
+        <tbody>${corpo}</tbody>
+        <tfoot><tr>
+          <td colspan="3"><b>Totale a sistema</b></td>
+          <td class="td-num"><b>${r.colli}</b></td>
+          <td class="td-num"><b>${E(totali || '—')}</b></td>
+          <td class="td-num"></td>
+        </tr></tfoot>
+      </table>
+      ${r.senzaUnita ? `<p class="text-body-small">⚠ ${r.senzaUnita} righe senza unità di misura: il totale in quantità non copre tutta la giacenza.</p>` : ''}`;
+
+    this._docPrint(this._docPageHTML({
+      kind: 'RIEPILOGO DI GIACENZA',
+      kindSub: st.desc || 'Articolo',
+      numLabel: 'Articolo',
+      num: st.code,
+      dateLabel: 'al',
+      dateVal: this._fmtStamp(Date.now()),
+      body,
+      docId: `GIAC-${st.code}`,
+      signs: [{ role: 'Operatore magazzino', hint: 'Data e firma' }],
+    }));
   },
 } satisfies Vista;
