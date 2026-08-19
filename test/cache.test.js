@@ -15,7 +15,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import { COLLEZIONI } from '../src/core/../types/collezioni';
 import {
   FORMA_CACHE, applicaAllaCache, ricostruisciIndici,
-  indiciVuoti, metaVuota, bucketPut, bucketDelete, chiaveLotto,
+  indiciVuoti, metaVuota, bucketPut, bucketDelete, chiaveLotto, indicizzaGiacenza,
 } from '../src/core/cache';
 
 function cacheVuota() {
@@ -395,4 +395,51 @@ describe('le cinque collezioni della 1.4', () => {
       expect(C[campo]).toEqual([]);
     });
   }
+});
+
+/* 2.0 — la trappola dell'aliasing, che al banco ha fatto risultare la merce
+   in due vani insieme dopo lo spostamento di un'unita' di carico. */
+describe('indicizzaGiacenza — la riga spostata esce dal bucket vecchio', () => {
+  const riga = (extra = {}) => ({
+    _id: extra._id ?? 1, item_key: extra.key ?? 'A#L1',
+    article_code: 'A', lot_code: extra.lot ?? 'L1',
+    location_code: extra.loc ?? 'V1', qty: extra.qty ?? 1,
+  });
+
+  it('cambiando ubicazione la riga sta in UN solo bucket', () => {
+    const indici = indiciVuoti();
+    const prima = riga({ loc: 'V1' });
+    indicizzaGiacenza(indici, null, prima);
+    expect(indici.invByLoc.get('V1')).toHaveLength(1);
+
+    const dopo = { ...prima, location_code: 'V2' };
+    indicizzaGiacenza(indici, prima, dopo);
+    expect(indici.invByLoc.get('V1')).toBeUndefined();
+    expect(indici.invByLoc.get('V2')).toHaveLength(1);
+  });
+
+  it('LO STESSO OGGETTO PASSATO DUE VOLTE non si puo riparare, e chi sposta deve saperlo', () => {
+    const indici = indiciVuoti();
+    const r = riga({ loc: 'V1' });
+    indicizzaGiacenza(indici, null, r);
+    /* Questo e' il gesto sbagliato: si modifica l'oggetto che la cache gia'
+       tiene e lo si ripassa. `prev` e `next` sono lo stesso oggetto, il
+       confronto non ha piu' niente da confrontare, e la riga resta di la'.
+       La prova sta qui per fissare il comportamento: chi sposta una riga
+       scrive un oggetto nuovo — vedi `moveUdc`. */
+    r.location_code = 'V2';
+    indicizzaGiacenza(indici, r, r);
+    expect(indici.invByLoc.get('V1')).toHaveLength(1);
+    expect(indici.invByLoc.get('V2')).toHaveLength(1);
+  });
+
+  it('cambiando articolo o lotto la riga esce anche dal bucket della chiave', () => {
+    const indici = indiciVuoti();
+    const prima = riga({ key: 'A#L1' });
+    indicizzaGiacenza(indici, null, prima);
+    const dopo = { ...prima, item_key: 'A#L2', lot_code: 'L2' };
+    indicizzaGiacenza(indici, prima, dopo);
+    expect(indici.invByKey.get('A#L1')).toBeUndefined();
+    expect(indici.invByKey.get('A#L2')).toHaveLength(1);
+  });
 });

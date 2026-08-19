@@ -6,6 +6,7 @@
 import { Store } from '../core/store';
 import type { Coordinate, Geometria, Giacenza } from '../types/entita.js';
 import type { RigaODP } from './odpParser';
+import { sitoDiCasa } from './trasferimentiOdp';
 
 /** Perché una riga non è percorribile, o perché lo è ma con un avvertimento. */
 export type MotivoFuoriPercorso =
@@ -110,9 +111,31 @@ const PickRoute = {
     };
   },
 
+  /* 2.0 — IL GIRO COMINCIA DA CASA, cioe' dal magazzino dove l'ordine ha
+     piu' righe. Prima era l'ordine di visita a decidere, e sull'ODP vero
+     quello partiva da `MAG`: la prima tappa mandava in un capannone per una
+     riga sola, e le tredici di M03 venivano dopo. La regola l'ha detta
+     Andrea il 19/08 ed era gia' scritta in `sitoDiCasa` — la usava pero'
+     solo l'avviso «articolo in un altro magazzino», non il giro.
+
+     GLI ALTRI SITI RESTANO NELL'ORDINE DI VISITA, che e' la preferenza di
+     chi cammina: casa passa davanti, il resto non si tocca. */
+  _ordineDiVisita(stops: readonly Tappa[], siteOrder: string[]): Map<string, number> {
+    const casa = sitoDiCasa(stops, siteOrder);
+    const rank = new Map(siteOrder.map((id, i) => [id, i + 1] as const));
+    if (casa) rank.set(casa, 0);
+    return rank;
+  },
+
   build(parsedLines: RigaODP[]): Percorso {
     const geo = Store.buildLocationGeometry();
     const siteOrder = this.getSiteOrder();
+    /* QUESTO ordine serve alla scelta di UNA riga fra piu' ubicazioni che
+       hanno lo stesso lotto, e gira prima che le tappe esistano: casa si sa
+       solo dopo averle contate tutte, e qui non c'e' ancora niente da
+       contare. Resta la preferenza dell'operatore, che e' il criterio giusto
+       fra due vani equivalenti. L'ordine del GIRO, piu' sotto, e' un'altra
+       cosa e parte da casa. */
     const siteRank = new Map(siteOrder.map((id, i) => [id, i] as const));
 
     const stops: Tappa[] = [];
@@ -225,10 +248,26 @@ const PickRoute = {
       }
     }
 
-    stops.sort(this._serpentineCompare(geo, siteRank));
+    /* Casa si sa solo dopo aver raccolto le tappe: e' il sito che ne ha di
+       piu', e prima di raccoglierle non c'e' niente da contare. */
+    stops.sort(this._serpentineCompare(geo, this._ordineDiVisita(stops, siteOrder)));
     stops.forEach((s, i) => { s.seq = i + 1; });
 
     return { stops, offroute, notes };
+  },
+
+  /* 1.10 — RIMETTERE IN FILA LE TAPPE dopo che una si e' spostata. La
+     serpentina e la numerazione sono le stesse di `build`: una tappa che
+     cambia ubicazione cambia anche il punto del giro in cui la si incontra,
+     e lasciarle il numero di prima farebbe camminare all'indietro. */
+  riordina(stops: Tappa[]): Tappa[] {
+    const geo = Store.buildLocationGeometry();
+    /* La stessa regola di `build`, casa compresa: una tappa spostata puo'
+       cambiare quale magazzino ne ha di piu', e riordinare con un criterio
+       diverso da quello che ha costruito il giro lo spezzerebbe in due. */
+    const out = [...stops].sort(this._serpentineCompare(geo, this._ordineDiVisita(stops, this.getSiteOrder())));
+    out.forEach((s, i) => { s.seq = i + 1; });
+    return out;
   },
 
   /* Etichette dei motivi, in un solo posto: usate da UI e report. */

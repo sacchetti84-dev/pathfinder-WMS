@@ -3,6 +3,8 @@ import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
+import { riepiloga } from '../../modules/giacenzaArticolo';
+import { formattaQuantita } from '../../modules/misure';
 
 export const VistaGiacenze = {
   selectLocation(code) {
@@ -40,7 +42,8 @@ export const VistaGiacenze = {
       </div>
     </div>
     <div class="detail-section">
-      <div class="detail-section-title">Item presenti (${items.length})</div>`;
+      <div class="detail-section-title">Item presenti (${items.length})</div>
+      ${this._rigaTotaleVano(items)}`;
     if (!items.length) {
       html += '<div class="empty-state p-7.5"><p>Nessun item</p></div>';
     } else {
@@ -83,6 +86,27 @@ export const VistaGiacenze = {
         </p>
       </div>`;
     $('detailBody').innerHTML = html;
+  },
+
+  /* 1.9 — QUANTO C'È IN QUESTO VANO, IN COLLI E IN UM. Le singole righe lo
+     dicevano già una per una; il totale no, e chi guarda un'ubicazione con
+     sei lotti dentro sommava a mente. I totali si fanno PER UNITÀ: in un
+     vano possono convivere una riga a KG e una a PZ, e sommarle sarebbe
+     scrivere un numero che non significa niente.
+
+     Vuota quando la giacenza non ha unità: un vano a soli colli ha già il
+     suo numero nel titolo della sezione, e ripeterlo non aggiunge niente. */
+  _rigaTotaleVano(items) {
+    if (!items?.length) return '';
+    const r = riepiloga(Store.righeLette(items));
+    if (!r.totali.length) return '';
+    const um = r.totali.map((t) => `${formattaQuantita(t.quantita, t.uom)} ${this._esc(t.uom)}`).join(' · ');
+    return `<div class="detail-field">
+      <span class="df-label">In giacenza</span>
+      <span class="df-value"><strong class="text-sx-accent">${r.colli} Coll.</strong> · <strong>${um}</strong>${
+        r.senzaUnita ? ` <span class="badge badge-amber" title="${r.senzaUnita} righe non hanno unità di misura: il totale in UM non le comprende">⚠ ${r.senzaUnita} senza UM</span>` : ''
+      }</span>
+    </div>`;
   },
 
   showMoveItemModal(locationCode, itemKey) {

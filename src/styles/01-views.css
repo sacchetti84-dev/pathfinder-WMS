@@ -801,3 +801,7 @@
                      font-size: 9pt; color: #92400e; margin-bottom: 3mm; border-radius: 3px; }
   .doc-page--nc .doc-idblock { border-color: #dc2626; }
 }
+
+/* 1.12 — la nona tessera di Movimenta, e l'etichetta dell'unita' di carico. */
+.mov-action-card.c-indigo { border-top-color: var(--sx-primary); }
+.mov-action-card.c-indigo.active { background: var(--sx-primary-soft); border-color: var(--sx-primary); }

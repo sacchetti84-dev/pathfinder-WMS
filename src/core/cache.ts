@@ -150,7 +150,15 @@ export function bucketDelete(map: Map<string, Riga[]>, mapKey: string | undefine
 
 /** Una riga di giacenza che cambia ubicazione o articolo/lotto esce dal
     bucket vecchio prima di entrare in quello nuovo. Senza il confronto con
-    `prev` resterebbe in due posti, e il saldo per ubicazione mentirebbe. */
+    `prev` resterebbe in due posti, e il saldo per ubicazione mentirebbe.
+
+    LA TRAPPOLA È `prev !== next`, ed è costata un ciclo di debug. `prev` si
+    ritrova per `_id` DENTRO la cache: chi modifica l'ubicazione sull'oggetto
+    che la cache già tiene, e poi lo ripassa di qua, passa lo stesso oggetto
+    due volte — il confronto non trova nessuna differenza da riparare e la
+    riga resta anche nel bucket vecchio. Chi sposta una riga scrive un
+    oggetto NUOVO. È successo a `moveUdc`, e a video la merce stava in due
+    vani insieme mentre il servizio ne conosceva uno solo. */
 export function indicizzaGiacenza(indici: Indici, prev: Riga | null, next: Riga): void {
   if (prev && prev !== next) {
     if (prev.location_code !== next.location_code) bucketDelete(indici.invByLoc, prev.location_code, prev);

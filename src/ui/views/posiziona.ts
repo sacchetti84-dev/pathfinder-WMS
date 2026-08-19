@@ -12,6 +12,7 @@ import {
   espandi as espandiColli, validaDichiarazione, descriviColli as descriviElenco,
   totaleUom as totaleUomElenco, preleva as prelevaElenco, raggruppa as raggruppaColli,
 } from '../../modules/colli';
+import { scavalco as scavalcoStoccaggio } from '../../modules/stoccaggio';
 
 /* Le due forme che vivono solo dentro questa maschera: la dichiarazione dei
    colli in ingresso — «quanti, e da quanto» — e la finestra che chiede quali
@@ -49,15 +50,16 @@ export const VistaPosiziona = {
         <label>② Codice Articolo <span class="req">*</span></label>
         <input class="input input-mono uppercase" id="mInArtCode" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
           oninput="App._anteprimaUmIn()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();App._autoLookupArticle('mInArtCode','mInArtInfo','mInArtDesc');$('mInLot').focus();}">
+          onkeydown="if(event.key==='Enter'){event.preventDefault();App._autoLookupArticle('mInArtCode','mInArtInfo','mInArtDesc');App._proponiVano();$('mInLot').focus();}">
         <div class="text-label-small text-sx-text-muted mt-1.5" id="mInArtInfo"></div>
       </div>
       <div class="form-group mb-5">
         <label>③ Codice Lotto <span class="req">*</span></label>
         <input class="input input-mono" id="mInLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           oninput="App._anteprimaUmIn()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();$('mInQty').focus();$('mInQty').select();}">
+          onkeydown="if(event.key==='Enter'){event.preventDefault();App._proponiVano();$('mInQty').focus();$('mInQty').select();}">
       </div>
+      <div id="mInProposta"></div>
       <div class="form-group mb-5">
         <label>④ Colli <span class="req">*</span></label>
         <input class="input input-mono max-w-[120px] text-center font-bold" id="mInQty" type="number" min="1" step="1" value="1"
@@ -94,19 +96,13 @@ export const VistaPosiziona = {
      compila solo quando l'ultimo collo non e' pieno — ed e' l'unico momento
      in cui qualcuno ha la merce in mano e lo sa davvero.
 
-     A interruttore spento il campo non c'e': la maschera e' quella di ieri. */
+     2.0 — LA DICHIARAZIONE HA PRESO IL POSTO DEL CAMPO UNICO, e il campo
+     unico non c'e' piu': erano due maschere per la stessa domanda, e la
+     seconda si vedeva solo con un interruttore che adesso e' sparito. Un
+     ramo che nessuno percorre e nessun collaudo esercita e' il posto dove un
+     difetto vive piu' a lungo. */
   _campoUmIngresso() {
-    if (!Store.isFeatureOn('uom')) return '';
-    /* 1.8 — a interruttore acceso il campo unico lascia il posto alla
-       dichiarazione: piu' misure di collo nello stesso posizionamento, che e'
-       come la merce arriva davvero. */
-    if (Store.colliOn()) return this._campoColliIngresso();
-    return `
-      <div class="form-group mb-5" id="mInUmBox" hidden>
-        <label>Quantità totale in <span id="mInUmSigla" class="mono"></span> <span class="font-normal text-sx-text-muted">— solo se l'ultimo collo non è pieno</span></label>
-        <input class="input input-mono max-w-[180px] text-center" id="mInUmQty" type="number" min="0" step="0.001" placeholder="vuoto = colli pieni" oninput="App._anteprimaUmIn()">
-        <div class="text-label-small text-sx-text-muted mt-1.5" id="mInUmPrev"></div>
-      </div>`;
+    return this._campoColliIngresso();
   },
 
   /* 1.8 — LA SUDDIVISIONE SI DICHIARA, E LA DICHIARA CHI HA LA MERCE IN MANO.
@@ -140,7 +136,7 @@ export const VistaPosiziona = {
      lo rispecchia: un numero solo, due posti da cui muoverlo. */
   _colliQtyInput() {
     const box = $('mInColliBox');
-    if (!Store.colliOn() || !box || box.hidden || !this._colliIn.length) return this._anteprimaUmIn();
+    if (!box || box.hidden || !this._colliIn.length) return this._anteprimaUmIn();
     this._colliIn[0].colli = $('mInQty')?.value ?? '';
     this._renderColliIn();
   },
@@ -208,11 +204,11 @@ export const VistaPosiziona = {
     if (qtyEl && qtyEl.value !== String(elenco!.length)) qtyEl.value = String(elenco!.length);
   },
 
-  /* L'elenco da mandare a Store, o `null` se questa maschera non lo sta
-     dichiarando — a interruttore spento, o su un articolo senza confezione. */
+  /* L'elenco da mandare a Store, o `null` su un articolo senza confezione:
+     li' non c'e' niente da dichiarare. */
   _elencoDichiarato() {
     const box = $('mInColliBox');
-    if (!Store.colliOn() || !box || box.hidden) return null;
+    if (!box || box.hidden) return null;
     const art = Validate.clean($('mInArtCode')?.value, true);
     const lot = Validate.clean($('mInLot')?.value);
     const cfg = art ? Store.getUomConfig(art, lot) : null;
@@ -226,21 +222,7 @@ export const VistaPosiziona = {
      confezione la si conosce solo dopo che sono stati digitati tutti e due:
      per questo l'anteprima si ricalcola a ogni tasto invece che una volta. */
   _anteprimaUmIn() {
-    if (Store.colliOn()) return this._anteprimaColliIn();
-    const box = $('mInUmBox');
-    if (!box) return;
-    const art = Validate.clean($('mInArtCode')?.value, true);
-    const lot = Validate.clean($('mInLot')?.value);
-    const cfg = art ? Store.getUomConfig(art, lot) : null;
-    if (!cfg?.per_collo) { box.hidden = true; return; }
-    box.hidden = false;
-    $('mInUmSigla').textContent = cfg.uom;
-    const colli = parseInt($('mInQty')?.value) || 0;
-    const raw = $('mInUmQty')?.value;
-    const tot = raw === '' || raw === undefined || raw === null
-      ? colli * cfg.per_collo : Number(String(raw).replace(',', '.'));
-    const prev = $('mInUmPrev');
-    prev.textContent = `⚖ ${descriviColli(tot, cfg.per_collo, cfg.uom)} — ${formattaQuantita(tot, cfg.uom)} ${cfg.uom} in tutto`;
+    return this._anteprimaColliIn();
   },
 
   /* 1.4.2 — QUANTE UM SI SONO MOSSE DAVVERO, per rimetterle dall'altra parte.
@@ -425,7 +407,6 @@ export const VistaPosiziona = {
      Nell'inventario di vano invece la riga e' li' sopra, e ricopiarla a mano
      sarebbe lavoro per niente. */
   _ridichiaraColli(item, titolo = "Com'è fatto adesso", opzioni: { daZero?: boolean } = {}) {
-    if (!Store.colliOn()) return null;
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
     const elenco = Store.colliDiRiga(item);
     if (!cfg || !elenco) return null;
@@ -566,7 +547,6 @@ export const VistaPosiziona = {
      quarantena, per esempio. Senza queste scelte l'`addItem` che segue
      deriverebbe colli pieni, e l'elenco morirebbe nel passaggio. */
   _tuttiIColli(item) {
-    if (!Store.colliOn()) return null;
     const elenco = Store.colliDiRiga(item);
     return elenco ? elenco.map((_, indice) => ({ indice })) : null;
   },
@@ -580,7 +560,6 @@ export const VistaPosiziona = {
      tutta impegnata, e vale un annullamento — se tornasse `null` la maschera
      che chiama scriverebbe una riga senza colli. */
   async _chiediColli(item, titolo, elencoIn: number[] | null = null) {
-    if (!Store.colliOn()) return null;
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
     const elenco = elencoIn ?? Store.colliDiRiga(item);
     if (!cfg || !elenco) return null;
@@ -672,6 +651,140 @@ export const VistaPosiziona = {
     }
   },
 
+  /* ═══════════════════════════════════════════════════════════════════
+     1.13 — IL MOTORE PROPONE, LA PERSONA DECIDE
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Il motore non impone niente e non riempie da solo il campo ①: propone un
+     vano, dice PERCHÉ quello, e sta zitto se l'ubicazione scelta va bene.
+     Parla solo quando ha qualcosa da dire — un vano migliore, o un vincolo
+     che quello scelto viola.
+
+     LO SCAVALCO NON SI IMPEDISCE. Chi ha la merce in mano vede cose che il
+     sistema non sa: il motore consiglia, e se la scelta è un'altra si
+     registra il motivo. È l'unico dato che, fra tre mesi, dirà se le regole
+     valgono o se le sta scavalcando tutti allo stesso modo.
+
+     La regola sta in `modules/stoccaggio.ts`, i dati li raccoglie
+     `Store.proponiStoccaggio`. Qui c'è il riquadro e basta.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  _propostaCorrente: null,
+
+  _proponiVano() {
+    const box = $('mInProposta');
+    if (!box) return;
+    this._propostaCorrente = null;
+    const art = Validate.clean($('mInArtCode')?.value, true);
+    const lot = Validate.clean($('mInLot')?.value);
+    if (!art) { box.innerHTML = ''; return; }
+    const colli = parseInt($('mInQty')?.value, 10) || 1;
+
+    const esito = Store.proponiStoccaggio(art, lot, colli);
+    if (!esito) { box.innerHTML = ''; return; }
+    this._propostaCorrente = esito;
+
+    const scelto = Validate.clean($('mInLoc')?.value, true).replace(/'/g, '-');
+    const primo = esito.proposte[0];
+
+    /* Nessun posto passa i vincoli: è un'informazione, non un errore — la
+       merce si posiziona lo stesso, e chi lo fa deve sapere che nessuna
+       ubicazione mappata la accoglierebbe. */
+    if (!primo) {
+      box.innerHTML = `<div class="mov-preview mov-preview-warn mb-5">
+        <strong>🎯 Nessuna ubicazione soddisfa i vincoli</strong> per questa merce.
+        ${esito.esclusi.length ? `Il primo motivo: ${this._esc(esito.esclusi[0]!.messaggio)}.` : ''}
+        Si può posizionare comunque: il motivo resta a registro.
+      </div>`;
+      return;
+    }
+
+    /* L'ubicazione scelta È quella proposta: non si dice niente di più di un
+       segno di spunta. Un riquadro che parla anche quando tutto va bene si
+       smette di leggere. */
+    if (scelto && scelto === primo.location_code) {
+      box.innerHTML = `<div class="mov-preview mov-preview-ok mb-5">
+        <strong>🎯 ${this._esc(scelto)}</strong> è anche quella che il motore propone.
+      </div>`;
+      return;
+    }
+
+    const escluso = scelto ? esito.esclusi.find((e) => e.location_code === scelto) : null;
+    const perche = primo.perche.length
+      ? `<ul class="mt-2 mb-0 ml-8 p-0 text-body-small">${primo.perche.map((r: string) => `<li>${this._esc(r)}</li>`).join('')}</ul>`
+      : '';
+
+    box.innerHTML = `<div class="mov-preview ${escluso ? 'mov-preview-err' : ''} mb-5">
+      ${escluso
+        ? `<strong>⛔ ${this._esc(scelto)} non va bene:</strong> ${this._esc(escluso.messaggio)}.<br>`
+        : ''}
+      <strong>🎯 Proposta: <span class="mono">${this._esc(primo.location_code)}</span></strong>
+      ${perche}
+      <div class="flex gap-3 mt-4 flex-wrap">
+        <button class="btn btn-sm btn-primary" type="button" onclick="App._usaVanoProposto()">Usa ${this._esc(primo.location_code)}</button>
+        ${esito.proposte.length > 1
+          ? `<button class="btn btn-sm" type="button" onclick="App._altreProposte()">Altre ${esito.proposte.length - 1}</button>`
+          : ''}
+        ${esito.esclusi.length
+          ? `<button class="btn btn-sm" type="button" onclick="App._perchePropostaEsclusi()">Perché non altrove (${esito.esclusi.length})</button>`
+          : ''}
+      </div>
+      ${scelto && !escluso ? `<div class="form-group mt-4 mb-0">
+        <label class="text-label-small">Hai scelto ${this._esc(scelto)}: perché? (resta a registro)</label>
+        <input class="input" id="mInScavalco" maxlength="${Validate.MAX.REASON}" placeholder="Es: il muletto non arriva in quota">
+      </div>` : ''}
+    </div>`;
+  },
+
+  _usaVanoProposto() {
+    const primo = this._propostaCorrente?.proposte?.[0];
+    const campo = $('mInLoc');
+    if (!primo || !campo) return;
+    campo.value = primo.location_code;
+    this._previewLoc('mInLoc', 'mInLocPrev');
+    this._proponiVano();
+  },
+
+  _altreProposte() {
+    const p = this._propostaCorrente?.proposte || [];
+    if (p.length < 2) return;
+    this.showModal('🎯 Le altre ubicazioni possibili',
+      p.slice(1, 21).map((x: { location_code: string; punteggio: number; perche: string[] }) => `
+        <div class="inv-item-row">
+          <div class="inv-info">
+            <div class="inv-code">${this._esc(x.location_code)} <span class="badge badge-muted">${x.punteggio} punti</span></div>
+            <div class="inv-lot">${x.perche.length ? this._esc(x.perche.join(' · ')) : 'Nessun criterio a favore: passa i vincoli e basta'}</div>
+          </div>
+        </div>`).join('') +
+      (p.length > 21 ? `<div class="text-label-small text-sx-text-muted mt-4">…e altre ${p.length - 21}.</div>` : ''),
+      '<button class="btn" onclick="App.closeModal()">Chiudi</button>');
+  },
+
+  _perchePropostaEsclusi() {
+    const e = this._propostaCorrente?.esclusi || [];
+    if (!e.length) return;
+    this.showModal(`⛔ Perché queste ubicazioni no (${e.length})`,
+      e.slice(0, 40).map((x: { location_code: string; messaggio: string }) => `
+        <div class="inv-item-row">
+          <div class="inv-info">
+            <div class="inv-code">${this._esc(x.location_code)}</div>
+            <div class="inv-lot">${this._esc(x.messaggio)}</div>
+          </div>
+        </div>`).join('') +
+      (e.length > 40 ? `<div class="text-label-small text-sx-text-muted mt-4">…e altre ${e.length - 40}.</div>` : ''),
+      '<button class="btn" onclick="App.closeModal()">Chiudi</button>');
+  },
+
+  /* La riga da scrivere nel movimento quando la scelta non è la proposta.
+     Vuota se il motore è spento, se non ha proposto niente, o se il vano
+     scelto è proprio quello proposto. */
+  _notaScavalco(locScelta) {
+    const primo = this._propostaCorrente?.proposte?.[0];
+    if (!primo) return '';
+    return scavalcoStoccaggio(primo.location_code, locScelta,
+      Validate.clean($('mInScavalco')?.value)) || '';
+  },
+
   async _execPosiziona() {
     if (!this._requireOperator('il posizionamento')) return;   // v2.0.1 [B7]
     const loc = Validate.clean($('mInLoc')?.value, true).replace(/'/g, '-');
@@ -748,7 +861,10 @@ export const VistaPosiziona = {
     }
     if (!res.ok) return this.toast('Errore posizionamento', 'error');
     // v1.7.0 — log con qty info
-    await this._logMov(MOV.IN, art, effectiveDesc, lot, loc, null, '', '', '', res.qty_before, qty, res.qty_after, res.qty_uom_delta);
+    /* 1.13 — se il motore proponeva un altro vano, il motivo entra nel
+       movimento: è l'unico dato che dirà se le regole valgono. */
+    const scavalcato = this._notaScavalco(loc);
+    await this._logMov(MOV.IN, art, effectiveDesc, lot, loc, null, '', scavalcato, '', res.qty_before, qty, res.qty_after, res.qty_uom_delta);
 
     const fb = $('mInFeedback');
     const modeLabel = res.mode === 'incremented' ? `<span class="text-sx-warning">⊕ INCREMENTATO</span>` : '';

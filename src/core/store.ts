@@ -7,7 +7,7 @@ import type {
   Sito, Zona, Articolo, Giacenza, Movimento, Quarantena, DocumentoUscita,
   RigaDocumento, SessionePrelievo, ReportPrelievo, VerbaleSmaltimento,
   Operatore, Istante, Coordinate, GiacenzaRimossa, IngressoArticolo, Compito,
-  Lotto, Destinatario, Destinazione,
+  Lotto, Destinatario, Destinazione, Udc,
 } from '../types/entita';
 import {
   PRIORITA_NORMALE, ORE_URGENZA_DEFAULT, eAperto, ordinaCoda, componiCompito, validaRichiesta,
@@ -43,6 +43,20 @@ import {
   scelteDaMisure as scelteDaMisureColli, scelteDaUscite as scelteDaUsciteColli,
   type Scelta,
 } from '../modules/colli';
+import type { RigaArticolo } from '../modules/giacenzaArticolo';
+import {
+  nuovoCodice as nuovoCodiceUdc, prossimoSeriale as prossimoSerialeUdc,
+  eVuota as udcVuota, validaPrefisso as validaPrefissoGS1,
+} from '../modules/udc';
+import {
+  proponi as proponiStoccaggio, validaRegola as validaRegolaStoccaggio,
+} from '../modules/stoccaggio';
+import type { PostoCandidato, RegolaStoccaggio } from '../modules/stoccaggio';
+import { conto as contoWip, colliFuori as colliFuoriWip } from '../modules/wip';
+import {
+  perPersona as kpiPerPersona, perMovimento as kpiPerMovimento, perArticolo as kpiPerArticolo,
+} from '../modules/kpi';
+import type { Finestra } from '../modules/kpi';
 import { generaUbicazioni, codiciAttivi, costruisciGeometria } from './geometria';
 import { ordinaFEFO, primoFEFO, eFEFO, cercaGiacenze } from './giacenza';
 import {
@@ -53,17 +67,20 @@ import { statoUbicazione, contaStati, calcolaKPI } from './statistiche';
 import { verificaConformita } from '../modules/conformita';
 import { App } from '../ui/app.js';
 
-/* UN RILASCIO INSTALLATO NON E' UNA FUNZIONE ACCESA.
-   Le cinque della 1.4 entrano in magazzino a interruttore spento e si
-   accendono una alla volta, a inizio turno, su un magazzino alla volta. Se
-   qualcosa si muove nel verso sbagliato si spegne l'interruttore: non si
-   disinstalla niente e non si tocca il database.
+/* 2.0 — GLI INTERRUTTORI NON CI SONO PIU'.
 
-   Vivono in `meta` una chiave per una, e non in un unico record, proprio
-   perche' accenderne due nello stesso turno deve costare due gesti
-   distinti: se poi qualcosa si muove, si sa quale delle due e' stata. */
-const FEATURES = ['tasks', 'uom', 'colli', 'udc', 'putaway', 'wip'];
-const CHIAVE_FEATURE = (nome: string) => `feature.${nome}`;
+   Dalla 1.4 ogni funzione entrava in magazzino spenta e si accendeva una
+   alla volta: serviva a tornare indietro senza disinstallare, nei mesi in
+   cui il codice arrivava piu' in fretta di quanto il magazzino potesse
+   provarlo. Al 19/08/2026 tutte e sei erano accese in produzione, e un
+   interruttore che nessuno abbassa piu' non e' una via di ritorno: e' un
+   ramo di codice che nessuno percorre e che nessun collaudo esercita — cioe'
+   il posto dove un difetto vive piu' a lungo.
+
+   Le chiavi `feature.*` restano scritte in `meta` e non si cancellano —
+   nessun dato viene riscritto all'installazione, §6 — ma nessuno le legge
+   piu'. Una funzione che da' fastidio si toglie reinstallando il pacchetto
+   di prima, che dal 18/08 e' comunque l'unica via di ritorno intera. */
 
 const Store = {
   _assertPositiveInt(value: unknown, label: string = 'Quantità') {
@@ -286,60 +303,20 @@ const Store = {
       (a.last_name || a.initials || '').localeCompare(b.last_name || b.initials || '', 'it'));
     const metaObj: Record<string, any> = {};
     for (const m of metaRows) metaObj[m.key] = m.value;
-    const features: Record<string, boolean> = {};
-    for (const f of FEATURES) features[f] = metaObj[CHIAVE_FEATURE(f)] === true;
     this._cache.meta = {
       lastModified: metaObj.lastModified || null,
       unsavedChanges: metaObj.unsavedChanges || false,
       lastAutoBackup: metaObj.lastAutoBackup || null,
       docConfig: metaObj.docConfig || null,
-      features,                                  // 1.4.0 — assente = spento
-      featureLog: metaObj.featureLog || [],      // 1.4.1 — chi ha acceso cosa
       /* 1.4.2.1 — TRAPPOLA 22: una chiave di `meta` che non e' dichiarata qui
          vive in cache finche' qualcuno non ricarica, e poi sparisce. */
-      oreUrgenza: metaObj.oreUrgenza ?? null
+      oreUrgenza: metaObj.oreUrgenza ?? null,
+      /* 1.12 — il prefisso GS1. Vuoto = codici UDC interni; compilato =
+         SSCC veri. Dichiarato QUI per la trappola 22 qui sopra. */
+      udcPrefissoGS1: metaObj.udcPrefissoGS1 ?? '',
+      /* 1.14 — l'area del conto di produzione. Trappola 22: dichiarata qui. */
+      areaWip: metaObj.areaWip ?? ''
     };
-  },
-
-  /* ── Interruttori di funzione ───────────────────────────────────────── */
-
-  FEATURES,
-
-  /* Lettura sincrona: la chiama la UI a ogni render, e una funzione spenta
-     deve costare quanto costava non averla. */
-  isFeatureOn(nome: string) {
-    return this._cache.meta?.features?.[nome] === true;
-  },
-
-  async setFeature(nome: string, acceso: boolean) {
-    if (!FEATURES.includes(nome)) throw new Error(`Interruttore sconosciuto: ${nome}`);
-    const rec = { key: CHIAVE_FEATURE(nome), value: acceso === true };
-    await Persistence.put('meta', rec);
-    this._applyToCache('meta', 'put', rec);
-    if (!this._cache.meta.features) this._cache.meta.features = {};
-    this._cache.meta.features[nome] = acceso === true;
-    await this._logFeature(nome, acceso === true);
-    return acceso === true;
-  },
-
-  /* CHI HA ACCESO COSA, E QUANDO.
-     Serve a rispondere alla domanda che si fa il giorno dopo — «da quando si
-     comporta così?» — e a far vedere a chi sta per accendere il secondo
-     interruttore che il primo è di stamattina. Un elenco corto: le ultime
-     cinquanta, che sono dieci volte gli interruttori che esistono. */
-  FEATURE_LOG_KEY: 'featureLog',
-
-  getFeatureLog(): { nome: string; acceso: boolean; at: Istante; by: string }[] {
-    const v = (this._cache.meta as Record<string, any>)[this.FEATURE_LOG_KEY];
-    return Array.isArray(v) ? v : [];
-  },
-
-  async _logFeature(nome: string, acceso: boolean) {
-    const voce = { nome, acceso, at: Date.now(), by: this.getCurrentIdentity().initials || '' };
-    const elenco = [voce, ...this.getFeatureLog()].slice(0, 50);
-    const rec = { key: this.FEATURE_LOG_KEY, value: elenco };
-    await Persistence.put('meta', rec);
-    this._applyToCache('meta', 'put', rec);
   },
 
   /* Conteggio dei movimenti più vecchi della soglia di retention.
@@ -644,14 +621,6 @@ const Store = {
      La regola pura sta li'; qui c'e' solo cio' che scrive.
      ═══════════════════════════════════════════════════════════════════ */
 
-  /* A interruttore spento non si scrive un `qty_uom`, non nasce un `lots` e
-     una giacenza si comporta esattamente come nella 1.4.1. */
-  _assertUomOn() {
-    if (!this.isFeatureOn('uom')) {
-      throw new Error('Le unità di misura sono spente — si accendono in Configurazione → Funzioni');
-    }
-  },
-
   getLot(articleCode: string, lotCode: string) {
     return this._lotByKey.get(chiaveLotto(articleCode, lotCode)) || null;
   },
@@ -660,7 +629,6 @@ const Store = {
      fatto gia' successo, e i colli a scaffale sono imballati come allora.
      L'anagrafica si legge solo per il lotto che non e' mai stato posizionato. */
   getUomConfig(articleCode: string, lotCode: string): Configurazione | null {
-    if (!this.isFeatureOn('uom')) return null;
     return daLotto(this.getLot(articleCode, lotCode))
         ?? configurazioneUom(this.getArticle(articleCode));
   },
@@ -671,7 +639,6 @@ const Store = {
      viene riscritta all'installazione — e un articolo senza `uom` non congela
      niente, cioe' si comporta come nella 1.2. */
   async _congelaLotto(articleCode: string, lotCode: string, adesso: Istante = Date.now()) {
-    if (!this.isFeatureOn('uom')) return null;
     const gia = this.getLot(articleCode, lotCode);
     if (gia) return gia;
     const rec = congelaLotto(this.getArticle(articleCode), articleCode, lotCode, adesso);
@@ -718,15 +685,11 @@ const Store = {
 
   /* Senza le unita' di misura non c'e' niente da dichiarare: l'elenco e'
      fatto di quantita', e una quantita' senza unita' non e' un numero. */
-  colliOn() {
-    return this.isFeatureOn('colli') && this.isFeatureOn('uom');
-  },
-
   /* L'elenco di una riga, o la lettura onesta di una riga che non ce l'ha:
      colli PIENI piu' il resto, che e' esattamente ciò che la 1.7 mostrava.
      Nessuna riga viene riscritta finche' qualcuno non la muove. */
   colliDiRiga(item: Giacenza | null | undefined): number[] | null {
-    if (!item || !this.colliOn()) return null;
+    if (!item) return null;
     const cfg = this.getUomConfig(item.article_code, item.lot_code);
     if (!cfg) return null;
     return leggiColli(item.packs, cfg.uom)
@@ -737,7 +700,7 @@ const Store = {
      la usa lo storno, che deve togliere quelli e non altri della stessa
      misura comoda. `null` se la riga non porta un elenco. */
   scelteDaColli(item: Giacenza | null | undefined, misure: unknown): Scelta[] | null {
-    if (!item || !this.colliOn()) return null;
+    if (!item) return null;
     const cfg = this.getUomConfig(item.article_code, item.lot_code);
     if (!cfg) return null;
     return scelteDaMisureColli(this.colliDiRiga(item), misure, cfg.uom);
@@ -776,12 +739,34 @@ const Store = {
     return prelevaColli(elenco, scelteDaUsciteColli(elenco, impegnate, cfg.uom), cfg.uom).rimasti;
   },
 
+  /* 1.9 — LE RIGHE COME LE LEGGONO LE VISTE: colli, UM risolte e la
+     descrizione per esteso, in una forma che non e' piu' quella del
+     database. Sta qui e non nelle viste perche' la lettura delle UM e' una
+     sola — `_uomDiRiga` — e due letture della stessa riga sono due saldi. */
+  righeLette(items: readonly Giacenza[] | null | undefined): RigaArticolo[] {
+    if (!items?.length) return [];
+    return items.map(i => {
+      const cfg = this.getUomConfig(i.article_code, i.lot_code);
+      return {
+        location_code: i.location_code,
+        lot_code: i.lot_code,
+        item_key: i.item_key,
+        expiry_date: i.expiry_date || '',
+        placed_at: i.placed_at || 0,
+        colli: i.qty || 0,
+        uom_qty: this._uomDiRiga(i, cfg),
+        uom: cfg?.uom || null,
+        descrizione: this.descriviRiga(i),
+      };
+    });
+  },
+
   /* Le uscite scritte su un documento, ritrovate sulla riga di adesso: la
      usa l'evasione del DDT, che esegue una scelta fatta giorni prima. `null`
      se la riga non porta un elenco, o se il documento non porta le uscite —
      un DDT scritto prima della 1.8.4, e allora i colli si chiedono. */
   scelteDaUscite(item: Giacenza | null | undefined, messe: unknown): Scelta[] | null {
-    if (!item || !this.colliOn()) return null;
+    if (!item) return null;
     const cfg = this.getUomConfig(item.article_code, item.lot_code);
     if (!cfg) return null;
     return scelteDaUsciteColli(this.colliDiRiga(item), messe, cfg.uom);
@@ -811,10 +796,8 @@ const Store = {
        materializzata, e fra i due il dato vero e' quello che descrive i colli
        uno per uno. E' la stessa regola che il servizio applica nella
        transazione — se le due letture divergessero, divergerebbero i saldi. */
-    if (this.colliOn()) {
-      const elenco = leggiColli(item.packs, cfg.uom);
-      if (elenco) return totaleUomColli(elenco, cfg.uom);
-    }
+    const elenco = leggiColli(item.packs, cfg.uom);
+    if (elenco) return totaleUomColli(elenco, cfg.uom);
     if (!cfg.per_collo) return null;
     if (typeof item.qty_uom === 'number') return item.qty_uom;
     return uomDaColli(item.qty ?? 0, cfg.per_collo, cfg.uom);
@@ -835,7 +818,7 @@ const Store = {
        LEI: i colli sono quanti sono nell'elenco, e le UM sono la loro somma.
        Chi ha la merce in mano ha contato; `qty` e `qty_uom` qui diventano due
        conseguenze, e passarli diversi non li fa diventare veri. */
-    const packs = (packsIn && this.colliOn() && cfg) ? leggiColli(packsIn, cfg.uom) : null;
+    const packs = (packsIn && cfg) ? leggiColli(packsIn, cfg.uom) : null;
     const qtyAdd = packs ? packs.length : Store._assertPositiveInt(qty, 'Quantità da posizionare');
     const uomAdd = packs ? totaleUomColli(packs, cfg!.uom) : this._uomInIngresso(qtyAdd, qtyUom, cfg);
 
@@ -949,6 +932,7 @@ const Store = {
         this._applyToCache('inventory', 'put', item);
       }
       removed._packs_out = esito.usciti;
+      removed._packs_before = elenco;
       removed._packs_after = removed._mode === 'full' ? [] : (removed.packs ?? esito.rimasti);
       return removed;
     }
@@ -962,6 +946,7 @@ const Store = {
     removed._qty_uom_after = tutto ? 0 : uomAfter;
     removed._qty_uom_delta = -esito.uom;
     removed._packs_out = esito.usciti;
+    removed._packs_before = elenco;
     removed._packs_after = esito.rimasti;
 
     if (tutto) {
@@ -1015,10 +1000,43 @@ const Store = {
     if (idx === -1) return null;
     const item = bucket[idx]!;
     const qtyBefore = item.qty || 1;
+    /* 2.0 — L'UNITÀ DI CARICO MUORE QUANDO ESCE L'ULTIMA RIGA, e l'ultima
+       riga esce da qui: prelievo, spedizione, smaltimento, quarantena
+       passano tutti per `removeItem`. Fino alla 2.0 `chiudiUdcSeVuota` la
+       chiamava solo `assegnaAUdc`, cioè il caso in cui una riga viene
+       SCARICATA dal pallet — e un pallet svuotato prelevandolo restava
+       aperto per sempre, contato fra le unità in giro e ancora spostabile
+       benché non avesse più niente sopra. La chiave si legge adesso: fra un
+       attimo la riga non c'è più. */
+    const udcDellaRiga = item.udc_id ?? null;
 
     /* 1.8 — chi sceglie i colli passa di qua e non tocca il resto: senza
        scelte questa funzione e' quella della 1.7, riga per riga. */
-    if (scelte && this.colliOn()) return await this._prelevaColli(locationCode, item, scelte);
+    if (scelte) {
+      const esito = await this._prelevaColli(locationCode, item, scelte);
+      if (esito?._mode === 'full' && udcDellaRiga) await this.chiudiUdcSeVuota(udcDellaRiga);
+      return esito;
+    }
+
+    /* 2.0 — UNA RIGA CHE DICHIARA I COLLI NON SI SCARICA A NUMERO.
+
+       Senza scelte il servizio cala `qty` e lascia dov'erano `packs` e
+       `qty_uom`: la riga esce da qui dicendo tre colli con l'elenco di sette
+       e il peso di sette. E' la stessa incoerenza che la 1.8.4 ha chiuso su
+       documenti, inventario e campionamento — un saldo scritto sopra un
+       elenco rimasto indietro — e fino alla 2.0 rientrava dal conto di
+       produzione, che era l'unico chiamante a chiedere «togline tre».
+
+       Il rifiuto guarda `packs` DICHIARATI, non `colliDiRiga`: quella legge
+       un elenco anche dove nessuno l'ha mai scritto, e rifiutare li' vorrebbe
+       dire fermare la rettifica di inventario sulle righe della 1.7.
+
+       Lo svuotamento totale resta libero: la riga sparisce intera, e non
+       resta niente a cui l'elenco possa sopravvivere. */
+    if (qtyRemove !== null && qtyRemove < qtyBefore
+        && Array.isArray(item.packs) && item.packs.length) {
+      throw new Error(`${itemKey} in ${locationCode} dichiara i suoi colli: per toglierne ${qtyRemove} bisogna dire QUALI`);
+    }
 
     const cfg = this.getUomConfig(item.article_code, item.lot_code);
     const uomBefore = this._uomDiRiga(item, cfg);
@@ -1036,8 +1054,10 @@ const Store = {
            mai avuto — il servizio lo usa come seme e poi legge il proprio. */
         ...(uomOut === null ? {} : { qty_uom: uomOut, qty_uom_before: uomBefore }),
       });
-      if (removed._mode === 'full') this._applyToCache('inventory', 'delete', item);
-      else {
+      if (removed._mode === 'full') {
+        this._applyToCache('inventory', 'delete', item);
+        if (udcDellaRiga) await this.chiudiUdcSeVuota(udcDellaRiga);
+      } else {
         item.qty = removed._qty_after;
         if (typeof removed._qty_uom_after === 'number') item.qty_uom = removed._qty_uom_after;
         item.last_updated_at = Date.now();
@@ -1066,6 +1086,7 @@ const Store = {
       removed._qty_uom_before = uomBefore;
       removed._qty_uom_after = uomBefore === null ? null : 0;
       removed._qty_uom_delta = uomBefore === null ? null : -uomBefore;
+      if (udcDellaRiga) await this.chiudiUdcSeVuota(udcDellaRiga);
       return removed;
     }
 
@@ -1106,7 +1127,6 @@ const Store = {
      ═══════════════════════════════════════════════════════════════════ */
 
   async sampleItem(locationCode: string, itemKey: string, qtyUom: number, daCollo: number | null = null) {
-    this._assertUomOn();
     const bucket = this._invByLoc.get(locationCode) || [];
     const item = bucket.find(i => i.item_key === itemKey);
     if (!item) return null;
@@ -1509,9 +1529,55 @@ const Store = {
   },
 
   /* Attraversa TUTTO l'archivio a blocchi, senza materializzarlo.
-     Unici chiamanti legittimi: export Excel ed export JSON. */
+     Chiamanti legittimi: export Excel, export JSON, e i KPI qui sotto. */
   async eachMovement(fn: (blocco: Movimento[]) => void | Promise<void>, chunkSize: number = 5000) {
     return await Persistence.eachChunk('mov_log', { chunkSize }, fn);
+  },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     2.0 — I NUMERI DI ARTICOLI, MOVIMENTI E PERSONE
+
+     La regola sta in `modules/kpi.ts` ed è pura. Qui c'è solo il lavoro di
+     andare a prendere quello che le serve, e una decisione che vale più del
+     resto del blocco:
+
+     I KPI LEGGONO L'ARCHIVIO INTERO, NON LA FINESTRA DEL REGISTRO.
+     `getMovLog()` restituisce gli ultimi N giorni — è la finestra che tiene
+     leggera la cache, e va benissimo per il registro a video. Un KPI letto
+     da lì direbbe «nessun movimento» per il mese scorso, e chi legge non
+     avrebbe modo di distinguerlo da un mese senza lavoro. Si paga un giro su
+     tutto l'archivio, ed è il motivo per cui queste tre sono `async` mentre
+     `computeKPIs()` non lo è.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  async _movimentiInFinestra(finestra: Finestra | null): Promise<Movimento[]> {
+    const out: Movimento[] = [];
+    await this.eachMovement((blocco) => {
+      for (const m of blocco) {
+        if (!m) continue;
+        if (finestra && !(m.ts >= finestra.da && m.ts < finestra.a)) continue;
+        out.push(m);
+      }
+    });
+    return out;
+  },
+
+  /** Chi ha mosso cosa, e quanto ci ha messo. */
+  async kpiPersone(finestra: Finestra | null = null) {
+    return kpiPerPersona(await this._movimentiInFinestra(finestra), this._cache.tasks as Compito[], finestra);
+  },
+
+  /** I movimenti per causale, sito, ora e giorno. */
+  async kpiMovimenti(finestra: Finestra | null = null) {
+    return kpiPerMovimento(await this._movimentiInFinestra(finestra), finestra);
+  },
+
+  /** Gli articoli: rotazione, giacenza, fermi, scadenze, e quanta anagrafica
+      manca sotto la merce che si sta già muovendo. */
+  async kpiArticoli(opzioni: { finestra?: Finestra | null; giorniFermi?: number; giorniScadenza?: number } = {}) {
+    const finestra = opzioni.finestra ?? null;
+    return kpiPerArticolo(this._cache.inventory, await this._movimentiInFinestra(finestra),
+      this._cache.articles, { ...opzioni, finestra });
   },
 
   async quarantineItem(entry: Record<string, any>) {
@@ -1590,12 +1656,6 @@ const Store = {
   /* Un rilascio installato non e' una funzione accesa: a interruttore spento
      lo schedulatore non scrive una riga. La UI non lo mostra nemmeno, ma la
      guardia sta anche qui — l'interruttore e' una promessa sul database. */
-  _assertTasksOn() {
-    if (!this.isFeatureOn('tasks')) {
-      throw new Error('Lo schedulatore di attività è spento — si accende in Configurazione → Funzioni');
-    }
-  },
-
   getTasks() { return this._cache.tasks; },
   getTask(taskId: string) { return this._cache.tasks.find(t => t.task_id === taskId) || null; },
   getOpenTasks() { return this._cache.tasks.filter(eAperto); },
@@ -1625,6 +1685,501 @@ const Store = {
     return v;
   },
 
+  /* ═══════════════════════════════════════════════════════════════════
+     1.14 — IL CONTO DI PRODUZIONE
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     A interruttore acceso il prelievo per ordine non fa sparire la merce: la
+     porta nell'ubicazione WIP di quell'ordine. Da lì torna indietro quello
+     che avanza, e ciò che resta a ordine chiuso è il consumo reale.
+
+     LA MERCE RESTA IN GIACENZA, e non è un dettaglio: un vano WIP con dentro
+     quello che la produzione ha in mano è la sola forma in cui quel numero
+     esiste. Fino alla 1.13 quella merce non era da nessuna parte.
+
+     A INTERRUTTORE SPENTO QUESTO BLOCCO NON GIRA. `PICK` resta l'uscita di
+     sempre, e nessuna riga di `wip` nasce: è la ragione per cui la 1.14 si
+     installa a dicembre spenta.
+
+     La regola sta in `modules/wip.ts`, pura e collaudata.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  getAreaWip(): string {
+    return String((this._cache.meta as Record<string, any>).areaWip ?? '').trim();
+  },
+
+  async setAreaWip(area: string) {
+    const a = String(area ?? '').trim().toUpperCase();
+    /* Un'area che non esiste non si salva: il primo prelievo scriverebbe
+       giacenza in un vano che nessuno ha mappato, e la scoprirebbe chi va a
+       cercarla sulla mappa. */
+    /* L'AREA E' UN'UBICAZIONE VERA, non un prefisso. Un vano per ordine
+       vorrebbe dire mapparne uno a ogni ordine nuovo, e al banco il controllo
+       sul prefisso passava mentre la merce sarebbe finita in un vano che
+       nessuno aveva disegnato. A tenere distinti i conti sono le righe di
+       `wip`, che portano l'ordine. */
+    if (a && !this.locationExists(a)) {
+      throw new Error(`L'ubicazione ${a} non esiste: l'area WIP dev'essere un vano mappato`);
+    }
+    const rec = { key: 'areaWip', value: a };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    (this._cache.meta as Record<string, any>).areaWip = a;
+    return a;
+  },
+
+  getWipMovimenti() { return this._cache.wip; },
+
+  /** Il conto di un ordine: entrato, tornato, residuo. */
+  contoWip(odpNum: string) {
+    return contoWip(this._cache.wip as any[], odpNum);
+  },
+
+  /** Gli ordini che hanno un conto aperto, dal più recente. */
+  ordiniWipAperti(): string[] {
+    const visti = new Map<string, number>();
+    for (const m of this._cache.wip as any[]) {
+      if (!m?.odp_num) continue;
+      const t = Number(m.ts) || 0;
+      if (!visti.has(m.odp_num) || t > visti.get(m.odp_num)!) visti.set(m.odp_num, t);
+    }
+    return [...visti.entries()]
+      .filter(([odp]) => this.contoWip(odp).residuo !== 0)
+      .sort((a, b) => b[1] - a[1])
+      .map(([odp]) => odp);
+  },
+
+  /** La merce entra in lavorazione: si posiziona nel vano WIP dell'ordine e
+      il movimento resta scritto. Chi chiama l'ha già tolta dal suo vano —
+      questa funzione non toglie niente, aggiunge. */
+  async entraInWip(odpNum: string, riga: {
+    item_key: string; article_code: string; article_description?: string;
+    lot_code: string; expiry_date?: string; qty: number;
+    qty_uom?: number | null; uom?: string | null; packs?: number[] | null;
+  }) {
+    const dove = this.getAreaWip();
+    if (!dove) throw new Error('Area WIP non configurata — si imposta in Configurazione → Funzioni');
+    const res = await this.addItem(dove, riga.article_code, riga.article_description || '',
+      riga.lot_code, riga.expiry_date || '', `Ordine ${odpNum}`, riga.qty,
+      typeof riga.qty_uom === 'number' ? riga.qty_uom : null, riga.packs ?? null);
+    if (!res.ok) throw new Error(`Non è stato possibile portare ${riga.item_key} in ${dove}`);
+
+    /* 2.0 — I COLLI DEL CONTO SONO QUELLI CHE SI SONO MOSSI, non il calo
+       dello scaffale. I due numeri divergono ogni volta che un collo si
+       apre: prelevando 50,7 kg da `[25, 25, 25, 18.795]` escono TRE colli —
+       due interi e la parte del terzo — ma a scaffale i posti calano di due,
+       perché il terzo resta lì spaiato. Il chiamante passava il calo, e il
+       vano WIP nasceva con tre colli mentre il conto ne dichiarava due: alla
+       chiusura il conto chiedeva indietro meno merce di quanta ce ne fosse,
+       e l'ordine non si chiudeva più. `addItem` conta l'elenco: qui si conta
+       lo stesso elenco. */
+    const colliMossi = Array.isArray(riga.packs) && riga.packs.length ? riga.packs.length : riga.qty;
+    await this._scriviWip(odpNum, { ...riga, qty: colliMossi }, 'in', dove);
+    return { ...res, ok: true, location_code: dove };
+  },
+
+  /** Le misure dei colli che un ordine ha ancora nel vano WIP. Vedi
+      `colliFuori` in `modules/wip.ts`: il vano è uno e i conti sono le
+      righe, quindi i colli di un ordine si ritrovano per misura. */
+  colliFuoriWip(odpNum: string, itemKey: string): number[] {
+    return colliFuoriWip(this._cache.wip as any[], odpNum, itemKey);
+  },
+
+  /** La merce torna a magazzino: esce dal vano WIP e il conto lo registra.
+      Chi chiama la riposiziona dove va — anche qui, una cosa per volta.
+
+      SI ESCE COME SI ESCE DA OGNI ALTRO VANO: dicendo QUALI colli. Fino alla
+      2.0 questa era l'unica funzione che toglieva merce passando un numero
+      di colli senza le scelte, e su una riga che l'elenco lo dichiara il
+      servizio calava `qty` lasciando `packs` e `qty_uom` dov'erano: tre colli
+      che pesano quanto sette, e il consumo di produzione in UM che non
+      arrivava mai a registro. Se chi chiama non sceglie, le scelte si
+      ritrovano per misura da ciò che quell'ordine ha ancora fuori. */
+  async esceDaWip(odpNum: string, riga: {
+    item_key: string; article_code: string; article_description?: string;
+    lot_code: string; qty: number; qty_uom?: number | null; uom?: string | null;
+    packs?: number[] | null;
+  }, scelte: Scelta[] | null = null, verso: 'out' | 'consumo' = 'out') {
+    const dove = this.getAreaWip();
+    if (!dove) throw new Error('Area WIP non configurata');
+
+    const nelVano = (this._invByLoc.get(dove) || []).find(i => i.item_key === riga.item_key);
+    const elenco = this.colliDiRiga(nelVano);
+    let uscite = scelte;
+    let misure = Array.isArray(riga.packs) ? riga.packs : null;
+
+    if (elenco && !uscite) {
+      const fuori = this.colliFuoriWip(odpNum, riga.item_key);
+      /* Un reso parziale su misure diverse è una scelta, non un numero: chi
+         ha la merce in mano sa quale sacco sta riportando, e indovinare al
+         posto suo è come rifiutarlo — solo peggio, perché non si vede. */
+      if (fuori.length && riga.qty < fuori.length) {
+        throw new Error(`${riga.item_key}: quest'ordine ha ${fuori.length} colli in lavorazione di misure diverse — vanno scelti quali tornano`);
+      }
+      misure = fuori.length ? fuori : null;
+      uscite = misure ? this.scelteDaColli(nelVano, misure) : null;
+      if (misure && !uscite) {
+        throw new Error(`${riga.item_key}: i colli di ${odpNum} non si ritrovano più in ${dove} — un altro terminale ha mosso la riga`);
+      }
+    }
+
+    /* Le UM che escono si dichiarano sempre: derivarle dai colli pretende un
+       `pieces_per_pack` in anagrafica che oggi è vuoto su tutte le materie
+       prime, e senza quello `_uomInUscita` torna `null` e la riga non cala. */
+    const um = typeof riga.qty_uom === 'number' && riga.qty_uom > 0
+      ? riga.qty_uom
+      : (misure ? totaleUomColli(misure, this.getUomConfig(riga.article_code, riga.lot_code)?.uom ?? null) : null);
+
+    const tolti = await this.removeItem(dove, riga.item_key, uscite ? null : riga.qty, um, uscite);
+    if (!tolti) throw new Error(`${riga.item_key} non è più in ${dove}`);
+    await this._scriviWip(odpNum, {
+      ...riga,
+      qty: uscite ? Math.abs(tolti._qty_delta ?? riga.qty) : riga.qty,
+      qty_uom: typeof tolti._qty_uom_delta === 'number' ? Math.abs(tolti._qty_uom_delta) : (um ?? null),
+      packs: tolti._packs_out ?? misure ?? null,
+    }, verso, dove);
+    return tolti;
+  },
+
+  async _scriviWip(odpNum: string, riga: any, verso: 'in' | 'out' | 'consumo', dove: string) {
+    const rec = {
+      wip_id: `WIP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
+      odp_num: odpNum,
+      item_key: riga.item_key,
+      article_code: riga.article_code,
+      lot_code: riga.lot_code,
+      status: verso === 'in' ? 'open' : verso === 'consumo' ? 'consumed' : 'returned',
+      verso,
+      qty: Number(riga.qty) || 0,
+      qty_uom: typeof riga.qty_uom === 'number' ? riga.qty_uom : null,
+      uom: riga.uom ?? null,
+      /* Le misure dei colli mossi: senza, «rendi tre colli» su un vano che
+         ne contiene dodici di sei ordini diversi non ha una risposta. */
+      packs: Array.isArray(riga.packs) && riga.packs.length ? riga.packs : null,
+      location_code: dove,
+      user: this.getCurrentIdentity().initials,
+      ts: Date.now(),
+    };
+    await Persistence.add('wip', rec);
+    this._applyToCache('wip', 'put', rec);
+    await this._touchMeta();
+    return rec;
+  },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     1.13 — IL MOTORE DI STOCCAGGIO, ATTACCATO AI DATI
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     La regola sta in `modules/stoccaggio.ts` ed è pura. Qui c'è solo il
+     lavoro di raccogliere quello che le serve: le ubicazioni attive, gli
+     attributi della zona che le contiene, cosa c'è già dentro, e le regole
+     scritte in `storage_rules`.
+
+     GLI ATTRIBUTI DELLA ZONA SI LEGGONO UNA VOLTA PER ZONA, non una per
+     ubicazione: uno scaffale da trecento vani ha trecento volte gli stessi
+     quattro valori, e rileggerli è il modo di rendere lento un motore che
+     deve rispondere mentre qualcuno scansiona.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  getStorageRules(): RegolaStoccaggio[] { return this._cache.storageRules; },
+
+  async saveStorageRule(regola: Partial<RegolaStoccaggio>) {
+    const r = { ...regola } as RegolaStoccaggio;
+    if (!r.rule_id) r.rule_id = `SR-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
+    const errori = validaRegolaStoccaggio(r);
+    if (errori.length) throw new Error(errori.join(' · '));
+    r.attiva = r.attiva !== false;
+    r.priority = Number(r.priority) || 0;
+    await Persistence.put('storage_rules', r);
+    this._applyToCache('storage_rules', 'put', r);
+    await this._touchMeta();
+    return r;
+  },
+
+  async deleteStorageRule(ruleId: string) {
+    await Persistence.delete('storage_rules', ruleId);
+    this._applyToCache('storage_rules', 'delete', { rule_id: ruleId });
+    await this._touchMeta();
+    return true;
+  },
+
+  /** Dove si può mettere questa merce, e dove conviene. `null` a motore
+      spento: chi chiama non deve ricordarsi di controllare l'interruttore,
+      ma nemmeno ricevere una proposta che nessuno ha chiesto. */
+  proponiStoccaggio(articleCode: string, lotCode: string, colli: number = 1) {
+    const art = this._artByCode.get(String(articleCode ?? '').toUpperCase().trim());
+    if (!art) return null;
+
+    const geo = this.buildLocationGeometry();
+    const attributiZona = new Map<string, any>();
+    const posti: PostoCandidato[] = [];
+    const chiaveItem = `${String(articleCode).toUpperCase().trim()}#${String(lotCode ?? '').trim()}`;
+
+    for (const site of this.getSites()) {
+      for (const zona of (site.zones || []).filter((z: Zona) => z.active)) {
+        const kz = `${site.id}|${zona.id}`;
+        if (!attributiZona.has(kz)) {
+          attributiZona.set(kz, {
+            zone_name: zona.name,
+            temp_class: (zona as any).temp_class || null,
+            allergen_zone: (zona as any).allergen_zone === true,
+            allergens: Array.isArray((zona as any).allergens) ? (zona as any).allergens : null,
+          });
+        }
+        const attr = attributiZona.get(kz);
+        const ubicazioni = this.generateLocations(site.id, zona.id);
+        ubicazioni.forEach((loc: { code: string }, indice: number) => {
+          const dentro = this._invByLoc.get(loc.code) || [];
+          const stato = this.getLocationStatus(loc.code);
+          posti.push({
+            location_code: loc.code,
+            site_id: site.id,
+            zone_id: zona.id,
+            zone_name: attr.zone_name,
+            status: stato,
+            allergen_zone: attr.allergen_zone,
+            allergens: attr.allergens,
+            temp_class: attr.temp_class,
+            /* Come in `conformita`: «Riservata» è una decisione presa su un
+               vano preciso, e deroga sugli allergeni. */
+            riservata: stato === 'reserved',
+            capienza: (zona as any).capienza ?? null,
+            occupati: dentro.reduce((t: number, r: Giacenza) => t + (r.qty || 0), 0),
+            stesso_articolo: dentro.some((r: Giacenza) => r.article_code === art.code),
+            stesso_lotto: dentro.some((r: Giacenza) => r.item_key === chiaveItem),
+            /* La distanza è la posizione nella sequenza della zona, che è
+               già l'ordine in cui la corsia si percorre: non è un metro, è
+               un passo, e serve solo a ordinare fra pari. */
+            distanza: indice,
+          });
+        });
+      }
+    }
+    void geo;
+
+    return proponiStoccaggio({
+      article_code: art.code,
+      description: art.description,
+      allergens: Array.isArray((art as any).allergens) ? (art as any).allergens : [],
+      temp_class: (art as any).temp_class || null,
+      lot_code: lotCode,
+      colli: Number(colli) || 0,
+    }, posti, this._cache.storageRules);
+  },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     1.12 — LE UNITÀ DI CARICO
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Un'UDC è un contenitore che sta in un'ubicazione e porta la merce con
+     sé. La colonna `inventory.udc_id` esiste dalla 1.4 ed è sempre stata
+     vuota; la collezione `udc` pure. Qui si riempiono.
+
+     NASCE SU COMANDO, MUORE DA SOLA. Crearne una è un gesto di chi ha il
+     pallet davanti; svuotarla no — quando l'ultima riga esce, il
+     contenitore è vuoto e va chiuso senza che nessuno se ne debba
+     ricordare. Un'UDC vuota che resta in elenco è la «lista che invecchia»:
+     chi cerca un pallet libero ne troverebbe cento che non esistono più.
+
+     IL RECORD RESTA, E IL CODICE NON SI RIUSA MAI. Un'UDC chiusa è storia —
+     la tracciabilità GMP non ammette che sparisca — e due pallet con lo
+     stesso codice sono due tracciabilità sovrapposte.
+
+     La regola del codice sta in `modules/udc.ts`, e si collauda da fermo.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  getUdcList(): Udc[] { return this._cache.udc; },
+  getUdc(id: string): Udc | null {
+    return this._cache.udc.find(u => u.udc_id === id) || null;
+  },
+  /** Le UDC vive, cioè quelle che si possono ancora riempire o spostare. */
+  getUdcAperte(): Udc[] {
+    return this._cache.udc.filter(u => u.status !== 'empty' && u.status !== 'shipped');
+  },
+  getUdcInLocation(locationCode: string): Udc[] {
+    return this.getUdcAperte().filter(u => u.location_code === locationCode);
+  },
+  /** Le righe di giacenza che stanno sopra un'unità di carico. */
+  righeDiUdc(id: string): Giacenza[] {
+    if (!id) return [];
+    return this._cache.inventory.filter(i => i.udc_id === id);
+  },
+
+  /** Il prefisso GS1, che è un parametro e non una costante del sorgente:
+      vuoto, i codici sono interni; compilato, sono SSCC. */
+  getPrefissoGS1(): string {
+    return String((this._cache.meta as Record<string, any>).udcPrefissoGS1 ?? '').trim();
+  },
+
+  async setPrefissoGS1(prefisso: string) {
+    const p = String(prefisso ?? '').trim();
+    const errori = validaPrefissoGS1(p);
+    if (errori.length) throw new Error(errori.join(' · '));
+    const rec = { key: 'udcPrefissoGS1', value: p };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    (this._cache.meta as Record<string, any>).udcPrefissoGS1 = p;
+    return p;
+  },
+
+  /* Il seriale successivo si ricava dal PIÙ ALTO già emesso, comprese le UDC
+     morte: i buchi non si riempiono, e un numero saltato è un'unità nata e
+     morta. Contare quelle vive darebbe un codice già usato. */
+  _prossimoSerialeUdc(): number {
+    let massimo = 0;
+    for (const u of this._cache.udc) {
+      const n = Number(u.serial ?? 0);
+      if (Number.isFinite(n) && n > massimo) massimo = n;
+    }
+    return prossimoSerialeUdc(massimo);
+  },
+
+  async createUdc(dati: { type?: string; location_code?: string; site_id?: string } = {}) {
+    const seriale = this._prossimoSerialeUdc();
+    const codice = nuovoCodiceUdc(this.getPrefissoGS1(), seriale);
+    if (!codice) {
+      throw new Error('Non è più possibile emettere un codice: il seriale ha esaurito le cifre disponibili');
+    }
+    const io = this.getCurrentIdentity();
+    const rec: Udc = {
+      udc_id: codice,
+      serial: seriale,
+      type: dati.type || 'pallet',
+      location_code: dati.location_code || '',
+      site_id: dati.site_id || '',
+      status: 'open',
+      /* `sscc` porta il codice SOLO quando è davvero un SSCC: un codice
+         interno in quel campo verrebbe letto come tale da chi lo esporta. */
+      sscc: this.getPrefissoGS1() ? codice : null,
+      created_at: Date.now(),
+      created_by: io.initials || '',
+      closed_at: null,
+      emptied_at: null,
+    };
+    await Persistence.add('udc', rec);
+    this._applyToCache('udc', 'put', rec);
+    await this._touchMeta();
+    return rec;
+  },
+
+  /** Mette una riga di giacenza sopra un'unità di carico, o la toglie
+      passando `null`. La riga resta dov'è: cambia di chi è, non dove sta. */
+  async assegnaAUdc(locationCode: string, itemKey: string, udcId: string | null) {
+    const bucket = this._invByLoc.get(locationCode) || [];
+    const item = bucket.find(i => i.item_key === itemKey);
+    if (!item) throw new Error(`${itemKey} non è in ${locationCode}`);
+    if (udcId) {
+      const u = this.getUdc(udcId);
+      if (!u) throw new Error(`${udcId} non esiste`);
+      if (u.status === 'empty' || u.status === 'shipped') {
+        throw new Error(`${udcId} è ${u.status}: non si riempie più`);
+      }
+      /* Un'UDC sta in UN'ubicazione: caricarci sopra merce che sta altrove
+         vorrebbe dire un contenitore in due posti. */
+      if (u.location_code && u.location_code !== locationCode) {
+        throw new Error(`${udcId} sta in ${u.location_code}, non in ${locationCode}`);
+      }
+      if (!u.location_code) await this._patchUdc(udcId, { location_code: locationCode });
+    }
+    const precedente = item.udc_id || null;
+    item.udc_id = udcId || undefined;
+    item.last_updated_at = Date.now();
+    await Persistence.put('inventory', item);
+    this._applyToCache('inventory', 'put', item);
+    /* Togliendo l'ultima riga, il contenitore di prima resta vuoto: si
+       chiude adesso, non alla prossima occasione. */
+    if (precedente && precedente !== udcId) await this.chiudiUdcSeVuota(precedente);
+    await this._touchMeta();
+    return item;
+  },
+
+  async _patchUdc(id: string, campi: Partial<Udc>) {
+    const u = this.getUdc(id);
+    if (!u) return null;
+    const agg = { ...u, ...campi, updated_at: Date.now() } as Udc;
+    await Persistence.put('udc', agg);
+    this._applyToCache('udc', 'put', agg);
+    return agg;
+  },
+
+  /** Se non ha più niente sopra, l'unità di carico si chiude. Il record
+      resta, con l'istante in cui è rimasta vuota. */
+  async chiudiUdcSeVuota(id: string) {
+    const u = this.getUdc(id);
+    if (!u || u.status === 'empty' || u.status === 'shipped') return null;
+    if (!udcVuota(this.righeDiUdc(id))) return null;
+    return await this._patchUdc(id, { status: 'empty', emptied_at: Date.now() });
+  },
+
+  /** Lo spostamento: l'unità e tutte le sue righe cambiano ubicazione
+      insieme, o non cambia niente. Sul servizio è una transazione sola —
+      `/api/op/moveUdc` — e il perché sta scritto lì. */
+  async moveUdc(id: string, destinazione: string, movimento: unknown = null) {
+    const dest = String(destinazione ?? '').trim().toUpperCase();
+    const u = this.getUdc(id);
+    if (!u) throw new Error(`${id} non esiste`);
+    if (u.status === 'empty' || u.status === 'shipped') {
+      throw new Error(`${id} è ${u.status}: non si sposta più`);
+    }
+    if (!dest) throw new Error('Indica l’ubicazione di destinazione');
+    if (u.location_code === dest) throw new Error(`${id} è già in ${dest}`);
+    if (!this.locationExists(dest)) throw new Error(`Ubicazione ${dest} inesistente`);
+
+    const righe = this.righeDiUdc(id);
+    /* La stessa guardia del servizio, davanti invece che dietro: qui c'è la
+       cache e si può dire di no PRIMA di far partire una transazione. Il
+       perché — due righe con la stessa chiave nello stesso vano, e un saldo
+       che dipende dall'ordine di caricamento — sta in `/api/op/moveUdc`, e
+       lì resta anche se questa sparisse. */
+    const gia = this._invByLoc.get(dest) || [];
+    const scontro = [...new Set(
+      gia.filter(r => r.udc_id !== id && righe.some(n => n.item_key === r.item_key))
+         .map(r => r.item_key))];
+    if (scontro.length) {
+      throw new Error(`In ${dest} c'è già ${scontro.join(', ')} fuori da questa unità: sposta prima quella riga, o caricala sull'unità`);
+    }
+
+    if (Persistence.supportsRemoteOps) {
+      const esito = await Persistence.op!<{ ok: boolean; from: string; to: string; righe: number }>(
+        'moveUdc', { udc_id: id, to: dest, movement: movimento });
+      /* La cache si riallinea su ciò che il servizio ha fatto davvero: è la
+         stessa regola di `removeItem`, e la ragione è la stessa — due
+         terminali sulla stessa merce.
+
+         2.0 — SI SCRIVE UNA RIGA NUOVA, NON SI MODIFICA QUELLA IN CACHE.
+         `indicizzaGiacenza` toglie la riga dal bucket del vano vecchio
+         confrontando `prev.location_code` con quello nuovo, e `prev` lo
+         ritrova per `_id` dentro la cache: cambiando l'ubicazione
+         sull'oggetto che LA CACHE GIÀ TIENE, `prev` e `next` diventano lo
+         stesso oggetto, il confronto non trova differenze e la riga resta
+         anche di là. Al banco l'unità si spostava e la merce risultava in
+         due vani insieme — il servizio aveva ragione, l'indice del client
+         no, e il saldo per ubicazione diceva il doppio. */
+      const ora = Date.now();
+      for (const r of righe) {
+        this._applyToCache('inventory', 'put', { ...r, location_code: dest, last_updated_at: ora });
+      }
+      this._applyToCache('udc', 'put', { ...u, location_code: dest, updated_at: ora });
+      return esito;
+    }
+
+    /* Da file, senza servizio: non c'è una transazione da chiedere a
+       nessuno, e l'ordine è quello che lascia il danno minore se si
+       interrompe — prima le righe, poi il contenitore. Un contenitore che
+       dice ancora il vano vecchio si corregge riaprendo lo spostamento;
+       righe sparpagliate no. */
+    const da = u.location_code || '';
+    for (const r of righe) {
+      /* Riga nuova e non modificata, per la ragione scritta qui sopra. */
+      const spostata = { ...r, location_code: dest, last_updated_at: Date.now() };
+      await Persistence.put('inventory', spostata);
+      this._applyToCache('inventory', 'put', spostata);
+    }
+    await this._patchUdc(id, { location_code: dest });
+    await this._touchMeta();
+    return { ok: true, from: da, to: dest, righe: righe.length };
+  },
+
   /** La coda, nell'ordine in cui si prende il prossimo. */
   getTaskQueue(adesso: number = Date.now()) {
     return ordinaCoda(this._cache.tasks, adesso, this.getOreUrgenza());
@@ -1638,7 +2193,6 @@ const Store = {
   },
 
   async createTask(richiesta: RichiestaCompito) {
-    this._assertTasksOn();
     const io = this.getCurrentIdentity();
     const r: RichiestaCompito = { ...richiesta, requested_by: richiesta.requested_by || io.initials };
     const errori = validaRichiesta(r);
@@ -1677,7 +2231,6 @@ const Store = {
     dati: { location_code: string; article_code?: string; lot_code?: string;
             sample_ref?: string | null; automatica?: boolean; note?: string },
   ) {
-    if (!this.isFeatureOn('tasks')) return null;
     const io = this.getCurrentIdentity();
     const sigla = String(io.initials ?? '').toUpperCase().trim();
     if (!sigla) return null;
@@ -1719,7 +2272,6 @@ const Store = {
      deve costare un errore in faccia a chi la chiede, non una riga strana
      che qualcuno leggera' fra un mese. */
   async _moveTask(taskId: string, nuovo: string, patch: Partial<Compito> = {}) {
-    this._assertTasksOn();
     const cur = this.getTask(taskId);
     if (!cur) throw new Error('Attività non trovata');
     if (!transizioneAmmessa(cur.status, nuovo)) {
@@ -1792,7 +2344,6 @@ const Store = {
      ═══════════════════════════════════════════════════════════════════ */
 
   async advanceTask(taskId: string, colli: number, movIds: number[] = []) {
-    this._assertTasksOn();
     const cur = this.getTask(taskId);
     if (!cur) throw new Error('Attività non trovata');
     if (cur.status !== 'in_progress') {
@@ -1830,7 +2381,6 @@ const Store = {
      storia, e' un ripensamento. Chi l'aveva in mano ce l'ha ancora, quindi
      si torna ad «assegnato» e non in coda. */
   async abandonTask(taskId: string) {
-    this._assertTasksOn();
     const cur = this.getTask(taskId);
     if (!cur) throw new Error('Attività non trovata');
     if (!avvioRitirabile(cur)) return cur;
@@ -1849,7 +2399,6 @@ const Store = {
   },
 
   async setTaskPriority(taskId: string, priorita: number) {
-    this._assertTasksOn();
     const p = Number(priorita);
     if (!Number.isInteger(p) || p < 1 || p > 4) throw new Error('La priorità è un numero da 1 a 4');
     const io = this.getCurrentIdentity();

@@ -5,6 +5,7 @@ import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 import { descriviColli as descriviElenco, preleva as prelevaElenco } from '../../modules/colli';
+import { VERSIONE_APP } from '../../core/pacchetto';
 
 /* Dove altro sta lo stesso lotto, quando lo scarico non lo trova qui. */
 type Alternativa = { location_code: string; item_key: string; qty_available: number };
@@ -495,7 +496,8 @@ export const VistaSmaltimento = {
       [{ op: 'add', loc, art: removed.article_code, desc: removed.article_description,
          lot: removed.lot_code, exp: removed.expiry_date || '', notes: removed.notes || '',
          qty: colliUsciti ? colliUsciti.length : qtyOut,
-         qty_uom: this._umMossa(removed), packs: colliUsciti }]);
+         qty_uom: this._umMossa(removed), packs: colliUsciti,
+         packs_prima: removed._packs_before ?? null }]);
 
     const snap = {
       doc_id: verbale,
@@ -565,6 +567,11 @@ export const VistaSmaltimento = {
       <div class="doc-hr"></div>`;
   },
 
+  /* 1.9 — IL NUMERO DI VERSIONE NEL PIEDE LO PORTA LA BUILD. Era scritto a
+     mano e fermo a «1.7» su ogni foglio — DDT, verbali, cartellini, report —
+     mentre in servizio girava la 1.8.3: su carta che va in audit un numero
+     sbagliato e' un difetto, e index.html aveva gia' smesso di scriverlo a
+     mano il 18/08. */
   _docPageHTML({ kind, kindSub, numLabel, num, dateLabel, dateVal, sender = null,
                  headExtra = '', body = '', signs = [], docId = '',
                  watermark = '', pageClass = '', printedLabel = 'stampato il' }) {
@@ -587,7 +594,7 @@ export const VistaSmaltimento = {
       <footer class="doc-zone-foot">
         ${firme}
         <div class="pr-footer">
-          <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder 1.7 — Dietopack S.r.l. / Naturacare Group</span>
+          <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder ${VERSIONE_APP} — Dietopack S.r.l. / Naturacare Group</span>
           <span>${this._esc(docId)} — ${this._esc(printedLabel)} ${this._esc(fmt)}</span>
         </div>
       </footer>

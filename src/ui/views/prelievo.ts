@@ -22,6 +22,7 @@ export const VistaPrelievo = {
         <button class="prel-tab ${this._pickSubMode === 'cambio' ? 'active' : ''}" onclick="App._pickSub('cambio')"><span class="prel-tab-icon">🔄</span>Trasferimento</button>
         <button class="prel-tab ${this._pickSubMode === 'produzione' ? 'active' : ''}" onclick="App._pickSub('produzione')"><span class="prel-tab-icon">🏭</span>Prelievo Produzione</button>
         <button class="prel-tab ${this._pickSubMode === 'ordine' ? 'active' : ''}" onclick="App._pickSub('ordine')"><span class="prel-tab-icon">🧭</span>Da Ordine (XLSX)</button>
+        <button class="prel-tab ${this._pickSubMode === 'wip' ? 'active' : ''}" onclick="App._pickSub('wip')"><span class="prel-tab-icon">🏗</span>Conto produzione</button>
       </div>
       <div id="pickSubForm"></div>
       <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
@@ -46,6 +47,7 @@ export const VistaPrelievo = {
     if (this._pickSubMode === 'cambio') this._formCambio(el);
     else if (this._pickSubMode === 'produzione') this._formProduzione(el);
     else if (this._pickSubMode === 'ordine') this._formOrdine(el);   // v2.5.0
+    else if (this._pickSubMode === 'wip') this._formWip(el);         // 1.14
   },
 
   // ── 3A. CAMBIO UBICAZIONE ──
@@ -539,7 +541,8 @@ export const VistaPrelievo = {
       const removed = await Store.removeItem(it.location_code, it.item_key, qtyPick, null, sceltePick);
       if (!removed) { failedAt = i; break; }
       results.push({ ...it, _qty_before: removed._qty_before, _qty_delta: removed._qty_delta, _qty_after: removed._qty_after, _mode: removed._mode,
-                     _qty_uom_delta: removed._qty_uom_delta ?? null, _packs_out: removed._packs_out ?? null });
+                     _qty_uom_delta: removed._qty_uom_delta ?? null, _packs_out: removed._packs_out ?? null,
+                     _packs_before: removed._packs_before ?? null });
     }
     if (failedAt !== -1) {
       // Rollback: per ogni item processato, se era partial → reincrementa, se era full → restoreItem
@@ -560,14 +563,54 @@ export const VistaPrelievo = {
     for (const it of results) {
       await this._logMov(MOV.PICK, it.article_code, it.article_description, it.lot_code, it.location_code, null, this._prodOperator, '', this._prodOrderNum, it._qty_before, it._qty_delta, it._qty_after, it._qty_uom_delta);
     }
+    /* ═══ 1.14 — LA MERCE NON SPARISCE: VA NEL CONTO DELL'ORDINE ═══
+       Il prelievo di produzione e' un trasferimento verso l'ubicazione WIP, e
+       la merce resta in giacenza li' finche' non torna o finche' l'ordine non
+       si chiude.
+
+       Se il conto non riesce, il prelievo NON si annulla: la merce e' gia'
+       fuori dallo scaffale, e rimetterla dentro per un problema di
+       contabilita' sarebbe muovere merce vera per un numero. Si dice, e si
+       lascia la riga a registro. */
+    {
+      const falliti = [];
+      for (const it of results) {
+        try {
+          await Store.entraInWip(this._prodOrderNum, {
+            item_key: it.item_key, article_code: it.article_code,
+            article_description: it.article_description, lot_code: it.lot_code,
+            expiry_date: it.expiry_date || '',
+            qty: Math.abs(it._qty_delta || it.qty_pick || 1),
+            qty_uom: this._umMossa(it), uom: Store.getUomConfig(it.article_code, it.lot_code)?.uom ?? null,
+            packs: it._packs_out ?? null,
+          });
+        } catch (e) {
+          falliti.push(`${it.article_code}#${it.lot_code}: ${(e as Error).message}`);
+        }
+      }
+      if (falliti.length) {
+        this.toast(`Conto di produzione incompleto — ${falliti[0]}. Il prelievo resta valido.`, 'error');
+      }
+    }
+
     // v2.1.0 — storno del batch entro la finestra temporale
+    /* 2.0 — L'AZIONE DI ANNULLAMENTO PORTA I COLLI, non solo un numero.
+       Senza `packs` lo storno rimetteva colli PIENI su una riga che l'elenco
+       lo dichiara: `addItem` alzava `qty` e `qty_uom` e lasciava `packs`
+       com'era, e da lì in poi la riga diceva un numero e l'elenco un altro.
+       `qty` si conta sull'elenco e non sul calo dello scaffale: aprendo un
+       collo i due numeri divergono — è lo stesso difetto chiuso nel conto
+       di produzione. E `packs_prima` serve a richiudere il collo aperto
+       invece di accodarne uno nuovo. */
     this._pushUndo(`Prelievo produzione ord. ${this._prodOrderNum} (${results.length} lotti)`,
       results.map(it => ({
         op: 'add', loc: it.location_code, art: it.article_code,
         desc: it.article_description, lot: it.lot_code,
         exp: it.expiry_date || '', notes: it.notes || '',
-        qty: Math.abs(it._qty_delta || it.qty_pick || 1),
-        qty_uom: this._umMossa(it)          // 1.4.2 — vedi _umMossa
+        qty: it._packs_out?.length || Math.abs(it._qty_delta || it.qty_pick || 1),
+        qty_uom: this._umMossa(it),          // 1.4.2 — vedi _umMossa
+        packs: it._packs_out ?? null,
+        packs_prima: it._packs_before ?? null,
       })));
     this.toast(`✓ Prelevati ${results.length} lotti (${totalColli} Coll.) per ord. ${this._prodOrderNum}`, 'success');
     this.updateSyncIndicator();

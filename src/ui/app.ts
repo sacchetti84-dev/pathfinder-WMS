@@ -9,7 +9,9 @@ import { Session } from '../modules/session';
 import { Feedback } from './feedback';
 import { Dialog } from './dialog';
 import { Tabs } from './tabs';
+import { classifica, classeCSS, classiPossibili, eAndroid, LARGHEZZA_TERMINALE, LARGHEZZA_TAVOLETTA } from '../modules/dispositivo';
 import { Store } from '../core/store';
+import { rettifica as rettificaColli } from '../modules/colli';
 import type { Operatore } from '../types/entita';
 
 /* IL CAMPO CHE LA MASCHERA HA APPENA DISEGNATO.
@@ -42,6 +44,15 @@ type AzioneAnnulla = {
   notes?: string;
   qty_uom?: number | null;
   packs?: number[] | null;
+  /** 2.0 — l'elenco COM'ERA prima dell'operazione. Rimettere a posto un
+      collo aperto non è aggiungerne uno: prelevando 10 KG da un collo da 25
+      e stornando, `addItem` accodava un collo NUOVO da 10 e lo scaffale
+      passava da tre colli a quattro. Il totale tornava — 56 KG prima, 56
+      dopo — e l'elenco no, che è la forma peggiore di un saldo sbagliato:
+      quella che si scopre contando. Con questo, lo storno RIDICHIARA la
+      riga com'era, e la differenza la traduce `rettifica` — la stessa
+      strada dell'inventario e della conta. */
+  packs_prima?: number[] | null;
 };
 
 type VoceAnnulla = { label: string; actions: AzioneAnnulla[]; ts: number };
@@ -57,6 +68,8 @@ import { VistaPrelievo } from './views/prelievo';
 import { VistaPercorso } from './views/percorso';
 import { VistaRapportoPrelievo } from './views/rapportoPrelievo';
 import { VistaInventario } from './views/inventario';
+import { VistaUdc } from './views/udc';
+import { VistaWip } from './views/wip';
 import { VistaQuarantena } from './views/quarantena';
 import { VistaSpedizioni } from './views/spedizioni';
 import { VistaDocumento } from './views/documento';
@@ -106,7 +119,6 @@ interface DalleViste {
   _recoveryQueue(): unknown[];
   _saveCheckpoint(): Promise<void>;
   _scheduleVaultBackup(): Promise<void>;
-  _syncFeatureNav(): void;
   _onReadOnlyChange(readOnly: boolean): void;
   _blockedByReadOnly(): boolean;
   _refreshSessionLog(): void;
@@ -324,7 +336,6 @@ const App = monolite({
     this._syncHeaderHeight();                 // v2.7.0 [G3]
     window.addEventListener('resize', debounce(() => this._syncHeaderHeight(), 120));
     this.renderSidebar();
-    this._syncFeatureNav();                   // 1.4 — le voci che dipendono da un interruttore
     this._renderOperatorBadge();
     // Primo avvio con DB vuoto → porta direttamente alla configurazione
     if (Store.getSites().length === 0) {
@@ -339,6 +350,21 @@ const App = monolite({
     /* v2.8.0 [H6] — Se un'altra scheda sta gia' scrivendo, questa passa in
        sola lettura invece di lavorare su una cache che invecchia in silenzio. */
     Tabs.init((ro) => this._onReadOnlyChange(ro));
+
+    /* 1.11 — su che cosa sta girando. La classe finisce sul body e gira la
+       manopola della densita'; le regole stanno in `01-layout.css`. */
+    this._applicaDispositivo();
+    /* TRE SORGENTI, e non e' abbondanza. `matchMedia` e' l'unica che scatta
+       DAVVERO quando la larghezza attraversa una soglia — ed e' il solo
+       momento in cui l'interfaccia deve cambiare; `resize` non arriva in
+       tutti i casi (una tastiera virtuale che si apre cambia l'altezza e
+       basta) e `orientationchange` su Android precede la misura nuova. */
+    for (const soglia of [LARGHEZZA_TERMINALE, LARGHEZZA_TAVOLETTA]) {
+      window.matchMedia(`(max-width: ${soglia}px)`)
+        .addEventListener('change', () => this._applicaDispositivo());
+    }
+    window.addEventListener('resize', debounce(() => this._applicaDispositivo(), 200));
+    window.addEventListener('orientationchange', () => setTimeout(() => this._applicaDispositivo(), 120));
 
     await this._flushRecoveryQueue();
     this._renderRecoveryBanner();
@@ -837,6 +863,33 @@ const App = monolite({
   },
 
   // ── Routing views ──
+  /* 1.11 — LA CLASSE DEL DISPOSITIVO SUL BODY.
+     Si rifa' a ogni ridimensionamento e a ogni rotazione: un terminale che
+     gira passa da 400 a 533 px, e restare sull'interfaccia di prima
+     vorrebbe dire tenere il layout stretto su uno schermo che non lo e'
+     piu'. La regola sta in `modules/dispositivo.ts`, qui c'e' solo il
+     gesto. */
+  _dispositivo: 'scrivania',
+
+  _applicaDispositivo() {
+    const classe = classifica({
+      userAgent: navigator.userAgent,
+      larghezza: window.innerWidth,
+      altezza: window.innerHeight,
+      touch: (navigator.maxTouchPoints || 0) > 0,
+    });
+    if (classe === this._dispositivo && document.body.classList.contains(classeCSS(classe))) return;
+    this._dispositivo = classe;
+    document.body.classList.remove(...classiPossibili());
+    document.body.classList.add(classeCSS(classe));
+    /* Android si registra ma non decide il layout: serve a chi legge un
+       registro per sapere da che macchina e' arrivato un gesto. */
+    document.body.classList.toggle('dispositivo-android', eAndroid(navigator.userAgent));
+    /* La mappa e' disegnata su misura del contenitore: cambiata la densita',
+       va ridisegnata o resta della misura di prima. */
+    if (this.currentView === 'map' && this.currentSite) this.renderMap();
+  },
+
   switchView(view: string) {
     this.currentView = view;
     if (view === 'dashboard') this._showRegistry = false;
@@ -1320,9 +1373,41 @@ const App = monolite({
           /* 1.8 — e se lo storno conosce i colli usciti li rimette uno per
              uno: `a.packs` porta anche il collo che era stato aperto, che
              derivato dai colli pieni tornerebbe intero. */
-          const r = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', a.qty, a.qty_uom ?? null, a.packs ?? null);
-          await this._logMov(MOV.FIX_IN, a.art, a.desc || '', a.lot, a.loc, null, '',
-            `STORNO — ${entry.label}`, '', r.qty_before, a.qty, r.qty_after, r.qty_uom_delta);
+          /* 2.0 — E SE SA COM'ERA LA RIGA, LA RIDICHIARA. Rimettere dieci
+             chili presi da un sacco da venticinque non e' aggiungere un
+             sacco da dieci: il sacco torna pieno, e a scaffale i colli
+             restano quelli di prima. Senza questo il totale tornava e
+             l'elenco no — tre colli diventavano quattro, e lo scopriva chi
+             andava a contare. */
+          const rigaOra = Store.getItemsAtLocation(a.loc).find(x => x.item_key === `${a.art}#${a.lot}`);
+          const cfgOra = a.packs_prima ? Store.getUomConfig(a.art, a.lot) : null;
+          const elencoOra = cfgOra && rigaOra ? Store.colliDiRiga(rigaOra) : null;
+          const diff = (cfgOra && elencoOra) ? rettificaColli(elencoOra, a.packs_prima!, cfgOra.uom) : null;
+
+          if (diff) {
+            /* Chi conta non toglie e non aggiunge: dichiara com'e' fatto lo
+               scaffale, e la differenza la traduce `rettifica`. Le uscite
+               vengono prima: una riga che deve calare e crescere insieme,
+               fatta al contrario, passa da un massimo che a scaffale non
+               c'e' mai stato. */
+            if (diff.uscite.length) {
+              const scelteGiu = Store.scelteDaUscite(rigaOra, diff.uscite);
+              const via = await Store.removeItem(a.loc, `${a.art}#${a.lot}`, null, null, scelteGiu);
+              if (via) {
+                await this._logMov(MOV.FIX_OUT, a.art, a.desc || '', a.lot, a.loc, null, '',
+                  `STORNO — ${entry.label}`, '', via._qty_before, via._qty_delta, via._qty_after, via._qty_uom_delta);
+              }
+            }
+            if (diff.entrate.length) {
+              const su = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', diff.entrate.length, null, diff.entrate);
+              await this._logMov(MOV.FIX_IN, a.art, a.desc || '', a.lot, a.loc, null, '',
+                `STORNO — ${entry.label}`, '', su.qty_before, diff.entrate.length, su.qty_after, su.qty_uom_delta);
+            }
+          } else {
+            const r = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', a.qty, a.qty_uom ?? null, a.packs ?? null);
+            await this._logMov(MOV.FIX_IN, a.art, a.desc || '', a.lot, a.loc, null, '',
+              `STORNO — ${entry.label}`, '', r.qty_before, a.qty, r.qty_after, r.qty_uom_delta);
+          }
         } else {
           /* 1.8 \u2014 i colli entrati si ritrovano per misura sulla riga di
              adesso; se uno non c'\u00e8 pi\u00f9, lo storno si ferma e lo dice invece
@@ -1430,7 +1515,7 @@ const App = monolite({
    serve a una cosa sola — estrarre e' SPOSTARE. Un metodo rimasto anche di
    qua verrebbe sovrascritto in silenzio, e da quel momento girerebbero due
    versioni della stessa maschera con una sola visibile. */
-for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampionamento, VistaMovimenta, VistaPosiziona, VistaSmaltimento, VistaPrelievo, VistaPercorso, VistaRapportoPrelievo, VistaInventario, VistaQuarantena, VistaSpedizioni, VistaDocumento, VistaMappa, VistaGiacenze, VistaConfigOperatori, VistaConfigSiti, VistaConfigArticoli, VistaConfigDati, VistaConfigurazione, VistaCruscotto, VistaRegistro, VistaArchivio, VistaRicerca]) {
+for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampionamento, VistaMovimenta, VistaPosiziona, VistaSmaltimento, VistaPrelievo, VistaPercorso, VistaRapportoPrelievo, VistaInventario, VistaUdc, VistaWip, VistaQuarantena, VistaSpedizioni, VistaDocumento, VistaMappa, VistaGiacenze, VistaConfigOperatori, VistaConfigSiti, VistaConfigArticoli, VistaConfigDati, VistaConfigurazione, VistaCruscotto, VistaRegistro, VistaArchivio, VistaRicerca]) {
   /* Qui si scrive per nome, e un nome non e' una chiave dichiarata: le due
      letture servono a questo e non aggiungono niente a runtime. */
   const dentro = App as unknown as Record<string, unknown>;

@@ -505,3 +505,54 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
 }
 .op-pill:hover { background: rgba(23,29,26, var(--md-sys-state-hover-opacity)); border-color: var(--md-sys-color-outline); }
 .op-pill.active { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); border-color: transparent; }
+
+/* ════ 1.11 — IL TERMINALE ════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   L'MC9400 e' un 4,3" da 800x480: fra i 400 e i 533 px CSS, sotto ogni
+   regola che l'applicativo aveva fino alla 1.10 — la piu' bassa stava a 700.
+   La classe la mette `App._applicaDispositivo`, e il perche' della soglia sta
+   in `modules/dispositivo.ts`.
+
+   NON E' UN'INTERFACCIA A PARTE: e' la stessa, girata sulla manopola che la
+   migrazione a Tailwind ha lasciato apposta. `--spacing` decide TUTTE le
+   spaziature dell'applicativo in un colpo — le utility sono
+   `calc(var(--spacing) * N)` — e stringerla qui stringe ogni margine senza
+   toccare una vista. Quel che resta sotto sono le poche misure che una
+   manopola sola non puo' raggiungere: il bersaglio del dito, che non si
+   stringe MAI perche' si lavora con i guanti, e cio' che su una striscia di
+   vetro non ci sta e va nascosto. */
+body.dispositivo-terminale {
+  --spacing: 0.07rem;
+}
+
+@media (max-width: 560px) {
+  /* Il dito con il guanto non rimpicciolisce con lo schermo: 48px restano
+     48px, ed e' la ragione per cui la densita' si stringe altrove. */
+  .btn, .inv-btn, .mob-tab { min-height: var(--md-touch); }
+
+  /* La testata perde tutto cio' che non e' il gesto: su 480px il logo, la
+     ricerca e gli indicatori mangiano meta' della striscia. */
+  .pf-logo-word, .nav-lbl, #syncText, .app-footer { display: none; }
+  .app-header { min-height: 52px; gap: 0.2rem; }
+  .hdr-search { min-width: 0; }
+
+  /* Le maschere di Movimenta a colonna: due campi affiancati su 480px sono
+     due campi da 220px, e il codice di un'ubicazione non ci sta. */
+  .form-row { display: block; }
+  .form-row > .form-group { width: auto; }
+  .mov-actions { grid-template-columns: 1fr 1fr; }
+  .mov-form-card { padding: 0.5rem; }
+
+  /* Il pannello di dettaglio prende tutto: affiancarlo alla mappa vorrebbe
+     dire due colonne da 240px, e nessuna delle due leggibile. */
+  .detail-panel { width: 100%; }
+
+  /* Le finestre a tutto schermo. Il corpo che scorre e testata/piede fermi
+     sono gia' della 1.8.4: qui cambia solo quanto spazio prendono. */
+  .modal { max-width: 100%; width: 100%; border-radius: 0; }
+
+  /* Le tabelle larghe scorrono invece di stringere le colonne fino a
+     spezzare un codice a meta'. */
+  .table-wrap, .tbl-scroll { overflow-x: auto; }
+}

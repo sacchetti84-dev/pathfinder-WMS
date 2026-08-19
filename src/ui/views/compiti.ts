@@ -24,6 +24,10 @@ type PayloadCompito = {
   from?: string;
   to?: string;
   qty?: number;
+  /** 1.10 — la quantita' con la sua unita': un ordine di produzione
+      chiede chili, e «44,42 coll.» sarebbe un altro numero. */
+  qty_uom?: number;
+  uom?: string;
   causale?: string;
   carrier?: string;
   destination?: string;
@@ -49,13 +53,6 @@ export const VistaCompiti = {
   renderTasks() {
     const el = $('viewTasks');
     if (!el) return;
-    if (!Store.isFeatureOn('tasks')) {
-      el.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div>
-        <p>Lo schedulatore di attività è spento.</p>
-        <button class="btn btn-sm btn-primary mt-5"
-          onclick="App._configTab='features';App.switchView('config')">Vai agli interruttori</button></div>`;
-      return;
-    }
     const io = Store.getCurrentIdentity();
     const r = Store.getTasksSummary();
     const coda = Store.getTaskQueue();
@@ -344,6 +341,11 @@ export const VistaCompiti = {
     if (p.qty) {
       const fatti = quantitaFatta(t);
       pezzi.push(fatti ? `<strong>${fatti}/${this._esc(String(p.qty))}</strong> coll.` : `${this._esc(String(p.qty))} coll.`);
+    }
+    /* 1.10 — la quantità che porta la sua unità si scrive con quella, e non
+       con «coll.»: sono due numeri diversi, e uno dei due sarebbe falso. */
+    if (typeof p.qty_uom === 'number' && p.uom) {
+      pezzi.push(`<strong>${this._esc(String(p.qty_uom))}</strong> ${this._esc(p.uom)}`);
     }
     if (p.from) pezzi.push(`da <span class="mono">${this._esc(p.from)}</span>`);
     if (p.to) pezzi.push(`a <span class="mono">${this._esc(p.to)}</span>`);
@@ -879,7 +881,6 @@ export const VistaCompiti = {
      invecchia». Chi non apre la voce Attivita' deve comunque vedere che c'e'
      qualcosa che aspetta da tre giorni. */
   _renderTasksPanel() {
-    if (!Store.isFeatureOn('tasks')) return '';
     const r = Store.getTasksSummary();
     const coda = Store.getTaskQueue().slice(0, 6);
     const righe = coda.map(t => {

@@ -63,3 +63,44 @@
   .pr-times, .pr-summary, .doc-idblock { page-break-inside: avoid; }
   .pr-empty-row td { text-align: center; color: #777; font-style: italic; }
 }
+
+/* ════ 1.12 — L'ETICHETTA DELL'UNITA' DI CARICO ════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   100 x 80 mm su A4, dal browser: nessun driver e nessuna stampante
+   speciale, che e' la stessa scelta dei cartellini e dei verbali. Il foglio
+   esce con l'etichetta in alto a sinistra e si taglia.
+
+   Il CODICE si scrive grande e in chiaro: un lettore che non legge lascia
+   comunque a chi ha il pallet davanti un numero da digitare. E' la ragione
+   per cui questa etichetta non e' solo un codice a barre. */
+@media print {
+  .udc-label {
+    width: 100mm; height: 80mm;
+    box-sizing: border-box;
+    padding: 6mm;
+    border: 1.5pt solid #000;
+    display: flex; flex-direction: column;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000; background: #fff;
+    page-break-after: always;
+  }
+  .udc-label-head { display: flex; justify-content: space-between; align-items: baseline;
+    border-bottom: 1pt solid #000; padding-bottom: 2mm; }
+  .udc-label-mitt { font-size: 10pt; font-weight: 700; }
+  .udc-label-tipo { font-size: 9pt; letter-spacing: 0.08em; }
+  /* Il numero e' la ragione dell'etichetta: prende tutto lo spazio che
+     avanza, e resta leggibile da due metri con il muletto in mano. */
+  .udc-label-code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 22pt; font-weight: 700; letter-spacing: 0.04em;
+    text-align: center; margin: 4mm 0 1mm; word-break: break-all;
+  }
+  .udc-label-forma { text-align: center; font-size: 8pt; letter-spacing: 0.1em;
+    text-transform: uppercase; color: #333; }
+  .udc-label-body { margin-top: auto; font-size: 9pt; }
+  .udc-label-body > div { display: flex; justify-content: space-between;
+    border-bottom: 0.5pt dotted #999; padding: 0.8mm 0; }
+  .udc-label-body span { color: #333; }
+  .udc-label-foot { margin-top: 2mm; font-size: 7pt; color: #444; text-align: center; }
+}

@@ -6,12 +6,13 @@
    strada non da' errore: da' un pulsante che non fa niente.
 
    Si tocca quando App guadagna o perde un metodo DAVVERO - cioe' quando si
-   sviluppa una funzione, mai quando si sposta un blocco in un altro file. */
+   sviluppa una funzione, mai quando si sposta un blocco in un altro file.
+   2.0: sono usciti `_FUNZIONI`, `_TURNO_MS`, `_syncFeatureNav` e
+   `_toggleFeature` insieme agli interruttori. */
 export const SUPERFICIE = [
-  'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_FUNZIONI', '_KNOWN_OPERATORS_KEY',
+  'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_KNOWN_OPERATORS_KEY',
   '_MIGRATED_KEY', '_MOVQUEUE_KEY', '_MOV_COLORS', '_MOV_SHORT', '_OPERATOR_KEY',
-  '_PARAM_SCHEDE', '_PICK_REPORT_VER', '_SCANNER_FIX_KEY', '_SIDEBAR_KEY', '_TURNO_MS',
-  '_activateOperator', '_afterLogin', '_aggiornaConformita', '_aggiornaNotaUM',
+  '_PARAM_SCHEDE', '_PICK_REPORT_VER', '_SCANNER_FIX_KEY', '_SIDEBAR_KEY',   '_activateOperator', '_afterLogin', '_aggiornaConformita', '_aggiornaNotaUM',
   '_aggiornaRubrica', '_anteprimaColliIn', '_anteprimaUmIn', '_applyMovWindow',
   '_applySessionTimeout', '_arcFrom', '_arcRedraw', '_arcReset', '_arcText', '_arcTo',
   '_arcType', '_archiveRows', '_armSearchOutsideClose', '_artFilter', '_artSort',
@@ -111,10 +112,10 @@ export const SUPERFICIE = [
   '_shipShipTo', '_shipStartTime', '_shipStartTransport', '_shipState', '_shipTrasporto',
   '_shortcuts', '_showRecoveryQueue', '_showRegistry', '_showReleaseDestDialog',
   '_showServiceDown', '_smoothPath', '_stampaVerbaleCampione', '_storageLabel',
-  '_svgDonut', '_syncFeatureNav', '_syncHeaderHeight', '_taskAbbandona', '_taskAction',
+  '_svgDonut', '_syncHeaderHeight', '_taskAbbandona', '_taskAction',
   '_taskAmbito', '_taskAvanza', '_taskLancia', '_taskLascia', '_taskPrioClasse',
   '_taskRun', '_taskScala', '_taskStatoClasse', '_taskTipo', '_testFeedback',
-  '_toggleFeature', '_tsBreve', '_tuttiIColli', '_umMossa', '_undoBarHTML', '_undoEntry',
+  '_tsBreve', '_tuttiIColli', '_umMossa', '_undoBarHTML', '_undoEntry',
   '_undoLast', '_undoTimer', '_undoValid', '_updateProdCart', '_updateShipCart',
   '_wireRemote', 'cancelMov', 'changeLevel', 'clearSearch', 'closeDetail', 'closeModal',
   'closeSearchPop', 'confirmDeleteArticle', 'confirmDeleteRecipient', 'confirmDeleteSite',
@@ -142,4 +143,35 @@ export const SUPERFICIE = [
   'toggleMirrorFrontal', 'toggleOperatorActive', 'toggleSidebar', 'toggleSite',
   'updateSyncIndicator', 'updateZoneFields', 'vaultBackupNow', 'vaultChooseFolder',
   'vaultReauthorize', 'vaultRestore',
+
+  /* 1.9 - L'INVENTARIO PER ARTICOLO, e il giro di conte che ne esce.
+     Nomi NUOVI, non nomi spostati: sono la funzione, non un trasloco. */
+  '_invSubMode', '_invSub', '_renderInvSub', '_invFormVano', '_invFormArticolo',
+  '_gaState', '_invArtCerca', '_invArtApri', '_invArtRighe', '_invArtRender',
+  '_invArtToggle', '_invArtToggleLotto', '_invArtTutti', '_invArtConta',
+  '_invArtStampa', '_rigaTotaleVano',
+  '_contaCoda', '_contaFatte', '_contaTotale', '_contaAvviaCoda', '_contaApri',
+  '_contaProssima', '_contaSalta', '_contaFineCoda',
+
+  /* 1.10 - il trasferimento chiesto dall'ordine di produzione. */
+  '_routeTrasf', '_routeRigaAltrove', '_routeChiediTrasf', '_routeCreaTrasf',
+  '_routeApplicaTrasf',
+
+  /* 1.11 - su che cosa sta girando l'applicativo. */
+  '_dispositivo', '_applicaDispositivo',
+
+
+  /* 1.12 - le unita' di carico. */
+  '_udcSel', '_formUdc', '_udcRenderElenco', '_udcDettaglioHTML', '_udcApri',
+  '_udcNuova', '_udcCrea', '_udcCarica', '_udcScarica', '_udcChiediSposta',
+  '_udcSposta', '_udcEtichetta', '_prefissoGS1HTML', '_salvaPrefissoGS1',
+
+  /* 1.13 - il motore di stoccaggio, la sua faccia. */
+  '_propostaCorrente', '_proponiVano', '_usaVanoProposto', '_altreProposte',
+  '_perchePropostaEsclusi', '_notaScavalco',
+  '_renderConfigRules', '_salvaRegola', '_toggleRegola', '_eliminaRegola',
+
+  /* 1.14 - il conto di produzione. */
+  '_wipOrdine', '_formWip', '_wipApri', '_wipRenderConto', '_wipChiediReso',
+  '_wipRendi', '_wipChiudi', '_areaWipHTML', '_salvaAreaWip',
 ];
