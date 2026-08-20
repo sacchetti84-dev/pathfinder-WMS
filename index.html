@@ -129,10 +129,10 @@
     <div class="app-header-right">
       <button class="hdr-icon-btn" id="configIconBtn" data-view="config" onclick="App.switchView('config')" title="Configurazione" aria-label="Configurazione">⚙</button>
       <button id="operatorBadge" class="op-badge op-badge-empty" onclick="App.showOperatorMenu()" title="Operatore corrente">👤 —</button>
-      <button type="button" class="sync-indicator" id="syncIndicator" onclick="App.manualSave()" title="Stato del salvataggio — clicca per salvare ora">
+      <div class="sync-indicator" id="syncIndicator" title="Stato del salvataggio">
         <span class="sync-dot" id="syncDot"></span>
         <span id="syncText">Salvato</span>
-      </button>
+      </div>
     </div>
   </header>
 

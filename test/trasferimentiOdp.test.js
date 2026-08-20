@@ -203,3 +203,39 @@ describe('tappaInAttesa', () => {
     expect(tappaInAttesa(null, 'MAG1-RIC-01', 'MAG1', 'TA-XYZ')).toBe(null);
   });
 });
+
+/* 2.1 — IL MAGAZZINO DI PARTENZA SI PUÒ DICHIARARE.
+
+   «Dove c'è il grosso della merce» resta il predefinito, ed è la regola
+   giusta il giorno che nessuno sa niente di più. Ma il turno che comincia
+   da MAG1 perché il camion scarica lì sa una cosa che il conteggio delle
+   righe non può sapere. */
+describe('2.1 — sitoDiCasa, la scelta dichiarata', () => {
+  const t = (site, code) => ({ site_id: site, location_code: code, item_key: 'A#L', article_code: 'A', lot_code: 'L', kg_required: 1, um: 'KG' });
+
+  it('LA SCELTA VINCE sul conteggio delle righe', () => {
+    const stops = [t('M03', 'M03-A-01'), t('M03', 'M03-A-02'), t('MAG1', 'MAG1-B-01')];
+    expect(sitoDiCasa(stops, ['MAG1', 'M03'])).toBe('M03');
+    expect(sitoDiCasa(stops, ['MAG1', 'M03'], 'MAG1')).toBe('MAG1');
+  });
+
+  it('UNA SCELTA SENZA RIGHE NON È UNA SCELTA: si torna a contare', () => {
+    /* Dichiarare casa un magazzino dove l'ordine non preleva niente farebbe
+       risultare «altrove» ogni tappa — un avviso che si accende su tutto. */
+    const stops = [t('M03', 'M03-A-01'), t('MAG1', 'MAG1-B-01'), t('MAG1', 'MAG1-B-02')];
+    expect(sitoDiCasa(stops, ['M03'], 'MAG9')).toBe('MAG1');
+  });
+
+  it('e senza scelta la regola dei più prelievi non si muove', () => {
+    const stops = [t('M03', 'M03-A-01'), t('MAG1', 'MAG1-B-01'), t('MAG1', 'MAG1-B-02')];
+    expect(sitoDiCasa(stops, ['M03'], '')).toBe('MAG1');
+    expect(sitoDiCasa(stops, ['M03'], null)).toBe('MAG1');
+  });
+
+  it('scelto un magazzino, le sue righe non sono più «altrove»', () => {
+    const stops = [t('M03', 'M03-A-01'), t('M03', 'M03-A-02'), t('MAG1', 'MAG1-B-01')];
+    const casa = sitoDiCasa(stops, ['M03'], 'MAG1');
+    const fuori = tappeAltrove(stops, casa);
+    expect(fuori.map(f => f.tappa.location_code)).toEqual(['M03-A-01', 'M03-A-02']);
+  });
+});

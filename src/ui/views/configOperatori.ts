@@ -6,20 +6,53 @@ import { Validate } from '../../modules/validate';
 import { Auth } from '../../modules/auth';
 import { Session } from '../../modules/session';
 import { Dialog } from '../dialog';
+import { componi, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
+import type { Colonna, Stato } from '../../modules/tabella';
 
 export const VistaConfigOperatori = {
+  /* 2.1 — §3: anche questa si ordina e si cerca. Su un magazzino con
+     quaranta sigle, «chi non ha il PIN» e «chi è disattivato» sono due
+     domande che si fanno davvero, e prima si rispondevano leggendo. */
+  _opOrdine: STATO_VUOTO,
+
+  _opColonne(): Colonna<Operatore>[] {
+    return [
+      { campo: 'initials', titolo: 'Iniziali' },
+      { campo: 'nome', titolo: 'Nome e cognome',
+        valore: (o) => [o.first_name, o.last_name].filter(Boolean).join(' ') },
+      { campo: 'role', titolo: 'Ruolo' },
+      { campo: 'pin', titolo: 'PIN', valore: (o) => (o.pin_hash ? 'impostato' : 'mancante') },
+      { campo: 'stato', titolo: 'Stato', valore: (o) => (o.active === false ? 'disattivato' : 'attivo') },
+    ];
+  },
+
+  _opOrdina(campo) {
+    this._opOrdine = alClic(this._opOrdine, campo);
+    this.renderConfig();
+  },
+
+  _opCerca(testo) {
+    this._opOrdine = { ...this._opOrdine, cerca: String(testo || '') };
+    this.renderConfig();
+  },
+
   _renderConfigOperators(el) {
     const ops = Store.getOperators();
     const leaders = Store.getActiveLeaders();
-    const rows = ops.map(o => {
+    const visibili = componi(ops, this._opColonne(), this._opOrdine as Stato);
+    const thOp = (campo: string, titolo: string, classe = '') =>
+      `<th class="sx-th-ord ${classe}" onclick="App._opOrdina('${campo}')" title="Ordina per ${titolo}">${titolo}${segno(this._opOrdine as Stato, campo)}</th>`;
+    const rows = visibili.map(o => {
       const nome = [o.first_name, o.last_name].filter(Boolean).join(' ');
       const inactive = o.active === false;
       return `<tr${inactive ? ' class="opacity-55"' : ''}>
         <td><span class="mono font-bold text-sx-primary">${this._esc(o.initials)}</span></td>
         <td>${nome ? this._esc(nome) : '<span class="text-sx-warning italic">da completare</span>'}</td>
-        <td>${o.role === 'leader'
-              ? '<span class="badge badge-blue">👑 Team Leader</span>'
-              : '<span class="badge badge-muted">Operatore</span>'}</td>
+        <td>${o.role === 'admin'
+              ? '<span class="badge badge-red">🛡 Admin</span>'
+              : o.role === 'leader'
+                ? '<span class="badge badge-blue">👑 Team Leader</span>'
+                : '<span class="badge badge-muted">Operatore</span>'}</td>
         <td>${o.pin_hash
               ? '<span class="badge badge-green">impostato</span>'
               : '<span class="badge badge-amber">mancante</span>'}</td>
@@ -37,10 +70,17 @@ export const VistaConfigOperatori = {
     el.innerHTML = `<div class="config-card">
       <h3>Anagrafica Operatori
         <button class="btn btn-sm btn-primary float-right" onclick="App.showAddOperatorModal()">+ Nuovo operatore</button></h3>
+      <div class="form-group mb-5">
+        <input class="input" id="opCerca" placeholder="Cerca sigla, nome, ruolo, stato…"
+          value="${this._esc(this._opOrdine.cerca)}" oninput="App._opCerca(this.value)">
+        <div class="text-label-small text-sx-text-muted mt-2">
+          ${visibili.length} su ${ops.length} operatori
+        </div>
+      </div>
       <div class="overflow-x-auto">
         <table class="sx-table">
-          <thead><tr><th class="w-[80px]">Iniziali</th><th>Nome e cognome</th><th class="w-[150px]">Ruolo</th><th class="w-[110px]">PIN</th><th class="w-[110px]">Stato</th><th class="w-[140px]">Azioni</th></tr></thead>
-          <tbody>${rows || '<tr><td class="text-center text-sx-text-muted italic" colspan="6">Nessun operatore</td></tr>'}</tbody>
+          <thead><tr>${thOp('initials', 'Iniziali', 'w-[80px]')}${thOp('nome', 'Nome e cognome')}${thOp('role', 'Ruolo', 'w-[150px]')}${thOp('pin', 'PIN', 'w-[110px]')}${thOp('stato', 'Stato', 'w-[110px]')}<th class="w-[140px]">Azioni</th></tr></thead>
+          <tbody>${rows || `<tr><td class="text-center text-sx-text-muted italic" colspan="6">${this._opOrdine.cerca ? 'Nessun operatore corrisponde alla ricerca' : 'Nessun operatore'}</td></tr>`}</tbody>
         </table>
       </div>
       <div class="bg-[var(--grad-soft-green)] border border-sx-success rounded-[var(--radius-md)] py-6 px-7.5 mt-7">
@@ -112,8 +152,9 @@ export const VistaConfigOperatori = {
           <select class="input select" id="opRole">
             <option value="operator">Operatore</option>
             <option value="leader">Team Leader</option>
+            <option value="admin">Admin</option>
           </select>
-          <div class="text-label-small text-sx-text-muted mt-2">Solo i Team Leader rinnovano i PIN</div>
+          <div class="text-label-small text-sx-text-muted mt-2">I Team Leader rinnovano i PIN e alzano le priorità. L'<strong>Admin</strong> fa lo stesso, e in più è l'unico che apre la Configurazione e il reset dei dati</div>
         </div>
       </div>
       <div class="form-row mb-4">
@@ -133,7 +174,7 @@ export const VistaConfigOperatori = {
     const first = Validate.clean($('opFirst')?.value);
     const last  = Validate.clean($('opLast')?.value);
     const init  = ($('opInitials')?.value || '').toUpperCase().trim();
-    const role  = $('opRole')?.value === 'leader' ? 'leader' : 'operator';
+    const role  = this._ruoloScelto();
     const pin   = $('opPin')?.value || '';
     const pin2  = $('opPin2')?.value || '';
     if (!first || !last) return err('Nome e cognome sono obbligatori.');
@@ -177,8 +218,9 @@ export const VistaConfigOperatori = {
         <div class="form-group">
           <label>Ruolo <span class="req">*</span></label>
           <select class="input select" id="opRole">
-            <option value="operator" ${op.role !== 'leader' ? 'selected' : ''}>Operatore</option>
+            <option value="operator" ${op.role !== 'leader' && op.role !== 'admin' ? 'selected' : ''}>Operatore</option>
             <option value="leader" ${op.role === 'leader' ? 'selected' : ''}>Team Leader</option>
+            <option value="admin" ${op.role === 'admin' ? 'selected' : ''}>Admin</option>
           </select>
         </div>
       </div>
@@ -195,11 +237,21 @@ export const VistaConfigOperatori = {
     const first = Validate.clean($('opFirst')?.value);
     const last  = Validate.clean($('opLast')?.value);
     const init  = ($('opInitials')?.value || '').toUpperCase().trim();
-    const role  = $('opRole')?.value === 'leader' ? 'leader' : 'operator';
+    const role  = this._ruoloScelto();
     if (!first || !last) return err('Nome e cognome sono obbligatori.');
     if (!/^[A-Z0-9]{2,4}$/.test(init)) return err('Iniziali non valide: 2-4 caratteri, lettere maiuscole o cifre.');
-    if (op.role === 'leader' && role !== 'leader' && Store.getActiveLeaders().length <= 1) {
+    /* Un Admin è anche un Team Leader: retrocederlo a Operatore toglie
+       due cariche in un colpo, e il conto dei leader lo sa già. */
+    const comandava = op.role === 'leader' || op.role === 'admin';
+    const comanda = role === 'leader' || role === 'admin';
+    if (comandava && !comanda && Store.getActiveLeaders().length <= 1) {
       return err('È l’unico Team Leader attivo: nominane un altro prima di retrocederlo.');
+    }
+    /* 2.1 — E L'ULTIMO ADMIN NON SI RETROCEDE. Chi lo facesse chiuderebbe
+       la Configurazione a chiave lasciando la chiave dentro: nominare un
+       Admin si fa da lì, e da nessun altro posto. */
+    if (op.role === 'admin' && role !== 'admin' && Store.getActiveAdmins().length <= 1) {
+      return err('È l’unico Admin attivo: nominane un altro prima di retrocederlo, o la Configurazione non si riapre.');
     }
     const leader = await this._requireLeaderAuth(`Modifica dell’operatore ${op.initials}`);
     if (!leader) return;
@@ -219,8 +271,11 @@ export const VistaConfigOperatori = {
     const op = Store.getOperator(opId);
     if (!op) return this.toast('Operatore non trovato', 'error');
     const disabling = op.active !== false;
-    if (disabling && op.role === 'leader' && Store.getActiveLeaders().length <= 1) {
+    if (disabling && (op.role === 'leader' || op.role === 'admin') && Store.getActiveLeaders().length <= 1) {
       return this.toast('È l’unico Team Leader attivo: non può essere disattivato', 'error');
+    }
+    if (disabling && op.role === 'admin' && Store.getActiveAdmins().length <= 1) {
+      return this.toast('È l’unico Admin attivo: nominane un altro prima di disattivarlo', 'error');
     }
     if (disabling && !await Dialog.confirm({
       title: 'Disattivare l’operatore?',
@@ -312,10 +367,24 @@ export const VistaConfigOperatori = {
     }
   },
 
-  _requireLeaderAuth(azione: string) {
-    const leaders = Store.getUsableLeaders();
+  /* 2.1 — la tendina ha tre voci e si legge in un posto solo: due letture
+     diverse della stessa tendina sono il modo di far sparire una carica. */
+  _ruoloScelto(): 'operator' | 'leader' | 'admin' {
+    const v = $('opRole')?.value;
+    return v === 'admin' ? 'admin' : v === 'leader' ? 'leader' : 'operator';
+  },
+
+  /* 2.1 — LO STESSO VARCO, CON DUE SOGLIE. `soloAdmin` lo alza al ruolo
+     che apre la Configurazione e il reset: una seconda finestra copiata da
+     questa sarebbe la stessa maschera con un elenco diverso, e la prima
+     volta che una delle due cambia le due smettono di somigliarsi. */
+  _requireLeaderAuth(azione: string, opzioni: { soloAdmin?: boolean } = {}) {
+    const soloAdmin = opzioni.soloAdmin === true;
+    const leaders = soloAdmin ? Store.getUsableAdmins() : Store.getUsableLeaders();
     if (!leaders.length) {
-      this.toast('Nessun Team Leader attivo: operazione non autorizzabile', 'error');
+      this.toast(soloAdmin
+        ? 'Nessun Admin con PIN in anagrafica: nominane uno da Configurazione → Operatori'
+        : 'Nessun Team Leader attivo: operazione non autorizzabile', 'error');
       return Promise.resolve(null);
     }
     return new Promise<Operatore | null>((resolve) => {
@@ -324,11 +393,11 @@ export const VistaConfigOperatori = {
       overlay.id = 'leaderAuthOverlay';
       overlay.innerHTML = `
         <div class="modal max-w-[400px]">
-          <div class="modal-header"><h2>👑 Autorizzazione Team Leader</h2></div>
+          <div class="modal-header"><h2>${soloAdmin ? '🛡 Autorizzazione Admin' : '👑 Autorizzazione Team Leader'}</h2></div>
           <div class="modal-body">
             <p class="text-body-small text-sx-text-secondary mb-7">${this._esc(azione)}</p>
             <div class="form-group mb-6">
-              <label>Team Leader</label>
+              <label>${soloAdmin ? 'Admin' : 'Team Leader'}</label>
               <select class="input select" id="laWho">
                 ${leaders.map(l => `<option value="${l.op_id}">${this._esc(l.initials)} — ${this._esc([l.first_name, l.last_name].filter(Boolean).join(' ') || 'dati incompleti')}</option>`).join('')}
               </select>

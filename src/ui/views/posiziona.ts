@@ -42,7 +42,8 @@ export const VistaPosiziona = {
           <input class="input input-mono flex-1" id="mInLoc" placeholder="Scansiona ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('mInLoc');App._previewLoc('mInLoc','mInLocPrev')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('mInLoc');App._previewLoc('mInLoc','mInLocPrev');$('mInArtCode').focus();}">
-          <button class="btn btn-sm" onclick="App._pickLoc('mInLoc','_cbPickIn')" title="Sfoglia">📍</button>
+          <button class="btn btn-sm" onclick="App._pickLoc('mInLoc','_cbPickIn')" title="Sfoglia le ubicazioni">📍</button>
+          <button class="btn btn-sm" onclick="App._pickUdcIn()" title="Scegli un'unità di carico aperta">🔀</button>
         </div>
         <div id="mInLocPrev"></div>
       </div>
@@ -640,9 +641,8 @@ export const VistaPosiziona = {
     const descEl = descId ? $(descId) : null;
     if (art) {
       info.innerHTML = `<span class="text-sx-success">✓</span> <strong>${this._esc(art.description)}</strong> <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
-      /* DIFETTO NOTO — vedi `giacenze.ts`: senza descrizione qui finisce
-         la parola «undefined». */
-      if (descEl) descEl.value = art.description as string;
+      /* Vedi `giacenze.ts`: senza descrizione il campo resta vuoto. */
+      if (descEl) descEl.value = art.description ?? '';
     } else {
       info.innerHTML = `<span class="text-sx-warning">⚠ Nuovo articolo — compilare descrizione (obbligatoria)</span>`;
       if (descEl) descEl.value = '';
@@ -785,9 +785,63 @@ export const VistaPosiziona = {
       Validate.clean($('mInScavalco')?.value)) || '';
   },
 
+  /* 2.1 — LA DESTINAZIONE PUÒ ESSERE UN'UNITÀ DI CARICO.
+
+     In magazzino la merce non si posa su uno scaffale: si posa su un
+     pallet, che sta su uno scaffale. Fino alla 2.0 le due cose erano due
+     gesti — posiziona nel vano, poi apri l'unità e caricala sopra — e il
+     secondo si dimenticava: la riga restava nel vano fuori dall'unità, e
+     spostando il pallet quella merce non lo seguiva.
+
+     Il campo è UNO SOLO, e non due. Chi ha il lettore in mano scansiona
+     quello che ha davanti — il cartellino del vano o l'etichetta del
+     pallet — e non deve sapere in quale casella va cosa: il codice di
+     un'unità aperta si riconosce da sé, e porta con sé la propria
+     ubicazione. Un'unità senza ubicazione non è una destinazione: si dice
+     invece di indovinare un vano. */
+  _udcDestinazione(scritto: string) {
+    const u = Store.getUdcAperte().find(x => x.udc_id === scritto);
+    if (!u) return null;
+    return { udc: u, location_code: String(u.location_code || '').trim() };
+  },
+
+  _pickUdcIn() {
+    const aperte = Store.getUdcAperte().filter(u => u.location_code);
+    if (!aperte.length) return this.toast('Nessuna unità di carico aperta con un’ubicazione', 'info');
+    this.showModal(
+      '🔀 Carica su un’unità di carico',
+      `<p class="text-body-small text-sx-text-secondary mb-6">
+        La merce si posiziona nel vano dell’unità e le resta sopra: spostando l’unità, si sposta anche lei.
+      </p>
+      <div class="form-group">
+        <label>Unità aperte</label>
+        <select class="input select" id="mInUdcPick">
+          ${aperte.map(u => `<option value="${this._esc(u.udc_id)}">${this._esc(u.udc_id)} — 📍 ${this._esc(u.location_code)} · ${Store.righeDiUdc(u.udc_id).length} righe</option>`).join('')}
+        </select>
+      </div>`,
+      `<button class="btn" onclick="App.closeModal()">Annulla</button>
+       <button class="btn btn-primary" onclick="App._cbPickUdcIn()">Usa questa unità</button>`
+    );
+  },
+
+  _cbPickUdcIn() {
+    const scelto = String($('mInUdcPick')?.value || '');
+    if (!scelto) return;
+    const campo = $('mInLoc');
+    if (campo) campo.value = scelto;
+    this.closeModal();
+    this._previewLoc('mInLoc', 'mInLocPrev');
+    $('mInArtCode')?.focus();
+  },
+
   async _execPosiziona() {
     if (!this._requireOperator('il posizionamento')) return;   // v2.0.1 [B7]
-    const loc = Validate.clean($('mInLoc')?.value, true).replace(/'/g, '-');
+    const scritto = Validate.clean($('mInLoc')?.value, true).replace(/'/g, '-');
+    const versoUdc = this._udcDestinazione(scritto);
+    if (versoUdc && !versoUdc.location_code) {
+      return this.toast(`${scritto} non ha un’ubicazione: posizionala prima, o scegli un vano`, 'error');
+    }
+    const loc = versoUdc ? versoUdc.location_code : scritto;
     const art = Validate.clean($('mInArtCode')?.value, true);
     const desc = Validate.clean($('mInArtDesc')?.value);
     const lot = Validate.clean($('mInLot')?.value);
@@ -864,7 +918,23 @@ export const VistaPosiziona = {
     /* 1.13 — se il motore proponeva un altro vano, il motivo entra nel
        movimento: è l'unico dato che dirà se le regole valgono. */
     const scavalcato = this._notaScavalco(loc);
-    await this._logMov(MOV.IN, art, effectiveDesc, lot, loc, null, '', scavalcato, '', res.qty_before, qty, res.qty_after, res.qty_uom_delta);
+    await this._logMov(MOV.IN, art, effectiveDesc, lot, loc, null, '',
+      scavalcato + (versoUdc ? `${scavalcato ? ' · ' : ''}su unità ${versoUdc.udc.udc_id}` : ''),
+      '', res.qty_before, qty, res.qty_after, res.qty_uom_delta);
+
+    /* La riga sale sull'unità DOPO che è entrata in giacenza: prima non
+       esiste ancora niente da caricare. Se l'assegnazione non riesce, il
+       posizionamento resta — la merce è a scaffale davvero — e chi legge
+       lo sa dal messaggio invece che dal pallet sbagliato la settimana
+       dopo. */
+    if (versoUdc) {
+      try {
+        const ok = await Store.assegnaAUdc(loc, `${art}#${lot}`, versoUdc.udc.udc_id);
+        if (!ok) throw new Error('assegnazione non riuscita');
+      } catch (e) {
+        this.toast(`Merce posizionata in ${loc}, ma NON caricata su ${versoUdc.udc.udc_id}: ${(e as Error).message}`, 'error');
+      }
+    }
 
     const fb = $('mInFeedback');
     const modeLabel = res.mode === 'incremented' ? `<span class="text-sx-warning">⊕ INCREMENTATO</span>` : '';

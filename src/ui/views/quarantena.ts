@@ -383,7 +383,16 @@ export const VistaQuarantena = {
     });
   },
 
-  async _quarantineItemCore(item, { reason, operator, refDept, refPerson = '', nearest = undefined, qty = null }) {
+  /* 2.1 — `tutto` E `senzaCartellino`, per chi blocca un'unità di carico.
+
+     Un pallet in quarantena è UN fatto con molte righe: chiedere «quali
+     colli» riga per riga sarebbe una finestra a lotto per una risposta che
+     si sa già — tutti — e stampare un cartellino a riga sarebbe una pila
+     di fogli per un unico legno fermo. Con `tutto` la riga esce intera, che
+     è la strada che `removeItem` lascia libera anche dove i colli sono
+     dichiarati; con `senzaCartellino` il foglio non parte, e i cartellini
+     restano ristampabili uno per uno dalla scheda Quarantena. */
+  async _quarantineItemCore(item, { reason, operator, refDept, refPerson = '', nearest = undefined, qty = null, tutto = false, senzaCartellino = false }) {
     const errs = [Validate.reason(reason), Validate.operator(operator), Validate.refDept(refDept)].filter(Boolean);
     if (errs.length) { this.toast(errs[0], 'error'); return { ok: false }; }
     if (nearest === undefined) nearest = Store.findNearestBlockedLocation(item.location_code);
@@ -418,9 +427,13 @@ export const VistaQuarantena = {
     /* 1.8 — in area NC ci vanno i colli bloccati, quelli e non altri: la
        quarantena nomina merce precisa, e un collo diverso da quello che il
        controllo qualità ha guardato è un altro fatto. */
-    const scelteNC = await this._chiediColli(item, 'Quali colli vanno in quarantena');
+    const scelteNC = tutto
+      ? null
+      : await this._chiediColli(item, 'Quali colli vanno in quarantena');
     if (scelteNC === undefined) { this.toast('Quarantena annullata', 'info'); return { ok: false }; }
-    const removed = await Store.removeItem(item.location_code, item.item_key, qtyToMove, null, scelteNC);
+    const removed = tutto
+      ? await Store.removeItem(item.location_code, item.item_key)
+      : await Store.removeItem(item.location_code, item.item_key, qtyToMove, null, scelteNC);
     if (!removed) { this.toast('Item non più disponibile — operazione annullata', 'error'); return { ok: false }; }
     const umNC = this._umMossa(removed);   // 1.4.2 — vedi _umMossa
     const colliNC = removed._packs_out ?? null;
@@ -460,7 +473,7 @@ export const VistaQuarantena = {
       '', qtyPhys, -qtyToMove, qtyPhys - qtyToMove);
 
     this.updateSyncIndicator();
-    this._printNCCardFromRecord(qRecord);
+    if (!senzaCartellino) this._printNCCardFromRecord(qRecord);
     this._refreshSessionLog();
     await this._taskAvanza(qtyToMove, ['QUARANTINE']);   // 1.4.2.1
     Feedback.signal('ok', `${item.article_code}#${item.lot_code} in QUARANTENA`,

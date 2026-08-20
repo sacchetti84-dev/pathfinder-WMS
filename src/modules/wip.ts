@@ -39,7 +39,10 @@ export interface MovimentoWip {
   item_key: string;
   article_code?: string;
   lot_code?: string;
-  verso: 'in' | 'out' | 'consumo' | string;
+  /** `chiuso` non muove niente: è la CHIUSURA dell'ordine, scritta come un
+      movimento perché è un fatto con una data e una firma, non uno stato che
+      qualcuno ha ricalcolato. */
+  verso: 'in' | 'out' | 'consumo' | 'chiuso' | string;
   /** Colli. Resta il conto di sempre. */
   qty?: number;
   /** Le UM, quando la riga le ha: è il numero che la produzione userà. */
@@ -86,6 +89,11 @@ export interface ContoOrdine {
   /** Vero quando qualcosa è tornato indietro più di quanto sia entrato: è un
       dato che non può stare in piedi, e va mostrato invece che nascosto. */
   incoerente: boolean;
+  /** 2.1 — L'ORDINE È CHIUSO E ARCHIVIATO, e non è una deduzione dal
+      residuo: è un movimento scritto. Vedi `archiviato`. */
+  chiuso: boolean;
+  /** Quando è stato chiuso. `null` se è ancora aperto. */
+  chiuso_il: number | null;
 }
 
 function arrotonda(n: number): number {
@@ -99,12 +107,23 @@ export function conto(
   odpNum: string | null | undefined,
 ): ContoOrdine {
   const odp = String(odpNum ?? '').trim();
-  const vuoto: ContoOrdine = { odp_num: odp, righe: [], entrato: 0, tornato: 0, consumato: 0, residuo: 0, incoerente: false };
+  const vuoto: ContoOrdine = { odp_num: odp, righe: [], entrato: 0, tornato: 0, consumato: 0, residuo: 0, incoerente: false, chiuso: false, chiuso_il: null };
   if (!movimenti?.length || !odp) return vuoto;
 
+  let chiuso_il: number | null = null;
   const per = new Map<string, ContoRiga>();
   for (const m of movimenti) {
-    if (!m || m.odp_num !== odp || !m.item_key) continue;
+    if (!m || m.odp_num !== odp) continue;
+    /* LA CHIUSURA NON È UNA RIGA DEL CONTO. Non porta merce e non ha una
+       chiave: sommarla come «entrato» — che è quel che il ramo in fondo
+       farebbe, perché lì ci cade tutto quel che non è `out` né `consumo` —
+       gonfierebbe l'ordine di un collo che non esiste. */
+    if (m.verso === 'chiuso') {
+      const t = Number(m.ts) || 0;
+      if (chiuso_il === null || t > chiuso_il) chiuso_il = t;
+      continue;
+    }
+    if (!m.item_key) continue;
     let r = per.get(m.item_key);
     if (!r) {
       r = {
@@ -152,7 +171,94 @@ export function conto(
     consumato: arrotonda(consumato),
     residuo: arrotonda(entrato - tornato - consumato),
     incoerente,
+    chiuso: chiuso_il !== null,
+    chiuso_il,
   };
+}
+
+/** L'ORDINE È CHIUSO E ARCHIVIATO: NON SI TOCCA PIÙ.
+
+    Un ordine chiuso spariva e basta da `ordiniWipAperti`, che filtra sul
+    residuo diverso da zero — e finché la prova era quella, ricaricare lo
+    STESSO ordine lo riportava in vita: i prelievi nuovi scrivevano altri
+    movimenti sotto lo stesso numero, e `conto` li sommava a quelli di un
+    ciclo già chiuso. Due lavorazioni diverse in un conto solo, e il consumo
+    dichiarato a novembre mescolato a quello di gennaio.
+
+    Adesso la chiusura è un MOVIMENTO, con la sua data e la sua firma, e da
+    lì in poi quell'ordine è storia: non entra merce, non ne esce, e il
+    rendiconto resta leggibile e stampabile per sempre. Un ordine che
+    davvero ricomincia è un ordine nuovo, e un numero nuovo ce l'ha. */
+export function archiviato(
+  movimenti: readonly MovimentoWip[] | null | undefined,
+  odpNum: string | null | undefined,
+): boolean {
+  const odp = String(odpNum ?? '').trim();
+  if (!movimenti?.length || !odp) return false;
+  return movimenti.some((m) => m && m.odp_num === odp && m.verso === 'chiuso');
+}
+
+/** LE RIGHE CHE STANNO NEL VANO WIP E CHE NESSUN ORDINE RIVENDICA.
+
+    Il vano WIP è un'ubicazione sola, e a tenere distinti i conti è l'ordine
+    scritto su ogni movimento — non il posto. Una riga che sta lì dentro e
+    che nessun movimento nomina non appartiene a nessun conto: la chiusura
+    lavora per ordine e non la vede, il reso lavora per ordine e non la vede.
+    Resta ferma, e nessuna maschera di produzione la consuma.
+
+    Il 20/08 ce n'erano sei, ed è stato un guardiano a trovarle leggendo il
+    database — non l'applicativo, che non aveva nessun posto in cui dirlo.
+    Questa funzione è quel posto: chi apre la produzione le vede elencate, e
+    da lì sa che vanno mosse da Movimenta o caricate su un ordine.
+
+    Non è un difetto da correggere una volta: è una condizione che il vano
+    può assumere di nuovo ogni volta che qualcuno ci posiziona merce a mano.
+
+    `righeVano` sono le giacenze GIÀ filtrate sull'area WIP: questo modulo
+    non sa cosa sia un'ubicazione, e chi chiama sì. */
+export function righeSenzaOrdine<T extends { item_key?: string | null }>(
+  movimenti: readonly MovimentoWip[] | null | undefined,
+  righeVano: readonly T[] | null | undefined,
+): T[] {
+  if (!righeVano?.length) return [];
+  const rivendicate = new Set<string>();
+  for (const m of movimenti ?? []) {
+    if (!m) continue;
+    const k = String(m.item_key ?? '').trim();
+    if (k) rivendicate.add(k);
+  }
+  return righeVano.filter((r) => {
+    const k = String(r?.item_key ?? '').trim();
+    return k !== '' && !rivendicate.has(k);
+  });
+}
+
+/** GLI ORDINI ARCHIVIATI, DAL PIÙ RECENTE — l'archivio da sfogliare.
+
+    `archiviato` risponde su UN ordine di cui si sa già il numero, e finché
+    c'era solo quello l'archivio esisteva ma non si apriva: un ordine chiuso
+    spariva dai conti aperti, e per rileggerlo bisognava ricordarsi come si
+    chiamava. Il consuntivo di una lavorazione si guarda mesi dopo, quando il
+    numero non se lo ricorda più nessuno.
+
+    Torna il numero e la data di chiusura, che sono le due cose con cui si
+    sceglie una riga da un elenco. La data è quella del movimento `chiuso`;
+    se un ordine ne portasse più d'uno — non dovrebbe, `archiviaOrdineWip`
+    lo rifiuta — vale il primo, che è la chiusura vera. */
+export function ordiniArchiviati(
+  movimenti: readonly MovimentoWip[] | null | undefined,
+): { odp_num: string; chiuso_il: number | null }[] {
+  if (!movimenti?.length) return [];
+  const visti = new Map<string, number | null>();
+  for (const m of movimenti) {
+    if (!m || m.verso !== 'chiuso') continue;
+    const odp = String(m.odp_num ?? '').trim();
+    if (!odp || visti.has(odp)) continue;
+    visti.set(odp, typeof m.ts === 'number' ? m.ts : null);
+  }
+  return [...visti.entries()]
+    .map(([odp_num, chiuso_il]) => ({ odp_num, chiuso_il }))
+    .sort((a, b) => (b.chiuso_il ?? 0) - (a.chiuso_il ?? 0));
 }
 
 /** Il consumo reale di un ordine: quello che è entrato e non è tornato.
@@ -201,10 +307,36 @@ export function colliFuori(
 
   /* Si toglie una misura per volta, e la prima che combacia: due colli da 25
      sono indistinguibili, e cercare «quello giusto» vorrebbe dire dare un
-     nome a una differenza che non esiste. */
+     nome a una differenza che non esiste.
+
+     2.1 — E UN COLLO PUÒ TORNARE APERTO. Da due colli da 20 rientrano 10:
+     il collo non è uscito dal conto, si è svuotato a metà, e quel che
+     l'ordine ha ancora fuori è `[20, 10]` — non `[20, 20]`.
+
+     Finché la sottrazione cercava la sola misura ESATTA, un 10 fra due 20
+     non combaciava con niente e non toglieva niente: il conto restava
+     convinto di avere fuori due colli pieni mentre nel vano ce n'erano uno
+     pieno e uno a metà. Alla chiusura chiedeva al vano il secondo collo da
+     20, e il vano rispondeva «il collo da 20 non è più su questa riga».
+     Visto in produzione il 20/08 sull'ordine PROVA, `6000366B#123456`.
+
+     Il collo che si scava è IL PIÙ PICCOLO CHE BASTA, la stessa regola del
+     servizio e di `misureDelReso`: aprirne uno grande quando ne basta uno
+     piccolo lascia in giro due mezzi colli invece di uno. */
   for (const t of tolti) {
-    const i = fuori.findIndex((n) => Math.abs(n - t) < 1e-6);
-    if (i > -1) fuori.splice(i, 1);
+    const esatto = fuori.findIndex((n) => Math.abs(n - t) < 1e-6);
+    if (esatto > -1) { fuori.splice(esatto, 1); continue; }
+
+    let scelto = -1;
+    for (let i = 0; i < fuori.length; i++) {
+      if (fuori[i]! <= t + 1e-9) continue;
+      if (scelto === -1 || fuori[i]! < fuori[scelto]!) scelto = i;
+    }
+    /* Nessun collo abbastanza grande: il dato non sta in piedi — è tornato
+       più di quanto sia uscito. Non si inventa un collo negativo, e
+       `incoerente` sul conto lo dice già a chi guarda. */
+    if (scelto === -1) continue;
+    fuori[scelto] = arrotonda(fuori[scelto]! - t);
   }
   return fuori;
 }
@@ -215,6 +347,149 @@ export function colliFuori(
 export function daRendere(contoOrdine: ContoOrdine | null | undefined): ContoRiga[] {
   if (!contoOrdine?.righe?.length) return [];
   return contoOrdine.righe.filter(r => r.residuo > 0 || (r.residuo_uom ?? 0) > 0);
+}
+
+/** UNA RIGA DEL RENDICONTO DI CONSUMO. */
+export interface RigaRendiconto {
+  item_key: string;
+  article_code: string;
+  lot_code: string;
+  /** Quello che è sceso in lavorazione. */
+  consegnato: number;
+  consegnato_uom: number | null;
+  /** Quello che è risalito a magazzino. */
+  reso: number;
+  reso_uom: number | null;
+  /** Consegnato meno reso: è il delta, ed è il numero del rendiconto. */
+  delta: number;
+  delta_uom: number | null;
+  /** Quanta parte del delta è già stata DICHIARATA consumata alla chiusura
+      di una riga. Il resto è ancora sul bancone. */
+  dichiarato: number;
+  dichiarato_uom: number | null;
+  /** Il delta meno quello che è già dichiarato: merce ancora fuori. */
+  aperto: number;
+  aperto_uom: number | null;
+  uom: string | null;
+}
+
+export interface Rendiconto {
+  odp_num: string;
+  righe: RigaRendiconto[];
+  consegnato: number;
+  reso: number;
+  delta: number;
+  /** Vero quando ogni riga ha il delta già dichiarato consumato: allora il
+      foglio è un consuntivo. Falso: è una fotografia di metà lavorazione, e
+      il documento deve dirlo invece di far credere il contrario. */
+  chiuso: boolean;
+}
+
+/** IL RENDICONTO DI CONSUMO: QUANTO È SCESO, QUANTO È RISALITO, LA
+    DIFFERENZA.
+
+    È il foglio che si mette in mano a chi chiede «quanto ne è andato in
+    quest'ordine», e il numero che risponde è un delta: consegnato meno
+    reso. Non è un terzo conto — esce da `conto()` e da nient'altro — ma è
+    il taglio che serve su carta, dove le tre colonne dell'applicativo
+    (entrato, reso, consumato) sono una in più di quante ne servano.
+
+    IL DELTA NON È SEMPRE CONSUMO, E IL FOGLIO DEVE POTERLO DIRE. Finché una
+    riga non è stata chiusa, la sua parte di delta è merce ancora sul
+    bancone: `dichiarato` è quel che la chiusura ha già scritto, `aperto` il
+    resto. `chiuso` è vero solo quando non resta niente di aperto — cioè
+    quando il foglio è un consuntivo e non una fotografia. È la stessa
+    regola di `consumo()`, che davanti a un ordine aperto risponde `null`
+    invece di inventare un numero che alle sette di sera è sempre sbagliato.
+
+    Le righe che non hanno mosso niente non ci sono: un rendiconto elenca
+    quello che è successo. */
+export function rendiconto(
+  contoOrdine: ContoOrdine | null | undefined,
+): Rendiconto {
+  const odp = contoOrdine?.odp_num ?? '';
+  const vuoto: Rendiconto = { odp_num: odp, righe: [], consegnato: 0, reso: 0, delta: 0, chiuso: false };
+  if (!contoOrdine?.righe?.length) return vuoto;
+
+  const somma = (a: number | null, b: number | null): number | null =>
+    a === null && b === null ? null : arrotonda((a ?? 0) - (b ?? 0));
+
+  const righe: RigaRendiconto[] = contoOrdine.righe
+    .filter((r) => r.entrato !== 0 || r.tornato !== 0 || r.consumato !== 0)
+    .map((r) => ({
+      item_key: r.item_key,
+      article_code: r.article_code,
+      lot_code: r.lot_code,
+      consegnato: r.entrato,
+      consegnato_uom: r.entrato_uom,
+      reso: r.tornato,
+      reso_uom: r.tornato_uom,
+      delta: arrotonda(r.entrato - r.tornato),
+      delta_uom: somma(r.entrato_uom, r.tornato_uom),
+      dichiarato: r.consumato,
+      dichiarato_uom: r.consumato_uom,
+      aperto: r.residuo,
+      aperto_uom: r.residuo_uom,
+      uom: r.uom,
+    }));
+
+  const tot = (f: (r: RigaRendiconto) => number) =>
+    arrotonda(righe.reduce((n, r) => n + f(r), 0));
+
+  return {
+    odp_num: odp,
+    righe,
+    consegnato: tot((r) => r.consegnato),
+    reso: tot((r) => r.reso),
+    delta: tot((r) => r.delta),
+    /* 2.1 — CHIUSO È UN FATTO SCRITTO, non «tutte le righe tornano a zero»:
+       un ordine si chiude anche lasciando qualcosa dichiarato a mano, e un
+       ordine a zero per caso non è chiuso. */
+    chiuso: contoOrdine.chiuso,
+  };
+}
+/** QUALI COLLI TORNANO QUANDO UNO RIENTRA APERTO.
+
+    Un sacco sceso in lavorazione risale a meta': e' il caso comune, e finche'
+    il reso chiedeva solo «quanti colli» non c'era modo di dirlo. Qui si
+    decide, dalle misure che l'ordine ha ancora fuori, QUALI colli escono
+    interi e QUALE si apre.
+
+    IL COLLO CHE SI APRE E' IL PIU' PICCOLO CHE BASTA, la stessa regola che il
+    servizio applica quando la misura esatta non c'e': aprire un sacco da 25
+    per prenderne 7,5 quando ce n'e' uno da 10 lascia in giro due mezzi colli
+    invece di uno. E gli interi si prendono dai piu' piccoli, cosi' quello che
+    resta da aprire e' il piu' grande fra quelli che bastano.
+
+    Torna `{ intere, apribile }` con le misure da chiedere, oppure
+    `{ errore }` col motivo: non lancia, perche' qui non c'e' niente di
+    eccezionale — sono le risposte a una domanda, e una risposta che non sta
+    in piedi si dice a chi l'ha data. */
+export interface MisureDelReso {
+  intere: number[];
+  apribile: number;
+}
+
+export function misureDelReso(
+  disponibili: readonly number[] | null | undefined,
+  interi: number,
+  parte: number,
+): MisureDelReso | { errore: string } {
+  const misure = (disponibili ?? []).filter((n) => Number.isFinite(n) && n > 0);
+  if (!misure.length) return { errore: 'Questa riga non dichiara i suoi colli' };
+  const n = Number.isFinite(interi) && interi > 0 ? Math.floor(interi) : 0;
+  if (!Number.isFinite(parte) || parte <= 0) return { errore: 'La parte che rientra non e un numero' };
+  if (n + 1 > misure.length) {
+    return { errore: `Ci sono ${misure.length} coll. in lavorazione: non se ne possono rendere ${n} interi piu' una parte di un altro` };
+  }
+
+  const ordinate = [...misure].sort((a, b) => a - b);
+  const intere = ordinate.splice(0, n);
+  const apribile = ordinate.find((m) => m > parte + 1e-9);
+  if (apribile === undefined) {
+    return { errore: `Una parte e' meno di un collo intero: il piu' grande che resta e' da ${Math.max(...ordinate)}. Per prenderlo tutto conta un collo intero in piu'` };
+  }
+  return { intere, apribile };
 }
 
 /** A interruttore spento questo modulo non decide niente, e il chiamante

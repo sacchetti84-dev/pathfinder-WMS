@@ -3,7 +3,7 @@ import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
-import { consumo as consumoWip, daRendere } from '../../modules/wip';
+import { consumo as consumoWip, daRendere, rendiconto, misureDelReso } from '../../modules/wip';
 import { formattaQuantita } from '../../modules/misure';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -33,6 +33,22 @@ export const VistaWip = {
     if (!el) return;
     const area = Store.getAreaWip();
     const aperti = Store.ordiniWipAperti();
+    /* L'ARCHIVIO SI SFOGLIA, non si ricorda a memoria. Un ordine chiuso
+       sparisce dai conti aperti — è il suo mestiere — e fino alla 2.2
+       l'unico modo di rileggerlo era digitarne il numero. Il consuntivo di
+       una lavorazione si guarda mesi dopo, quando quel numero non ce
+       l'ha più in testa nessuno. Gli ultimi otto bastano a riprendere il
+       filo; per uno più vecchio resta il campo, che accetta qualunque
+       numero. */
+    const archiviati = Store.ordiniWipArchiviati();
+    /* MERCE FERMA NEL VANO CHE NESSUN ORDINE RIVENDICA. Il vano è uno solo
+       e a tenere distinti i conti è l'ordine su ogni movimento: una riga che
+       nessun movimento nomina non sta in nessun conto, e né la chiusura né
+       il reso — che lavorano per ordine — la vedono passare. Il 20/08 ce
+       n'erano sei e le ha trovate un guardiano leggendo il database, perché
+       l'applicativo non aveva nessun posto in cui dirlo. Questo è quel
+       posto. */
+    const orfane = Store.righeWipSenzaOrdine();
     if (!this._wipOrdine && aperti.length) this._wipOrdine = aperti[0];
 
     el.innerHTML = `<div>
@@ -55,7 +71,16 @@ export const VistaWip = {
         ${aperti.length ? `<div class="text-label-small text-sx-text-muted mt-2">
           Conti aperti: ${aperti.slice(0, 8).map((o) => `<button class="btn btn-sm" onclick="App._wipApri('${this._esc(o)}')">${this._esc(o)}</button>`).join(' ')}
         </div>` : '<div class="text-label-small text-sx-text-muted mt-2">Nessun conto aperto.</div>'}
+        ${archiviati.length ? `<div class="text-label-small text-sx-text-muted mt-2">
+          🗄 Archiviati: ${archiviati.slice(0, 8).map((a) => `<button class="btn btn-sm" title="Chiuso${a.chiuso_il ? ' il ' + this._esc(this._fmtStamp(a.chiuso_il)) : ''}" onclick="App._wipApri('${this._esc(a.odp_num)}')">${this._esc(a.odp_num)}</button>`).join(' ')}${archiviati.length > 8 ? ` <span>e altri ${archiviati.length - 8}</span>` : ''}
+        </div>` : ''}
       </div>
+      ${orfane.length ? `<div class="mov-preview mov-preview-warn mb-5">
+        <strong>⚠ ${orfane.length} rig${orfane.length === 1 ? 'a' : 'he'} nel vano senza ordine.</strong>
+        ${orfane.length === 1 ? 'Sta' : 'Stanno'} in <span class="mono">${this._esc(area)}</span> e nessun conto ${orfane.length === 1 ? 'la' : 'le'} rivendica: la chiusura e il reso lavorano per ordine, e non ${orfane.length === 1 ? 'la' : 'le'} vedono.
+        Si ${orfane.length === 1 ? 'muove' : 'muovono'} da <strong>Movimenta</strong>, o si ${orfane.length === 1 ? 'carica' : 'caricano'} su un ordine con un prelievo di produzione.
+        <div class="mt-2">${orfane.map((r) => `<span class="badge badge-muted mono mr-2">${this._esc(r.item_key)} · ${r.qty} Coll.</span>`).join('')}</div>
+      </div>` : ''}
       <div id="wipConto"></div>
     </div>`;
     if (this._wipOrdine) this._wipRenderConto();
@@ -81,11 +106,20 @@ export const VistaWip = {
     }
     const vano = Store.getAreaWip() || '—';
     const rendere = daRendere(c);
+    /* 2.1 — UN ORDINE ARCHIVIATO SI LEGGE E SI STAMPA, E NON SI TOCCA.
+       I pulsanti che muovono merce spariscono invece di essere spenti: un
+       pulsante grigio dice «adesso no», e qui la risposta è «mai più». */
+    const archiviato = c.chiuso;
 
     const um = (n: number | null | undefined, u: string | null | undefined) =>
       (typeof n === 'number' && u) ? ` · ${formattaQuantita(n, u)} ${this._esc(u)}` : '';
 
-    let html = `<div class="mov-preview ${c.incoerente ? 'mov-preview-err' : ''} mb-5">
+    let html = `${archiviato ? `<div class="mov-preview mov-preview-ok mb-5">
+      <strong>🗄 Ordine chiuso e archiviato</strong>${c.chiuso_il ? ` il ${this._fmtStamp(c.chiuso_il)}` : ''} —
+      il conto è storia: non entra merce e non ne esce, nemmeno ricaricando lo stesso ordine.
+      Il rendiconto si stampa.
+    </div>` : ''}
+    <div class="mov-preview ${c.incoerente ? 'mov-preview-err' : ''} mb-5">
       <strong class="mono">${this._esc(odp)}</strong> — vano <span class="mono">${this._esc(vano)}</span><br>
       Entrato <strong>${c.entrato} Coll.</strong> · reso <strong>${c.tornato}</strong>${c.consumato ? ` · <strong class="text-sx-success">consumato ${c.consumato}</strong>` : ''} ·
       <strong class="text-sx-warning">ancora in lavorazione ${c.residuo}</strong>
@@ -104,17 +138,20 @@ export const VistaWip = {
           </div>
         </div>
         <div class="inv-actions-row">
-          ${fuori ? `<button class="inv-btn" title="Rendi a magazzino quello che avanza" onclick="App._wipChiediReso('${this._esc(r.item_key)}')">↩</button>` : '<span class="text-sx-success">✓</span>'}
+          ${archiviato ? '<span class="text-sx-text-muted">🗄</span>'
+            : fuori ? `<button class="inv-btn" title="Rendi a magazzino quello che avanza" onclick="App._wipChiediReso('${this._esc(r.item_key)}')">↩</button>
+            <button class="inv-btn" title="Consumato del tutto: niente rientra, e questa riga si chiude" onclick="App._wipConsumaTutto('${this._esc(r.item_key)}')">🔥</button>` : '<span class="text-sx-success">✓</span>'}
         </div>
       </div>`;
     }
 
     html += `<div class="mov-divider"></div>
       <div class="flex gap-3 flex-wrap">
-        <button class="btn btn-primary" ${c.residuo === 0 ? 'disabled' : ''} onclick="App._wipChiudi()">
-          🏁 Chiudi il conto${c.residuo ? ` — ${c.residuo} Coll. diventano consumo` : ''}
-        </button>
-        ${rendere.length ? `<span class="text-label-small text-sx-text-muted pt-4">${rendere.length} rig${rendere.length === 1 ? 'a' : 'he'} da rendere, se non è stata consumata</span>` : ''}
+        ${archiviato ? '' : `<button class="btn btn-primary" onclick="App._wipChiudi()">
+          🏁 Chiudi e archivia${c.residuo ? ` — ${c.residuo} Coll. diventano consumo` : ''}
+        </button>`}
+        <button class="btn" onclick="App._wipStampaRendiconto()">🖨 Report consumo</button>
+        ${!archiviato && rendere.length ? `<span class="text-label-small text-sx-text-muted pt-4">${rendere.length} rig${rendere.length === 1 ? 'a' : 'he'} da rendere, se non è stata consumata</span>` : ''}
       </div>`;
     box.innerHTML = html;
   },
@@ -131,8 +168,12 @@ export const VistaWip = {
       </div>
       <div class="form-row mb-6">
         <div class="form-group">
-          <label>Colli che tornano <span class="req">*</span></label>
-          <input class="input input-mono text-center font-bold" id="wipQty" type="number" min="1" step="1" max="${r.residuo}" value="${r.residuo}">
+          <label>Colli interi che tornano</label>
+          <input class="input input-mono text-center font-bold" id="wipQty" type="number" min="0" step="1" max="${r.residuo}" value="${r.residuo}">
+        </div>
+        <div class="form-group">
+          <label>E una confezione aperta, con dentro${r.uom ? ` (${this._esc(r.uom)})` : ''} — facoltativo</label>
+          <input class="input input-mono" id="wipParte" inputmode="decimal" autocomplete="off" placeholder="es. 5">
         </div>
         <div class="form-group">
           <label>Ubicazione di rientro <span class="req">*</span></label>
@@ -146,7 +187,12 @@ export const VistaWip = {
       </div>
       <div class="mov-preview">
         La merce esce dal vano dell'ordine e rientra a magazzino: il conto cala,
-        e quello che resta è ancora in lavorazione.
+        e quello che resta è ancora in lavorazione.<br>
+        <strong>Una confezione aperta rientra con dentro quel che resta.</strong>
+        Due sacchi da 20 scesi in lavorazione e uno che risale con dentro 5:
+        zero colli interi, 5 nel campo qui sopra. Quel sacco torna a scaffale
+        così com'è, e i 15 che mancano vanno a <strong>consumo</strong> subito —
+        dal vano quella confezione è uscita.
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
        <button class="btn btn-primary" onclick="App._wipRendi('${this._esc(itemKey)}')">↩ Rendi</button>`
@@ -158,9 +204,23 @@ export const VistaWip = {
     const c = Store.contoWip(this._wipOrdine);
     const r = c.righe.find((x) => x.item_key === itemKey);
     if (!r) return this.toast('Riga non trovata sul conto', 'error');
-    const qty = parseInt($('wipQty')?.value, 10);
-    if (!qty || qty < 1 || qty > r.residuo) {
-      return this.toast(`I colli che tornano sono fra 1 e ${r.residuo}`, 'error');
+    /* 2.1 — UN COLLO RIENTRA ANCHE APERTO, ed è il caso comune: un sacco
+       sceso in lavorazione risale a metà. Il campo della parte ha la stessa
+       forma che ha in `_chiediColli` — «e in più, una parte di un altro
+       collo» — perché è la stessa domanda, e due maschere che chiedono la
+       stessa cosa con parole diverse si rispondono in modo diverso. */
+    const interi = parseInt($('wipQty')?.value, 10) || 0;
+    const scritto = String($('wipParte')?.value ?? '').trim();
+    const parte = scritto ? Number(scritto.replace(',', '.')) : 0;
+    if (scritto && (!Number.isFinite(parte) || parte <= 0)) {
+      return this.toast('La parte che rientra non è un numero', 'error');
+    }
+    /* I colli TOCCATI: quelli interi più quello che si apre. È questo il
+       numero che il conto vede scendere, non le UM. */
+    const qty = interi + (parte > 0 ? 1 : 0);
+    if (qty < 1) return this.toast('Indica quanti colli tornano, o che parte di uno', 'error');
+    if (qty > r.residuo) {
+      return this.toast(`Quest'ordine ha ${r.residuo} coll. in lavorazione: non ne possono tornare ${qty}`, 'error');
     }
     const dove = Validate.clean($('wipDove')?.value, true).replace(/'/g, '-');
     if (!dove) return this.toast('Indica dove rientra la merce', 'error');
@@ -178,10 +238,31 @@ export const VistaWip = {
        non dichiara i colli l'elenco è vuoto e si torna a lavorare a numero,
        che è il comportamento di sempre. */
     const nelVano = Store.getItemsAtLocation(vano).find((x) => x.item_key === itemKey);
-    const fuori = Store.colliFuoriWip(this._wipOrdine, itemKey);
-    let scelte = null;
-    if (nelVano && fuori.length) {
-      scelte = await this._chiediColli(nelVano, `Quali colli tornano · ${r.article_code}#${r.lot_code}`, fuori);
+
+    let rientrati = '';
+    /* Quanto rientra DAVVERO in UM, e con quali colli: con una confezione
+       aperta i due numeri non sono quelli che escono dal vano. */
+    let umResa: number | null = null;
+    let packsRientro: number[] | null = null;
+    let scelte;
+    if (parte > 0) {
+      /* Aprire un collo pretende di sapere QUALE si apre, e quindi che la
+         riga i colli li dichiari: senza elenco «7,5 KG di un collo» non ha
+         un collo a cui riferirsi, e scriverlo lo stesso lascerebbe un saldo
+         sopra un elenco che non c'è. */
+      const esito = this._wipScelteConParte(nelVano, itemKey, interi, parte, r);
+      if (typeof esito === 'string') return this.toast(esito, 'error');
+      scelte = esito.scelte;
+      /* QUANTO RIENTRA DAVVERO: i colli interi per intero, più quel che c'è
+         dentro la confezione aperta. È il numero che va a registro come
+         reso; il resto del collo aperto è consumo. */
+      umResa = esito.misure.intere.reduce((n: number, m: number) => n + m, 0) + parte;
+      /* A magazzino rientrano i colli interi COM'ERANO, e la confezione
+         aperta con dentro quel che resta — non con quanto pesava prima. */
+      packsRientro = [...esito.misure.intere, parte];
+    } else {
+      scelte = await this._wipScegliColli(nelVano, itemKey, qty,
+        `Quali colli tornano · ${r.article_code}#${r.lot_code}`);
       if (scelte === undefined) return this.toast('Reso annullato', 'info');
     }
 
@@ -189,17 +270,27 @@ export const VistaWip = {
       const tolti = await Store.esceDaWip(this._wipOrdine, {
         item_key: itemKey, article_code: r.article_code, lot_code: r.lot_code, qty,
         uom: r.uom,
-      }, scelte);
+      }, scelte, 'out', umResa);
       /* La merce rientra com'è uscita: gli stessi colli, e le stesse UM. Un
          reso che rientra «a numero» rinascerebbe con la confezione
          dell'anagrafica, che sul lotto non vale — la confezione del lotto
          vince sempre. */
+      const packs = packsRientro ?? tolti._packs_out ?? null;
       const res = await Store.addItem(dove, r.article_code, '', r.lot_code, '',
         `Reso da ordine ${this._wipOrdine}`,
-        Math.abs(tolti._qty_delta ?? qty),
-        typeof tolti._qty_uom_delta === 'number' ? Math.abs(tolti._qty_uom_delta) : null,
-        tolti._packs_out ?? null);
+        packs ? packs.length : Math.abs(tolti._qty_delta ?? qty),
+        umResa ?? (typeof tolti._qty_uom_delta === 'number' ? Math.abs(tolti._qty_uom_delta) : null),
+        packs);
       if (!res.ok) return this.toast('Reso non riuscito al rientro', 'error');
+      /* QUANTO È RIENTRATO DAVVERO. Con una confezione aperta i colli sono
+         quelli che tornano sullo scaffale — l'aperta compresa — ma le UM
+         sono meno di quelle uscite dal vano: la differenza è consumo, e
+         dirla «resa» sarebbe merce che sullo scaffale nessuno trova. */
+      const colli = packs ? packs.length : Math.abs(tolti._qty_delta ?? qty);
+      const misura = umResa ?? (typeof tolti._qty_uom_delta === 'number' ? Math.abs(tolti._qty_uom_delta) : null);
+      rientrati = `${colli} Coll.`
+        + (misura !== null && r.uom ? ` · ${formattaQuantita(misura, r.uom)} ${r.uom}` : '')
+        + (parte > 0 ? ' (una confezione aperta)' : '');
     } catch (e) {
       return this.toast((e as Error).message, 'error');
     }
@@ -209,49 +300,304 @@ export const VistaWip = {
     this._formWip($('pickSubForm'));
     this.updateSyncIndicator();
     this._refreshSessionLog?.();
-    this.toast(`↩ ${qty} Coll. rientrati in ${dove}`, 'success');
+    this.toast(`↩ ${rientrati} rientrati in ${dove}`, 'success');
   },
 
-  /* LA CHIUSURA È IL MOMENTO IN CUI IL RESIDUO DIVENTA CONSUMO, ed è
-     l'unica cosa che questa maschera fa e che non si può disfare leggendo:
-     da qui in poi quei colli sono finiti nel prodotto. Per questo la
-     conferma elenca riga per riga cosa si sta dichiarando consumato. */
-  async _wipChiudi() {
-    if (!this._requireOperator('la chiusura del conto di produzione')) return;
+  /* 2.1 — LE SCELTE QUANDO RIENTRA UNA CONFEZIONE APERTA.
+
+     Restituisce l'elenco per `removeItem` e le misure che l'hanno composto,
+     oppure una STRINGA col motivo: chi chiama la mostra e si ferma. Non
+     lancia, perché qui non c'è niente di eccezionale — sono le risposte a
+     una domanda, e una risposta che non sta in piedi si dice a chi l'ha
+     data.
+
+     IL COLLO CHE SI APRE È IL PIÙ PICCOLO CHE BASTA, come fa il servizio
+     quando la misura esatta non c'è: aprire un sacco da 25 per prenderne 7,5
+     quando ce n'è uno da 10 lascia in giro due mezzi colli invece di uno. */
+  _wipScelteConParte(nelVano, itemKey, interi: number, parte: number, r) {
+    const elenco = Store.colliDiRiga(nelVano);
+    if (!elenco || !elenco.length) {
+      return `${r.article_code}#${r.lot_code} non dichiara i suoi colli, e un `
+        + 'rientro parziale va detto su un collo preciso. Rendi i colli interi: '
+        + 'la differenza si dichiara alla chiusura.';
+    }
+
+    /* Le misure che QUEST'ORDINE ha ancora fuori, non quelle del vano: nel
+       vano ci convivono le righe di più ordini. Quando l'ordine non ha le
+       misure a conto — le righe scritte prima della 2.0 — si guarda
+       l'elenco intero, che è quanto di più onesto si possa fare. */
+    const fuori = Store.colliFuoriWip(this._wipOrdine, itemKey);
+    const disponibili = fuori.length ? fuori : elenco;
+
+    /* Quali interi e quale si apre lo decide `misureDelReso`, che sta nel
+       modulo ed è collaudato da fermo: qui si traducono le misure in scelte
+       per il servizio, che è l'unica cosa che pretende Store. */
+    const misure = misureDelReso(disponibili, interi, parte);
+    if ('errore' in misure) return misure.errore;
+
+    let scelte;
+    try {
+      scelte = Store.scelteDaColli(nelVano, [...misure.intere, misure.apribile]);
+    } catch (e) {
+      return (e as Error).message;
+    }
+    if (!scelte || !scelte.length) {
+      return `I colli di ${this._wipOrdine} non si ritrovano più nel vano: un altro terminale ha mosso la riga.`;
+    }
+    /* IL COLLO APERTO ESCE INTERO DAL VANO, e non per metà: quel che torna
+       a magazzino È la confezione aperta, con dentro quel che resta. Il vuoto
+       — la differenza fra quanto pesava e quanto ne rientra — è merce finita
+       nel prodotto, e la scrive `esceDaWip` come consumo nello stesso gesto.
+       Lasciarne mezza nel vano terrebbe aperta una riga per un sacco che sullo
+       scaffale c'è già, e alla chiusura l'ordine chiederebbe un collo di più
+       di quanti ne abbia. */
+    return { scelte, misure };
+  },
+  /* 2.1 — QUALI COLLI ESCONO DAL VANO WIP, per il reso e per la chiusura.
+
+     Le due strade facevano cose diverse sullo stesso problema: il reso
+     chiedeva l'elenco solo se l'ordine aveva le misure a conto, la chiusura
+     non chiedeva mai e passava `null`. Su ogni riga entrata in lavorazione
+     prima che il conto registrasse le misure — cioè tutte quelle scritte
+     fino alla 2.0 — la chiusura finiva a chiedere «togline tre» a
+     `removeItem`, che dalla 2.0 rifiuta: **il consumo non si riusciva a
+     dichiarare**, e il messaggio parlava di colli senza nominare l'ordine.
+
+     Adesso la regola è una sola e vale per tutte e due: se la riga nel vano
+     dichiara i colli e non se ne porta via tutti, si chiede QUALI. Le misure
+     dell'ordine, quando ci sono, restringono la scelta a quelle; quando non
+     ci sono si sceglie sull'elenco intero del vano — che è quanto di più
+     onesto si possa fare, perché la merce è lì e chi ha il bancale davanti
+     sa quale sacco ha finito.
+
+     `undefined` = chi sceglieva ha annullato. `null` = non c'era niente da
+     scegliere, e si lavora a numero come nella 1.7. */
+  async _wipScegliColli(nelVano, itemKey, quanti, titolo) {
+    if (!nelVano) return null;
+    const elenco = Store.colliDiRiga(nelVano);
+    if (!elenco || !elenco.length) return null;
+    /* Portarsi via tutto quello che c'è nel vano non è una scelta: lo
+       svuotamento totale è la strada che `removeItem` lascia libera anche
+       dove i colli sono dichiarati. */
+    if (quanti >= elenco.length) return null;
+    const fuori = Store.colliFuoriWip(this._wipOrdine, itemKey);
+    return this._chiediColli(nelVano, titolo, fuori.length ? fuori : null);
+  },
+
+  /* 2.1 — IL RENDICONTO DI CONSUMO, SU CARTA.
+
+     Il numero che il foglio dà è un DELTA: quanto è sceso in lavorazione
+     meno quanto è risalito. È la domanda che si fa chi chiede «quanto ne è
+     andato in quest'ordine», e le tre colonne dell'applicativo — entrato,
+     reso, consumato — sono una in più di quante ne servano su carta.
+
+     IL FOGLIO DICE SE È UN CONSUNTIVO O UNA FOTOGRAFIA, e non è una
+     cortesia: finché una riga non è chiusa, la sua parte di delta è merce
+     ancora sul bancone, e un foglio che la chiama consumo scrive un numero
+     che alle sette di sera è sempre sbagliato. Un ordine ancora aperto
+     esce con la filigrana «PROVVISORIO», come una bozza di DDT.
+
+     La regola sta in `modules/wip.ts`, pura e collaudata: qui c'è la
+     tabella e basta. */
+  _wipStampaRendiconto() {
+    const odp = this._wipOrdine;
+    if (!odp) return this.toast('Apri prima un ordine', 'error');
+    const r = rendiconto(Store.contoWip(odp));
+    if (!r.righe.length) return this.toast(`Nessun movimento sul conto di ${odp}`, 'info');
+
+    const E = (v: unknown) => this._esc(String(v));
+    const um = (n: number | null | undefined, u: string | null | undefined) =>
+      (typeof n === 'number' && u) ? `${formattaQuantita(n, u)} ${u}` : '—';
+
+    const corpo = r.righe.map((x) => `<tr>
+        <td class="mono">${E(x.article_code)}</td>
+        <td class="mono">${E(x.lot_code)}</td>
+        <td class="td-num">${E(x.consegnato)}</td>
+        <td class="td-num">${E(um(x.consegnato_uom, x.uom))}</td>
+        <td class="td-num">${E(x.reso)}</td>
+        <td class="td-num">${E(um(x.reso_uom, x.uom))}</td>
+        <td class="td-num"><b>${E(x.delta)}</b></td>
+        <td class="td-num"><b>${E(um(x.delta_uom, x.uom))}</b></td>
+        <td>${x.aperto === 0 && (x.aperto_uom ?? 0) === 0
+          ? 'dichiarato'
+          : `ancora in lavorazione ${E(x.aperto)} coll.`}</td>
+      </tr>`).join('');
+
+    const body = `
+      <table class="pr-table">
+        <thead>
+          <tr>
+            <th rowspan="2">Articolo</th><th rowspan="2">Lotto</th>
+            <th colspan="2" class="text-center">Consegnato in lavorazione</th>
+            <th colspan="2" class="text-center">Reso a magazzino</th>
+            <th colspan="2" class="text-center">Consumo (delta)</th>
+            <th rowspan="2">Stato</th>
+          </tr>
+          <tr>
+            <th class="text-center">Coll.</th><th class="text-center">Quantità</th>
+            <th class="text-center">Coll.</th><th class="text-center">Quantità</th>
+            <th class="text-center">Coll.</th><th class="text-center">Quantità</th>
+          </tr>
+        </thead>
+        <tbody>${corpo}</tbody>
+        <tfoot><tr>
+          <td colspan="2"><b>Totali in colli</b></td>
+          <td class="td-num"><b>${E(r.consegnato)}</b></td><td></td>
+          <td class="td-num"><b>${E(r.reso)}</b></td><td></td>
+          <td class="td-num"><b>${E(r.delta)}</b></td><td></td>
+          <td></td>
+        </tr></tfoot>
+      </table>
+      <p class="text-body-small">Il consumo è la <b>differenza fra quanto è sceso in lavorazione e
+      quanto è risalito a magazzino</b>. Le quantità non si sommano fra articoli: un lotto a
+      chili e uno a pezzi non fanno un totale.</p>
+      ${r.chiuso
+        ? '<p class="text-body-small">Ogni riga di questo ordine è stata dichiarata: il foglio è un <b>consuntivo</b>.</p>'
+        : '<p class="text-body-small"><b>⚠ Ordine ancora aperto.</b> Le righe segnate «ancora in lavorazione» portano merce che sta sul bancone: quel delta non è consumo finché non viene dichiarato.</p>'}`;
+
+    this._docPrint(this._docPageHTML({
+      kind: 'RENDICONTO DI CONSUMO',
+      kindSub: 'Ordine di produzione — consegnato meno reso',
+      numLabel: 'Ordine', num: odp,
+      dateLabel: 'al', dateVal: this._fmtStamp(Date.now()),
+      headExtra: `<div class="doc-idblock doc-idblock--3">
+        ${this._docCell('Vano di lavorazione', Store.getAreaWip() || '')}
+        ${this._docCell('Righe', String(r.righe.length))}
+        ${this._docCell('Stato del conto', r.chiuso ? 'chiuso — consuntivo' : 'aperto — provvisorio')}
+      </div>`,
+      body,
+      docId: `CONS-${odp}`,
+      watermark: r.chiuso ? '' : 'PROVVISORIO',
+      /* Le righe sono quante sono: il foglio scorre, e testata e piede
+         tornano su ogni pagina. Vedi `_docPageHTML`. */
+      flow: true,
+      signs: [
+        { role: 'Operatore magazzino', hint: 'Data e firma' },
+        { role: 'Responsabile produzione', hint: 'Data e firma' },
+      ],
+    }));
+  },
+  /* 2.1 — DICHIARARE CONSUMATA UNA RIGA, e nient'altro.
+
+     È il gesto che la chiusura fa su tutte le righe, e che adesso si può
+     fare su una sola: se in lavorazione è sceso un collo e non rientra, è
+     sottinteso che sia finito nel prodotto, e aspettare la chiusura
+     dell'ordine per dirlo tiene aperta una riga che nessuno riprenderà.
+
+     Il motore è UNO — questo — e lo chiamano tutte e due le strade: due
+     copie della stessa scrittura sono due posti dove aggiungere le UM, e la
+     seconda volta se ne aggiunge una sola. Restituisce `null` se è andata,
+     o la riga di errore da mostrare.
+
+     Le UM si passano sempre: è il numero che qualcuno cercherà fra sei mesi
+     — «quanto ne è finito dentro» — e senza, a registro resta il conto dei
+     colli e il peso sparisce. QUALI colli va chiesto: il vano è uno solo e
+     le righe di più ordini ci convivono. Vedi `_wipScegliColli`. */
+  async _wipDichiaraConsumata(odp: string, r): Promise<string | null> {
+    const vano = Store.getAreaWip();
+    try {
+      const nelVano = Store.getItemsAtLocation(vano).find((x) => x.item_key === r.item_key);
+      const scelte = await this._wipScegliColli(nelVano, r.item_key, r.residuo,
+        `Quali colli ha consumato ${odp} · ${r.article_code}#${r.lot_code}`);
+      if (scelte === undefined) return `${r.article_code}#${r.lot_code}: scelta dei colli annullata`;
+      await Store.esceDaWip(odp, {
+        item_key: r.item_key, article_code: r.article_code, lot_code: r.lot_code,
+        qty: r.residuo, qty_uom: r.residuo_uom, uom: r.uom,
+      }, scelte, 'consumo');
+      await this._logMov(MOV.PICK, r.article_code, '', r.lot_code, vano, null,
+        '', `Consumo di produzione — ordine ${odp}`, odp, r.residuo, -r.residuo, 0);
+      return null;
+    } catch (e) {
+      return `${r.article_code}#${r.lot_code}: ${(e as Error).message}`;
+    }
+  },
+
+  /* «CONSUMATO DEL TUTTO» SU UNA RIGA SOLA. Non chiude l'ordine: chiude
+     quella riga, e il conto resta aperto per le altre. La conferma dice
+     quanto si sta dichiarando, perché da qui in poi quella merce non torna
+     più a magazzino — è la stessa cosa che dice la chiusura, su una riga. */
+  async _wipConsumaTutto(itemKey) {
+    if (!this._requireOperator('la dichiarazione di consumo')) return;
     const odp = this._wipOrdine;
     const c = Store.contoWip(odp);
-    const k = consumoWip(c, true) || [];
-    if (!k.length) return this.toast('Niente da chiudere: il conto è già a zero', 'info');
+    const r = c.righe.find((x) => x.item_key === itemKey);
+    if (!r) return this.toast('Riga non trovata sul conto', 'error');
+    if (r.residuo <= 0) return this.toast('Su questa riga non resta niente in lavorazione', 'info');
 
+    const quanto = `${r.residuo} Coll.`
+      + (typeof r.residuo_uom === 'number' && r.uom ? ` · ${formattaQuantita(r.residuo_uom, r.uom)} ${r.uom}` : '');
     if (!await Dialog.confirm({
-      title: 'Chiudere il conto di produzione?',
-      message: `Quello che è entrato e non è tornato viene dichiarato CONSUMATO dall'ordine ${odp}: esce dal vano di lavorazione e non torna più a magazzino.`,
-      details: Dialog.kv(k.map((r) => [`${r.article_code}#${r.lot_code}`, `${r.residuo} Coll.${typeof r.residuo_uom === 'number' && r.uom ? ` · ${formattaQuantita(r.residuo_uom, r.uom)} ${r.uom}` : ''}`])),
+      title: 'Consumata del tutto?',
+      message: `${r.article_code}#${r.lot_code}: ${quanto} vengono dichiarati CONSUMATI dall'ordine ${odp}. `
+        + 'Escono dal vano di lavorazione e non tornano più a magazzino.',
       confirmLabel: 'Dichiara consumato', danger: true,
     })) return;
 
-    const vano = Store.getAreaWip();
+    const errore = await this._wipDichiaraConsumata(odp, r);
+    this._formWip($('pickSubForm'));
+    this.updateSyncIndicator();
+    this._refreshSessionLog?.();
+    if (errore) return this.toast(`Consumo non dichiarato — ${errore}`, 'error');
+    this.toast(`🔥 ${r.article_code}#${r.lot_code}: ${quanto} a consumo di ${odp}`, 'success');
+  },
+  /* LA CHIUSURA È IL MOMENTO IN CUI IL RESIDUO DIVENTA CONSUMO, ed è
+     l'unica cosa che questa maschera fa e che non si può disfare leggendo:
+     da qui in poi quei colli sono finiti nel prodotto. Per questo la
+     conferma elenca riga per riga cosa si sta dichiarando consumato.
+
+     2.1 — E CHIUDERE ARCHIVIA. Un ordine a residuo zero — tutto rientrato —
+     non aveva niente da dichiarare e quindi non si chiudeva affatto:
+     spariva dall'elenco degli aperti, che filtra sul residuo, e restava
+     un ordine vivo che il file di produzione poteva ricaricare. È la
+     riesumazione che Andrea ha visto il 20/08. Adesso si chiude anche
+     quando non c'è niente da consumare: il gesto scrive l'archiviazione. */
+  async _wipChiudi() {
+    if (!this._requireOperator('la chiusura del conto di produzione')) return;
+    const odp = this._wipOrdine;
+    if (Store.ordineWipArchiviato(odp)) return this.toast(`L'ordine ${odp} è già archiviato`, 'info');
+    const c = Store.contoWip(odp);
+    if (!c.righe.length) return this.toast(`Nessun movimento sul conto di ${odp}`, 'info');
+    const k = consumoWip(c, true) || [];
+
+    if (!await Dialog.confirm({
+      title: k.length ? 'Chiudere e archiviare il conto?' : "Archiviare l'ordine?",
+      message: (k.length
+        ? `Quello che è entrato e non è tornato viene dichiarato CONSUMATO dall'ordine ${odp}: esce dal vano di lavorazione e non torna più a magazzino. `
+        : `Sul conto di ${odp} non resta niente in lavorazione: tutto è già rientrato o è già stato dichiarato. `)
+        + "L'ordine viene ARCHIVIATO: non entrerà più merce nel suo conto e non ne uscirà, "
+        + 'nemmeno ricaricando lo stesso ordine dal file di produzione. Il rendiconto resta stampabile.',
+      details: k.length
+        ? Dialog.kv(k.map((r) => [`${r.article_code}#${r.lot_code}`, `${r.residuo} Coll.${typeof r.residuo_uom === 'number' && r.uom ? ` · ${formattaQuantita(r.residuo_uom, r.uom)} ${r.uom}` : ''}`]))
+        : undefined,
+      confirmLabel: k.length ? 'Dichiara consumato e archivia' : "Archivia l'ordine", danger: true,
+    })) return;
+
     const falliti = [];
     for (const r of k) {
+      const errore = await this._wipDichiaraConsumata(odp, r);
+      if (errore) falliti.push(errore);
+    }
+
+    /* 2.1 — L'ORDINE CHIUSO SI ARCHIVIA, e la chiusura è un movimento
+       scritto: da qui in poi non entra merce e non ne esce, nemmeno
+       ricaricando lo stesso ordine dal file. Vedi `archiviato`.
+
+       SI ARCHIVIA SOLO SE È ANDATA TUTTA. Una chiusura a metà lascia merce
+       nel vano, e murare l'ordine sopra quella merce vorrebbe dire non
+       poterla più né rendere né dichiarare: resta aperto, e il messaggio
+       dice cosa è mancato. */
+    if (!falliti.length) {
       try {
-        /* La chiusura dichiara consumato TUTTO il residuo di quella riga:
-           non c'è niente da scegliere, e le UM si passano perché è il numero
-           che qualcuno cercherà fra sei mesi — «quanto ne è finito dentro».
-           Senza, a registro resta il conto dei colli e il peso sparisce. */
-        await Store.esceDaWip(odp, {
-          item_key: r.item_key, article_code: r.article_code, lot_code: r.lot_code,
-          qty: r.residuo, qty_uom: r.residuo_uom, uom: r.uom,
-        }, null, 'consumo');
-        await this._logMov(MOV.PICK, r.article_code, '', r.lot_code, vano, null,
-          '', `Consumo di produzione — ordine ${odp}`, odp, r.residuo, -r.residuo, 0);
+        await Store.archiviaOrdineWip(odp);
       } catch (e) {
-        falliti.push(`${r.article_code}#${r.lot_code}: ${(e as Error).message}`);
+        falliti.push(`archiviazione: ${(e as Error).message}`);
       }
     }
+
     this._formWip($('pickSubForm'));
     this.updateSyncIndicator();
     this._refreshSessionLog?.();
     if (falliti.length) return this.toast(`Chiusura incompleta — ${falliti[0]}`, 'error');
-    this.toast(`🏁 Conto ${odp} chiuso: ${k.length} rig${k.length === 1 ? 'a consumata' : 'he consumate'}`, 'success');
+    this.toast(`🏁 Ordine ${odp} chiuso e archiviato: ${k.length} rig${k.length === 1 ? 'a consumata' : 'he consumate'}`, 'success');
   },
 } satisfies Vista;

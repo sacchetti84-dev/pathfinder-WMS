@@ -467,7 +467,12 @@ export interface Operatore {
   first_name: string;
   last_name: string;
   initials: string;
-  role: 'operator' | 'leader';
+  /** 2.1 — TRE CARICHE, E LA TERZA È NUOVA. `admin` è l'unica che apre
+      la Configurazione e il reset dei dati; comprende tutto quello che un
+      Team Leader può fare, perché una carica che autorizza il reset e non
+      il rinnovo di un PIN non descrive nessuno. Un record scritto prima
+      della 2.1 non porta `admin` e resta quel che era. */
+  role: 'operator' | 'leader' | 'admin';
   pin_hash?: string | null;
   pin_salt?: string | null;
   pin_set_at?: Istante | null;

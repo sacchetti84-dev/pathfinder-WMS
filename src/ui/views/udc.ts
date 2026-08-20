@@ -4,6 +4,7 @@ import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 import { riconosci } from '../../modules/udc';
+import { svg as barcodeSvg, primoCarattereFuoriSet } from '../../modules/code128';
 import type { Giacenza } from '../../types/entita';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -75,6 +76,8 @@ export const VistaUdc = {
           <button class="inv-btn" title="Apri e carica la merce" onclick="App._udcApri('${this._esc(u.udc_id)}')">${scelta ? '▾' : '▸'}</button>
           <button class="inv-btn" title="Sposta l'unità intera" onclick="App._udcChiediSposta('${this._esc(u.udc_id)}')">🔀</button>
           <button class="inv-btn" title="Ristampa l'etichetta" onclick="App._udcEtichetta('${this._esc(u.udc_id)}')">🏷</button>
+          <button class="inv-btn" title="Metti in quarantena tutta l'unità" onclick="App._udcChiediQuarantena('${this._esc(u.udc_id)}')">🔒</button>
+          <button class="inv-btn btn-danger" title="Smaltisci tutta l'unità" onclick="App._udcChiediSmaltisci('${this._esc(u.udc_id)}')">🗑</button>
         </div>
       </div>`;
       if (scelta) html += this._udcDettaglioHTML(u, righe);
@@ -277,34 +280,248 @@ export const VistaUdc = {
     this.toast(`🔀 ${id}: ${da} → ${dest} · ${esito?.righe ?? 0} righe`, 'success');
   },
 
-  /* ─── L'ETICHETTA ──────────────────────────────────────────────────
+  /* ─── L'ETICHETTA — 2.1 ────────────────────────────────────────────
      100 × 80 mm su A4, dal browser: nessun driver, nessuna stampante
-     speciale. Il codice si scrive grande e in chiaro sotto la
-     rappresentazione: un lettore che non legge lascia comunque a chi ha il
-     pallet davanti un numero da digitare. */
+     speciale.
+
+     SOPRA C'È IL CODICE A BARRE, E BASTA. Fino alla 2.0 l'etichetta
+     portava anche mittente, tipo, ubicazione, data, operatore e numero di
+     righe: sei dati che valgono il minuto in cui il foglio esce dalla
+     stampante. Un pallet si sposta, si carica e si scarica — e ognuno di
+     quei sei diventa una bugia incollata al legno, letta da chi passa e
+     creduta. L'unico dato che non invecchia mai è il numero dell'unità,
+     perché non si riusa: tutto il resto lo dice il sistema, che lo sa
+     adesso e non alla stampa.
+
+     Il numero in chiaro sotto le barre non è un dato in più: è la
+     rappresentazione leggibile dello stesso codice — quella che lo standard
+     chiede, e che lascia un numero da digitare a chi ha il pallet davanti
+     quando il lettore non legge. */
   _udcEtichetta(id) {
     const u = Store.getUdc(id);
     if (!u) return this.toast('Unità non trovata', 'error');
     const forma = riconosci(u.udc_id);
-    const righe = Store.righeDiUdc(id);
-    const creata = new Date(u.created_at || Date.now()).toLocaleString('it-IT',
-      { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
-    const sede = Store.getDocConfig().sender;
+    /* Un codice che il set B non sa scrivere non esiste in questo
+       applicativo — `modules/udc.ts` li genera lui — ma se esistesse,
+       stampare l'etichetta senza barre e dirlo è meglio che stampare barre
+       che nessun lettore legge. */
+    const fuori = primoCarattereFuoriSet(u.udc_id);
+    const codice = fuori === null
+      ? barcodeSvg(u.udc_id, { modulo: 0.5, altezza: 28, etichetta: u.udc_id,
+                               descrizione: `Unità di carico ${u.udc_id}` })
+      : `<div class="udc-label-code">${this._esc(u.udc_id)}</div>`;
 
     this._docPrint(`<div class="udc-label">
-      <div class="udc-label-head">
-        <div class="udc-label-mitt">${this._esc(sede?.name || 'Dietopack S.r.l.')}</div>
-        <div class="udc-label-tipo">${this._esc((u.type || 'pallet').toUpperCase())}</div>
-      </div>
-      <div class="udc-label-code">${this._esc(u.udc_id)}</div>
+      <div class="udc-label-barcode">${codice}</div>
       <div class="udc-label-forma">${forma.forma === 'sscc' ? 'SSCC (GS1)' : 'Codice interno'}</div>
-      <div class="udc-label-body">
-        <div><span>Ubicazione</span><b>${this._esc(u.location_code || '—')}</b></div>
-        <div><span>Creata il</span><b>${this._esc(creata)}</b></div>
-        <div><span>Da</span><b>${this._esc(u.created_by || '—')}</b></div>
-        <div><span>Righe alla stampa</span><b>${righe.length}</b></div>
-      </div>
-      <div class="udc-label-foot">Pathfinder — l'etichetta resta valida finché l'unità esiste. Il codice non si riusa.</div>
     </div>`);
+  },
+
+  /* ─── SMALTIRE E BLOCCARE UN'UNITÀ INTERA — 2.1 ────────────────
+
+     UN PALLET È UN FATTO SOLO, ANCHE SE PORTA OTTO RIGHE. Chi lo smaltisce
+     ha davanti un legno rotto o una merce scaduta, non otto decisioni: la
+     giustificazione si scrive UNA volta e vale per tutte le righe — è la
+     riga del prompt, ed è anche l'unico modo perché il registro racconti un
+     fatto invece di otto coincidenze con la stessa ora.
+
+     Quel che NON si accorpa è il documento. Ogni riga porta il suo verbale
+     numerato e il suo record di quarantena, perché l'archivio dei documenti
+     è fatto così dalla 1.5 e perché una ristampa deve poter nominare UN
+     articolo e UN lotto: un verbale che ne elenca otto non si allega a
+     nessuna delle otto pratiche. A tenerli insieme sono la causale, la
+     sigla di chi ha firmato e l'ora. */
+
+  _udcRigheOChiedi(id: string) {
+    const u = Store.getUdc(id);
+    if (!u) { this.toast('Unità non trovata', 'error'); return null; }
+    const righe = Store.righeDiUdc(id);
+    if (!righe.length) { this.toast(`${id} è vuota: non c'è niente da muovere`, 'warning'); return null; }
+    return { u, righe };
+  },
+
+  _udcRiepilogoHTML(u, righe: Giacenza[]) {
+    return `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+      <span class="mono font-bold text-sx-teal">${this._esc(u.udc_id)}</span> · ${this._esc(u.type || 'pallet')}
+      · 📍 ${this._esc(u.location_code || '—')}<br>
+      ${righe.map((r: Giacenza) => `<div class="mt-2">• <span class="mono">${this._esc(r.article_code)}</span>#${this._esc(r.lot_code)}
+        — ${r.qty || 0} Coll. · ${this._esc(Store.descriviRiga(r))}</div>`).join('')}
+    </div>`;
+  },
+
+  _udcChiediSmaltisci(id) {
+    if (!this._requireOperator('lo smaltimento di un’unità di carico')) return;
+    const dati = this._udcRigheOChiedi(id);
+    if (!dati) return;
+    const causali = Store.getDocConfig().disposalReasons;
+    this.showModal(
+      `🗑 Smaltisci ${this._esc(id)}`,
+      `${this._udcRiepilogoHTML(dati.u, dati.righe)}
+      <div class="mov-preview mov-preview-err mb-7">
+        <strong>Escono tutte e ${dati.righe.length} le righe, per intero.</strong>
+        La merce lascia definitivamente la giacenza e l'unità si chiude.
+        Ogni riga porta il suo verbale numerato, ristampabile da Documenti.
+      </div>
+      <div class="form-group mb-6">
+        <label>Motivazione <span class="req">*</span> — vale per tutte le righe</label>
+        <select class="input select" id="udcDispCausale">
+          ${causali.map((r) => `<option value="${this._esc(r.id)}">${this._esc(r.label)}</option>`).join('')}
+          <option value="__libera">Altra motivazione…</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label>Nota</label>
+        <input class="input" id="udcDispNota" maxlength="${Validate.MAX.REASON}" placeholder="Obbligatoria se la motivazione è «Altra»">
+      </div>`,
+      `<button class="btn" onclick="App.closeModal()">Annulla</button>
+       <button class="btn btn-danger" onclick="App._udcSmaltisci('${this._esc(id)}')">🗑 Smaltisci l'unità</button>`
+    );
+  },
+
+  async _udcSmaltisci(id) {
+    const dati = this._udcRigheOChiedi(id);
+    if (!dati) return;
+    const scelta = String($sel('udcDispCausale')?.value || '');
+    const nota = Validate.clean($('udcDispNota')?.value);
+    const causale = scelta === '__libera'
+      ? nota
+      : (Store.getDocConfig().disposalReasons.find((r) => r.id === scelta)?.label || '');
+    if (!causale) return this.toast('Con «Altra motivazione» la nota diventa obbligatoria', 'error');
+
+    if (!await Dialog.confirm({
+      title: 'Smaltimento dell’unità di carico',
+      message: 'La merce esce definitivamente dalla giacenza e l’unità si chiude. '
+             + 'L’operazione non si annulla in blocco: si rientra riga per riga da Movimenta.',
+      details: Dialog.kv([
+        ['Unità', id],
+        ['Ubicazione', dati.u.location_code || '—'],
+        ['Righe', dati.righe.length],
+        ['Colli in tutto', dati.righe.reduce((t: number, r: Giacenza) => t + (r.qty || 0), 0)],
+        ['Motivazione', causale],
+      ]),
+      confirmLabel: 'Smaltisci tutto', danger: true,
+    })) return;
+
+    const operatore = Store.getCurrentIdentity().initials;
+    const note = `SMALTIMENTO UDC ${id} [${causale}]` + (scelta === '__libera' ? '' : (nota ? ` · ${nota}` : ''));
+    const fatte: string[] = [];
+    const fallite: string[] = [];
+
+    for (const r of dati.righe) {
+      const vano = r.location_code;
+      try {
+        /* Svuotamento totale: è la strada che `removeItem` lascia libera
+           anche dove i colli sono dichiarati — la riga sparisce intera e
+           non resta un elenco a sopravviverle. */
+        const tolta = await Store.removeItem(vano, r.item_key);
+        if (!tolta) { fallite.push(`${r.article_code}#${r.lot_code}`); continue; }
+        const verbale = Store.nextDisposalSeq();
+        await this._logMov(MOV.OUT, tolta.article_code, tolta.article_description, tolta.lot_code,
+          vano, null, operatore, note, verbale,
+          tolta._qty_before, tolta._qty_delta, tolta._qty_after, tolta._qty_uom_delta);
+        await Store.archiveDisposal({
+          doc_id: verbale,
+          created_at: Date.now(),
+          article_code: tolta.article_code,
+          article_description: tolta.article_description || '',
+          lot_code: tolta.lot_code,
+          expiry_date: tolta.expiry_date || '',
+          location_code: vano,
+          qty: tolta._qty_before,
+          qty_before: tolta._qty_before,
+          qty_after: 0,
+          reason: causale,
+          forced_note: `Unità di carico ${id}` + (nota ? ` · ${nota}` : ''),
+          operator: operatore,
+          sender: Store.getDocConfig().sender,
+        });
+        fatte.push(verbale);
+      } catch (e) {
+        fallite.push(`${r.article_code}#${r.lot_code}: ${(e as Error).message}`);
+      }
+    }
+
+    this.closeModal();
+    this.updateSyncIndicator();
+    this._refreshSessionLog();
+    this.renderMovimenta();
+    if (fallite.length) {
+      this.toast(`Smaltite ${fatte.length} righe su ${dati.righe.length}. Non riuscite: ${fallite.join(' · ')}`, 'error');
+    } else {
+      this.toast(`✓ ${id} smaltita: ${fatte.length} righe, ${fatte.length} verbali · ${causale}`, 'success');
+    }
+  },
+
+  _udcChiediQuarantena(id) {
+    if (!this._requireOperator('la messa in quarantena di un’unità di carico')) return;
+    const dati = this._udcRigheOChiedi(id);
+    if (!dati) return;
+    this.showModal(
+      `🔒 Quarantena ${this._esc(id)}`,
+      `${this._udcRiepilogoHTML(dati.u, dati.righe)}
+      <div class="mov-preview mov-preview-warn mb-7">
+        <strong>Tutte e ${dati.righe.length} le righe vanno in area di non conformità</strong>, per intero.
+        Il cartellino non parte da qui: si ristampa dalla scheda Quarantena, uno per lotto.
+      </div>
+      <div class="form-group mb-6">
+        <label>Motivo del blocco <span class="req">*</span> — vale per tutte le righe</label>
+        <input class="input" id="udcQMotivo" maxlength="${Validate.MAX.REASON}" placeholder="Es. sospetto danno da umidità sul bancale">
+      </div>
+      <div class="form-row">
+        <div class="form-group">
+          <label>Reparto richiedente <span class="req">*</span></label>
+          <input class="input" id="udcQReparto" maxlength="${Validate.MAX.REF_DEPT}" placeholder="Es. Controllo Qualità">
+        </div>
+        <div class="form-group">
+          <label>Persona di riferimento</label>
+          <input class="input" id="udcQPersona" maxlength="${Validate.MAX.OPERATOR}">
+        </div>
+      </div>`,
+      `<button class="btn" onclick="App.closeModal()">Annulla</button>
+       <button class="btn btn-warning" onclick="App._udcQuarantena('${this._esc(id)}')">🔒 Blocca l'unità</button>`
+    );
+  },
+
+  async _udcQuarantena(id) {
+    const dati = this._udcRigheOChiedi(id);
+    if (!dati) return;
+    const motivo = Validate.clean($('udcQMotivo')?.value);
+    const reparto = Validate.clean($('udcQReparto')?.value);
+    const persona = Validate.clean($('udcQPersona')?.value);
+    const errori = [Validate.reason(motivo), Validate.refDept(reparto)].filter(Boolean);
+    if (errori.length) return this.toast(errori[0], 'error');
+
+    const operatore = Store.getCurrentIdentity().initials;
+    const bloccate: string[] = [];
+    const fallite: string[] = [];
+
+    for (const r of dati.righe) {
+      /* La riga si rilegge adesso: fra un giro e l'altro un altro terminale
+         può averla mossa, e `_quarantineItemCore` vuole l'oggetto vero,
+         non quello di un attimo fa. */
+      const vivo = Store.getItemsAtLocation(r.location_code).find((i: Giacenza) => i.item_key === r.item_key);
+      if (!vivo) { fallite.push(`${r.article_code}#${r.lot_code}: non più in ${r.location_code}`); continue; }
+      if (Store.isItemQuarantined(r.item_key, r.location_code)) {
+        fallite.push(`${r.article_code}#${r.lot_code}: già in quarantena`);
+        continue;
+      }
+      const esito = await this._quarantineItemCore(vivo, {
+        reason: `${motivo} — unità di carico ${id}`,
+        operator: operatore, refDept: reparto, refPerson: persona,
+        tutto: true, senzaCartellino: true,
+      });
+      if (esito?.ok) bloccate.push(`${r.article_code}#${r.lot_code}`);
+      else fallite.push(`${r.article_code}#${r.lot_code}`);
+    }
+
+    this.closeModal();
+    this.updateSyncIndicator();
+    this._refreshSessionLog();
+    this.renderMovimenta();
+    if (fallite.length) {
+      this.toast(`In quarantena ${bloccate.length} righe su ${dati.righe.length}. Non riuscite: ${fallite.join(' · ')}`, 'error');
+    } else {
+      this.toast(`🔒 ${id} in quarantena: ${bloccate.length} righe · cartellini da ristampare dalla scheda Quarantena`, 'warning');
+    }
   },
 } satisfies Vista;

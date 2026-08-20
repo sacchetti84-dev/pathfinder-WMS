@@ -18,8 +18,7 @@ const Validate = {
     LOT: /^[A-Z0-9][A-Z0-9\-_./]{0,29}$/i,
     LOC: /^[A-Z0-9]+(-[A-Z0-9]+)+$/,
     SAFE_TEXT: /^[^<>"']{0,200}$/,
-    SAFE_CHARS: /^[^<>"']*$/,
-    CATEGORY: /^[A-Z]{1,5}$/
+    SAFE_CHARS: /^[^<>"']*$/
   }),
 
   siteId(v: Campo): Esito {
@@ -85,9 +84,18 @@ const Validate = {
     if (v.length > this.MAX.REF_DEPT) return `Max ${this.MAX.REF_DEPT} caratteri`;
     return null;
   },
+  /* 2.1 — LA CATEGORIA NON HA PIU' UNA FORMA.
+
+     Era `^[A-Z]{1,5}$`: cinque lettere maiuscole, niente cifre, niente
+     spazi. Ma la categoria e' un'etichetta merceologica che arriva
+     dall'anagrafica di chi la scrive — «MP», «SEMILAV.», «Materie prime
+     2026» — e una regola che rifiuta quello che il fornitore manda
+     costringe a inventare un'abbreviazione, cioe' a perdere il dato vero.
+     Resta il solo controllo che vale ovunque: i caratteri che romperebbero
+     una pagina. */
   category(v: Campo): Esito {
     if (!v) return null;
-    if (!this.RE.CATEGORY.test(v)) return 'Categoria: 1-5 lettere maiuscole';
+    if (!this.RE.SAFE_CHARS.test(v)) return 'Categoria: non sono ammessi i caratteri < > " e apostrofo';
     return null;
   },
 

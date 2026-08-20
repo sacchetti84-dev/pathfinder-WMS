@@ -98,6 +98,46 @@
 .grid-cell.selected { border: 2px solid var(--sx-accent); box-shadow: 0 0 0 1px var(--sx-accent); z-index: 2; }
 .item-count { position: absolute; top: -5px; right: -5px; background: var(--sx-primary); color: #fff; font-size: var(--md-sys-typescale-label-small-size); padding: 1px 4px; border-radius: 99px; font-weight: 700; }
 
+/* 2.1 — LE UNITÀ DI CARICO DENTRO IL VANO.
+
+   Caselle annidate e centrate in fondo alla cella: si stringono da sole al
+   crescere del numero, perche' la larghezza e' una frazione dello spazio e
+   non una misura scritta. Sotto i 7px per casella la vista non le disegna
+   piu' — tre righe da un pixel non sono tre pallet — e passa al conteggio,
+   che e' l'unico dato che resta leggibile.
+
+   Il bordo tratteggiato del bersaglio di trascinamento e' l'unico riscontro
+   che serve: chi trascina vede dove sta per lasciare. */
+.cell-udc-box {
+  position: absolute; left: 2px; right: 2px; bottom: 2px;
+  display: flex; justify-content: center; align-items: flex-end; gap: 1px;
+  pointer-events: none;
+}
+/* 2.1 — QUADRATI, non righe. Una striscia larga e alta sei pixel non somiglia
+   a un pallet: somiglia a una sottolineatura, e sulla pianta si legge come un
+   segno di stato. Il lato lo calcola chi disegna — dipende da quante unita'
+   stanno nel vano — e arriva come `--lato`: e' una misura che nasce a tempo
+   di esecuzione, come `width:${pct}%`, non un valore di stile scritto a mano. */
+.cell-udc {
+  flex: 0 0 auto;
+  width: var(--lato, 6px); height: var(--lato, 6px);
+  background: var(--sx-teal, var(--sx-accent));
+  border: 1px solid var(--sx-card);
+  border-radius: 1px;
+  pointer-events: auto;
+  cursor: grab;
+}
+.cell-udc:active { cursor: grabbing; }
+.cell-udc-many {
+  position: absolute; left: 2px; bottom: 1px;
+  font-size: var(--md-sys-typescale-label-small-size);
+  font-weight: 700; color: var(--sx-teal, var(--sx-accent));
+  pointer-events: none;
+}
+.grid-cell.drop-target, .front-cell.drop-target, .floor-pallet.drop-target {
+  outline: 2px dashed var(--sx-accent); outline-offset: -2px;
+}
+
 /* ════ Frontal view ════ */
 .front-combined { display: flex; flex-direction: column; gap: 1.25rem; }
 .front-section { background: var(--sx-card-alt); border: 1px solid var(--sx-border); border-radius: var(--radius-md); padding: 0.75rem; }
@@ -217,10 +257,28 @@
 }
 
 /* ════ Detail panel (destra) ════ */
+
+/* 2.1 — IL PANNELLO NON COPRE PIÙ LA MAPPA.
+
+   È `position: fixed` e sta sopra il contenuto: aprendolo, i 360px di
+   destra della pianta sparivano sotto — e sono la corsia che chi guarda
+   sta cercando, perché ha appena cliccato lì. Adesso l'apertura mette una
+   classe sul `body` e la zona centrale si stringe della stessa misura: la
+   mappa si ridisegna nello spazio che le resta.
+
+   La misura sta in UNA variabile, e la usano tutti e due: il giorno che il
+   pannello si allarga, il rientro lo segue da solo. Sotto i 900px il
+   pannello prende tutto lo schermo — affiancarlo vorrebbe dire due colonne
+   da 240px, nessuna leggibile — e lì il rientro non si applica. */
+:root { --detail-w: 360px; }
+
+.app-main { transition: padding-right 0.2s ease; }
+body.detail-open .app-main { padding-right: var(--detail-w); }
+
 .detail-panel {
   position: fixed;
   top: var(--hdr-h, 64px); right: 0; bottom: 0;
-  width: 360px;
+  width: var(--detail-w);
   background: var(--sx-card);
   border-left: 1px solid var(--sx-border);
   box-shadow: var(--shadow-lg);
@@ -249,6 +307,74 @@
 .item-meta { font-size: var(--md-sys-typescale-label-small-size); color: var(--sx-text-muted); margin-top: 0.2rem; display: flex; gap: 0.5rem; flex-wrap: wrap; }
 .item-actions { display: flex; gap: 0.3rem; flex-wrap: wrap; margin-top: 0.45rem; padding-top: 0.4rem; border-top: 1px dashed var(--sx-border); }
 .item-actions .btn { flex: 1 1 auto; justify-content: center; font-size: var(--md-sys-typescale-label-small-size); }
+
+/* 2.1 — LA GERARCHIA DELLA SCHEDA DI UN ITEM.
+   ① chi è: codice e lotto sulla stessa riga, ed è la coppia che identifica
+   la merce. ② quanto ce n'è, che è il numero più grande della scheda perché
+   è quello che si legge da un metro. ③ la descrizione. ④ la distinta. */
+.item-lot-inline {
+  font-size: var(--md-sys-typescale-label-small-size);
+  color: var(--sx-text-secondary); font-weight: 600;
+}
+.item-qty {
+  font-size: var(--md-sys-typescale-body-medium-size);
+  font-weight: 700; color: var(--sx-accent); margin: 0.1rem 0 0.2rem;
+}
+.item-qty-uom { color: var(--sx-text-secondary); font-weight: 600; }
+
+/* I QUATTRO PULSANTI HANNO LA STESSA DIMENSIONE E LA STESSA GERARCHIA.
+   Prima erano tre di tre colori diversi — accento, primario, avviso — e il
+   colore diceva un'importanza che non c'è: trasferire non è più importante
+   di mettere in quarantena, è solo più frequente. Una griglia a colonne
+   uguali toglie anche l'ultima differenza, che era la larghezza del testo. */
+.item-actions-pari {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.3rem;
+}
+.item-actions-pari .btn { width: 100%; }
+
+/* 2.1 — LA GRIGLIA DEL CRUSCOTTO.
+
+   Due colonne, e un riquadro «intera» le prende tutte e due. Non e' un
+   sistema a coordinate: e' l'ordine dell'elenco che scorre nella griglia,
+   ed e' la ragione per cui lo stesso layout si legge su un 27 pollici e
+   sull'MC9400 senza che nessuno finisca fuori dallo schermo. Sotto i 900px
+   la griglia diventa una colonna sola e «meta'» smette di significare
+   qualcosa: mezza riga di 480px sono 240px, dove un grafico non ci sta. */
+.dash-griglia {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.6rem;
+  align-items: start;
+}
+.dash-slot { min-width: 0; }
+.dash-slot-intera { grid-column: 1 / -1; }
+@media (max-width: 900px) {
+  .dash-griglia { grid-template-columns: 1fr; }
+  .dash-slot-meta { grid-column: 1 / -1; }
+}
+
+/* La scheda «Personalizza»: una riga per riquadro, la maniglia a sinistra. */
+.dash-cfg { display: flex; flex-direction: column; gap: 0.3rem; }
+.dash-cfg-row {
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: center; gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--sx-border); border-radius: var(--radius);
+  background: var(--sx-bg-alt);
+  cursor: grab;
+}
+.dash-cfg-row:active { cursor: grabbing; }
+.dash-cfg-grip { color: var(--sx-text-muted); font-size: 1.1em; line-height: 1; }
+.dash-cfg-nome { display: flex; align-items: center; gap: 0.4rem; margin: 0; cursor: pointer; }
+.dash-cfg-nota {
+  grid-column: 2 / -1;
+  font-size: var(--md-sys-typescale-label-small-size); color: var(--sx-text-muted);
+}
+.dash-cfg-shorts { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.dash-cfg-short {
+  display: flex; align-items: center; gap: 0.3rem; margin: 0; cursor: pointer;
+  padding: 0.3rem 0.5rem; border: 1px solid var(--sx-border); border-radius: var(--radius);
+}
 
 /* ════ Movimenta view ════ */
 .mov-container { max-width: 900px; margin: 0 auto; }
@@ -717,6 +843,10 @@
   .doc-title-sub { font-size: 7pt; color: #666; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.5mm; }
   .doc-title-num { margin-top: 1.5mm; font-size: 8.5pt; color: #444; white-space: nowrap; }
   .doc-title-num b { font-family: Consolas, monospace; font-size: 12.5pt; color: #21305A; }
+  /* 2.1 — il riferimento in barre, sotto il riferimento in cifre. Allineato
+     a destra come il resto della testata; l'altezza la decide il modulo. */
+  .doc-title-barcode { margin-top: 1.5mm; display: flex; justify-content: flex-end; }
+  .doc-title-barcode svg { display: block; }
   .doc-hr { flex: 0 0 2.5px; background: #94BC47; }
 
   .doc-idblock { flex: 1 1 auto; min-height: 0; display: grid; gap: 2mm; align-content: start; }

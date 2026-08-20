@@ -125,7 +125,7 @@ export const VistaConfigArticoli = {
           <input class="input input-mono uppercase" id="artCode" placeholder="MP-001234" maxlength="${Validate.MAX.ARTICLE_CODE}"
             oninput="App._precompilaCategoria()"></div>
         <div class="form-group"><label>Categoria</label>
-          <input class="input input-mono uppercase" id="artCategory" placeholder="MP" maxlength="5" value="MP"
+          <input class="input input-mono" id="artCategory" placeholder="MP" value="MP"
             oninput="this.dataset.tocca='1'"></div>
       </div>
       <div class="text-label-small text-sx-text-muted -mt-3.5 mx-0 mb-6">
@@ -180,7 +180,7 @@ export const VistaConfigArticoli = {
   async doAddArticle() {
     const code = Validate.clean($('artCode').value, true);
     const desc = Validate.clean($('artDesc').value);
-    const cat = Validate.clean($('artCategory').value, true) || 'MP';
+    const cat = Validate.clean($('artCategory').value) || 'MP';
     const errs = [Validate.article(code), Validate.articleDesc(desc, true), Validate.category(cat)].filter(Boolean);
     if (errs.length) return this.toast(errs[0], 'error');
     const ok = await Store.addArticle({
@@ -434,7 +434,7 @@ export const VistaConfigArticoli = {
         <div class="form-group"><label>Codice (non mod.)</label>
           <input class="input input-mono" value="${this._esc(code)}" disabled></div>
         <div class="form-group"><label>Categoria</label>
-          <input class="input input-mono uppercase" id="eaCategory" value="${this._esc(art.category || 'MP')}" maxlength="5"></div>
+          <input class="input input-mono" id="eaCategory" value="${this._esc(art.category || 'MP')}"></div>
       </div>
       <div class="form-group mb-6"><label>Descrizione <span class="req">*</span></label>
         <input class="input" id="eaDesc" value="${this._esc(art.description)}" maxlength="${Validate.MAX.ARTICLE_DESC}"></div>
@@ -466,7 +466,7 @@ export const VistaConfigArticoli = {
 
   async doEditArticle(code) {
     const desc = Validate.clean($('eaDesc').value);
-    const cat = Validate.clean($('eaCategory').value, true) || 'MP';
+    const cat = Validate.clean($('eaCategory').value) || 'MP';
     const errs = [Validate.articleDesc(desc, true), Validate.category(cat)].filter(Boolean);
     if (errs.length) return this.toast(errs[0], 'error');
     await Store.updateArticle(code, {

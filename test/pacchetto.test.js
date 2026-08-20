@@ -62,6 +62,37 @@ describe('cosa entra nel pacchetto', () => {
     }
   });
 
+  /* LE UM E I COLLI VIAGGIANO NEL BACKUP, UNO PER UNO.
+     `componi` copia le righe intere e non nomina un solo campo, quindi la
+     prova non difende una riga di codice: difende il giorno in cui qualcuno,
+     per alleggerire il file, si mette a scegliere le colonne. Un backup che
+     riporta i colli e perde l'elenco delle pezzature ricostruisce un
+     magazzino con lo stesso saldo e la corsia sbagliata, e la confezione
+     congelata sul lotto — `lots` — è l'unico posto dove sta scritto in che
+     unità quel saldo è espresso. */
+  it('elenco dei colli, UM e confezione del lotto entrano nel pacchetto', () => {
+    const riga = {
+      _id: 1, location_code: 'DP-A-01', item_key: '700|L1', article_code: '700',
+      lot_code: 'L1', qty: 11, qty_uom: 10900, packs: [1000, 1000, 900],
+    };
+    const p = componi(cache({
+      inventory: [riga],
+      lots: [{ _id: 1, article_code: '700', lot_code: 'L1', uom: 'KG', uom_per_collo: 1000 }],
+    }), [{ _id: 1, ts: 100, type: 'IN', user: 'AS', qty_delta: 3, qty_uom_delta: 2900, uom: 'KG' }]);
+
+    expect(p.inventory[0].packs).toEqual([1000, 1000, 900]);
+    expect(p.inventory[0].qty_uom).toBe(10900);
+    expect(p.lots[0].uom).toBe('KG');
+    expect(p.lots[0].uom_per_collo).toBe(1000);
+    expect(p.mov_log[0].qty_uom_delta).toBe(2900);
+    expect(p.mov_log[0].uom).toBe('KG');
+
+    /* E ci restano fino a scrivere: `righeDaScrivere` toglie `_id` e nient'altro. */
+    const [scritta] = righeDaScrivere('inventory', p.inventory);
+    expect(scritta.packs).toEqual([1000, 1000, 900]);
+    expect(scritta.qty_uom).toBe(10900);
+  });
+
   /* La sessione di prelievo APERTA non entra: un ripristino non deve
      riportare in vita un percorso che qualcuno aveva su un terminale. */
   it('la sessione di prelievo aperta non finisce nel backup', () => {

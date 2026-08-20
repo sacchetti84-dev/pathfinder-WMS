@@ -768,3 +768,19 @@
   background: rgba(0, 0, 0, 0.32);
   backdrop-filter: none;
 }
+
+/* 2.1 — L'INTESTAZIONE CHE ORDINA.
+
+   Si clicca, e deve sembrarlo: il cursore cambia e lo sfondo risponde. La
+   freccia si scrive SOLO sulla colonna che sta ordinando adesso — una
+   freccia grigia su ogni intestazione e' rumore che si impara a non vedere,
+   e allora non si vede piu' nemmeno quella vera. */
+.sx-table thead th.sx-th-ord {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+.sx-table thead th.sx-th-ord:hover {
+  background: var(--sx-accent-soft);
+  color: var(--sx-text);
+}

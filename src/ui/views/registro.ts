@@ -3,6 +3,8 @@ import { LOG_RETENTION_DAYS, MOV, MOV_LABELS } from '../../core/costanti';
 import { debounce, _h } from '../../core/utils';
 import { Store } from '../../core/store';
 import type { Movimento } from '../../types/entita';
+import { ordina, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
+import type { Colonna, Stato } from '../../modules/tabella';
 
 export const VistaRegistro = {
   /* Registro movimenti completo */
@@ -76,10 +78,46 @@ export const VistaRegistro = {
     this._filterRegistry();
   },
 
+  /* 2.1 — §3: anche il registro dei movimenti si ordina.
+
+     I filtri c'erano — date, tipo, testo — e l'ordine no: usciva sempre
+     dal più recente, che è il predefinito giusto e resta tale. Quello che
+     mancava è mettere in fila per articolo o per operatore le duecento
+     righe che i filtri hanno già scelto.
+
+     L'ORDINAMENTO AGISCE SULLE RIGHE ESTRATTE, non sull'archivio. `limit:
+     200` sceglie le duecento più recenti nell'intervallo, e ordinarle per
+     operatore riordina quelle duecento: non va a prendere le prime
+     duecento in ordine di operatore dentro sei anni di registro. È scritto
+     accanto al conteggio, perché è la differenza fra «le prime duecento» e
+     «duecento a caso». */
+  _movOrdine: STATO_VUOTO,
+
+  _movColonne(): Colonna<Movimento>[] {
+    return [
+      { campo: 'type', titolo: 'Tipo', valore: (m) => MOV_LABELS[m.type] || m.type },
+      { campo: 'article_code', titolo: 'Articolo' },
+      { campo: 'article_description', titolo: 'Descrizione' },
+      { campo: 'lot_code', titolo: 'Lotto' },
+      { campo: 'location_code', titolo: 'Ubicazione' },
+      { campo: 'qty_delta', titolo: 'Coll.', tipo: 'numero' },
+      { campo: 'user', titolo: 'Operatore' },
+      { campo: 'doc_ref', titolo: 'Doc.' },
+      { campo: 'ts', titolo: 'Data/Ora', tipo: 'numero' },
+    ];
+  },
+
+  _movOrdina(campo) {
+    this._movOrdine = alClic(this._movOrdine, campo);
+    this._filterRegistry();
+  },
+
   _buildRegistryTable(log: Movimento[], maxRows = 200, totale: number | null = null) {
     if (!log.length) return '<div class="empty-state p-20"><p>Nessuna movimentazione nell’intervallo selezionato</p></div>';
     const tot = totale === null ? log.length : totale;
-    let html = '<div class="overflow-x-auto"><table class="sx-table"><thead><tr><th class="w-[40px]">#</th><th>Tipo</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Ubicazione</th><th class="w-[60px] text-center">Coll.</th><th>Operatore</th><th>Doc.</th><th>Data/Ora</th></tr></thead><tbody id="regTbody"></tbody></table></div>';
+    const th = (campo: string, titolo: string, classe = '') =>
+      `<th class="sx-th-ord ${classe}" onclick="App._movOrdina('${campo}')" title="Ordina per ${titolo}">${titolo}${segno(this._movOrdine as Stato, campo)}</th>`;
+    let html = `<div class="overflow-x-auto"><table class="sx-table"><thead><tr><th class="w-[40px]">#</th>${th('type', 'Tipo')}${th('article_code', 'Articolo')}${th('article_description', 'Descrizione')}${th('lot_code', 'Lotto')}${th('location_code', 'Ubicazione')}${th('qty_delta', 'Coll.', 'w-[60px] text-center')}${th('user', 'Operatore')}${th('doc_ref', 'Doc.')}${th('ts', 'Data/Ora')}</tr></thead><tbody id="regTbody"></tbody></table></div>`;
     if (tot > maxRows) html += `<div class="text-center p-6 text-sx-text-muted text-body-small bg-sx-bg-alt border-t border-t-sx-border">Prime ${maxRows} righe di ${tot.toLocaleString('it-IT')}. Restringi le date o esporta in Excel.</div>`;
     return html;
   },
@@ -179,11 +217,18 @@ export const VistaRegistro = {
     const t0 = performance.now();
     try {
       const res = await Store.queryMovements({ from, to, type, text, limit: 200 });
-      wrap.innerHTML = this._buildRegistryTable(res.rows, 200, res.matched);
-      this._populateRegistryRows(res.rows, 200);
+      /* Si ordinano le righe ESTRATTE. Vedi il commento su
+         `_buildRegistryTable`: la differenza è scritta accanto al conteggio
+         perché è quella fra «le prime duecento» e «duecento a caso». */
+      const righe = ordina(res.rows, this._movColonne(), this._movOrdine as Stato);
+      wrap.innerHTML = this._buildRegistryTable(righe, 200, res.matched);
+      this._populateRegistryRows(righe, 200);
       if (status) {
         const ms = Math.round(performance.now() - t0);
-        status.textContent = `${res.matched.toLocaleString('it-IT')} movimenti corrispondenti su ${res.scanned.toLocaleString('it-IT')} esaminati nell’intervallo · ${ms} ms`;
+        const nota = this._movOrdine.campo
+          ? ' · ordinamento applicato alle righe estratte, non all’archivio'
+          : '';
+        status.textContent = `${res.matched.toLocaleString('it-IT')} movimenti corrispondenti su ${res.scanned.toLocaleString('it-IT')} esaminati nell’intervallo · ${ms} ms${nota}`;
       }
     } catch (err) {
       console.error('[WM] registro:', err);

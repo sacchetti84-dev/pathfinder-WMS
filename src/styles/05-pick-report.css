@@ -71,9 +71,10 @@
    speciale, che e' la stessa scelta dei cartellini e dei verbali. Il foglio
    esce con l'etichetta in alto a sinistra e si taglia.
 
-   Il CODICE si scrive grande e in chiaro: un lettore che non legge lascia
-   comunque a chi ha il pallet davanti un numero da digitare. E' la ragione
-   per cui questa etichetta non e' solo un codice a barre. */
+   2.1 — SOPRA C'E' IL SOLO CODICE A BARRE. Ubicazione, data e operatore
+   sono usciti: valgono il minuto della stampa e restano incollati al legno
+   per mesi. Il numero in chiaro sotto le barre resta, ed e' la
+   rappresentazione leggibile che lo standard chiede — non un dato in piu'. */
 @media print {
   .udc-label {
     width: 100mm; height: 80mm;
@@ -85,22 +86,123 @@
     color: #000; background: #fff;
     page-break-after: always;
   }
-  .udc-label-head { display: flex; justify-content: space-between; align-items: baseline;
-    border-bottom: 1pt solid #000; padding-bottom: 2mm; }
-  .udc-label-mitt { font-size: 10pt; font-weight: 700; }
-  .udc-label-tipo { font-size: 9pt; letter-spacing: 0.08em; }
-  /* Il numero e' la ragione dell'etichetta: prende tutto lo spazio che
-     avanza, e resta leggibile da due metri con il muletto in mano. */
+  /* Le barre al centro del foglio, con aria intorno: la zona di rispetto
+     del simbolo se la disegna il modulo, questa e' quella del muletto. */
+  .udc-label-barcode {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+  }
+  .udc-label-barcode svg { max-width: 100%; height: auto; }
+  /* Il ripiego, per un codice che il set B non sapesse scrivere. */
   .udc-label-code {
     font-family: Consolas, "Courier New", monospace;
     font-size: 22pt; font-weight: 700; letter-spacing: 0.04em;
-    text-align: center; margin: 4mm 0 1mm; word-break: break-all;
+    text-align: center; word-break: break-all;
   }
   .udc-label-forma { text-align: center; font-size: 8pt; letter-spacing: 0.1em;
     text-transform: uppercase; color: #333; }
-  .udc-label-body { margin-top: auto; font-size: 9pt; }
-  .udc-label-body > div { display: flex; justify-content: space-between;
-    border-bottom: 0.5pt dotted #999; padding: 0.8mm 0; }
-  .udc-label-body span { color: #333; }
-  .udc-label-foot { margin-top: 2mm; font-size: 7pt; color: #444; text-align: center; }
+
+  /* 2.1 — L'ETICHETTA IDENTIFICATIVA DELLA MERCE.
+
+     Non e' l'etichetta di un'unita' di carico. Quella porta il solo codice
+     perche' il pallet si muove e tutto il resto invecchia; questa sta
+     attaccata a UNA merce in UN lotto, e articolo, lotto e scadenza non
+     cambiano finche' la merce e' quella. L'ubicazione si scrive in fondo e
+     in piccolo, dichiarata come «alla stampa»: e' l'unico dato che invecchia,
+     e chi rietichetta dopo uno spostamento deve poterlo vedere. */
+  .item-label {
+    width: 100mm; height: 60mm;
+    box-sizing: border-box;
+    padding: 5mm;
+    border: 1.5pt solid #000;
+    display: flex; flex-direction: column;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000; background: #fff;
+    page-break-after: always;
+  }
+  .item-label-art {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 16pt; font-weight: 700; letter-spacing: 0.03em;
+  }
+  .item-label-desc { font-size: 9pt; color: #333; margin-top: 0.5mm; }
+  .item-label-barcode { margin: 2mm 0; display: flex; justify-content: center; }
+  .item-label-barcode svg { max-width: 100%; height: auto; }
+  .item-label-code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 14pt; font-weight: 700; text-align: center; word-break: break-all;
+  }
+  .item-label-body { margin-top: auto; font-size: 9pt; }
+  .item-label-body > div { display: flex; justify-content: space-between;
+    border-bottom: 0.5pt dotted #999; padding: 0.6mm 0; }
+  .item-label-body span { color: #333; }
+  .item-label-foot { margin-top: 1.5mm; font-size: 7pt; color: #444; text-align: right; }
+}
+
+/* ════ 2.1 — IL REPORT CHE SCORRE SU PIU' A4 ════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   Un documento sta in UNA pagina per costruzione — `.doc-page` e' una
+   colonna alta quanto il foglio, e DDT, verbali e cartellini contano su
+   quello. Un report no: le righe sono quante sono.
+
+   LA RIPETIZIONE LA FA IL BROWSER. La testata sta in un `<thead>` e il piede
+   in un `<tfoot>`: in stampa sono `table-header-group` e
+   `table-footer-group`, cioe' i due gruppi che si ripetono su ogni pagina.
+   Non c'e' nessuna altezza calcolata a mano, ed e' il punto: un margine
+   scritto a mano sotto un header a `position: fixed` diventa sbagliato il
+   giorno che la testata cresce di una riga.
+
+   I 12mm di margine del foglio se li prendono le celle e non `#printReport`:
+   il padding di un blocco che attraversa piu' pagine vale solo in cima alla
+   prima e in fondo all'ultima, e dalla seconda in poi la testata uscirebbe
+   attaccata al bordo. */
+@media print {
+  #printReport:has(.doc-page--flow) { padding: 0; }
+
+  .doc-page--flow {
+    display: table;
+    width: 100%;
+    min-height: 0;
+    border-collapse: collapse;
+    table-layout: fixed;
+  }
+  .doc-page--flow > thead { display: table-header-group; }
+  .doc-page--flow > tfoot { display: table-footer-group; }
+  .doc-page--flow > tbody { display: table-row-group; }
+
+  .doc-flow-cell { padding: 0 12mm; vertical-align: top; }
+  .doc-flow-cell--head { padding-top: 12mm; }
+  .doc-flow-cell--foot { padding-bottom: 12mm; }
+
+  /* Le tre zone perdono le misure fisse: qui l'altezza la decide quello che
+     c'e' dentro, e a spezzare le pagine ci pensa il gruppo di tabella. */
+  .doc-page--flow .doc-zone-head {
+    flex: none; height: auto; overflow: visible;
+    display: flex; flex-direction: column; gap: 1.5mm;
+    padding-bottom: 3mm;
+  }
+  .doc-page--flow .doc-zone-body { display: block; min-height: 0; }
+  .doc-page--flow .doc-zone-foot {
+    flex: none; max-height: none; overflow: visible;
+    display: block; padding-top: 3mm;
+  }
+  .doc-page--flow .doc-idblock { flex: none; }
+
+  /* LE RIGHE OCCUPANO SEMPRE LO SPAZIO CHE E' LORO, e non si spezzano: una
+     riga tagliata a meta' fra due fogli non si rilegge, e una schiacciata
+     per far quadrare la pagina mente sull'altezza di tutte le altre. */
+  .doc-page--flow .pr-table { page-break-inside: auto; break-inside: auto; }
+  .doc-page--flow .pr-table thead { display: table-header-group; }
+  .doc-page--flow .pr-table tfoot { display: table-row-group; }
+  .doc-page--flow .pr-table tr {
+    page-break-inside: avoid; break-inside: avoid;
+    page-break-after: auto;
+  }
+  .doc-page--flow .pr-table td {
+    height: 7mm; box-sizing: border-box; vertical-align: middle;
+  }
+  .doc-page--flow .pr-table th { vertical-align: middle; }
+
+  /* Le firme non si spezzano, e non restano sole in fondo a una pagina. */
+  .doc-page--flow .doc-signs { page-break-inside: avoid; break-inside: avoid; }
+  .doc-page--flow .pr-sec { page-break-after: avoid; break-after: avoid; }
 }

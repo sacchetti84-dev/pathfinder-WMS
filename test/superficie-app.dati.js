@@ -8,7 +8,13 @@
    Si tocca quando App guadagna o perde un metodo DAVVERO - cioe' quando si
    sviluppa una funzione, mai quando si sposta un blocco in un altro file.
    2.0: sono usciti `_FUNZIONI`, `_TURNO_MS`, `_syncFeatureNav` e
-   `_toggleFeature` insieme agli interruttori. */
+   `_toggleFeature` insieme agli interruttori.
+   2.1: sono entrati `_etichettaRuolo` e `_ruoloScelto` col ruolo Admin.
+   2.1: sono entrati i quattro del conto di produzione — `_wipConsumaTutto`,
+   `_wipDichiaraConsumata`, `_wipScelteConParte`, `_wipStampaRendiconto`.
+   2.1: sono usciti i sei della copia esterna (`vault*`, `doVaultRestore`,
+   `_scheduleVaultBackup`), `purgeOldLogsManual` con la purga, e i due
+   salvataggi a mano `forceSave` e `manualSave`. */
 export const SUPERFICIE = [
   'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_KNOWN_OPERATORS_KEY',
   '_MIGRATED_KEY', '_MOVQUEUE_KEY', '_MOV_COLORS', '_MOV_SHORT', '_OPERATOR_KEY',
@@ -35,13 +41,31 @@ export const SUPERFICIE = [
   '_dispCheckLot', '_dispFreeReasonInput', '_dispPickReason', '_dispRenderSearch',
   '_dispRenderVerify', '_dispReset', '_dispSelect', '_dispStage', '_dispState',
   '_dispSwitchToAlternative', '_doResync', '_docCausaleAdd', '_docCausaleEdit',
-  '_docCausaleLabel', '_docCausaleRemove', '_docCell', '_docHeadHTML', '_docIsReturn',
+  '_docCausaleLabel', '_docCausaleRemove', '_docBarcodeHTML', '_docCell', '_docHeadHTML', '_docIsReturn',
   '_docPageHTML', '_docPrint', '_docReasonAdd', '_docReasonEdit', '_docReasonRemove',
   '_docResetList', '_docSaveNumbering', '_docSaveSender', '_docSenderGaps', '_docWarnHTML',
   '_editAddNewLine', '_editCancel', '_editItemArtLookup', '_editLineNotes', '_editLineQty',
   '_editLookupNewLine', '_editPendingDoc', '_editPersistHeader', '_editRemoveLine',
   '_editSave', '_editSelectNewLineEnc', '_editSelectNewLineItem', '_editingSiteId',
   '_elencoDichiarato', '_emitFinalPickReport', '_emitPickReport', '_esc', '_etAllergene',
+  '_etichettaRuolo', '_ruoloScelto',
+  '_udcDestinazione', '_pickUdcIn', '_cbPickUdcIn',
+  '_invUdcState', '_invFormUdc', '_invUdcCerca', '_invUdcRighe', '_invUdcRender',
+  '_invUdcToggle', '_invUdcTutti', '_invUdcConta',
+  '_routeSetCasa',
+  '_umTotaliRiga', '_dettaglioItem', '_stampaEtichettaItem',
+  '_vistaDiZona', '_udcNelVanoHTML', '_udcTrascinata', '_udcDragStart', '_udcDragOver',
+  '_udcDragLeave', '_udcDrop',
+  '_riquadriDisponibili', '_layoutCruscotto', '_contenutoRiquadro', '_renderRiquadri',
+  '_renderKpiGrid', '_scorciatoieDisponibili', '_personalizzaCruscotto', '_dashTrascinato',
+  '_dashDragStart', '_dashDragOver', '_dashDrop', '_dashCommuta', '_dashLarghezza',
+  '_dashCommutaScorciatoia', '_dashRipristina', '_dashScrivi',
+  '_arcOrdine', '_arcColonne', '_arcOrdina',
+  '_opOrdine', '_opColonne', '_opOrdina', '_opCerca',
+  '_regOrdine', '_regColonne', '_regOrdina', '_regCerca',
+  '_movOrdine', '_movColonne', '_movOrdina',
+  '_wipScegliColli',
+  '_udcChiediQuarantena', '_udcChiediSmaltisci', '_udcQuarantena', '_udcRiepilogoHTML', '_udcRigheOChiedi', '_udcSmaltisci',
   '_etichettaTipoNC', '_evadiSpedizione', '_execCambio', '_execCampione', '_execConta',
   '_execInventario', '_execPosiziona', '_execProduzione', '_execQuarantena',
   '_execReleaseDest', '_execSmaltire', '_fasciaConformita', '_filterRegistry',
@@ -99,7 +123,7 @@ export const SUPERFICIE = [
   '_routeStart', '_routeStartTime', '_routeSwitchToAlternative', '_routeTailRowHTML',
   '_saveCheckpoint', '_saveShipPending', '_saving', '_scanBlock', '_scanFb',
   '_scanKeydownFix', '_scannerLayoutFix', '_scegliColli', '_scheduleAutoBackup',
-  '_scheduleResync', '_scheduleVaultBackup', '_searchAll', '_searchDebounced',
+  '_scheduleResync', '_searchAll', '_searchDebounced',
   '_searchHits', '_searchLimits', '_searchOut', '_searchOutsideHandler', '_searchQuar',
   '_searchSel', '_segnoConformita', '_selectLoginOp', '_setFeedbackPref',
   '_setScannerLayoutFix', '_shipAddToCart', '_shipAspetto', '_shipCarrier', '_shipCart',
@@ -115,7 +139,7 @@ export const SUPERFICIE = [
   '_svgDonut', '_syncHeaderHeight', '_taskAbbandona', '_taskAction',
   '_taskAmbito', '_taskAvanza', '_taskLancia', '_taskLascia', '_taskPrioClasse',
   '_taskRun', '_taskScala', '_taskStatoClasse', '_taskTipo', '_testFeedback',
-  '_tsBreve', '_tuttiIColli', '_umMossa', '_undoBarHTML', '_undoEntry',
+  '_tsBreve', '_tuttiIColli', '_umFuoriPosto', '_umMossa', '_undoBarHTML', '_undoEntry',
   '_undoLast', '_undoTimer', '_undoValid', '_updateProdCart', '_updateShipCart',
   '_wireRemote', 'cancelMov', 'changeLevel', 'clearSearch', 'closeDetail', 'closeModal',
   'closeSearchPop', 'confirmDeleteArticle', 'confirmDeleteRecipient', 'confirmDeleteSite',
@@ -125,13 +149,13 @@ export const SUPERFICIE = [
   'doAggiungiParam', 'doCancelTask', 'doCreateTask', 'doEditArticle', 'doEditItem',
   'doEditOperator', 'doEditSite', 'doEditZone', 'doMoveItem', 'doQuarantineItem',
   'doRenewPin', 'doRimuoviDestinazione', 'doRimuoviParam', 'doSaveRecipient',
-  'doSetTaskPriority', 'doStartTask', 'doTakeTask', 'doVaultRestore', 'esportaDeroghe',
+  'doSetTaskPriority', 'doStartTask', 'doTakeTask', 'esportaDeroghe',
   'esportaNonConformita', 'exportArticlesExcel', 'exportData', 'exportGiacenzeExcel',
-  'exportMovLogExcel', 'exportTasksExcel', 'forceSave', 'goToLocation', 'handleImport',
+  'exportMovLogExcel', 'exportTasksExcel', 'goToLocation', 'handleImport',
   'handleImportExcel', 'handleImportOdp', 'importArticlesCSV', 'importArticlesExcel',
-  'importData', 'init', 'logoutOperator', 'manualSave', 'mapViewMode', 'mostraDeroghe',
+  'importData', 'init', 'logoutOperator', 'mapViewMode', 'mostraDeroghe',
   'mostraNonConformita', 'onArticleSelect', 'openZone', 'opfsBackupNow',
-  'purgeOldLogsManual', 'renderArchive', 'renderConfig', 'renderDashboard', 'renderDetail',
+  'renderArchive', 'renderConfig', 'renderDashboard', 'renderDetail',
   'renderMap', 'renderMovimenta', 'renderSidebar', 'renderTasks', 'restoreOPFSBackup',
   'selectLocation', 'selectedLocation', 'setLocStatus', 'setMapView',
   'setPrimaryScanField', 'showAddArticleModal', 'showAddItemModal', 'showAddOperatorModal',
@@ -141,9 +165,7 @@ export const SUPERFICIE = [
   'showOPFSBackups', 'showOperatorMenu', 'showQuarantineItemModal', 'showRenewPinModal',
   'startMov', 'switchView', 'takeOverTab', 'toast', 'toggleLocDisabled',
   'toggleMirrorFrontal', 'toggleOperatorActive', 'toggleSidebar', 'toggleSite',
-  'updateSyncIndicator', 'updateZoneFields', 'vaultBackupNow', 'vaultChooseFolder',
-  'vaultReauthorize', 'vaultRestore',
-
+  'updateSyncIndicator', 'updateZoneFields',   
   /* 1.9 - L'INVENTARIO PER ARTICOLO, e il giro di conte che ne esce.
      Nomi NUOVI, non nomi spostati: sono la funzione, non un trasloco. */
   '_invSubMode', '_invSub', '_renderInvSub', '_invFormVano', '_invFormArticolo',
@@ -174,4 +196,8 @@ export const SUPERFICIE = [
   /* 1.14 - il conto di produzione. */
   '_wipOrdine', '_formWip', '_wipApri', '_wipRenderConto', '_wipChiediReso',
   '_wipRendi', '_wipChiudi', '_areaWipHTML', '_salvaAreaWip',
+  /* 2.1 — il consumo dichiarato riga per riga, il rientro di un collo
+     aperto e il rendiconto su carta. */
+  '_wipConsumaTutto', '_wipDichiaraConsumata', '_wipScelteConParte',
+  '_wipStampaRendiconto',
 ];

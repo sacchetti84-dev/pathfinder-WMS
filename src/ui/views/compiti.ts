@@ -3,6 +3,9 @@ import { caricaExcel } from '../../modules/excel';
 import { Store } from '../../core/store';
 import type { Compito } from '../../types/entita';
 import { Dialog } from '../dialog';
+import type { RigaRegistro } from '../../modules/compiti';
+import { componi, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
+import type { Colonna, Stato } from '../../modules/tabella';
 import {
   TIPI_COMPITO, PRIORITA_NORMALE, PRIORITA_MAX_OPERATORE,
   etichettaTipo, iconaTipo, etichettaPriorita, etichettaStato,
@@ -60,8 +63,11 @@ export const VistaCompiti = {
        aperte, dalla piu' recente, coi tempi e con che cosa sono state
        chiuse. E' la memoria dello schedulatore, e l'unico posto da cui
        esce un foglio Excel. */
+    /* 2.1 — nel registro entrano anche i campionamenti fatti aprendo la
+       funzione a mano, che un compito dietro non ce l'hanno mai avuto:
+       `Store.registroAttivita` unisce le due sorgenti e ordina. */
     const elenco = this._taskAmbito === 'registro'
-      ? Store.getTasks().slice().sort((a, b) => (b.requested_at || 0) - (a.requested_at || 0))
+      ? Store.registroAttivita()
       : this._taskAmbito === 'mie'
         ? coda.filter(t => t.assigned_to === io.initials)
         : coda;
@@ -206,8 +212,53 @@ export const VistaCompiti = {
     return ms ? new Date(ms).toLocaleString('it-IT', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—';
   },
 
-  _renderTaskRegistro(righe) {
-    const corpo = (righe as Compito[]).map((t) => {
+  /* 2.1 — §3: il registro delle attività si ordina e si cerca.
+
+     È la tabella più larga dell'applicativo — tredici colonne — e fino
+     alla 2.0 usciva solo in ordine di richiesta. «Chi ha chiuso meno
+     compiti», «quali sono rimasti in coda più a lungo», «tutto quello che
+     ha toccato quel lotto» erano tre domande a cui si rispondeva
+     esportando in Excel e ordinando lì. */
+  _regOrdine: STATO_VUOTO,
+
+  _regColonne(): Colonna<RigaRegistro>[] {
+    return [
+      { campo: 'task_id', titolo: 'Attività' },
+      { campo: 'type', titolo: 'Tipo', valore: (t) => etichettaTipo(t.type) },
+      { campo: 'cosa', titolo: 'Cosa', valore: (t) => {
+        const p = ((t.payload && typeof t.payload === 'object') ? t.payload : {}) as PayloadCompito;
+        return [p.article_code, p.lot_code, p.from, p.to].filter(Boolean).join(' ');
+      } },
+      { campo: 'status', titolo: 'Stato', valore: (t) => etichettaStato(t.status) },
+      { campo: 'fatti', titolo: 'Colli', tipo: 'numero', valore: (t) => quantitaFatta(t) },
+      { campo: 'requested_by', titolo: 'Chiesta da' },
+      { campo: 'assigned_to', titolo: 'Svolta da' },
+      { campo: 'requested_at', titolo: 'Richiesta', tipo: 'numero' },
+      { campo: 'started_at', titolo: 'Avvio', tipo: 'numero' },
+      { campo: 'completed_at', titolo: 'Chiusura', tipo: 'numero' },
+      { campo: 'attesa', titolo: 'In coda', tipo: 'numero', valore: (t) => misure(t).attesa, cercabile: false },
+      { campo: 'durata', titolo: 'Lavoro', tipo: 'numero', valore: (t) => misure(t).durata, cercabile: false },
+    ];
+  },
+
+  _regOrdina(campo) {
+    this._regOrdine = alClic(this._regOrdine, campo);
+    this.renderTasks();
+  },
+
+  _regCerca(testo) {
+    this._regOrdine = { ...this._regOrdine, cerca: String(testo || '') };
+    this.renderTasks();
+  },
+
+  _renderTaskRegistro(tutte) {
+    const finestra = Store.getMovLogWindowInfo();
+    const colonne = this._regColonne();
+    const righe = componi(tutte, colonne, this._regOrdine as Stato);
+    const thReg = (campo: string, titolo: string, classe = '') =>
+      `<th class="sx-th-ord ${classe}" onclick="App._regOrdina('${campo}')" title="Ordina per ${titolo}">${titolo}${segno(this._regOrdine as Stato, campo)}</th>`;
+    const corpo = (righe as RigaRegistro[]).map((t) => {
+      const daMovimento = t.origine === 'movimento';
       const m = misure(t);
       const chiesto = quantitaRichiesta(t);
       const fatti = quantitaFatta(t);
@@ -219,7 +270,8 @@ export const VistaCompiti = {
           : '<span class="text-sx-text-muted">—</span>';
       return `<tr>
         <td class="mono whitespace-nowrap text-label-small">${this._esc(t.task_id)}</td>
-        <td class="whitespace-nowrap">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</td>
+        <td class="whitespace-nowrap">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}
+          ${daMovimento ? '<span class="badge badge-muted" title="Eseguito aprendo la funzione, senza passare dalla coda">fuori coda</span>' : ''}</td>
         <td class="min-w-[220px]">${this._renderTaskPayload(t)}</td>
         <td><span class="badge ${this._taskStatoClasse(t.status)}">${this._esc(etichettaStato(t.status))}</span></td>
         <td class="whitespace-nowrap">${chiesto === null ? '—' : `${fatti}/${chiesto}`}</td>
@@ -233,13 +285,25 @@ export const VistaCompiti = {
         <td class="text-body-small">${esito}</td>
       </tr>`;
     }).join('');
-    return `<div class="card overflow-x-auto">
+    return `<div class="form-group mb-4">
+      <input class="input" id="regCerca" placeholder="Cerca attività, articolo, lotto, ubicazione, sigla…"
+        value="${this._esc(this._regOrdine.cerca)}" oninput="App._regCerca(this.value)">
+      <div class="text-label-small text-sx-text-muted mt-2">
+        ${righe.length} su ${tutte.length} attività
+      </div>
+    </div>
+    <p class="text-body-small text-sx-text-secondary mb-4">
+      I gesti <strong>fuori coda</strong> — oggi i campionamenti aperti a mano — si leggono dal registro generale
+      degli ultimi <strong>${finestra.days || '\u221e'}</strong> giorni, che è la finestra tenuta in memoria.
+      I compiti dello schedulatore ci sono tutti, sempre.
+    </p>
+    <div class="card overflow-x-auto">
       <table class="sx-table min-w-[1280px]">
         <thead><tr>
-          <th class="w-[120px]">Attività</th><th>Tipo</th><th>Cosa</th><th class="w-[100px]">Stato</th>
-          <th class="w-[70px]">Colli</th><th class="w-[70px]">Chiesta da</th><th class="w-[70px]">Svolta da</th>
-          <th class="w-[110px]">Richiesta</th><th class="w-[110px]">Avvio</th><th class="w-[110px]">Chiusura</th>
-          <th class="w-[90px]">In coda</th><th class="w-[90px]">Lavoro</th><th class="w-[150px]">Chiusa con</th>
+          ${thReg('task_id', 'Attività', 'w-[120px]')}${thReg('type', 'Tipo')}${thReg('cosa', 'Cosa')}${thReg('status', 'Stato', 'w-[100px]')}
+          ${thReg('fatti', 'Colli', 'w-[70px]')}${thReg('requested_by', 'Chiesta da', 'w-[70px]')}${thReg('assigned_to', 'Svolta da', 'w-[70px]')}
+          ${thReg('requested_at', 'Richiesta', 'w-[110px]')}${thReg('started_at', 'Avvio', 'w-[110px]')}${thReg('completed_at', 'Chiusura', 'w-[110px]')}
+          ${thReg('attesa', 'In coda', 'w-[90px]')}${thReg('durata', 'Lavoro', 'w-[90px]')}<th class="w-[150px]">Chiusa con</th>
         </tr></thead>
         <tbody>${corpo}</tbody>
       </table>
@@ -251,17 +315,25 @@ export const VistaCompiti = {
      e con le durate in DUE forme: in chiaro per chi legge, in minuti per
      chi ci fa una tabella pivot. */
   async exportTasksExcel() {
-    const tutte = Store.getTasks().slice().sort((a, b) => (b.requested_at || 0) - (a.requested_at || 0));
+    /* 2.1 — il foglio esce con quello che si vede a video, campionamenti
+       fuori coda compresi: un export che dice meno della tabella da cui
+       parte è il modo di scoprire a fine mese che i conti non tornano. */
+    const tutte = Store.registroAttivita();
     if (!tutte.length) return this.toast('Nessuna attività da esportare', 'error');
     const XLSX = await caricaExcel();
     const min = (ms: number | null | undefined) => (ms === null || ms === undefined) ? '' : Math.round(ms / 60000);
     const dt = (ms: number | null | undefined) => ms ? new Date(ms).toLocaleString('it-IT') : '';
 
+    /* 2.0 — LA QUANTITÀ CHIESTA HA UN'UNITÀ, e non è sempre il collo: un
+       ordine di produzione chiede chili, e «44,42 coll.» sarebbe un altro
+       numero. Il fatto sta nel payload dalla 1.10 e finora non usciva di qui.
+       Il FATTO in UM non c'è: `qty_done` conta colli, e un residuo in UM che
+       nessuno ha scritto non si inventa in un export. */
     const headers = ['Attività', 'Tipo', 'Priorità', 'Stato', 'Articolo', 'Lotto', 'Da', 'A',
-      'Colli chiesti', 'Colli fatti', 'Residuo', 'Chiesta da', 'Svolta da', 'Chiusa da',
+      'Colli chiesti', 'Colli fatti', 'Residuo', 'UM chieste', 'UM', 'Chiesta da', 'Svolta da', 'Chiusa da',
       'Richiesta', 'Avvio', 'Chiusura', 'Scadenza',
       'In coda', 'In coda (min)', 'Lavoro', 'Lavoro (min)', 'Totale (min)',
-      'N° movimenti', 'Movimenti', 'Note', 'Motivo annullamento'];
+      'N° movimenti', 'Movimenti', 'Note', 'Motivo annullamento', 'Origine'];
     const rows = tutte.map(t => {
       const p = ((t.payload && typeof t.payload === 'object') ? t.payload : {}) as PayloadCompito;
       const m = misure(t);
@@ -270,17 +342,20 @@ export const VistaCompiti = {
         t.task_id, etichettaTipo(t.type), etichettaPriorita(t.priority), etichettaStato(t.status),
         p.article_code || '', p.lot_code || '', p.from || '', p.to || '',
         chiesto ?? '', quantitaFatta(t), chiesto === null ? '' : (residuo(t) ?? ''),
+        typeof p.qty_uom === 'number' ? p.qty_uom : '',
+        typeof p.qty_uom === 'number' ? (p.uom || '') : '',
         t.requested_by || '', t.assigned_to || '', t.completed_by || '',
         dt(t.requested_at), dt(t.started_at), dt(t.completed_at), dt(t.due_at),
         durataUmana(m.attesa), min(m.attesa), durataUmana(m.durata), min(m.durata), min(m.totale),
         t.mov_ids?.length || 0, (t.mov_ids || []).join(' '),
         t.note || '', t.cancel_reason || '',
+        t.origine === 'movimento' ? 'fuori coda' : 'schedulatore',
       ];
     });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     ws['!cols'] = [{wch:18},{wch:16},{wch:10},{wch:12},{wch:18},{wch:14},{wch:16},{wch:16},
-      {wch:12},{wch:11},{wch:9},{wch:11},{wch:11},{wch:11},
+      {wch:12},{wch:11},{wch:9},{wch:12},{wch:7},{wch:11},{wch:11},{wch:11},
       {wch:18},{wch:18},{wch:18},{wch:18},
       {wch:12},{wch:12},{wch:12},{wch:12},{wch:12},
       {wch:12},{wch:22},{wch:30},{wch:30}];

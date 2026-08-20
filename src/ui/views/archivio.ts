@@ -1,5 +1,7 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
+import { ordina, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
+import type { Colonna, Stato } from '../../modules/tabella';
 
 /* LE QUATTRO SORGENTI RIDOTTE A UNA FORMA SOLA.
 
@@ -98,6 +100,28 @@ export const VistaArchivio = {
     return rows.sort((a, b) => b.ts - a.ts);
   },
 
+  /* 2.1 — §3: le colonne si ordinano. La ricerca e le due date c'erano
+     già; quello che mancava era poter mettere in fila per numero o per
+     tipo. L'ordine di partenza resta il cronologico — su un archivio è
+     l'unico che racconta come sono andate le cose — e il terzo clic ci
+     riporta: vedi `alClic` in `modules/tabella.ts`. */
+  _arcOrdine: STATO_VUOTO,
+
+  _arcColonne(): Colonna<RigaArchivio>[] {
+    return [
+      { campo: 'ts', titolo: 'Data', tipo: 'numero' },
+      { campo: 'kind', titolo: 'Tipo' },
+      { campo: 'num', titolo: 'Numero' },
+      { campo: 'title', titolo: 'Riferimento' },
+      { campo: 'stato', titolo: 'Stato', valore: (r) => r.stato.lbl },
+    ];
+  },
+
+  _arcOrdina(campo) {
+    this._arcOrdine = alClic(this._arcOrdine, campo);
+    this.renderArchive();
+  },
+
   renderArchive() {
     const el = $('viewArchive');
     if (!el) return;
@@ -119,6 +143,11 @@ export const VistaArchivio = {
       const a = new Date(this._arcTo + 'T23:59:59').getTime();
       rows = rows.filter((r) => r.ts <= a);
     }
+
+    rows = ordina(rows, this._arcColonne(), this._arcOrdine as Stato);
+
+    const th = (campo: string, titolo: string, classe = '') =>
+      `<th class="sx-th-ord ${classe}" onclick="App._arcOrdina('${campo}')" title="Ordina per ${titolo}">${titolo}${segno(this._arcOrdine as Stato, campo)}</th>`;
 
     const chip = (id: string, lbl: string) => `<button class="config-tab ${this._arcType === id ? 'active' : ''}"
       onclick="App._arcType='${id}';App.renderArchive()">${lbl}</button>`;
@@ -165,11 +194,11 @@ export const VistaArchivio = {
         ${rows.length ? `<div class="overflow-x-auto">
           <table class="sx-table">
             <thead><tr>
-              <th class="w-[130px]">Data</th>
-              <th class="w-[110px]">Tipo</th>
-              <th class="w-[150px]">Numero</th>
-              <th>Riferimento</th>
-              <th class="w-[105px]">Stato</th>
+              ${th('ts', 'Data', 'w-[130px]')}
+              ${th('kind', 'Tipo', 'w-[110px]')}
+              ${th('num', 'Numero', 'w-[150px]')}
+              ${th('title', 'Riferimento')}
+              ${th('stato', 'Stato', 'w-[105px]')}
               <th class="w-[60px]"></th>
             </tr></thead>
             <tbody>

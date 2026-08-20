@@ -4,6 +4,8 @@ import { Store } from '../../core/store';
 import type { Ubicazione } from '../../core/geometria';
 import type { NonConformita, Deroga } from '../../modules/conformita';
 import type { CodiceAllergene } from '../../modules/anagrafica';
+import { MOV } from '../../core/costanti';
+import { Dialog } from '../dialog';
 
 export const VistaMappa = {
   // ═══ MAPPA ═══
@@ -15,6 +17,10 @@ export const VistaMappa = {
     const stats = Store.getZoneStats(this.currentSite, this.currentZone);
     const locs = Store.generateLocations(this.currentSite, this.currentZone);
     this._aggiornaConformita();
+    /* 2.1 — la vista la decide la zona, non chi guarda: vedi
+       `_vistaDiZona`. Si scrive nel campo di sempre perche' tutto quel che
+       disegna legge di lì. */
+    this.mapViewMode = this._vistaDiZona(zone);
 
     let toolbar = `
       <div class="map-toolbar">
@@ -26,17 +32,11 @@ export const VistaMappa = {
           <span class="crumb-active">${this._esc(zone.name)}</span>
         </div>
         <div class="map-view-toggle">
-          <button class="map-vt-btn ${this.mapViewMode === 'plan' ? 'active' : ''}" onclick="App.setMapView('plan')">▦ Piano</button>
-          <button class="map-vt-btn ${this.mapViewMode === 'frontal' ? 'active' : ''}" onclick="App.setMapView('frontal')">▤ Frontale</button>
+          <span class="map-vt-btn active" title="${this.mapViewMode === 'frontal' ? 'Una scaffalatura si guarda di fronte: dall\u2019alto i livelli si sovrappongono' : 'Un\u2019area a terra si guarda dall\u2019alto: di fronte non c\u2019\u00e8 niente da impilare'}">
+            ${this.mapViewMode === 'frontal' ? '▤ Frontale' : '▦ Dall\u2019alto'}
+          </span>
         </div>
-        ${(zone.type === 'RACK' && this.mapViewMode === 'frontal') ? `<button class="btn btn-sm ${zone.mirror_frontal ? 'btn-warning' : ''} text-body-small" onclick="App.toggleMirrorFrontal()" title="Specchia vista frontale (dx↔sx)">${zone.mirror_frontal ? '↔ Specchiata' : '↔ Specchia'}</button>` : ''}`;
-    if (zone.type === 'RACK' && (zone.levels?.length ?? 0) > 1 && this.mapViewMode === 'plan') {
-      toolbar += '<div class="level-selector">';
-      for (const lvl of (zone.levels || [])) {
-        toolbar += `<button class="level-btn ${lvl === this.currentLevel ? 'active' : ''}" onclick="App.changeLevel('${lvl}')">${lvl}</button>`;
-      }
-      toolbar += '</div>';
-    }
+        ${zone.type === 'RACK' ? `<button class="btn btn-sm ${zone.mirror_frontal ? 'btn-warning' : ''} text-body-small" onclick="App.toggleMirrorFrontal()" title="Specchia vista frontale (dx↔sx)">${zone.mirror_frontal ? '↔ Specchiata' : '↔ Specchia'}</button>` : ''}`;
     toolbar += `
         <div class="map-stats-bar">
           <div class="map-stat"><div class="dot bg-sx-text-muted"></div>${stats.total} Tot</div>
@@ -60,6 +60,26 @@ export const VistaMappa = {
 
     if (this.mapViewMode === 'frontal') this._renderMapFrontal(zone, locs);
     else this._renderMapPlan(zone, locs);
+  },
+
+  /* ═══ 2.1 — LA VISTA LA DECIDE LA ZONA, non chi guarda ══════════════
+
+     Una scaffalatura vista dall'alto sovrappone i livelli: si vede il
+     piano scelto e gli altri quattro no, e chi guarda crede di vedere la
+     corsia. Un'area a terra vista di fronte è una fila di rettangoli tutti
+     alla stessa quota, cioè un disegno che non aggiunge niente alla
+     pianta. Erano due viste offerte su ogni zona, e su ogni zona una delle
+     due era quella sbagliata.
+
+     Adesso: SCAFFALI → frontale, con «Specchia» per chi percorre la corsia
+     nell'altro verso. TERRA e SFUSO → dall'alto. Il selettore dei livelli
+     esce con la vista a piano dei rack: nella frontale i livelli si vedono
+     tutti insieme, che è la ragione per cui è quella giusta.
+
+     `mapViewMode` resta e resta scrivibile — ci passano `setMapView` e chi
+     lo legge — ma la disegnata la comanda questa riga. */
+  _vistaDiZona(zone) {
+    return zone?.type === 'RACK' ? 'frontal' : 'plan';
   },
 
   /* La fascia parla solo della zona che si sta guardando: un conteggio di
@@ -172,16 +192,41 @@ export const VistaMappa = {
         <button class="btn btn-accent" onclick="App.esportaDeroghe()">📊 Esporta Excel</button>`);
   },
 
+  /* QUANTA MERCE È FUORI POSTO, non solo quante righe.
+     La conformità guarda DOVE sta la merce e ignora le quantità, ed è giusto
+     così. Ma chi apre il foglio deve decidere che cosa spostare per primo, e
+     «3 colli» di un articolo a chili non glielo dice: qui accanto ci vanno le
+     UM e la lettura per esteso dei colli. Le legge `Store`, che è l'unico
+     posto dove la confezione del lotto è quella congelata.
+
+     Queste righe restano UNA PER LOTTO: una non conformità non si moltiplica
+     per il numero di colli — è la stessa merce nello stesso vano sbagliato. */
+  _umFuoriPosto(location_code: string, item_key: string | undefined) {
+    const riga = (item_key ? Store.getItemByKey(item_key) : [])
+      .find((i: { location_code: string }) => i.location_code === location_code);
+    const letta = riga ? Store.righeLette([riga])[0] : null;
+    if (!letta) return { qta: '' as string | number, uom: '', dettaglio: '' };
+    return {
+      qta: letta.uom_qty ?? '',
+      uom: letta.uom_qty === null ? '' : (letta.uom || ''),
+      dettaglio: letta.descrizione === '—' ? '' : letta.descrizione,
+    };
+  },
+
   async esportaDeroghe() {
     const d = (this._conf || this._aggiornaConformita())?.deroghe || [];
     if (!d.length) return this.toast('Niente da esportare', 'warning');
     const XLSX = await caricaExcel();
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map((x: Deroga) => ({
-      'Ubicazione': x.location_code, 'Articolo': x.article_code,
-      'Descrizione': x.article_description || '', 'Lotto': x.lot_code || '',
-      'Colli': x.qty ?? '', 'Allergeni': x.allergens.map((c: CodiceAllergene) => this._etAllergene(c)).join(', '),
-    }))), 'Deroghe');
+    XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(d.map((x: Deroga) => {
+      const um = this._umFuoriPosto(x.location_code, x.item_key);
+      return {
+        'Ubicazione': x.location_code, 'Articolo': x.article_code,
+        'Descrizione': x.article_description || '', 'Lotto': x.lot_code || '',
+        'Colli': x.qty ?? '', 'UM Totali': um.qta, 'UM': um.uom, 'Dettaglio Colli': um.dettaglio,
+        'Allergeni': x.allergens.map((c: CodiceAllergene) => this._etAllergene(c)).join(', '),
+      };
+    })), 'Deroghe');
     XLSX.writeFile(wb, `allergeni-in-deroga-${new Date().toISOString().slice(0,10)}.xlsx`);
     this.toast('✓ Excel esportato', 'success');
   },
@@ -199,13 +244,17 @@ export const VistaMappa = {
     const conf = this._conf || this._aggiornaConformita();
     if (!conf?.nonConformita.length) return this.toast('Niente da esportare', 'warning');
     const XLSX = await caricaExcel();
-    const data = conf.nonConformita.map((n: NonConformita) => ({
-      'Gravità': n.gravita === 'alta' ? 'ALTA' : 'MEDIA',
-      'Tipo': this._etichettaTipoNC(n.tipo),
-      'Ubicazione': n.location_code, 'Articolo': n.article_code,
-      'Descrizione': n.article_description || '', 'Lotto': n.lot_code || '',
-      'Colli': n.qty ?? '', 'Motivo': n.messaggio,
-    }));
+    const data = conf.nonConformita.map((n: NonConformita) => {
+      const um = this._umFuoriPosto(n.location_code, n.item_key);
+      return {
+        'Gravità': n.gravita === 'alta' ? 'ALTA' : 'MEDIA',
+        'Tipo': this._etichettaTipoNC(n.tipo),
+        'Ubicazione': n.location_code, 'Articolo': n.article_code,
+        'Descrizione': n.article_description || '', 'Lotto': n.lot_code || '',
+        'Colli': n.qty ?? '', 'UM Totali': um.qta, 'UM': um.uom, 'Dettaglio Colli': um.dettaglio,
+        'Motivo': n.messaggio,
+      };
+    });
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Fuori posto');
     XLSX.writeFile(wb, `giacenze-fuori-posto-${new Date().toISOString().slice(0,10)}.xlsx`);
@@ -299,6 +348,44 @@ export const VistaMappa = {
     };
   },
 
+  /* ═══ 2.1 — LE UNITÀ DI CARICO SI VEDONO DENTRO IL VANO ═════════════
+
+     Un'unità è un contenitore che sta IN un'ubicazione: disegnarla come
+     una casella annidata dice esattamente quello, e dice anche quante ce
+     ne sono senza far leggere un numero. Le caselle si stringono da sole
+     al crescere del numero — è una divisione, non una tabella di misure —
+     e sotto una certa larghezza smettono di essere disegnate: tre righe di
+     un pixel non sono tre pallet, sono sporco sullo schermo.
+
+     E SI TRASCINANO. Portare una casella in un altro vano è lo stesso
+     gesto che si fa col muletto, e genera lo stesso movimento che genera
+     la maschera: `Store.moveUdc`, una transazione, l'unità e tutte le sue
+     righe insieme. Non è una scorciatoia che salta un controllo — il
+     controllo è dentro `moveUdc` e vale per tutti e due i modi. */
+  _udcNelVanoHTML(code, size) {
+    const dentro = Store.getUdcInLocation(code);
+    if (!dentro.length) return '';
+    /* 2.1 — QUADRATI, non righe. Una striscia larga e alta sei pixel non
+       somiglia a un pallet: somiglia a una sottolineatura, e sulla pianta si
+       legge come un segno di stato invece che come merce.
+
+       Il lato è il più piccolo fra quello che concede la larghezza — divisa
+       fra le unità presenti — e un terzo dell'altezza della cella, che è lo
+       spazio che si può prendere in basso senza coprire il codice del vano.
+       Sotto i 5px non si disegna più niente: quattro quadratini da tre pixel
+       non sono quattro pallet, sono sporco sullo schermo, e allora si scrive
+       il numero, che è il dato che comunque serviva. */
+    const perLarghezza = Math.floor((size - 6) / dentro.length) - 1;
+    const lato = Math.min(perLarghezza, Math.floor(size * 0.34));
+    if (lato < 5) return `<span class="cell-udc-many" title="${dentro.length} unità di carico">▣${dentro.length}</span>`;
+    return `<span class="cell-udc-box">${dentro.map((u) => `<i class="cell-udc"
+      style="--lato:${lato}px"
+      draggable="true"
+      data-udc="${this._esc(u.udc_id)}"
+      ondragstart="App._udcDragStart(event,'${this._esc(u.udc_id)}')"
+      title="${this._esc(u.udc_id)} — ${Store.righeDiUdc(u.udc_id).length} righe · trascina per spostarla"></i>`).join('')}</span>`;
+  },
+
   _renderCell(code, size) {
     const status = Store.getLocationStatus(code);
     const items = Store.getItemsAtLocation(code);
@@ -309,9 +396,77 @@ export const VistaMappa = {
       data-loc="${code}"
       onclick="App.selectLocation('${code}')"
       oncontextmenu="event.preventDefault();App._mapToggleDisable('${code}')"
+      ondragover="App._udcDragOver(event,'${code}')"
+      ondragleave="App._udcDragLeave(event)"
+      ondrop="App._udcDrop(event,'${code}')"
       title="${code} — ${status}${items.length ? ' · '+items.length+' item' : ''}${nc.title}">
-      ${short}${items.length ? `<span class="item-count">${items.length}</span>` : ''}${nc.badge}
+      ${short}${items.length ? `<span class="item-count">${items.length}</span>` : ''}${nc.badge}${this._udcNelVanoHTML(code, size)}
     </div>`;
+  },
+
+  /* Il pezzo trascinato si tiene qui e non solo in `dataTransfer`: durante
+     il `dragover` il contenuto non è leggibile — è una regola del browser,
+     non un difetto — e senza questo la cella non saprebbe se rifiutare. */
+  _udcTrascinata: null,
+
+  _udcDragStart(ev, id) {
+    this._udcTrascinata = id;
+    try {
+      ev.dataTransfer.setData('text/plain', id);
+      ev.dataTransfer.effectAllowed = 'move';
+    } catch { /* qualche browser non lo consente: resta la variabile */ }
+    ev.stopPropagation();
+  },
+
+  _udcDragOver(ev, code) {
+    if (!this._udcTrascinata) return;
+    const u = Store.getUdc(this._udcTrascinata);
+    if (!u || u.location_code === code) return;
+    const stato = Store.getLocationStatus(code);
+    if (stato === 'blocked' || stato === 'disabled') return;
+    ev.preventDefault();
+    ev.currentTarget?.classList.add('drop-target');
+  },
+
+  _udcDragLeave(ev) {
+    ev.currentTarget?.classList.remove('drop-target');
+  },
+
+  async _udcDrop(ev, code) {
+    ev.preventDefault();
+    ev.currentTarget?.classList.remove('drop-target');
+    const id = this._udcTrascinata || (() => { try { return ev.dataTransfer.getData('text/plain'); } catch { return ''; } })();
+    this._udcTrascinata = null;
+    if (!id) return;
+    if (!this._requireOperator('lo spostamento di un’unità di carico')) return;
+    const u = Store.getUdc(id);
+    if (!u) return this.toast('Unità non trovata', 'error');
+    const da = u.location_code || '';
+    if (da === code) return;
+
+    const righe = Store.righeDiUdc(id);
+    if (!await Dialog.confirm({
+      title: 'Spostare l’unità di carico?',
+      message: 'L’unità e tutte le sue righe cambiano ubicazione insieme, in una transazione sola. Il contenuto non si tocca.',
+      details: Dialog.kv([['Unità', id], ['Da', da || '—'], ['A', code], ['Righe', righe.length]]),
+      confirmLabel: 'Sposta',
+    })) return;
+
+    try {
+      const esito = await Store.moveUdc(id, code, {
+        type: MOV.MOVE, article_code: '', article_description: '', lot_code: '',
+        location_code: da, dest_location: code,
+        user: Store.getCurrentIdentity().initials, ts: Date.now(),
+        notes: `Unità di carico ${id} — ${righe.length} righe · trascinata sulla mappa`,
+      });
+      this.renderMap();
+      if (this.selectedLocation) this.renderDetail(this.selectedLocation);
+      this.updateSyncIndicator();
+      this._refreshSessionLog?.();
+      this.toast(`🔀 ${id}: ${da} → ${code} · ${esito?.righe ?? 0} righe`, 'success');
+    } catch (e) {
+      this.toast((e as Error).message, 'error');
+    }
   },
 
   _renderMapFrontal(zone, locs) {
@@ -343,8 +498,11 @@ export const VistaMappa = {
                 data-loc="${loc.code}"
                 onclick="App.selectLocation('${loc.code}')"
                 oncontextmenu="event.preventDefault();App._mapToggleDisable('${loc.code}')"
+                ondragover="App._udcDragOver(event,'${loc.code}')"
+                ondragleave="App._udcDragLeave(event)"
+                ondrop="App._udcDrop(event,'${loc.code}')"
                 title="${loc.code} — ${status}${items.length ? ' · '+items.length+' item' : ''}${nc.title}">
-                ${String(b).padStart(2,'0')}${items.length ? `<span class="fc-badge">${items.length}</span>` : ''}${nc.badge}
+                ${String(b).padStart(2,'0')}${items.length ? `<span class="fc-badge">${items.length}</span>` : ''}${nc.badge}${this._udcNelVanoHTML(loc.code, 44)}
               </div>`;
             }
           }
@@ -374,10 +532,13 @@ export const VistaMappa = {
               data-loc="${loc.code}"
               onclick="App.selectLocation('${loc.code}')"
               oncontextmenu="event.preventDefault();App._mapToggleDisable('${loc.code}')"
+              ondragover="App._udcDragOver(event,'${loc.code}')"
+              ondragleave="App._udcDragLeave(event)"
+              ondrop="App._udcDrop(event,'${loc.code}')"
               title="${loc.code} — ${status}${nc.title}">
               <span class="fp-code">P${String(c).padStart(2,'0')}</span>
               <span class="fp-sub">${stLbl}</span>
-              ${items.length ? `<span class="fp-badge">${items.length}</span>` : ''}${nc.badge}
+              ${items.length ? `<span class="fp-badge">${items.length}</span>` : ''}${nc.badge}${this._udcNelVanoHTML(loc.code, 60)}
             </div>`;
           }
         }

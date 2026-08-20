@@ -6,6 +6,7 @@ import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 import { descriviColli as descriviElenco, preleva as prelevaElenco } from '../../modules/colli';
 import { VERSIONE_APP } from '../../core/pacchetto';
+import { svg as barcodeSvg, primoCarattereFuoriSet } from '../../modules/code128';
 
 /* Dove altro sta lo stesso lotto, quando lo scarico non lo trova qui. */
 type Alternativa = { location_code: string; item_key: string; qty_available: number };
@@ -536,7 +537,28 @@ export const VistaSmaltimento = {
   },
 
   /* Striscia d'identita': marchio e mittente a sinistra, natura e numero
-     del documento a destra. Identica su ogni foglio. */
+     del documento a destra. Identica su ogni foglio.
+
+     2.1 — E SOTTO IL NUMERO, IL NUMERO IN BARRE.
+
+     Sette documenti passano di qui — DDT, verbale di smaltimento, verbale
+     di campionamento, cartellino di non conformita', riepilogo inventario,
+     rapporto di prelievo ODP, ristampa di un pendente — e fino alla 2.0
+     nessuno di loro si poteva rimettere dentro l'applicativo se non
+     digitandone il riferimento. Chi torna dal magazzino col foglio in mano
+     porta i guanti e ha fretta: quattordici caratteri battuti a mano sono
+     l'errore che si scopre due settimane dopo, quando il documento
+     richiamato era un altro.
+
+     Il codice a barre porta ESATTAMENTE il riferimento gia' scritto
+     accanto, e non un formato suo: cosi' il numero letto dal lettore e
+     quello letto dall'occhio sono la stessa stringa, e nessuno deve sapere
+     che esiste una traduzione. Un documento senza riferimento — un'anteprima
+     non ancora numerata — non porta barre: un simbolo che codifica il
+     nulla si scansiona lo stesso, e restituisce il nulla.
+
+     `modules/code128.ts` dice cosa questo simbolo NON e': un GS1-128 col
+     suo FNC1. Dentro l'azienda non serve, e questi fogli non escono. */
   _docHeadHTML({ kind, kindSub, numLabel = 'N°', num, dateLabel = 'del', dateVal, sender = null }) {
     const s = sender || Store.getDocConfig().sender;
     const sede = [s.address, [s.zip, s.city, s.province ? `(${s.province})` : ''].filter(Boolean).join(' ')]
@@ -562,9 +584,27 @@ export const VistaSmaltimento = {
           <div class="doc-title-main">${this._esc(kind)}</div>
           <div class="doc-title-sub">${this._esc(kindSub)}</div>
           <div class="doc-title-num">${this._esc(numLabel)} <b>${this._esc(num || '—')}</b>&nbsp;&nbsp;${this._esc(dateLabel)} <b>${this._esc(dateVal)}</b></div>
+          ${this._docBarcodeHTML(num)}
         </div>
       </div>
       <div class="doc-hr"></div>`;
+  },
+
+  /* Il simbolo del riferimento, o niente. Sta in un metodo suo perche' i
+     tre casi in cui non si stampa — riferimento assente, riferimento con
+     caratteri che il set B non scrive, tabella che si rifiuta — devono
+     stare tutti insieme: un documento che non si puo' scansionare esce
+     comunque, e la testata resta quella di sempre. */
+  _docBarcodeHTML(num) {
+    const rif = String(num ?? '').trim();
+    if (!rif || primoCarattereFuoriSet(rif) !== null) return '';
+    try {
+      return `<div class="doc-title-barcode">${barcodeSvg(rif, {
+        modulo: 0.28, altezza: 9, margine: 6, descrizione: `Riferimento ${rif}`,
+      })}</div>`;
+    } catch {
+      return '';
+    }
   },
 
   /* 1.9 — IL NUMERO DI VERSIONE NEL PIEDE LO PORTA LA BUILD. Era scritto a
@@ -574,30 +614,65 @@ export const VistaSmaltimento = {
      mano il 18/08. */
   _docPageHTML({ kind, kindSub, numLabel, num, dateLabel, dateVal, sender = null,
                  headExtra = '', body = '', signs = [], docId = '',
-                 watermark = '', pageClass = '', printedLabel = 'stampato il' }) {
+                 watermark = '', pageClass = '', printedLabel = 'stampato il',
+                 flow = false }) {
     const fmt = new Date().toLocaleString('it-IT',
       { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const firme = signs.length ? `<div class="doc-signs">${(signs as Firma[]).map((f) => `
         <div><div class="doc-sign-role">${this._esc(f.role)}</div><div class="doc-sign-hint">${this._esc(f.hint || '')}</div><div class="doc-sign-line"></div></div>`).join('')}
       </div>` : '';
 
-    return `<div class="pr-report doc-page ${pageClass}">
-      ${watermark ? `<div class="doc-draft">${this._esc(watermark)}</div>` : ''}
-
-      <header class="doc-zone-head">
-        ${this._docHeadHTML({ kind, kindSub, numLabel, num, dateLabel, dateVal, sender })}
-        ${headExtra}
-      </header>
-
-      <section class="doc-zone-body">${body}</section>
-
-      <footer class="doc-zone-foot">
-        ${firme}
+    const testata = `${this._docHeadHTML({ kind, kindSub, numLabel, num, dateLabel, dateVal, sender })}
+        ${headExtra}`;
+    const piede = `${firme}
         <div class="pr-footer">
           <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder ${VERSIONE_APP} — Dietopack S.r.l. / Naturacare Group</span>
           <span>${this._esc(docId)} — ${this._esc(printedLabel)} ${this._esc(fmt)}</span>
-        </div>
-      </footer>
+        </div>`;
+    const filigrana = watermark ? `<div class="doc-draft">${this._esc(watermark)}</div>` : '';
+
+    /* 2.1 — IL REPORT CHE SCORRE SU PIU' A4.
+
+       Un documento — DDT, verbale, cartellino — sta in UNA pagina per
+       costruzione: `.doc-page` e' una colonna alta quanto il foglio, con le
+       tre zone a misura fissa. Un report no: le righe sono quante sono, e
+       finche' la struttura era quella la testata usciva sulla prima pagina
+       e basta, mentre il piede scivolava in fondo all'ultima.
+
+       QUI LA RIPETIZIONE LA FA IL BROWSER, e non un calcolo di altezze: la
+       testata sta in un `<thead>` e il piede in un `<tfoot>`, che in stampa
+       sono `table-header-group` e `table-footer-group` — cioe' i due gruppi
+       che si ripetono su OGNI pagina, ed e' la stessa strada che le tabelle
+       di questo progetto usano gia' per l'intestazione delle colonne. Un
+       header a `position: fixed` avrebbe voluto un margine calcolato a mano
+       per non coprire il testo, e un margine calcolato a mano e' sbagliato
+       il giorno che la testata cambia una riga.
+
+       Il documento a pagina sola non cambia di una virgola: `flow` e' falso
+       e la struttura resta quella di prima. */
+    if (flow) {
+      return `<table class="pr-report doc-page doc-page--flow ${pageClass}">
+        <thead><tr><td class="doc-flow-cell doc-flow-cell--head">
+          <header class="doc-zone-head">${testata}</header>
+        </td></tr></thead>
+        <tfoot><tr><td class="doc-flow-cell doc-flow-cell--foot">
+          <footer class="doc-zone-foot">${piede}</footer>
+        </td></tr></tfoot>
+        <tbody><tr><td class="doc-flow-cell doc-flow-cell--body">
+          ${filigrana}
+          <section class="doc-zone-body">${body}</section>
+        </td></tr></tbody>
+      </table>`;
+    }
+
+    return `<div class="pr-report doc-page ${pageClass}">
+      ${filigrana}
+
+      <header class="doc-zone-head">${testata}</header>
+
+      <section class="doc-zone-body">${body}</section>
+
+      <footer class="doc-zone-foot">${piede}</footer>
     </div>`;
   },
 

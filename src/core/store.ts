@@ -52,7 +52,10 @@ import {
   proponi as proponiStoccaggio, validaRegola as validaRegolaStoccaggio,
 } from '../modules/stoccaggio';
 import type { PostoCandidato, RegolaStoccaggio } from '../modules/stoccaggio';
-import { conto as contoWip, colliFuori as colliFuoriWip } from '../modules/wip';
+import { conto as contoWip, colliFuori as colliFuoriWip, archiviato as archiviatoWip,
+         ordiniArchiviati as ordiniArchiviatiWip,
+         righeSenzaOrdine as righeSenzaOrdineWip } from '../modules/wip';
+import { registroAttivita as registroAttivitaPuro } from '../modules/compiti';
 import {
   perPersona as kpiPerPersona, perMovimento as kpiPerMovimento, perArticolo as kpiPerArticolo,
 } from '../modules/kpi';
@@ -203,13 +206,44 @@ const Store = {
     return this._cache.operators.find(o => o.initials === v) || null;
   },
 
+  /* 2.1 — L'ADMIN CONTA COME TEAM LEADER, dappertutto. Dove serviva «un
+     leader attivo» — autorizzare un rinnovo di PIN, alzare una priorità,
+     non restare senza nessuno che possa — una carica più alta non può
+     valere meno: senza questa riga, nominare Admin l'unico leader del
+     magazzino chiuderebbe il cerchio esattamente come il 13/08. */
+  _comanda(o: Operatore) { return o.role === 'leader' || o.role === 'admin'; },
+
   getActiveLeaders() {
-    return this._cache.operators.filter(o => o.role === 'leader' && o.active !== false);
+    return this._cache.operators.filter(o => this._comanda(o) && o.active !== false);
   },
 
   getUsableLeaders() {
     return this._cache.operators.filter(o =>
-      o.role === 'leader' && o.active !== false && !!o.pin_hash);
+      this._comanda(o) && o.active !== false && !!o.pin_hash);
+  },
+
+  getActiveAdmins() {
+    return this._cache.operators.filter(o => o.role === 'admin' && o.active !== false);
+  },
+
+  getUsableAdmins() {
+    return this._cache.operators.filter(o =>
+      o.role === 'admin' && o.active !== false && !!o.pin_hash);
+  },
+
+  /** 2.1 — CHI PUÒ APRIRE LA CONFIGURAZIONE E IL RESET.
+
+      L'Admin, e basta. Con un'eccezione dichiarata e temporanea: **finché
+      nessun Admin esiste**, le chiavi restano ai Team Leader. Senza quella
+      riga l'installazione di questa versione su un magazzino dove nessuno
+      è ancora Admin — cioè ogni installazione, il primo giorno — murerebbe
+      la Configurazione, e la Configurazione è l'unico posto da cui si
+      nomina un Admin. Un cerchio chiuso su se stesso, come il PIN del
+      13/08. Nominato il primo Admin, l'eccezione si spegne da sola. */
+  comandaLaConfigurazione(op: Operatore | null | undefined): boolean {
+    if (!op || op.active === false) return false;
+    if (op.role === 'admin') return true;
+    return op.role === 'leader' && this.getActiveAdmins().length === 0;
   },
 
   async addOperator(rec: Partial<Operatore> & { initials: string }): Promise<Operatore> {
@@ -223,7 +257,7 @@ const Store = {
       first_name: rec.first_name || '',
       last_name:  rec.last_name || '',
       initials,
-      role:       rec.role === 'leader' ? 'leader' : 'operator',
+      role:       rec.role === 'admin' ? 'admin' : rec.role === 'leader' ? 'leader' : 'operator',
       pin_hash:   rec.pin_hash || null,
       pin_salt:   rec.pin_salt || null,
       pin_set_at: rec.pin_hash ? now : null,
@@ -315,30 +349,20 @@ const Store = {
          SSCC veri. Dichiarato QUI per la trappola 22 qui sopra. */
       udcPrefissoGS1: metaObj.udcPrefissoGS1 ?? '',
       /* 1.14 — l'area del conto di produzione. Trappola 22: dichiarata qui. */
-      areaWip: metaObj.areaWip ?? ''
+      areaWip: metaObj.areaWip ?? '',
+      /* 2.1 — il layout del cruscotto. Trappola 22: dichiarata qui, o
+         vivrebbe in cache fino al primo ricaricamento e poi sparirebbe. */
+      dashboardLayout: metaObj.dashboardLayout ?? null
     };
   },
 
-  /* Conteggio dei movimenti più vecchi della soglia di retention.
-     Sola lettura: non cancella nulla. Usato dalla UI di Config. */
-  async countPurgeableMovements(cutoffTs: number) {
-    try {
-      return await Persistence.count('mov_log', { field: 'ts', op: 'below', value: cutoffTs });
-    } catch (err) {
-      console.error('[WM] countPurgeableMovements:', err);
-      return 0;
-    }
-  },
-
-  async purgeMovementsBefore(cutoffTs: number) {
-    const removed = await Persistence.deleteWhere('mov_log', { field: 'ts', op: 'below', value: cutoffTs }) as number;
-    if (removed > 0) {
-      this._cache.movLog = this._cache.movLog.filter(m => m.ts >= cutoffTs);
-      this._cache.movLogTotal = Math.max(0, this._cache.movLogTotal - removed);   // v2.8.0 [H2]
-      await this._touchMeta();
-    }
-    return removed;
-  },
+  /* 2.1 — LA PURGA NON C'È PIÙ, e con lei le due funzioni che la
+     servivano. `purgeMovementsBefore` era l'unica strada per cui un
+     movimento poteva sparire da questo database: il registro è la firma
+     GMP di chi ha mosso la merce e si tiene sei anni, e un modo di
+     cancellarlo — per quanto protetto da export e doppia conferma — è un
+     modo che prima o poi qualcuno percorre. Per portare via i dati resta
+     l'export JSON, che non toglie niente da dove sta. */
 
   /* DB nasce vuoto: siti e zone configurati dall'utente */
 
@@ -373,20 +397,19 @@ const Store = {
      coda per anagrafiche e giacenze, testa per i registri cronologici,
      dove il piu' recente e' sempre il primo.
 
-     LE TRE ECCEZIONI, dichiarate. Restano fuori di qui i percorsi che
+     LE DUE ECCEZIONI, dichiarate. Restano fuori di qui i percorsi che
      agiscono su INSIEMI e non su singoli record, perche' passarli riga
      per riga significherebbe migliaia di chiamate al posto di un filtro:
        · _loadCache()          — idratazione completa dal supporto
        · deleteSite/deleteZone — cancellazione per prefisso di ubicazione
-       · purgeMovementsBefore()— purga per soglia temporale
-     Tutti e tre terminano ricostruendo gli indici, quindi la cache resta
-     coerente. Quando il server invieta' delta di massa, saranno questi
-     tre a diventare un'operazione sola.
+     Tutte e due terminano ricostruendo gli indici, quindi la cache resta
+     coerente. Quando il server invieta' delta di massa, saranno queste
+     a diventare un'operazione sola.
 
      DA QUI IN POI STA IN TYPESCRIPT. L'implementazione e' in
      `core/cache.ts` — primo blocco della conversione, PIANO-1.4 §3. Qui
-     restano il nome e la firma, che quarantasette punti di questo file e uno
-     di `vault.ts` chiamano: spostare il codice non doveva muovere nient'altro.
+     restano il nome e la firma, che quarantasette punti di questo file
+     chiamano: spostare il codice non doveva muovere nient'altro.
      Il collaudo e' `test/cache.test.js`, e prima non c'era.
      ═══════════════════════════════════════════════════════════════════ */
 
@@ -1657,6 +1680,19 @@ const Store = {
      lo schedulatore non scrive una riga. La UI non lo mostra nemmeno, ma la
      guardia sta anche qui — l'interruttore e' una promessa sul database. */
   getTasks() { return this._cache.tasks; },
+
+  /** 2.1 — IL REGISTRO DELLE ATTIVITÀ, compresi i campionamenti che nessun
+      compito rivendica. La regola sta in `modules/compiti.ts` ed è pura;
+      qui si passano le due sorgenti.
+
+      I movimenti sono quelli IN FINESTRA, non l'archivio intero: la
+      lettura è sincrona perché lo è la vista che la disegna, e allargare
+      la finestra è un parametro di Configurazione. La vista lo dichiara —
+      un elenco che tace su cosa non sta guardando è peggio di un elenco
+      corto. */
+  registroAttivita() {
+    return registroAttivitaPuro(this._cache.tasks as Compito[], this._cache.movLog);
+  },
   getTask(taskId: string) { return this._cache.tasks.find(t => t.task_id === taskId) || null; },
   getOpenTasks() { return this._cache.tasks.filter(eAperto); },
 
@@ -1728,6 +1764,38 @@ const Store = {
     return a;
   },
 
+  /* ═══ 2.1 — IL CRUSCOTTO SE LO COMPONE CHI LO GUARDA ══════════
+
+     Il layout è un documento JSON dentro `meta`, come l'area WIP e il
+     prefisso GS1: nessuna collezione nuova, nessuna migrazione, e un campo
+     assente significa «come nella 2.0» — cioè tutti i riquadri, nell'ordine
+     del codice.
+
+     È UNO SOLO PER MAGAZZINO, non uno per operatore. Su un terminale di
+     corsia si alternano quattro persone nello stesso turno, e un cruscotto
+     che cambia forma a ogni cambio sigla è un cruscotto che nessuno impara.
+     Il giorno che servisse per persona, la chiave diventa `dashboard:<op>` e
+     questa riga resta il ripiego.
+
+     La regola che riconcilia il salvato col codice sta in
+     `modules/cruscotto.ts`, ed è pura. */
+  getDashboardLayout() {
+    const raw = (this._cache.meta as Record<string, any>).dashboardLayout;
+    if (!raw) return null;
+    if (typeof raw === 'string') {
+      try { return JSON.parse(raw); } catch { return null; }
+    }
+    return raw;
+  },
+
+  async setDashboardLayout(layout: unknown) {
+    const rec = { key: 'dashboardLayout', value: layout };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    (this._cache.meta as Record<string, any>).dashboardLayout = layout;
+    return layout;
+  },
+
   getWipMovimenti() { return this._cache.wip; },
 
   /** Il conto di un ordine: entrato, tornato, residuo. */
@@ -1735,7 +1803,15 @@ const Store = {
     return contoWip(this._cache.wip as any[], odpNum);
   },
 
-  /** Gli ordini che hanno un conto aperto, dal più recente. */
+  /** 2.1 — L'ORDINE CHIUSO È ARCHIVIATO, e non si tocca più. La prova è un
+      movimento scritto, non il residuo a zero: vedi `archiviato` in
+      `modules/wip.ts`. */
+  ordineWipArchiviato(odpNum: string): boolean {
+    return archiviatoWip(this._cache.wip as any[], odpNum);
+  },
+
+  /** Gli ordini che hanno un conto aperto, dal più recente. Un ordine
+      archiviato non è aperto, nemmeno se qualcosa gli è rimasto nel vano. */
   ordiniWipAperti(): string[] {
     const visti = new Map<string, number>();
     for (const m of this._cache.wip as any[]) {
@@ -1744,9 +1820,24 @@ const Store = {
       if (!visti.has(m.odp_num) || t > visti.get(m.odp_num)!) visti.set(m.odp_num, t);
     }
     return [...visti.entries()]
-      .filter(([odp]) => this.contoWip(odp).residuo !== 0)
+      .filter(([odp]) => !this.ordineWipArchiviato(odp) && this.contoWip(odp).residuo !== 0)
       .sort((a, b) => b[1] - a[1])
       .map(([odp]) => odp);
+  },
+
+  /** Gli ordini archiviati, dal più recente: l'archivio da sfogliare.
+      Vedi `ordiniArchiviati` in `modules/wip.ts`. */
+  ordiniWipArchiviati(): { odp_num: string; chiuso_il: number | null }[] {
+    return ordiniArchiviatiWip(this._cache.wip as any[]);
+  },
+
+  /** Le righe ferme nel vano WIP che nessun ordine rivendica. Vuoto quando
+      l'area WIP non è configurata: senza vano non c'è niente da guardare.
+      Vedi `righeSenzaOrdine` in `modules/wip.ts`. */
+  righeWipSenzaOrdine() {
+    const vano = this.getAreaWip();
+    if (!vano) return [];
+    return righeSenzaOrdineWip(this._cache.wip as any[], this.getItemsAtLocation(vano));
   },
 
   /** La merce entra in lavorazione: si posiziona nel vano WIP dell'ordine e
@@ -1759,6 +1850,13 @@ const Store = {
   }) {
     const dove = this.getAreaWip();
     if (!dove) throw new Error('Area WIP non configurata — si imposta in Configurazione → Funzioni');
+    /* QUI SI FERMA LA RIESUMAZIONE. Ricaricare lo stesso ordine dopo la
+       chiusura scriveva altri movimenti sotto lo stesso numero, e il conto
+       li sommava a quelli di un ciclo già chiuso: due lavorazioni in un
+       conto solo. Un ordine che ricomincia davvero è un ordine nuovo. */
+    if (this.ordineWipArchiviato(odpNum)) {
+      throw new Error(`L'ordine ${odpNum} è stato chiuso e archiviato: non può tornare in lavorazione. Se è una lavorazione nuova, serve un numero d'ordine nuovo.`);
+    }
     const res = await this.addItem(dove, riga.article_code, riga.article_description || '',
       riga.lot_code, riga.expiry_date || '', `Ordine ${odpNum}`, riga.qty,
       typeof riga.qty_uom === 'number' ? riga.qty_uom : null, riga.packs ?? null);
@@ -1799,9 +1897,13 @@ const Store = {
     item_key: string; article_code: string; article_description?: string;
     lot_code: string; qty: number; qty_uom?: number | null; uom?: string | null;
     packs?: number[] | null;
-  }, scelte: Scelta[] | null = null, verso: 'out' | 'consumo' = 'out') {
+  }, scelte: Scelta[] | null = null, verso: 'out' | 'consumo' = 'out',
+     umResa: number | null = null) {
     const dove = this.getAreaWip();
     if (!dove) throw new Error('Area WIP non configurata');
+    if (this.ordineWipArchiviato(odpNum)) {
+      throw new Error(`L'ordine ${odpNum} è chiuso e archiviato: dal suo conto non esce più niente`);
+    }
 
     const nelVano = (this._invByLoc.get(dove) || []).find(i => i.item_key === riga.item_key);
     const elenco = this.colliDiRiga(nelVano);
@@ -1821,6 +1923,29 @@ const Store = {
       if (misure && !uscite) {
         throw new Error(`${riga.item_key}: i colli di ${odpNum} non si ritrovano più in ${dove} — un altro terminale ha mosso la riga`);
       }
+
+      /* 2.1 — L'ORDINE SENZA MISURE A CONTO NON PUÒ USCIRE A NUMERO.
+
+         `colliFuori` è vuoto quando l'ordine ha portato la merce nel vano
+         PRIMA che il conto registrasse le misure dei colli — cioè su tutte
+         le righe scritte fino alla 2.0. Fin qui si ripiegava su un numero, e
+         dalla 2.0 `removeItem` lo rifiuta: la riga dichiara i colli, e
+         toglierne tre senza dire QUALI scrive un saldo sopra un elenco
+         rimasto indietro.
+
+         In corsia il risultato era un consumo che non si riusciva a
+         dichiarare, con un messaggio che parlava di colli senza nominare
+         l'ordine. Adesso lo dice, e dice anche perché.
+
+         Lo SVUOTAMENTO TOTALE resta libero — la riga sparisce intera e non
+         resta niente a cui l'elenco possa sopravvivere — ed è il caso in cui
+         l'ordine si porta via tutto quello che nel vano c'è. */
+      if (!uscite && riga.qty < elenco.length) {
+        throw new Error(
+          `${riga.item_key}: nel vano ${dove} ci sono ${elenco.length} colli dichiarati e `
+          + `${odpNum} ne muove ${riga.qty}: vanno scelti QUALI. `
+          + `Quest'ordine non ha le misure a conto — è entrato in lavorazione prima che venissero registrate.`);
+      }
     }
 
     /* Le UM che escono si dichiarano sempre: derivarle dai colli pretende un
@@ -1832,23 +1957,68 @@ const Store = {
 
     const tolti = await this.removeItem(dove, riga.item_key, uscite ? null : riga.qty, um, uscite);
     if (!tolti) throw new Error(`${riga.item_key} non è più in ${dove}`);
+
+    const uscitoUom = typeof tolti._qty_uom_delta === 'number' ? Math.abs(tolti._qty_uom_delta) : (um ?? null);
+    const usciti = uscite ? Math.abs(tolti._qty_delta ?? riga.qty) : riga.qty;
+
+    /* 2.1 — LA CONFEZIONE APERTA TORNA A MAGAZZINO CON DENTRO QUEL CHE
+       RESTA, E IL VUOTO È CONSUMO.
+
+       Due sacchi da 20 scendono in lavorazione e ne risale UNO, aperto, con
+       dentro 5: quel sacco esce dal vano intero — non ci resta mezzo — e
+       quindici chili non sono tornati perché sono finiti nel prodotto.
+       Scriverli come «reso» direbbe che a magazzino sono rientrati venti
+       chili che sullo scaffale nessuno trova; lasciarli nel conto come
+       residuo terrebbe aperta una riga per merce che non c'è più, e alla
+       chiusura l'ordine chiederebbe al vano DUE colli quando ne ha uno.
+
+       Un gesto solo, due fatti: il reso di quel che è tornato davvero, e il
+       consumo della differenza. Stanno nella stessa chiamata perché il conto
+       non deve mai poter essere letto a metà. */
+    if (verso === 'out' && typeof umResa === 'number' && uscitoUom !== null
+        && umResa > 0 && umResa < uscitoUom) {
+      await this._scriviWip(odpNum, {
+        ...riga, qty: usciti, qty_uom: umResa, packs: tolti._packs_out ?? misure ?? null,
+      }, 'out', dove);
+      await this._scriviWip(odpNum, {
+        ...riga, qty: 0, packs: null,
+        qty_uom: arrotondaUom(uscitoUom - umResa, decimaliUom(riga.uom ?? null)),
+      }, 'consumo', dove);
+      return tolti;
+    }
+
     await this._scriviWip(odpNum, {
       ...riga,
-      qty: uscite ? Math.abs(tolti._qty_delta ?? riga.qty) : riga.qty,
-      qty_uom: typeof tolti._qty_uom_delta === 'number' ? Math.abs(tolti._qty_uom_delta) : (um ?? null),
+      qty: usciti,
+      qty_uom: uscitoUom,
       packs: tolti._packs_out ?? misure ?? null,
     }, verso, dove);
     return tolti;
   },
 
-  async _scriviWip(odpNum: string, riga: any, verso: 'in' | 'out' | 'consumo', dove: string) {
+  /** LA CHIUSURA DELL'ORDINE, SCRITTA. Da qui in poi quell'ordine è storia:
+      `entraInWip` e `esceDaWip` lo rifiutano, `ordiniWipAperti` non lo
+      elenca, e il rendiconto resta leggibile e stampabile per sempre.
+
+      Non cancella e non sposta niente — chiudere non ha mai cancellato
+      niente, ed è la promessa della 1.14. Aggiunge un fatto. */
+  async archiviaOrdineWip(odpNum: string) {
+    const odp = String(odpNum ?? '').trim();
+    if (!odp) throw new Error('Ordine non indicato');
+    if (this.ordineWipArchiviato(odp)) throw new Error(`L'ordine ${odp} è già archiviato`);
+    return await this._scriviWip(odp, { item_key: '', article_code: '', lot_code: '', qty: 0 },
+      'chiuso', this.getAreaWip());
+  },
+
+  async _scriviWip(odpNum: string, riga: any, verso: 'in' | 'out' | 'consumo' | 'chiuso', dove: string) {
     const rec = {
       wip_id: `WIP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
       odp_num: odpNum,
       item_key: riga.item_key,
       article_code: riga.article_code,
       lot_code: riga.lot_code,
-      status: verso === 'in' ? 'open' : verso === 'consumo' ? 'consumed' : 'returned',
+      status: verso === 'in' ? 'open' : verso === 'consumo' ? 'consumed'
+        : verso === 'chiuso' ? 'archived' : 'returned',
       verso,
       qty: Number(riga.qty) || 0,
       qty_uom: typeof riga.qty_uom === 'number' ? riga.qty_uom : null,

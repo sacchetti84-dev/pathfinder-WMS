@@ -371,6 +371,8 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
   .mob-tab.active { color: var(--sx-primary); font-weight: 700; border-top: 2px solid var(--sx-primary); }
   .app-nav { display: none; }
   .detail-panel { width: 100%; }
+  /* Il pannello prende tutto: non c'è niente da stringere sotto. */
+  body.detail-open .app-main { padding-right: 0; }
   .app-footer { display: none; }
   .hdr-search { max-width: none; }
   .search-pop { width: calc(100vw - 1.5rem); left: auto; right: -0.4rem; }
@@ -547,6 +549,7 @@ body.dispositivo-terminale {
   /* Il pannello di dettaglio prende tutto: affiancarlo alla mappa vorrebbe
      dire due colonne da 240px, e nessuna delle due leggibile. */
   .detail-panel { width: 100%; }
+  body.detail-open .app-main { padding-right: 0; }
 
   /* Le finestre a tutto schermo. Il corpo che scorre e testata/piede fermi
      sono gia' della 1.8.4: qui cambia solo quanto spazio prendono. */

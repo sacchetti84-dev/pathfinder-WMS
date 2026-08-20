@@ -201,6 +201,27 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
     { location_code: 'DP-A-01-01-T', item_key: 'MP-1#L1', qty: 999 });
   ok('scarico oltre la giacenza respinto', troppo.stato === 409, troppo.dati.error);
 
+  /* ── IL CAMPO FANTASMA — 2.2 ────────────────────────────────────────
+     La riga di giacenza ha UN campo per l'ultima modifica e si chiama
+     `last_updated_at`: e' quello che `Giacenza` dichiara e quello che il
+     client legge. Fino alla 2.1 tre rotte su quattro scrivevano
+     `updated_at`, che nessuno legge — e il difetto non si vedeva, perche'
+     il client si riallinea sulla risposta del servizio e la riga a schermo
+     tornava giusta. A database, intanto, restavano due campi e due date.
+     La prova guarda LA RIGA SCRITTA, non la risposta: e' l'unico posto da
+     cui quel difetto si vedeva. Si aggancia allo scarico parziale qui
+     sopra e non toglie merce sua: un collo consumato in piu' sposterebbe
+     ogni saldo delle prove che seguono. */
+  const timbrata = (await call('GET',
+    '/api/c/inventory/query?criteria=' + encodeURIComponent(JSON.stringify({ field: 'item_key', op: 'equals', value: 'MP-1#L1' })))).dati[0];
+  ok('lo scarico timbra `last_updated_at` sulla riga',
+     timbrata && typeof timbrata.last_updated_at === 'number'
+       && Date.now() - timbrata.last_updated_at < 60_000,
+     'last_updated_at ' + (timbrata ? timbrata.last_updated_at : 'riga sparita'));
+  ok('e non lascia dietro il campo fantasma `updated_at`',
+     timbrata && timbrata.updated_at === undefined,
+     timbrata && timbrata.updated_at !== undefined ? 'updated_at ' + timbrata.updated_at : 'assente, come deve');
+
   // ── LA PROVA CHE CONTA: due terminali sullo stesso collo ──────────
   const [t1, t2] = await Promise.all([
     call('POST', '/api/op/removeItem', { location_code: 'DP-A-01-01-T', item_key: 'MP-1#L1', qty: 20 }, 'TERMINALE-1'),

@@ -3,6 +3,17 @@ import { MOV, MOV_LABELS } from '../../core/costanti';
 import { Store } from '../../core/store';
 import type { Sito } from '../../types/entita';
 import { pickupAlertStatus } from '../../modules/pickupAlert';
+import {
+  componiLayout, sposta, commuta, ridimensiona, scorciatoieDaMostrare, daSalvare,
+} from '../../modules/cruscotto';
+import type { Disponibile, Layout, Riquadro } from '../../modules/cruscotto';
+
+/* Una scorciatoia del cruscotto: quel che serve a disegnare il pulsante e a
+   sapere quale maschera apre. */
+type Scorciatoia = {
+  id: string; mode: string; sub: string | null; color: string;
+  icon: string; label: string; sub_txt: string; key: string;
+};
 
 /* LE FORME DEI GRAFICI. Non sono dati del magazzino: sono quel che i
    disegnatori qui sotto si passano l'un l'altro. */
@@ -66,14 +77,219 @@ export const VistaCruscotto = {
           <!-- v2.7.0 [G3] — "Salva ora" ed "Export JSON" sono usciti di qui:
                il primo e' diventato l'indicatore in barra, il secondo vive in
                Configurazione -> Dati insieme agli altri comandi di esportazione. -->
+          <button class="btn btn-sm" onclick="App._personalizzaCruscotto()">🧩 Personalizza</button>
           <button class="btn btn-sm" onclick="App._showRegistry=true;App.renderDashboard()">📋 Registro Movimenti</button>
         </div>
       </div>
 
       <!-- v2.4.5 [Q1] — Scorciatoie: le azioni prima degli indicatori -->
       ${this._renderQuickActions()}
+      ${this._renderRiquadri(kpi, sites, sparkline, dailyVals)}`;
+    el.innerHTML = html;
+  },
 
-      <!-- KPI cards -->
+  /* ═══ 2.1 — I RIQUADRI SONO UN ELENCO, NON UNA SEQUENZA SCRITTA ═════
+
+     Fino alla 2.0 il corpo della Dashboard era otto blocchi in fila
+     nell'ordine in cui erano stati costruiti, e cambiarlo voleva dire una
+     build. Adesso ognuno è una voce del catalogo qui sotto, e l'ordine, la
+     larghezza e quali esistano stanno in `meta` come JSON.
+
+     IL CATALOGO È LA SORGENTE UNICA. Il titolo che l'utente legge nella
+     scheda «Personalizza» e quello scritto sul riquadro escono di qui, non
+     da due stringhe che si somigliano: il giorno che una cambia, cambiano
+     tutte e due insieme. E il layout salvato NON porta i titoli — vedi
+     `daSalvare` — proprio perché il testo appartiene al codice.
+
+     `fisso` non è una comodità: gli avvisi di integrità e i ritiri scaduti
+     sono la ragione per cui qualcuno deve guardare il cruscotto oggi
+     invece che domani, e spegnerli è l'unico modo di non vedere l'unica
+     cosa che andava vista. */
+  _riquadriDisponibili(): Disponibile[] {
+    return [
+      { id: 'kpi', titolo: 'Indicatori', larghezzaDiSerie: 'intera',
+        descrizione: 'Ubicazioni, item, movimenti di oggi, blocchi, quarantena, accuratezza' },
+      { id: 'integrita', titolo: 'Avvisi di integrità', fisso: true, larghezzaDiSerie: 'intera',
+        descrizione: 'Non si spegne: parla di dati che non tornano' },
+      { id: 'ritiri', titolo: 'Ritiri in scadenza', fisso: true, larghezzaDiSerie: 'intera',
+        descrizione: 'Non si spegne: un ritiro mancato è un camion che torna vuoto' },
+      { id: 'attivita', titolo: 'Attività in coda', larghezzaDiSerie: 'intera' },
+      { id: 'andamento', titolo: 'Andamento movimenti — 14 giorni' },
+      { id: 'tipi', titolo: 'Ripartizione per tipo di movimento' },
+      { id: 'occupazione', titolo: 'Occupazione per sito' },
+      { id: 'top', titolo: 'Articoli più movimentati' },
+      { id: 'ultimi', titolo: 'Ultimi movimenti' },
+      { id: 'ordini', titolo: 'Ordini di produzione' },
+      { id: 'documenti', titolo: 'Documenti aperti' },
+      { id: 'quarantena', titolo: 'Quarantena attiva' },
+      { id: 'smaltimenti', titolo: 'Verbali di smaltimento' },
+    ];
+  },
+
+  _layoutCruscotto(): Layout {
+    return componiLayout(Store.getDashboardLayout(), this._riquadriDisponibili());
+  },
+
+  /* Il contenuto di un riquadro. Un `id` che il catalogo dichiara e questo
+     `switch` non conosce restituisce stringa vuota: è un riquadro annunciato
+     e non scritto, e sbagliare qui deve lasciare il cruscotto in piedi. */
+  _contenutoRiquadro(id: string, kpi, sites, sparkline, dailyVals) {
+    switch (id) {
+      case 'kpi': return this._renderKpiGrid(kpi, sparkline, dailyVals);
+      case 'integrita': return this._renderIntegrityAlertsSection();
+      case 'ritiri': return this._renderPickupAlertsSection();
+      case 'attivita': return this._renderTasksPanel();
+      case 'andamento': return `<div class="card">
+        <div class="card-title">Andamento movimenti — ultimi 14 giorni</div>
+        ${this._renderDailyBars(kpi.dailyTrend)}</div>`;
+      case 'tipi': return `<div class="card">
+        <div class="card-title">Ripartizione per tipo di movimento</div>
+        ${this._renderTypeCounts(kpi.typeCounts, kpi.totalMovements)}</div>`;
+      case 'occupazione': return `<div class="card">
+        <div class="card-title">Occupazione per sito</div>
+        ${sites.length ? this._renderSiteOccupancy(sites) : '<div class="ct-empty">Nessun sito configurato. Aprire Configurazione per crearne uno.</div>'}</div>`;
+      case 'top': return `<div class="card">
+        <div class="card-title">Articoli piu' movimentati</div>
+        ${kpi.topArticles.length ? this._renderTopArticles(kpi.topArticles) : '<div class="ct-empty">Nessun movimento registrato finora.</div>'}</div>`;
+      case 'ultimi': return this._renderLastMovements(20);
+      case 'ordini': return this._renderProdOrders();
+      case 'documenti': return this._renderPendingDocs();
+      case 'quarantena': return this._renderQuarantineList();
+      case 'smaltimenti': return this._renderDisposalDocs();
+      default: return '';
+    }
+  },
+
+  _renderRiquadri(kpi, sites, sparkline, dailyVals) {
+    const layout = this._layoutCruscotto();
+    const pezzi = layout.riquadri
+      .filter((r: Riquadro) => r.visibile)
+      .map((r: Riquadro) => {
+        const corpo = this._contenutoRiquadro(r.id, kpi, sites, sparkline, dailyVals);
+        /* Un riquadro che oggi non ha niente da dire non lascia un buco:
+           `_renderIntegrityAlertsSection` restituisce stringa vuota quando
+           tutto torna, ed è giusto così. */
+        if (!corpo) return '';
+        return `<div class="dash-slot dash-slot-${r.larghezza}" data-riquadro="${this._esc(r.id)}">${corpo}</div>`;
+      })
+      .filter(Boolean);
+    return `<div class="dash-griglia">${pezzi.join('')}</div>`;
+  },
+
+  /* ═══ LA SCHEDA «PERSONALIZZA» ══════════════════════════════════════
+
+     Si trascina per riordinare, si spunta per accendere, si sceglie metà o
+     intera. Nessuna coordinata in pixel: vedi il perché in
+     `modules/cruscotto.ts`.
+
+     LE MODIFICHE SI SCRIVONO SUBITO. Un pulsante «salva» in fondo a un
+     elenco di tredici righe è la trappola di chi chiude la finestra
+     contento e ritrova tutto com'era. */
+  _personalizzaCruscotto() {
+    const layout = this._layoutCruscotto();
+    const catalogo = new Map<string, Disponibile>(
+      this._riquadriDisponibili().map((d: Disponibile) => [d.id, d] as [string, Disponibile]));
+    const righe = layout.riquadri.map((r: Riquadro, i: number) => {
+      const d = catalogo.get(r.id);
+      return `<div class="dash-cfg-row" draggable="true"
+        ondragstart="App._dashDragStart(event,'${this._esc(r.id)}')"
+        ondragover="App._dashDragOver(event)"
+        ondrop="App._dashDrop(event,${i})">
+        <span class="dash-cfg-grip" title="Trascina per riordinare">⣿</span>
+        <label class="dash-cfg-nome">
+          <input type="checkbox" ${r.visibile ? 'checked' : ''} ${d?.fisso ? 'disabled' : ''}
+            onchange="App._dashCommuta('${this._esc(r.id)}')">
+          <span>${this._esc(d?.titolo || r.id)}</span>
+          ${d?.fisso ? '<span class="badge badge-muted">sempre acceso</span>' : ''}
+        </label>
+        <select class="select select-sm" onchange="App._dashLarghezza('${this._esc(r.id)}', this.value)">
+          <option value="meta" ${r.larghezza === 'meta' ? 'selected' : ''}>Metà riga</option>
+          <option value="intera" ${r.larghezza === 'intera' ? 'selected' : ''}>Riga intera</option>
+        </select>
+        ${d?.descrizione ? `<div class="dash-cfg-nota">${this._esc(d.descrizione)}</div>` : ''}
+      </div>`;
+    }).join('');
+
+    const catalogoScorciatoie: Scorciatoia[] = this._scorciatoieDisponibili();
+    const scelte = scorciatoieDaMostrare(layout, catalogoScorciatoie.map((s) => s.id));
+    const scorciatoie = catalogoScorciatoie.map((s) => `
+      <label class="dash-cfg-short">
+        <input type="checkbox" ${scelte.includes(s.id) ? 'checked' : ''}
+          onchange="App._dashCommutaScorciatoia('${this._esc(s.id)}')">
+        <span>${s.icon} ${this._esc(s.label)}</span>
+      </label>`).join('');
+
+    this.showModal(
+      '🧩 Personalizza il cruscotto',
+      `<p class="text-body-small text-sx-text-secondary mb-6">
+        Trascina per riordinare, spunta per accendere, scegli quanto spazio prende.
+        Le modifiche si scrivono subito e valgono per tutti i terminali.
+      </p>
+      <div class="dash-cfg">${righe}</div>
+      <div class="detail-section-title mt-7">Scorciatoie a Movimenta</div>
+      <div class="dash-cfg-shorts">${scorciatoie}</div>`,
+      `<button class="btn" onclick="App._dashRipristina()">↺ Come di serie</button>
+       <button class="btn btn-primary" onclick="App.closeModal()">Chiudi</button>`
+    );
+  },
+
+  _dashTrascinato: null,
+  _dashDragStart(ev, id) { this._dashTrascinato = id; try { ev.dataTransfer.effectAllowed = 'move'; } catch {} },
+  _dashDragOver(ev) { if (this._dashTrascinato) ev.preventDefault(); },
+
+  async _dashDrop(ev, indice) {
+    ev.preventDefault();
+    const id = this._dashTrascinato;
+    this._dashTrascinato = null;
+    if (!id) return;
+    const layout = this._layoutCruscotto();
+    await this._dashScrivi({ ...layout, riquadri: sposta(layout.riquadri, id, indice) });
+  },
+
+  async _dashCommuta(id) {
+    const layout = this._layoutCruscotto();
+    await this._dashScrivi({ ...layout, riquadri: commuta(layout.riquadri, id, this._riquadriDisponibili()) });
+  },
+
+  async _dashLarghezza(id, larghezza) {
+    const layout = this._layoutCruscotto();
+    await this._dashScrivi({ ...layout, riquadri: ridimensiona(layout.riquadri, id, larghezza) });
+  },
+
+  async _dashCommutaScorciatoia(id: string) {
+    const layout = this._layoutCruscotto();
+    const tutte: string[] = this._scorciatoieDisponibili().map((s: Scorciatoia) => s.id);
+    const ora = scorciatoieDaMostrare(layout, tutte);
+    const dopo = ora.includes(id) ? ora.filter((x) => x !== id) : tutte.filter((x) => ora.includes(x) || x === id);
+    await this._dashScrivi({ ...layout, scorciatoie: dopo });
+  },
+
+  /* «Come di serie» cancella il dato invece di riscriverlo con i valori di
+     oggi: un layout salvato uguale al predefinito smetterebbe di seguire il
+     predefinito il giorno che il predefinito cambia. */
+  async _dashRipristina() {
+    try {
+      await Store.setDashboardLayout(null);
+      this.renderDashboard();
+      this._personalizzaCruscotto();
+      this.toast('Cruscotto riportato come di serie', 'success');
+    } catch (e) {
+      this.toast(`Layout non salvato: ${(e as Error).message}`, 'error');
+    }
+  },
+
+  async _dashScrivi(layout: Layout) {
+    try {
+      await Store.setDashboardLayout(daSalvare(layout));
+      this.renderDashboard();
+      this._personalizzaCruscotto();
+    } catch (e) {
+      this.toast(`Layout non salvato: ${(e as Error).message}`, 'error');
+    }
+  },
+
+  _renderKpiGrid(kpi, sparkline, dailyVals) {
+    return `
       <div class="kpi-grid">
         <div class="kpi-card">
           <div class="kpi-label">Ubicazioni totali</div>
@@ -107,59 +323,7 @@ export const VistaCruscotto = {
           <div class="kpi-value">${kpi.accuracyPct}%</div>
           <div class="kpi-sub">${kpi.fixCount} correzioni su ${kpi.totalMovements} movimenti</div>
         </div>
-      </div>
-
-      ${this._renderIntegrityAlertsSection()}
-
-      ${this._renderPickupAlertsSection()}
-
-      <div class="panels-row">${this._renderTasksPanel()}</div>
-
-      <div class="panels-row">
-        <!-- Andamento movimenti: serie temporale a curva morbida -->
-        <div class="card">
-          <div class="card-title">Andamento movimenti — ultimi 14 giorni</div>
-          ${this._renderDailyBars(kpi.dailyTrend)}
-        </div>
-
-        <!-- Ripartizione per tipo: grafico a ciambella -->
-        <div class="card">
-          <div class="card-title">Ripartizione per tipo di movimento</div>
-          ${this._renderTypeCounts(kpi.typeCounts, kpi.totalMovements)}
-        </div>
-      </div>
-
-      <div class="panels-row">
-        <!-- Occupazione per sito: anelli di riempimento -->
-        <div class="card">
-          <div class="card-title">Occupazione per sito</div>
-          ${sites.length ? this._renderSiteOccupancy(sites) : '<div class="ct-empty">Nessun sito configurato. Aprire Configurazione per crearne uno.</div>'}
-        </div>
-
-        <!-- Classifica articoli movimentati -->
-        <div class="card">
-          <div class="card-title">Articoli piu' movimentati</div>
-          ${kpi.topArticles.length ? this._renderTopArticles(kpi.topArticles) : '<div class="ct-empty">Nessun movimento registrato finora.</div>'}
-        </div>
-      </div>
-
-      <!-- v2.4.3 [S1] — Sezioni operative: sola lettura + stampa -->
-      <div class="panels-row">
-        ${this._renderLastMovements(20)}
-        ${this._renderProdOrders()}
-      </div>
-
-      <div class="panels-row">
-        ${this._renderPendingDocs()}
-        ${this._renderQuarantineList()}
-      </div>
-
-      <!-- v3.0.0 [M2] — I verbali di smaltimento sono documenti emessi come
-           gli altri, e stanno dove stanno gli altri. -->
-      <div class="panels-row">
-        ${this._renderDisposalDocs()}
       </div>`;
-    el.innerHTML = html;
   },
 
   _goOp(mode, sub = null) {
@@ -173,24 +337,47 @@ export const VistaCruscotto = {
     else setTimeout(run, 50);
   },
 
-  _renderQuickActions() {
-    const ops = [
-      { mode: 'io',   sub: 'in',         color: 'var(--ct-cat-in)',   icon: '\u{1F4E6}',
-        title: 'Carico / Scarico', sub_txt: 'Posiziona e smaltisci', key: 'F2' },
-      { mode: 'pick', sub: 'cambio',     color: 'var(--ct-cat-move)', icon: '\u{1F504}',
-        title: 'Trasferimento',  sub_txt: 'Cambio ubicazione',      key: 'F3' },
-      { mode: 'pick', sub: 'produzione', color: 'var(--ct-cat-pick)', icon: '\u{1F3ED}',
-        title: 'Prelievo ordini', sub_txt: 'Prelievo produzione',   key: 'F3' }
+  /* 2.1 — LE SCORCIATOIE SONO UN CATALOGO, e quali si vedono lo sceglie
+     chi lavora, da «Personalizza». Un magazzino che non campiona mai da
+     terminale non ha bisogno di quel pulsante in cima allo schermo, e uno
+     che conta ogni giorno sì: prima erano tre, uguali per tutti, scritte
+     qui dentro.
+
+     L'`id` è quello che finisce nel layout salvato e non cambia mai; il
+     titolo è testo, e può cambiare quando serve. */
+  _scorciatoieDisponibili(): Scorciatoia[] {
+    return [
+      { id: 'io-in',         mode: 'io',   sub: 'in',         color: 'var(--ct-cat-in)',   icon: '\u{1F4E6}',
+        label: 'Carico / Scarico', sub_txt: 'Posiziona e smaltisci', key: 'F2' },
+      { id: 'pick-cambio',   mode: 'pick', sub: 'cambio',     color: 'var(--ct-cat-move)', icon: '\u{1F504}',
+        label: 'Trasferimento',    sub_txt: 'Cambio ubicazione',     key: 'F3' },
+      { id: 'pick-prod',     mode: 'pick', sub: 'produzione', color: 'var(--ct-cat-pick)', icon: '\u{1F3ED}',
+        label: 'Prelievo ordini',  sub_txt: 'Prelievo produzione',   key: 'F3' },
+      { id: 'inventario',    mode: 'inv',  sub: null,         color: 'var(--sx-warning)',  icon: '\u{1F4CB}',
+        label: 'Inventario',       sub_txt: 'Vano, articolo o unità', key: '' },
+      { id: 'quarantena',    mode: 'quar', sub: null,         color: 'var(--sx-purple)',   icon: '\u{1F512}',
+        label: 'Quarantena',       sub_txt: 'Blocco qualità',        key: '' },
+      { id: 'campionamento', mode: 'camp', sub: null,         color: 'var(--sx-teal)',     icon: '\u{1F9EA}',
+        label: 'Campionamento',    sub_txt: 'Presa per la qualità',  key: '' },
+      { id: 'spedizioni',    mode: 'ship', sub: null,         color: 'var(--ct-cat-out)',  icon: '\u{1F69A}',
+        label: 'Spedizioni',       sub_txt: 'DDT e uscite',          key: '' },
     ];
-    const btns = ops.map(o => `<button type="button" class="qa-btn" style="--qa-c:${o.color}"
+  },
+
+  _renderQuickActions() {
+    const catalogo: Scorciatoia[] = this._scorciatoieDisponibili();
+    const scelte = scorciatoieDaMostrare(this._layoutCruscotto(), catalogo.map((s) => s.id));
+    const ops = catalogo.filter((s) => scelte.includes(s.id));
+    if (!ops.length) return '';
+    const btns = ops.map((o) => `<button type="button" class="qa-btn" style="--qa-c:${o.color}"
         onclick="App._goOp('${o.mode}'${o.sub ? `,'${o.sub}'` : ''})"
-        aria-label="${this._esc(o.title)} — ${this._esc(o.sub_txt)}">
+        aria-label="${this._esc(o.label)} — ${this._esc(o.sub_txt)}">
         <span class="qa-ico" aria-hidden="true">${o.icon}</span>
         <span class="qa-txt">
-          <span class="qa-title">${this._esc(o.title)}</span>
+          <span class="qa-title">${this._esc(o.label)}</span>
           <span class="qa-sub">${this._esc(o.sub_txt)}</span>
         </span>
-        <span class="qa-key" aria-hidden="true">${this._esc(o.key)}</span>
+        ${o.key ? `<span class="qa-key" aria-hidden="true">${this._esc(o.key)}</span>` : ''}
       </button>`).join('');
     return `<nav class="qa-bar" aria-label="Scorciatoie operazioni principali">${btns}</nav>`;
   },
