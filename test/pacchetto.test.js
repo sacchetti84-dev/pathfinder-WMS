@@ -16,6 +16,7 @@ import { COLLEZIONI } from '../src/types/collezioni';
 import { metaVuota } from '../src/core/cache';
 import {
   FORMATO, COLLEZIONI_EXPORT, componi, conta, verifica, righeDaScrivere,
+  impostazioni, IMPOSTAZIONI_ESPORTATE,
 } from '../src/core/pacchetto';
 
 function cache(sovrascrivi = {}) {
@@ -295,5 +296,54 @@ describe('il pacchetto non cambia sotto i piedi', () => {
     movimenti.push(mov(200));
     expect(p.mov_log).toHaveLength(1);
     expect(p._counts.mov_log).toBe(1);
+  });
+});
+
+
+describe('le impostazioni viaggiano col backup', () => {
+  /* Un ripristino che rimette le giacenze e lascia il magazzino senza area
+     WIP ha rimesso i numeri e non il posto di lavoro. */
+  const meta = {
+    lastModified: 123, unsavedChanges: true,
+    docConfig: { sender: { name: 'Dietopack Srl' } },
+    areaWip: 'MAG1-WIP-01', udcPrefissoGS1: '1234567',
+    dashboardLayout: { riquadri: [{ id: 'kpi' }] }, oreUrgenza: 8,
+  };
+
+  it('porta le impostazioni dichiarate', () => {
+    expect(impostazioni(meta)).toEqual({
+      docConfig: { sender: { name: 'Dietopack Srl' } },
+      areaWip: 'MAG1-WIP-01', udcPrefissoGS1: '1234567',
+      dashboardLayout: { riquadri: [{ id: 'kpi' }] }, oreUrgenza: 8,
+    });
+  });
+
+  it('lascia fuori lo stato: ora di salvataggio e modifiche non salvate', () => {
+    const out = impostazioni(meta);
+    expect(out.lastModified).toBeUndefined();
+    expect(out.unsavedChanges).toBeUndefined();
+  });
+
+  it('una chiave mai valorizzata non compare', () => {
+    expect(impostazioni({ areaWip: '' })).toEqual({});
+    expect(impostazioni(null)).toEqual({});
+  });
+
+  it('escono per nome, e i nomi sono quelli dell elenco', () => {
+    const out = impostazioni({ ...meta, chiaveSconosciuta: 'x' });
+    expect(Object.keys(out).every(k => IMPOSTAZIONI_ESPORTATE.includes(k))).toBe(true);
+  });
+
+  it('il pacchetto le porta, e `doc_config` resta dov era', () => {
+    const p = componi(cache({ meta }), []);
+    expect(p.impostazioni.areaWip).toBe('MAG1-WIP-01');
+    expect(p.doc_config).toEqual(meta.docConfig);
+  });
+
+  it('non contano come record: `_counts` non cambia', () => {
+    const conMeta = componi(cache({ meta }), []);
+    const senza = componi(cache(), []);
+    expect(conMeta._counts).toEqual(senza._counts);
+    expect(verifica(conMeta).ok).toBe(verifica(senza).ok);
   });
 });

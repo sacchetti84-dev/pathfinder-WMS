@@ -99,8 +99,8 @@ export const VistaConfigDati = {
         </tbody>
       </table>
       <div class="flex gap-4 flex-wrap">
-        <button class="btn btn-primary" onclick="App.exportData()">📤 Esporta tutto (JSON)</button>
-        <button class="btn btn-accent" onclick="App.importData()">📥 Importa da JSON</button>
+        <button class="btn btn-primary" onclick="App.exportData()" title="Scrive un file JSON con tutto il magazzino: giacenze, registro, quarantene, documenti, operatori e impostazioni">💾 Salva backup (JSON)</button>
+        <button class="btn btn-accent" onclick="App.importData()" title="Rimette in questo database il contenuto di un backup JSON">♻ Recupera da backup (JSON)</button>
         <button class="btn btn-warning" onclick="App.exportMovLogExcel()">📊 Esporta Registro Movimenti (Excel)</button>
         <button class="btn btn-warning" onclick="App.exportGiacenzeExcel()" title="Esporta tutte le giacenze raggruppate per Site/Zona/Ubicazione">📦 Esporta Giacenze per Area (Excel)</button>
         <button class="btn btn-danger ml-auto" onclick="App.confirmResetData()">🗑 Reset completo DB</button>
@@ -117,7 +117,7 @@ export const VistaConfigDati = {
           <strong>Nessun record viene mai cancellato, né automaticamente né a mano.</strong>
           Il registro movimenti è conservato per <strong>${LOG_RETENTION_DAYS} giorni (${Math.round(LOG_RETENTION_DAYS/365)} anni)</strong>
           ed è la firma GMP di chi ha mosso la merce; i record di <strong>non conformità</strong> non sono eliminabili in nessun caso.
-          Per portare via i dati si usa l'export JSON qui sopra, che non toglie niente da dove sta.
+          Per portare via i dati si usa <strong>Salva backup</strong> qui sopra, che non toglie niente da dove sta.
         </p>
       </div>
     </div>
@@ -233,8 +233,12 @@ export const VistaConfigDati = {
           Vive come file sulla macchina che ospita il servizio${est?.file ? `:<br><span class="mono text-label-small">${this._esc(est.file)}</span>` : '.'}
           <br>Non è soggetto alla cancellazione dei dati di navigazione né alla quota del browser,
           e non serve alcun permesso di archiviazione persistente.
-          <strong>La copia di sicurezza è un compito del servizio</strong>, non di questa scheda:
-          si esegue a caldo con <span class="mono">POST /api/backup</span> — vedi INSTALLAZIONE, sezione «Il backup».
+          <strong>La copia automatica è un compito del servizio</strong>: la scrive tutte le sere a caldo
+          in <span class="mono">C:\\Pathfinder\\backup</span>, ed è un file di database che si rimette al suo posto
+          da fuori — servizio fermo, file sostituito, servizio riavviato.
+          <br><strong>Il salvataggio e il recupero a mano si fanno da qui</strong>, con i due pulsanti
+          «Salva backup» e «Recupera da backup» della scheda Stato Database: quelli lavorano a servizio acceso e
+          passano dall'applicativo, che sa cosa sta scrivendo.
         </div>
       </div>` : `
       <div class="py-5 px-0 border-b border-b-sx-border">
@@ -312,6 +316,16 @@ export const VistaConfigDati = {
     setTimeout(() => Feedback.signal('error', 'Errore', 'Tono grave ripetuto — operazione NON registrata.'), 3800);
   },
 
+  /* 2.2 — QUESTO E' IL SALVATAGGIO A MANO DEL BACKUP, non piu' «un export».
+     La copia automatica la scrive il servizio tutte le sere, ed e' un file di
+     database che si rimette al suo posto da fuori: servizio fermo, file
+     sostituito, servizio riavviato. Questa invece si fa a servizio acceso, da
+     dentro l'applicativo, e la rimette dentro il pulsante qui accanto.
+
+     IL NOME DEL FILE DICE CHE COS'E' E DI QUANDO E'. `warehouse-mapper-2026-08-20`
+     erano il nome di un applicativo che non si chiama piu' cosi' e una data
+     senza ora: due backup dello stesso giorno si sovrascrivevano nella
+     cartella dei download, e il secondo vinceva senza dirlo. */
   async exportData() {
     const data = await Store.exportAll();
     const json = JSON.stringify(data, null, 2);
@@ -319,12 +333,16 @@ export const VistaConfigDati = {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `warehouse-mapper-${new Date().toISOString().slice(0,10)}.json`;
+    const t = new Date();
+    const due = (n: number) => String(n).padStart(2, '0');
+    a.download = `pathfinder-backup-${t.getFullYear()}-${due(t.getMonth() + 1)}-${due(t.getDate())}-${due(t.getHours())}${due(t.getMinutes())}.json`;
     a.click();
     URL.revokeObjectURL(url);
     await Store.markSaved();
     this.updateSyncIndicator();
-    this.toast('✓ Backup JSON esportato', 'success');
+    const righe = Object.values<number>(Store._countsOf(data) as Record<string, number>)
+      .reduce((somma, n) => somma + n, 0);
+    this.toast(`✓ Backup salvato — ${righe.toLocaleString('it-IT')} record in ${a.download}`, 'success');
   },
 
   importData() { $('fileImport').click(); },
@@ -412,21 +430,48 @@ export const VistaConfigDati = {
           }) === true) mode = 'merge';
         }
       } else {
-        const mergeChoice = await Dialog.confirm({
-          title: 'Importa dati da JSON',
-          message: 'Modalità MERGE (consigliata su un database già in uso): aggiunge solo siti, zone, articoli e giacenze non già presenti, senza toccare i dati esistenti.\n\n' +
-                   `Il merge NON importa ${NON_PORTATE}. Per portare tutto il contenuto del file scegliere «Altre opzioni».`,
-          details: Dialog.kv([['File', file.name], ['Contenuto', contenuto]]),
-          confirmLabel: 'Importa in MERGE', cancelLabel: 'Altre opzioni…', icon: '\u{1F4E5}'
+        /* 2.2 — QUI SI RECUPERA UN BACKUP, e la scelta principale è quella.
+           Fino a stamattina il pulsante si chiamava «Importa da JSON» e
+           proponeva per primo il MERGE: giusto per chi porta dentro
+           l'anagrafica di un altro magazzino, sbagliato per chi ha in mano il
+           backup di QUESTO e vuole tornare a com'era. Il merge, su un
+           ripristino, lascia in piedi tutto quello che è successo dopo il
+           backup e ci appoggia sopra i dati vecchi: il risultato non è né
+           prima né dopo, ed è la miscela che nessuno sa più leggere.
+
+           Il ripristino resta a due conferme, e la seconda dice cosa sparisce
+           adesso — contato dal database, non dal file. */
+        const scelta = await Dialog.confirm({
+          title: 'Recupera da backup',
+          message: 'Il RIPRISTINO riporta il magazzino esattamente allo stato del file: giacenze, registro, ' +
+                   'quarantene, documenti, operatori e impostazioni. Quello che è stato fatto dopo quel backup ' +
+                   'non c’è più.\n\n' +
+                   'Se invece il file viene da un ALTRO magazzino e serve solo aggiungere quello che qui non ' +
+                   'c’è, la strada è il merge: sta in «Altre opzioni».',
+          details: Dialog.kv([
+            ['File', file.name],
+            ['Scritto il', String(data._exported || '—').slice(0, 16).replace('T', ' ')],
+            ['Contenuto', contenuto],
+          ]),
+          confirmLabel: 'RIPRISTINA tutto', cancelLabel: 'Altre opzioni…', danger: true, icon: '\u267B'
         });
-        if (mergeChoice === true) {
-          mode = 'merge';
-        } else if (mergeChoice === false) {
+        if (scelta === true) {
+          const adesso = `giacenze ${Store.getInventoryCount()} · movimenti ${Store.getMovLogTotal().toLocaleString('it-IT')} · operatori ${Store.getOperators().length}`;
           if (await Dialog.confirm({
-            title: 'Sovrascrivere il database?',
-            message: 'Tutti i dati attuali (siti, zone, articoli, giacenze, movimenti, quarantene, DDT pendenti) saranno eliminati e sostituiti con il contenuto del file. Operazione irreversibile.',
-            confirmLabel: 'SOVRASCRIVI tutto', danger: true
+            title: 'Confermi il ripristino?',
+            message: 'Il contenuto attuale di questo database viene eliminato e sostituito con quello del file. ' +
+                     'Operazione irreversibile: se il magazzino di adesso serve ancora, si salva PRIMA un backup ' +
+                     'con il pulsante «Salva backup».',
+            details: Dialog.kv([['Adesso a database', adesso], ['Nel file', contenuto]]),
+            confirmLabel: 'RIPRISTINA, ho un backup di adesso', danger: true
           }) === true) mode = 'overwrite';
+        } else if (scelta === false) {
+          if (await Dialog.confirm({
+            title: 'Importare solo una parte?',
+            message: 'Modalità MERGE: aggiunge solo siti, zone, articoli e giacenze non già presenti, senza ' +
+                     `toccare i dati esistenti.\n\nIl merge NON importa ${NON_PORTATE}.`,
+            confirmLabel: 'Importa in MERGE'
+          }) === true) mode = 'merge';
         }
       }
       if (mode) {
@@ -434,7 +479,9 @@ export const VistaConfigDati = {
         this.currentSite = null; this.currentZone = null;
         this.renderSidebar(); this.renderDashboard(); this.renderConfig();
         this.updateSyncIndicator();
-        this.toast(`✓ Dati importati (${mode})`, 'success');
+        this.toast(mode === 'overwrite'
+          ? '✓ Backup ripristinato: il magazzino è quello del file'
+          : '✓ Dati importati in merge', 'success');
       }
     } catch (err) {
       this.toast(`Errore import: ${(err as Error).message}`, 'error');

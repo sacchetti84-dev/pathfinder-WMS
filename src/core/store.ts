@@ -3256,6 +3256,19 @@ const Store = {
           if (!Array.isArray(righe) || !righe.length) continue;
           await Persistence.bulkAdd(c, righeDaScrivere(c, righe));
         }
+        /* 2.2 — LE IMPOSTAZIONI TORNANO CON I DATI. Un ripristino che
+           rimette le giacenze e lascia il magazzino senza area WIP, senza
+           prefisso GS1 e col cruscotto di fabbrica ha rimesso i numeri e
+           non il posto di lavoro. `doc_config` resta letto a parte: i
+           pacchetti fino alla 2.1 tenevano lì i dati del mittente, e un
+           backup vecchio deve continuare a rientrare. */
+        const imp = data.impostazioni;
+        if (imp && typeof imp === 'object') {
+          for (const [chiave, valore] of Object.entries(imp as Record<string, unknown>)) {
+            if (valore === undefined) continue;
+            await Persistence.put('meta', { key: chiave, value: valore });
+          }
+        }
         if (data.doc_config) await Persistence.put('meta', { key: 'docConfig', value: data.doc_config });
       });
     } else { // merge
