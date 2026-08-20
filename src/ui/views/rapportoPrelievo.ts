@@ -424,6 +424,7 @@ export const VistaRapportoPrelievo = {
       headExtra, body,
       docId: snap.doc_id,
       pageClass: 'doc-page--pick',
+      flow: true,
       printedLabel: reprint ? 'ristampato il' : 'stampato il',
       signs: [
         { role: 'Operatore magazzino', hint: snap.operator || 'Data e firma' },

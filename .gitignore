@@ -62,6 +62,14 @@ banco/ciclo/verbale.md
 banco/ciclo/difetti.json
 banco/ciclo/esito.json
 
+# ECCEZIONE — gli script di manutenzione del database sono CODICE.
+# Si passano una volta sola su una macchina, ma vanno riletti prima di
+# lanciarli e rifatti se il difetto si ripresenta: fuori dal repository
+# sarebbero un file che esiste su un disco solo. Non portano nessun dato —
+# leggono la produzione dalle rotte del servizio, e la produzione non sta
+# qui dentro.
+!banco/campo-fantasma.cjs
+
 # Rumore di Windows e degli editor.
 Thumbs.db
 desktop.ini

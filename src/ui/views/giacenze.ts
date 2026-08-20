@@ -5,18 +5,24 @@ import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 import { riepiloga } from '../../modules/giacenzaArticolo';
 import { formattaQuantita } from '../../modules/misure';
+import { svg as barcodeSvg, primoCarattereFuoriSet } from '../../modules/code128';
 
 export const VistaGiacenze = {
   selectLocation(code) {
     this.selectedLocation = code;
-    this.renderMap();
     this.renderDetail(code);
     $('detailPanel').classList.remove('collapsed');
+    /* 2.1 — la classe stringe la zona centrale, e la mappa si ridisegna
+       DOPO: disegnarla prima vorrebbe dire calcolarla sulla larghezza di
+       un attimo fa, cioè sulla larghezza sbagliata. */
+    document.body.classList.add('detail-open');
+    this.renderMap();
   },
 
   closeDetail() {
     this.selectedLocation = null;
     $('detailPanel').classList.add('collapsed');
+    document.body.classList.remove('detail-open');
     if (this.currentView === 'map') this.renderMap();
   },
 
@@ -52,26 +58,37 @@ export const VistaGiacenze = {
         const qty = item.qty || 1;
         const quarantined = Store.isItemQuarantined(item.item_key, code);
         const k = this._esc(item.item_key);
+        /* 2.1 — LA GERARCHIA DELLA SCHEDA, e non è un riordino estetico.
+
+           Chi apre un vano sulla mappa sta cercando UNA cosa: quale merce
+           c'è e quanta ce n'è. Fino alla 2.0 leggeva codice e colli, poi
+           la descrizione, poi il lotto, poi le UM: il lotto — che insieme
+           al codice IDENTIFICA la merce, ed è il campo su cui si decide se
+           quella è la riga giusta — arrivava terzo, dopo una descrizione
+           commerciale che di righe ne descrive centinaia uguali.
+
+           L'ordine adesso è: ① chi è (articolo e lotto) ② quanto ce n'è
+           (colli e UM) ③ com'è fatto (descrizione) ④ com'è impilato (la
+           distinta dei colli). Data di posizionamento, scadenza e note
+           escono da qui e stanno dietro «Dettaglio»: si guardano quando
+           servono, e non sono mai la domanda con cui si apre un vano. */
         html += `<div class="item-card">
           <div class="item-card-header">
             <span class="item-code">${this._esc(item.article_code)}</span>
-            <span class="font-bold text-sx-accent text-body-small">${qty} Coll.</span>
+            <span class="item-lot-inline mono">${this._esc(item.lot_code)}</span>
             ${quarantined ? '<span class="badge bg-sx-purple-soft text-sx-purple border border-sx-purple" title="Item già in quarantena">🔒 NC</span>' : ''}
           </div>
+          <div class="item-qty">${qty} Coll.${this._umTotaliRiga(item)}</div>
           <div class="item-desc">${this._esc(item.article_description || '—')}</div>
-          <div class="item-lot">Lotto: ${this._esc(item.lot_code)}</div>
           ${this._rigaUM(item)}
-          <div class="item-meta">
-            ${item.placed_at ? `<span>📅 ${new Date(item.placed_at).toLocaleDateString('it-IT')}</span>` : ''}
-            ${item.expiry_date ? `<span>⏱ Scad: ${this._esc(item.expiry_date)}</span>` : ''}
-            ${item.notes ? `<span title="${this._esc(item.notes)}">📝 Note</span>` : ''}
-          </div>
-          <div class="item-actions">
-            <button class="btn btn-sm btn-accent" title="Modifica i dati dell’item" onclick="App.showEditItemModal('${this._esc(code)}','${k}')">✏️ Modifica</button>
-            <button class="btn btn-sm btn-primary" title="Trasferisci in un’altra ubicazione" onclick="App.showMoveItemModal('${this._esc(code)}','${k}')">🔀 Trasferisci</button>
+          <div class="item-actions item-actions-pari">
+            <button class="btn btn-sm" title="Modifica i dati dell’item" onclick="App.showEditItemModal('${this._esc(code)}','${k}')">✏️ Modifica</button>
+            <button class="btn btn-sm" title="Trasferisci in un’altra ubicazione" onclick="App.showMoveItemModal('${this._esc(code)}','${k}')">🔀 Trasferisci</button>
             ${quarantined
               ? '<button class="btn btn-sm" disabled title="Item gia’ in quarantena — il rilascio si fa da Movimenta">🔒 In quarantena</button>'
-              : `<button class="btn btn-sm btn-warning" title="Blocco qualità / non conformità" onclick="App.showQuarantineItemModal('${this._esc(code)}','${k}')">🚫 Quarantena</button>`}
+              : `<button class="btn btn-sm" title="Blocco qualità / non conformità" onclick="App.showQuarantineItemModal('${this._esc(code)}','${k}')">🚫 Quarantena</button>`}
+            <button class="btn btn-sm" title="Tutto il resto: posizionamento, scadenza, note" onclick="App._dettaglioItem('${this._esc(code)}','${k}')">🔍 Dettaglio</button>
+            <button class="btn btn-sm" title="Stampa l’etichetta identificativa" onclick="App._stampaEtichettaItem('${this._esc(code)}','${k}')">🏷 Etichetta</button>
           </div>
         </div>`;
       }
@@ -86,6 +103,78 @@ export const VistaGiacenze = {
         </p>
       </div>`;
     $('detailBody').innerHTML = html;
+  },
+
+  /* Le UM totali della riga, accanto ai colli. Vuoto dove la riga è a
+     soli colli: uno zero direbbe che di quella merce ce n'è zero. */
+  _umTotaliRiga(item) {
+    const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
+    if (!cfg) return '';
+    const um = Store._uomDiRiga(item, cfg);
+    if (typeof um !== 'number') return '';
+    return ` · <span class="item-qty-uom">${this._esc(formattaQuantita(um, cfg.uom))} ${this._esc(cfg.uom)}</span>`;
+  },
+
+  /* 2.1 — TUTTO IL RESTO, dietro un pulsante. Posizionamento, scadenza,
+     note e stato di quarantena non sono la domanda con cui si apre un
+     vano, ma quando servono servono per intero: qui non si riassume
+     niente. */
+  _dettaglioItem(locationCode, itemKey) {
+    const item = Store.getItemsAtLocation(locationCode).find((i) => i.item_key === itemKey);
+    if (!item) return this.toast('Item non più presente in questa ubicazione', 'error');
+    const q = Store.isItemQuarantined(itemKey, locationCode);
+    this.showModal(
+      `🔍 ${this._esc(item.article_code)} · lotto ${this._esc(item.lot_code)}`,
+      `<div class="detail-section">
+        <div class="detail-field"><span class="df-label">Ubicazione</span><span class="df-value mono">${this._esc(locationCode)}</span></div>
+        <div class="detail-field"><span class="df-label">Descrizione</span><span class="df-value">${this._esc(item.article_description || '—')}</span></div>
+        <div class="detail-field"><span class="df-label">Colli</span><span class="df-value">${item.qty || 0}</span></div>
+        <div class="detail-field"><span class="df-label">Distinta colli</span><span class="df-value">${this._esc(Store.descriviRiga(item))}</span></div>
+        <div class="detail-field"><span class="df-label">Scadenza</span><span class="df-value">${item.expiry_date ? this._esc(this._dateISOtoIT(item.expiry_date)) : '—'}</span></div>
+        <div class="detail-field"><span class="df-label">Posizionato il</span><span class="df-value">${item.placed_at ? new Date(item.placed_at).toLocaleString('it-IT') : '—'}</span></div>
+        <div class="detail-field"><span class="df-label">Da</span><span class="df-value mono">${this._esc(item.placed_by || '—')}</span></div>
+        <div class="detail-field"><span class="df-label">Ultimo aggiornamento</span><span class="df-value">${item.last_updated_at ? new Date(item.last_updated_at).toLocaleString('it-IT') : '—'}</span></div>
+        <div class="detail-field"><span class="df-label">Unità di carico</span><span class="df-value mono">${this._esc(item.udc_id || '—')}</span></div>
+        <div class="detail-field"><span class="df-label">Quarantena</span><span class="df-value">${q ? '🔒 attiva' : 'no'}</span></div>
+        <div class="detail-field"><span class="df-label">Note</span><span class="df-value">${this._esc(item.notes || '—')}</span></div>
+      </div>`,
+      `<button class="btn" onclick="App.closeModal()">Chiudi</button>
+       <button class="btn btn-primary" onclick="App._stampaEtichettaItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">🏷 Stampa etichetta</button>`
+    );
+  },
+
+  /* 2.1 — L'ETICHETTA IDENTIFICATIVA DELLA MERCE, dalla sidebar.
+
+     Non è l'etichetta di un'unità di carico: quella porta il solo codice
+     perché il pallet si muove e tutto il resto invecchia. Questa sta
+     attaccata a UNA merce in UN lotto, e i suoi dati non cambiano finché
+     la merce è quella — articolo, lotto, scadenza. L'ubicazione invece sì:
+     esce come «al momento della stampa», scritta piccola, perché chi
+     rietichetta dopo uno spostamento deve poterlo vedere.
+
+     Il codice a barre porta la chiave della riga, `ARTICOLO#LOTTO`, che è
+     esattamente ciò che le maschere di Movimenta cercano. */
+  _stampaEtichettaItem(locationCode, itemKey) {
+    const item = Store.getItemsAtLocation(locationCode).find((i) => i.item_key === itemKey);
+    if (!item) return this.toast('Item non più presente in questa ubicazione', 'error');
+    const chiave = item.item_key;
+    const fuori = primoCarattereFuoriSet(chiave);
+    const codice = fuori === null
+      ? barcodeSvg(chiave, { modulo: 0.4, altezza: 20, etichetta: chiave, descrizione: `Merce ${chiave}` })
+      : `<div class="item-label-code">${this._esc(chiave)}</div>`;
+
+    this.closeModal();
+    this._docPrint(`<div class="item-label">
+      <div class="item-label-art">${this._esc(item.article_code)}</div>
+      <div class="item-label-desc">${this._esc(item.article_description || '')}</div>
+      <div class="item-label-barcode">${codice}</div>
+      <div class="item-label-body">
+        <div><span>Lotto</span><b>${this._esc(item.lot_code)}</b></div>
+        <div><span>Scadenza</span><b>${item.expiry_date ? this._esc(this._dateISOtoIT(item.expiry_date)) : '—'}</b></div>
+        <div><span>Colli</span><b>${item.qty || 0}</b></div>
+      </div>
+      <div class="item-label-foot">Ubicazione alla stampa: ${this._esc(locationCode)}</div>
+    </div>`);
   },
 
   /* 1.9 — QUANTO C'È IN QUESTO VANO, IN COLLI E IN UM. Le singole righe lo
@@ -378,10 +467,14 @@ export const VistaGiacenze = {
       info.innerHTML = `<span class="text-sx-success">✓</span> ${this._esc(art.description)} <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
       // Suggerisce descrizione se campo vuoto
       const descEl = $('editItemDesc');
-      /* DIFETTO NOTO — un articolo senza descrizione scrive qui dentro la
-         parola «undefined», e da lì finisce sulla riga di giacenza. Si
-         corregge nel ciclo di debug: durante un trasloco non si tocca. */
-      if (descEl && !descEl.value.trim()) descEl.value = art.description as string;
+      /* UN ARTICOLO SENZA DESCRIZIONE LASCIA IL CAMPO VUOTO, non ci scrive
+         la parola «undefined». `.value` di un `undefined` diventa quella
+         stringa, e da lì finiva sulla riga di giacenza e in ogni export che
+         la rilegge. Il `as string` che stava qui non convertiva niente:
+         diceva al compilatore di non guardare. La descrizione è
+         facoltativa in anagrafica, quindi l'assenza è un caso normale e si
+         scrive come si scrive un'assenza. */
+      if (descEl && !descEl.value.trim()) descEl.value = art.description ?? '';
     } else if (code) {
       info.innerHTML = `<span class="text-sx-warning">⚠ Codice non in anagrafica — verrà aggiunto automaticamente al salvataggio</span>`;
     } else {

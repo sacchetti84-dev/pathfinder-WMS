@@ -2,6 +2,7 @@ import { type Vista, $, $sel } from './vista';
 import { Store } from '../../core/store';
 import type { Mittente } from '../../types/entita';
 import { Validate } from '../../modules/validate';
+import { PRIORITA_MIN, PRIORITA_MAX, PRIORITA_PREDEFINITA } from '../../modules/stoccaggio';
 import { Dialog } from '../dialog';
 import { Tabs } from '../tabs';
 
@@ -9,8 +10,37 @@ import { Tabs } from '../tabs';
 type CampoMittente = [chiave: keyof Mittente, etichetta: string];
 
 export const VistaConfigurazione = {
+  /* 2.1 — LA CONFIGURAZIONE È DELL'ADMIN, E IL VARCO STA QUI.
+
+     Non in `switchView`: quando l'applicativo si avvia su un database
+     vuoto porta l'utente in Configurazione PRIMA di chiedere chi è, e un
+     varco lì sopra sbatterebbe fuori una persona che non ha ancora avuto
+     modo di dire il proprio nome. Qui invece la scheda si disegna sempre,
+     e quando chi guarda non ha le chiavi al posto delle nove schede trova
+     scritto perché — che è l'unica cosa utile da leggere.
+
+     Chi decide è `Store.comandaLaConfigurazione`, che tiene anche
+     l'eccezione del primo giorno: finché nessun Admin esiste, comandano i
+     Team Leader. */
   renderConfig() {
     const el = $('viewConfig');
+    const io = this.currentOperatorRecord;
+    if (!Store.comandaLaConfigurazione(io)) {
+      el.innerHTML = `<div class="config-container">
+        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙ Configurazione</h1>
+        <div class="config-card">
+          <h3>🛡 Riservata all'Admin</h3>
+          <p class="text-body-small text-sx-text-secondary leading-[1.6] mt-4">
+            Le schede di configurazione e il reset dei dati sono aperti al solo ruolo <strong>Admin</strong>.
+            ${io
+              ? `Sei collegato come <span class="mono">${this._esc(io.initials)}</span> — ${io.role === 'leader' ? 'Team Leader' : 'Operatore'}.`
+              : 'Nessun operatore identificato in questa sessione.'}
+            Chiedi a un Admin di aprirla, oppure di assegnarti la carica da Configurazione → Operatori.
+          </p>
+        </div>
+      </div>`;
+      return;
+    }
     el.innerHTML = `<div class="config-container">
       <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙ Configurazione</h1>
       <div class="config-tabs">
@@ -152,8 +182,8 @@ export const VistaConfigurazione = {
           </div>
           <div class="form-group">
             <label>Priorità</label>
-            <input class="input input-mono" id="srPriorita" type="number" min="0" max="99" value="0">
-            <div class="text-label-small text-sx-text-muted mt-2">Più alta = decide prima, fra regole che si sovrappongono.</div>
+            <input class="input input-mono" id="srPriorita" type="number" min="${PRIORITA_MIN}" max="${PRIORITA_MAX}" value="${PRIORITA_PREDEFINITA}">
+            <div class="text-label-small text-sx-text-muted mt-2">Da ${PRIORITA_MIN} a ${PRIORITA_MAX}: più alta = decide prima, fra regole che si sovrappongono.</div>
           </div>
         </div>
         <div class="form-group mb-5">
@@ -181,7 +211,7 @@ export const VistaConfigurazione = {
         site_id: tipo === 'sito' ? id : undefined,
         zone_id: tipo === 'zona' ? id : undefined,
         modo: String($sel('srModo')?.value || 'preferisce'),
-        priority: parseInt($('srPriorita')?.value, 10) || 0,
+        priority: parseInt($('srPriorita')?.value, 10) || PRIORITA_PREDEFINITA,
         nota: Validate.clean($('srNota')?.value),
       });
       this.renderConfig();

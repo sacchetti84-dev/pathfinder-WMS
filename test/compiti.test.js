@@ -4,6 +4,8 @@ import {
   etichettaTipo, etichettaPriorita, etichettaStato,
   transizioneAmmessa, eAperto, componiCompito, validaRichiesta,
   prioritaConsentita, ordinaCoda, misure, inRitardo, riepilogo,
+  registroAttivita,
+  avanzamento,
   ORE_URGENZA_DEFAULT, OPERAZIONE, prioritaEffettiva, inScadenza,
   operazioneDi, chiudeAlGesto, vuoleColli, vuoleUbicazione,
   vuoleDestinazione, tipiRichiedibili, nasceDalSistema,
@@ -175,6 +177,14 @@ describe('prioritaConsentita', () => {
 
   it('il Team Leader arriva a Urgente', () => {
     for (const p of [1, 2, 3, 4]) expect(prioritaConsentita('leader', p)).toBe(true);
+  });
+
+  /* 2.1 — l'Admin è un Team Leader con le chiavi in piu': dove passa un
+     leader passa lui. Una carica piu' alta che potesse meno sarebbe la
+     riga che, il giorno che si nomina Admin l'unico capo del magazzino,
+     abbassa la coda a Normale senza dire niente a nessuno. */
+  it('e l’Admin arriva dove arriva il Team Leader', () => {
+    for (const p of [1, 2, 3, 4]) expect(prioritaConsentita('admin', p)).toBe(true);
   });
 
   /* `full` e' il ruolo di ripiego di `getCurrentIdentity` quando nessuno si e'
@@ -574,20 +584,29 @@ describe('le eccezioni per tipo', () => {
 /* ── Le due famiglie: a residuo e a gesto ───────────────────────────── */
 
 describe('chiudeAlGesto', () => {
-  /* Cinque tipi su sette si concludono col gesto confermato e non con un
-     conteggio che arriva a zero. E' la correzione della 1.4.4: prima
-     restavano aperti per sempre, perche' il residuo non ci arrivava mai. */
-  it('i cinque tipi a gesto', () => {
+  /* Si concludono col gesto confermato e non con un conteggio che arriva a
+     zero. E' la correzione della 1.4.4: prima restavano aperti per sempre,
+     perche' il residuo non ci arrivava mai. */
+  it('i tipi a gesto storici', () => {
     for (const t of ['PICK_SHIP', 'PICK_RET', 'QUARANTINE', 'SAMPLING', 'COUNT']) {
       expect(chiudeAlGesto(t), t).toBe(true);
     }
   });
 
-  /* I due che spostano una quantita' decisa in anticipo restano a residuo:
-     12 chiesti, 5 mossi, ne restano 7 — decisione 45, che vale ancora. */
-  it('i due tipi a residuo', () => {
-    expect(chiudeAlGesto('TRANSFER')).toBe(false);
+  /* 2.1 — IL TRASFERIMENTO E' PASSATO AL GESTO, ed e' una decisione di
+     Andrea: si chiude nel momento in cui viene confermato. A residuo aveva
+     due modi di non chiudersi mai — la richiesta nata da un ODP, che colli
+     non ne porta, e il trasferimento parziale, che lasciava in coda una riga
+     che nessuno riprendeva. La prova diceva `false`: si riscrive. */
+  it('il trasferimento chiude al gesto', () => {
+    expect(chiudeAlGesto('TRANSFER')).toBe(true);
+  });
+
+  /* Resta a residuo lo Smaltimento, e resta solo: e' l'unico in cui «ne
+     restano 7» vuol dire che sette colli aspettano ancora — decisione 45. */
+  it('lo smaltimento resta a residuo, e resta solo', () => {
     expect(chiudeAlGesto('DISPOSAL')).toBe(false);
+    expect(Object.keys(TIPI_COMPITO).filter((t) => !chiudeAlGesto(t))).toEqual(['DISPOSAL']);
   });
 
   it('un tipo sconosciuto non chiude al gesto', () => {
@@ -602,7 +621,7 @@ describe('chiudeAlGesto', () => {
       expect(typeof chiudeAlGesto(t), t).toBe('boolean');
     }
     const gesto = Object.keys(TIPI_COMPITO).filter(chiudeAlGesto);
-    expect(gesto).toHaveLength(6);
+    expect(gesto).toHaveLength(7);
     /* La Pulizia si chiude al gesto per costruzione: nasce fatta. */
     expect(chiudeAlGesto('CLEANING')).toBe(true);
   });
@@ -651,7 +670,10 @@ describe('residuo', () => {
 /* ── L'avanzamento: il movimento confermato scala il residuo ─────────── */
 
 describe('avanzamento', () => {
-  const conColli = (qty, fatti) => compito({ payload: { qty }, qty_done: fatti });
+  /* 2.1 — QUI SI MISURA LA FAMIGLIA A RESIDUO, e il tipo adesso va detto:
+     il Trasferimento e' passato al gesto e lo Smaltimento e' rimasto solo. */
+  const conColli = (qty, fatti) =>
+    compito({ type: 'DISPOSAL', payload: { qty }, qty_done: fatti });
 
   it('cinque colli mossi su dodici lasciano sette e non chiudono niente', () => {
     const a = avanzamento(conColli(12, 0), 5);
@@ -677,14 +699,26 @@ describe('avanzamento', () => {
     expect(a.chiude).toBe(true);
   });
 
-  /* Un tipo a RESIDUO senza quantita' nel payload non si chiude: non c'e'
-     niente che possa arrivare a zero. Vale per Trasferimento e Smaltimento,
-     ed e' il motivo per cui i colli su quei due sono obbligatori. */
-  it('un tipo a residuo senza quantita\' non si chiude mai da solo', () => {
-    const a = avanzamento(compito({ type: 'TRANSFER', payload: null }), 9);
+  /* 2.1 — LA REGOLA E' CAMBIATA, E QUESTA PROVA DICE COME.
+
+     Fino alla 2.0 qui c'era scritto il contrario: «un tipo a residuo senza
+     quantita' non si chiude mai da solo — non c'e' niente che possa
+     arrivare a zero». Era coerente, e in produzione voleva dire un'altra
+     cosa: la 1.10 crea i trasferimenti chiesti da un ordine SENZA numero di
+     colli — apposta, perche' quanti ne servano per fare 44,42 kg lo sa la
+     giacenza e non l'ordine — e quelle richieste restavano aperte per
+     sempre. Trovate cosi' il 20/08 su ODP2603889: merce trasferita,
+     attivita' che continuava a chiedere.
+
+     Dove non c'e' una quantita' da esaurire, la prova che il lavoro e'
+     finito e' il GESTO. Non si inventa un numero che nessuno ha chiesto. */
+  it('un tipo a residuo SENZA quantita\' chiesta si chiude al primo movimento', () => {
+    /* `BOH` sta per un tipo uscito dal progetto — `PUTAWAY` e' il caso vero:
+       non lo riconosce `chiudeAlGesto`, quindi ricade a residuo. */
+    const a = avanzamento(compito({ type: 'BOH', payload: null }), 9);
     expect(a.qty_done).toBe(9);
     expect(a.residuo).toBe(null);
-    expect(a.chiude).toBe(false);
+    expect(a.chiude).toBe(true);
   });
 
   /* ── 1.4.4: i tipi a gesto si chiudono confermando ──────────────────
@@ -728,8 +762,9 @@ describe('avanzamento', () => {
 
   /* La prova che separa le due famiglie: stessi numeri, esito opposto. */
   it('stessi numeri, famiglie diverse, esito opposto', () => {
+    /* Il lato a residuo e' lo Smaltimento: il Trasferimento e' passato di la'. */
     const parziale = { payload: { qty: 12 } };
-    expect(avanzamento(compito({ ...parziale, type: 'TRANSFER' }), 5).chiude).toBe(false);
+    expect(avanzamento(compito({ ...parziale, type: 'DISPOSAL' }), 5).chiude).toBe(false);
     expect(avanzamento(compito({ ...parziale, type: 'QUARANTINE' }), 5).chiude).toBe(true);
   });
 
@@ -781,5 +816,133 @@ describe('riepilogo — gli urgenti li conta come li vede la coda', () => {
   it('e una Bassa senza scadenza no', () => {
     const r = riepilogo([compito({ priority: 1, due_at: null })], T0);
     expect(r.urgenti).toBe(0);
+  });
+});
+
+/* 2.1 — IL REGISTRO DELLE ATTIVITÀ LEGGE ANCHE IL REGISTRO GENERALE.
+
+   Un campionamento aperto a mano scriveva `SAMPLE` a registro generale e
+   non compariva fra le attività: chi contava le prese a fine mese ne
+   trovava una parte, senza modo di sapere che era una parte. */
+describe('registroAttivita', () => {
+  const compito = (id, extra = {}) => ({
+    task_id: id, type: 'SAMPLING', priority: 2, status: 'done',
+    requested_by: 'AS', requested_at: 1000, ...extra,
+  });
+  const mov = (id, ts, extra = {}) => ({
+    _id: id, ts, type: 'SAMPLE', user: 'DP',
+    article_code: '6001055', lot_code: 'L1', location_code: 'M03-A-01', ...extra,
+  });
+
+  it('un campionamento senza compito ENTRA, e si dichiara fuori coda', () => {
+    const r = registroAttivita([], [mov(7, 2000)]);
+    expect(r).toHaveLength(1);
+    expect(r[0].origine).toBe('movimento');
+    expect(r[0].type).toBe('SAMPLING');
+    expect(r[0].requested_by).toBe('DP');
+  });
+
+  it('UN MOVIMENTO CHE UN COMPITO RIVENDICA NON SI CONTA DUE VOLTE', () => {
+    const r = registroAttivita([compito('TA-1', { mov_ids: [7] })], [mov(7, 2000)]);
+    expect(r).toHaveLength(1);
+    expect(r[0].origine).toBe('compito');
+  });
+
+  it('le altre causali del registro generale non sono attività', () => {
+    const r = registroAttivita([], [mov(1, 100, { type: 'IN' }), mov(2, 200, { type: 'PICK' })]);
+    expect(r).toEqual([]);
+  });
+
+  it('si ordina dal più recente, mescolando le due sorgenti', () => {
+    const r = registroAttivita(
+      [compito('TA-1', { requested_at: 1500 }), compito('TA-2', { requested_at: 3000 })],
+      [mov(9, 2000)]);
+    expect(r.map(x => x.task_id)).toEqual(['TA-2', 'MOV-9', 'TA-1']);
+  });
+
+  /* Un gesto fatto senza passare dalla coda non è stato in coda: attesa
+     zero è un fatto, `null` sarebbe «non si sa». */
+  it('il gesto fuori coda non ha atteso: i tre istanti coincidono', () => {
+    const [r] = registroAttivita([], [mov(7, 2000)]);
+    expect(r.requested_at).toBe(2000);
+    expect(r.started_at).toBe(2000);
+    expect(r.completed_at).toBe(2000);
+    expect(misure(r).attesa).toBe(0);
+  });
+
+  it('un movimento senza _id non fa sparire gli altri senza _id', () => {
+    const r = registroAttivita([compito('TA-1', { mov_ids: [] })],
+      [{ ts: 10, type: 'SAMPLE', user: 'AS' }, { ts: 20, type: 'SAMPLE', user: 'AS' }]);
+    expect(r.filter(x => x.origine === 'movimento')).toHaveLength(2);
+  });
+
+  it('e i colli mossi si leggono in valore assoluto', () => {
+    const [r] = registroAttivita([], [mov(7, 2000, { qty_delta: -3 })]);
+    expect(r.qty_done).toBe(3);
+  });
+});
+
+/* 2.1 — IL TRASFERIMENTO SI CHIUDE QUANDO VIENE CONFERMATO, E BASTA.
+
+   Prima stava a residuo, e a residuo aveva due modi di non chiudersi mai.
+   Il primo: la richiesta che nasce da un ordine di produzione non porta un
+   numero di colli — è deliberato, quanti ne servano per fare 44,42 kg lo sa
+   la giacenza e non l'ordine — e un residuo `null` a zero non ci arriva.
+   Visto in produzione il 20/08 su due richieste di ODP2603889, merce già
+   trasferita e attività che continuava a chiedere. Il secondo: un
+   trasferimento parziale lasciava in coda una riga che nessuno riprendeva.
+
+   Decisione di Andrea, 20/08: si chiude nel momento in cui il trasferimento
+   viene confermato. È la stessa frase della quarantena — chi ha la merce in
+   mano DECIDE quanto si muove, e la conferma è la fine del lavoro. */
+describe('2.1 — il trasferimento si chiude alla conferma', () => {
+  const daOdp = (extra = {}) => ({
+    task_id: 'TA-1', type: 'TRANSFER', priority: 2, status: 'in_progress',
+    requested_by: 'AS', requested_at: 1000,
+    payload: { article_code: '6000149', lot_code: '261177', qty_uom: 44.42, uom: 'KG',
+               from: 'MAG-ACC-06', to: 'M03-STK-02-01-T', odp_num: 'ODP2603889' },
+    ...extra,
+  });
+
+  it('IL MOVIMENTO CONFERMATO LO CHIUDE, anche senza colli chiesti', () => {
+    const a = avanzamento(daOdp(), 1);
+    expect(a.qty_done).toBe(1);
+    expect(a.residuo).toBe(null);
+    expect(a.chiude).toBe(true);
+  });
+
+  /* IL PARZIALE CHIUDE, ed è il verso nuovo: la prova diceva `false` e si
+     riscrive. Il residuo continua a essere scritto e dice cosa è successo —
+     sette colli non si sono mossi — ma non tiene più aperta l'attività. */
+  it('cinque colli su dodici chiudono lo stesso, e il residuo resta scritto', () => {
+    const conQty = daOdp({ payload: { qty: 12, from: 'A', to: 'B' } });
+    const a = avanzamento(conQty, 5);
+    expect(a.qty_done).toBe(5);
+    expect(a.residuo).toBe(7);
+    expect(a.chiude).toBe(true);
+  });
+
+  /* `_taskAvanza` si raggiunge solo dopo un movimento riuscito — in
+     `prelievo.ts` la maschera esce prima se si annulla la scelta dei colli.
+     Arrivare qui vuol dire che il trasferimento è stato confermato, ed è
+     quella la prova, non il conteggio: la stessa regola della conta, che
+     con zero correzioni si chiude perché tornare giusti è un esito. */
+  it('arrivare qui vuol dire confermato: chiude anche a zero colli', () => {
+    expect(avanzamento(daOdp(), 0).chiude).toBe(true);
+    expect(avanzamento(daOdp(), null).chiude).toBe(true);
+    expect(avanzamento(daOdp(), 0).qty_done).toBe(0);
+  });
+
+  /* Lo Smaltimento è rimasto l'unico a residuo, e li' «ne restano 7» vuol
+     dire davvero che sette colli aspettano ancora. */
+  it('lo smaltimento invece non chiude col parziale', () => {
+    const smalt = daOdp({ type: 'DISPOSAL', payload: { qty: 12 } });
+    expect(avanzamento(smalt, 5).residuo).toBe(7);
+    expect(avanzamento(smalt, 5).chiude).toBe(false);
+    expect(avanzamento({ ...smalt, qty_done: 5 }, 7).chiude).toBe(true);
+  });
+
+  it('i tipi a gesto non cambiano: chiudono comunque', () => {
+    expect(avanzamento({ type: 'COUNT', payload: {} }, 0).chiude).toBe(true);
   });
 });

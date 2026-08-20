@@ -5,8 +5,12 @@ import { Persistence } from '../../core/persistence/index';
 import { Store } from '../../core/store';
 import type { Movimento, Articolo, Sito } from '../../types/entita';
 import { Validate } from '../../modules/validate';
-import { Vault } from '../../modules/vault';
 import { valoriAmmessi as valoriAmmessiUM } from '../../modules/misure';
+import { totaleUom } from '../../modules/colli';
+import {
+  type Cella, type Foglio, type SommaUom,
+  accumula, celleUom, distendiGiacenze, nuovaSomma,
+} from '../../modules/fogli';
 import {
   CERTIFICAZIONI, CLASSI_TEMPERATURA, leggiAllergeni, leggiCodici, scriviAllergeni,
   leggiCertificazioni, scriviCertificazioni, leggiClasseTemperatura, fogliValoriAmmessi,
@@ -18,10 +22,9 @@ import { Feedback } from '../feedback';
 /* LE FORME DEGLI EXPORT.
 
    Un foglio Excel è una matrice di celle, e le tabelle qui sotto la
-   costruiscono riga per riga. `Cella` è quel che ci si può mettere: il
-   resto sono i raggruppamenti che ogni foglio calcola prima di stenderlo. */
-type Cella = string | number | null | undefined;
-type Foglio = Cella[][];
+   costruiscono riga per riga. `Cella`, la somma delle UM e la distesa dei
+   colli stanno in `modules/fogli.ts`: sono pure, e da qui non si potrebbero
+   collaudare — questa vista si importa solo passando da `App`. */
 
 /* Una riga di giacenza arricchita di dove sta: sito, zona, e i nomi
    leggibili che l'ubicazione da sola non porta. */
@@ -39,6 +42,16 @@ type GiacenzaEstesa = {
   last_updated_str: string;
   placed_by: string;
   notes: string;
+  /** L'unità del lotto — quella congelata al primo posizionamento, non quella
+      dell'anagrafica di oggi. Stringa vuota su una riga a soli colli. */
+  uom: string;
+  /** I colli uno per uno, come `Store.colliDiRiga` li legge: dall'elenco
+      dichiarato dove c'è, dalla suddivisione della 1.7 dove no. `null` su un
+      articolo senza unità, e allora il foglio conta colli e basta. */
+  colli: number[] | null;
+  /** Le UM totali della riga. `null` è un'assenza dichiarata: significa che
+      di quella merce si sanno i colli e nient'altro. */
+  uomTot: number | null;
 };
 
 /* Le righe che arrivano da un foglio Excel letto: intestazione → valore. */
@@ -86,26 +99,26 @@ export const VistaConfigDati = {
         </tbody>
       </table>
       <div class="flex gap-4 flex-wrap">
-        <button class="btn btn-success" onclick="App.forceSave()" title="Forza checkpoint dati su IndexedDB">💾 Salva ora</button>
         <button class="btn btn-primary" onclick="App.exportData()">📤 Esporta tutto (JSON)</button>
         <button class="btn btn-accent" onclick="App.importData()">📥 Importa da JSON</button>
         <button class="btn btn-warning" onclick="App.exportMovLogExcel()">📊 Esporta Registro Movimenti (Excel)</button>
         <button class="btn btn-warning" onclick="App.exportGiacenzeExcel()" title="Esporta tutte le giacenze raggruppate per Site/Zona/Ubicazione">📦 Esporta Giacenze per Area (Excel)</button>
         <button class="btn btn-danger ml-auto" onclick="App.confirmResetData()">🗑 Reset completo DB</button>
       </div>
-      <!-- v2.0.1 [B8] — Ritenzione e purge manuale (decisione B-2) -->
+      <!-- 2.1 — LA PURGA NON C'È PIÙ, E LA FRASE QUI SOTTO È DIVENTATA VERA.
+           Fino alla 2.0 «nessun record viene mai cancellato automaticamente»
+           aveva un'eccezione a un clic di distanza: la purga manuale toglieva
+           i movimenti oltre la soglia. Adesso non c'è nessuna strada, e la
+           soglia resta quel che è sempre stata — la conservazione dichiarata,
+           non un permesso di cancellare. -->
       <div class="bg-[var(--grad-soft-green)] border border-sx-success rounded-[var(--radius-md)] py-6 px-7.5 mt-6">
         <div class="font-bold text-body-small text-sx-success mb-3">🔒 Conservazione dei record</div>
-        <p class="text-body-small text-sx-text-secondary leading-[1.5] mb-5">
-          <strong>Nessun record viene mai cancellato automaticamente.</strong>
-          Il registro movimenti è conservato per <strong>${LOG_RETENTION_DAYS} giorni (${Math.round(LOG_RETENTION_DAYS/365)} anni)</strong>;
-          i record di <strong>non conformità non sono mai eliminabili</strong>, nemmeno con la purge manuale.
-          L'eliminazione dei movimenti oltre la soglia è possibile solo con l'azione qui sotto, che impone
-          l'esportazione preventiva, una doppia conferma e la registrazione dell'operazione nel registro stesso.
+        <p class="text-body-small text-sx-text-secondary leading-[1.5]">
+          <strong>Nessun record viene mai cancellato, né automaticamente né a mano.</strong>
+          Il registro movimenti è conservato per <strong>${LOG_RETENTION_DAYS} giorni (${Math.round(LOG_RETENTION_DAYS/365)} anni)</strong>
+          ed è la firma GMP di chi ha mosso la merce; i record di <strong>non conformità</strong> non sono eliminabili in nessun caso.
+          Per portare via i dati si usa l'export JSON qui sopra, che non toglie niente da dove sta.
         </p>
-        <button class="btn btn-sm btn-warning" onclick="App.purgeOldLogsManual()" title="Purge manuale del registro movimenti oltre la soglia di conservazione">
-          🗄 Purge manuale registro storico…
-        </button>
       </div>
     </div>
     <!-- v1.9.1 — Card impostazioni scanner barcode -->
@@ -186,56 +199,24 @@ export const VistaConfigDati = {
     const remoto = Persistence.kind === 'remote';
     const persist = await Store.storagePersistenceState();
     const est = await Store.estimateUsage();
-    const vaultPerm = Vault.supported() ? await Vault.permissionState() : 'unsupported';
-    const vaultLast = await Vault.lastBackupTs();
-    const manifest = vaultPerm === 'granted' ? await Vault.readManifest() : null;
     const opfsList = await Store.listOPFSBackups();
     const win = Store.getMovLogWindowInfo();
     const fmt = (ts: number | null | undefined) => ts ? new Date(ts).toLocaleString('it-IT') : 'mai';
 
-    const copiaEsternaFresca = vaultLast && (Date.now() - vaultLast) < 48 * 3600 * 1000;
-    const livello = copiaEsternaFresca ? 'ok' : (vaultPerm === 'granted' ? 'warn' : 'bad');
+    /* 2.1 — IL LIVELLO LO DICE DOVE STA IL DATABASE, non più quanto è
+       fresca una copia in una cartella. La copia esterna era una funzione
+       del browser su una cartella scelta a mano: il backup adesso è un
+       compito del servizio, e questa scheda lo dice invece di farlo. */
+    const livello = remoto ? 'ok' : (persist.granted ? 'warn' : 'bad');
     const bordo = livello === 'ok' ? 'var(--sx-success)' : livello === 'warn' ? 'var(--sx-warning)' : 'var(--sx-danger)';
     const titolo = livello === 'ok'
-      ? '🛡 Copia esterna attiva e aggiornata'
+      ? '🛡 Il database vive nel servizio dati'
       : livello === 'warn'
-        ? '⚠ Copia esterna configurata ma non aggiornata'
-        : '⛔ Nessuna copia fuori da questa macchina';
-
-    const vaultRiga = () => {
-      if (vaultPerm === 'unsupported') {
-        return `<div class="text-sx-danger">Questo browser non consente di scegliere una cartella di destinazione.
-          Usare Chrome o Edge, oppure esportare a mano il JSON e archiviarlo su OneDrive.</div>`;
-      }
-      if (vaultPerm === 'none') {
-        return `<div class="mb-4">Nessuna cartella configurata. Sceglierne una <strong>dentro OneDrive</strong>:
-          da quel momento l'applicativo ci scriverà da solo una volta al giorno.</div>
-          <button class="btn btn-sm btn-primary" onclick="App.vaultChooseFolder()">📁 Scegli la cartella di backup…</button>`;
-      }
-      if (vaultPerm !== 'granted') {
-        return `<div class="mb-4 text-sx-warning">
-          Cartella configurata, ma il permesso di scrittura non è attivo in questa sessione.
-          Il browser lo azzera a ogni riavvio e serve un clic per riattivarlo: è una sua regola, non un difetto.</div>
-          <button class="btn btn-sm btn-warning" onclick="App.vaultReauthorize()">🔓 Riattiva il permesso</button>`;
-      }
-      return `<div class="mb-5">
-          Ultimo backup: <strong>${fmt(vaultLast)}</strong>
-          ${manifest ? ` · ${Number(manifest.movimenti_totali || 0).toLocaleString('it-IT')} movimenti su ${manifest.mesi || 0} file mensili` : ''}
-        </div>
-        <div class="flex gap-4 flex-wrap">
-          <button class="btn btn-sm btn-success" onclick="App.vaultBackupNow()">💾 Esegui backup adesso</button>
-          <button class="btn btn-sm btn-accent" onclick="App.vaultRestore()">♻ Ripristina da questa cartella…</button>
-          <button class="btn btn-sm" onclick="App.vaultChooseFolder()">📁 Cambia cartella</button>
-        </div>`;
-    };
+        ? '⚠ Il database vive dentro questo browser'
+        : '⛔ Database dentro il browser, senza archiviazione persistente';
 
     host.innerHTML = `<div class="config-card" style="border-left:4px solid ${bordo};margin-bottom:0.75rem">
       <h3 style="color:${bordo}">${titolo}</h3>
-
-      <div class="py-5 px-0 border-b border-b-sx-border">
-        <div class="font-bold text-body-medium mb-2.5">📁 Copia esterna automatica (OneDrive)</div>
-        <div class="text-body-small text-sx-text-secondary leading-[1.55]">${vaultRiga()}</div>
-      </div>
 
       ${remoto ? `
       <!-- v1.1.0 [N6] — Con il servizio dati i due riquadri qui sotto NON
@@ -278,7 +259,7 @@ export const VistaConfigDati = {
             ? `${opfsList.length} cop${opfsList.length === 1 ? 'ia' : 'ie'} · più recente: <strong>${opfsList[0]?.name || '—'}</strong>.`
             : 'Nessuna copia presente.'}
           Stanno sullo stesso disco e nello stesso profilo browser del database:
-          <strong>non sostituiscono la copia esterna</strong>, servono a rimediare a un errore recente.
+          servono a rimediare a un errore recente, non a un disco che muore.
         </div>
         <button class="btn btn-sm" onclick="App.showOPFSBackups()">🗂 Elenca e ripristina…</button>
         <button class="btn btn-sm" onclick="App.opfsBackupNow()">💾 Crea copia locale adesso</button>
@@ -313,125 +294,6 @@ export const VistaConfigDati = {
     this.renderConfig();
   },
 
-  /* ── Comandi della copia esterna ─────────────────────────────────── */
-  async vaultChooseFolder() {
-    try {
-      await Vault.chooseFolder();
-      this.toast('Cartella di backup configurata — eseguo la prima copia…', 'success');
-      await this.vaultBackupNow();
-    } catch (err) {
-      if ((err as Error | null)?.name === 'AbortError') return;   // l'utente ha chiuso il selettore
-      this.toast(`Cartella non configurata: ${(err as Error).message}`, 'error');
-    }
-    this.renderConfig();
-  },
-
-  async vaultReauthorize() {
-    const p = await Vault.requestPermission();
-    if (p === 'granted') { this.toast('Permesso riattivato', 'success'); await this.vaultBackupNow(); }
-    else this.toast('Permesso non concesso', 'error');
-    this.renderConfig();
-  },
-
-  async vaultBackupNow() {
-    const host = $('resilienzaCard');
-    const say = (t: string) => { if (host) { const s = host.querySelector('.vault-progress'); if (s) s.textContent = t; } };
-    if (host) host.insertAdjacentHTML('afterbegin', '<div class="config-card vault-progress mb-5">Backup in corso…</div>');
-    try {
-      const r = (await Vault.runBackup({ force: true, onProgress: say }))!;
-      this.toast(`💾 Backup esterno completato · ${r.movimenti.toLocaleString('it-IT')} movimenti · ${r.mesiScritti} file mensili aggiornati`, 'success');
-    } catch (err) {
-      console.error('[WM] backup esterno:', err);
-      this.toast(`Backup esterno non riuscito: ${(err as Error).message}`, 'error');
-    } finally {
-      document.querySelector('.vault-progress')?.remove();
-      if (this.currentView === 'config' && this._configTab === 'data') this.renderConfig();
-    }
-  },
-
-  /* Backup automatico all'avvio, silenzioso se non c'e' niente da fare. */
-  async _scheduleVaultBackup() {
-    if (!Vault.supported()) return;
-    try {
-      if ((await Vault.permissionState()) !== 'granted') return;
-      if (!(await Vault.isDue())) return;
-      const r = await Vault.runBackup();
-      if (r) this.toast(`💾 Copia esterna aggiornata · ${r.movimenti.toLocaleString('it-IT')} movimenti`, 'info');
-    } catch (err) {
-      console.warn('[WM] backup esterno automatico:', err);
-      this.toast(`⚠ Copia esterna non riuscita: ${(err as Error).message}`, 'warning');
-    }
-  },
-
-  async vaultRestore() {
-    const stati = await Vault.listStates();
-    if (!stati.length) return this.toast('Nella cartella non ci sono fotografie da ripristinare', 'error');
-    const manifest = await Vault.readManifest();
-    const opzioni = stati.map((s, i) => `<option value="${this._esc(s.name)}" ${i === 0 ? 'selected' : ''}>
-      ${this._esc(s.name)} — ${(s.size/1024).toFixed(0)} KB — ${new Date(s.modified).toLocaleString('it-IT')}</option>`).join('');
-    this.showModal(
-      '♻ Ripristino dalla cartella di backup',
-      `<div class="mov-preview mov-preview-err mb-7">
-        <strong>⚠ Il ripristino SOSTITUISCE integralmente i dati presenti.</strong>
-        Prima di procedere verrà scaricato un export dello stato attuale.
-      </div>
-      <p class="text-body-small text-sx-text-secondary leading-[1.6] mb-6">
-        Verranno ricomposti la fotografia scelta e <strong>tutti</strong> i file mensili dei movimenti presenti nella cartella.
-        ${manifest ? `Il manifest dichiara ${Number(manifest.movimenti_totali||0).toLocaleString('it-IT')} movimenti su ${manifest.mesi||0} mesi.` : 'Nella cartella non è presente il manifest: la verifica sarà parziale.'}
-      </p>
-      <div class="form-group">
-        <label>Fotografia dello stato da usare</label>
-        <select class="input select" id="vaultStatePick">${opzioni}</select>
-      </div>
-      <div class="text-body-small text-sx-text-muted mt-5 min-h-[1.2em]" id="vaultRestoreLog"></div>`,
-      `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-danger" onclick="App.doVaultRestore()">♻ Ripristina</button>`
-    );
-  },
-
-  async doVaultRestore() {
-    const nome = $('vaultStatePick')?.value;
-    const log = (t: string) => { const e = $('vaultRestoreLog'); if (e) e.textContent = t; };
-    try {
-      log('Export di sicurezza dello stato attuale…');
-      await this.exportData();
-      log('Lettura del backup…');
-      const pacchetto = await Vault.buildRestorePackage({ statoFile: nome, onProgress: log });
-      const check = Store.verifyExportPackage(pacchetto);
-      if (!check.ok && !await Dialog.confirm({
-        title: '⚠ Il backup presenta anomalie',
-        message: 'La verifica ha segnalato quanto segue:\n\n' + check.problemi.map(p => '  • ' + p).join('\n') +
-                 '\n\nProcedere comunque significa sostituire i dati attuali con questo contenuto.',
-        confirmLabel: 'Ripristina comunque', danger: true
-      })) return;
-
-      const c = (pacchetto._counts || {}) as Record<string, number>;
-      if (!await Dialog.confirm({
-        title: 'Confermare il ripristino?',
-        message: 'I dati attualmente in questo database verranno sostituiti.',
-        details: Dialog.kv([
-          ['Movimenti', Number(c.mov_log).toLocaleString('it-IT')],
-          ['Giacenze', Number(c.inventory).toLocaleString('it-IT')],
-          ['Articoli', Number(c.articles).toLocaleString('it-IT')],
-          ['Operatori', Number(c.operators).toLocaleString('it-IT')]
-        ]),
-        confirmLabel: 'Sostituisci i dati', danger: true
-      })) return;
-
-      log('Scrittura in corso…');
-      await Store.importAll(pacchetto, 'overwrite');
-      this.closeModal();
-      this.renderSidebar();
-      this.renderConfig();
-      this.updateSyncIndicator();
-      this.toast(`♻ Ripristino completato · ${Number(c.mov_log).toLocaleString('it-IT')} movimenti`, 'success');
-    } catch (err) {
-      console.error('[WM] ripristino:', err);
-      log(`Errore: ${(err as Error).message}`);
-      this.toast(`Ripristino non riuscito: ${(err as Error).message}`, 'error');
-    }
-  },
-
   /* v2.1.0 — Preferenze di riscontro operativo (nessun dato personale trattato) */
   _setFeedbackPref(key, value) {
     Feedback.setPref(key, value);
@@ -448,68 +310,6 @@ export const VistaConfigDati = {
     Feedback.signal('ok', 'Riscontro positivo', 'Suono breve ascendente — operazione registrata.');
     setTimeout(() => Feedback.signal('warn', 'Avviso', 'Doppio tono — richiede attenzione dell\u2019operatore.'), 1800);
     setTimeout(() => Feedback.signal('error', 'Errore', 'Tono grave ripetuto — operazione NON registrata.'), 3800);
-  },  async purgeOldLogsManual() {
-    if (!this._requireOperator('la purge del registro')) return;   // v2.0.1 [B7]
-    const cutoffTs = Date.now() - LOG_RETENTION_MS;
-    const cutoffLabel = new Date(cutoffTs).toLocaleDateString('it-IT');
-    let count = 0;
-    try {
-      count = await Store.countPurgeableMovements(cutoffTs);
-    } catch (err) {
-      return this.toast(`Errore nel conteggio: ${(err as Error).message || 'sconosciuto'}`, 'error');
-    }
-    if (count === 0) {
-      return this.toast(`Nessun movimento antecedente al ${cutoffLabel} — niente da eliminare`, 'info');
-    }
-
-    // Step 1 — export obbligatorio
-    // v2.2.1 [F2] — migrato da confirm() nativo a Dialog (anti-scanner)
-    if (!await Dialog.confirm({
-      title: 'Purge manuale registro storico',
-      message: 'I record di NON CONFORMITÀ non verranno toccati. Prima di procedere verrà scaricato un export JSON completo.',
-      details: Dialog.kv([
-        ['Movimenti antecedenti al', cutoffLabel],
-        ['Record da eliminare', count],
-        ['Soglia di conservazione', `${LOG_RETENTION_DAYS} giorni`]
-      ]),
-      confirmLabel: 'Continua con l\u2019export', danger: true, icon: '\u{1F5C4}'
-    })) return;
-
-    try {
-      await this.exportData();
-    } catch (err) {
-      return this.toast(`Export preventivo fallito: ${(err as Error).message || 'sconosciuto'} — purge annullata`, 'error');
-    }
-
-    // Step 2 — conferma esplicita digitata
-    // v2.2.1 [F2] — migrato da prompt() nativo a _promptText (dialogo interno)
-    const typed = await this._promptText({
-      title: 'Conferma definitiva purge',
-      message: `Export completato: verificare che il file sia stato scaricato e archiviato. ` +
-        `Stai per eliminare DEFINITIVAMENTE ${count} movimenti antecedenti al ${cutoffLabel}. ` +
-        `L\u2019operazione non è reversibile. Per confermare digita: ELIMINA`,
-      placeholder: 'Digita ELIMINA per confermare',
-      maxlength: 10
-    });
-    if (typed === null) return;
-    if (Validate.clean(typed, true) !== 'ELIMINA') {
-      return this.toast('Conferma non corretta — purge annullata, nessun record eliminato', 'warning');
-    }
-
-    // Step 3 — esecuzione + registrazione a log
-    try {
-      const removed = await Store.purgeMovementsBefore(cutoffTs);
-      await this._logMov(
-        MOV.PURGE, '', '', '', '', null, Store.getCurrentIdentity().initials,
-        `Purge manuale registro: ${removed} movimenti antecedenti al ${cutoffLabel} eliminati previo export JSON`,
-        `PURGE-${new Date().toISOString().slice(0, 10)}`
-      );
-      this.toast(`🗄 Purge completata: ${removed} movimenti eliminati · operazione registrata a log`, 'success');
-      this.updateSyncIndicator();
-      this.renderConfig();
-    } catch (err) {
-      this.toast(`Errore durante la purge: ${(err as Error).message || 'sconosciuto'}`, 'error');
-    }
   },
 
   async exportData() {
@@ -528,17 +328,6 @@ export const VistaConfigDati = {
   },
 
   importData() { $('fileImport').click(); },
-
-  async forceSave() {
-    const btn = (event?.target as HTMLElement | null)?.closest('button');
-    const originalLabel = btn?.innerHTML;
-    if (btn) { btn.disabled = true; btn.innerHTML = '⏳ Salvataggio…'; }
-    try {
-      await this._saveCheckpoint();
-    } finally {
-      if (btn && originalLabel) { btn.disabled = false; btn.innerHTML = originalLabel; }
-    }
-  },
 
   /* Checkpoint condiviso. Rilancia l'errore: chi chiama decide come vestirlo. */
   async _saveCheckpoint() {
@@ -671,25 +460,33 @@ export const VistaConfigDati = {
     log.sort((a, b) => b.ts - a.ts);
     if (!log.length) return this.toast('Nessuna movimentazione da esportare', 'error');
 
-    const headers = ['#', 'Tipo', 'Codice', 'Descrizione', 'Lotto', 'Ubicazione', 'Destinazione', 'Coll. Prima', 'Delta', 'Coll. Dopo', 'Operatore', 'Ordine/Doc', 'Note', 'Data', 'Ora'];
+    /* IL SALDO IN UM NON ESISTE, IL MOVIMENTO IN UM SÌ.
+       Un movimento porta `qty_uom_delta` e la sua unità: quanto si è mosso, e
+       di che cosa. Il prima e il dopo in UM non sono mai stati scritti, e
+       ricostruirli risalendo la catena darebbe un numero plausibile e falso
+       su ogni riga storica — che è il difetto peggiore di tutti. Due colonne,
+       quindi, e non cinque: vuote sui movimenti a soli colli. */
+    const headers = ['#', 'Tipo', 'Codice', 'Descrizione', 'Lotto', 'Ubicazione', 'Destinazione', 'Coll. Prima', 'Delta', 'Coll. Dopo', 'Delta UM', 'UM', 'Operatore', 'Ordine/Doc', 'Note', 'Data', 'Ora'];
     const rows = log.map((m, i) => {
       const ts = m.ts ? new Date(m.ts) : null;
       // v1.7.0 — colonne qty: null per movimenti pre-v1.7.0 (storici)
       const qBefore = (typeof m.qty_before === 'number') ? m.qty_before : '';
       const qDelta  = (typeof m.qty_delta  === 'number') ? m.qty_delta  : '';
       const qAfter  = (typeof m.qty_after  === 'number') ? m.qty_after  : '';
+      const uDelta  = (typeof m.qty_uom_delta === 'number') ? m.qty_uom_delta : '';
       return [
         i+1, MOV_LABELS[m.type] || m.type,
         m.article_code || '', m.article_description || '', m.lot_code || '',
         m.location_code || '', m.dest_location || '',
         qBefore, qDelta, qAfter,
+        uDelta, uDelta === '' ? '' : (m.uom || ''),
         m.user || '', m.doc_ref || '', m.notes || '',
         ts ? ts.toLocaleDateString('it-IT') : '', ts ? ts.toLocaleTimeString('it-IT') : ''
       ];
     });
     const wb = XLSX.utils.book_new();
     const ws = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-    ws['!cols'] = [{wch:5},{wch:20},{wch:18},{wch:32},{wch:15},{wch:18},{wch:18},{wch:10},{wch:8},{wch:10},{wch:16},{wch:14},{wch:20},{wch:12},{wch:10}];
+    ws['!cols'] = [{wch:5},{wch:20},{wch:18},{wch:32},{wch:15},{wch:18},{wch:18},{wch:10},{wch:8},{wch:10},{wch:11},{wch:7},{wch:16},{wch:14},{wch:20},{wch:12},{wch:10}];
     XLSX.utils.book_append_sheet(wb, ws, 'Registro');
 
     // Foglio 2 — Riepilogo per tipo
@@ -721,19 +518,24 @@ export const VistaConfigDati = {
     XLSX.utils.book_append_sheet(wb, ws3, 'Riepilogo Giornaliero');
 
     // Foglio 4 — Top articoli
-    const artFreq: Record<string, { desc: string; count: number; last: number }> = {};
+    /* Le UM movimentate si contano in VALORE ASSOLUTO: un carico da 500 e uno
+       scarico da 500 sono mille chili che hanno attraversato il magazzino, non
+       zero. È la stessa lettura del conteggio dei movimenti, che sta accanto. */
+    const artFreq: Record<string, { desc: string; count: number; last: number; uom: SommaUom }> = {};
     for (const m of log) {
       if (!m.article_code) continue;
-      if (!artFreq[m.article_code]) artFreq[m.article_code] = { desc: m.article_description || '', count: 0, last: m.ts };
+      if (!artFreq[m.article_code]) artFreq[m.article_code] = { desc: m.article_description || '', count: 0, last: m.ts, uom: nuovaSomma() };
       artFreq[m.article_code]!.count++;
+      if (typeof m.qty_uom_delta === 'number') accumula(artFreq[m.article_code]!.uom, m.uom || '', Math.abs(m.qty_uom_delta));
       if (m.ts > artFreq[m.article_code]!.last) { artFreq[m.article_code]!.last = m.ts; if (m.article_description) artFreq[m.article_code]!.desc = m.article_description; }
     }
-    const tRows: Foglio = [['Rank','Codice','Descrizione','N° Movimenti','Ultima Movimentazione']];
+    const tRows: Foglio = [['Rank','Codice','Descrizione','N° Movimenti','UM Movimentate','UM','Ultima Movimentazione']];
     Object.entries(artFreq).sort((a,b) => b[1].count - a[1].count).forEach(([c, v], i) => {
-      tRows.push([i+1, c, v.desc, v.count, v.last ? new Date(v.last).toLocaleDateString('it-IT') : '']);
+      const [tot, unita] = celleUom(v.uom);
+      tRows.push([i+1, c, v.desc, v.count, tot, unita, v.last ? new Date(v.last).toLocaleDateString('it-IT') : '']);
     });
     const ws4 = XLSX.utils.aoa_to_sheet(tRows);
-    ws4['!cols'] = [{wch:6},{wch:20},{wch:32},{wch:16},{wch:22}];
+    ws4['!cols'] = [{wch:6},{wch:20},{wch:32},{wch:16},{wch:16},{wch:7},{wch:22}];
     XLSX.utils.book_append_sheet(wb, ws4, 'Top Articoli');
 
     const fn = `registro-movimentazioni-${new Date().toISOString().slice(0,10)}.xlsx`;
@@ -766,6 +568,15 @@ export const VistaConfigDati = {
       const qty = it.qty || 1;
       const placedAt = it.placed_at ? new Date(it.placed_at) : null;
       const lastUpd = it.last_updated_at ? new Date(it.last_updated_at) : null;
+      /* Le UM si leggono da dove le legge tutto il resto dell'applicativo:
+         `Store`, che conosce la confezione congelata sul lotto. Rifarle qui
+         vorrebbe dire un secondo saldo, e due saldi della stessa riga sono
+         due numeri diversi il giorno che divergono. */
+      const cfg = Store.getUomConfig(it.article_code, it.lot_code);
+      const uom = cfg?.uom || '';
+      const colli = Store.colliDiRiga(it);
+      const uomTot = colli ? totaleUom(colli, uom)
+                   : (typeof it.qty_uom === 'number' ? it.qty_uom : null);
       return {
         siteId: meta.siteId, siteName: meta.siteName, zoneId: meta.zoneId, zoneName: meta.zoneName,
         location_code: it.location_code,
@@ -777,34 +588,86 @@ export const VistaConfigDati = {
         notes: it.notes || '',
         placed_at_str: placedAt ? placedAt.toLocaleDateString('it-IT') : '',
         last_updated_str: lastUpd ? lastUpd.toLocaleDateString('it-IT') : '',
-        placed_by: it.placed_by || ''
+        placed_by: it.placed_by || '',
+        uom,
+        colli,
+        uomTot: uom ? uomTot : null
       };
     });
 
     const wb = XLSX.utils.book_new();
-    const headers = ['Site', 'Zona', 'Ubicazione', 'Articolo', 'Descrizione', 'Lotto', 'Coll.', 'Scadenza', 'Posizionato il', 'Ultimo agg.', 'Operatore', 'Note'];
-    const colWidths = [{wch:18},{wch:18},{wch:18},{wch:18},{wch:32},{wch:15},{wch:8},{wch:12},{wch:14},{wch:14},{wch:16},{wch:25}];
-    const rowOf = (e: GiacenzaEstesa): Cella[] => [e.siteName, e.zoneName, e.location_code, e.article_code, e.article_description, e.lot_code, e.qty, e.expiry_date, e.placed_at_str, e.last_updated_str, e.placed_by, e.notes];
+    /* UN COLLO, UNA RIGA.
+       Fino alla 2.0 il foglio dava una riga per lotto e una colonna «Coll.»
+       col conto: con colli tutti diversi — 10 × 1.000 + 1 × 900 — quel conto
+       non dice quanta merce c'è, e le UM non c'erano affatto. Adesso ogni
+       collo ha la sua riga, e le due somme che chi apre il file vuole fare
+       tornano da sole: contare le righe dà i colli, sommare «UM Collo» dà le
+       UM. Nessuna cella ripete un totale di riga — un totale ripetuto su
+       undici righe è un numero che chi trascina la somma conta undici volte.
+
+       La riga senza elenco (articolo senza unità) esce lo stesso, una per
+       collo, con le due celle delle UM vuote: è un'assenza dichiarata. */
+    const headers = ['Site', 'Zona', 'Ubicazione', 'Articolo', 'Descrizione', 'Lotto', 'Collo', 'UM Collo', 'UM', 'Scadenza', 'Posizionato il', 'Ultimo agg.', 'Operatore', 'Note'];
+    const colWidths = [{wch:18},{wch:18},{wch:18},{wch:18},{wch:32},{wch:15},{wch:9},{wch:11},{wch:7},{wch:12},{wch:14},{wch:14},{wch:16},{wch:25}];
+    /* LA RIGA CHE NON STA NEL FOGLIO ESCE LO STESSO, UNA SOLA.
+       Un foglio di Excel tiene 1.048.576 righe, e SheetJS lo tiene in
+       memoria come un oggetto con UNA CHIAVE PER CELLA: oltre quel muro non
+       c'è un export più grande, non c'è export — il 20/08 una giacenza con
+       3.501.794 al posto dei colli faceva morire l'intero file con «too many
+       properties to enumerate», un messaggio che della riga non diceva
+       niente. Così invece il file esce, e chi lo apre trova scritto dove
+       andare a guardare.
+
+       Il conto è di TUTTE le righe insieme e non di una: duecento righe da
+       diecimila colli sono duemilioni di righe, ognuna innocente e il foglio
+       morto lo stesso. Lo tiene `distendiGiacenze`. */
+    const stendi = (list: GiacenzaEstesa[]): Cella[][] => {
+      const distese = distendiGiacenze(list, (e) => ({ colli: e.colli, qty: e.qty }));
+      return list.flatMap((e, k) => {
+        const misure = distese[k];
+        if (!misure) {
+          return [[
+            e.siteName, e.zoneName, e.location_code, e.article_code, e.article_description, e.lot_code,
+            `${e.qty} ?`, '', '',
+            e.expiry_date, e.placed_at_str, e.last_updated_str, e.placed_by,
+            `⚠ ${e.qty} coll. su una riga sola: non ci stanno in un foglio Excel, `
+              + 'e la riga non è stata distesa per collo. Da verificare con una Conta'
+              + (e.notes ? ` — ${e.notes}` : ''),
+          ]];
+        }
+        return misure.map((q, i) => [
+          e.siteName, e.zoneName, e.location_code, e.article_code, e.article_description, e.lot_code,
+          `${i + 1}/${misure.length}`, q === null ? '' : q, q === null ? '' : e.uom,
+          e.expiry_date, e.placed_at_str, e.last_updated_str, e.placed_by, e.notes,
+        ]);
+      });
+    };
 
     // FOGLIO 1 — Riepilogo per Site
-    const siteSummary: Record<string, { lotti: number; colli: number; articoli: Set<string>; ubicazioni: Set<string> }> = {};
+    const siteSummary: Record<string, { lotti: number; colli: number; uom: SommaUom; articoli: Set<string>; ubicazioni: Set<string> }> = {};
     enriched.forEach(e => {
-      if (!siteSummary[e.siteName]) siteSummary[e.siteName] = { lotti: 0, colli: 0, articoli: new Set(), ubicazioni: new Set() };
+      if (!siteSummary[e.siteName]) siteSummary[e.siteName] = { lotti: 0, colli: 0, uom: nuovaSomma(), articoli: new Set(), ubicazioni: new Set() };
       const s = siteSummary[e.siteName]!;
       s.lotti++;
       s.colli += e.qty;
+      accumula(s.uom, e.uom, e.uomTot);
       s.articoli.add(e.article_code);
       s.ubicazioni.add(e.location_code);
     });
-    const sumRows: Foglio = [['Site', 'N° Lotti', 'Colli Totali', 'Articoli Univoci', 'Ubicazioni Occupate']];
+    const sumRows: Foglio = [['Site', 'N° Lotti', 'Colli Totali', 'UM Totali', 'UM', 'Articoli Univoci', 'Ubicazioni Occupate']];
     let totLotti = 0, totColli = 0;
+    const totUom = nuovaSomma();
     Object.entries(siteSummary).sort().forEach(([name, s]) => {
-      sumRows.push([name, s.lotti, s.colli, s.articoli.size, s.ubicazioni.size]);
+      const [tot, unita] = celleUom(s.uom);
+      sumRows.push([name, s.lotti, s.colli, tot, unita, s.articoli.size, s.ubicazioni.size]);
       totLotti += s.lotti; totColli += s.colli;
+      s.uom.unita.forEach(u => totUom.unita.add(u));
+      totUom.tot += s.uom.tot;
     });
-    sumRows.push(['TOTALE GENERALE', totLotti, totColli, '', '']);
+    const [totGenUom, totGenUnita] = celleUom(totUom);
+    sumRows.push(['TOTALE GENERALE', totLotti, totColli, totGenUom, totGenUnita, '', '']);
     const wsSum = XLSX.utils.aoa_to_sheet(sumRows);
-    wsSum['!cols'] = [{wch:24},{wch:12},{wch:14},{wch:18},{wch:20}];
+    wsSum['!cols'] = [{wch:24},{wch:12},{wch:14},{wch:14},{wch:8},{wch:18},{wch:20}];
     XLSX.utils.book_append_sheet(wb, wsSum, 'Riepilogo');
 
     // FOGLIO 2 — Tutto Flat (per filtri Excel nativi)
@@ -814,9 +677,10 @@ export const VistaConfigDati = {
       if (a.location_code !== b.location_code) return a.location_code.localeCompare(b.location_code);
       return a.article_code.localeCompare(b.article_code);
     });
-    const wsAll = XLSX.utils.aoa_to_sheet([headers, ...allSorted.map(rowOf)]);
+    const righeAll = stendi(allSorted);
+    const wsAll = XLSX.utils.aoa_to_sheet([headers, ...righeAll]);
     wsAll['!cols'] = colWidths;
-    wsAll['!autofilter'] = { ref: `A1:L${allSorted.length + 1}` };
+    wsAll['!autofilter'] = { ref: `A1:N${righeAll.length + 1}` };
     XLSX.utils.book_append_sheet(wb, wsAll, 'Tutte le Giacenze');
 
     // FOGLI 3..N — uno per Site
@@ -828,35 +692,38 @@ export const VistaConfigDati = {
         if (a.location_code !== b.location_code) return a.location_code.localeCompare(b.location_code);
         return a.article_code.localeCompare(b.article_code);
       });
-      const ws = XLSX.utils.aoa_to_sheet([headers, ...list.map(rowOf)]);
+      const righeSito = stendi(list);
+      const ws = XLSX.utils.aoa_to_sheet([headers, ...righeSito]);
       ws['!cols'] = colWidths;
-      ws['!autofilter'] = { ref: `A1:L${list.length + 1}` };
+      ws['!autofilter'] = { ref: `A1:N${righeSito.length + 1}` };
       // Excel limita nomi foglio a 31 char e vieta certi caratteri
       const sheetName = siteName.replace(/[\\/?*\[\]:]/g, '').slice(0, 31) || 'Site';
       XLSX.utils.book_append_sheet(wb, ws, sheetName);
     });
 
     // FOGLIO FINALE — Pivot Articoli (somma colli per articolo trasversale)
-    const byArt: Record<string, { desc: string; totColli: number; lotti: Set<string>; ubicazioni: Set<string>; siti: Set<string> }> = {};
+    const byArt: Record<string, { desc: string; totColli: number; uom: SommaUom; lotti: Set<string>; ubicazioni: Set<string>; siti: Set<string> }> = {};
     enriched.forEach(e => {
-      if (!byArt[e.article_code]) byArt[e.article_code] = { desc: e.article_description, totColli: 0, lotti: new Set(), ubicazioni: new Set(), siti: new Set() };
+      if (!byArt[e.article_code]) byArt[e.article_code] = { desc: e.article_description, totColli: 0, uom: nuovaSomma(), lotti: new Set(), ubicazioni: new Set(), siti: new Set() };
       const a = byArt[e.article_code]!;
       a.totColli += e.qty;
+      accumula(a.uom, e.uom, e.uomTot);
       a.lotti.add(e.lot_code);
       a.ubicazioni.add(e.location_code);
       a.siti.add(e.siteName);
     });
-    const pivotRows: Foglio = [['Articolo', 'Descrizione', 'Colli Totali', 'N° Lotti', 'N° Ubicazioni', 'Site Coinvolti']];
+    const pivotRows: Foglio = [['Articolo', 'Descrizione', 'Colli Totali', 'UM Totali', 'UM', 'N° Lotti', 'N° Ubicazioni', 'Site Coinvolti']];
     Object.entries(byArt).sort((a,b) => b[1].totColli - a[1].totColli).forEach(([code, a]) => {
-      pivotRows.push([code, a.desc, a.totColli, a.lotti.size, a.ubicazioni.size, [...a.siti].join(', ')]);
+      const [tot, unita] = celleUom(a.uom);
+      pivotRows.push([code, a.desc, a.totColli, tot, unita, a.lotti.size, a.ubicazioni.size, [...a.siti].join(', ')]);
     });
     const wsPivot = XLSX.utils.aoa_to_sheet(pivotRows);
-    wsPivot['!cols'] = [{wch:18},{wch:34},{wch:14},{wch:10},{wch:14},{wch:30}];
+    wsPivot['!cols'] = [{wch:18},{wch:34},{wch:14},{wch:14},{wch:8},{wch:10},{wch:14},{wch:30}];
     XLSX.utils.book_append_sheet(wb, wsPivot, 'Pivot Articoli');
 
     const fn = `giacenze-${new Date().toISOString().slice(0,10)}.xlsx`;
     XLSX.writeFile(wb, fn);
-    this.toast(`📊 Esportato: ${fn} (${enriched.length} righe, ${Object.keys(bySite).length + 3} fogli)`, 'success');
+    this.toast(`📊 Esportato: ${fn} (${righeAll.length} colli su ${enriched.length} lotti, ${Object.keys(bySite).length + 3} fogli)`, 'success');
   },
 
   importArticlesExcel() { $('fileImportExcel').click(); },
@@ -917,7 +784,7 @@ export const VistaConfigDati = {
       const numero = (col: string, campo: string) => { if (row[col] !== undefined) rec[campo] = row[col]; };
 
       testo('Descrizione', 'description');
-      testo('Categoria', 'category', true);
+      testo('Categoria', 'category');   // 2.1 — si prende com'e' scritta
       testo('Fornitore', 'supplier');
       testo('UM', 'unit', true);
       testo('Note', 'notes');
@@ -1098,7 +965,7 @@ export const VistaConfigDati = {
       const c = Validate.clean(code, true);
       const d = Validate.clean(desc);
       if (!c || !d || Validate.article(c) || Validate.articleDesc(d, true)) { skipped++; continue; }
-      const ok = await Store.addArticle({ code: c, description: d, category: Validate.clean(cat, true) || 'MP' });
+      const ok = await Store.addArticle({ code: c, description: d, category: Validate.clean(cat) || 'MP' });
       if (ok) count++;
     }
     this.renderConfig();
@@ -1106,6 +973,12 @@ export const VistaConfigDati = {
     this.toast(`${count} importati (${skipped} scartati)`, count > 0 ? 'success' : 'warning');
   },
 
+  /* 2.1 — IL RESET È DELL'ADMIN, E CHIEDE IL SUO PIN.
+
+     Due conferme a schermo le clicca chiunque abbia in mano il terminale
+     nel momento sbagliato: il PIN è l'unico passaggio che pretende una
+     persona, e finisce a registro con la sigla di quella persona. Il varco
+     sta in fondo apposta — prima l'operatore ha letto cosa sparisce. */
   async confirmResetData() {
     if (!await Dialog.confirm({
       title: '\u26A0 Reset completo database',
@@ -1117,6 +990,8 @@ export const VistaConfigDati = {
       message: 'È consigliato ESPORTARE un backup prima di continuare.',
       confirmLabel: 'Resetta tutto', danger: true
     })) return;
+    const admin = await this._requireLeaderAuth('Reset completo del database', { soloAdmin: true });
+    if (!admin) return;
     await Store.resetAll();
     /* TODO F1-REVIEW: resetAll() ricostruisce gia' gli indici al proprio
        interno, quindi questo riallineamento e' ridondante. Mantenuto per non
@@ -1126,6 +1001,6 @@ export const VistaConfigDati = {
     this._movSessionLog = []; this._pickCart = []; this._moveSelection = null; this._invState = null; this._qState = null; this._qStage = 'search'; this._movMode = null;
     this.renderSidebar(); this.renderDashboard(); this.renderConfig();
     this.updateSyncIndicator();
-    this.toast('✓ Database resettato — configurare nuovi siti da Configurazione', 'info');
+    this.toast(`✓ Database resettato da ${admin.initials} — configurare nuovi siti da Configurazione`, 'info');
   },
 } satisfies Vista;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { proponi, migliore, regolePerArticolo, scavalco, validaRegola, PUNTI } from '../src/modules/stoccaggio';
+import { proponi, migliore, regolePerArticolo, scavalco, validaRegola, PUNTI, PRIORITA_MIN, PRIORITA_MAX } from '../src/modules/stoccaggio';
 
 const posto = (code, extra = {}) => ({
   location_code: code,
@@ -277,5 +277,100 @@ describe('scavalco', () => {
   it('senza una delle due ubicazioni non c e niente da registrare', () => {
     expect(scavalco('', 'B-02', 'x')).toBe(null);
     expect(scavalco('A-01', null, 'x')).toBe(null);
+  });
+});
+
+
+/* 2.1 — I TRE DIFETTI CHE IL MOTORE PORTAVA DENTRO.
+
+   Il primo e il secondo non li aveva visti nessuno perche' i collaudi
+   costruivano un candidato che il chiamante vero non costruisce: qui il
+   posto si compone come lo compone `Store.proponiStoccaggio`, cioe' con
+   `riservata` DERIVATA dallo stato. */
+
+/* Come lo scrive `Store.proponiStoccaggio`: la deroga non e' un campo che
+   qualcuno accende, e' lo stato del vano riletto. */
+const postoVero = (code, extra = {}) => {
+  const p = posto(code, extra);
+  p.riservata = p.status === 'reserved';
+  return p;
+};
+
+describe('2.1 — la cella riservata era irraggiungibile', () => {
+  it('CON GLI ALLERGENI la cella riservata e un candidato, e dice perche', () => {
+    const e = proponi(merce({ allergens: ['GLU'] }), [postoVero('A-01', { status: 'reserved' })]);
+    expect(e.proposte.map(p => p.location_code)).toEqual(['A-01']);
+    expect(e.proposte[0].perche.join(' ')).toContain('Cella riservata');
+  });
+
+  it('senza allergeni resta esclusa: quel posto e di chi ne ha bisogno', () => {
+    const e = proponi(merce(), [postoVero('A-01', { status: 'reserved' }), postoVero('A-02')]);
+    expect(e.proposte.map(p => p.location_code)).toEqual(['A-02']);
+    expect(e.esclusi[0]).toMatchObject({ location_code: 'A-01', motivo: 'stato' });
+    expect(e.esclusi[0].messaggio).toContain('merce con allergeni');
+  });
+
+  it('e la temperatura non la deroga nemmeno da riservata', () => {
+    const e = proponi(merce({ allergens: ['GLU'], temp: 'SURG' }),
+      [postoVero('A-01', { status: 'reserved', temp: 'AMB' })]);
+    expect(e.proposte).toHaveLength(0);
+    expect(e.esclusi[0].motivo).toBe('temperatura');
+  });
+
+  it('bloccata e disattivata restano fuori, con gli allergeni e senza', () => {
+    const e = proponi(merce({ allergens: ['GLU'] }),
+      [postoVero('A-01', { status: 'blocked' }), postoVero('A-02', { status: 'disabled' })]);
+    expect(e.proposte).toHaveLength(0);
+    expect(e.esclusi.map(x => x.motivo)).toEqual(['stato', 'stato']);
+  });
+});
+
+describe('2.1 — la distanza non schiaccia piu il raggruppamento', () => {
+  it('IL LOTTO GIA LI VINCE su un vano vuoto in fondo alla corsia', () => {
+    /* Il caso vero: una zona da 274 ubicazioni. Prima il vano vuoto a
+       distanza 0 batteva il lotto a distanza 273 di 203 punti. */
+    const e = proponi(merce(), [
+      posto('A-01', { distanza: 0 }),
+      posto('Z-274', { stessoArt: true, stessoLotto: true, distanza: 273 }),
+    ]);
+    expect(e.proposte[0].location_code).toBe('Z-274');
+  });
+
+  it('fra due vani equivalenti decide ancora chi fa camminare meno', () => {
+    const e = proponi(merce(), [posto('A-01', { distanza: 12 }), posto('A-02', { distanza: 2 })]);
+    expect(e.proposte[0].location_code).toBe('A-02');
+  });
+
+  it('oltre il tetto la distanza smette di contare, e i due pareggiano', () => {
+    const e = proponi(merce(), [posto('A-01', { distanza: 40 }), posto('A-02', { distanza: 250 })]);
+    expect(e.proposte[0].punteggio).toBe(e.proposte[1].punteggio);
+    expect(e.proposte.map(p => p.location_code)).toEqual(['A-01', 'A-02']);   // a pari punti, per codice
+  });
+
+  it('la penalita non supera mai il tetto dichiarato', () => {
+    const e = proponi(merce(), [posto('A-01', { distanza: 9999 })]);
+    expect(e.proposte[0].punteggio).toBe(PUNTI.VUOTO + PUNTI.DISTANZA_MAX * PUNTI.PASSO);
+  });
+});
+
+describe('2.1 — la priorita di una regola va da 1 a 10', () => {
+  it('gli estremi si scrivono, quello che sta fuori no', () => {
+    const base = { article_prefix: '7', site_id: 'M' };
+    expect(validaRegola({ ...base, priority: PRIORITA_MIN })).toEqual([]);
+    expect(validaRegola({ ...base, priority: PRIORITA_MAX })).toEqual([]);
+    expect(validaRegola({ ...base, priority: PRIORITA_MAX + 1 })).toHaveLength(1);
+    expect(validaRegola({ ...base, priority: 2.5 })).toHaveLength(1);
+  });
+
+  it('UNA REGOLA SCRITTA PRIMA DELLA 2.1 resta buona: zero si rilegge', () => {
+    expect(validaRegola({ article_prefix: '7', site_id: 'M', priority: 0 })).toEqual([]);
+  });
+
+  it('e chi ordina non cambia: piu alta decide prima', () => {
+    const r = regolePerArticolo([
+      { rule_id: 'B', article_prefix: '7', site_id: 'M1', priority: 1 },
+      { rule_id: 'A', article_prefix: '7', site_id: 'M2', priority: 10 },
+    ], '7001234');
+    expect(r.map(x => x.rule_id)).toEqual(['A', 'B']);
   });
 });

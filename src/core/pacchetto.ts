@@ -24,10 +24,11 @@ export const FORMATO = 'warehouse-mapper-v1.5';
     pacchetto, e non decide niente — a decidere se un pacchetto si può rileggere
     è `FORMATO`, qui sopra.
 
-    Era rimasto a `1.7` per tutta la 1.8, ed era scritto in due posti: qui e in
-    `modules/vault.ts`, che il proprio manifesto lo scrive senza passare da
-    `Store`. Adesso il vault lo importa da qui: un rilascio, una riga. */
-export const VERSIONE_APP = '2.0';
+    Era rimasto a `1.7` per tutta la 1.8, ed era scritto in due posti: qui e
+    nella copia esterna, che il proprio manifesto lo scriveva senza passare da
+    `Store`. La copia esterna è uscita con la 2.1, e questo resta l'unico
+    posto dove il numero è scritto. */
+export const VERSIONE_APP = '2.1';
 
 /* L'ELENCO DELLE COLLEZIONI DA ESPORTARE STA IN UN POSTO SOLO.
    Fino alla 1.4.0 era scritto a mano in tre — `exportAll`, `_countsOf`,
@@ -77,9 +78,9 @@ export function componi(
      Fino alla 1.4.0 qui si scriveva `inventory: C.inventory` — cioè si
      metteva nel pacchetto il RIFERIMENTO all'array della cache, non una
      copia. Finché fra l'export e la serializzazione non succede niente
-     funziona; ma `Vault.runBackup` fra i due legge tutto il registro
-     movimenti, che su un magazzino vero è un'attesa lunga, e un backup si
-     fa proprio mentre qualcuno sta lavorando.
+     funziona; ma chi fra i due legge tutto il registro movimenti — su un
+     magazzino vero un'attesa lunga — lo fa proprio mentre qualcuno sta
+     lavorando.
 
      Il guaio non è che il file contenga una riga in più: è che `_counts`
      viene calcolato SUBITO e il contenuto viene letto DOPO. I due divergono,

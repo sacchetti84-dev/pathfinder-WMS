@@ -182,7 +182,10 @@ export function validaRichiesta(r: Partial<Richiesta>, adesso: Istante = Date.no
    solo il Team Leader» sarebbe una frase e non una regola: aprirebbe tutto
    a 4 e la coda tornerebbe a essere l'ordine in cui si è chiesto. */
 export function prioritaConsentita(ruolo: string | null | undefined, priorita: number): boolean {
-  return ruolo === 'leader' ? priorita >= 1 && priorita <= 4 : priorita <= PRIORITA_MAX_OPERATORE;
+  /* 2.1 — l'Admin è un Team Leader che ha anche le chiavi: dove passa un
+     leader passa lui, e la coda non fa eccezione. */
+  const comanda = ruolo === 'leader' || ruolo === 'admin';
+  return comanda ? priorita >= 1 && priorita <= 4 : priorita <= PRIORITA_MAX_OPERATORE;
 }
 
 /** Il record come va a database. L'identificativo lo genera chi scrive:
@@ -281,9 +284,23 @@ export function operazioneDi(t: string): Operazione | null {
 
    Il risultato pratico è che quattro tipi su sette non si chiudevano mai e
    restavano in coda a invecchiare — cioè proprio «la lista che invecchia»
-   che il piano §4.1 voleva evitare. */
+   che il piano §4.1 voleva evitare.
+
+   2.1 — IL TRASFERIMENTO PASSA AL GESTO, ED È UNA DECISIONE DI ANDREA:
+   «le attività si devono chiudere nel momento in cui il trasferimento viene
+   confermato, obbligatorio». Restava a residuo, e a residuo ha due modi di
+   non chiudersi mai: una richiesta nata da un ODP non porta colli — quanti
+   ne servano per fare 44,42 kg lo sa la giacenza, non l'ordine — e un
+   trasferimento parziale lascia in coda una riga che nessuno riprenderà,
+   perché la merce che restava è già stata guardata da chi l'aveva in mano.
+   Vale la stessa frase della quarantena: chi conferma DECIDE quanto si
+   muove, e la conferma è la fine del lavoro. Il residuo continua a essere
+   scritto e dice cosa è successo; smette solo di decidere la chiusura.
+   Resta a residuo il solo Smaltimento, che è l'unico in cui «ne restano 7»
+   significa davvero che sette colli aspettano ancora. */
 export function chiudeAlGesto(t: string): boolean {
-  return t === 'PICK_SHIP' || t === 'PICK_RET'
+  return t === 'TRANSFER'
+      || t === 'PICK_SHIP' || t === 'PICK_RET'
       || t === 'QUARANTINE' || t === 'SAMPLING' || t === 'COUNT'
       || t === 'CLEANING';
 }
@@ -366,7 +383,22 @@ export interface Avanzamento {
    il compito è finito: `chiude` è vero comunque, anche con zero colli —
    una conta che torna giusta non produce nessuna riga e resta un lavoro
    fatto. Il `qty_done` si aggiorna lo stesso, perché il registro delle
-   attività mostra quanto si è mosso davvero. */
+   attività mostra quanto si è mosso davvero.
+
+   2.1 — E LA TERZA CLAUSOLA È LA RETE PER I TIPI CHE NON SI CONOSCONO.
+   `Compito.type` finisce con `| string`: i record di un tipo uscito dal
+   progetto restano leggibili — `PUTAWAY` è il caso vero — e un tipo che
+   `chiudeAlGesto` non riconosce ricade a residuo. Se quel record non porta
+   nemmeno i colli chiesti ha `residuo` `null`, `esaurito()` falso, e resta
+   aperto per sempre: è la forma esatta di quel che il 20/08 si è visto in
+   produzione su due trasferimenti di ODP2603889, merce già arrivata e
+   attività che continuava a chiedere. Quei due oggi li chiude `gesto`;
+   questa clausola tiene chi verrà dopo.
+
+   Non si inventa un numero che nessuno ha chiesto: dove non c'è una
+   quantità da esaurire, la prova che il lavoro è finito è il gesto. Serve
+   però un movimento vero — `mossi > 0` — o aprire la maschera e non
+   confermare niente chiuderebbe la richiesta. */
 export function avanzamento(
   c: Partial<Compito> | null | undefined,
   colli: number | null | undefined,
@@ -376,7 +408,12 @@ export function avanzamento(
   const qty_done = quantitaFatta(c) + mossi;
   const dopo = { ...(c ?? {}), qty_done } as Partial<Compito>;
   const gesto = chiudeAlGesto(String(c?.type ?? ''));
-  return { qty_done, residuo: residuo(dopo), chiude: gesto || esaurito(dopo) };
+  const senzaQuantitaChiesta = quantitaRichiesta(c) === null;
+  return {
+    qty_done,
+    residuo: residuo(dopo),
+    chiude: gesto || esaurito(dopo) || (senzaQuantitaChiesta && mossi > 0),
+  };
 }
 
 /* UN AVVIO CHE NON HA PRODOTTO NIENTE TORNA IN CARICO — decisione 46.
@@ -513,4 +550,111 @@ export function durataUmana(ms: number | null | undefined): string {
   if (ore < 24) return resto ? `${ore} h ${resto} min` : `${ore} h`;
   const giorni = Math.floor(ore / 24);
   return `${giorni} g ${ore % 24} h`;
+}
+
+/* ═══════════════════════════════════════════════════════════════════
+   2.1 — IL REGISTRO DELLE ATTIVITÀ LEGGE ANCHE IL REGISTRO GENERALE
+
+   PERCHÉ NON È UNA VISTA, E BASTA. La richiesta dice «strutturare il
+   Registro Attività come un'estrazione filtrata del Registro Generale dei
+   Movimenti». Metà si può, metà no, e la metà che non si può è quella che
+   conta: un movimento sa cosa è stato mosso, quando e da chi — non sa chi
+   l'aveva CHIESTO, quando l'ha chiesto, quanto è rimasto in coda, con
+   quale priorità, né perché è stato annullato. Quei campi vivono solo su
+   `tasks`, e un registro costruito sul solo `mov_log` li perderebbe: la
+   metà dei numeri dei KPI del 19/08 — mediana di attesa, mediana di
+   lavoro — smetterebbe di esistere.
+
+   QUEL CHE MANCAVA DAVVERO ERANO I CAMPIONAMENTI. Un campionamento nato
+   dallo schedulatore ha il suo compito e si vedeva già. Uno fatto aprendo
+   la funzione «Campionamento» a mano — che è come si fa quando la qualità
+   passa e chiede una presa — scriveva `SAMPLE` a registro generale e non
+   compariva da nessuna parte fra le attività. Chi a fine mese contava le
+   prese ne trovava una parte, senza modo di sapere che era una parte.
+
+   Qui il registro diventa L'UNIONE dei due: i compiti come sono, più i
+   campionamenti del registro generale che nessun compito rivendica. Il
+   legame è `mov_ids`, lo stesso che dice «chiusa con due movimenti»: un
+   movimento già citato da un compito non si conta due volte.
+
+   La riga che nasce da un movimento si riconosce: `task_id` porta il
+   riferimento del movimento e `origine` vale `'movimento'`. Non finisce
+   mai a database — è un oggetto che vive il tempo di disegnare una
+   tabella.
+   ═══════════════════════════════════════════════════════════════════ */
+
+/** Un movimento come lo vede il registro delle attività. */
+export interface MovimentoLetto {
+  _id?: number;
+  ts: Istante;
+  type: string;
+  article_code?: string;
+  lot_code?: string;
+  location_code?: string;
+  user?: string;
+  notes?: string;
+  qty_delta?: number | null;
+}
+
+/** Una riga del registro: o un compito, o un movimento che compito non è
+    mai stato. `origine` dice quale delle due, e chi disegna la tabella non
+    deve indovinarlo dal fatto che manchi un campo. */
+export type RigaRegistro = Compito & { origine: 'compito' | 'movimento' };
+
+/* Le causali del registro generale che valgono un'attività anche senza un
+   compito dietro. Oggi una sola, e sta scritta qui invece che dentro un
+   `if`: il giorno che se ne aggiunge un'altra, si aggiunge qui. */
+export const CAUSALI_SENZA_COMPITO: Record<string, string> = {
+  SAMPLE: 'SAMPLING',
+};
+
+export function registroAttivita(
+  compiti: readonly Compito[] | null | undefined,
+  movimenti: readonly MovimentoLetto[] | null | undefined,
+): RigaRegistro[] {
+  const daCompiti: RigaRegistro[] = (compiti ?? []).map(c => ({ ...c, origine: 'compito' as const }));
+
+  /* I movimenti che un compito rivendica già. Un `_id` assente non si
+     mette nell'insieme: `undefined` fa combaciare tutti i movimenti senza
+     identificativo, e li farebbe sparire tutti insieme. */
+  const rivendicati = new Set<number>();
+  for (const c of compiti ?? []) {
+    for (const id of c.mov_ids ?? []) {
+      if (typeof id === 'number') rivendicati.add(id);
+    }
+  }
+
+  const daMovimenti: RigaRegistro[] = [];
+  for (const m of movimenti ?? []) {
+    const tipo = CAUSALI_SENZA_COMPITO[String(m?.type ?? '')];
+    if (!tipo) continue;
+    if (typeof m._id === 'number' && rivendicati.has(m._id)) continue;
+    daMovimenti.push({
+      task_id: `MOV-${m._id ?? m.ts}`,
+      type: tipo,
+      priority: PRIORITA_NORMALE,
+      status: 'done',
+      requested_by: m.user || '',
+      requested_at: m.ts,
+      assigned_to: m.user || null,
+      /* Un gesto fatto senza passare dalla coda non è stato in coda: avvio
+         e chiusura coincidono con l'istante del movimento, e l'attesa vale
+         zero. Scrivere `null` direbbe «non si sa», che è un'altra cosa. */
+      started_at: m.ts,
+      completed_at: m.ts,
+      completed_by: m.user || null,
+      payload: {
+        article_code: m.article_code,
+        lot_code: m.lot_code,
+        location_code: m.location_code,
+      },
+      note: m.notes || '',
+      qty_done: Math.abs(Number(m.qty_delta) || 0),
+      mov_ids: typeof m._id === 'number' ? [m._id] : [],
+      origine: 'movimento',
+    });
+  }
+
+  return [...daCompiti, ...daMovimenti]
+    .sort((a, b) => (b.requested_at || 0) - (a.requested_at || 0));
 }

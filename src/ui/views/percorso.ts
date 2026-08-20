@@ -132,10 +132,25 @@ export const VistaPercorso = {
     const bySite: Record<string, Tappa[]> = {};
     for (const s of p.stops) (bySite[s.site_id!] = bySite[s.site_id!] || []).push(s);
 
-    /* 1.10 — quali tappe stanno fuori dal magazzino di partenza. Il
-       magazzino di partenza e' il primo dell'ordine di visita, che e' gia'
-       in questa schermata: non serve un secondo posto dove dichiararlo. */
-    const casa = sitoDiCasa(p.stops, PickRoute.getSiteOrder());
+    /* 1.10 — quali tappe stanno fuori dal magazzino di partenza.
+       2.1 — e il magazzino di partenza adesso si può dichiarare: la tendina
+       sta qui sotto, e questa riga è la stessa che ordina il giro. */
+    const casa = sitoDiCasa(p.stops, PickRoute.getSiteOrder(), PickRoute.getCasaScelta());
+    const siti = [...new Set(p.stops.map((s) => s.site_id).filter(Boolean))] as string[];
+    const sceltaCasaHTML = siti.length > 1 ? `
+      <div class="route-warn mb-5">
+        <strong>Magazzino di partenza</strong>
+        <div class="flex items-center gap-3 mt-3 flex-wrap">
+          <select class="input select w-auto" id="routeCasa" onchange="App._routeSetCasa(this.value)">
+            <option value="">Dove l'ordine ha più righe (${this._esc(Store.getSite(casa)?.name || casa)})</option>
+            ${siti.map((id) => `<option value="${this._esc(id)}" ${PickRoute.getCasaScelta() === id ? 'selected' : ''}>
+              ${this._esc(Store.getSite(id)?.name || id)} — ${p.stops.filter((s) => s.site_id === id).length} righe</option>`).join('')}
+          </select>
+          <span class="text-label-small text-sx-text-muted">
+            Le righe che stanno qui si prelevano dirette: non chiedono nessun trasferimento intermedio.
+          </span>
+        </div>
+      </div>` : '';
     const lontane = tappeAltrove(p.stops, casa, (id) => Store.getSite(id)?.name || id);
     const altrove = new Map(lontane.map((f) => [f.tappa.location_code + '|' + f.tappa.item_key, f]));
 
@@ -190,6 +205,7 @@ export const VistaPercorso = {
         <div class="route-head-desc">${this._esc(h.article_desc)}</div>
       </div>
 
+      ${sceltaCasaHTML}
       ${alertHTML}
       ${warnHTML}
 
@@ -319,10 +335,24 @@ export const VistaPercorso = {
     }
 
     this._routeTrasf[itemKey] = { to: dest, from: fromLoc, task_id: rec?.task_id || '' };
-    this._routeApplicaTrasf(sitoDiCasa(p?.stops, PickRoute.getSiteOrder()));
+    this._routeApplicaTrasf(sitoDiCasa(p?.stops, PickRoute.getSiteOrder(), PickRoute.getCasaScelta()));
     this.closeModal();
     this._formOrdine($('pickSubForm'));
     this.toast(`↔ ${etichettaTipo('TRANSFER')} in coda — ${rec?.task_id}: ${s.article_code}#${s.lot_code} verso ${dest}`, 'success');
+  },
+
+  /* 2.1 — la scelta del magazzino di partenza ricostruisce il giro: da
+     dove si comincia cambia l'ordine delle tappe e quali righe risultano
+     «in un altro magazzino». Le richieste di trasferimento già fatte
+     sopravvivono, come alla ricostruzione per l'ordine di visita. */
+  _routeSetCasa(siteId) {
+    PickRoute.setCasaScelta(String(siteId || '') || null);
+    if (this._routeParsed) {
+      const route = PickRoute.build(this._routeParsed.lines);
+      this._routeParsed = { ...this._routeParsed, ...route };
+      this._routeApplicaTrasf(sitoDiCasa(this._routeParsed.stops, PickRoute.getSiteOrder(), PickRoute.getCasaScelta()));
+    }
+    this._formOrdine($('pickSubForm'));
   },
 
   /* Riapplica al percorso le richieste già fatte e rimette in fila le tappe.
@@ -384,7 +414,7 @@ export const VistaPercorso = {
       const route = PickRoute.build(this._routeParsed.lines);
       this._routeParsed = { ...this._routeParsed, ...route };
       /* 1.10 - le richieste gia' fatte sopravvivono alla ricostruzione. */
-      this._routeApplicaTrasf(sitoDiCasa(this._routeParsed.stops, order));
+      this._routeApplicaTrasf(sitoDiCasa(this._routeParsed.stops, order, PickRoute.getCasaScelta()));
     }
     this._formOrdine($('pickSubForm'));
     Feedback.sound('scan');
@@ -398,6 +428,14 @@ export const VistaPercorso = {
     this._prodOperator = Validate.clean($('pRouteOperator')?.value) || this._prodOperator;
     const opErr = Validate.operator(this._prodOperator);
     if (opErr) return this.toast(opErr, 'error');
+
+    /* 2.1 — UN ORDINE CHIUSO NON SI RICARICA. Il file di produzione porta
+       lo stesso numero d'ordine di un ciclo gia' archiviato, e senza questa
+       riga il percorso partiva: i prelievi scrivevano altri movimenti sotto
+       quel numero e il conto sommava due lavorazioni. */
+    if (Store.ordineWipArchiviato(p.header.odp_num)) {
+      return this.toast(`L'ordine ${p.header.odp_num} e' chiuso e archiviato: il suo conto di produzione e' storia. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
+    }
 
     const existing = Store.getActivePickSession();
     if (existing) {
@@ -839,6 +877,40 @@ export const VistaPercorso = {
       console.error('[WM] _routeConfirmStop:', err);
       st.status = 'pending'; st.qty_picked = 0; st.done_at = null;
       return this.toast(`Prelievo non registrato \u00b7 ${(err as Error).message} \u2014 nessuna modifica applicata`, 'error');
+    }
+
+    /* ═══ 2.1 — ANCHE IL PRELIEVO DA FILE FINISCE NEL CONTO ═══
+
+       Il carrello di produzione portava la merce nel vano WIP dalla 1.14;
+       il prelievo guidato da ODP — quello che nasce dal foglio Excel e che
+       in magazzino è il più usato dei due — la faceva sparire dalla
+       giacenza e basta. Due strade per lo stesso gesto, e il consumo reale
+       di produzione contava solo quella meno battuta: «702 KG entrati, 0
+       consumati» sarebbe stato il numero di ogni ordine prelevato da file.
+
+       Il conto lo tiene l'ODP, e senza numero d'ordine non c'è conto da
+       tenere — non è un errore, è un percorso che non nasce da un ordine.
+
+       SE IL CONTO NON RIESCE, IL PRELIEVO NON SI ANNULLA: la merce è già
+       fuori dallo scaffale, e rimetterla dentro per un problema di
+       contabilità sarebbe muovere merce vera per un numero. Stessa regola
+       del carrello, e sta scritta in tutti e due i posti. */
+    if (session.odp_num) {
+      try {
+        await Store.entraInWip(session.odp_num, {
+          item_key: st.item_key,
+          article_code: st.article_code,
+          article_description: st.article_description,
+          lot_code: st.lot_code,
+          expiry_date: full.expiry_date || '',
+          qty: removed!._packs_out?.length || Math.abs(removed!._qty_delta || qty),
+          qty_uom: this._umMossa(removed),
+          uom: Store.getUomConfig(st.article_code, st.lot_code)?.uom ?? null,
+          packs: removed!._packs_out ?? null,
+        });
+      } catch (e) {
+        this.toast(`Conto di produzione non aggiornato — ${(e as Error).message}. Il prelievo resta valido.`, 'error');
+      }
     }
 
     /* Il registro di sessione a video e la finestra di storno restano

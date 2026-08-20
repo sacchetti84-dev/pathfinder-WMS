@@ -9,7 +9,13 @@ istruzioni e non vanno più aperti per lavorare.
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder`, branch `main` · agg. **19/08/2026**
 
-**Versione corrente: 2.0.**
+**Versione corrente: 2.1, ed è in servizio** — installata da Andrea il
+19/08/2026 alle 16:53. `/api/app-info` risponde `2.1` due volte,
+applicativo e servizio, impronta `29f215e1…`, 4 file, **445 kB sul filo**.
+`precedente` tiene la 2.0 e il deposito porta tutte e due.
+
+Il database **non è stato migrato**, perché non c'era niente da migrare:
+la 2.1 non tocca `lib/schema.js`.
 
 ---
 
@@ -62,6 +68,247 @@ porta dati veri, e per questo un collaudo si fa sempre su una **copia** — §5.
 ---
 
 ## 1. Stato
+
+### La 2.1 — quello che la richiesta del 19/08 chiedeva, meno Azure
+
+**Il verso è 2.1, dichiarato da Andrea**: aggiustamento del ramo 2.x, non
+architettura nuova. `npm run check` pulito, **811 prove in 28 file**
+(erano 725 in 24), più le 22 dell'installazione e le 8 del cambio di
+schema. **Impacchettata il 19/08, non installata**: installare è un atto
+umano, §0 punto 4.
+
+**IL NUMERO DI VERSIONE STA IN TRE POSTI, E `package.json` NON È NESSUNO
+DEI TRE.** La prima build della 2.1 è uscita chiamandosi «Pathfinder
+2.0» con dentro i byte della 2.1: il nome della cartella e il numero in
+pagina li dà `VERSIONE` in `vite.config.js`, e `package.json` non lo
+legge nessuno. Il terzo posto è `VERSION` in `pathfinder-server.js`, che
+era rimasto a `2.0` — e l'installer **rifiuta** un pacchetto il cui
+servizio dichiara un numero diverso, con un messaggio che parla di
+riavvii. I tre numeri adesso dicono 2.1 tutti e tre. §5, «I tre posti
+del numero di versione».
+
+**Azure resta fuori dal servizio, e la decisione è di Andrea**: il ramo
+`server/azure/` c'è — schema PostgreSQL, script di migrazione, 8 prove —
+e non lo chiama nessuno. §6 dice «niente Azure» e continua a valere: quel
+ramo esiste perché la decisione si possa prendere coi numeri davanti.
+Cosa costerebbe davvero sta scritto in `server/azure/LEGGIMI.md`, e i
+quattro punti che decidono sono: il magazzino si ferma quando cade la
+linea, la latenza di ogni transazione composta, il backup che cambia
+padrone, e `lib/db.js` che va riscritto da sincrono ad asincrono insieme
+alle sue 85 prove.
+
+**Cosa è entrato:**
+
+- **Il codice a barre, scritto in casa** — `modules/code128.ts`, 14 prove.
+  Ogni documento stampato porta in testata il proprio riferimento in
+  Code128 (una riga sola: `_docHeadHTML`, da cui passano tutti e sette),
+  e l'etichetta UDC porta **quello e nient'altro**: ubicazione, data e
+  operatore sono usciti perché valgono il minuto della stampa e restano
+  incollati al legno per mesi. Dalla sidebar della mappa si stampa anche
+  l'etichetta identificativa di una merce. **Non è un GS1-128**: manca
+  FNC1, e sta scritto nel modulo — dentro l'azienda si scansiona e si
+  ritrova il documento, fuori dal cancello no.
+- **Il ruolo ADMIN.** Terza carica, comprende il Team Leader. È l'unico
+  che apre la Configurazione e il reset dei dati, e il reset adesso
+  pretende il suo PIN. **L'eccezione del primo giorno è dichiarata**:
+  finché nessun Admin esiste comandano i Team Leader, o l'installazione
+  murerebbe la Configurazione, che è l'unico posto da cui si nomina un
+  Admin — lo stesso cerchio del PIN del 13/08. Il primo accesso su un
+  database vuoto crea un Admin, non un leader.
+- **La purga non c'è più**, e con lei `purgeMovementsBefore`. Era l'unica
+  strada per cui un movimento poteva sparire. **La copia esterna su
+  cartella non c'è più**: `modules/vault.ts` cancellato, 6 metodi usciti
+  da `App`; il backup è un compito del servizio. **I due salvataggi a
+  mano non ci sono più** — «💾 Salva ora» e il clic sull'indicatore:
+  ogni mutazione passa già da `Persistence`, e il checkpoint resta dove
+  serve, all'uscita dell'operatore.
+- **Il cruscotto se lo compone chi lo guarda** — `modules/cruscotto.ts`,
+  19 prove. Tredici riquadri, ordine e larghezza a scelta, si trascinano;
+  le scorciatoie a Movimenta da tre fisse diventano sette a scelta. Il
+  layout è JSON in `meta`. **Ordine e larghezza, non coordinate in
+  pixel**: una posizione salvata su un 27 pollici, riletta sull'MC9400,
+  mette due riquadri uno sull'altro. Quello che avvisa non si spegne.
+- **Ordinare e filtrare** — `modules/tabella.ts`, 22 prove. Applicato ad
+  Archivio, Operatori, Registro attività e Registro movimenti, che non ce
+  l'avevano. Tre cose che sembrano dettagli: l'ordinamento è **stabile**,
+  il **vuoto va in fondo nei due versi** (una data mancante non è «molto
+  vecchia»), e i numeri si confrontano da numeri — «10» prima di «9» è il
+  difetto che fa sembrare rotta una tabella che funziona.
+- **Il registro delle attività legge anche il registro generale.** I
+  campionamenti aperti a mano — che un compito dietro non l'hanno mai
+  avuto — comparivano da nessuna parte: chi contava le prese a fine mese
+  ne trovava una parte, senza modo di saperlo. **Non è una vista SQL, e
+  il perché è dichiarato**: un movimento non sa chi l'aveva chiesto né
+  quanto è rimasto in coda, e un registro costruito sul solo `mov_log`
+  perderebbe la metà dei numeri dei KPI.
+- **Il prelievo da file finisce nel conto WIP.** Il carrello di
+  produzione ci portava la merce dalla 1.14; il prelievo guidato da ODP —
+  che in magazzino è il più usato dei due — la faceva sparire e basta.
+  «702 KG entrati, 0 consumati» sarebbe stato il numero di ogni ordine
+  prelevato da file.
+- **Il magazzino di partenza si dichiara.** «Dove c'è il grosso della
+  merce» resta il predefinito; chi comincia da MAG1 perché il camion
+  scarica lì lo dice, e le righe di quel magazzino smettono di chiedere
+  trasferimenti intermedi. Una scelta senza righe si ignora — un avviso
+  che si accende su tutto non dice niente.
+- **Le unità di carico**: si smaltiscono e si mettono in quarantena
+  **intere**, con una giustificazione sola per tutte le righe; si vedono
+  **dentro il vano** sulla mappa, come caselle annidate che si stringono
+  da sole; **si trascinano** da un'ubicazione all'altra, e il
+  trascinamento passa da `moveUdc` come la maschera. Il carico può avere
+  un'unità come destinazione — un campo solo, e il codice di un'unità
+  aperta si riconosce da sé. L'inventario ha un terzo ramo, **per unità**,
+  che si apre scansionando l'etichetta.
+- **La mappa**: la sidebar **non copre più la pianta** — i 360px coperti
+  erano la corsia che l'operatore aveva appena cliccato — la vista la
+  decide la zona (scaffali → frontale con «Specchia», terra → dall'alto),
+  e la scheda di un item cambia gerarchia: ① articolo e lotto ② colli e UM
+  ③ descrizione ④ distinta colli, con data, scadenza e note dietro
+  «Dettaglio». I quattro pulsanti hanno la stessa dimensione e lo stesso
+  peso: il colore diceva un'importanza che non c'è.
+- **La categoria articolo non ha più una forma.** Era `^[A-Z]{1,5}$`;
+  adesso resta il solo controllo che vale ovunque, i caratteri che
+  romperebbero una pagina.
+- **Una skill** per il disegno di interfacce ERP/WMS, in
+  `.claude/skills/erp-wms-frontend/`.
+
+**I due difetti del motore di stoccaggio, trovati leggendo il codice:**
+
+1. **La cella riservata era irraggiungibile, e la deroga con lei.**
+   `reserved` usciva fra i vincoli duri insieme a «bloccata», e trenta
+   righe più in basso `posto.riservata` — che il chiamante calcola proprio
+   come `stato === 'reserved'` — avrebbe fatto derogare gli allergeni. Non
+   è mai successo: il vano era già fuori. La deroga esisteva **solo nei
+   collaudi**, dove `riservata` e `status` si passano separati, cioè in una
+   combinazione che `Store.proponiStoccaggio` non produce. Adesso: con
+   allergeni è un candidato, senza allergeni resta escluso.
+2. **La distanza schiacciava tutto il resto.** `distanza` è la posizione
+   nella sequenza della zona, e pesava −1 a passo: su 274 ubicazioni
+   arriva a −273 mentre «qui c'è già questo articolo» vale 40. Il
+   raggruppamento del lotto non ha mai spostato una proposta. Adesso la
+   penalità ha un tetto — `DISTANZA_MAX: 15`, meno di STESSO_ARTICOLO e
+   più di VUOTO.
+
+**La priorità di una regola va da 1 a 10** (era «da zero in su», senza
+tetto). Una regola vecchia con 0 si rilegge buona: in lettura si è
+tolleranti, in scrittura no.
+
+**Il difetto che Andrea ha segnalato — «l'ubicazione non soddisfa i
+criteri anche quando la regola è definita correttamente» — NON è stato
+riprodotto.** I due qui sopra sono altra cosa. Serve la regola esatta, il
+codice del vano e il messaggio a video.
+
+### La sera del 20/08 — il magazzino in mano a un operatore, e quattro difetti
+
+**Andrea ha lavorato sulla 2.1 in produzione mentre un guardiano in sola
+lettura leggeva il servizio ogni quindici secondi** e controllava quattro
+cose su ogni movimento: che il saldo torni (`prima + delta = dopo`), che
+l'elenco dei colli combaci con le UM, che ci sia la firma, e che nessuna
+attività resti aperta col residuo a zero. Lo script sta in
+`banco/` e non è codice dell'applicativo.
+
+**Quello che è stato corretto**, e sta nel sorgente — **non nel pacchetto
+installato**, §4:
+
+1. **IL CONSUMO IN WIP NON SI RIUSCIVA A DICHIARARE.** Reso e chiusura
+   facevano cose diverse sullo stesso problema: il reso chiedeva quali colli
+   solo se l'ordine aveva le misure a conto, **la chiusura non chiedeva mai**
+   e passava `null`. Su ogni riga entrata in lavorazione prima che il conto
+   registrasse le misure — cioè **tutte e diciotto quelle in produzione, che
+   hanno `packs: null`** — la chiusura finiva a chiedere «togline tre» a
+   `removeItem`, che dalla 2.0 rifiuta. Adesso la regola è una sola:
+   `_wipScegliColli`, e se la riga dichiara i colli e non se ne portano via
+   tutti, si chiede QUALI. Lo svuotamento totale resta libero.
+
+2. **I TRASFERIMENTI CHIESTI DA UN ODP NON SI CHIUDEVANO MAI.** Due regole
+   giuste che si sono incontrate male: la 1.10 crea quelle richieste **senza
+   numero di colli** — apposta, perché quanti ne servano per fare 44,42 kg lo
+   sa la giacenza e non l'ordine — e la famiglia «a residuo» chiude quando il
+   residuo arriva a zero. Un residuo `null` non ci arriva. Trovati due in
+   produzione, `TA-MT0N4CWQ-TFUT` e `TA-MT0N4JYO-5FER`, con la merce già
+   trasferita e l'attività che continuava a chiedere. **Dove non c'è una
+   quantità da esaurire, la prova che il lavoro è finito è il gesto**: non si
+   inventa un numero che nessuno ha chiesto. La prova che fissava il
+   comportamento di prima è stata riscritta, non cancellata.
+
+3. **Le unità di carico sulla mappa sono quadrate.** Erano strisce alte sei
+   pixel, e una striscia non somiglia a un pallet: somiglia a una
+   sottolineatura, cioè a un segno di stato.
+
+4. **L'anteprima dell'ubicazione riconosce un'unità di carico.** Il campo del
+   posizionamento accetta un vano O il codice di un'unità aperta; l'anteprima
+   cercava solo fra le ubicazioni e a un'etichetta di pallet rispondeva
+   **«non trovata» in rosso** mentre la conferma sarebbe andata a buon fine.
+   Trovato scansionando, alla prima etichetta.
+
+**Quello che il guardiano ha trovato nei dati e che NON è codice da
+correggere** — sono righe di magazzino da raddrizzare, §2:
+
+- **Una riga con due verità.** `6000366B#123456` in `MAG-SCA-01-03-B`:
+  l'elenco dice `[9×9 + 20]` = **101 KG**, il saldo dice **81**. Nasce dal
+  campionamento del 18/08 all'01:00, nella finestra in cui la 1.8.4 non era
+  ancora installata: allora il campione calava `qty_uom` e lasciava l'elenco
+  pieno. Oggi il difetto è chiuso — il client manda `packs_out` — ma la riga
+  è rimasta storta. Si raddrizza da Conta.
+- **Un collo comparso senza movimento.** `7000924#123456` in `MAG-SPC-01`:
+  la quarantena del 18/08 lascia il saldo a **8**, la spedizione del 19/08
+  alle 00:20 parte da **9** e scrive **8** togliendone 2. È l'unico saldo che
+  non torna su 256 movimenti, ed è capitato su un'uscita verso un cliente.
+- **Sei righe nel vano WIP che nessun conto rivendica** — `3370013#GI`,
+  `3670002#GI`, `3370005#GI`, `3650001#GI`, `3660001#GI`, `3370003#ag`.
+  Nessun movimento di `wip` le nomina, quindi **nessuna maschera le può
+  consumare**: la chiusura lavora per ordine, e loro un ordine non ce l'hanno.
+- **Il registro racconta male i trasferimenti**: 54 movimenti su 256 sono
+  `MOVE` con `delta 0` e saldo invariato, e i `QREL` non portano nessuna
+  quantità. La merce si sposta davvero — verificato — ma fra sei anni quel
+  registro non si sa rileggere.
+- **Un movimento `EDIT` senza merce**: `# MAG-ACC-03`, articolo e lotto
+  vuoti.
+
+### La 2.1 è stata provata in browser — 19/08, sera
+
+**Su una copia a caldo del magazzino vero** — 196 giacenze, 132 movimenti,
+524 ubicazioni — servita sulla 4199, con Vite sulla 5199 e un operatore di
+prova che esiste solo nella copia. In produzione non è stata scritta una
+riga: gli operatori sono ancora tre.
+
+- **Il cruscotto**: riordino per trascinamento, spegnimento, larghezza. Il
+  layout arriva a `meta/dashboardLayout` e **non porta i titoli**. «Come di
+  serie» cancella il dato invece di riscriverlo.
+- **La mappa**: zona a scaffale → frontale con «Specchia», selettore dei
+  livelli sparito; zona a terra → dall'alto. Col pannello aperto la zona
+  centrale rientra di 360px e la pianta arriva a 1024 contro un pannello
+  che comincia a 1040: **non si toccano**.
+- **Le unità di carico**: tre caselle annidate nello stesso vano, 11×6px,
+  strette da sole. Trascinata una da `M03-CAT-20` a `M03-CAT-01`: unità
+  spostata, riga al seguito, `MOVE` a registro firmato, e sulla mappa la
+  merce sta **in un vano solo** — la trappola della 2.0 regge.
+- **La scheda di un item**: l'ordine è quello nuovo, e i cinque pulsanti
+  misurano 150×32 tutti e cinque.
+- **L'ordinamento**: primo clic crescente, secondo decrescente, **terzo
+  torna al cronologico** e la freccia sparisce.
+- **Il registro delle attività**: 65 righe, di cui **17 «fuori coda»** —
+  campionamenti aperti a mano che prima non comparivano da nessuna parte.
+  Sul magazzino vero, non su un caso costruito.
+- **L'inventario per unità**, il Code128 in testata (50 barre per
+  `DDT-2026-0001`, in millimetri) e il ruolo Admin col suo segno.
+
+**UNA COSA DA SAPERE PRIMA DI PROVARE UN'INTERFACCIA SENZA SCHERMO.** Il
+pannello del browser di collaudo **non compone i fotogrammi**, e allora
+nessuna transizione avanza: ogni proprietà animata resta al valore di
+partenza, per sempre. Misurando così, `padding-right` e `transform` — le
+due che la 2.1 mette in transizione — leggono zero, e sembrano due difetti
+che non esistono. Mezz'ora buttata. Si spengono le transizioni prima di
+misurare:
+
+```js
+document.head.insertAdjacentHTML('beforeend',
+  '<style>*,*::before,*::after{transition:none!important;animation:none!important}</style>');
+```
+
+**Quel che il browser NON ha esercitato**: le maschere che muovono merce
+con un operatore vero — smaltimento, quarantena, conta, DDT, reso e
+chiusura del conto. Restano la voce 20.
 
 ### La 2.0 è costruita, e ha chiuso otto difetti che nessuno aveva visto leggendo
 
@@ -130,6 +377,35 @@ ancora il solo ordine di visita**, e sull'ODP vero la prima tappa era in
 **Il ciclo quadra a zero.** Quattro ordini, 702,594 KG dentro il conto,
 702,594 nel vano WIP, e alla chiusura tutto ritrovato fra scaffale, resi e
 consumato: **scarto complessivo 0 KG**.
+
+### Gli export dicono le UM — 19/08
+
+**Quattro fogli su cinque parlavano ancora solo di colli.** Il dato c'era da
+mesi — `packs`, `qty_uom`, `qty_uom_delta`, `payload.qty_uom` — e non usciva:
+chi apriva `giacenze-…​.xlsx` leggeva «7 colli» di un articolo a chili e non
+sapeva se erano 35 kg o 175.
+
+- **Giacenze** — **una riga per collo**, dai fogli «Tutte le Giacenze» e da
+  quelli per sito: `Collo` (3/11), `UM Collo`, `UM`. Le due somme che chi apre
+  il file vuole fare tornano da sole. «Riepilogo» e «Pivot Articoli» guadagnano
+  `UM Totali` e `UM`, con **MISTA** dove le unità si mescolano.
+- **Registro movimenti** — `Delta UM` e `UM` accanto alle tre colonne in
+  colli; «Top Articoli» somma le UM movimentate in valore assoluto.
+- **Registro attività** — `UM chieste` e `UM`: un ordine di produzione chiede
+  chili, e «44,42 coll.» è un altro numero. Il **fatto** in UM non c'è —
+  `qty_done` conta colli — e non si inventa in un export.
+- **Allergeni in deroga** e **giacenze fuori posto** — `UM Totali`, `UM` e il
+  `Dettaglio Colli` per esteso, letti da `Store.righeLette`. Queste righe
+  restano **una per lotto**: una non conformità non si moltiplica per il
+  numero di colli, è la stessa merce nello stesso vano sbagliato.
+- **Il pacchetto JSON non aveva niente da correggere**: `componi` copia le
+  righe intere e non nomina un campo. Adesso c'è una prova che lo fissa — un
+  backup che riporta i colli e perde l'elenco delle pezzature ricostruisce un
+  magazzino con lo stesso saldo e la corsia sbagliata.
+
+Le due funzioni pure sono uscite in `modules/fogli.ts` — 9 prove — perché una
+vista si importa solo passando da `App`. `npm run check` pulito, **725 prove**
+in 24 file.
 
 ### Gli interruttori non ci sono più
 
@@ -567,6 +843,17 @@ collauda al banco e si consegna il pacchetto.
 | **19** | **`6001055` MANGANESE SOLFATO: l'ODP lo chiede in KG, l'anagrafica lo dichiara PZ.** Il magazzino conta pezzi dove la produzione pesa chili, e nessuna delle due parti se ne accorge. E' un dato, non un difetto — ma va raddrizzato prima che qualcuno prelevi quella riga | Andrea |
 | **20** | **Provare le maschere che pretendono l'identita', col PIN.** Il banco del 19/08 ha esercitato la catena intera senza browser, e il browser ha confermato che la 2.0 si carica pulita a 480 px. Quello che resta fuori sono le maschere che chiedono un operatore identificato — smaltimento, trasferimento, prelievo, quarantena, conta, DDT, reso e chiusura del conto: **un minuto a maschera, e il PIN lo digita Andrea** | Andrea, prima di installare |
 | ~~9~~ | ~~**Confermare due scelte del 12/08**~~: **confermate il 18/08**. La colonna UM è `unit`, la quantità per collo è `pieces_per_pack` — è già così in `configurazione()` | fatto |
+| ~~21~~ | ~~**Provare la 2.1 in browser**~~ — **fatto il 19/08 sera**, al banco sulla 4199 con una copia a caldo del magazzino vero: cruscotto, mappa, UDC trascinate, ordinamenti, registro attività, inventario per unità, Code128. §1. Restano fuori le maschere che pretendono un operatore vero — voce 20 | fatto |
+| **22** | **Il difetto delle regole di stoccaggio va riprodotto.** «L'ubicazione non soddisfa i criteri anche quando la regola è definita correttamente»: i due difetti chiusi con la 2.1 sono altra cosa. Serve la regola esatta, il vano e il messaggio a video | Andrea |
+| **23** | **Leggere un'etichetta col lettore vero.** `modules/code128.ts` è collaudato sulle due invarianti dello standard — 11 moduli per simbolo, somma delle barre pari — che una cifra storta nella tabella rompe subito. Ma nessun lettore ottico ha ancora letto un foglio stampato da questo codice, e finché non succede il barcode è una promessa | Andrea, un minuto |
+| **24** | **Decidere se le etichette escono dal cancello.** Quello che questo applicativo stampa è **Code128, non GS1-128**: manca l'FNC1 e l'identificativo `(00)`. Dentro l'azienda si scansiona e si ritrova il documento, ed è tutto quello che serve. Il giorno che un cliente deve leggere un SSCC, `modules/code128.ts` va esteso — non aggirato | da decidere |
+| **25** | **La vista 3D della mappa: valutata, e per adesso no.** Le ubicazioni non hanno coordinate — `core/geometria.ts` le genera da corsie, campate e livelli — quindi una vista 3D sarebbe un rendering della stessa griglia con la prospettiva in più: costo alto, informazione zero. Diventa sensata il giorno che i vani porteranno misure vere e la capienza (voce 17). **La vista frontale con «Specchia» copre quello che serviva davvero**: vedere la corsia com'è, dal verso in cui la si percorre | valutato, non si fa |
+| **27** | **ERRORE GRAVE SULL'EXPORT DELLE GIACENZE — segnalato il 20/08 e NON ancora guardato.** Andrea l'ha visto lavorando; la sessione è finita prima che si riuscisse a riprodurlo. È il primo da riprendere: l'export delle giacenze è la 2.0 che dà una riga per collo, e un difetto lì mente sul magazzino intero | da riprodurre |
+| **28** | **Il campionamento non sa prendere un collo intero.** Il CQ a volte ha bisogno di tutto il collo, e la rotta si rifiuta: «un campione lascia sempre un residuo». È una regola di §6, e cambiarla è una decisione di Andrea — che l'ha chiesta il 20/08. Va deciso **cosa diventa** quel movimento: se resta `SAMPLE` la promessa «i colli non calano, mai» cade e il logbook della qualità cambia significato; se diventa un prelievo, il CQ deve saperlo | da decidere |
+| **29** | **L'ODP chiuso va archiviato.** Andrea, 20/08: «una volta chiuso l'ODP con quello che rientra da WIP, l'ordine è archiviato». Oggi la chiusura dichiara il consumo e l'ordine **sparisce e basta** da `ordiniWipAperti`, che filtra sul residuo diverso da zero: non c'è nessun archivio da riaprire | da costruire |
+| **30** | **Le sei righe orfane nel vano WIP** — §1. Nessun ordine le rivendica, quindi nessuna maschera le consuma. Serve o mostrarle nella scheda del conto come «senza ordine», o una strada per renderle | da costruire |
+| **31** | **Le due righe di magazzino storte** — §1: `6000366B#123456` in `MAG-SCA-01-03-B` (elenco 101, saldo 81) e `7000924#123456` in `MAG-SPC-01` (un collo comparso senza movimento) | Andrea, da Conta |
+| **26** | **Decidere se Azure si accende.** Il ramo `server/azure/` è pronto e non lo chiama nessuno. I quattro punti che decidono stanno in `server/azure/LEGGIMI.md`, e il primo è che il magazzino si fermerebbe quando cade la linea | Andrea |
 
 **Quanto pesano le due voci qui sopra, misurato il 19/08.** La voce 5 (zone
 da caratterizzare) e la voce 6 (`pieces_per_pack`) non sono due righe di
@@ -825,7 +1112,7 @@ uscire incoerente.
 npm run dev      # sviluppo, ricarica a caldo — ATTENZIONE: parla col servizio VERO
 npm run build    # produce "consegna/Pathfinder <ver>/" — il pacchetto da consegnare
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest, 16 suite, 509 prove
+npm test         # vitest, 28 suite, 811 prove
 ```
 
 ```bash
@@ -1037,6 +1324,33 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 
 ### Consegna e ambiente
 
+- **I TRE POSTI DEL NUMERO DI VERSIONE, E `package.json` NON È NESSUNO DEI
+  TRE — 19/08.** Alzare `package.json` a `2.1.0` non sposta niente: la
+  build non lo legge. I posti veri sono
+
+  1. **`VERSIONE` in `vite.config.js`** — il nome della cartella di
+     consegna e il numero scritto in pagina;
+  2. **`VERSION` in `pathfinder-server.js`** — quello che `/api/app-info`
+     risponde come `service_version`;
+  3. **`VERSIONE_APP` in `core/pacchetto.ts`** — il timbro dentro ogni
+     export e nel piede di ogni documento stampato.
+
+  La prima build della 2.1 è uscita chiamandosi **«Pathfinder 2.0» con
+  dentro i byte della 2.1**, perché il primo era rimasto indietro: un
+  pacchetto che, installato, avrebbe riscritto `pathfinder-2.0` nel
+  deposito con byte che non sono la 2.0 — cioè avrebbe fatto sparire la
+  via di ritorno lasciandone il nome. Cartella cancellata e ricostruita.
+
+  Il secondo ha una guardia che il primo non ha: l'installer **rifiuta**
+  un pacchetto il cui servizio dichiara un numero diverso da quello
+  dell'applicativo, e lo dice con un messaggio che parla di riavvii — che
+  è la causa più comune, ma non l'unica. Il commento che diceva «si muove
+  quando cambia il contratto» era vero fino al 17/08 e falso dal 18, da
+  quando applicativo e servizio si installano insieme: adesso quel numero
+  si muove a ogni versione, contratto o no.
+
+  **Chi rilascia li cambia tutti e tre**, e la prova che sono in pari è
+  l'installer stesso, in fondo.
 - **CARICARE FILE DALL'INTERFACCIA WEB DI GITHUB SCRIVE UN ALBERO CHE NON
   ESISTE.** Il 19/08, alle 00:31 e alle 00:32, `INDEX.md`, `package.json` e
   `vite.config.js` sono finiti su `origin/main` caricati a mano dal browser,
@@ -1377,8 +1691,15 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 - **Ogni campo nuovo è facoltativo, e assente significa «come nella 1.2».** Ogni
   collezione nuova, vuota, significa lo stesso. **Nessun campo cambia mai
   significato, nessun dato viene riscritto all'installazione.**
-- **Nessuna cancellazione automatica di record.** La purga è manuale, con export
-  preventivo.
+- **NESSUNA CANCELLAZIONE DI RECORD, PUNTO — 2.1.** Fino alla 2.0 la frase
+  era «nessuna cancellazione *automatica*: la purga è manuale, con export
+  preventivo», e l'eccezione stava a un clic di distanza in Configurazione.
+  Con la 2.1 la purga non c'è più, e `purgeMovementsBefore` nemmeno: era
+  l'unica strada per cui un movimento poteva sparire da questo database. Il
+  registro è la firma GMP di chi ha mosso la merce e si tiene sei anni; un
+  modo di cancellarlo — per quanto protetto da export e doppia conferma — è
+  un modo che prima o poi qualcuno percorre. Per portare via i dati resta
+  l'export JSON, che non toglie niente da dove sta.
 - **`_format` del pacchetto di export non segue la versione dell'applicativo**:
   descrive la forma del file. A muoversi è `_appVersion`.
 - **I documenti si rileggono, non si ricostruiscono**: le ristampe partono dallo
@@ -1483,6 +1804,73 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   modificando l'ubicazione sull'oggetto che la cache già tiene, i due
   diventano lo stesso oggetto e il confronto non ha più niente da riparare.
   È successo a `moveUdc`, e a video la merce stava in due vani insieme.
+- **UN EXPORT CHE NON NOMINA LE UM RACCONTA UN ALTRO MAGAZZINO — 2.0.** Fino
+  al 19/08 il foglio delle giacenze aveva una colonna sola, «Coll.», e il
+  registro tre — prima, delta, dopo — tutte in colli: su un magazzino dove lo
+  stesso codice arriva in colli da 5 kg e la volta dopo da 25, quel conto non
+  è la merce. **Adesso il foglio delle giacenze dà una riga per collo**:
+  contare le righe dà i colli, sommare «UM Collo» dà le UM, e nessuna cella
+  ripete un totale di riga — un totale ripetuto su undici righe lo si somma
+  undici volte. La riga di un articolo senza unità esce lo stesso, una per
+  collo, con le due celle vuote.
+- **Un riepilogo che vede unità diverse non somma: dichiara MISTA.** 300 KG
+  più 40 PZ fanno 340 di niente. `modules/fogli.ts` accumula tenendo da parte
+  le unità viste: una sola e il totale vale, più d'una e la cella del totale
+  resta vuota — un'assenza, non uno zero.
+- **Il saldo in UM non esiste, il movimento in UM sì.** Un movimento porta
+  `qty_uom_delta` e la sua unità; il prima e il dopo in UM non sono mai stati
+  scritti. Il registro esce con **due colonne, non cinque**: ricostruirli
+  risalendo la catena darebbe un numero plausibile e falso su ogni riga
+  storica, che è il difetto peggiore di tutti.
+
+### Stoccaggio — 2.1
+
+- **La priorità di una regola va da 1 a 10.** Era «da zero in su» e non
+  aveva un tetto: due regole a 100 e a 3.000 si ordinano lo stesso, ma
+  nessuno sa più che numero scrivere alla terza. Una regola vecchia con 0
+  si rilegge buona — in lettura si è tolleranti, in scrittura no.
+- **La cella «Riservata» è riservata A QUALCOSA, e §6 dice a cosa**: è il
+  vano dove gli allergeni ci possono stare per decisione presa. Quindi
+  esclude la merce PULITA — che di quella decisione non ha bisogno e
+  occuperebbe il posto di chi sì — e ammette quella con allergeni. Fino
+  alla 2.0 usciva fra i vincoli duri insieme a «bloccata», e la deroga non
+  poteva scattare mai.
+- **La distanza ha un tetto.** È la posizione nella sequenza della zona:
+  senza tetto, su 274 ubicazioni decideva da sola e il raggruppamento del
+  lotto non spostava niente.
+
+### Mappa — 2.1
+
+- **La vista la decide la zona, non chi guarda.** Scaffali → frontale, con
+  «Specchia» per chi percorre la corsia nell'altro verso. Terra e sfuso →
+  dall'alto. Una scaffalatura vista dall'alto sovrappone i livelli; un'area
+  a terra vista di fronte è una fila di rettangoli alla stessa quota:
+  offrire tutte e due su ogni zona vuol dire offrire, su ogni zona, quella
+  sbagliata.
+- **Il pannello di dettaglio non copre la pianta**: la zona centrale si
+  stringe della sua larghezza. I 360px coperti erano esattamente la corsia
+  che l'operatore stava guardando, perché ci aveva appena cliccato.
+- **Un'unità di carico si disegna DENTRO il vano**, come casella annidata,
+  e si trascina. Il trascinamento passa da `moveUdc` come la maschera: non
+  è una scorciatoia che salta un controllo.
+
+### Documenti ed etichette — 2.1
+
+- **Ogni documento stampato porta in testata il proprio riferimento in
+  Code128**, e la riga sta in un posto solo — `_docHeadHTML`, da cui
+  passano tutti e sette. Chi torna dal magazzino col foglio in mano lo
+  rimette dentro col lettore invece di digitare quattordici caratteri coi
+  guanti.
+- **Un'etichetta porta solo quello che non invecchia.** Sull'unità di
+  carico l'unico dato che non invecchia è il numero — non si riusa mai:
+  ubicazione, data e operatore sono usciti perché diventano una bugia
+  incollata al legno. Su un'etichetta di merce articolo, lotto e scadenza
+  restano veri, e l'ubicazione si scrive dichiarata come «alla stampa».
+- **Le barre sono nere su bianco dichiarato**: un tema scuro che le gira le
+  rende illeggibili a qualunque lettore ottico. La carta non ha un tema.
+- **Quello che esce è Code128, non GS1-128**: manca FNC1. Dentro l'azienda
+  è ciò che serve; il giorno che le etichette escono dal cancello, il
+  modulo va esteso — non aggirato.
 
 ### Metodo e interfaccia
 
@@ -1495,6 +1883,16 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   il pacchetto di prima**, che dal 18/08 è comunque l'unica via di ritorno
   intera — un `torna-indietro.ps1` riporta solo metà versione. Chi rimette un
   interruttore rimette anche un ramo che nessun collaudo esercita.
+- **Ogni tabella si ordina e si filtra — 2.1, §3.** La regola sta in
+  `modules/tabella.ts` e le viste ci passano le colonne: l'ordinamento è
+  **stabile**, il **vuoto va in fondo nei due versi** — una data mancante
+  non è «molto vecchia», è assente — e il terzo clic sulla stessa colonna
+  riporta all'ordine di partenza, che su un registro è quello cronologico.
+- **Il cruscotto se lo compone chi lo guarda — 2.1.** Ordine, larghezza e
+  quali riquadri esistano sono un dato in `meta`, non righe di codice.
+  **Ordine e larghezza, mai coordinate in pixel.** Quello che avvisa —
+  integrità, ritiri in scadenza — **non si spegne**: è la ragione per cui
+  qualcuno deve guardare il cruscotto oggi invece che domani.
 - **Italiano ovunque**, commenti compresi. Nessun `font-size` fuori dai token
   MD3. Il marchio Naturacare non si adatta al tema: verde `#94BC47`, blu
   `#21305A`. I documenti di stampa restano in `pt` e `mm`: la carta non ha un rem.
@@ -1508,6 +1906,23 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   sigla si pretende prima di aprire il modulo.
 - I conteggi DOM/CSS di confronto fra versioni sono **misure, non invarianti**:
   chi rimisura, rimisuri entrambe.
+
+### Le tre cariche — 2.1
+
+- **`operator` · `leader` · `admin`.** L'Admin **comprende** il Team
+  Leader: dove passa un leader passa lui — autorizzare un rinnovo di PIN,
+  alzare una priorità, contare come «leader attivo». Una carica più alta
+  che potesse meno sarebbe la riga che, il giorno che si nomina Admin
+  l'unico capo del magazzino, chiude il cerchio esattamente come il 13/08.
+- **Solo l'Admin apre la Configurazione e il reset dei dati**, e il reset
+  pretende il suo PIN. Il varco sta in `renderConfig`, non in
+  `switchView`: all'avvio su un database vuoto l'applicativo porta in
+  Configurazione **prima** di chiedere chi sei.
+- **L'eccezione del primo giorno è dichiarata e si spegne da sola**:
+  finché nessun Admin esiste, comandano i Team Leader. Senza, installare
+  la 2.1 su un magazzino dove nessuno è ancora Admin murerebbe la
+  Configurazione — che è l'unico posto da cui si nomina un Admin.
+- **L'ultimo Admin non si retrocede e non si disattiva.** Stesso motivo.
 
 ### Il PIN smarrito — come si esce
 
@@ -1546,7 +1961,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `core/giacenza.ts` | 94 | FEFO e ricerca della merce |
 | `core/persistence/index.ts` · `remote.ts` · `local.ts` | 15 · 267 · 262 | Sceglie l'adapter e lo implementa: servito → HTTP, da file → Dexie |
 | `core/schema.ts` · `utils.ts` · `costanti.ts` | 173 · 46 · 44 | Schema IndexedDB e migrazioni · `debounce` e `_h` · causali e ritenzione |
-| `modules/compiti.ts` | 445 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. **Puro**: non tocca Store né il DOM |
+| `modules/compiti.ts` | 555 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. **2.1**: `registroAttivita` unisce i compiti ai campionamenti che il registro generale porta e nessun compito rivendica. **Puro**: non tocca Store né il DOM |
 | `modules/misure.ts` | 319 | Le cinque unità, la suddivisione per collo, il collo incompleto. Puro |
 | `modules/colli.ts` | 387 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, le uscite come le capisce il servizio, il ritrovamento per misura, il ponte con la 1.7. **1.8.4**: `scelteDaUscite` (le uscite messe da parte, ritrovate) e `rettifica` (da com'era a com'è). Puro |
 | `modules/documenti.ts` | 39 | **1.8.4** — la riga di un documento di uscita, ricostruita in **un posto solo**. Nasce da un difetto: era in due copie, e i colli scelti sparivano al salvataggio. Puro |
@@ -1558,7 +1973,9 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/stoccaggio.ts` | 355 | **1.13** — dove si mette la merce: vincoli duri, poi punteggio. Le regole sono un dato di `storage_rules`. Ogni proposta dice perche'. Puro |
 | `modules/wip.ts` | 240 | **1.14** — il conto di un ordine: entrato, tornato, residuo. Il consumo si dichiara **a ordine chiuso**, mai prima. **2.0**: `colliFuori` — le misure dei colli che un ordine ha ancora nel vano WIP, entrate meno quelle gia' tornate o consumate. Il vano e' UNO e ci convivono le righe di piu' ordini: senza queste misure, «rendi tre colli» non ha una risposta. Puro |
 | `modules/kpi.ts` | 330 | **2.0** — i numeri di articoli, movimenti e persone, che stanno gia' a database e nessuno sommava. Ogni movimento porta la sigla di chi l'ha fatto e ogni compito i suoi due tempi. `NON_MISURABILE` elenca cosa oggi non si puo' chiedere e quale campo servirebbe: chi cerca un numero che non trova capisce in dieci secondi se manca la funzione o manca il dato. Puro |
-| `modules/vault.ts` | 303 | Backup su cartella locale (File System Access API) |
+| `modules/code128.ts` | 150 | **2.1** — il codice a barre, disegnato in casa. Solo il sottoinsieme B, e il perché è dichiarato: copre tutto quello che questo applicativo mette in un riferimento. **Non è un GS1-128** — manca FNC1 — e sta scritto nel modulo, non in una nota. La tabella dei 107 modelli si collauda con le due invarianti dello standard, non ricopiandola. Puro |
+| `modules/cruscotto.ts` | 155 | **2.1** — il layout della Dashboard: ordine, larghezza, quali riquadri, quali scorciatoie. Riconcilia il salvato con quello che il codice sa fare oggi — un riquadro nuovo si accoda visibile, uno sparito si ignora. **Ordine e larghezza, non coordinate**: una posizione in pixel salvata su un 27 pollici, riletta a 480, mette due riquadri uno sull'altro. Puro |
+| `modules/tabella.ts` | 200 | **2.1** — ordinare e filtrare, §3. Ordinamento stabile, il vuoto in fondo nei due versi, numeri confrontati da numeri. Il markup lo costruiscono le viste: qui c'è la regola. Puro |
 | `modules/pickRoute.ts` | 246 | Percorso di prelievo a serpentina |
 | `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
 | `modules/destinatari.ts` | 200 | Chi è lo stesso destinatario (partita IVA), quale destinazione è nuova, cosa è cambiato |
@@ -1567,6 +1984,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/conformita.ts` | 155 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio al contrario |
 | `modules/validate.ts` · `auth.ts` · `session.ts` · `pickupAlert.ts` · `scanGuard.ts` | 104 · 88 · 69 · 43 · 31 | Validazioni · PIN e impronta · sessione · allerta ritiri · guardia del lettore |
 | `modules/excel.ts` | 31 | **Il punto unico da cui SheetJS si carica, e solo quando serve.** Chi rimette `import * as XLSX` in cima a un file annulla la 1.7 |
+| `modules/fogli.ts` | 47 | **2.0** — le due domande di un foglio Excel che non riguardano SheetJS: quante righe fa una giacenza (`colliDaStendere`: una per collo) e che numero scrive un riepilogo che ha visto unità diverse (`celleUom`: MISTA, e il totale vuoto). Sta qui e non nella vista perché una vista si importa solo passando da `App`, e una funzione pura non deve farlo per essere collaudata. Puro |
 | `types/entita.ts` · `contratto.ts` · `collezioni.ts` | 409 · 146 · 58 | Le entità · l'interfaccia dei due adapter · **le 20 collezioni, sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono |
 | `styles/*.css` | 3.400 | **10 file**. `00-tailwind.css` è il tema — le utility, e i token dell'applicativo riletti da `@theme`: colore, scala tipografica, spaziatura a decimi di rem, raggi, ombre, soglie. Gli altri nove — token, base, componenti, layout, viste, grafici e report — **li importa lui**, dentro `@layer app`, e `main.js` importa solo lui. L'ordine fra i nove è la cascata di sempre |
 | `ui/dialog.js` · `feedback.js` · `tabs.js` | 367 · 181 · 59 | Modali · toast e spinner · schede |
@@ -1583,12 +2001,12 @@ estrarre è spostare, e un doppione verrebbe sovrascritto in silenzio.
 
 | File | Righe | Cosa disegna |
 |---|---:|---|
-| `configDati.ts` | 1.101 | Dati, resilienza, copia esterna, i tre fogli Excel, purga e reset |
+| `configDati.ts` | 975 | Dati, resilienza, i tre fogli Excel, reset. **2.1**: copia esterna, purga e «Salva ora» non ci sono più; il reset chiede il PIN dell'Admin |
 | `spedizioni.ts` | 1.080 | DDT: testata, carrello, documento pendente, evasione, stampa |
 | `compiti.ts` | 885 | Attività: coda, misure, registro, richiesta, i quattro gesti |
 | `percorso.ts` | 970 | Prelievo guidato: ODP, serpentina, corsia, chiusura, e **1.10** il trasferimento chiesto dall'ordine |
 | `quarantena.ts` | 755 | Blocco, rilascio, cartellino di non conformità |
-| `cruscotto.ts` | 750 | Le otto sezioni della Dashboard e i suoi grafici |
+| `cruscotto.ts` | 900 | **2.1** — i tredici riquadri componibili, il catalogo delle sette scorciatoie e la scheda «Personalizza». Il contenuto dei riquadri è quello di sempre: a cambiare è chi decide l'ordine |
 | `smaltimento.ts` | 664 | Scarico in tre stadi, e i **mattoni del documento** che usano tutti |
 | `prelievo.ts` | 600 | Trasferimento e carrello di produzione |
 | `inventario.ts` | 1.035 | Inventario di vano, conta mirata, e **1.9** il ramo «Per articolo» col giro di conte e il riepilogo stampabile |
@@ -1636,6 +2054,7 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 | `installa-versione.ps1` | — | **Disinstalla e reinstalla**: toglie dal deposito la cartella di quel numero, la riscrive con i byte del pacchetto e la **materializza** in `corrente`, spostando in `precedente` quella che c'era. Avvolge anche una consegna a file singolo. `-Casa` per il banco |
 | `torna-indietro.ps1` | — | Scambia il contenuto di `corrente` e `precedente`. **Riporta indietro il solo applicativo**, non il servizio: dal 18/08 si torna indietro reinstallando il pacchetto della versione di prima — §4 |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata delle 20:00 |
+| `azure/schema-postgres.js` · `azure/migra-sqlite-postgres.js` · `azure/LEGGIMI.md` | — | **2.1 — il ramo parallelo, che non è in servizio e non lo chiama nessuno.** Lo schema PostgreSQL si genera dalla **stessa** dichiarazione di `lib/schema.js`, non da una copia; la migrazione copia una COPIA del database e ricontrolla i conteggi tavolo per tavolo. `pg` **non è** una dipendenza del progetto, ed è voluto: si installa con `--no-save` chi vuole provare. `server/azure` è escluso da `tsconfig.server.json` per la stessa ragione |
 | `test/collaudo.js` · `test/collaudo-migrazione-1.4.js` | 520 · 158 | 81 prove sul servizio vero · 8 sul cambio di schema |
 | `test/collaudo-installazione.js` | — | **22 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte; e l'**installer a doppio clic** in `-Prova`, che è il modo di provarlo senza registrare attività pianificate su questa macchina |
 
@@ -1644,8 +2063,13 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
 `compiti` (114) · `misure` (65) · `colli` (66) · `parametri` (19) · `documenti` (6) ·
-`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (22) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (38) · `wip` (24) · **`superficie-app` (2)** — **673 prove**. `ambiente.js` è
+`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (24) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** — **811 prove in 28 file**. `ambiente.js` è
 il preambolo comune.
+
+`schemaPostgres` è l'unica prova del ramo Azure che gira a ogni `npm test`,
+e serve a una cosa: che il giorno che qualcuno decide di provarlo, lo
+schema PostgreSQL descriva le stesse venti collezioni che il servizio usa
+oggi — non quelle di quando è stato scritto.
 
 `superficie-app` è la rete dell'estrazione, ed è l'unica prova che guarda
 `app.js`: i nomi che `App` espone stanno in `superficie-app.dati.js`, e la
@@ -1685,6 +2109,8 @@ scritto lì dentro trovi a chi rispondere — §7.
 | Versioni precedenti, loghi, etichette, file di prova | `ARCHIVIO/` — e **non si cancella niente**: un archivio svuotato funziona una volta sola |
 | La storia: handoff e piani fino al 17/08/2026 | `ARCHIVIO/HANDOFF STORICI/` — **memoria, non istruzioni** |
 | Cosa è stato archiviato e quando | `ARCHIVIO/archive-manifest.json` |
+| Come si disegna un'interfaccia da magazzino | `.claude/skills/erp-wms-frontend/SKILL.md` — **2.1**. Se diverge da §6, vince §6 |
+| Cosa costerebbe davvero passare ad Azure | `server/azure/LEGGIMI.md` — **2.1** |
 
 ---
 

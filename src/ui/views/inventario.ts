@@ -50,6 +50,7 @@ export const VistaInventario = {
       <div class="prel-tabs">
         <button class="prel-tab ${this._invSubMode === 'vano' ? 'active' : ''}" onclick="App._invSub('vano')"><span class="prel-tab-icon">📍</span>Per vano</button>
         <button class="prel-tab ${this._invSubMode === 'articolo' ? 'active' : ''}" onclick="App._invSub('articolo')"><span class="prel-tab-icon">📦</span>Per articolo</button>
+        <button class="prel-tab ${this._invSubMode === 'udc' ? 'active' : ''}" onclick="App._invSub('udc')"><span class="prel-tab-icon">🔀</span>Per unità</button>
       </div>
       <div id="invSubForm"></div>
       <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
@@ -68,7 +69,150 @@ export const VistaInventario = {
     const el = $('invSubForm');
     if (!el) return;
     if (this._invSubMode === 'articolo') this._invFormArticolo(el);
+    else if (this._invSubMode === 'udc') this._invFormUdc(el);
     else this._invFormVano(el);
+  },
+
+  /* ═══ 2.1 — L'INVENTARIO DI UN'UNITÀ DI CARICO ══════════════════════
+
+     IL TERZO RAMO NASCE DA UN GESTO, NON DA UNA DOMANDA. «Per vano» e «per
+     articolo» si aprono digitando; questo si apre passando il lettore
+     sull'etichetta del pallet che si ha davanti — che dalla 2.1 porta un
+     Code128 e nient'altro, apposta.
+
+     Quel che il sistema restituisce è l'ELENCO DI COSA DOVREBBE ESSERCI
+     SOPRA, e da lì parte la stessa coda di conte del ramo «per articolo»:
+     una riga per volta, nell'ordine dello scaffale, col numero di sistema
+     nascosto finché non si è contato — che è la regola di §6 e non cambia
+     perché la merce sta su un pallet invece che su una mensola.
+
+     Un'unità chiusa non si conta: non esiste più, e cercarla col lettore
+     dà una risposta chiara invece di un elenco vuoto. */
+  _invUdcState: null,
+
+  _invFormUdc(el) {
+    const st = this._invUdcState;
+    el.innerHTML = `<div>
+      <div class="wf-instructions">
+        <strong>Flusso:</strong> <span class="wf-step">① SCANSIONA L'ETICHETTA UDC</span> → il sistema elenca cosa c'è sopra → <span class="wf-step">② CONTA</span> riga per riga.
+      </div>
+      <div class="form-group mb-5">
+        <label>Unità di carico</label>
+        <div class="flex gap-3">
+          <input class="input input-mono flex-1" id="invUdcCode" placeholder="Scansiona il codice a barre dell'unità"
+            value="${this._esc(st?.udc_id || '')}"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._invUdcCerca();}">
+          <button class="btn btn-sm btn-primary" onclick="App._invUdcCerca()">Apri</button>
+        </div>
+      </div>
+      <div id="invUdcContent"></div>
+    </div>`;
+    this.setPrimaryScanField('invUdcCode');
+    if (st) this._invUdcRender();
+  },
+
+  _invUdcCerca() {
+    const q = Validate.clean($('invUdcCode')?.value, true);
+    if (!q) return;
+    const u = Store.getUdc(q);
+    if (!u) {
+      this._invUdcState = null;
+      const box = $('invUdcContent');
+      if (box) box.innerHTML = `<div class="mov-preview mov-preview-err"><strong>${this._esc(q)}</strong> non esiste.</div>`;
+      return;
+    }
+    if (u.status === 'empty' || u.status === 'shipped') {
+      this._invUdcState = null;
+      const box = $('invUdcContent');
+      if (box) box.innerHTML = `<div class="mov-preview mov-preview-warn">
+        <strong>${this._esc(q)}</strong> è <strong>${this._esc(u.status)}</strong>: l'unità è chiusa e non porta più niente.
+        Il record resta come storia — non si riapre e il codice non si riusa.</div>`;
+      return;
+    }
+    this._invUdcState = { udc_id: u.udc_id, sel: null };
+    this._invUdcRender();
+  },
+
+  _invUdcRighe() {
+    const st = this._invUdcState;
+    return st ? Store.righeDiUdc(st.udc_id) : [];
+  },
+
+  _invUdcRender() {
+    const st = this._invUdcState;
+    const box = $('invUdcContent');
+    if (!st || !box) return;
+    const righe = this._invUdcRighe();
+    const u = Store.getUdc(st.udc_id);
+
+    /* Alla prima apertura sono spuntate tutte: chi ha il pallet davanti lo
+       conta intero, e togliere una riga è l'eccezione. */
+    if (st.sel === null) st.sel = righe.map((r: Giacenza) => r.item_key);
+    const vive = new Set(righe.map((r: Giacenza) => r.item_key));
+    st.sel = st.sel.filter((k: string) => vive.has(k));
+
+    if (!righe.length) {
+      box.innerHTML = `<div class="mov-preview mov-preview-warn">
+        <strong>${this._esc(st.udc_id)}</strong> non porta nessuna riga. Si chiuderà da sola appena qualcosa entra ed esce.</div>`;
+      return;
+    }
+
+    const colli = righe.reduce((t: number, r: Giacenza) => t + (r.qty || 0), 0);
+    let html = `<div class="mov-preview mov-preview-ok mb-5">
+      <strong class="mono">${this._esc(st.udc_id)}</strong> · ${this._esc(u?.type || 'pallet')}
+      · 📍 <strong>${this._esc(u?.location_code || '— senza ubicazione')}</strong><br>
+      <strong>${righe.length} rig${righe.length === 1 ? 'a' : 'he'}</strong> · ${colli} Coll. dichiarati a sistema
+    </div>`;
+
+    for (const r of righe) {
+      const spuntata = st.sel.includes(r.item_key);
+      html += `<div class="inv-item-row">
+        <input type="checkbox" ${spuntata ? 'checked' : ''} onchange="App._invUdcToggle('${this._esc(r.item_key)}')">
+        <div class="inv-info">
+          <div class="inv-code">${this._esc(r.article_code)}
+            <span class="font-normal text-body-small text-sx-text-secondary">${this._esc(r.article_description || '')}</span></div>
+          <div class="inv-lot">Lotto ${this._esc(r.lot_code)}
+            ${r.expiry_date ? ` · ⏱ ${this._esc(this._dateISOtoIT(r.expiry_date))}` : ''}
+            · 📍 ${this._esc(r.location_code)}</div>
+        </div>
+      </div>`;
+    }
+
+    const n = st.sel.length;
+    html += `<div class="flex gap-3 flex-wrap my-5">
+        <button class="btn btn-sm" onclick="App._invUdcTutti(true)">Seleziona tutto</button>
+        <button class="btn btn-sm" onclick="App._invUdcTutti(false)">Nessuno</button>
+      </div>
+      <button class="btn btn-primary w-full p-5.5 font-bold" ${n ? '' : 'disabled'} onclick="App._invUdcConta()">
+        🔢 CONTA ${n ? `${n} rig${n === 1 ? 'a' : 'he'}` : '— spunta almeno una riga'}
+      </button>`;
+    box.innerHTML = html;
+  },
+
+  _invUdcToggle(itemKey) {
+    const st = this._invUdcState;
+    if (!st) return;
+    const i = st.sel.indexOf(itemKey);
+    if (i >= 0) st.sel.splice(i, 1); else st.sel.push(itemKey);
+    this._invUdcRender();
+  },
+
+  _invUdcTutti(on) {
+    const st = this._invUdcState;
+    if (!st) return;
+    st.sel = on ? this._invUdcRighe().map((r: Giacenza) => r.item_key) : [];
+    this._invUdcRender();
+  },
+
+  _invUdcConta() {
+    const st = this._invUdcState;
+    if (!st) return;
+    if (!this._requireOperator('la conta')) return;
+    const coda = this._invUdcRighe()
+      .filter((r: Giacenza) => st.sel.includes(r.item_key))
+      .map((r: Giacenza) => ({ location_code: r.location_code, item_key: r.item_key }));
+    if (!coda.length) return this.toast('Nessuna riga da contare: quelle spuntate non sono più sull\u2019unità', 'error');
+    this._contaAvviaCoda(coda);
   },
 
   _invFormVano(el) {
@@ -319,7 +463,7 @@ export const VistaInventario = {
           }
         }
         if (diff.entrate.length) {
-          const res = await Store.addItem(loc, it.article_code, it.article_description as string, it.lot_code, it.expiry_date || '', '', diff.entrate.length, null, diff.entrate);
+          const res = await Store.addItem(loc, it.article_code, it.article_description ?? '', it.lot_code, it.expiry_date || '', '', diff.entrate.length, null, diff.entrate);
           if (res.ok) {
             await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `${motivo} · trovati ${formattaQuantita(totaleUomColli(diff.entrate, cfg!.uom), cfg!.uom)} ${cfg!.uom}`, '', res.qty_before, diff.entrate.length, res.qty_after);
             corrections++;
@@ -351,7 +495,7 @@ export const VistaInventario = {
           // FIX+: aggiungi delta colli (incrementa record esistente)
           /* DIFETTO NOTO — una riga senza descrizione la scrive `undefined`
              in giacenza; vedi `giacenze.ts`. Non si corregge qui. */
-          const res = await Store.addItem(loc, it.article_code, it.article_description as string, it.lot_code, it.expiry_date || '', '', delta);
+          const res = await Store.addItem(loc, it.article_code, it.article_description ?? '', it.lot_code, it.expiry_date || '', '', delta);
           if (res.ok) {
             await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `Conta fisica: ${it.counted_qty}/${sysQty}`, '', sysQty, delta, it.counted_qty);   // v2.0.1 [B7]
             corrections++;
@@ -363,7 +507,7 @@ export const VistaInventario = {
     // Extras: nuovi item trovati fisicamente
     for (const ex of extras) {
       const exQty = ex.qty || 1;
-      const res = await Store.addItem(loc, ex.article_code, ex.article_description as string, ex.lot_code, '', '', exQty);
+      const res = await Store.addItem(loc, ex.article_code, ex.article_description ?? '', ex.lot_code, '', '', exQty);
       if (res.ok) {
         await this._logMov(MOV.FIX_IN, ex.article_code, ex.article_description, ex.lot_code, loc, null, Store.getCurrentIdentity().initials, 'Item extra trovato a inventario', '', res.qty_before, exQty, res.qty_after);   // v2.0.1 [B7]
         corrections++;
@@ -1029,6 +1173,7 @@ export const VistaInventario = {
       dateVal: this._fmtStamp(Date.now()),
       body,
       docId: `GIAC-${st.code}`,
+      flow: true,
       signs: [{ role: 'Operatore magazzino', hint: 'Data e firma' }],
     }));
   },

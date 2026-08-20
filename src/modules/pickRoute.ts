@@ -87,6 +87,25 @@ const PickRoute = {
     catch (err) { console.warn('[WM] PickRoute: ordine siti non salvabile', err); }
   },
 
+  /* 2.1 — IL MAGAZZINO DI PARTENZA DICHIARATO. Sta accanto all'ordine di
+     visita e non dentro l'ordine: sono due preferenze diverse — da dove si
+     comincia, e in che sequenza si visita il resto — e tenerle in un campo
+     solo vorrebbe dire che spostare un magazzino in coda cambia anche da
+     dove parte il giro. Vuoto = decide il conteggio delle righe. */
+  CASA_KEY: 'wm_pickroute_casa',
+
+  getCasaScelta(): string {
+    try { return String(localStorage.getItem(this.CASA_KEY) || ''); }
+    catch { return ''; }
+  },
+
+  setCasaScelta(siteId: string | null): void {
+    try {
+      if (siteId) localStorage.setItem(this.CASA_KEY, String(siteId));
+      else localStorage.removeItem(this.CASA_KEY);
+    } catch (err) { console.warn('[WM] PickRoute: magazzino di partenza non salvabile', err); }
+  },
+
   _serpentineCompare(geo: Geometria, siteRank: Map<string, number>) {
     return (a: Ordinabile, b: Ordinabile): number => {
       const ga: Coordinate | undefined = geo.get(a.location_code);
@@ -121,7 +140,7 @@ const PickRoute = {
      GLI ALTRI SITI RESTANO NELL'ORDINE DI VISITA, che e' la preferenza di
      chi cammina: casa passa davanti, il resto non si tocca. */
   _ordineDiVisita(stops: readonly Tappa[], siteOrder: string[]): Map<string, number> {
-    const casa = sitoDiCasa(stops, siteOrder);
+    const casa = sitoDiCasa(stops, siteOrder, this.getCasaScelta());
     const rank = new Map(siteOrder.map((id, i) => [id, i + 1] as const));
     if (casa) rank.set(casa, 0);
     return rank;

@@ -68,12 +68,30 @@ export interface RichiestaTrasferimento {
 
     A PARITÀ decide l'ordine di visita, che è la preferenza dell'operatore:
     due magazzini con lo stesso numero di righe sono davvero equivalenti, e a
-    quel punto sceglie chi cammina. */
+    quel punto sceglie chi cammina.
+
+    2.1 — E SE QUALCUNO LO DICHIARA, COMANDA LUI. «Dove c'è il grosso della
+    merce» è una regola giusta il giorno che nessuno sa niente di più: il
+    turno che comincia da MAG1 perché il camion scarica lì, o perché il
+    muletto è già di là, sa una cosa che il conteggio delle righe non può
+    sapere. La scelta dichiarata vince, e sposta con sé tutto il resto —
+    l'ordine del giro, l'avviso «in un altro magazzino» e quali righe
+    chiedono un trasferimento intermedio: sono la stessa domanda letta da
+    tre punti, e devono rispondere insieme.
+
+    UNA SCELTA CHE NON HA RIGHE NON È UNA SCELTA. Dichiarare casa un
+    magazzino dove l'ordine non preleva niente farebbe risultare «altrove»
+    ogni tappa: un avviso che si accende su tutto non dice niente — è
+    esattamente il difetto che la regola dei più prelievi ha chiuso il
+    19/08. In quel caso la scelta si ignora e si torna a contare. */
 export function sitoDiCasa(
   stops: readonly Tappa[] | null | undefined,
   ordineVisita: readonly string[] | null | undefined,
+  scelto: string | null | undefined = null,
 ): string {
   if (!stops?.length) return '';
+  const dichiarato = String(scelto ?? '').trim();
+  if (dichiarato && stops.some(t => t.site_id === dichiarato)) return dichiarato;
   const quante = new Map<string, number>();
   for (const t of stops) {
     const s = t.site_id;

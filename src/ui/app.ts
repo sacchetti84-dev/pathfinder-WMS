@@ -118,7 +118,6 @@ interface DalleViste {
   _renderRecoveryBanner(): void;
   _recoveryQueue(): unknown[];
   _saveCheckpoint(): Promise<void>;
-  _scheduleVaultBackup(): Promise<void>;
   _onReadOnlyChange(readOnly: boolean): void;
   _blockedByReadOnly(): boolean;
   _refreshSessionLog(): void;
@@ -377,8 +376,6 @@ const App = monolite({
 
     // Auto-backup OPFS settimanale (silenzioso, in background)
     this._scheduleAutoBackup();
-    // v2.8.0 [H4] — Copia esterna giornaliera sulla cartella configurata
-    this._scheduleVaultBackup();
 
     await this._migrateLegacyOperators();
     Session.init(() => this._onSessionExpired());
@@ -516,10 +513,10 @@ const App = monolite({
   /* ── [G7] Wizard del primo Team Leader ────────────────────────────── */
   _renderFirstLeaderWizard() {
     this._gateShell(
-      '👑 Primo accesso — Team Leader',
+      '🛡 Primo accesso — Admin',
       `<p class="text-body-medium text-sx-text-secondary leading-[1.6] mb-8">
-        Non risulta alcun <strong>Team Leader</strong> in anagrafica. Ne serve almeno uno:
-        è chi può creare gli operatori e rinnovare i PIN smarriti.<br>
+        Non risulta alcun operatore in anagrafica. Il primo nasce <strong>Admin</strong>:
+        è chi crea gli altri, rinnova i PIN smarriti e apre la Configurazione.<br>
         Le <strong>iniziali</strong> sono ciò che verrà scritto su ogni movimento per la tracciabilità GMP.
       </p>
       <div class="form-row mb-6">
@@ -539,7 +536,7 @@ const App = monolite({
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._confirmFirstLeader()}"></div>
       </div>
       <div id="wizError" class="gate-error"></div>`,
-      '<button class="btn btn-primary" onclick="App._confirmFirstLeader()">Crea Team Leader e accedi</button>'
+      '<button class="btn btn-primary" onclick="App._confirmFirstLeader()">Crea Admin e accedi</button>'
     );
     setTimeout(() => document.getElementById('wizFirst')?.focus(), 80);
   },
@@ -558,10 +555,10 @@ const App = monolite({
     if (pin !== pin2) return err('I due PIN non coincidono.');
     try {
       const fields = await Auth.buildPinFields(pin);
-      const rec = await Store.addOperator({ first_name: first, last_name: last, initials: init, role: 'leader', ...fields });
+      const rec = await Store.addOperator({ first_name: first, last_name: last, initials: init, role: 'admin', ...fields });
       this._activateOperator(rec);
       this._closeIdentityGate();
-      this.toast(`👑 Team Leader ${rec.initials} creato — sei collegato`, 'success');
+      this.toast(`🛡 Admin ${rec.initials} creato — sei collegato`, 'success');
       if (this.currentView === 'config') this.renderConfig();
     } catch (e) {
       err((e as Error).message || 'Creazione non riuscita.');
@@ -606,7 +603,7 @@ const App = monolite({
         ? `${this._esc(o.initials)} · ${this._esc([o.first_name, o.last_name].filter(Boolean).join(' '))}`
         : `${this._esc(o.initials)} <span class="opacity-70">(da completare)</span>`;
       return `<button type="button" class="op-pill ${o.op_id === this._loginSelectedId ? 'active' : ''}"
-        onclick="App._selectLoginOp('${o.op_id}')">${o.role === 'leader' ? '👑 ' : ''}${label}</button>`;
+        onclick="App._selectLoginOp('${o.op_id}')">${o.role === 'operator' ? '' : this._etichettaRuolo(o.role).icona + ' '}${label}</button>`;
     }).join('');
   },
 
@@ -701,7 +698,7 @@ const App = monolite({
       if (this.currentView === 'movimenta') this.renderMovimenta();
       this.toast(`Operazione aperta da ${previous} annullata: al lavoro c’è ora ${op.initials}`, 'warning');
     }
-    this.toast(`👤 Operatore: ${op.initials}${op.role === 'leader' ? ' (Team Leader)' : ''}`, 'success');
+    this.toast(`${this._etichettaRuolo(op.role).icona} Operatore: ${op.initials} (${this._etichettaRuolo(op.role).nome})`, 'success');
   },
 
   _hasOpenCart() {
@@ -735,7 +732,7 @@ const App = monolite({
       `<div class="text-body-medium leading-[1.7]">
         <div><strong>${this._esc([op?.first_name, op?.last_name].filter(Boolean).join(' ') || '—')}</strong></div>
         <div>Iniziali <span class="mono font-bold">${this._esc(this.currentOperator)}</span>
-             · ${op?.role === 'leader' ? '👑 Team Leader' : 'Operatore'}</div>
+             · ${this._etichettaRuolo(op?.role).icona} ${this._etichettaRuolo(op?.role).nome}</div>
         <div class="text-body-small text-sx-text-muted mt-4">
           Blocco automatico dopo ${Session.getTimeoutMinutes() ? Session.getTimeoutMinutes() + ' min di inattività' : 'mai (disattivato)'}.
         </div>
@@ -761,13 +758,21 @@ const App = monolite({
     });
   },
 
+  /* 2.1 — il ruolo si scrive in un posto solo: quattro punti lo dicevano
+     ciascuno a modo suo, e la carica nuova sarebbe comparsa in tre. */
+  _etichettaRuolo(ruolo: string | null | undefined) {
+    return ruolo === 'admin' ? { icona: '🛡', nome: 'Admin' }
+         : ruolo === 'leader' ? { icona: '👑', nome: 'Team Leader' }
+         : { icona: '👤', nome: 'Operatore' };
+  },
+
   _renderOperatorBadge() {
     const el = document.getElementById('operatorBadge');
     if (!el) return;
     if (this.currentOperator) {
-      const leader = this.currentOperatorRecord?.role === 'leader';
-      el.textContent = `${leader ? '👑' : '👤'} ${this.currentOperator}`;
-      el.title = `Operatore corrente: ${this.currentOperator}${leader ? ' (Team Leader)' : ''} — clicca per cambiare o bloccare`;
+      const r = this._etichettaRuolo(this.currentOperatorRecord?.role);
+      el.textContent = `${r.icona} ${this.currentOperator}`;
+      el.title = `Operatore corrente: ${this.currentOperator} (${r.nome}) — clicca per cambiare o bloccare`;
       el.classList.remove('op-badge-empty');
     } else {
       el.textContent = '👤 —';
@@ -781,11 +786,16 @@ const App = monolite({
     if (!list.length) {
       return this.toast('Nessuna copia locale presente — creane una con il pulsante accanto', 'info');
     }
+    /* IL CAST NASCONDEVA IL NOME SBAGLIATO. `listBackups` torna
+       `lastModified`, non `modified`: la colonna Data stampava un trattino
+       su ogni riga, e un trattino non e' un errore — nessuno l'ha letto
+       come tale finche' il compilatore non ha chiesto di che tipo fosse
+       `b`. Qui non serve nessun cast: il tipo ce l'ha gia'. */
     const righe = list.map(b => `<tr>
       <td class="mono">${this._esc(b.name)}</td>
       <td class="mono">${(b.size / 1024).toFixed(0)} KB</td>
-      <td>${(b as { modified?: number }).modified
-              ? new Date((b as { modified?: number }).modified!).toLocaleString('it-IT') : '—'}</td>
+      <td>${b.lastModified
+              ? new Date(b.lastModified).toLocaleString('it-IT') : '—'}</td>
       <td><button class="btn btn-sm btn-accent" onclick="App.restoreOPFSBackup('${this._esc(b.name)}')">♻ Ripristina</button></td>
     </tr>`).join('');
     this.showModal(
@@ -1132,6 +1142,38 @@ const App = monolite({
     const el = document.getElementById(previewId);
     if (!el) return;
     if (!code || code.length < 3) { el.innerHTML = ''; return; }
+    /* 2.1  IL CAMPO ACCETTA ANCHE UN'UNITA' DI CARICO, E L'ANTEPRIMA
+       DEVE SAPERLO.
+
+       Il posizionamento prende come destinazione un vano OPPURE il codice
+       di un'unita' aperta  un campo solo, perche' chi ha il lettore in
+       mano scansiona quello che ha davanti e non deve sapere in quale
+       casella va cosa. Ma l'anteprima cercava solo fra le ubicazioni, e a
+       un'etichetta di pallet rispondeva «non trovata» in rosso: la
+       conferma sarebbe andata a buon fine, e intanto lo schermo diceva a
+       chi sta lavorando che quel codice non esiste. Trovato da Andrea in
+       produzione, alla prima scansione, il 19/08.
+
+       Qui si dice cosa succedera' davvero: quale unita', in quale vano, e
+       quante righe ci sono gia' sopra. */
+    const versoUdc = Store.getUdcAperte().find(u => u.udc_id === code);
+    if (versoUdc) {
+      const dove = String(versoUdc.location_code || '').trim();
+      const righe = Store.righeDiUdc(versoUdc.udc_id).length;
+      el.innerHTML = dove
+        ? `<div class="mov-preview mov-preview-ok">
+            <div class="flex justify-between items-center">
+              <div>🔀 <span class="mono font-bold">${this._esc(code)}</span>
+              <span class="text-body-small text-sx-text-muted ml-4">unità di carico · ${this._esc(versoUdc.type || 'pallet')}</span></div>
+              <div><span class="badge badge-green">📍 ${this._esc(dove)}</span>
+              <span class="text-label-small text-sx-text-muted ml-3">${righe} righe sopra</span></div>
+            </div>
+            <div class="text-label-small text-sx-text-muted mt-2">La merce si posiziona nel vano dell'unità e le resta sopra: spostando l'unità, si sposta anche lei.</div>
+          </div>`
+        : `<div class="mov-preview mov-preview-err">⚠ <span class="mono">${this._esc(code)}</span> non ha un'ubicazione: posizionala prima, o scegli un vano</div>`;
+      return;
+    }
+
     const info = this._getLocInfo(code);
     if (info) {
       const cls = info.status === 'blocked' ? 'err' : info.status === 'occupied' ? 'ok' : info.status === 'reserved' ? 'warn' : '';
@@ -1211,6 +1253,7 @@ const App = monolite({
         setTimeout(() => {
           this.renderDetail(code);
           nodo('detailPanel').classList.remove('collapsed');
+          document.body.classList.add('detail-open');
           this._flashLocation(code);
         }, 50);
         this.renderSidebar();
@@ -1234,7 +1277,14 @@ const App = monolite({
   },
 
   // ═══ Modals CRUD ═══
+  /* Si toglie quello di prima: `modalOverlay` e' uno solo, come gia' fanno
+     `_pickLoc`, `_scegliColli` e `_shipMostraDestinazioni` con i loro id.
+     Senza questa riga una finestra che si ridisegna da dentro un proprio
+     gestore — Personalizza il cruscotto, a ogni spunta — ne impila una nuova
+     sopra l'altra, e `closeModal()` toglie la PRIMA del documento, cioe'
+     quella sotto: si clicca Chiudi tante volte quante sono le modifiche. */
   showModal(title: string, bodyHtml: string, footerHtml = '') {
+    document.getElementById('modalOverlay')?.remove();
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'modalOverlay';
@@ -1255,7 +1305,7 @@ const App = monolite({
     const text = document.getElementById('syncText');
     const btn = document.getElementById('syncIndicator');
     if (!dot || !text) return;
-    if (this._saving) return;   // durante il checkpoint comanda manualSave()
+    if (this._saving) return;   // durante il checkpoint comanda _saveCheckpoint()
     const when = meta.lastModified
       ? new Date(meta.lastModified).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
       : 'mai';
@@ -1263,36 +1313,25 @@ const App = monolite({
     if (meta.unsavedChanges) {
       dot.classList.add('unsaved');
       text.textContent = 'Non salvato';
-      if (btn) btn.title = `Ci sono modifiche non salvate — ultimo salvataggio: ${when}. Clicca per salvare ora.`;
+      if (btn) btn.title = `Ci sono modifiche non ancora scritte — ultimo salvataggio: ${when}.`;
     } else {
       dot.classList.remove('unsaved');
       text.textContent = 'Salvato';
-      if (btn) btn.title = `Salvato — ultimo checkpoint: ${when}. Clicca per salvare di nuovo.`;
+      if (btn) btn.title = `Salvato — ultimo checkpoint: ${when}.`;
     }
   },
 
+  /* 2.1 — IL SALVATAGGIO A MANO NON C'È PIÙ.
+
+     `manualSave` viveva sotto il clic dell'indicatore in barra ed era la
+     terza faccia dello stesso gesto — «💾 Salva ora» in Configurazione, la
+     stessa in Dashboard, e questa. Non c'era niente da forzare: ogni
+     mutazione passa già da `Persistence`, e il checkpoint resta dove serve
+     davvero — all'uscita dell'operatore e alla scadenza della sessione, dove
+     chi smonta non deve ricordarsi di premere nulla.
+
+     L'indicatore resta, e dice soltanto: è il suo mestiere. */
   _saving: false,
-  async manualSave() {
-    if (this._saving) return;
-    const dot = document.getElementById('syncDot');
-    const text = document.getElementById('syncText');
-    const btn = pulsante('syncIndicator');
-    this._saving = true;
-    dot?.classList.remove('unsaved');
-    dot?.classList.add('saving');
-    if (text) text.textContent = 'Salvataggio…';
-    if (btn) { btn.disabled = true; btn.title = 'Checkpoint in corso…'; }
-    try {
-      await this._saveCheckpoint();   // riscontro e ridisegno stanno gia' li'
-      dot?.classList.remove('error');
-    } catch {
-      dot?.classList.add('error');    // il messaggio d'errore l'ha gia' dato _saveCheckpoint
-    } finally {
-      this._saving = false;
-      if (btn) btn.disabled = false;
-      this.updateSyncIndicator();
-    }
-  },
 
   toast(message: unknown, type = 'info') {
     const kindMap = { success: 'ok', error: 'error', warning: 'warn', info: 'info' };

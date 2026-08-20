@@ -484,6 +484,13 @@ export const VistaPrelievo = {
     this._prodOrderNum = Validate.clean($('pProdOrder')?.value) || this._prodOrderNum;
     this._prodOperator = Validate.clean($('pProdOperator')?.value) || this._prodOperator;
     if (!this._prodOrderNum) return this.toast('N° ordine produzione obbligatorio', 'error');
+    /* 2.1 — UN ORDINE CHIUSO NON RIPRENDE, e lo si dice PRIMA di scaricare
+       lo scaffale. `entraInWip` lo rifiuta comunque, ma li' la merce e' gia'
+       fuori — e un prelievo non si annulla per un problema di contabilita'.
+       Qui non e' ancora successo niente. */
+    if (Store.ordineWipArchiviato(this._prodOrderNum)) {
+      return this.toast(`L'ordine ${this._prodOrderNum} e' chiuso e archiviato: non torna in lavorazione. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
+    }
     const opErr = Validate.operator(this._prodOperator);
     if (opErr) return this.toast(opErr, 'error');
 

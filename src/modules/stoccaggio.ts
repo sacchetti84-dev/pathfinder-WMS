@@ -70,7 +70,9 @@ export interface PostoCandidato {
 export interface RegolaStoccaggio {
   rule_id: string;
   attiva?: boolean;
-  /** Più alta = decide prima, a parità di tipo. */
+  /** Da 1 a 10: più alta = decide prima, a parità di tipo. Una regola
+      scritta prima della 2.1 puo' portare 0, e continua a valere — in
+      lettura si e' tolleranti, in scrittura no. */
   priority?: number;
   /** Su cosa si applica: prefisso del codice articolo. */
   article_prefix?: string;
@@ -127,9 +129,27 @@ export const PUNTI = Object.freeze({
   VUOTO: 10,
   /** Quanto pesa un passo di distanza, in negativo. */
   PASSO: -1,
+  /** 2.1 — QUANTO PUO' PESARE LA DISTANZA IN TUTTO.
+
+      Senza un tetto la distanza decideva da sola: `distanza` e' la
+      posizione nella sequenza della zona, e una zona da 274 ubicazioni
+      arriva a −273 punti mentre «qui c'e' gia' questo articolo» ne vale 40.
+      Il raggruppamento del lotto non ha mai spostato una proposta.
+
+      Quindici e' meno di STESSO_ARTICOLO e di REGOLA_PREFERISCE, e piu' di
+      VUOTO: fra due vani lontani uguale decide il raggruppamento, fra due
+      vani equivalenti decide chi fa camminare meno, e oltre i quindici
+      passi la differenza di cammino smette di contare — che e' quello che
+      succede in magazzino, dove il giro lo fa il carrello. */
+  DISTANZA_MAX: 15,
 });
 
 const SCALA: Record<ClasseTemperatura, number> = { SURG: 0, REFR: 1, AMB: 2 };
+
+/** 2.1 — la scala della priorità di una regola: chiusa, e in un posto solo. */
+export const PRIORITA_MIN = 1;
+export const PRIORITA_MAX = 10;
+export const PRIORITA_PREDEFINITA = 5;
 
 /** Le regole che riguardano questo articolo, dalla più forte alla più
     debole. Una regola spenta non si applica, e una senza bersaglio nemmeno:
@@ -166,9 +186,16 @@ export function validaRegola(r: Partial<RegolaStoccaggio> | null | undefined): s
   if (r.modo && r.modo !== 'impone' && r.modo !== 'preferisce') {
     errori.push('Il modo è «impone» oppure «preferisce»');
   }
+  /* 2.1 — LA SCALA E' DA 1 A 10. Prima era «da zero in su» e non aveva un
+     tetto: due regole a 100 e a 3.000 si ordinano lo stesso, ma nessuno sa
+     piu' che numero scrivere alla terza. Una scala chiusa e' una scala che
+     si legge. Chi rilegge una regola vecchia con 0 la trova ancora buona. */
   const p = r.priority;
-  if (p !== undefined && p !== null && (!Number.isFinite(Number(p)) || Number(p) < 0)) {
-    errori.push('La priorità è un numero da zero in su');
+  if (p !== undefined && p !== null && p !== 0) {
+    const n = Number(p);
+    if (!Number.isInteger(n) || n < PRIORITA_MIN || n > PRIORITA_MAX) {
+      errori.push(`La priorità è un numero intero da ${PRIORITA_MIN} a ${PRIORITA_MAX}`);
+    }
   }
   return errori;
 }
@@ -207,10 +234,32 @@ export function proponi(
   for (const posto of posti) {
     /* ── I VINCOLI DURI. Chi non passa esce, e nessun punteggio lo salva. */
     const stato = posto.status || 'empty';
-    if (stato === 'blocked' || stato === 'disabled' || stato === 'reserved') {
+    if (stato === 'blocked' || stato === 'disabled') {
       esclusi.push({
         location_code: posto.location_code, motivo: 'stato',
-        messaggio: `Ubicazione ${stato === 'blocked' ? 'bloccata' : stato === 'disabled' ? 'disattivata' : 'riservata ad altro'}`,
+        messaggio: `Ubicazione ${stato === 'blocked' ? 'bloccata' : 'disattivata'}`,
+      });
+      continue;
+    }
+
+    /* 2.1 — LA CELLA RISERVATA ERA IRRAGGIUNGIBILE, e la deroga con lei.
+
+       Fino alla 2.0 `reserved` usciva qui insieme a «bloccata» e
+       «disattivata», e trenta righe piu' in basso `posto.riservata` — che
+       chi costruisce i candidati calcola proprio come `stato ===
+       'reserved'` — avrebbe fatto derogare gli allergeni. Non e' mai
+       successo: il vano era gia' fuori. La deroga esisteva nei collaudi
+       perche' li' `riservata` e `status` si passano separati, cioe' in una
+       combinazione che il chiamante vero non produce.
+
+       «Riservata» vuol dire riservata A QUALCOSA, e §6 dice a cosa: e' il
+       vano dove gli allergeni ci possono stare per decisione presa. Quindi
+       esclude la merce PULITA — che di quella decisione non ha bisogno e
+       occuperebbe il posto di chi si' — e ammette quella con allergeni. */
+    if (stato === 'reserved' && !allergeniMerce.length) {
+      esclusi.push({
+        location_code: posto.location_code, motivo: 'stato',
+        messaggio: 'Ubicazione riservata: ci va la merce con allergeni, non questa',
       });
       continue;
     }
@@ -307,7 +356,7 @@ export function proponi(
     }
 
     if (typeof posto.distanza === 'number' && posto.distanza >= 0) {
-      punti += posto.distanza * PUNTI.PASSO;
+      punti += Math.min(posto.distanza, PUNTI.DISTANZA_MAX) * PUNTI.PASSO;
       if (posto.distanza === 0) perche.push('All’ingresso della corsia');
     }
 
