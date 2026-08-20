@@ -738,3 +738,45 @@ describe('righeSenzaOrdine', () => {
     expect(righeSenzaOrdine([], [{ item_key: '  ', qty: 1 }, { qty: 2 }])).toEqual([]);
   });
 });
+
+describe('il numero d ordine non ha un caso', () => {
+  /* 20/08 in produzione: i conti aperti erano elencati e nessuno si apriva.
+     Il prelievo scriveva «prova6», la maschera chiedeva «PROVA6». */
+  it('conto trova un ordine scritto in minuscolo', () => {
+    const c = conto([
+      mov('prova6', 'A#L1', 'in', 5),
+      mov('prova6', 'A#L1', 'out', 2),
+    ], 'PROVA6');
+    expect(c.righe).toHaveLength(1);
+    expect(c.righe[0]).toMatchObject({ entrato: 5, tornato: 2, residuo: 3 });
+    expect(c.odp_num).toBe('PROVA6');
+  });
+
+  it('e un ordine scritto in maiuscolo cercato in minuscolo', () => {
+    const c = conto([mov('ODP-9', 'A#L1', 'in', 4)], 'odp-9');
+    expect(c.entrato).toBe(4);
+  });
+
+  it('gli ordini restano distinti: il caso non fonde due numeri diversi', () => {
+    const c = conto([
+      mov('prova6', 'A#L1', 'in', 5),
+      mov('PROVA7', 'A#L1', 'in', 99),
+    ], 'PROVA6');
+    expect(c.entrato).toBe(5);
+  });
+
+  it('archiviato riconosce la chiusura scritta con un altro caso', () => {
+    const m = [mov('prova3', 'A#L1', 'in', 1), { odp_num: 'prova3', verso: 'chiuso', ts: 7 }];
+    expect(archiviato(m, 'PROVA3')).toBe(true);
+  });
+
+  it('ordiniArchiviati elenca in maiuscolo', () => {
+    const m = [{ odp_num: 'prova3', verso: 'chiuso', ts: 7 }];
+    expect(ordiniArchiviati(m)).toEqual([{ odp_num: 'PROVA3', chiuso_il: 7 }]);
+  });
+
+  it('colliFuori ritrova le misure di un ordine minuscolo', () => {
+    const m = [{ odp_num: 'prova6', item_key: 'A#L1', verso: 'in', qty: 2, packs: [25, 10] }];
+    expect(colliFuori(m, 'PROVA6', 'A#L1')).toEqual([25, 10]);
+  });
+});

@@ -272,8 +272,8 @@ export const VistaPrelievo = {
       </div>
       <div class="form-row mb-5">
         <div class="form-group"><label>N° Ordine Produzione <span class="req">*</span></label>
-          <input class="input input-mono" id="pProdOrder" placeholder="Scansiona o digita ordine" maxlength="40" value="${this._esc(this._prodOrderNum)}"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();App._prodOrderNum=this.value;$('pProdOperator')?.focus();}"></div>
+          <input class="input input-mono uppercase" id="pProdOrder" placeholder="Scansiona o digita ordine" maxlength="40" value="${this._esc(this._prodOrderNum)}"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._prodOrderNum=this.value.trim().toUpperCase();$('pProdOperator')?.focus();}"></div>
         <div class="form-group"><label>Operatore <span class="req">*</span></label>
           <input class="input" id="pProdOperator" placeholder="Nome operatore" maxlength="${Validate.MAX.OPERATOR}" value="${this._esc(this._prodOperator)}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._prodOperator=this.value;$('pProdArt')?.focus();}"></div>
@@ -333,7 +333,7 @@ export const VistaPrelievo = {
       $('pProdLot')?.focus();
       return;
     }
-    this._prodOrderNum = Validate.clean($('pProdOrder')?.value) || this._prodOrderNum;
+    this._prodOrderNum = Validate.clean($('pProdOrder')?.value, true) || this._prodOrderNum;
     this._prodOperator = Validate.clean($('pProdOperator')?.value) || this._prodOperator;
     const all = Store.findItemLocations(art);
     const allForLot = all.filter(it => it.lot_code === lot);
@@ -481,7 +481,7 @@ export const VistaPrelievo = {
   async _execProduzione() {
     if (!this._requireOperator('il prelievo di produzione')) return;   // v2.0.1 [B7]
     if (!this._pickCart.length) return this.toast('Carrello vuoto', 'error');
-    this._prodOrderNum = Validate.clean($('pProdOrder')?.value) || this._prodOrderNum;
+    this._prodOrderNum = Validate.clean($('pProdOrder')?.value, true) || this._prodOrderNum;
     this._prodOperator = Validate.clean($('pProdOperator')?.value) || this._prodOperator;
     if (!this._prodOrderNum) return this.toast('N° ordine produzione obbligatorio', 'error');
     /* 2.1 — UN ORDINE CHIUSO NON RIPRENDE, e lo si dice PRIMA di scaricare
@@ -638,7 +638,7 @@ export const VistaPrelievo = {
   },
 
   _prodCartSnapshot(cart, opt = {}) {
-    this._prodOrderNum = Validate.clean($('pProdOrder')?.value) || this._prodOrderNum;
+    this._prodOrderNum = Validate.clean($('pProdOrder')?.value, true) || this._prodOrderNum;
     this._prodOperator = Validate.clean($('pProdOperator')?.value) || this._prodOperator;
     const snap = this._pickSnapFromCart(cart, {
       odp_num: this._prodOrderNum || '',
