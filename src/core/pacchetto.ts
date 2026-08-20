@@ -45,6 +45,36 @@ export const VERSIONE_APP = '2.2';
 export const COLLEZIONI_EXPORT: Collezione[] =
   COLLEZIONI.filter(c => c !== 'meta' && c !== 'pick_session');
 
+/* LE IMPOSTAZIONI VIAGGIANO COL BACKUP, E FINO ALLA 2.2 NON VIAGGIAVANO.
+
+   `meta` resta fuori da `COLLEZIONI_EXPORT` — non è un elenco di record, e
+   ci vivono anche cose che non hanno senso altrove: l'ora dell'ultimo
+   salvataggio, il segno delle modifiche non salvate, il riferimento a una
+   cartella scelta in un altro browser. Ma dentro `meta` stanno anche le
+   IMPOSTAZIONI del magazzino, e un ripristino che le lascia indietro
+   restituisce un magazzino che non sa più dov'è il vano di lavorazione né
+   che forma ha il suo cruscotto.
+
+   Escono per nome, non per esclusione: una chiave nuova entra nel backup il
+   giorno in cui qualcuno la aggiunge a questo elenco, e finché non lo fa il
+   backup non porta silenziosamente in giro dati di cui nessuno ha deciso
+   niente. `docConfig` esce anche come `doc_config`, che è dove i pacchetti
+   fino alla 2.1 lo tenevano: un backup vecchio deve continuare a rientrare. */
+export const IMPOSTAZIONI_ESPORTATE = [
+  'docConfig', 'areaWip', 'udcPrefissoGS1', 'dashboardLayout', 'oreUrgenza',
+] as const;
+
+/** Le impostazioni da mettere nel pacchetto. Le chiavi mai valorizzate non
+    ci sono: un backup dice quello che c'è, non elenca quello che manca. */
+export function impostazioni(meta: Record<string, unknown> | null | undefined): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  for (const k of IMPOSTAZIONI_ESPORTATE) {
+    const v = meta?.[k];
+    if (v !== undefined && v !== null && v !== '') out[k] = v;
+  }
+  return out;
+}
+
 export interface Pacchetto {
   _format: string;
   _author: string;
@@ -53,6 +83,7 @@ export interface Pacchetto {
   _counts?: Record<string, number>;
   _movRange?: { from: number; to: number };
   doc_config?: unknown;
+  impostazioni?: Record<string, unknown>;
   [collezione: string]: unknown;
 }
 
@@ -109,6 +140,8 @@ export function componi(
     pick_archive: [...C.pickArchive],
     disposal_archive: [...C.disposalArchive],
     doc_config: C.meta?.docConfig || null,
+    /* 2.2 — le impostazioni, perché un ripristino le deve rimettere. */
+    impostazioni: impostazioni(C.meta as Record<string, unknown>),
     operators: [...C.operators],
     /* 1.4.0 — vuote finché non si accende l'interruttore che le riguarda. */
     lots: [...C.lots],
