@@ -37,7 +37,7 @@ const PREV_DIR = process.env.PATHFINDER_APP_PREV
   || (APP_DIR ? path.join(path.dirname(APP_DIR), 'precedente') : null);
 const APP_FILE = process.env.PATHFINDER_APP || null;
 
-/* LA VERSIONE DEL SERVIZIO SEGUE QUELLA DELL'APPLICATIVO - 2.2.
+/* LA VERSIONE DEL SERVIZIO SEGUE QUELLA DELL'APPLICATIVO - 2.1.
 
    Fino alla 2.0 questo numero si muoveva "quando cambia il contratto", ed
    era vero finche' il servizio si installava per conto suo. Dal 18/08 non
@@ -51,7 +51,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.2';
+const VERSION = '2.1';
 
 const TLS_CERT = process.env.PATHFINDER_TLS_CERT || null;
 const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
@@ -383,7 +383,7 @@ app.post('/api/op/removeItem', wrap((req, res) => {
     item.qty = after;
     if (um !== null) item.qty_uom = um.dopo;
     if (colli) item.packs = colli.rimasti;
-    item.last_updated_at = Date.now();
+    item.updated_at = Date.now();
     db.put('inventory', item);
     return { ...snapshot, qty: after, ...(um === null ? {} : { qty_uom: um.dopo }),
              ...(colli ? { packs: colli.rimasti } : {}),
@@ -447,7 +447,7 @@ app.post('/api/op/sampleItem', wrap((req, res) => {
       const dopoUm = sommaPacks(dopoElenco);
       item.packs = dopoElenco;
       item.qty_uom = dopoUm;
-      item.last_updated_at = Date.now();
+      item.updated_at = Date.now();
       db.put('inventory', item);
       return { ok: true, qty_uom_before: primaUm, qty_uom_after: dopoUm, qty_uom_delta: -q,
                qty: item.qty, packs: dopoElenco };
@@ -461,7 +461,7 @@ app.post('/api/op/sampleItem', wrap((req, res) => {
 
     const dopo = arrotondaUom(prima - n);
     item.qty_uom = dopo;
-    item.last_updated_at = Date.now();
+    item.updated_at = Date.now();
     db.put('inventory', item);
     /* `qty` non compare in questo oggetto, ed e' il punto: il collo resta. */
     return { ok: true, qty_uom_before: prima, qty_uom_after: dopo, qty_uom_delta: -n, qty: item.qty };
@@ -526,18 +526,10 @@ app.post('/api/op/moveUdc', wrap((req, res) => {
     const ora = Date.now();
     for (const r of righe) {
       r.location_code = to;
-      /* `last_updated_at`, NON `updated_at` — vale per TUTTE le rotte che
-         scrivono una giacenza, non solo per questa. Il campo della riga di
-         giacenza si chiama `last_updated_at`: e' quello che `Giacenza`
-         dichiara e quello che il client legge. Fino alla 2.1 `removeItem`,
-         `sampleItem` e `commitPickStop` scrivevano `updated_at`, che nessuno
-         legge: la riga tornava giusta perche' il client si riallinea sulla
-         risposta del servizio, e intanto a database restava un secondo campo
-         con una seconda data. Tredici righe della produzione se lo portano
-         ancora dietro: le ripulisce `banco/campo-fantasma.cjs`, che si passa
-         una volta sola e non e' codice dell'applicativo.
-         `udc.updated_at`, qui sotto, e' un'altra entita' e un altro campo:
-         quello e' il suo nome vero. */
+      /* `last_updated_at`, NON `updated_at`. Sulle giacenze il client scrive
+         e legge il primo; le altre rotte di qui scrivono il secondo, che
+         nessuno legge — un campo fantasma che si porta dietro dalla 1.4.
+         Non si allarga: si usa quello giusto e si segnala. */
       r.last_updated_at = ora;
       db.put('inventory', r);
     }
@@ -578,7 +570,7 @@ app.post('/api/op/commitPickStop', wrap((req, res) => {
       item.qty = after;
       if (um !== null) item.qty_uom = um.dopo;
       if (colli) item.packs = colli.rimasti;
-      item.last_updated_at = Date.now();
+      item.updated_at = Date.now();
       db.put('inventory', item);
     }
 

@@ -64,8 +64,18 @@ const quando = (t) => (typeof t === 'number' ? new Date(t).toLocaleString('it-IT
     return;
   }
 
-  let fatte = 0;
-  for (const r of sporche) {
+  let fatte = 0, saltate = 0;
+  for (const vecchia of sporche) {
+    /* SI RILEGGE LA RIGA UN ISTANTE PRIMA DI RISCRIVERLA. Il magazzino
+       lavora mentre questo script gira, e `PUT` riscrive il record per
+       intero: fra la lettura dell'elenco e la scrittura possono passare
+       secondi, e in quei secondi un terminale può aver scaricato quella
+       riga. Riscriverla con la copia vecchia rimetterebbe a posto un campo
+       e ne sballerebbe cinque. */
+    const r = await chiama('GET', `/api/c/inventory/${vecchia._id}`).catch(() => null);
+    if (!r) { console.log(`  SALTATA ${vecchia.item_key} — la riga non c'è più`); saltate++; continue; }
+    if (r.updated_at === undefined) { console.log(`  SALTATA ${vecchia.item_key} — già pulita`); saltate++; continue; }
+
     const tiene = Math.max(r.updated_at || 0, r.last_updated_at || 0);
     /* `updated_at` si toglie destrutturando: `PUT` riscrive il record per
        intero con quello che gli si passa, quindi un campo che non c'è nel
@@ -74,6 +84,8 @@ const quando = (t) => (typeof t === 'number' ? new Date(t).toLocaleString('it-IT
     await chiama('PUT', `/api/c/inventory/${r._id}`, { ...pulita, last_updated_at: tiene });
     fatte++;
   }
+  if (saltate) console.log(`
+  ${saltate} saltate.`);
 
   const dopo = (await chiama('GET', '/api/c/inventory')).filter((r) => r.updated_at !== undefined);
   console.log(`\n  ${fatte} righe raddrizzate. Ne restano ${dopo.length} col campo fantasma.\n`);
