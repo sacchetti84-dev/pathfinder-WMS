@@ -100,20 +100,34 @@ function arrotonda(n: number): number {
   return Math.round(n * 1000) / 1000;
 }
 
+/** IL NUMERO D'ORDINE SI CONFRONTA A MAIUSCOLE, SEMPRE.
+
+    La maschera del conto legge l'ordine in maiuscolo — è un campo che si
+    scansiona, come tutti gli altri — mentre il prelievo di produzione
+    scriveva nei movimenti quello che era stato digitato. Per un confronto
+    esatto «prova6» a registro e «PROVA6» in maschera sono due ordini
+    diversi: il 20/08 la maschera elencava tre conti aperti e nessuno dei
+    tre si apriva — «Nessun movimento sul conto di PROVA6» su un ordine che
+    di movimenti ne aveva. Un numero d'ordine non ha un caso, e quello che
+    si scrive è quello che si legge. */
+function chiave(odp: unknown): string {
+  return String(odp ?? '').trim().toUpperCase();
+}
+
 /** Il conto di un ordine, riga per riga. Le righe escono in ordine di
     chiave, così due letture dello stesso ordine si confrontano a occhio. */
 export function conto(
   movimenti: readonly MovimentoWip[] | null | undefined,
   odpNum: string | null | undefined,
 ): ContoOrdine {
-  const odp = String(odpNum ?? '').trim();
+  const odp = chiave(odpNum);
   const vuoto: ContoOrdine = { odp_num: odp, righe: [], entrato: 0, tornato: 0, consumato: 0, residuo: 0, incoerente: false, chiuso: false, chiuso_il: null };
   if (!movimenti?.length || !odp) return vuoto;
 
   let chiuso_il: number | null = null;
   const per = new Map<string, ContoRiga>();
   for (const m of movimenti) {
-    if (!m || m.odp_num !== odp) continue;
+    if (!m || chiave(m.odp_num) !== odp) continue;
     /* LA CHIUSURA NON È UNA RIGA DEL CONTO. Non porta merce e non ha una
        chiave: sommarla come «entrato» — che è quel che il ramo in fondo
        farebbe, perché lì ci cade tutto quel che non è `out` né `consumo` —
@@ -193,9 +207,9 @@ export function archiviato(
   movimenti: readonly MovimentoWip[] | null | undefined,
   odpNum: string | null | undefined,
 ): boolean {
-  const odp = String(odpNum ?? '').trim();
+  const odp = chiave(odpNum);
   if (!movimenti?.length || !odp) return false;
-  return movimenti.some((m) => m && m.odp_num === odp && m.verso === 'chiuso');
+  return movimenti.some((m) => m && chiave(m.odp_num) === odp && m.verso === 'chiuso');
 }
 
 /** LE RIGHE CHE STANNO NEL VANO WIP E CHE NESSUN ORDINE RIVENDICA.
@@ -252,7 +266,7 @@ export function ordiniArchiviati(
   const visti = new Map<string, number | null>();
   for (const m of movimenti) {
     if (!m || m.verso !== 'chiuso') continue;
-    const odp = String(m.odp_num ?? '').trim();
+    const odp = chiave(m.odp_num);
     if (!odp || visti.has(odp)) continue;
     visti.set(odp, typeof m.ts === 'number' ? m.ts : null);
   }
@@ -292,14 +306,14 @@ export function colliFuori(
   odpNum: string | null | undefined,
   itemKey: string | null | undefined,
 ): number[] {
-  const odp = String(odpNum ?? '').trim();
+  const odp = chiave(odpNum);
   const key = String(itemKey ?? '').trim();
   if (!movimenti?.length || !odp || !key) return [];
 
   const fuori: number[] = [];
   const tolti: number[] = [];
   for (const m of movimenti) {
-    if (!m || m.odp_num !== odp || m.item_key !== key) continue;
+    if (!m || chiave(m.odp_num) !== odp || m.item_key !== key) continue;
     const misure = Array.isArray(m.packs) ? m.packs.filter((n) => Number.isFinite(n) && n > 0) : [];
     if (!misure.length) continue;
     (m.verso === 'out' || m.verso === 'consumo' ? tolti : fuori).push(...misure);

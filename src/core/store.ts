@@ -1816,8 +1816,12 @@ const Store = {
     const visti = new Map<string, number>();
     for (const m of this._cache.wip as any[]) {
       if (!m?.odp_num) continue;
+      /* In maiuscolo, come li confronta `modules/wip.ts`: un ordine scritto
+         «prova6» prima della correzione si elenca e si apre come PROVA6, e
+         non compare due volte se è stato preso in tutti e due i modi. */
+      const odp = String(m.odp_num).trim().toUpperCase();
       const t = Number(m.ts) || 0;
-      if (!visti.has(m.odp_num) || t > visti.get(m.odp_num)!) visti.set(m.odp_num, t);
+      if (!visti.has(odp) || t > visti.get(odp)!) visti.set(odp, t);
     }
     return [...visti.entries()]
       .filter(([odp]) => !this.ordineWipArchiviato(odp) && this.contoWip(odp).residuo !== 0)
@@ -2013,7 +2017,12 @@ const Store = {
   async _scriviWip(odpNum: string, riga: any, verso: 'in' | 'out' | 'consumo' | 'chiuso', dove: string) {
     const rec = {
       wip_id: `WIP-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`,
-      odp_num: odpNum,
+      /* IL NUMERO D'ORDINE SI SCRIVE IN MAIUSCOLO. La maschera del conto lo
+         legge in maiuscolo, e finché qui finiva quello che era stato
+         digitato, un ordine preso come «prova6» restava elencato fra i conti
+         aperti e non si apriva. Vedi `chiave` in `modules/wip.ts`, che regge
+         le righe scritte prima di questa correzione. */
+      odp_num: String(odpNum ?? '').trim().toUpperCase(),
       item_key: riga.item_key,
       article_code: riga.article_code,
       lot_code: riga.lot_code,
