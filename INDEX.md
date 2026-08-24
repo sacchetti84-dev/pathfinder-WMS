@@ -7,19 +7,29 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder`, branch `main` · agg. **20/08/2026**
+Repo privato `sacchetti84-dev/pathfinder`, branch `main` · agg. **24/08/2026**
 
-**In servizio c'è la 2.1** — impronta `7cd16b50…`, 1.764.087 byte, 4 file,
-costruita il **20/08 alle 08:31**. NON è il pacchetto che questo documento
-diceva fino a stamattina (`29f215e1…`, 445 kB): l'INDEX era indietro di un
-giro, la produzione no. È la terza volta in quattro giorni, ed è il motivo
-per cui §0 punto 2 esiste.
+**In servizio c'è la 2.2 del 24/08** — impronta `08ce3f69…`, 1.777.087 byte,
+4 file, costruita alle **21:50** e installata alle **22:22**. Pacchetto e
+installato confrontati byte per byte: gli stessi. `/api/app-info` dice `2.2`
+due volte, applicativo e servizio, e nessun campo `errore`.
 
-**La 2.2 è costruita e NON installata** — `consegna/Pathfinder 2.2/`,
-impronta `3945a5de…`, 4 file, 1,68 MB, **450 kB sul filo**. `/api/app-info`
-dice `2.2` due volte, applicativo e servizio. Installare è un atto umano,
-§0 punto 4. La 2.1 è scesa in `ARCHIVIO/VERSIONI PRECEDENTI/` prima che la
-build azzerasse `consegna/`.
+**Tre ore prima era stata installata la 2.2 SBAGLIATA** — impronta
+`62992e15…`, costruita il 20/08 alle 11:22 — e il difetto che si stava
+correggendo è rimasto in servizio come se la correzione non fosse mai
+esistita. Quei byte venivano da
+`MAPPER.worktrees/push-repo-su-github/consegna/`: il worktree porta una
+`consegna/` sua, ferma alla build vecchia, con lo stesso nome di cartella.
+**Si installa da `MAPPER\consegna\`, e da nessun'altra.** La prova che
+l'installazione sia quella giusta è l'impronta, non il numero di versione —
+due pacchetti si chiamano `2.2` tutti e due.
+
+> **Il kit demo vive dentro `consegna/` e la build lo cancella.** `Avvia
+> Demo.bat`, i tre `README-DEMO` e i tre `IT-TECH-SHEET` non li produce
+> `vite.config.js`: stanno solo lì, e `npm run build` azzera quella cartella
+> a ogni giro. Il 24/08 sono stati messi da parte e rimessi dentro a mano
+> quattro volte. Se devono vivere, il posto è fuori da `consegna/` o dentro
+> la lista dei file del plugin di build.
 
 **Il repository è in pari, e per due giorni non lo è stato.** Fino al 20/08
 l'ultimo commit era la 2.0: la 2.1 installata, le quattro correzioni del
@@ -80,6 +90,70 @@ porta dati veri, e per questo un collaudo si fa sempre su una **copia** — §5.
 ---
 
 ## 1. Stato
+
+### Il 24/08 — la maschera delle attività, il registro, i colli per misura
+
+**1. Un'attività di prelievo non si riusciva ad aprire, e il campo che la
+bloccava non era a schermo.** Due difetti sovrapposti, e il secondo è quello
+vero. `doCreateTask` pretendeva il destinatario per i due prelievi: è un dato
+del DOCUMENTO — il DDT lo chiede alla registrazione, che è il momento in cui
+si sa — e alla richiesta blocca l'unica cosa che serve, mettere il lavoro in
+coda. Adesso è facoltativo e resta a video. Ma il campo **non compariva**:
+`_ntTypeChanged` accendeva le righe con `style.display = ''`, e quelle due
+righe portano `hidden` nel markup — lo stile in riga vuoto non batte una
+classe, e la riga non si vedeva mai. La maschera rifiutava la conferma
+indicando un campo assente dallo schermo. Stessa cosa sul Campionamento, dove
+«Campione per chi» è obbligatorio: quel tipo di attività **non si poteva
+creare affatto**. `mostra()` adesso toglie la classe. Trovato in browser sul
+pacchetto costruito, non leggendo.
+
+**2. Il registro aveva una riga che non esisteva e quattro mute.** L'entrata
+nel vano WIP non era scritta: la merce spariva dallo scaffale e ricompariva
+in `M06-COM-01` senza una riga che ce l'avesse portata — adesso il prelievo
+guidato e il carrello scrivono un `IN` sul vano, **dopo** che il conto è
+riuscito. Scrivevano solo la nota, senza quantità: il reso dal conto di
+produzione, la rimozione a mano di una riga, il rilascio dalla quarantena e
+la chiusura della chiave vecchia. E la colonna delle UM mancava su
+trasferimento, quarantena, consumo, posizionamento a mano e su tutte e dieci
+le rettifiche d'inventario: un trasferimento a peso raccontava i colli e non
+i chili. **Le uniche causali senza quantità restano le tre che non muovono
+merce** — modifica dati, purga, rinnovo PIN.
+
+**3. I colli parziali sui lotti che non dichiarano le misure.** Mezza
+anagrafica la quantità per collo non ce l'ha: quei lotti arrivano a scaffale
+con l'unità scritta e il per-collo vuoto, e il reso parziale si rifiutava —
+aprire un collo vuol dire dire QUALE, e senza misure non c'è un quale.
+Adesso la maschera del reso chiede quanto contiene un collo intero, e il
+numero si scrive **sul lotto**: è una dichiarazione di chi ha i colli in
+mano, come l'inventario, e vale per tutti i colli di quel lotto.
+
+**4. Il conto di produzione derivava male, e lo diceva.** Dichiarando la
+confezione a lavorazione aperta, l'entrata restava senza misure e le uscite
+le avevano: il conto leggeva «entrato 0 KG, uscito 25» e si dichiarava
+incoerente — «da qualche riga è tornato più di quanto sia uscito, −25 KG».
+Non era falso, era mezzo scritto. Le UM che un movimento non porta **si
+derivano alla lettura**, dai colli e dalla confezione di adesso, come
+`colliDiRiga` fa con le righe di giacenza. Nessun movimento riscritto: il
+conto è storia. Vale all'indietro su ogni ordine prelevato prima che qualcuno
+dichiarasse la confezione.
+
+**5. La scelta dei colli si fa per MISURA.** Una riga con settanta colli
+chiedeva settanta caselle per ottenere un numero, ed era il gesto più lungo
+della giornata. Adesso una riga per misura — «25 KG · 3 disponibili» — col
+numero di colli che escono, e in fondo un campo per la parte di un collo con
+la tendina della taglia che si apre. Il default è il più piccolo che basta e
+resta un default finché l'operatore non lo tocca. La maschera nasce
+**precompilata sul fabbisogno**: in UM dove il chiamante lo sa (l'ODP chiede
+chili), in colli altrove. L'elenco collo per collo non c'è più, e con lui la
+domanda secca «sono tutti uguali, quanti ne servono?»: erano tre maschere per
+la stessa domanda. **Nel prelievo da ODP la domanda è una sola** — prima
+chiedeva «quanti» e poi «quali», cioè lo stesso numero due volte.
+
+Provato al banco sul pacchetto minificato con l'ODP2607777 vero: 10 tappe,
+prelievo, reso, chiusura e archiviazione, poi un trasferimento con un collo
+aperto — `[25, 4]` a destinazione, `[25, 25, 10, 10, 1]` all'origine.
+`npm run check` pulito, **925 prove in 32 file** nel client, **98** nel
+servizio, **22** sull'installazione.
 
 ### La 2.2 — cinque difetti chiusi, e il lavoro rimesso in salvo
 
@@ -1575,6 +1649,19 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   scrive **sempre** con `newline=''`. `.gitattributes` dice `* -text`: i byte
   vanno e tornano com'erano, e nessuno li raddrizza per conto nostro. **I file
   nuovi nascono LF**, come `modules/colli.ts` e le viste.
+- **I FINE RIGA NON SONO UNIFORMI, E UNO SCRIPT CHE LO IGNORA NON TROVA
+  NIENTE — 2.2.** `quarantena.ts` è LF, `spedizioni.ts` è misto, quasi tutto
+  il resto è CRLF. Uno script che cerca un blocco di due righe convertendo a
+  CRLF non lo trova nei file LF: l'errore è «zero occorrenze», che somiglia a
+  «quel codice non c'è più» e manda a cercare la cosa sbagliata. Chi modifica
+  un file da uno script **legge il terminatore dal file** e usa quello.
+- **Un movimento di merce dichiara anche le quantità — 2.2.** Le tredici
+  posizioni di `_logMov` arrivano fino alle UM: colli prima, delta, dopo, e la
+  variazione in unità di misura. Una riga che dice solo la nota racconta che è
+  successo qualcosa, non cosa — a un controllo non serve. Le tre causali che
+  non muovono merce (modifica dati, purga, rinnovo PIN) restano fuori: lì una
+  quantità sarebbe inventata. Lo tiene `test/registro-completo.test.js`, che
+  legge tutte le chiamate nel sorgente.
 - **Il servizio gira come SYSTEM**: non si ferma da una shell normale, e
   `Get-ScheduledTask` omette le sue attività **in silenzio**. Modificarne i file
   non basta: Node legge all'avvio.
@@ -1687,7 +1774,7 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   dirlo**: il contenuto è identico, ogni riga risulta modificata, e il diff
   della sessione è passato da 4.248 righe a **13.016** — illeggibile, e un
   commit fatto in quello stato avrebbe seppellito le correzioni vere sotto
-  novemila righe di niente. Si rilegge `'rb'`, si guarda se c'è `
+  novemila righe di niente. Si rilegge `'rb'`, si guarda se c'è `
 `, e si
   riscrive con quello che si è trovato. Vale anche per `sed -i`. Trovato il
   20/08, e recuperato prima del commit solo perché il numero saltava
@@ -1868,6 +1955,17 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   aver contato**: un inventario che suggerisce la risposta non verifica niente.
 - **Il Posizionamento non è un compito** — avviene in coda all'accettazione, che
   su Pathfinder non passa. La funzione «Posiziona» resta.
+- **Chi CHIEDE un prelievo non deve sapere a chi va — 2.2.** Destinatario,
+  vettore e causale restano nella maschera perché chi li sa li scriva subito,
+  ma non bloccano la conferma: sono dati del DOCUMENTO, e il documento li
+  pretende alla registrazione. Preteso alla richiesta, il destinatario ferma
+  l'unica cosa che a quel punto serve — mettere il lavoro in coda.
+- **Una riga che nasce `hidden` si accende togliendo la classe, non lo
+  stile.** `display: ''` toglie lo stile in riga e lascia comandare il foglio:
+  la riga non compare mai. Vale per ogni maschera che accende campi per tipo,
+  e il modo di accorgersene è aprirla in browser — un campo obbligatorio
+  dentro una riga invisibile blocca la conferma indicando qualcosa che non
+  c'è.
 
 ### Unità di misura
 
@@ -1914,6 +2012,30 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   modificando l'ubicazione sull'oggetto che la cache già tiene, i due
   diventano lo stesso oggetto e il confronto non ha più niente da riparare.
   È successo a `moveUdc`, e a video la merce stava in due vani insieme.
+- **LA CONFEZIONE SI PUÒ DICHIARARE DOPO, E LA DICHIARA CHI HA I COLLI IN
+  MANO — 2.2.** `_congelaLotto` copia dall'anagrafica, e mezza anagrafica la
+  quantità per collo non ce l'ha: quei lotti non dichiarano i loro colli, il
+  conto torna finché si muovono colli interi e si ferma al primo collo aperto.
+  Il numero non si indovina: lo dice l'operatore che ha il sacco davanti, e si
+  scrive **sul lotto** — la confezione è un fatto del lotto e vale per tutti i
+  suoi colli, ovunque stiano. `Store.dichiaraConfezioneLotto`, e chi la chiama
+  scrive il movimento.
+- **LE UM CHE UN MOVIMENTO NON PORTA SI DERIVANO ALLA LETTURA — 2.2.** Il
+  conto di produzione somma i movimenti; quelli scritti prima che il lotto
+  dichiarasse la confezione le UM non le hanno, e mescolati a quelli che le
+  hanno danno un conto che si dichiara incoerente. Si derivano dai colli e
+  dalla confezione di adesso — mai riscrivendo un movimento: il conto è
+  storia, e la storia si rilegge con quello che nel frattempo si è saputo. Una
+  riga che porta già le sue UM non si tocca.
+- **QUANTI PER MISURA, NON QUALE COLLO — 2.2.** Due colli della stessa misura,
+  sulla stessa riga di giacenza, sono la stessa cosa: quale esca è una
+  differenza che non esiste, e chiederla costava una casella per collo. La
+  maschera dà una riga per misura e prende i primi liberi di quella misura. Il
+  collo che si APRE resta una scelta esplicita — è l'unico caso in cui la
+  misura non basta, perché un collo aperto vale meno di quel che dichiara — e
+  il più piccolo che basta è un default, non una regola: aprire un sacco da 25
+  per prenderne 7,5 quando ce n'è uno da 10 lascia in giro due mezzi colli
+  invece di uno, ma chi ha la merce davanti può decidere altro.
 - **UN EXPORT CHE NON NOMINA LE UM RACCONTA UN ALTRO MAGAZZINO — 2.0.** Fino
   al 19/08 il foglio delle giacenze aveva una colonna sola, «Coll.», e il
   registro tre — prima, delta, dopo — tutte in colli: su un magazzino dove lo
@@ -2073,7 +2195,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `core/schema.ts` · `utils.ts` · `costanti.ts` | 173 · 46 · 44 | Schema IndexedDB e migrazioni · `debounce` e `_h` · causali e ritenzione |
 | `modules/compiti.ts` | 555 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. **2.1**: `registroAttivita` unisce i compiti ai campionamenti che il registro generale porta e nessun compito rivendica. **Puro**: non tocca Store né il DOM |
 | `modules/misure.ts` | 319 | Le cinque unità, la suddivisione per collo, il collo incompleto. Puro |
-| `modules/colli.ts` | 387 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, le uscite come le capisce il servizio, il ritrovamento per misura, il ponte con la 1.7. **1.8.4**: `scelteDaUscite` (le uscite messe da parte, ritrovate) e `rettifica` (da com'era a com'è). Puro |
+| `modules/colli.ts` | 501 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, le uscite come le capisce il servizio, il ritrovamento per misura, il ponte con la 1.7. **1.8.4**: `scelteDaUscite` (le uscite messe da parte, ritrovate) e `rettifica` (da com'era a com'è). **2.2**: `scelteDaTaglie` (quanti per misura → scelte per indice, col collo che si apre) e `riempiFabbisogno` (la maschera nasce compilata dalle misure più piene). Puro |
 | `modules/documenti.ts` | 39 | **1.8.4** — la riga di un documento di uscita, ricostruita in **un posto solo**. Nasce da un difetto: era in due copie, e i colli scelti sparivano al salvataggio. Puro |
 | `modules/giacenzaArticolo.ts` | 175 | **1.9** — la giacenza di un articolo raggruppata per lotto e ordinata FEFO, i totali per unita', e la coda di conte nell'ordine dello scaffale. Le UM **non** si calcolano qui: arrivano risolte da `Store.righeLette`, perche' due letture della stessa riga sono due saldi. Puro |
 | `modules/trasferimentiOdp.ts` | 142 | **1.10** — quali tappe stanno in un altro magazzino, il compito di trasferimento che ne nasce, e la tappa spostata sull'ubicazione di ricezione. Puro |
@@ -2173,8 +2295,14 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
 `compiti` (114) · `misure` (65) · `colli` (66) · `parametri` (19) · `documenti` (6) ·
-`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (24) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** — **811 prove in 28 file**. `ambiente.js` è
+`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) — **925 prove in 32 file**. `ambiente.js` è
 il preambolo comune.
+
+Le tre prove del 2.2 leggono il SORGENTE invece di girare il codice, e non è
+un ripiego: fissano regole che un DOM non c'è per verificare — una riga che
+nasce `hidden` si accende togliendo la classe, ogni causale di merce scrive
+le quantità, l'entrata nel vano WIP passa dal registro. Un difetto trovato in
+browser che nessuna prova poteva vedere si chiude così, o non si chiude.
 
 `schemaPostgres` è l'unica prova del ramo Azure che gira a ogni `npm test`,
 e serve a una cosa: che il giorno che qualcuno decide di provarlo, lo
@@ -2216,6 +2344,8 @@ scritto lì dentro trovi a chi rispondere — §7.
 | Serve | Dove |
 |---|---|
 | Installare il servizio da zero, diagnosticare, backup | [README.md](README.md) |
+| **Demo portatile su chiavetta USB** (senza privilegi admin) | `consegna/Pathfinder 2.2/README-DEMO.md` (IT/EN/FR) — **24/08/2026** |
+| **Sheet tecnico IT** (deploy, upgrade, troubleshooting) | `consegna/Pathfinder 2.2/IT-TECH-SHEET.md` (IT/EN/FR) — **24/08/2026** |
 | Versioni precedenti, loghi, etichette, file di prova | `ARCHIVIO/` — e **non si cancella niente**: un archivio svuotato funziona una volta sola |
 | La storia: handoff e piani fino al 17/08/2026 | `ARCHIVIO/HANDOFF STORICI/` — **memoria, non istruzioni** |
 | Cosa è stato archiviato e quando | `ARCHIVIO/archive-manifest.json` |

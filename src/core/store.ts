@@ -24,6 +24,7 @@ import {
   configurazione as configurazioneUom, congela as congelaLotto, daLotto,
   suddividi, uomDaColli, verifica as verificaUm, descrivi as descriviUom,
   sommaUom, sottraiUom, arrotonda as arrotondaUom, decimali as decimaliUom,
+  validaConfigurazione as validaConfezione,
   type Configurazione,
 } from '../modules/misure';
 import {
@@ -670,6 +671,53 @@ const Store = {
     const stored = { ...rec, _id } as Lotto;
     this._applyToCache('lots', 'put', stored);
     return stored;
+  },
+
+  /* 2.2 — LA CONFEZIONE SI PUO' DICHIARARE DOPO, E LA DICHIARA CHI HA I
+     COLLI IN MANO.
+
+     `_congelaLotto` copia dall'anagrafica, e mezza anagrafica la
+     quantita' per collo non ce l'ha: quei lotti arrivano a scaffale con
+     l'unita' scritta e il per-collo vuoto, e da li' in poi non dichiarano i
+     loro colli. Il conto torna lo stesso finche' si muovono colli interi, e
+     si ferma al primo collo aperto: aprirne uno vuol dire dire QUALE, e
+     senza misure non c'e' un quale.
+
+     Il numero non si indovina: lo dice l'operatore che ha il sacco davanti,
+     ed e' una DICHIARAZIONE come l'inventario — per questo si scrive sul
+     lotto e non sulla riga. La confezione e' un fatto del lotto, e vale per
+     tutti i suoi colli, ovunque stiano.
+
+     Non tocca le giacenze: `colliDiRiga` e `suddivisioneDi` derivano da qui
+     alla prima lettura utile. Chi chiama scrive il movimento — questo posto
+     non ha un registro. */
+  async dichiaraConfezioneLotto(articleCode: string, lotCode: string, perCollo: unknown) {
+    const art = String(articleCode ?? '').trim().toUpperCase();
+    const lot = String(lotCode ?? '').trim();
+    if (!art || !lot) throw new Error('Serve articolo e lotto per dichiarare la confezione');
+    const cfg = this.getUomConfig(art, lot);
+    if (!cfg?.uom) {
+      throw new Error(`${art}#${lot}: manca l'unità di misura, e una quantità per collo senza unità non è un numero. Si compila in Configurazione → Articoli`);
+    }
+    const errori = validaConfezione(cfg.uom, perCollo);
+    if (errori.length) throw new Error(errori.join(' · '));
+    const per = arrotondaUom(perCollo, decimaliUom(cfg.uom))!;
+    const gia = this.getLot(art, lot);
+    const now = Date.now();
+    const rec: Lotto = {
+      ...(gia ?? {}),
+      article_code: art, lot_code: lot, uom: cfg.uom,
+      uom_per_collo: per, frozen_at: gia?.frozen_at ?? now,
+    };
+    if (gia?._id) {
+      await Persistence.update('lots', gia._id, { uom: cfg.uom, uom_per_collo: per });
+      this._applyToCache('lots', 'put', rec);
+    } else {
+      const _id = await Persistence.add('lots', rec);
+      this._applyToCache('lots', 'put', { ...rec, _id } as Lotto);
+    }
+    await this._touchMeta();
+    return { uom: cfg.uom, per_collo: per };
   },
 
   /* Come si legge una riga di giacenza: «10 × 1.000 + 1 × 100 PZ», o niente
@@ -1800,7 +1848,12 @@ const Store = {
 
   /** Il conto di un ordine: entrato, tornato, residuo. */
   contoWip(odpNum: string) {
-    return contoWip(this._cache.wip as any[], odpNum);
+    /* 2.2 — la confezione la conosce Store, non il modulo: le UM che i
+       movimenti non portano si derivano da qui, dal lotto di adesso. Vale
+       per gli ordini prelevati prima che qualcuno dichiarasse la confezione,
+       che sono la quasi totalità. */
+    return contoWip(this._cache.wip as any[], odpNum,
+      (r) => this.getUomConfig(r.article_code, r.lot_code)?.per_collo ?? null);
   },
 
   /** 2.1 — L'ORDINE CHIUSO È ARCHIVIATO, e non si tocca più. La prova è un

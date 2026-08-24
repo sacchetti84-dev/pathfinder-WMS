@@ -195,7 +195,8 @@ export const VistaPrelievo = {
        `addItem`, e il secondo deve rimettere GLI STESSI colli: senza l'elenco
        li deriverebbe pieni, ed è la trappola che faceva nascere 900 pezzi dal
        nulla nel passaggio da uno scaffale all'altro. */
-    const scelteColli = await this._chiediColli(item, 'Quali colli si spostano');
+    const scelteColli = await this._chiediColli(item, 'Quali colli si spostano',
+      null, { colli: partial ? qtyToMove : (item.qty || 1) });
     if (scelteColli === undefined) { this.toast('Trasferimento annullato', 'info'); return { ok: false }; }
 
     // v1.7.0 — Se in destinazione lo stesso lotto è già presente, i colli
@@ -223,7 +224,7 @@ export const VistaPrelievo = {
        collo aperto e rimesso a scaffale lascia la riga viva anche quando i
        colli chiesti erano tutti. */
     const parzialeVero = colliMossi ? removed._mode === 'partial' : partial;
-    await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, dest, Store.getCurrentIdentity().initials, impactNote, '', qtyAvail, parzialeVero ? -nMossi : 0, parzialeVero ? removed._qty_after : nMossi);
+    await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, dest, Store.getCurrentIdentity().initials, impactNote, '', qtyAvail, parzialeVero ? -nMossi : 0, parzialeVero ? removed._qty_after : nMossi, this._umMossa(removed));
     const mergeMsg = res.mode === 'incremented' ? ` (sommato: saldo ${res.qty_after} Coll. in ${dest})` : '';
     this.toast(`✓ ${item.article_code}#${item.lot_code}: ${item.location_code} → ${dest} · ${nMossi} Coll.${mergeMsg}`, 'success');
     if (impactedDocs.length) {
@@ -538,7 +539,8 @@ export const VistaPrelievo = {
       /* 1.8 — riga per riga, quali colli lasciano lo scaffale. Chi annulla
          qui ferma il carrello: le righe già scaricate tornano indietro dal
          rollback qui sotto, che è la stessa strada di ogni altro guasto. */
-      const sceltePick = await this._chiediColli(full, `Quali colli · ${it.article_code}#${it.lot_code}`);
+      const sceltePick = await this._chiediColli(full, `Quali colli · ${it.article_code}#${it.lot_code}`,
+        null, { colli: qtyPick });
       if (sceltePick === undefined) {
         failedAt = i; failReason = 'Prelievo annullato alla scelta dei colli';
         backups.pop();
@@ -583,7 +585,7 @@ export const VistaPrelievo = {
       const falliti = [];
       for (const it of results) {
         try {
-          await Store.entraInWip(this._prodOrderNum, {
+          const entrata = await Store.entraInWip(this._prodOrderNum, {
             item_key: it.item_key, article_code: it.article_code,
             article_description: it.article_description, lot_code: it.lot_code,
             expiry_date: it.expiry_date || '',
@@ -591,6 +593,16 @@ export const VistaPrelievo = {
             qty_uom: this._umMossa(it), uom: Store.getUomConfig(it.article_code, it.lot_code)?.uom ?? null,
             packs: it._packs_out ?? null,
           });
+          /* 2.2 — L'ARRIVO NEL VANO SI SCRIVE, come nel prelievo guidato: il
+             registro non deve avere merce che compare in un'ubicazione senza
+             una riga che ce l'abbia portata. */
+          await this._logMov(MOV.IN, it.article_code, it.article_description, it.lot_code,
+            entrata.location_code, null, this._prodOperator,
+            `Entrata nel conto di produzione — ordine ${this._prodOrderNum}`, this._prodOrderNum,
+            entrata.qty_before ?? null,
+            (entrata.qty_after ?? 0) - (entrata.qty_before ?? 0),
+            entrata.qty_after ?? null,
+            typeof entrata.qty_uom_delta === 'number' ? entrata.qty_uom_delta : null);
         } catch (e) {
           falliti.push(`${it.article_code}#${it.lot_code}: ${(e as Error).message}`);
         }

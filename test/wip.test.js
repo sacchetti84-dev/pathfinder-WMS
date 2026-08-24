@@ -780,3 +780,46 @@ describe('il numero d ordine non ha un caso', () => {
     expect(colliFuori(m, 'PROVA6', 'A#L1')).toEqual([25, 10]);
   });
 });
+
+describe('le UM che mancano si derivano dalla confezione', () => {
+  /* Il caso vero, visto al banco il 24/08: due colli entrati PRIMA che il
+     lotto dichiarasse la confezione, quindi senza misure; uno tornato con
+     dentro 5 kg e venti dichiarati consumati, questi sì con le misure. Il
+     conto leggeva «entrato 0 KG, uscito 25» e si dichiarava incoerente. */
+  const ordine = [
+    mov('ODP-9', 'A#L1', 'in', 1, { unita: 'KG' }),
+    { ...mov('ODP-9', 'A#L1', 'out', 1, { uom: 5, unita: 'KG' }), packs: [25] },
+    mov('ODP-9', 'A#L1', 'consumo', 0, { uom: 20, unita: 'KG' }),
+  ];
+
+  it('senza confezione il conto resta storto, e lo dice', () => {
+    const c = conto(ordine, 'ODP-9');
+    expect(c.righe[0].entrato_uom).toBe(null);
+    expect(c.righe[0].residuo_uom).toBe(-25);
+    expect(c.incoerente).toBe(true);
+  });
+
+  it('con la confezione dichiarata dopo, il conto torna', () => {
+    const c = conto(ordine, 'ODP-9', () => 25);
+    expect(c.righe[0]).toMatchObject({
+      entrato: 1, tornato: 1, consumato: 0,
+      entrato_uom: 25, tornato_uom: 5, consumato_uom: 20, residuo_uom: 0,
+    });
+    expect(c.incoerente).toBe(false);
+  });
+
+  it('una riga che porta le sue UM non viene toccata', () => {
+    const c = conto([mov('ODP-9', 'A#L1', 'in', 2, { uom: 30, unita: 'KG' })], 'ODP-9', () => 25);
+    expect(c.righe[0].entrato_uom).toBe(30);
+  });
+
+  it('la chiusura non prende misure: non muove niente', () => {
+    const c = conto([
+      mov('ODP-9', 'A#L1', 'in', 1, { unita: 'KG' }),
+      { odp_num: 'ODP-9', verso: 'chiuso', ts: 9 },
+    ], 'ODP-9', () => 25);
+    expect(c.entrato).toBe(1);
+    expect(c.righe[0].entrato_uom).toBe(25);
+    expect(c.chiuso).toBe(true);
+  });
+});

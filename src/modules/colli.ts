@@ -385,3 +385,123 @@ export function verificaColli(
   const scartoUom = arrotonda((arrotonda(qtyUom, dec) ?? 0) - uomAtteso, dec)!;
   return { colliAttesi, uomAtteso, scarto, scartoUom, ok: scarto === 0 && scartoUom === 0 };
 }
+
+
+/* ── La scelta per TAGLIA ────────────────────────────────────────────────
+   2.2 — QUANTI PER TAGLIA, NON QUALE COLLO.
+
+   Una riga con settanta colli chiedeva settanta caselle per ottenere un
+   numero: l'operatore scorreva un elenco lungo quanto lo scaffale per dire
+   «dodici da 25». Due colli della stessa misura, sulla stessa riga di
+   giacenza, sono la stessa cosa — quale dei due esca è una differenza che
+   non esiste — e per questo la domanda giusta è quanti per misura.
+
+   Il collo che si APRE resta una scelta esplicita: è l'unico caso in cui la
+   misura non basta, perché un collo aperto vale meno di quello che dichiara.
+
+   Qui non si tocca né Store né il DOM: entrano un elenco e le prese, escono
+   le scelte per indice — la stessa forma che `preleva` convalida e che il
+   servizio riceve come `{da, quantita}`. */
+
+/** Quanti colli si prendono di una misura. */
+export interface PresaPerTaglia { per: number; colli: number }
+
+/** La parte che esce da un collo APERTO di quella misura. */
+export interface PresaParziale { per: number; quantita: unknown }
+
+/** Le prese per taglia tradotte in scelte per indice. Si prendono i PRIMI
+    colli liberi di ogni misura: fra due colli identici non c'è un primo che
+    valga più dell'altro.
+
+    Lancia quando una misura non ha abbastanza colli — il numero digitato
+    dice una corsia che non esiste — e quando il collo da aprire non c'è.
+    Elenco vuoto se non si è preso niente: è chi chiama a decidere se sia un
+    errore, e per la conferma lo è. */
+export function scelteDaTaglie(
+  colli: number[] | null | undefined,
+  prese: PresaPerTaglia[] | null | undefined,
+  uom?: string | null,
+  parte: PresaParziale | null = null,
+): Scelta[] {
+  const letti = leggiColli(colli, uom);
+  if (!letti) throw new Error('Non c’è nessun collo da prelevare');
+  const dec = decimali(uom);
+  const usati = new Set<number>();
+  const scelte: Scelta[] = [];
+
+  const libero = (misura: number) => letti.findIndex((v, i) => v === misura && !usati.has(i));
+
+  for (const presa of prese ?? []) {
+    const misura = arrotonda(leggiNumero(presa?.per), dec);
+    const quanti = arrotonda(leggiNumero(presa?.colli), 0) ?? 0;
+    if (misura === null || misura <= 0 || quanti <= 0) continue;
+    for (let n = 0; n < quanti; n++) {
+      const i = libero(misura);
+      if (i === -1) {
+        const disponibili = letti.filter(v => v === misura).length;
+        throw new Error(`Da ${formattaQuantita(misura, uom)}${unitaValida(uom) ? ' ' + uom : ''} ce ne sono ${disponibili}: non se ne possono prendere ${quanti}`);
+      }
+      usati.add(i);
+      scelte.push({ indice: i });
+    }
+  }
+
+  if (parte) {
+    const misura = arrotonda(leggiNumero(parte.per), dec);
+    const q = arrotonda(leggiNumero(parte.quantita), dec);
+    if (misura === null || misura <= 0) throw new Error('Da quale collo esce la parte: manca la misura');
+    if (q === null || q <= 0) throw new Error('La parte che esce è maggiore di zero');
+    if (q >= misura) {
+      throw new Error(`Una parte è meno di un collo intero (${formattaQuantita(misura, uom)}): per prenderlo tutto conta un collo in più`);
+    }
+    const i = libero(misura);
+    if (i === -1) {
+      throw new Error(`Per aprire un collo da ${formattaQuantita(misura, uom)} ne serve uno non ancora preso: abbassa di uno i colli interi di quella misura`);
+    }
+    usati.add(i);
+    scelte.push({ indice: i, quantita: q });
+  }
+
+  return scelte;
+}
+
+/** La maschera nasce già compilata: si riempie dalle misure più piene finché
+    il fabbisogno è coperto. L'ultimo collo può eccedere — mezzo collo non si
+    prende senza dirlo, e dirlo è il campo della parte.
+
+    `uom` è il fabbisogno in unità di misura (l'ODP chiede chili), `colli` in
+    colli. Chi non sa quanto serve non passa niente e le righe nascono a zero:
+    proporre un numero inventato è peggio di non proporne nessuno. */
+export function riempiFabbisogno(
+  gruppi: { colli: number; per: number }[] | null | undefined,
+  fabbisogno: { uom?: number | null; colli?: number | null } | null | undefined,
+  uom?: string | null,
+): number[] {
+  const righe = (gruppi ?? []).map(() => 0);
+  if (!gruppi?.length || !fabbisogno) return righe;
+  const dec = decimali(uom);
+
+  const perColli = arrotonda(fabbisogno.colli, 0);
+  if (perColli !== null && perColli > 0) {
+    let restano = perColli;
+    gruppi.forEach((g, i) => {
+      if (restano <= 0) return;
+      const presi = Math.min(g.colli, restano);
+      righe[i] = presi;
+      restano -= presi;
+    });
+    return righe;
+  }
+
+  const perUom = arrotonda(fabbisogno.uom, dec);
+  if (perUom !== null && perUom > 0) {
+    let restano = perUom;
+    gruppi.forEach((g, i) => {
+      if (restano <= 0) return;
+      const servono = Math.min(g.colli, Math.ceil(arrotonda(restano / g.per, 6)!));
+      righe[i] = servono;
+      restano = arrotonda(restano - servono * g.per, dec)!;
+    });
+  }
+  return righe;
+}

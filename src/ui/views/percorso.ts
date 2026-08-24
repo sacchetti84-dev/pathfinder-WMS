@@ -825,30 +825,41 @@ export const VistaPercorso = {
       return this.toast(`${st.article_code}#${st.lot_code}: nessun collo disponibile (impegnato su DDT pendente)`, 'error');
     }
 
-    // ── Quantità in COLLI. I kg dell'ordine restano un dato informativo:
-    //    la giacenza a peso vive su Sage, qui si tracciano i colli.
-    const qty = await Dialog.qty({
-      title: 'Colli prelevati',
-      message: `Ordine: ${this._fmtKg(st.kg_required)} ${st.um}. Indicare quanti COLLI vengono portati via.`,
-      details: Dialog.kv([
-        ['Ubicazione', st.location_code],
-        ['Articolo', st.article_code],
-        ['Lotto', st.lot_code],
-        ['Colli disponibili', avail]
-      ]),
-      value: avail, min: 1, max: avail, unit: 'Coll.'
-    });
-    if (qty === null) return;
+    /* 2.2 — UNA DOMANDA SOLA. Fino alla 2.1 la tappa ne faceva due: prima
+       «quanti colli», poi «quali». Con la scelta per misura la prima e' la
+       somma della seconda, e chiederle tutte e due vuol dire far digitare
+       due volte lo stesso numero — con la possibilita' che i due non
+       coincidano. La maschera dei colli si apre gia' compilata sui chili che
+       l'ordine chiede, e i colli prelevati sono quelli scelti.
 
-    /* 1.8 — quali colli, sulla riga che l'operatore ha davanti. Il numero
-       chiesto sopra resta la misura del prelievo; l'elenco dice quali colli
-       lasciano lo scaffale, e su un lotto imballato in due misure diverse i
-       due dati non sono lo stesso dato. */
+       La domanda secca resta per le righe che i colli non li dichiarano: li'
+       non c'e' niente da scegliere, e il numero e' l'unico dato che esista. */
     const scelteColli = await this._chiediColli(
       { article_code: st.article_code, lot_code: st.lot_code, location_code: st.location_code, item_key: st.item_key,
         ...(Store.getItemsAtLocation(st.location_code).find(i => i.item_key === st.item_key) || {}) },
-      'Quali colli si prelevano');
+      `Quali colli si prelevano · ordine ${this._fmtKg(st.kg_required)} ${st.um}`,
+      null, { uom: st.kg_required });
     if (scelteColli === undefined) return this.toast('Prelievo annullato', 'info');
+
+    let qty;
+    if (scelteColli) {
+      /* I colli TOCCATI, quello aperto compreso: e' il numero che la tappa
+         segna come prelevato, ed e' la stessa regola del conto WIP. */
+      qty = scelteColli.length;
+    } else {
+      qty = await Dialog.qty({
+        title: 'Colli prelevati',
+        message: `Ordine: ${this._fmtKg(st.kg_required)} ${st.um}. Indicare quanti COLLI vengono portati via.`,
+        details: Dialog.kv([
+          ['Ubicazione', st.location_code],
+          ['Articolo', st.article_code],
+          ['Lotto', st.lot_code],
+          ['Colli disponibili', avail]
+        ]),
+        value: avail, min: 1, max: avail, unit: 'Coll.'
+      });
+      if (qty === null) return;
+    }
 
     const effectiveUser = this._prodOperator || Store.getCurrentIdentity().initials;
     const notes = st.forced_note || '';
@@ -897,7 +908,7 @@ export const VistaPercorso = {
        del carrello, e sta scritta in tutti e due i posti. */
     if (session.odp_num) {
       try {
-        await Store.entraInWip(session.odp_num, {
+        const entrata = await Store.entraInWip(session.odp_num, {
           item_key: st.item_key,
           article_code: st.article_code,
           article_description: st.article_description,
@@ -908,6 +919,19 @@ export const VistaPercorso = {
           uom: Store.getUomConfig(st.article_code, st.lot_code)?.uom ?? null,
           packs: removed!._packs_out ?? null,
         });
+        /* 2.2 — L'ARRIVO NEL VANO SI SCRIVE. Il prelievo diceva da dove la
+           merce usciva e nient'altro: nel vano WIP compariva una giacenza che
+           nessuna riga di registro aveva portato lì, e chi rileggeva il
+           registro vedeva merce sparita dallo scaffale. Sono due fatti in due
+           vani diversi, come la coppia FIX−/FIX+ dell'inventario, e il secondo
+           si scrive solo se il conto è riuscito davvero. */
+        await this._logMov(MOV.IN, st.article_code, st.article_description, st.lot_code,
+          entrata.location_code, null, effectiveUser,
+          `Entrata nel conto di produzione — ordine ${session.odp_num}`, session.odp_num,
+          entrata.qty_before ?? null,
+          (entrata.qty_after ?? 0) - (entrata.qty_before ?? 0),
+          entrata.qty_after ?? null,
+          typeof entrata.qty_uom_delta === 'number' ? entrata.qty_uom_delta : null);
       } catch (e) {
         this.toast(`Conto di produzione non aggiornato — ${(e as Error).message}. Il prelievo resta valido.`, 'error');
       }

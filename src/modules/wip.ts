@@ -114,11 +114,33 @@ function chiave(odp: unknown): string {
   return String(odp ?? '').trim().toUpperCase();
 }
 
+/** Quanto contiene un collo di quella riga, per chi lo sa: la confezione
+    del lotto, che il conto da solo non conosce. Chi non ne ha una torna
+    `null`, e il conto resta a soli colli come prima. */
+export type PerCollo = (riga: { item_key: string; article_code: string; lot_code: string }) => number | null;
+
 /** Il conto di un ordine, riga per riga. Le righe escono in ordine di
-    chiave, così due letture dello stesso ordine si confrontano a occhio. */
+    chiave, così due letture dello stesso ordine si confrontano a occhio.
+
+    2.2 — LE UM CHE MANCANO SI DERIVANO DALLA CONFEZIONE, ALLA LETTURA.
+
+    Un movimento porta le UM solo se al momento in cui è stato scritto il
+    lotto dichiarava la sua confezione. Dichiararla dopo — ed è il caso di
+    tutte le materie prime, che a sistema hanno l'unità e non la quantità per
+    collo — lasciava un conto storto in un modo che a schermo si legge come
+    un errore di magazzino: due colli entrati senza misura, uno tornato con
+    dentro 5 kg e venti dichiarati consumati, e il conto diceva «tornato più
+    di quanto sia uscito, −25 KG». Non era falso: era mezzo scritto.
+
+    Le misure che mancano si derivano qui, dai colli e dalla confezione di
+    ADESSO, come `colliDiRiga` fa con le righe di giacenza. Non si riscrive
+    nessun movimento: il conto è storia, e la storia non si corregge — si
+    legge con quello che nel frattempo si è saputo. Una riga che porta già le
+    sue UM non viene toccata, mai. */
 export function conto(
   movimenti: readonly MovimentoWip[] | null | undefined,
   odpNum: string | null | undefined,
+  perCollo: PerCollo | null = null,
 ): ContoOrdine {
   const odp = chiave(odpNum);
   const vuoto: ContoOrdine = { odp_num: odp, righe: [], entrato: 0, tornato: 0, consumato: 0, residuo: 0, incoerente: false, chiuso: false, chiuso_il: null };
@@ -152,7 +174,11 @@ export function conto(
     }
     if (!r.uom && m.uom) r.uom = m.uom;
     const colli = Number(m.qty) || 0;
-    const um = typeof m.qty_uom === 'number' ? m.qty_uom : null;
+    let um = typeof m.qty_uom === 'number' ? m.qty_uom : null;
+    if (um === null && colli > 0 && perCollo) {
+      const per = perCollo({ item_key: r.item_key, article_code: r.article_code, lot_code: r.lot_code });
+      if (typeof per === 'number' && per > 0) um = arrotonda(colli * per);
+    }
     if (m.verso === 'consumo') {
       r.consumato += colli;
       if (um !== null) r.consumato_uom = arrotonda((r.consumato_uom ?? 0) + um);

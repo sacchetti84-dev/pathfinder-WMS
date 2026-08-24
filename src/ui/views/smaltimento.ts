@@ -452,7 +452,8 @@ export const VistaSmaltimento = {
     /* 1.8 — quali colli, prima di chiedere conferma: il numero digitato in ③
        dice quanti, l'elenco dice quali, e cio' che esce davvero lo racconta
        il riepilogo qui sotto. */
-    const scelteColli = await this._chiediColli(item, 'Quali colli si smaltiscono');
+    const scelteColli = await this._chiediColli(item, 'Quali colli si smaltiscono',
+      null, { colli: qtyOut });
     if (scelteColli === undefined) return this.toast('Smaltimento annullato', 'info');
     const uscitaColli = scelteColli
       ? prelevaElenco(Store.colliDiRiga(item), scelteColli, Store.getUomConfig(item.article_code, item.lot_code)?.uom)

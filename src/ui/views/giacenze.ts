@@ -378,7 +378,12 @@ export const VistaGiacenze = {
     })) return;
     const removed = await Store.removeItem(locationCode, itemKey);
     if (removed) {
-      await this._logMov(MOV.OUT, removed.article_code, removed.article_description, removed.lot_code, locationCode);
+      /* 2.2 — anche la rimozione a mano dice QUANTO: era l'ultima uscita di
+         merce che a registro portava solo l'articolo. */
+      await this._logMov(MOV.OUT, removed.article_code, removed.article_description, removed.lot_code,
+        locationCode, null, '', '', '',
+        removed._qty_before ?? null, removed._qty_delta ?? null, removed._qty_after ?? null,
+        typeof removed._qty_uom_delta === 'number' ? removed._qty_uom_delta : null);
       this.renderMap();
       this.renderDetail(locationCode);
       this.updateSyncIndicator();
@@ -534,6 +539,10 @@ export const VistaGiacenze = {
     }
 
     const changes = { article_code: art, lot_code: lot, article_description: desc, expiry_date: exp, qty: qtyRaw, notes: notes || '' };
+    /* 2.2 — i colli di PRIMA si leggono prima: con la chiave nuova la riga di
+       prima non esiste più, e il movimento che la chiude uscirebbe muto. */
+    const prima = Store.getItemsAtLocation(locationCode).find(i => i.item_key === originalItemKey);
+    const colliPrima = prima?.qty ?? null;
     const result = await Store.updateItemFields(locationCode, originalItemKey, changes);
 
     if (!result?.ok) return this.toast('Salvataggio fallito — item non trovato', 'error');
@@ -541,7 +550,9 @@ export const VistaGiacenze = {
     // Log del movimento
     if (keyChanged) {
       // Key change: logga come FIX_OUT (vecchio) + EDIT (nuovo)
-      await this._logMov(MOV.FIX_OUT, originalItemKey.split('#')[0], '', originalItemKey.split('#')[1], locationCode, null, '', `Modifica ID: ${originalItemKey} → ${newItemKey}`);
+      await this._logMov(MOV.FIX_OUT, originalItemKey.split('#')[0], '', originalItemKey.split('#')[1], locationCode, null, '', `Modifica ID: ${originalItemKey} → ${newItemKey}`, '',
+        colliPrima, colliPrima === null ? null : -colliPrima, 0,
+        typeof prima?.qty_uom === 'number' ? -prima.qty_uom : null);
       await this._logMov(MOV.EDIT, art, desc, lot, locationCode, null, '', `Modifica ID da ${originalItemKey}`);
       this.toast(`✓ Item aggiornato: ${originalItemKey} → ${newItemKey}`, 'success');
     } else {
@@ -609,7 +620,8 @@ export const VistaGiacenze = {
     if (qty < 1) return this.toast('Numero colli non valido (minimo 1)', 'error');
     const res = await Store.addItem(locationCode, code, desc, lot, expiry, notes, qty);
     if (!res.ok) return this.toast('Errore posizionamento', 'error');
-    await this._logMov(MOV.IN, code, desc, lot, locationCode, null, '', '', '', res.qty_before, qty, res.qty_after);
+    await this._logMov(MOV.IN, code, desc, lot, locationCode, null, '', '', '', res.qty_before, qty, res.qty_after,
+        typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);
     this.closeModal();
     this.renderMap();
     this.renderDetail(locationCode);

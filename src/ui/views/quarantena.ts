@@ -429,7 +429,7 @@ export const VistaQuarantena = {
        controllo qualità ha guardato è un altro fatto. */
     const scelteNC = tutto
       ? null
-      : await this._chiediColli(item, 'Quali colli vanno in quarantena');
+      : await this._chiediColli(item, 'Quali colli vanno in quarantena', null, { colli: qtyToMove });
     if (scelteNC === undefined) { this.toast('Quarantena annullata', 'info'); return { ok: false }; }
     const removed = tutto
       ? await Store.removeItem(item.location_code, item.item_key)
@@ -441,7 +441,7 @@ export const VistaQuarantena = {
     try {
       const res = await Store.addItem(nearest.code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', 'QUARANTENA: ' + reason, qtyToMove, umNC, colliNC);
       if (!res.ok) throw new Error('addItem non riuscito');
-      await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, nearest.code, operator, 'Spostamento in quarantena', '', qtyToMove, 0, qtyToMove);
+      await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, nearest.code, operator, 'Spostamento in quarantena', '', qtyToMove, 0, qtyToMove, umNC);
     } catch (err) {
       if (removed._mode === 'partial')
         await Store.addItem(item.location_code, item.article_code, item.article_description, item.lot_code, item.expiry_date || '', '', qtyToMove, umNC, colliNC);
@@ -470,7 +470,7 @@ export const VistaQuarantena = {
 
     await this._logMov(MOV.QUAR, item.article_code, item.article_description, item.lot_code, item.location_code, blockedLoc, operator,
       parziale ? `${reason} — blocco parziale ${qtyToMove}/${qtyPhys} Coll.` : reason,
-      '', qtyPhys, -qtyToMove, qtyPhys - qtyToMove);
+      '', qtyPhys, -qtyToMove, qtyPhys - qtyToMove, typeof umNC === 'number' ? -umNC : null);
 
     this.updateSyncIndicator();
     if (!senzaCartellino) this._printNCCardFromRecord(qRecord);
@@ -654,6 +654,10 @@ export const VistaQuarantena = {
     // Sposta l'item dall'ubicazione bloccata alla destinazione conforme
     let moved = false;
     let moveErr = '';
+    /* 2.2 — quanto è tornato conforme: serve alla riga del rilascio, che sta
+       fuori da questo blocco e fin qui usciva senza quantità. */
+    let colliRilasciati: number | null = null;
+    let umRilasciate: number | null = null;
     const srcItems = Store.getItemsAtLocation(currentLoc!);
     const srcItem = srcItems.find(i => i.item_key === itemKey);
 
@@ -666,17 +670,19 @@ export const VistaQuarantena = {
          chiede quali, ed è un caso che il controllo qualità decide. */
       const scelteRil = qtyToMove >= inNC
         ? this._tuttiIColli(srcItem)
-        : await this._chiediColli(srcItem, 'Quali colli si rilasciano');
+        : await this._chiediColli(srcItem, 'Quali colli si rilasciano', null, { colli: qtyToMove });
       if (scelteRil === undefined) return this.toast('Rilascio annullato', 'info');
       const removed = await Store.removeItem(currentLoc!, itemKey, qtyToMove, null, scelteRil);
       if (removed) {
         const umRil = this._umMossa(removed);   // 1.4.2 — vedi _umMossa
         const colliRil = removed._packs_out ?? null;
         if (colliRil) qtyToMove = colliRil.length;
+        colliRilasciati = qtyToMove;
+        umRilasciate = umRil;
         const res = await Store.addItem(dest, srcItem.article_code, srcItem.article_description!, srcItem.lot_code, srcItem.expiry_date || '', (srcItem.notes || '').replace(/^QUARANTENA:\s*/i, '').trim(), qtyToMove, umRil, colliRil);
         if (res.ok) {
           moved = true;
-          await this._logMov(MOV.MOVE, srcItem.article_code, srcItem.article_description, srcItem.lot_code, currentLoc, dest, relOperator, 'Rilascio quarantena → riposizionamento conforme', rec.q_id, qtyToMove, 0, qtyToMove);   // v2.0.1 [B6]
+          await this._logMov(MOV.MOVE, srcItem.article_code, srcItem.article_description, srcItem.lot_code, currentLoc, dest, relOperator, 'Rilascio quarantena → riposizionamento conforme', rec.q_id, qtyToMove, 0, qtyToMove, umRil);   // v2.0.1 [B6]
         } else {
           if (removed._mode === 'partial')
             await Store.addItem(currentLoc!, srcItem.article_code, srcItem.article_description!, srcItem.lot_code, srcItem.expiry_date || '', '', qtyToMove, umRil, colliRil);
@@ -692,8 +698,14 @@ export const VistaQuarantena = {
     }
 
     // v2.0.1 [B6] — prima questo movimento veniva registrato senza operatore
+    /* 2.2 — e con le quantità: la riga del rilascio diceva chi aveva
+       autorizzato e non quanta merce fosse tornata conforme. Sono i colli che
+       si sono mossi davvero: se il riposizionamento non è riuscito restano
+       vuoti, perché non è tornato niente. */
     await this._logMov(MOV.Q_REL, rec.article_code, rec.article_description, rec.lot_code, currentLoc, dest,
-      relOperator, `Rilascio autorizzato da: ${relRefPerson}`, rec.q_id);
+      relOperator, `Rilascio autorizzato da: ${relRefPerson}`, rec.q_id,
+      moved ? colliRilasciati : null, moved ? 0 : null, moved ? colliRilasciati : null,
+      moved ? umRilasciate : null);
 
     $('releaseDestOverlay')?.remove();
     if (moved) {
