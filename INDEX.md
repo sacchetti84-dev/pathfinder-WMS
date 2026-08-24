@@ -7,12 +7,54 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **24/08/2026**
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **25/08/2026**
 
-**In servizio c'è la 2.2 del 24/08** — impronta `08ce3f69…`, 1.777.087 byte,
-4 file, costruita alle **21:50** e installata alle **22:22**. Pacchetto e
-installato confrontati byte per byte: gli stessi. `/api/app-info` dice `2.2`
-due volte, applicativo e servizio, e nessun campo `errore`.
+**La 2.3 è costruita e NON installata** — `consegna/Pathfinder 2.3/`,
+impronta `367d977e…`, 4 file. Porta il giro conto nel vano di lavorazione,
+il controllo pre-percorso su quel che il reparto ha già in mano, la lista
+piatta dei colli e il percorso di più ODP insieme — §1. Provata al banco
+sulla 4199 contro una copia del magazzino, e in browser sul pacchetto
+minificato. **Installare non è accendere, e installare lo fa Andrea.**
+
+**IL CODICE DELLA 2.3 STA SUL RAMO `2.3-reparto-e-giro-conto`, NON SU
+`main`.** Su `main` c'è la 2.2, che è quella in servizio e quella che si
+consolida: chi lavora alla 2.2 non deve scansare la 2.3 per farlo. Il ramo
+si rilegge con `git show 2.3-reparto-e-giro-conto:<file>` e si riprende con
+`git checkout 2.3-reparto-e-giro-conto`. **La 2.3 è stata giudicata un passo
+più lungo della gamba il 25/08, e messa da parte**: quello che porta è
+scritto qui sotto perché il giorno che si riprende non si ricominci a
+ragionarci da capo.
+
+Il pacchetto costruito sta in `consegna/Pathfinder 2.3/`, che **git non
+traccia e la prossima build azzera**: ricostruirlo è un comando —
+`git checkout 2.3-reparto-e-giro-conto && npm run build`.
+
+**L'APPLICATIVO IN SERVIZIO È LA 2.2 GIUSTA — `08ce3f69…`, 1.777.087 byte**,
+installata il 25/08 all'01:39 dal pacchetto ricostruito. **Il servizio dice
+ancora 2.3**, e l'installazione si è fermata sulla verifica finale: l'attività
+pianificata lancia il file del repository, non quello installato. Il comando
+che lo corregge sta nella voce 39.
+
+La riga qui sotto racconta com'era prima di quell'installazione.
+
+**Prima di quell'installazione c'era un applicativo 2.2 SBAGLIATO e un servizio 2.3**,
+`C:\Pathfinder\app\corrente` portava l'impronta
+`62992e15…` — la build del 20/08, quella difettosa — e la 4173 rispondeva
+`service_version` **2.3**. Ci si era arrivati installando la 2.3 all'01:29 e
+tornando indietro all'01:35: `torna-indietro.ps1` riporta **solo
+l'applicativo**, per scelta scritta. §1.
+
+**Il servizio esegue `MAPPER\server\pathfinder-server.js`**, cioè il file
+della cartella di lavoro: chi tocca quel file tocca la produzione, e
+nessuna installazione riuscirà finché l'attività pianificata punta lì. §1,
+voce 39.
+
+**La riga qui sotto era vera il 24/08 e non lo è più.** Resta perché dice
+qual è il pacchetto giusto: **la 2.2 del 24/08** — impronta `08ce3f69…`,
+1.777.087 byte, 4 file, costruita alle **21:50** e installata alle **22:22**.
+Quel pacchetto era andato perso e il 25/08 è stato **ricostruito dal commit
+`495f38c` con la stessa identica impronta**: sta in
+`ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.2\`.
 
 **Tre ore prima era stata installata la 2.2 SBAGLIATA** — impronta
 `62992e15…`, costruita il 20/08 alle 11:22 — e il difetto che si stava
@@ -30,6 +72,11 @@ due pacchetti si chiamano `2.2` tutti e due.
 > a ogni giro. Il 24/08 sono stati messi da parte e rimessi dentro a mano
 > quattro volte. Se devono vivere, il posto è fuori da `consegna/` o dentro
 > la lista dei file del plugin di build.
+>
+> **Il 25/08 la build ha girato altre quattro volte, e `consegna/` contiene
+> soltanto `Pathfinder 2.3/`.** Del kit demo non c'è traccia da nessuna
+> parte sul disco — né in `ARCHIVIO/`, né nel worktree. Se il 24/08 era
+> stato rimesso dentro dopo l'ultima build, adesso non c'è più.
 
 **Il repository è in pari.** Il lavoro del 24/08 sta su `origin/main`
 (`eb39f0a`): 19 file, 907 righe entrate e 172 uscite. Il 20/08 era successo
@@ -96,6 +143,228 @@ porta dati veri, e per questo un collaudo si fa sempre su una **copia** — §5.
 ---
 
 ## 1. Stato
+
+### Il 25/08 — IL SERVIZIO IN PRODUZIONE GIRA DALLA CARTELLA DI LAVORO
+
+**È il motivo per cui la 2.2 non si installa, ed è la trappola più grossa
+trovata finora.** L'installazione del 10/08 lo aveva scritto nel suo log e
+nessuno lo ha più riletto:
+
+```
+Applicativo   C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\server\pathfinder-server.js
+```
+
+L'attività pianificata «Pathfinder - Servizio dati» lancia **il file del
+repository**, non `C:\Pathfinder\servizio\pathfinder-server.js`. La prova,
+misurata il 25/08:
+
+| | dice |
+|---|---|
+| `C:\Pathfinder\servizio\pathfinder-server.js` | `VERSION = '2.2'`, ultima modifica **20/08 11:16** |
+| `MAPPER\server\pathfinder-server.js` | `VERSION = '2.3'` |
+| `/api/app-info` sulla 4173 | `service_version` **2.3** |
+
+L'unico file che dice 2.3 è quello nella cartella di lavoro, ed è quello che
+la produzione sta eseguendo. L'installazione della 2.3 ha aggiornato
+`C:\Pathfinder\app\` e ha copiato il servizio in `C:\Pathfinder\servizio\`,
+ma quel file **non lo apre nessuno**.
+
+**Due conseguenze, e sono tutte e due serie.**
+
+**1. Chi lavora al progetto scrive in produzione senza saperlo.** Cambiare
+`VERSION` nel repository — cosa che ogni versione nuova fa, ed è il primo
+gesto della lista — cambia il numero che il servizio in magazzino dichiara
+al riavvio successivo. Vale per `VERSION` e vale per tutto il resto del
+file: rotte, transazioni, `removeItem`. Il 25/08 il numero è passato a 2.3
+per questa strada, non per un'installazione.
+
+**2. L'installazione della 2.2 non può riuscire.** L'installer copia
+l'applicativo, copia il servizio, riavvia l'attività e alla fine confronta
+`service_version` col numero del pacchetto. L'attività riparte sul file del
+repository, che dice 2.3: il confronto fallisce e l'installer dichiara
+«Il servizio non è quello di questa versione». Il messaggio parla di
+riavvii perché è il caso che si aspettava — un processo vecchio ancora vivo
+— e qui il processo è nuovo e legge il file sbagliato.
+
+**Non è stato corretto**: tocca l'attività pianificata e il servizio, e
+quello si propone. Vedi la voce 39.
+
+### Lo stato vero della produzione, misurato il 25/08 all'01:40
+
+| | |
+|---|---|
+| applicativo in `C:\Pathfinder\app\corrente` | **2.2**, impronta `62992e15…` — **la 2.2 SBAGLIATA**, quella del 20/08 |
+| servizio che risponde sulla 4173 | **2.3** |
+| `C:\Pathfinder\app\pathfinder-2.3` | 2.3, impronta `367d977e…`, installata all'**01:29** |
+| `C:\Pathfinder\app\precedente` | 2.3 |
+
+Letto dalle date: la 2.3 è stata installata all'01:29 e alle 01:35 è stato
+fatto un `torna-indietro`, che ha rimesso `corrente` sulla 2.2. **Lo script
+riporta indietro solo l'applicativo, per scelta scritta** — §5 e la sua
+testata: «il servizio dati resta quello di adesso, e i due numeri di
+/api/app-info non coincidono». Quindi servizio 2.3 e applicativo 2.2 è lo
+stato che quel gesto lascia, non un guasto.
+
+**Ma l'applicativo tornato indietro è la 2.2 sbagliata**, e non c'è nessun
+posto in `C:\Pathfinder\app\` dove stia la `08ce3f69…`: la 2.2 giusta, in
+quella macchina, non c'è più.
+
+### La 2.2 in archivio era quella sbagliata — sistemata il 25/08
+
+`ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.2\` conteneva l'impronta
+`62992e15…`, 1.768.752 byte, costruita il 20/08 alle 11:22: **la build
+sbagliata**, la stessa che il 24/08 era finita in servizio per tre ore.
+Chi la installava installava il difetto.
+
+Adesso lì c'è la 2.2 vera, **ricostruita dal commit `495f38c`** — impronta
+`08ce3f69331985…`, **1.777.087 byte**, gli stessi che l'INDEX dichiarava.
+Quella sbagliata non è stata cancellata: sta accanto, come
+`Pathfinder 2.2 (build sbagliata 20-08 62992e15)`.
+
+**E si è imparata una cosa che non si sapeva: LA BUILD È RIPRODUCIBILE BIT
+PER BIT.** Ricostruendo lo stesso commit a cinque giorni di distanza esce la
+stessa impronta, cifra per cifra. Vuol dire che un pacchetto perso non è
+perso: si riottiene dal commit, e che l'impronta è una prova di *quale
+codice* c'è dentro, non solo di quali byte.
+
+### Il 25/08 — il reparto, e il conto che passa da un ordine all'altro
+
+**Il caso.** Cinque ODP della stessa serie chiedono 5 KG dello stesso lotto
+l'uno, e a magazzino c'è una confezione da 25. Il primo prelievo si portava
+via il collo intero — non c'era modo di prenderne cinque — e i quattro
+percorsi dopo dicevano **«lotto non trovato»**. Non era vero: quella merce
+era a disposizione del reparto, ferma nel vano di lavorazione, e nessuna
+maschera la nominava. Andrea, 24/08.
+
+**1. IL GIRO CONTO — la merce non si muove, il conto cambia nome.** Un `out`
+sul cedente e un `in` sul ricevente, nessuna giacenza toccata. Passa una
+QUANTITÀ, non un collo: dei 25 KG scesi per il primo ordine, quattro volte
+cinque vanno agli altri e cinque restano suoi — ed è quel residuo che alla
+chiusura diventa il suo consumo. Cedere il collo intero direbbe che chi lo
+ha fatto scendere non ne ha consumato niente. `qty` è **zero** apposta: i
+colli restano di chi li ha portati giù, e a passare sono i chili.
+
+Il giro usa `out` e `in`, non un verso nuovo: il ramo in fondo a `conto()`
+raccoglie tutto quel che non è `out` né `consumo`, e un verso nuovo ci
+cadrebbe dentro come merce entrata dallo scaffale. A distinguerlo è
+**`giro_odp`**, il nome dell'altro ordine sul movimento. Non serve al saldo:
+serve al rendiconto.
+
+Lo fa il magazziniere **al controllo pre-percorso**, prima di camminare, e a
+registro va con una causale sua — **`WIPGIRO`**, «Giro conto WIP». Un
+movimento che non sposta merce sta a registro perché la domanda che ci si fa
+fra tre anni è «di chi era quel sacco».
+
+**2. IL FABBISOGNO SI SCONTA DI QUEL CHE IL REPARTO HA GIÀ IN MANO**, in UM.
+La tappa nasce già ridotta — «servono 5, ne ha 5, non si va» — e non è uno
+stato salvato da qualche parte: si **rilegge dai movimenti** a ogni
+costruzione del percorso. Fare il giro e ricostruire dà una tappa più corta;
+non farlo la lascia intera; ricaricare lo stesso file due volte dà lo stesso
+risultato. Dove le UM non si sanno — `coperturaUom` torna `null`, non zero —
+**la tappa non si riduce** e decide chi ha la merce davanti.
+
+Il controllo dice due cose diverse con due riquadri diversi: **verde**, «già
+in reparto per quest'ordine, non serve prelevarne dell'altra»; **giallo**,
+«il reparto ce l'ha per un altro conto» col pulsante che gira.
+
+**3. IL VANO NON È PIÙ UNA TAPPA.** `PickRoute.build` cercava con
+`getItemByKey` su TUTTE le ubicazioni e scartava solo quarantena e impegno
+su DDT: il vano WIP è un'ubicazione mappata, quindi ci mandava a prelevare —
+merce di un altro ordine, portata via senza passare dal conto. Adesso è
+escluso dalle candidate, e ne esce solo col giro conto o col reso.
+
+**4. IL VANO WIP È UNA LISTA PIATTA, UNA RIGA PER COLLO**, con dentro i nomi
+degli ordini che se lo dividono e per quanto: «📦 25 KG — ODP-1 · 20 KG,
+ODP-2 · 5 KG». Si rende, si dichiara consumato e si gira di conto da lì,
+senza passare dall'ordine, perché chi ha il bancale davanti vede il collo e
+non il numero d'ordine. Le quote le calcola `quoteVano`, puro: assegna col
+criterio di sempre — la misura esatta, poi il più piccolo che basta — e
+quello che avanza su un collo è **scoperto**, merce che nessun ordine
+rivendica. Quel che un conto reclama e nel vano non si ritrova esce in
+**`senzaPosto`** invece di sparire: un conto e uno scaffale fuori passo si
+mostrano.
+
+**Il conto per ordine si è spostato in un registro suo** — scheda «Registro
+ODP», `views/wipRegistro.ts`: conto, chiusura, rendiconto, archivio. Le due
+domande sono diverse — «cosa c'è in reparto e di chi è» contro «come si è
+chiuso quest'ordine» — e stavano in una maschera sola perché fino alla 2.2
+un collo apparteneva a un ordine solo.
+
+**5. IL RESO TRABOCCA, E SI SCARICA DAL PIÙ VECCHIO.** La produzione rende
+quando ha finito, non quando un ordine chiude, e spesso rende più di quanto
+un solo conto avesse fuori. `ripartisciReso` consuma le quote nell'ordine in
+cui arrivano — le ordina la maschera, che sa quale riga il magazziniere ha
+toccato — e l'eccedenza passa alla successiva. Dentro, comanda l'anzianità
+dell'ordine aperto; le quote senza padrone vanno in fondo.
+
+**6. SI ESCE DAL VANO PER QUANTITÀ, NON PER COLLI.** Un collo diviso fra due
+ordini non si può portare via intero perché il conto dice «un collo»:
+`pianoUscita` (in `modules/colli.ts`) traduce una quantità in
+`{da, quantita}` per collo — la misura esatta, poi il più piccolo che basta
+— e `esceDaVanoWip` fa **una** chiamata alla giacenza e **un movimento di
+conto per ogni ordine toccato**. Il collo che esce intero si conta a chi ne
+ha la quota più grande: i colli sono interi e le quote no, e la quantità
+resta esatta per tutti.
+
+**7. PIÙ ODP IN UN GIRO SOLO.** Si caricano più file: le righe che chiedono
+lo stesso lotto dalla stessa ubicazione diventano **una tappa**, con dentro
+`richieste` — quanto ne vuole ciascun ordine. Al prelievo la merce entra nel
+vano **una volta sola** (`entraInWip` aggiunge giacenza: chiamarla cinque
+volte caricherebbe cinque volte la stessa roba) e agli altri passa col giro
+conto, in proporzione a quel che avevano chiesto. Un ordine si toglie dal
+giro senza ricaricare gli altri.
+
+### Tre difetti trovati costruendo, non leggendo
+
+**`ordiniWipAperti` filtrava sul residuo in COLLI.** Un ordine servito da una
+quota di un collo altrui ha cinque chili in lavorazione e **zero colli**:
+spariva dagli ordini aperti il giorno stesso in cui nasceva. Adesso la prova
+è il residuo in colli **o** in UM.
+
+**«L'ordine più vecchio» era ordinato sull'ULTIMO movimento.**
+`ordiniWipAperti` ordina sul più recente — giusto per un elenco da cui si
+sceglie — e rovesciare quell'elenco metteva per ultimo proprio l'ordine
+sceso per primo: chi aveva ceduto una quota a quattro altri portava il suo
+ultimo movimento in fondo alla giornata. Il reso si scaricava dall'ordine
+sbagliato. Adesso «più vecchio» è **quando l'ordine è nato**. Trovato al
+banco, sul ciclo dei cinque ODP.
+
+**Il rendiconto stampava un foglio bianco, e prima ancora una bugia.** Il
+filtro delle righe guardava i soli colli: un ordine servito interamente da
+quote altrui — cinque chili ricevuti, cinque dichiarati consumati — usciva
+con zero righe. E il **reso** portava dentro anche il ceduto: «venticinque
+chili rientrati a magazzino» a chi poi va a cercarli sullo scaffale e ne
+trova cinque. Adesso il reso sul foglio è quello che è **davvero risalito**,
+ceduto e ricevuto hanno le loro colonne, e reso + ceduto + consumo fa il
+consegnato.
+
+### Come è stato provato
+
+**Al banco, sul pacchetto costruito** — 4199, copia del magazzino del 20/08,
+`banco/banco-2.3.cjs`. Il ciclo dei cinque ODP gira per intero in
+`banco/ciclo/reparto.test.js`, **10 passi**: il collo da 25 entra a
+scaffale, il primo ordine se lo porta in reparto, il secondo si sente dire
+che la merce c'è, il giro conto passa 5 KG e la giacenza non si muove di un
+grammo, il percorso ricostruito non ha più quella tappa, il collo porta
+cinque nomi e la somma delle quote fa 25, la produzione rende 5 KG senza
+dire per chi e si scarica il più vecchio, un ordine dichiara la sua parte e
+agli altri non tocca niente, un ordine archiviato rifiuta anche un giro
+conto.
+
+**In browser, sul pacchetto minificato**: le due schede disegnano, il
+riquadro giallo elenca le quote col pulsante, il giro conto eseguito porta
+le tappe da 1 a 0 e il riquadro diventa verde — «già in reparto per
+quest'ordine: 5 KG» — e a registro compare
+`WIPGIRO · 0 colli · 5 KG · ODP-BROWSER-1 · Giro conto: … → …`.
+
+`npm run check` pulito, **947 prove in 33 file** nel client, **98** nel
+servizio, **22** sull'installazione.
+
+**Tre prove del ciclo al banco falliscono, e fallivano già sulla 2.2** —
+verificato costruendo un worktree su `HEAD` e facendole girare lì: il reso
+del ciclo 2.0 (③), l'attività di `funzioni`, e la testata dell'ODP in
+`percorso` (il file locale è `ODP2607777`, `ricetta.js` dice `ODP2603889`).
+Non le tocca questa versione.
 
 ### Il 24/08 — la maschera delle attività, il registro, i colli per misura
 
@@ -186,7 +455,7 @@ guardano **la riga scritta e non la risposta**, che è l'unico posto da cui
 si vedeva.
 
 **Le tredici righe già storte sono raddrizzate in produzione**, il 20/08,
-dopo una copia in `C:\Pathfinderackup\`. Zero righe su 199 portano
+dopo una copia in `C:\Pathfinder\backup\`. Zero righe su 199 portano
 ancora `updated_at`. **Dodici delle tredici avevano `updated_at` PIÙ
 RECENTE**: dichiaravano «modificata il 07/08» merce toccata il 20/08, ed è
 quella la data che hanno tenuto. Lo ha fatto `banco/campo-fantasma.cjs`,
@@ -1017,6 +1286,11 @@ collauda al banco e si consegna il pacchetto.
 | **32** | **Installare la 2.2 e vedere i due numeri coincidere.** Il pacchetto è in `consegna/Pathfinder 2.2/`, impronta `3945a5de…`. Prima di installare restano le maschere col PIN — voce 20 — e vale la trappola di §5: **installare non è accendere** | Andrea |
 | **33** | **Il registro racconta male i trasferimenti** — §1, trovato dal guardiano il 20/08: **54 movimenti su 256 sono `MOVE` con `delta 0`** e saldo invariato, e i `QREL` non portano nessuna quantità. La merce si sposta davvero, verificato. Ma il registro si tiene **sei anni**, e la domanda che ci si fa fra tre è «quanto»: un movimento che non porta la quantità a quella domanda non risponde. Non è un difetto che si vede lavorando, ed è il motivo per cui va scritto qui | da costruire |
 | **34** | **Un movimento `EDIT` senza merce** — `# MAG-ACC-03`, articolo e lotto vuoti. Uno solo su 256, trovato dal guardiano il 20/08 | da chiarire |
+| **36** | **Installare la 2.3 e vedere i due numeri coincidere.** Il pacchetto è in `consegna/Pathfinder 2.3/`, impronta `367d977e…`. Restano prima le maschere col PIN — voce 20: **nessuna maschera della 2.3 è stata provata con un operatore identificato vero**, al banco l'identità è stata messa a mano come fa `banco/ciclo/banco.js`. Vale la trappola di §5 | Andrea |
+| **37** | **Il vano WIP di produzione è `M06-COM-01`, quello del banco `MAG1-WIP-01`.** La 2.3 esclude il vano dalle ubicazioni in cui il percorso manda a prelevare: è giusto solo se l'area configurata è quella vera. Si controlla in Configurazione → Funzioni **prima** di installare | Andrea |
+| **38** | **Le righe già nel vano al momento dell'installazione non hanno misure a conto.** `quoteVano` le legge dai `packs` dell'inventario e dai `colliFuori` di ogni ordine: dove i movimenti non portano i colli — tutto quel che è entrato prima della 2.0 — la riga finisce fra quelle «senza misure dichiarate» e si lavora a numero. Non è un difetto: è la stessa condizione della voce 6 | da chiarire |
+| **39** | **L'ATTIVITÀ PIANIFICATA PUNTA AL REPOSITORY — e c'è il comando che la sistema.** Da PowerShell **come amministratore**: `& 'C:\Pathfinder\servizio\installa-servizio.ps1' -Porta 4173 -Database 'C:\Pathfinder\data\pathfinder.db' -CartellaBackup 'C:\Pathfinder\backup' -CartellaApplicativo 'C:\Pathfinder\app\corrente'`. Lo script disinstalla l'attività e la ri-registra con `$Qui` = la cartella da cui viene lanciato: lanciandolo da `C:\Pathfinder\servizio` l'attività punterà finalmente lì. Il magazzino resta giù i secondi del riavvio, il database non si tocca. Poi `/api/app-info` deve dire **2.2 due volte**. §1 | Andrea, a magazzino fermo |
+| **40** | **`PATHFINDER_APP` punta ancora a `MAPPER\pathfinder-1.6.1.html`** — un secondo filo fra la produzione e la cartella di lavoro, residuo del modo «file singolo». Oggi non serve a niente: `/api/app-info` dice `modo: cartella` e comanda `PATHFINDER_APP_DIR`, che è `C:\Pathfinder\app\corrente`. Va svuotata il giorno che si tocca il servizio, non prima: `installa-servizio.ps1` senza `-Applicativo` la lascia com'è apposta | da chiarire |
 | **35** | **La 2.1 è in servizio da un pacchetto che nessun documento nominava.** L'impronta in produzione (`7cd16b50…`, costruita il 20/08 alle 08:31) non è quella che l'INDEX dichiarava (`29f215e1…`). È la **terza volta in quattro giorni** che il documento dice dove gira la produzione e la produzione gira altrove. Non è una riga da correggere: è il motivo per cui §0 punto 2 esiste, e va riletto da chi apre una conversazione nuova | letto, non si chiude |
 
 **Quanto pesano le due voci qui sopra, misurato il 19/08.** La voce 5 (zone
@@ -1035,6 +1309,7 @@ c'è l'inventario. La numerazione è **progressiva**: una build definitiva porta
 
 | Versione | Cosa |
 |---|---|
+| **2.3** | **Il reparto, e il giro conto.** Un collo nel vano di lavorazione appartiene a **più ordini per quote**: il conto passa da uno all'altro senza che la merce si muova, il fabbisogno di una tappa si sconta di quel che il reparto ha già in mano, il vano è una lista piatta di colli e non più il conto di un ordine, e un percorso può portare **più ODP insieme**. **Costruita il 25/08, non installata** — §1 |
 | **1.8** | **UOM riscritta.** Gli item non hanno confezionamento costante: lo stesso articolo arriva in colli da 5 kg e la volta dopo da 25 kg. Al posizionamento l'operatore dichiara **la suddivisione dei colli** (10 × 1.000 + 1 × 900), **più colli incompleti sono ammessi**, il sistema calcola il totale e carica **colli e UM**. A prelievo, smaltimento e trasferimento sceglie **quali e quanti colli**. Il **prelievo parziale opera in colli e UM su tutte le funzioni**. L'unità è quella dell'articolo: kg dove è a kg, pezzi dove è a pezzi. **In costruzione — vedi sotto** |
 
 #### La 1.8, blocco per blocco
@@ -2201,7 +2476,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `core/schema.ts` · `utils.ts` · `costanti.ts` | 173 · 46 · 44 | Schema IndexedDB e migrazioni · `debounce` e `_h` · causali e ritenzione |
 | `modules/compiti.ts` | 555 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. **2.1**: `registroAttivita` unisce i compiti ai campionamenti che il registro generale porta e nessun compito rivendica. **Puro**: non tocca Store né il DOM |
 | `modules/misure.ts` | 319 | Le cinque unità, la suddivisione per collo, il collo incompleto. Puro |
-| `modules/colli.ts` | 501 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, le uscite come le capisce il servizio, il ritrovamento per misura, il ponte con la 1.7. **1.8.4**: `scelteDaUscite` (le uscite messe da parte, ritrovate) e `rettifica` (da com'era a com'è). **2.2**: `scelteDaTaglie` (quanti per misura → scelte per indice, col collo che si apre) e `riempiFabbisogno` (la maschera nasce compilata dalle misure più piene). Puro |
+| `modules/colli.ts` | 578 | **1.8 — l'elenco dei colli**: la suddivisione dichiarata, il prelievo per collo, le uscite come le capisce il servizio, il ritrovamento per misura, il ponte con la 1.7. **1.8.4**: `scelteDaUscite` (le uscite messe da parte, ritrovate) e `rettifica` (da com'era a com'è). **2.2**: `scelteDaTaglie` (quanti per misura → scelte per indice, col collo che si apre) e `riempiFabbisogno` (la maschera nasce compilata dalle misure più piene). **2.3**: `pianoUscita` — una QUANTITA' tradotta in colli, la misura esatta e poi il piu' piccolo che basta: nel vano di lavorazione un collo e' di piu' ordini, e chi dichiara la sua parte non se lo puo' portare via intero. Puro |
 | `modules/documenti.ts` | 39 | **1.8.4** — la riga di un documento di uscita, ricostruita in **un posto solo**. Nasce da un difetto: era in due copie, e i colli scelti sparivano al salvataggio. Puro |
 | `modules/giacenzaArticolo.ts` | 175 | **1.9** — la giacenza di un articolo raggruppata per lotto e ordinata FEFO, i totali per unita', e la coda di conte nell'ordine dello scaffale. Le UM **non** si calcolano qui: arrivano risolte da `Store.righeLette`, perche' due letture della stessa riga sono due saldi. Puro |
 | `modules/trasferimentiOdp.ts` | 142 | **1.10** — quali tappe stanno in un altro magazzino, il compito di trasferimento che ne nasce, e la tappa spostata sull'ubicazione di ricezione. Puro |
@@ -2209,12 +2484,12 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/udc.ts` | 162 | **1.12** — il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perche' **un'etichetta dura**, e provarla altrimenti vorrebbe dire stamparla. Puro |
 | `modules/udc.ts` | 162 | **1.12** — il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perche' **un'etichetta dura**, e provarla altrimenti vorrebbe dire stamparla. Puro |
 | `modules/stoccaggio.ts` | 355 | **1.13** — dove si mette la merce: vincoli duri, poi punteggio. Le regole sono un dato di `storage_rules`. Ogni proposta dice perche'. Puro |
-| `modules/wip.ts` | 300 | **1.14** — il conto di un ordine: entrato, tornato, residuo. Il consumo si dichiara **a ordine chiuso**, mai prima. **2.0**: `colliFuori` — le misure dei colli che un ordine ha ancora nel vano WIP, entrate meno quelle gia' tornate o consumate. Il vano e' UNO e ci convivono le righe di piu' ordini: senza queste misure, «rendi tre colli» non ha una risposta. **2.1**: `archiviato` — la chiusura e' un movimento, non il residuo a zero. **2.2**: `ordiniArchiviati` (l'archivio da sfogliare, col numero e la data, dal piu' recente) e `righeSenzaOrdine` (quel che sta nel vano e nessun movimento nomina: la chiusura e il reso lavorano per ordine, e non lo vedono). Puro |
+| `modules/wip.ts` | 813 | **1.14** — il conto di un ordine: entrato, tornato, residuo. Il consumo si dichiara **a ordine chiuso**, mai prima. **2.0**: `colliFuori` — le misure dei colli che un ordine ha ancora nel vano WIP, entrate meno quelle gia' tornate o consumate. Il vano e' UNO e ci convivono le righe di piu' ordini: senza queste misure, «rendi tre colli» non ha una risposta. **2.1**: `archiviato` — la chiusura e' un movimento, non il residuo a zero. **2.2**: `ordiniArchiviati` (l'archivio da sfogliare, col numero e la data, dal piu' recente) e `righeSenzaOrdine` (quel che sta nel vano e nessun movimento nomina: la chiusura e il reso lavorano per ordine, e non lo vedono). **2.3**: UN COLLO E' DI PIU' ORDINI — `quoteVano` (il vano collo per collo, con gli ordini che lo richiamano e quel che nessuno rivendica), `coperturaUom` (quanto un ordine ha gia' in mano, `null` quando non si sa), `ripartisciReso` (un reso che non dice per chi si scarica in ordine e TRABOCCA), `giro_odp` sul movimento e `ceduto_uom`/`ricevuto_uom` sul conto: il giro conto usa `out` e `in`, e il rendiconto non chiama «reso» merce mai risalita. Puro |
 | `modules/kpi.ts` | 330 | **2.0** — i numeri di articoli, movimenti e persone, che stanno gia' a database e nessuno sommava. Ogni movimento porta la sigla di chi l'ha fatto e ogni compito i suoi due tempi. `NON_MISURABILE` elenca cosa oggi non si puo' chiedere e quale campo servirebbe: chi cerca un numero che non trova capisce in dieci secondi se manca la funzione o manca il dato. Puro |
 | `modules/code128.ts` | 150 | **2.1** — il codice a barre, disegnato in casa. Solo il sottoinsieme B, e il perché è dichiarato: copre tutto quello che questo applicativo mette in un riferimento. **Non è un GS1-128** — manca FNC1 — e sta scritto nel modulo, non in una nota. La tabella dei 107 modelli si collauda con le due invarianti dello standard, non ricopiandola. Puro |
 | `modules/cruscotto.ts` | 155 | **2.1** — il layout della Dashboard: ordine, larghezza, quali riquadri, quali scorciatoie. Riconcilia il salvato con quello che il codice sa fare oggi — un riquadro nuovo si accoda visibile, uno sparito si ignora. **Ordine e larghezza, non coordinate**: una posizione in pixel salvata su un 27 pollici, riletta a 480, mette due riquadri uno sull'altro. Puro |
 | `modules/tabella.ts` | 200 | **2.1** — ordinare e filtrare, §3. Ordinamento stabile, il vuoto in fondo nei due versi, numeri confrontati da numeri. Il markup lo costruiscono le viste: qui c'è la regola. Puro |
-| `modules/pickRoute.ts` | 246 | Percorso di prelievo a serpentina |
+| `modules/pickRoute.ts` | 471 | Percorso di prelievo a serpentina. **2.3**: `buildSerie` — piu' ODP in un giro solo, con `richieste` sulla tappa; il fabbisogno scontato di quel che il reparto ha gia' in mano (`in_wip`, `in_reparto_altrui`, `reparto`); e **il vano WIP escluso dalle ubicazioni in cui si preleva** |
 | `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
 | `modules/destinatari.ts` | 200 | Chi è lo stesso destinatario (partita IVA), quale destinazione è nuova, cosa è cambiato |
 | `modules/parametri.ts` | 165 | Le tendine che sono un dato: valori di legge davanti e non rimovibili |
@@ -2263,7 +2538,8 @@ estrarre è spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `destinatari.ts` | 226 | Rubrica DDT, e quando un dato cambiato vale per sempre |
 | `archivio.ts` | 197 | I cinque tipi di documento emesso |
 | `registro.ts` | 191 | Registro movimenti completo |
-| `wip.ts` | 231 | **1.14** — il conto di un ordine: entrato, reso, consumato, e la chiusura che dichiara il consumo |
+| `wip.ts` | 461 | **2.3 — IL REPARTO, COLLO PER COLLO**: una riga per collo del vano, con gli ordini che se lo dividono e per quanto. Da qui si rende (e il reso trabocca), si dichiara consumato, e si gira il conto a un altro ordine senza muovere niente. Fino alla 2.2 era il conto di UN ordine, ed e' passato in `wipRegistro.ts` |
+| `wipRegistro.ts` | 402 | **2.3 — IL REGISTRO DEGLI ODP**: il conto di un ordine, la chiusura che trasforma il residuo in consumo, il rendiconto stampabile e l'archivio da sfogliare. Il rendiconto tiene separato il **ceduto** dal reso: merce passata a un altro conto non e' merce risalita a scaffale |
 | `udc.ts` | 322 | **1.12** — le unita' di carico: elenco, creazione, carico e scarico delle righe, spostamento intero, etichetta |
 | `parametri.ts` | 106 | Le quattro schede che sono un dato |
 | `vista.ts` | 36 | Il tipo `Vista`, e `$`/`$q` — `getElementById` col tipo `any` |
@@ -2301,7 +2577,7 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
 `compiti` (114) · `misure` (65) · `colli` (66) · `parametri` (19) · `documenti` (6) ·
-`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) — **925 prove in 32 file**. `ambiente.js` è
+`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) · **2.3**: `reparto` (22 — il giro conto, le quote del vano, il reso che trabocca, `pianoUscita`) — **947 prove in 33 file**. `ambiente.js` è
 il preambolo comune.
 
 Le tre prove del 2.2 leggono il SORGENTE invece di girare il codice, e non è
