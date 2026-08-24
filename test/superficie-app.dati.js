@@ -12,6 +12,10 @@
    2.1: sono entrati `_etichettaRuolo` e `_ruoloScelto` col ruolo Admin.
    2.1: sono entrati i quattro del conto di produzione — `_wipConsumaTutto`,
    `_wipDichiaraConsumata`, `_wipScelteConParte`, `_wipStampaRendiconto`.
+   2.2: la scelta dei colli si fa per MISURA e non piu' collo per collo:
+   sono usciti `_colliSelQta` e `_colliSelToggle`, sono entrati
+   `_colliSelPreso`, `_colliSelParte`, `_colliSelParteDa` e
+   `_colliSelOpzioniParte`.
    2.1: sono usciti i sei della copia esterna (`vault*`, `doVaultRestore`,
    `_scheduleVaultBackup`), `purgeOldLogsManual` con la purga, e i due
    salvataggi a mano `forceSave` e `manualSave`. */
@@ -31,8 +35,9 @@ export const SUPERFICIE = [
   '_cbPickInv', '_cbPickReleaseDest', '_checkPendingPickSession', '_checkStorageQuota',
   '_chiediColli', '_closeIdentityGate', '_closePickLoc', '_colliIn', '_colliQtyInput',
   '_colliResolve', '_colliRigaAdd', '_colliRigaDel', '_colliRigaSet', '_colliSel',
-  '_colliSelAnnulla', '_colliSelChiudi', '_colliSelOk', '_colliSelPrev', '_colliSelQta',
-  '_colliSelRender', '_colliSelScelte', '_colliSelToggle', '_conf',
+  '_colliSelAnnulla', '_colliSelChiudi', '_colliSelOk', '_colliSelOpzioniParte',
+  '_colliSelParte', '_colliSelParteDa', '_colliSelPreso', '_colliSelPrev',
+  '_colliSelRender', '_colliSelScelte', '_conf',
   '_confermaImportArticoli', '_configTab', '_confirmCompleteProfile',
   '_confirmFirstLeader', '_confirmLogin', '_contaAnteprima', '_contaBack',
   '_contaCheckArt', '_contaCheckLoc', '_contaCheckLot', '_contaRenderVerify',

@@ -160,6 +160,14 @@ export const VistaWip = {
     const c = Store.contoWip(this._wipOrdine);
     const r = c.righe.find((x) => x.item_key === itemKey);
     if (!r) return this.toast('Riga non trovata sul conto', 'error');
+    /* 2.2 — IL LOTTO CHE NON DICHIARA I SUOI COLLI LO PUO' DICHIARARE QUI.
+       Mezza anagrafica la quantità per collo non ce l'ha, e senza quella una
+       confezione aperta non ha un collo a cui riferirsi: fin qui il reso
+       parziale si rifiutava e l'operatore restava col sacco in mano. Il campo
+       compare SOLO su queste righe — dove le misure ci sono già, chiederle
+       sarebbe una domanda a cui il magazzino ha già risposto. */
+    const senzaMisure = !(Store.colliDiRiga(
+      Store.getItemsAtLocation(Store.getAreaWip()).find((x) => x.item_key === itemKey)) || []).length;
     this.showModal(
       `↩ Rendi a magazzino — ${this._esc(r.article_code)}#${this._esc(r.lot_code)}`,
       `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
@@ -175,6 +183,11 @@ export const VistaWip = {
           <label>E una confezione aperta, con dentro${r.uom ? ` (${this._esc(r.uom)})` : ''} — facoltativo</label>
           <input class="input input-mono" id="wipParte" inputmode="decimal" autocomplete="off" placeholder="es. 5">
         </div>
+        ${senzaMisure ? `<div class="form-group">
+          <label>Quanto contiene un collo intero${r.uom ? ` (${this._esc(r.uom)})` : ''}</label>
+          <input class="input input-mono" id="wipPerCollo" inputmode="decimal" autocomplete="off" placeholder="es. 25">
+          <div class="text-label-small text-sx-text-muted mt-2">Questo lotto non dichiara le misure dei suoi colli: serve per sapere quale collo si apre. Vale per tutti i colli del lotto, e si scrive una volta sola.</div>
+        </div>` : ''}
         <div class="form-group">
           <label>Ubicazione di rientro <span class="req">*</span></label>
           <div class="flex gap-3">
@@ -245,6 +258,28 @@ export const VistaWip = {
     let umResa: number | null = null;
     let packsRientro: number[] | null = null;
     let scelte;
+    if (parte > 0 && !(Store.colliDiRiga(nelVano) || []).length) {
+      /* La misura si scrive PRIMA di toccare la merce: da qui in poi la riga
+         dichiara i suoi colli e il reso parziale è un reso parziale come gli
+         altri. Se la dichiarazione non riesce non si muove niente. */
+      const scrittoPer = String($('wipPerCollo')?.value ?? '').trim();
+      if (!scrittoPer) {
+        return this.toast(`${r.article_code}#${r.lot_code} non dichiara le misure dei suoi colli: `
+          + 'dire quanto contiene un collo intero, o rendere solo colli interi', 'error');
+      }
+      const perCollo = Number(scrittoPer.replace(',', '.'));
+      if (!Number.isFinite(perCollo) || perCollo <= 0) {
+        return this.toast('Quanto contiene un collo intero: non è un numero', 'error');
+      }
+      try {
+        const cfgNuova = await Store.dichiaraConfezioneLotto(r.article_code, r.lot_code, perCollo);
+        await this._logMov(MOV.EDIT, r.article_code, '', r.lot_code, vano, null, '',
+          `Confezione del lotto dichiarata: ${formattaQuantita(cfgNuova.per_collo, cfgNuova.uom)} ${cfgNuova.uom} per collo`,
+          this._wipOrdine);
+      } catch (e) {
+        return this.toast((e as Error).message, 'error');
+      }
+    }
     if (parte > 0) {
       /* Aprire un collo pretende di sapere QUALE si apre, e quindi che la
          riga i colli li dichiari: senza elenco «7,5 KG di un collo» non ha
@@ -266,11 +301,13 @@ export const VistaWip = {
       if (scelte === undefined) return this.toast('Reso annullato', 'info');
     }
 
+    let uscita: Record<string, any> | null = null;
     try {
       const tolti = await Store.esceDaWip(this._wipOrdine, {
         item_key: itemKey, article_code: r.article_code, lot_code: r.lot_code, qty,
         uom: r.uom,
       }, scelte, 'out', umResa);
+      uscita = tolti as Record<string, any>;
       /* La merce rientra com'è uscita: gli stessi colli, e le stesse UM. Un
          reso che rientra «a numero» rinascerebbe con la confezione
          dell'anagrafica, che sul lotto non vale — la confezione del lotto
@@ -294,8 +331,14 @@ export const VistaWip = {
     } catch (e) {
       return this.toast((e as Error).message, 'error');
     }
+    /* IL REGISTRO DICE ANCHE QUANTO. Fino alla 2.2 questa riga portava solo
+       la nota: il reso risultava «avvenuto» e non «di sei colli», e il numero
+       d'ordine non c'era nemmeno. I numeri sono quelli del VANO, che è il lato
+       da cui la merce esce — come li scrive ogni altro trasferimento. */
     await this._logMov(MOV.MOVE, r.article_code, '', r.lot_code, vano, dove,
-      '', `Reso dal conto di produzione ${this._wipOrdine}`);
+      '', `Reso dal conto di produzione ${this._wipOrdine}`, this._wipOrdine,
+      uscita?._qty_before ?? null, uscita?._qty_delta ?? null, uscita?._qty_after ?? null,
+      typeof uscita?._qty_uom_delta === 'number' ? uscita._qty_uom_delta : null);
     this.closeModal();
     this._formWip($('pickSubForm'));
     this.updateSyncIndicator();
@@ -381,7 +424,7 @@ export const VistaWip = {
        dove i colli sono dichiarati. */
     if (quanti >= elenco.length) return null;
     const fuori = Store.colliFuoriWip(this._wipOrdine, itemKey);
-    return this._chiediColli(nelVano, titolo, fuori.length ? fuori : null);
+    return this._chiediColli(nelVano, titolo, fuori.length ? fuori : null, { colli: quanti });
   },
 
   /* 2.1 — IL RENDICONTO DI CONSUMO, SU CARTA.
@@ -505,7 +548,8 @@ export const VistaWip = {
         qty: r.residuo, qty_uom: r.residuo_uom, uom: r.uom,
       }, scelte, 'consumo');
       await this._logMov(MOV.PICK, r.article_code, '', r.lot_code, vano, null,
-        '', `Consumo di produzione — ordine ${odp}`, odp, r.residuo, -r.residuo, 0);
+        '', `Consumo di produzione — ordine ${odp}`, odp, r.residuo, -r.residuo, 0,
+        typeof r.residuo_uom === 'number' ? -r.residuo_uom : null);
       return null;
     } catch (e) {
       return `${r.article_code}#${r.lot_code}: ${(e as Error).message}`;

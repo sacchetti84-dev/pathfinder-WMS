@@ -490,11 +490,16 @@ export const VistaCompiti = {
       </div>
       <!-- Il DDT vuole destinatario, vettore e causale, e li sa chi CHIEDE la
            spedizione: l'operatore che preleva non deve indovinarli. Compaiono
-           solo per i due prelievi, e per nessun altro tipo. -->
+           solo per i due prelievi, e per nessun altro tipo.
+           NON SONO OBBLIGATORI QUI. Chi apre il prelievo sa cosa e quanto va
+           tirato giu' prima di sapere a chi va: il destinatario e' un dato
+           del DOCUMENTO, e il documento lo pretende alla registrazione, che
+           e' il momento in cui si sa. Preteso alla richiesta, blocca l'unica
+           cosa che a quel punto serve — mettere il lavoro in coda. -->
       <div class="hidden mb-6" id="ntDdtRow">
         <div class="form-row mb-4">
-          <div class="form-group"><label>Destinatario <span class="req">*</span></label>
-            <input class="input" id="ntDest" maxlength="120" placeholder="Ragione sociale"></div>
+          <div class="form-group"><label>Destinatario</label>
+            <input class="input" id="ntDest" maxlength="120" placeholder="Ragione sociale — se gia' si sa"></div>
           <div class="form-group max-w-[200px]"><label>Vettore</label>
             <input class="input" id="ntCarrier" maxlength="80"></div>
         </div>
@@ -542,7 +547,19 @@ export const VistaCompiti = {
      spegne ciò che l'operatore vede. */
   _ntTypeChanged() {
     const tipo = $('ntType')?.value || '';
-    const mostra = (id: string, si: boolean) => { const e = $(id); if (e) e.style.display = si ? '' : 'none'; };
+    /* SI ACCENDE LA CLASSE, NON SOLO LO STILE. Le due righe che nascono
+       nascoste portano `hidden` nel markup, e `display: ''` non batte una
+       classe: toglie lo stile in riga e lascia comandare il foglio. Il
+       risultato e' una riga che non compare mai — e il Campionamento
+       pretendeva un campo che nessuno poteva vedere. Trovato in browser il
+       24/08: la maschera rispondeva «dire per chi» sopra un modulo in cui
+       quel campo non c'era. */
+    const mostra = (id: string, si: boolean) => {
+      const e = $(id);
+      if (!e) return;
+      e.classList.toggle('hidden', !si);
+      e.style.display = si ? '' : 'none';
+    };
     mostra('ntSamplingRow', tipo === 'SAMPLING');
     mostra('ntDdtRow', tipo === 'PICK_SHIP' || tipo === 'PICK_RET');
     /* Lo Smaltimento scarica il magazzino e non porta niente da nessuna
@@ -663,7 +680,6 @@ export const VistaCompiti = {
     if (!val('ntLot')) return err('Scegliere una delle disponibilità proposte: lotto e ubicazione di partenza vengono da lì.');
     if (vuoleUbicazione(tipo) && !su('ntFrom')) return err('Quale riga si conta: senza l\'ubicazione non c\'è niente da aprire a chi la prende in mano.');
     if (vuoleColli(tipo) && !(parseInt(val('ntQty'), 10) > 0)) return err('Quanti colli: senza, il movimento non si può preparare e l\'attività non sa quando è finita.');
-    if ((tipo === 'PICK_SHIP' || tipo === 'PICK_RET') && !val('ntDest')) return err('Un prelievo per spedizione vuole il destinatario: lo sa chi la chiede, non chi preleva.');
 
     /* 1.4.4 — ARTICOLO E LOTTO SI SCRIVONO COM'ERANO, SENZA MAIUSCOLARLI.
        Insieme formano `item_key` — `ARTICOLO#LOTTO` — che è la chiave con
@@ -679,7 +695,9 @@ export const VistaCompiti = {
     if (su('ntFrom')) payload.from = su('ntFrom');
     if (su('ntTo')) payload.to = su('ntTo');
     if (tipo === 'PICK_SHIP' || tipo === 'PICK_RET') {
-      payload.destination = val('ntDest');
+      /* Vuoto non si scrive: il payload e' la richiesta, e la testata del
+         DDT si compila alla registrazione. */
+      if (val('ntDest')) payload.destination = val('ntDest');
       if (val('ntCarrier')) payload.carrier = val('ntCarrier');
       if (val('ntCausale')) payload.causale = val('ntCausale');
     }

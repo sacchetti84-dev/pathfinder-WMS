@@ -458,14 +458,14 @@ export const VistaInventario = {
           const scelte = Store.scelteDaUscite(it, diff.uscite);
           const removed = await Store.removeItem(loc, it.item_key, null, null, scelte);
           if (removed) {
-            await this._logMov(MOV.FIX_OUT, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, motivo, '', removed._qty_before, removed._qty_after - removed._qty_before, removed._qty_after);
+            await this._logMov(MOV.FIX_OUT, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, motivo, '', removed._qty_before, removed._qty_after - removed._qty_before, removed._qty_after, removed._qty_uom_delta ?? null);
             corrections++;
           }
         }
         if (diff.entrate.length) {
           const res = await Store.addItem(loc, it.article_code, it.article_description ?? '', it.lot_code, it.expiry_date || '', '', diff.entrate.length, null, diff.entrate);
           if (res.ok) {
-            await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `${motivo} · trovati ${formattaQuantita(totaleUomColli(diff.entrate, cfg!.uom), cfg!.uom)} ${cfg!.uom}`, '', res.qty_before, diff.entrate.length, res.qty_after);
+            await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `${motivo} · trovati ${formattaQuantita(totaleUomColli(diff.entrate, cfg!.uom), cfg!.uom)} ${cfg!.uom}`, '', res.qty_before, diff.entrate.length, res.qty_after, typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);
             corrections++;
           }
         }
@@ -476,7 +476,7 @@ export const VistaInventario = {
       if (it.missing) {
         const removed = await Store.removeItem(loc, it.item_key);
         if (removed) {
-          await this._logMov(MOV.FIX_OUT, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, 'Mancante a inventario', '', sysQty, -sysQty, 0);   // v2.0.1 [B7] operatore esplicito
+          await this._logMov(MOV.FIX_OUT, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, 'Mancante a inventario', '', sysQty, -sysQty, 0, removed._qty_uom_delta ?? null);   // v2.0.1 [B7] operatore esplicito
           corrections++;
         }
       }
@@ -488,7 +488,7 @@ export const VistaInventario = {
           // FIX-: rimuovi |delta| colli — e quali, se la riga li dichiara
           const removed = await Store.removeItem(loc, it.item_key, Math.abs(delta));
           if (removed) {
-            await this._logMov(MOV.FIX_OUT, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `Conta fisica: ${it.counted_qty}/${sysQty}`, '', sysQty, delta, it.counted_qty);   // v2.0.1 [B7]
+            await this._logMov(MOV.FIX_OUT, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `Conta fisica: ${it.counted_qty}/${sysQty}`, '', sysQty, delta, it.counted_qty, removed._qty_uom_delta ?? null);   // v2.0.1 [B7]
             corrections++;
           }
         } else {
@@ -497,7 +497,7 @@ export const VistaInventario = {
              in giacenza; vedi `giacenze.ts`. Non si corregge qui. */
           const res = await Store.addItem(loc, it.article_code, it.article_description ?? '', it.lot_code, it.expiry_date || '', '', delta);
           if (res.ok) {
-            await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `Conta fisica: ${it.counted_qty}/${sysQty}`, '', sysQty, delta, it.counted_qty);   // v2.0.1 [B7]
+            await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `Conta fisica: ${it.counted_qty}/${sysQty}`, '', sysQty, delta, it.counted_qty, typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);   // v2.0.1 [B7]
             corrections++;
           }
         }
@@ -509,7 +509,7 @@ export const VistaInventario = {
       const exQty = ex.qty || 1;
       const res = await Store.addItem(loc, ex.article_code, ex.article_description ?? '', ex.lot_code, '', '', exQty);
       if (res.ok) {
-        await this._logMov(MOV.FIX_IN, ex.article_code, ex.article_description, ex.lot_code, loc, null, Store.getCurrentIdentity().initials, 'Item extra trovato a inventario', '', res.qty_before, exQty, res.qty_after);   // v2.0.1 [B7]
+        await this._logMov(MOV.FIX_IN, ex.article_code, ex.article_description, ex.lot_code, loc, null, Store.getCurrentIdentity().initials, 'Item extra trovato a inventario', '', res.qty_before, exQty, res.qty_after, typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);   // v2.0.1 [B7]
         corrections++;
       }
     }
@@ -865,14 +865,16 @@ export const VistaInventario = {
           const tolti = await Store.removeItem(d.location_code, d.item_key, null, null, Store.scelteDaUscite(it, diff.uscite));
           if (!tolti) return this.toast('Rettifica non riuscita', 'error');
           await this._logMov(MOV.FIX_OUT, d.article_code, d.article_description, d.lot_code,
-            d.location_code, null, sigla, motivo, '', tolti._qty_before, tolti._qty_after - tolti._qty_before, tolti._qty_after);
+            d.location_code, null, sigla, motivo, '', tolti._qty_before, tolti._qty_after - tolti._qty_before, tolti._qty_after,
+            tolti._qty_uom_delta ?? null);
         }
         if (diff?.entrate.length) {
           const res = await Store.addItem(d.location_code, d.article_code, d.article_description,
             d.lot_code, d.expiry_date || '', '', diff.entrate.length, null, diff.entrate);
           if (!res.ok) return this.toast('Rettifica non riuscita', 'error');
           await this._logMov(MOV.FIX_IN, d.article_code, d.article_description, d.lot_code,
-            d.location_code, null, sigla, `${motivo} · trovati ${formattaQuantita(totaleUomColli(diff.entrate, cfgConta.uom), cfgConta.uom)} ${cfgConta.uom}`, '', res.qty_before, diff.entrate.length, res.qty_after);
+            d.location_code, null, sigla, `${motivo} · trovati ${formattaQuantita(totaleUomColli(diff.entrate, cfgConta.uom), cfgConta.uom)} ${cfgConta.uom}`, '', res.qty_before, diff.entrate.length, res.qty_after,
+            typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);
         }
       } else if (delta < 0) {
         const tolti = contati === 0
@@ -880,13 +882,15 @@ export const VistaInventario = {
           : await Store.removeItem(d.location_code, d.item_key, Math.abs(delta));
         if (!tolti) return this.toast('Rettifica non riuscita', 'error');
         await this._logMov(MOV.FIX_OUT, d.article_code, d.article_description, d.lot_code,
-          d.location_code, null, sigla, dettaglio, '', sistema, tolti._qty_delta ?? delta, tolti._qty_after ?? contati);
+          d.location_code, null, sigla, dettaglio, '', sistema, tolti._qty_delta ?? delta, tolti._qty_after ?? contati,
+          tolti._qty_uom_delta ?? null);
       } else if (delta > 0) {
         const res = await Store.addItem(d.location_code, d.article_code, d.article_description,
           d.lot_code, d.expiry_date || '', '', delta);
         if (!res.ok) return this.toast('Rettifica non riuscita', 'error');
         await this._logMov(MOV.FIX_IN, d.article_code, d.article_description, d.lot_code,
-          d.location_code, null, sigla, dettaglio, '', sistema, delta, contati);
+          d.location_code, null, sigla, dettaglio, '', sistema, delta, contati,
+          typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);
       }
     } catch (err) {
       return this.toast(`Rettifica non riuscita: ${(err as Error).message || 'errore'}`, 'error');

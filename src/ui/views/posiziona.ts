@@ -11,6 +11,7 @@ import { formattaQuantita, descrivi as descriviColli } from '../../modules/misur
 import {
   espandi as espandiColli, validaDichiarazione, descriviColli as descriviElenco,
   totaleUom as totaleUomElenco, preleva as prelevaElenco, raggruppa as raggruppaColli,
+  scelteDaTaglie, riempiFabbisogno,
 } from '../../modules/colli';
 import { scavalco as scavalcoStoccaggio } from '../../modules/stoccaggio';
 
@@ -18,7 +19,23 @@ import { scavalco as scavalcoStoccaggio } from '../../modules/stoccaggio';
    colli in ingresso — «quanti, e da quanto» — e la finestra che chiede quali
    colli escono, con le scelte parziali segnate per posizione. */
 type RigaColliIn = { colli: string; per: string };
-type SceltaColli = { elenco: number[]; uom: string; scelte: Map<number, number | boolean> };
+/* 2.2 — la scelta si fa per TAGLIA: una riga per misura col numero di colli
+   che si prendono, e un collo aperto in fondo se serve. `presi` e `parte`
+   restano stringhe finche' non si conferma — e' la convalida a dire se ci
+   stanno, e correggere mentre si digita cancella la cifra a chi sta ancora
+   componendo «1.000». */
+type SceltaColli = {
+  elenco: number[]; uom: string;
+  gruppi: { colli: number; per: number }[];
+  presi: string[];
+  parte: string;
+  parteDa: number | null;
+  /* Vero da quando l'operatore tocca la tendina: da li' in poi il sistema
+     non gli cambia piu' il collo sotto le mani. Finche' e' falso la misura
+     si ricalcola a ogni cifra — il piu' piccolo che basta cambia se cambia
+     quel che si prende. */
+  parteScelta: boolean;
+};
 /* 1.8.4 — la ridichiarazione: le stesse righe del posizionamento, aperte
    gia' compilate con l'elenco che la riga porta adesso. */
 type StatoRidichiarazione = { righe: RigaColliIn[]; uom: string };
@@ -253,9 +270,11 @@ export const VistaPosiziona = {
   _colliSel: null as SceltaColli | null,
   _colliResolve: null,
 
-  _scegliColli(item, elenco, uom, titolo = 'Quali colli') {
+  _scegliColli(item, elenco, uom, titolo = 'Quali colli', fabbisogno = null) {
     $('colliOverlay')?.remove();
-    this._colliSel = { elenco, uom, scelte: new Map() };
+    const gruppi = raggruppaColli(elenco, uom);
+    const presi = riempiFabbisogno(gruppi, fabbisogno, uom).map(n => (n ? String(n) : ''));
+    this._colliSel = { elenco, uom, gruppi, presi, parte: '', parteDa: null, parteScelta: false };
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'colliOverlay';
@@ -268,6 +287,17 @@ export const VistaPosiziona = {
             — ${this._esc(descriviElenco(elenco, uom))}
           </div>
           <div id="colliSelRighe"></div>
+          <div class="form-row mt-6">
+            <div class="form-group">
+              <label>E in più, una parte di un collo — facoltativo</label>
+              <input class="input input-mono" id="colliSelParte" inputmode="decimal" autocomplete="off"
+                oninput="App._colliSelParte(this.value)">
+            </div>
+            <div class="form-group max-w-[160px]">
+              <label>aperto da un collo da</label>
+              <select class="select" id="colliSelParteDa" onchange="App._colliSelParteDa(this.value)"></select>
+            </div>
+          </div>
           <div class="mt-5 font-bold" id="colliSelPrev"></div>
         </div>
         <div class="modal-footer">
@@ -298,48 +328,81 @@ export const VistaPosiziona = {
     return new Promise(resolve => { this._colliResolve = resolve; });
   },
 
+  /* UNA RIGA PER MISURA, NON PER COLLO. Settanta colli da 25 chiedevano
+     settanta caselle per ottenere un numero: qui la riga dice quanti ce ne
+     sono e chiede quanti se ne prendono. Le righe si ridisegnano solo alla
+     riapertura — riscriverle a ogni cifra digitata sposterebbe il cursore. */
   _colliSelRender() {
     const s: SceltaColli | null = this._colliSel;
     const box = $('colliSelRighe');
     if (!s || !box) return;
-    box.innerHTML = s.elenco.map((q, i) => {
-      const scelto = s.scelte.has(i);
-      const parziale = s.scelte.get(i);
-      return `
+    box.innerHTML = s.gruppi.map((g, i) => `
         <div class="flex gap-4 items-center py-2.5 px-0 border-b border-b-sx-border">
-          <input type="checkbox" ${scelto ? 'checked' : ''} onchange="App._colliSelToggle(${i})">
-          <span class="flex-1">Collo ${i + 1} · <strong class="mono">${this._esc(formattaQuantita(q, s.uom))} ${this._esc(s.uom)}</strong></span>
-          ${scelto ? `<input class="input input-mono max-w-[110px] text-center" type="number" min="0" step="0.001" max="${q}" placeholder="tutto"
-              value="${parziale === null || parziale === undefined ? '' : this._esc(String(parziale))}"
-              title="Vuoto = il collo esce intero. Un numero più piccolo apre il collo e il resto torna a scaffale."
-              oninput="App._colliSelQta(${i},this.value)">` : ''}
-        </div>`;
-    }).join('');
+          <span class="flex-1"><strong class="mono">${this._esc(formattaQuantita(g.per, s.uom))} ${this._esc(s.uom)}</strong>
+            <span class="text-label-small text-sx-text-muted"> · ${g.colli} disponibil${g.colli === 1 ? 'e' : 'i'}</span></span>
+          <input class="input input-mono max-w-[110px] text-center" type="number" min="0" step="1" max="${g.colli}"
+            placeholder="0" value="${this._esc(s.presi[i] ?? '')}"
+            title="Quanti colli di questa misura escono"
+            oninput="App._colliSelPreso(${i},this.value)">
+        </div>`).join('');
+    this._colliSelOpzioniParte();
     this._colliSelPrev();
   },
 
-  _colliSelToggle(i) {
+  _colliSelPreso(i, valore) {
     const s = this._colliSel;
     if (!s) return;
-    if (s.scelte.has(i)) s.scelte.delete(i); else s.scelte.set(i, null);
-    this._colliSelRender();
+    s.presi[i] = String(valore).trim();
+    this._colliSelOpzioniParte();
+    this._colliSelPrev();
   },
 
-  /* Il numero si tiene com'e' stato digitato finche' non si conferma: e' la
-     convalida a dire se ci sta, e dirlo mentre si scrive vorrebbe dire
-     cancellare la cifra a chi sta ancora componendo «1.000». */
-  _colliSelQta(i, valore) {
+  _colliSelParte(valore) {
     const s = this._colliSel;
-    if (!s || !s.scelte.has(i)) return;
-    s.scelte.set(i, String(valore).trim() === '' ? null : valore);
+    if (!s) return;
+    s.parte = String(valore).trim();
+    this._colliSelOpzioniParte();
     this._colliSelPrev();
+  },
+
+  _colliSelParteDa(valore) {
+    const s = this._colliSel;
+    if (!s) return;
+    const n = Number(String(valore).replace(',', '.'));
+    s.parteDa = Number.isFinite(n) && n > 0 ? n : null;
+    s.parteScelta = s.parteDa !== null;
+    this._colliSelPrev();
+  },
+
+  /* DA QUALE COLLO SI APRE. La tendina porta solo le misure che hanno ancora
+     un collo INTERO non preso: aprire un collo già contato fra gli interi è
+     lo stesso collo contato due volte. Il primo della tendina è il più
+     piccolo che basta — aprire un sacco da 25 per prenderne 7,5 quando ce
+     n'è uno da 10 lascia in giro due mezzi colli invece di uno — ma la
+     scelta resta di chi ha la merce davanti. */
+  _colliSelOpzioniParte() {
+    const s: SceltaColli | null = this._colliSel;
+    const sel = $('colliSelParteDa');
+    if (!s || !sel) return;
+    const chiesto = Number(String(s.parte).replace(',', '.'));
+    const liberi = s.gruppi
+      .map((g, i) => ({ per: g.per, liberi: g.colli - (parseInt(s.presi[i] ?? '', 10) || 0) }))
+      .filter(g => g.liberi > 0);
+    const bastano = liberi.filter(g => !Number.isFinite(chiesto) || chiesto <= 0 || g.per > chiesto);
+    const ordinate = [...(bastano.length ? bastano : liberi)].sort((a, b) => a.per - b.per);
+    if (!s.parteScelta || s.parteDa === null || !ordinate.some(g => g.per === s.parteDa)) {
+      s.parteDa = ordinate.length ? ordinate[0]!.per : null;
+    }
+    sel.innerHTML = ordinate.map(g =>
+      `<option value="${g.per}" ${g.per === s.parteDa ? 'selected' : ''}>${this._esc(formattaQuantita(g.per, s.uom))} ${this._esc(s.uom)}</option>`).join('')
+      || '<option value="">nessun collo libero</option>';
   },
 
   _colliSelPrev() {
     const s = this._colliSel;
     const prev = $('colliSelPrev');
     if (!s || !prev) return;
-    if (!s.scelte.size) {
+    if (!s.presi.some((v: string) => (parseInt(v, 10) || 0) > 0) && !s.parte) {
       prev.textContent = 'Nessun collo scelto';
       prev.style.color = 'var(--sx-text-muted)';
       return;
@@ -354,18 +417,25 @@ export const VistaPosiziona = {
     }
   },
 
+  /* Le prese per taglia diventano scelte per indice: la regola sta in
+     `modules/colli.ts`, qui si legge la maschera e basta. */
   _colliSelScelte() {
-    const s = this._colliSel;
-    return [...s.scelte.entries()].map(([indice, quantita]) => (
-      quantita === null || quantita === undefined ? { indice } : { indice, quantita }
-    ));
+    const s: SceltaColli | null = this._colliSel;
+    if (!s) return [];
+    const prese = s.gruppi.map((g, i) => ({ per: g.per, colli: parseInt(s.presi[i] ?? '', 10) || 0 }));
+    const parte = s.parte && s.parteDa !== null
+      ? { per: s.parteDa, quantita: s.parte.replace(',', '.') }
+      : null;
+    return scelteDaTaglie(s.elenco, prese, s.uom, parte);
   },
 
   _colliSelOk() {
     const s = this._colliSel;
-    if (!s?.scelte.size) return this.toast('Scegliere almeno un collo', 'error');
-    const scelte = this._colliSelScelte();
+    if (!s) return;
+    let scelte;
     try {
+      scelte = this._colliSelScelte();
+      if (!scelte.length) return this.toast('Scegliere almeno un collo', 'error');
       prelevaElenco(s.elenco, scelte, s.uom);
     } catch (err) {
       return this.toast((err as Error).message || 'Scelta dei colli non valida', 'error');
@@ -560,74 +630,26 @@ export const VistaPosiziona = {
      Un elenco ristretto e VUOTO non e' un'assenza di elenco: e' una riga
      tutta impegnata, e vale un annullamento — se tornasse `null` la maschera
      che chiama scriverebbe una riga senza colli. */
-  async _chiediColli(item, titolo, elencoIn: number[] | null = null) {
+  async _chiediColli(item, titolo, elencoIn: number[] | null = null, fabbisogno = null) {
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
     const elenco = elencoIn ?? Store.colliDiRiga(item);
     if (!cfg || !elenco) return null;
     if (!elenco.length) return undefined;
 
-    /* COLLI TUTTI UGUALI: LA DOMANDA «QUALI» NON HA RISPOSTA.
+    /* 2.2 — QUANTI PER MISURA, E BASTA.
 
-       Settantacinque colli da 20 KG sono indistinguibili, e chiederne
-       l'elenco costa settantacinque caselle per ottenere un numero. Qui si
-       chiede il numero, e le scelte si scrivono da sole prendendo i primi.
+       Fino alla 2.1 c'erano due maschere: l'elenco collo per collo, e — solo
+       quando i colli erano tutti uguali — una domanda secca «quanti ne
+       servono?». La prima chiedeva settanta caselle per ottenere un numero
+       su una riga con settanta colli, e in corsia era il gesto piu' lungo di
+       tutta la giornata. Adesso ce n'e' una sola, e chiede la stessa cosa a
+       tutte e due: quanti colli per ogni misura. Due colli della stessa
+       misura, sulla stessa riga, sono la stessa cosa.
 
-       Non e' il ritorno al difetto del 17/08 — «una quantita' non dice da
-       quale collo esce» — perche' il servizio riceve comunque la misura di
-       ognuno: quando sono tutte identiche, quale collo si prenda e' una
-       differenza che non esiste. La finestra resta dove serve davvero: sui
-       lotti con misure diverse, dove prendere il collo aperto o quello
-       intero cambia il saldo. */
-    const uguali = elenco.length > 1 && elenco.every(q => q === elenco[0]);
-    if (uguali) {
-      const misura = elenco[0]!;
-      const etichetta = `${formattaQuantita(misura, cfg.uom)} ${cfg.uom}`;
-
-      /* E UN COLLO SI PUO' SEMPRE APRIRE.
-
-         Il campo in fondo prende la parte che esce da un collo in piu' di
-         quelli interi: e' la stessa cosa che l'elenco permette riga per
-         riga, e senza non si potrebbe piu' prelevare mezzo collo dai lotti
-         a misura unica. Si legge mentre si digita, perche' alla conferma la
-         finestra e' gia' smontata. */
-      let parte = '';
-      while (true) {
-        const extra = document.createElement('div');
-        extra.className = 'form-group mt-5';
-        extra.innerHTML = `<label>E in piu', una parte di un altro collo (${this._esc(cfg.uom)}) — facoltativo</label>
-          <input class="input input-mono" id="colliParte" inputmode="decimal" autocomplete="off" value="${this._esc(parte)}">`;
-        extra.addEventListener('input', (e) => { parte = (e.target as HTMLInputElement).value; });
-
-        const quanti = await Dialog.qty({
-          title: titolo,
-          message: `Sono tutti uguali — ${etichetta} l'uno. Quanti ne servono?`,
-          details: extra,
-          value: elenco.length, min: 0, max: elenco.length, unit: 'Coll.',
-        });
-        if (quanti === null) return undefined;
-
-        const scelte = Array.from({ length: quanti }, (_, i) => ({ indice: i }));
-        const scritto = parte.trim();
-        if (!scritto) {
-          if (!scelte.length) { this.toast('Nessun collo scelto', 'error'); continue; }
-          return scelte;
-        }
-
-        const q = Number(scritto.replace(',', '.'));
-        if (!Number.isFinite(q) || q <= 0) { this.toast('La parte da prelevare non e un numero', 'error'); continue; }
-        if (q >= misura) {
-          this.toast(`Una parte e' meno di un collo intero (${etichetta}): per prenderlo tutto conta un collo in piu'`, 'error');
-          continue;
-        }
-        if (quanti >= elenco.length) {
-          this.toast(`Ci sono ${elenco.length} colli in tutto: per aprirne uno lasciane almeno uno intero`, 'error');
-          continue;
-        }
-        return [...scelte, { indice: quanti, quantita: q }];
-      }
-    }
-
-    const scelte = await this._scegliColli(item, elenco, cfg.uom, titolo);
+       Il fabbisogno la apre gia' compilata — l'ODP chiede chili, le altre
+       maschere chiedono colli — e chi non lo sa non lo passa: le righe
+       nascono a zero, che e' meglio di un numero inventato. */
+    const scelte = await this._scegliColli(item, elenco, cfg.uom, titolo, fabbisogno);
     return scelte === null ? undefined : scelte;
   },
 

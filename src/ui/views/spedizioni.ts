@@ -628,7 +628,8 @@ export const VistaSpedizioni = {
     if (liberi) {
       if (!liberi.length) return this.toast('Tutti i colli di questa riga sono già impegnati da un DDT pendente', 'error');
       const cfg = Store.getUomConfig(item.article_code, item.lot_code)!;
-      const scelte = await this._chiediColli(item, `Quali colli · ${item.article_code}#${item.lot_code}`, liberi);
+      const scelte = await this._chiediColli(item, `Quali colli · ${item.article_code}#${item.lot_code}`, liberi,
+        { colli: parseInt($('pShipQty')?.value, 10) || null });
       if (scelte === undefined) return;
       if (!scelte) return this.toast('I colli di questa riga non si sono potuti leggere', 'error');
       packsOut = uscitePerIlServizio(liberi, scelte, cfg.uom);
@@ -980,12 +981,13 @@ export const VistaSpedizioni = {
         if (before && Array.isArray(l.packs_out) && l.packs_out.length) {
           scelteDdt = Store.scelteDaUscite(before, l.packs_out);
         } else if (before) {
-          scelteDdt = await this._chiediColli(before, `Quali colli · riga ${i + 1} di ${doc.lines.length}`);
+          scelteDdt = await this._chiediColli(before, `Quali colli · riga ${i + 1} di ${doc.lines.length}`,
+            null, { colli: l.qty });
           if (scelteDdt === undefined) { failedAt = i; failMsg = 'Evasione annullata alla scelta dei colli'; break; }
         }
         const removed = await Store.removeItem(l.location_code!, l.item_key as string, l.qty, null, scelteDdt);
         if (!removed) { failedAt = i; failMsg = `Rimozione fallita (riga ${i+1})`; break; }
-        performed.push({ backup, mode: removed._mode, location_code: l.location_code!, item_key: l.item_key, qty_removed: l.qty, qty_before: removed._qty_before, qty_after: removed._qty_after, packs_out: removed._packs_out ?? null });
+        performed.push({ backup, mode: removed._mode, location_code: l.location_code!, item_key: l.item_key, qty_removed: l.qty, qty_before: removed._qty_before, qty_after: removed._qty_after, qty_uom_delta: removed._qty_uom_delta ?? null, packs_out: removed._packs_out ?? null });
       } catch (err) {
         failedAt = i;
         failMsg = `Errore riga ${i+1}: ${(err as Error).message || 'sconosciuto'}`;
@@ -1009,7 +1011,9 @@ export const VistaSpedizioni = {
       const l = doc.lines[i]!;
       const p = performed[i]!;
       const itemNotes = l.notes ? `${reasonNotes} · ${l.notes}` : reasonNotes;
-      const _id = await this._logMov(movType, l.article_code, l.article_description, l.lot_code, l.location_code!, null, doc.operator || Store.getCurrentIdentity().initials, itemNotes, doc.ddt_num, p.qty_before, -p.qty_removed, p.qty_after);
+      /* 2.2 — e le UM che escono col DDT, che erano l'unica colonna vuota di
+         questa riga: una spedizione a peso raccontava solo i colli. */
+      const _id = await this._logMov(movType, l.article_code, l.article_description, l.lot_code, l.location_code!, null, doc.operator || Store.getCurrentIdentity().initials, itemNotes, doc.ddt_num, p.qty_before, -p.qty_removed, p.qty_after, typeof p.qty_uom_delta === 'number' ? p.qty_uom_delta : null);
       if (typeof _id === 'number') movIds.push(_id);
     }
     // Aggiorna status documento → evaded

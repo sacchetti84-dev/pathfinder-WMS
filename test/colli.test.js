@@ -3,6 +3,7 @@ import {
   espandi, leggiColli, validaDichiarazione,
   totaleColli, totaleUom, raggruppa, descriviColli,
   daSuddivisione, preleva, uscite, scelteDaMisure, scelteDaUscite, rettifica, verificaColli,
+  scelteDaTaglie, riempiFabbisogno,
 } from '../src/modules/colli';
 
 /* ── La dichiarazione: 10 x 1.000 + 1 x 900 ─────────────────────────── */
@@ -416,5 +417,68 @@ describe('rettifica', () => {
   it('i decimali non derivano: 5,5 meno 0,1 meno 0,2 resta esatto', () => {
     expect(rettifica([5.5], [5.2], 'KG'))
       .toEqual({ uscite: [{ da: 5.5, quantita: 0.3 }], entrate: [] });
+  });
+});
+
+/* ── 2.2 — la scelta per taglia ─────────────────────────────────────── */
+
+describe('scelteDaTaglie', () => {
+  const elenco = [25, 25, 25, 10, 10, 5];
+
+  it('dodici caselle diventano due numeri', () => {
+    const s = scelteDaTaglie(elenco, [{ per: 25, colli: 2 }, { per: 10, colli: 1 }], 'KG');
+    expect(s).toEqual([{ indice: 0 }, { indice: 1 }, { indice: 3 }]);
+    expect(preleva(elenco, s, 'KG').uom).toBe(60);
+  });
+
+  it('prende i primi liberi di quella misura, non i primi dell elenco', () => {
+    const s = scelteDaTaglie(elenco, [{ per: 5, colli: 1 }], 'KG');
+    expect(s).toEqual([{ indice: 5 }]);
+  });
+
+  it('una misura che non ha abbastanza colli si rifiuta, e dice quanti ce ne sono', () => {
+    expect(() => scelteDaTaglie(elenco, [{ per: 10, colli: 3 }], 'KG')).toThrow(/ce ne sono 2/);
+  });
+
+  it('il collo aperto esce dalla misura scelta, e non da un altra', () => {
+    const s = scelteDaTaglie(elenco, [{ per: 25, colli: 1 }], 'KG', { per: 10, quantita: 4 });
+    expect(s).toEqual([{ indice: 0 }, { indice: 3, quantita: 4 }]);
+    expect(preleva(elenco, s, 'KG').uom).toBe(29);
+  });
+
+  it('il collo aperto non puo essere gia preso per intero', () => {
+    expect(() => scelteDaTaglie(elenco, [{ per: 5, colli: 1 }], 'KG', { per: 5, quantita: 2 }))
+      .toThrow(/abbassa di uno/);
+  });
+
+  it('una parte grande quanto il collo non e una parte', () => {
+    expect(() => scelteDaTaglie(elenco, [], 'KG', { per: 10, quantita: 10 }))
+      .toThrow(/collo intero/);
+  });
+
+  it('zero colli su una taglia non scrive niente', () => {
+    expect(scelteDaTaglie(elenco, [{ per: 25, colli: 0 }], 'KG')).toEqual([]);
+  });
+});
+
+describe('riempiFabbisogno', () => {
+  const gruppi = [{ colli: 3, per: 25 }, { colli: 2, per: 10 }, { colli: 1, per: 5 }];
+
+  it('in colli riempie dalle misure piu piene', () => {
+    expect(riempiFabbisogno(gruppi, { colli: 4 }, 'KG')).toEqual([3, 1, 0]);
+  });
+
+  it('in UM si ferma appena copre, e l ultimo collo puo eccedere', () => {
+    expect(riempiFabbisogno(gruppi, { uom: 60 }, 'KG')).toEqual([3, 0, 0]);
+    expect(riempiFabbisogno(gruppi, { uom: 80 }, 'KG')).toEqual([3, 1, 0]);
+  });
+
+  it('un fabbisogno piu grande di quello che c e prende tutto', () => {
+    expect(riempiFabbisogno(gruppi, { uom: 1000 }, 'KG')).toEqual([3, 2, 1]);
+  });
+
+  it('senza fabbisogno le righe nascono a zero', () => {
+    expect(riempiFabbisogno(gruppi, null, 'KG')).toEqual([0, 0, 0]);
+    expect(riempiFabbisogno(gruppi, { uom: null, colli: null }, 'KG')).toEqual([0, 0, 0]);
   });
 });
