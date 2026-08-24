@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder`, branch `main` · agg. **24/08/2026**
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **24/08/2026**
 
 **In servizio c'è la 2.2 del 24/08** — impronta `08ce3f69…`, 1.777.087 byte,
 4 file, costruita alle **21:50** e installata alle **22:22**. Pacchetto e
@@ -31,10 +31,16 @@ due pacchetti si chiamano `2.2` tutti e due.
 > quattro volte. Se devono vivere, il posto è fuori da `consegna/` o dentro
 > la lista dei file del plugin di build.
 
-**Il repository è in pari, e per due giorni non lo è stato.** Fino al 20/08
-l'ultimo commit era la 2.0: la 2.1 installata, le quattro correzioni del
-20/08 e sette moduli nuovi vivevano su un disco solo, sessanta file fuori da
-git. Adesso sono su `origin/main` (`68c48db`, `cb38527`).
+**Il repository è in pari.** Il lavoro del 24/08 sta su `origin/main`
+(`eb39f0a`): 19 file, 907 righe entrate e 172 uscite. Il 20/08 era successo
+il contrario — la 2.1 installata e sette moduli nuovi vivevano su un disco
+solo, sessanta file fuori da git, e ci sono voluti due giorni per
+accorgersene (`68c48db`, `cb38527`).
+
+**Il repository ha cambiato nome: `pathfinder-WMS`.** Il vecchio indirizzo
+risponde ancora per redirezione — il push del 24/08 e' passato di lì con un
+avviso — e `origin` adesso punta al nome nuovo. Chi ha un clone vecchio
+aggiorna con `git remote set-url`.
 
 Il database **non è stato migrato**, perché non c'era niente da migrare:
 né la 2.1 né la 2.2 toccano `lib/schema.js`.
