@@ -139,6 +139,17 @@ che il codice attende. **La prova che la sorveglia è stata verificata
 togliendo la coda**: diventa rossa, e senza quella verifica sarebbe stata una
 prova che non prova niente.
 
+**Un difetto trovato provando l'avvio, non leggendolo — e chiuso.** Col
+motore SQL Server irraggiungibile il servizio **stampava tutto il banner, si
+annunciava in rete, e solo dopo moriva con uno stack**: chi legge le prime sei
+righe crede che sia su. Con SQLite non si vedeva, perché il file o c'era o lo
+si creava; con un motore di rete l'apertura fallisce per ragioni normali —
+istanza spenta, rete, credenziale scaduta. Adesso **il banner si stampa solo a
+database aperto**, e se non si apre il servizio dice perché ed esce con **1**,
+che è quello che l'attività pianificata deve poter vedere. È il difetto che §0
+punto 2 esiste per evitare: un servizio che dice di essere su mentre non lo è è
+peggio di uno che non parte.
+
 **Due cose che il passaggio ha reso visibili, e sono scritte dove si vedono.**
 `wrap` adesso **attende**: senza, un errore dentro una rotta diventerebbe un
 rifiuto non gestito, la risposta non partirebbe mai e il terminale resterebbe

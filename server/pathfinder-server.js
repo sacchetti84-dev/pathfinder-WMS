@@ -858,7 +858,41 @@ const creaServer = () => {
 
 const { srv, schema } = creaServer();
 
-const server = srv.listen(PORT, async () => {
+/* 2.2 — IL DATABASE SI APRE PRIMA DI METTERSI IN ASCOLTO, e se non si apre
+   il servizio NON PARTE.
+
+   Con SQLite l'apertura non falliva quasi mai: il file o c'era o lo si
+   creava. Con un motore di rete puo' fallire per mille ragioni normali -
+   l'istanza spenta, la rete, una credenziale scaduta - e il primo modo in
+   cui questo e' stato scritto sbagliava di brutto: il banner si stampava
+   tutto, il servizio si annunciava in rete, e SOLO DOPO moriva con uno
+   stack. Chi legge le prime sei righe crede che sia su.
+
+   E' esattamente il difetto che §0 punto 2 esiste per evitare - «quello che
+   risponde il servizio batte quello che dice il documento» - e un servizio
+   che dice di essere su mentre non lo e' e' peggio di uno che non parte.
+   Quindi: si apre, e se non si apre si dice perche' e si esce con 1, che e'
+   quello che l'attivita' pianificata deve poter vedere. */
+const rifiuta = (err) => {
+  console.error(`\n  Pathfinder ${VERSION} — il servizio NON parte.\n`);
+  console.error(`  Il database non si apre: ${err.message}\n`);
+  if (DB_MOTORE === 'mssql') {
+    console.error('  Motore: SQL Server (PATHFINDER_DB_MOTORE=mssql).');
+    console.error('  Da controllare, nell\'ordine: che l\'istanza risponda, che');
+    console.error('  PATHFINDER_MSSQL sia giusta, e che `mssql` sia installato in server/.');
+    console.error('  Per tornare a SQLite: PATHFINDER_DB_MOTORE=sqlite e riavviare.\n');
+  }
+  process.exit(1);
+};
+
+/* La porta si apre subito - un socket in ascolto non e' una promessa a
+   nessuno, e le rotte attendono comunque il database - ma IL BANNER NO: si
+   stampa solo quando il database e' aperto davvero. Prima veniva stampato
+   per intero anche quando l'apertura falliva, e chi leggeva le prime sei
+   righe credeva che il servizio fosse su. */
+const server = srv.listen(PORT);
+
+db.pronto().then(async () => {
   const nets = os.networkInterfaces();
   const lan = Object.values(nets).flat()
     .filter(n => n && n.family === 'IPv4' && !n.internal).map(n => n.address);
@@ -905,7 +939,7 @@ const server = srv.listen(PORT, async () => {
     console.error('              Indicare il file giusto in PATHFINDER_APP e riavviare.');
   }
   console.log(`  revisione   ${await db.currentRevision()}\n`);
-});
+}).catch(rifiuta);
 
 const shutdown = (sig) => {
   console.log(`\n  ${sig}: chiusura ordinata…`);
