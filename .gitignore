@@ -15,11 +15,18 @@ server/data/
 *.db-shm
 *.db-wal
 
-# Esportazioni e file di prova: contengono movimenti reali e sigle operatore.
-# Gli HANDOFF in .md dentro la stessa cartella invece restano — sono memoria di progetto.
-ARCHIVIO/BACKUP E FILE DI TEST/*.json
-ARCHIVIO/BACKUP E FILE DI TEST/*.xlsx
-ARCHIVIO/BACKUP E FILE DI TEST/movimenti/
+# L'ARCHIVIO INTERO STA FUORI DAL REPOSITORY — deciso il 25/08/2026.
+# PERCHE': e' memoria, non codice, e pesa 183 MB fra pacchetti costruiti, copie
+# del database di prova, monoliti .html delle versioni vecchie e documenti
+# storici. Tre ragioni per non versionarlo:
+#   1. i pacchetti si RICOSTRUISCONO dal commit — la build e' riproducibile bit
+#      per bit, provata il 25/08 ricostruendo la 2.2 a cinque giorni di distanza
+#      con la stessa impronta cifra per cifra. Un binario in git e' peso morto.
+#   2. le copie del database portano movimenti veri e sigle operatore (GDPR).
+#   3. il backup dell'archivio e' OneDrive, che sincronizza la cartella com'e'.
+# Il repository porta il codice; l'archivio porta la storia, e stanno in due
+# posti diversi apposta.
+ARCHIVIO/
 
 # La cartella di consegna e' PRODOTTA, non scritta: la build la possiede per
 # intero e la svuota a ogni giro. Dentro non ci va niente a mano, perche' al

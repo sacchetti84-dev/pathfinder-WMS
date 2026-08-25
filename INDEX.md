@@ -9,88 +9,95 @@ istruzioni e non vanno più aperti per lavorare.
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **25/08/2026**
 
-**La 2.3 è costruita e NON installata** — `consegna/Pathfinder 2.3/`,
-impronta `367d977e…`, 4 file. Porta il giro conto nel vano di lavorazione,
-il controllo pre-percorso su quel che il reparto ha già in mano, la lista
-piatta dei colli e il percorso di più ODP insieme — §1. Provata al banco
-sulla 4199 contro una copia del magazzino, e in browser sul pacchetto
-minificato. **Installare non è accendere, e installare lo fa Andrea.**
+## LO STATO DEL PROGETTO È **ALFA**
 
-**IL CODICE DELLA 2.3 STA SUL RAMO `2.3-reparto-e-giro-conto`, NON SU
-`main`.** Su `main` c'è la 2.2, che è quella in servizio e quella che si
-consolida: chi lavora alla 2.2 non deve scansare la 2.3 per farlo. Il ramo
-si rilegge con `git show 2.3-reparto-e-giro-conto:<file>` e si riprende con
-`git checkout 2.3-reparto-e-giro-conto`. **La 2.3 è stata giudicata un passo
-più lungo della gamba il 25/08, e messa da parte**: quello che porta è
-scritto qui sotto perché il giorno che si riprende non si ricominci a
-ragionarci da capo.
+Dichiarato da Andrea il 25/08/2026. Vuol dire che l'applicativo fa il suo
+mestiere e ha dei dati veri dentro, ma la superficie si muove ancora: funzioni
+che entrano, interruttori spenti che aspettano un turno, dati di configurazione
+che nessuno ha ancora compilato. Non è un prodotto finito che si manutiene, ed
+è un prodotto vivo che si usa.
 
-Il pacchetto costruito sta in `consegna/Pathfinder 2.3/`, che **git non
-traccia e la prossima build azzera**: ricostruirlo è un comando —
-`git checkout 2.3-reparto-e-giro-conto && npm run build`.
+**Non c'è una scadenza.** La riga che dava il progetto al 31/12/2026 con
+ultima installazione utile il 19/12 è stata tolta il 25/08: le date si
+scrivono come fatti avvenuti, non come promesse.
 
-**L'APPLICATIVO IN SERVIZIO È LA 2.2 GIUSTA — `08ce3f69…`, 1.777.087 byte**,
-installata il 25/08 all'01:39 dal pacchetto ricostruito. **Il servizio dice
-ancora 2.3**, e l'installazione si è fermata sulla verifica finale: l'attività
-pianificata lancia il file del repository, non quello installato. Il comando
-che lo corregge sta nella voce 39.
+---
 
-La riga qui sotto racconta com'era prima di quell'installazione.
+## LA VERSIONE STABILE È LA **2.2**
 
-**Prima di quell'installazione c'era un applicativo 2.2 SBAGLIATO e un servizio 2.3**,
-`C:\Pathfinder\app\corrente` portava l'impronta
-`62992e15…` — la build del 20/08, quella difettosa — e la 4173 rispondeva
-`service_version` **2.3**. Ci si era arrivati installando la 2.3 all'01:29 e
-tornando indietro all'01:35: `torna-indietro.ps1` riporta **solo
-l'applicativo**, per scelta scritta. §1.
+**È l'unica che si installa, ed è quella in servizio.** Misurata sulla 4173 il
+25/08/2026 alle 21:18:
 
-**Il servizio esegue `MAPPER\server\pathfinder-server.js`**, cioè il file
-della cartella di lavoro: chi tocca quel file tocca la produzione, e
-nessuna installazione riuscirà finché l'attività pianificata punta lì. §1,
-voce 39.
+| | |
+|---|---|
+| `service_version` | **2.2** |
+| `versione` applicativo | **2.2** |
+| impronta | `08ce3f69331985327071d4842eed0aff46a6904f85102601c277f68e600b6d57` |
+| byte | **1.777.087** in **4 file** |
+| costruita | 24/08 alle 23:39 UTC |
+| installata | 25/08 alle **01:39** |
+| dove | `C:\Pathfinder\app\corrente` |
 
-**La riga qui sotto era vera il 24/08 e non lo è più.** Resta perché dice
-qual è il pacchetto giusto: **la 2.2 del 24/08** — impronta `08ce3f69…`,
-1.777.087 byte, 4 file, costruita alle **21:50** e installata alle **22:22**.
-Quel pacchetto era andato perso e il 25/08 è stato **ricostruito dal commit
-`495f38c` con la stessa identica impronta**: sta in
-`ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.2\`.
+**I due numeri coincidono.** È la prima volta dal 20/08, e ci sono volute due
+correzioni per arrivarci: il pacchetto giusto rimesso in archivio e l'attività
+pianificata ri-registrata dalla cartella d'installazione.
 
-**Tre ore prima era stata installata la 2.2 SBAGLIATA** — impronta
-`62992e15…`, costruita il 20/08 alle 11:22 — e il difetto che si stava
-correggendo è rimasto in servizio come se la correzione non fosse mai
-esistita. Quei byte venivano da
-`MAPPER.worktrees/push-repo-su-github/consegna/`: il worktree porta una
-`consegna/` sua, ferma alla build vecchia, con lo stesso nome di cartella.
-**Si installa da `MAPPER\consegna\`, e da nessun'altra.** La prova che
-l'installazione sia quella giusta è l'impronta, non il numero di versione —
-due pacchetti si chiamano `2.2` tutti e due.
+Sul repository la 2.2 è `main`, commit `3c68d0a`. **925 prove passano su 32
+file**, `tsc --noEmit` è pulito sul client e sul servizio.
 
-> **Il kit demo vive dentro `consegna/` e la build lo cancella.** `Avvia
-> Demo.bat`, i tre `README-DEMO` e i tre `IT-TECH-SHEET` non li produce
-> `vite.config.js`: stanno solo lì, e `npm run build` azzera quella cartella
-> a ogni giro. Il 24/08 sono stati messi da parte e rimessi dentro a mano
-> quattro volte. Se devono vivere, il posto è fuori da `consegna/` o dentro
-> la lista dei file del plugin di build.
->
-> **Il 25/08 la build ha girato altre quattro volte, e `consegna/` contiene
-> soltanto `Pathfinder 2.3/`.** Del kit demo non c'è traccia da nessuna
-> parte sul disco — né in `ARCHIVIO/`, né nel worktree. Se il 24/08 era
-> stato rimesso dentro dopo l'ultima build, adesso non c'è più.
+**La build è riproducibile bit per bit.** Ricostruendo lo stesso commit a cinque
+giorni di distanza esce la stessa impronta, cifra per cifra — provato il 25/08
+sul commit `495f38c`. Vuol dire che un pacchetto perso non è perso: si riottiene
+dal commit, e che **l'impronta è la prova di quale codice c'è dentro**, non solo
+di quali byte. È il motivo per cui i binari non stanno nel repository.
 
-**Il repository è in pari.** Il lavoro del 24/08 sta su `origin/main`
-(`eb39f0a`): 19 file, 907 righe entrate e 172 uscite. Il 20/08 era successo
-il contrario — la 2.1 installata e sette moduli nuovi vivevano su un disco
-solo, sessanta file fuori da git, e ci sono voluti due giorni per
-accorgersene (`68c48db`, `cb38527`).
+---
 
-**Il repository ha cambiato nome: `pathfinder-WMS`.** Il vecchio indirizzo
-risponde ancora per redirezione — il push del 24/08 e' passato di lì con un
-avviso — e `origin` adesso punta al nome nuovo. Chi ha un clone vecchio
-aggiorna con `git remote set-url`.
+## LA 2.3 È RITIRATA
 
-Il database **non è stato migrato**, perché non c'era niente da migrare:
-né la 2.1 né la 2.2 toccano `lib/schema.js`.
+**Ha disfunzionato, ed è stato necessario un ripristino d'emergenza alla 2.2.**
+Non si installa e non si riprende così com'è. Archiviata il 25/08 in
+`ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/`,
+dove stanno il pacchetto costruito (`367d977e…`) e **il ramo git intero in un
+bundle** — `2.3-reparto-e-giro-conto.bundle`, commit `d717098`, storia completa,
+recupero provato il giorno stesso dell'archiviazione.
+
+Il ramo non esiste più nel repository: **`main` è l'unico ramo.**
+
+Quel che la 2.3 voleva risolvere resta un problema aperto — cinque ODP che
+chiedono 5 KG dello stesso lotto l'uno contro una confezione da 25, il primo
+prelievo che si porta via il collo intero e i quattro percorsi dopo che dicono
+«lotto non trovato». Il caso è descritto in §1 perché il giorno che si riprende
+non si ricominci a ragionarci da capo. **La strada scelta allora no.**
+
+---
+
+## Il riordino del 25/08
+
+Fatto la sera del 25/08, dopo la ricognizione:
+
+- **`MAPPER.worktrees/` eliminata** — 321 MB. Non era un worktree ma un clone
+  separato che puntava ancora al vecchio remoto `pathfinder.git`, con dentro una
+  `consegna/` sua ferma alla build sbagliata del 20/08: è **la cartella che il
+  24/08 mandò in servizio il difetto per tre ore**. Verificato prima di
+  cancellare che non contenesse un solo commit, tag o stash che `MAPPER` non
+  avesse già.
+- **`ARCHIVIO/` è uscita dal repository.** 139 file smessi di tracciare, tutti
+  ancora su disco. Il perché sta in `.gitignore`, scritto per esteso.
+- **Il banco di prova è passato da 100 MB a 17 MB**: tutto ciò che riguarda
+  1.6.1, 1.7, 1.8.x, 2.0 e 2.3 — corse, copie del database, cartelle-versione —
+  è in `ARCHIVIO/BANCO STORICO/`. Resta il materiale della 2.2.
+- **La radice è sgombra**: `pathfinder-1.6.html` e `pathfinder-1.6.1.html`, gli
+  ultimi due monoliti del modo «file singolo», sono scesi in
+  `ARCHIVIO/VERSIONI PRECEDENTI/`.
+- **I due rami `agents/*`** erano fusi in `main` senza un commit proprio:
+  cancellati.
+
+**Il repository non è in pari con GitHub**: `main` è avanti di un commit su
+`origin/main`, più il riordino di stasera.
+
+Il database **non è stato migrato**, perché non c'era niente da migrare: né la
+2.1 né la 2.2 toccano `lib/schema.js`.
 
 ---
 
@@ -144,70 +151,84 @@ porta dati veri, e per questo un collaudo si fa sempre su una **copia** — §5.
 
 ## 1. Stato
 
-### Il 25/08 — IL SERVIZIO IN PRODUZIONE GIRA DALLA CARTELLA DI LAVORO
+### Il 25/08 — il servizio girava dalla cartella di lavoro, ed è stato corretto
 
-**È il motivo per cui la 2.2 non si installa, ed è la trappola più grossa
-trovata finora.** L'installazione del 10/08 lo aveva scritto nel suo log e
-nessuno lo ha più riletto:
+**Era la trappola più grossa trovata finora, ed è chiusa.** L'installazione del
+10/08 lo aveva scritto nel suo log e nessuno lo ha più riletto:
 
 ```
 Applicativo   C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\server\pathfinder-server.js
 ```
 
-L'attività pianificata «Pathfinder - Servizio dati» lancia **il file del
-repository**, non `C:\Pathfinder\servizio\pathfinder-server.js`. La prova,
-misurata il 25/08:
+L'attività pianificata «Pathfinder - Servizio dati» lanciava **il file del
+repository**, non `C:\Pathfinder\servizio\pathfinder-server.js`.
+`installa-servizio.ps1` registra l'attività con la cartella **da cui viene
+lanciato**, e il 10/08 fu lanciato dalla cartella di lavoro: da allora ogni
+aggiornamento ha copiato il servizio al suo posto senza mai ri-registrare
+l'attività.
 
-| | dice |
+**Due conseguenze, e furono tutte e due serie.** Chi lavorava al progetto
+scriveva in produzione senza saperlo — cambiare `VERSION`, che è il primo gesto
+di ogni versione nuova, cambiava il numero che il magazzino dichiara al riavvio
+successivo — e **nessuna installazione poteva riuscire**, perché il controllo
+finale confronta `service_version` col numero del pacchetto e il servizio
+leggeva il file sbagliato. È il motivo per cui la 2.2 falliva con «Il servizio
+non è quello di questa versione»: il messaggio parla di riavvii perché è il caso
+che si aspettava — un processo vecchio ancora vivo — e lì il processo era nuovo
+e leggeva il file sbagliato.
+
+**Corretto il 25/08 all'01:49**, ri-registrando l'attività da
+`C:\Pathfinder\servizio`. Da allora la 4173 dice **2.2 due volte**.
+
+#### La prova, e perché non basta guardare il numero
+
+Adesso i due `pathfinder-server.js` dicono **2.2 tutti e due**: il numero non
+distingue più quale dei due il servizio stia eseguendo. A distinguerlo sono le
+ore, misurate il 25/08 sera:
+
+| fatto | ora |
 |---|---|
-| `C:\Pathfinder\servizio\pathfinder-server.js` | `VERSION = '2.2'`, ultima modifica **20/08 11:16** |
-| `MAPPER\server\pathfinder-server.js` | `VERSION = '2.3'` |
-| `/api/app-info` sulla 4173 | `service_version` **2.3** |
+| `C:\Pathfinder\servizio\pathfinder-server.js` scritto | 01:39:50 |
+| processo node avviato **da svchost**, cioè dall'Utilità di pianificazione | **01:49:28** |
+| `MAPPER\server\pathfinder-server.js` riportato da 2.3 a 2.2 | 01:54:19 |
 
-L'unico file che dice 2.3 è quello nella cartella di lavoro, ed è quello che
-la produzione sta eseguendo. L'installazione della 2.3 ha aggiornato
-`C:\Pathfinder\app\` e ha copiato il servizio in `C:\Pathfinder\servizio\`,
-ma quel file **non lo apre nessuno**.
+Il processo è partito **cinque minuti prima** che il file della cartella di
+lavoro tornasse 2.2. Node legge il file all'avvio e non lo rilegge: se stesse
+eseguendo quello del repository direbbe ancora 2.3. Dice 2.2, quindi esegue
+quello dell'installazione. Il filo è tagliato.
 
-**Due conseguenze, e sono tutte e due serie.**
+> **`Get-ScheduledTask` non vede le due attività di Pathfinder, e non vuol dire
+> che non ci siano.** Senza privilegi di amministratore le omette in silenzio —
+> 219 attività elencate, nessuna che le nomini. A dire la verità è
+> `Export-ScheduledTask`, che distingue i due casi: «Impossibile trovare il
+> file» per un nome inventato, **«Accesso negato»** per «Pathfinder - Servizio
+> dati» e «Pathfinder - Backup serale». Esistono e girano — `backup.log` porta
+> la riga delle 20:00 di ogni sera, ininterrotta.
+>
+> Chi vuole leggerle davvero apre PowerShell **come amministratore**.
 
-**1. Chi lavora al progetto scrive in produzione senza saperlo.** Cambiare
-`VERSION` nel repository — cosa che ogni versione nuova fa, ed è il primo
-gesto della lista — cambia il numero che il servizio in magazzino dichiara
-al riavvio successivo. Vale per `VERSION` e vale per tutto il resto del
-file: rotte, transazioni, `removeItem`. Il 25/08 il numero è passato a 2.3
-per questa strada, non per un'installazione.
-
-**2. L'installazione della 2.2 non può riuscire.** L'installer copia
-l'applicativo, copia il servizio, riavvia l'attività e alla fine confronta
-`service_version` col numero del pacchetto. L'attività riparte sul file del
-repository, che dice 2.3: il confronto fallisce e l'installer dichiara
-«Il servizio non è quello di questa versione». Il messaggio parla di
-riavvii perché è il caso che si aspettava — un processo vecchio ancora vivo
-— e qui il processo è nuovo e legge il file sbagliato.
-
-**Non è stato corretto**: tocca l'attività pianificata e il servizio, e
-quello si propone. Vedi la voce 39.
-
-### Lo stato vero della produzione, misurato il 25/08 all'01:40
+### Lo stato della produzione, misurato il 25/08 alle 21:18
 
 | | |
 |---|---|
-| applicativo in `C:\Pathfinder\app\corrente` | **2.2**, impronta `62992e15…` — **la 2.2 SBAGLIATA**, quella del 20/08 |
-| servizio che risponde sulla 4173 | **2.3** |
-| `C:\Pathfinder\app\pathfinder-2.3` | 2.3, impronta `367d977e…`, installata all'**01:29** |
-| `C:\Pathfinder\app\precedente` | 2.3 |
+| applicativo in `C:\Pathfinder\app\corrente` | **2.2**, impronta `08ce3f69…`, 1.777.087 byte, 4 file |
+| servizio che risponde sulla 4173 | **2.2** |
+| modo | `cartella` — comanda `PATHFINDER_APP_DIR` |
+| attività pianificate | «Pathfinder - Servizio dati» e «Pathfinder - Backup serale», tutte e due attive |
 
-Letto dalle date: la 2.3 è stata installata all'01:29 e alle 01:35 è stato
-fatto un `torna-indietro`, che ha rimesso `corrente` sulla 2.2. **Lo script
-riporta indietro solo l'applicativo, per scelta scritta** — §5 e la sua
-testata: «il servizio dati resta quello di adesso, e i due numeri di
-/api/app-info non coincidono». Quindi servizio 2.3 e applicativo 2.2 è lo
-stato che quel gesto lascia, non un guasto.
+**È lo stato buono, e va difeso.** Prima di quell'installazione, in
+`C:\Pathfinder\app\corrente` c'era la 2.2 **sbagliata** — `62992e15…`, la build
+difettosa del 20/08 — e la 4173 rispondeva 2.3: ci si era arrivati installando
+la 2.3 all'01:29 e tornando indietro all'01:35, e `torna-indietro.ps1` riporta
+**solo l'applicativo, per scelta scritta** (§5). Servizio 2.3 e applicativo 2.2
+è lo stato che quel gesto lascia, non un guasto — ma l'applicativo tornato
+indietro era quello sbagliato.
 
-**Ma l'applicativo tornato indietro è la 2.2 sbagliata**, e non c'è nessun
-posto in `C:\Pathfinder\app\` dove stia la `08ce3f69…`: la 2.2 giusta, in
-quella macchina, non c'è più.
+In `C:\Pathfinder\app\` restano le cartelle di nove versioni vecchie, da
+`pathfinder-1.8.2` a `pathfinder-2.3`, più `precedente` che porta la 2.3. Non
+danno fastidio e sono la via di ritorno; **`precedente` però punta a una
+versione ritirata**, e un `torna-indietro.ps1` dato oggi rimetterebbe in servizio
+la 2.3. Vedi la voce 41.
 
 ### La 2.2 in archivio era quella sbagliata — sistemata il 25/08
 
@@ -227,7 +248,17 @@ stessa impronta, cifra per cifra. Vuol dire che un pacchetto perso non è
 perso: si riottiene dal commit, e che l'impronta è una prova di *quale
 codice* c'è dentro, non solo di quali byte.
 
-### Il 25/08 — il reparto, e il conto che passa da un ordine all'altro
+> **QUANTO SEGUE DESCRIVE LA 2.3, CHE È RITIRATA.** Ha disfunzionato in
+> produzione ed è stato necessario un ripristino d'emergenza alla 2.2. Il
+> pacchetto e il ramo git stanno in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder
+> 2.3 (NON FUNZIONALE - ritirata 25-08)/`, e **non si installa**.
+>
+> Resta scritto qui per una ragione sola: **il problema che voleva risolvere è
+> ancora aperto**, e il giorno che si riprende non si deve ricominciare a
+> ragionarci da capo. Quel che segue è l'analisi del caso, non una funzione
+> disponibile. Nessuna riga qui sotto descrive l'applicativo in servizio.
+
+### 2.3 RITIRATA — il reparto, e il conto che passa da un ordine all'altro
 
 **Il caso.** Cinque ODP della stessa serie chiedono 5 KG dello stesso lotto
 l'uno, e a magazzino c'è una confezione da 25. Il primo prelievo si portava
@@ -314,7 +345,7 @@ volte caricherebbe cinque volte la stessa roba) e agli altri passa col giro
 conto, in proporzione a quel che avevano chiesto. Un ordine si toglie dal
 giro senza ricaricare gli altri.
 
-### Tre difetti trovati costruendo, non leggendo
+#### 2.3 RITIRATA — tre difetti trovati costruendo, non leggendo
 
 **`ordiniWipAperti` filtrava sul residuo in COLLI.** Un ordine servito da una
 quota di un collo altrui ha cinque chili in lavorazione e **zero colli**:
@@ -338,7 +369,7 @@ trova cinque. Adesso il reso sul foglio è quello che è **davvero risalito**,
 ceduto e ricevuto hanno le loro colonne, e reso + ceduto + consumo fa il
 consegnato.
 
-### Come è stato provato
+#### 2.3 RITIRATA — come era stata provata
 
 **Al banco, sul pacchetto costruito** — 4199, copia del magazzino del 20/08,
 `banco/banco-2.3.cjs`. Il ciclo dei cinque ODP gira per intero in
@@ -1247,111 +1278,112 @@ collauda al banco e si consegna il pacchetto.
 
 ## 2. Cosa manca — la coda di lavoro
 
-### Da fare subito, e non è codice
+### Come si legge questa coda
 
-| # | Cosa | Chi |
-|---|---|---|
-| ~~1~~ | ~~**Installare la 1.8.3 e vedere i due numeri coincidere.**~~ **Fatto il 18/08**: `/api/app-info` dice `1.8.3` due volte. L'installer nuovo — quello che porta anche il servizio e lo riavvia — ha funzionato. In `corrente` c'è la build con Tailwind acceso, impronta `3d765c51…` | fatto |
-| **1-bis** | **Capire chi ha cancellato `C:\Pathfinder\app\pathfinder-1.6.1`** il 17/08 alle 19:14. La cartella è stata ricostruita dal file singolo in radice e la via di ritorno è di nuovo intera, ma la causa non si conosce: se non è stato un gesto di Andrea in un'altra finestra, qualcosa cancella dentro la directory di installazione | da chiarire |
-| **2** | **Provare il pacchetto su una macchina pulita.** La strada dell'aggiornamento è provata davvero (17/08, su questo PC); quella della **prima installazione** — servizio, attività pianificate, firewall, database — è scritta e riletta ma **mai eseguita**, e serve una macchina senza Pathfinder o una virtuale. È l'unica che chiede i privilegi, ed è quella che si userà in presentazione | Andrea, prima di presentare |
-| **3** | **Un secondo Team Leader.** `ANDS` è l'unico: il 13/08 il PIN si è smarrito e per ore nessuno poteva creare né rinnovare un operatore. Il PIN è rientrato, la causa no. Un minuto in Configurazione → Operatori — §6, «Il PIN smarrito» | Andrea |
-| **4** | **Annullare a mano quattro attività** rimaste `in_progress` prima della 1.4.4, col motivo «chiusa dalla 1.4.4, lavoro già eseguito»: `TA-MSRAXA3Q-PQ11` (prelievo), `TA-MSRB4JXK-04C7` (quarantena), `TA-MSRB80C2-2JLC` (campionamento), `TA-MSRBEZLU-5M3E` (conta). **Non si riavviano**: rifare il gesto muoverebbe la merce due volte | Andrea, dalla vista Attività |
-| 5 | **Caratterizzare le zone** in Configurazione → Zone: classe di conservazione, zona allergeni, zona pericolosi, refrigerata. Finché non è fatto **la mappa resta muta**, per quanti articoli si classifichino: la verifica confronta due metà e una manca | Andrea |
-| 6 | **Compilare `pieces_per_pack`** in anagrafica (colonna `Pezzi_Per_Collo` dell'import Excel). **A `colli` acceso non è più il gate**: chi dichiara la suddivisione ha bisogno solo di un `unit` valido. Resta (a) il ponte per le righe vecchie senza elenco, (b) il valore proposto nella maschera. **Va compilato PRIMA di accendere `colli`**: un lotto congelato senza `uom_per_collo` non lo recupera più dall'anagrafica — la confezione del lotto vince sempre | import Excel |
-| 7 | **Partita IVA e dati mittente** in Configurazione → DDT. La maschera c'è: è un dato da digitare | Andrea |
-| 8 | **Nome DNS interno e certificato** dalla CA aziendale. Il codice è pronto: due variabili e HTTPS si accende | IT — non blocca |
-| ~~10~~ | ~~**Cablare il motore di stoccaggio**~~ — **fatto il 19/08**: riquadro nel posizionamento, esclusi col motivo, scavalco a registro, scheda delle regole. `storage_rules` resta **vuota**: le prime regole le scrive Andrea, e finche' non ci sono valgono i quattro vincoli | fatto |
-| ~~11~~ | ~~**Cablare il conto WIP**~~ — **fatto il 19/08**: il prelievo di produzione porta la merce nel vano WIP, la scheda mostra il conto, la chiusura dichiara il consumo | fatto |
-| **15** | **Configurare l'area WIP** prima di accendere `wip`: e' **un'ubicazione mappata**, non un prefisso. Senza, il prelievo di produzione non ha dove portare la merce e lo dice | Andrea |
-| **16** | **Scrivere le prime regole di stoccaggio**, se servono. Senza regole il motore lavora sui soli vincoli — allergeni, temperatura, stato del vano, capienza — e propone gia' qualcosa di sensato | Andrea |
-| **17** | **La capienza dei vani non e' dichiarata da nessuna parte.** Il motore la userebbe — il vincolo c'e' ed e' collaudato — ma nessuna zona la porta, quindi non esclude mai per pieno. Va aggiunta alla configurazione della zona il giorno che serve | da costruire |
-| **12** | **Provare le unita' di carico in magazzino, con un pallet vero.** Al banco funzionano — creazione, carico, spostamento, chiusura automatica, etichetta — ma nessuno le ha ancora usate con il muletto in mano. `feature.udc` e' **spento** in produzione | Andrea |
-| **13** | **Decidere il prefisso GS1**, o lasciarlo vuoto. Vuoto: codici interni, che bastano dentro l'azienda. Compilato: SSCC veri, che un cliente legge — e allora serve il prefisso assegnato dal consorzio. Si cambia in Configurazione → Funzioni, e vale solo per le etichette nuove | Andrea |
-| ~~**14**~~ | ~~**`updated_at` contro `last_updated_at`** sulle giacenze~~ — **chiusa il 20/08, codice e dato.** Le tre rotte che scrivevano il campo sbagliato (`removeItem`, `sampleItem` in due rami, `commitPickStop`) adesso scrivono `last_updated_at` come `moveUdc`, e **due prove nuove nel collaudo del servizio guardano la riga scritta invece della risposta** — era l'unico posto da cui il difetto si vedeva. Le **tredici** righe già storte sono raddrizzate in produzione dopo una copia: zero su 199 portano ancora `updated_at`, e dodici su tredici hanno tenuto la data di `updated_at` perché era **la più recente delle due**. Vedi §1 | fatto |
-| **18** | **Due sigle firmano movimenti e non sono in anagrafica operatori** — `DP` (14 movimenti) e `AS` (2). Il registro si tiene sei anni e la domanda che ci si fa fra tre e' «chi»: una sigla senza un nome dietro non risponde. O sono operatori cancellati, o sigle digitate a mano. Trovato dai KPI del 19/08 | Andrea |
-| **19** | **`6001055` MANGANESE SOLFATO: l'ODP lo chiede in KG, l'anagrafica lo dichiara PZ.** Il magazzino conta pezzi dove la produzione pesa chili, e nessuna delle due parti se ne accorge. E' un dato, non un difetto — ma va raddrizzato prima che qualcuno prelevi quella riga | Andrea |
-| **20** | **Provare le maschere che pretendono l'identita', col PIN.** Il banco del 19/08 ha esercitato la catena intera senza browser, e il browser ha confermato che la 2.0 si carica pulita a 480 px. Quello che resta fuori sono le maschere che chiedono un operatore identificato — smaltimento, trasferimento, prelievo, quarantena, conta, DDT, reso e chiusura del conto: **un minuto a maschera, e il PIN lo digita Andrea** | Andrea, prima di installare |
-| ~~9~~ | ~~**Confermare due scelte del 12/08**~~: **confermate il 18/08**. La colonna UM è `unit`, la quantità per collo è `pieces_per_pack` — è già così in `configurazione()` | fatto |
-| ~~21~~ | ~~**Provare la 2.1 in browser**~~ — **fatto il 19/08 sera**, al banco sulla 4199 con una copia a caldo del magazzino vero: cruscotto, mappa, UDC trascinate, ordinamenti, registro attività, inventario per unità, Code128. §1. Restano fuori le maschere che pretendono un operatore vero — voce 20 | fatto |
-| **22** | **Il difetto delle regole di stoccaggio va riprodotto.** «L'ubicazione non soddisfa i criteri anche quando la regola è definita correttamente»: i due difetti chiusi con la 2.1 sono altra cosa. Serve la regola esatta, il vano e il messaggio a video | Andrea |
-| **23** | **Leggere un'etichetta col lettore vero.** `modules/code128.ts` è collaudato sulle due invarianti dello standard — 11 moduli per simbolo, somma delle barre pari — che una cifra storta nella tabella rompe subito. Ma nessun lettore ottico ha ancora letto un foglio stampato da questo codice, e finché non succede il barcode è una promessa | Andrea, un minuto |
-| **24** | **Decidere se le etichette escono dal cancello.** Quello che questo applicativo stampa è **Code128, non GS1-128**: manca l'FNC1 e l'identificativo `(00)`. Dentro l'azienda si scansiona e si ritrova il documento, ed è tutto quello che serve. Il giorno che un cliente deve leggere un SSCC, `modules/code128.ts` va esteso — non aggirato | da decidere |
-| **25** | **La vista 3D della mappa: valutata, e per adesso no.** Le ubicazioni non hanno coordinate — `core/geometria.ts` le genera da corsie, campate e livelli — quindi una vista 3D sarebbe un rendering della stessa griglia con la prospettiva in più: costo alto, informazione zero. Diventa sensata il giorno che i vani porteranno misure vere e la capienza (voce 17). **La vista frontale con «Specchia» copre quello che serviva davvero**: vedere la corsia com'è, dal verso in cui la si percorre | valutato, non si fa |
-| ~~**27**~~ | ~~**ERRORE GRAVE SULL'EXPORT DELLE GIACENZE.**~~ **Chiuso, e lo era già — verificato il 20/08.** Il difetto era il foglio che moriva con «too many properties to enumerate»: dalla 2.0 l'export dà una riga per collo, e da quel giorno un `qty` sbagliato ha smesso di essere una cella storta ed è diventato un'allocazione. Una giacenza portava 3.501.794 al posto dei colli e **il magazzino intero non si esportava più**. Lo regge `distendiGiacenze` in `src/modules/fogli.ts`: il conto è di TUTTE le righe insieme, il file esce lo stesso, e la riga che non ci sta lo dice scritto in cella. **Il dato è rientrato**: quella riga oggi porta `qty` 350 | fatto |
-| **28** | **Il campionamento non sa prendere un collo intero.** Il CQ a volte ha bisogno di tutto il collo, e la rotta si rifiuta: «un campione lascia sempre un residuo». È una regola di §6, e cambiarla è una decisione di Andrea — che l'ha chiesta il 20/08. Va deciso **cosa diventa** quel movimento: se resta `SAMPLE` la promessa «i colli non calano, mai» cade e il logbook della qualità cambia significato; se diventa un prelievo, il CQ deve saperlo | da decidere |
-| ~~**29**~~ | ~~**L'ODP chiuso va archiviato**~~ — Andrea, 20/08: «una volta chiuso l'ODP con quello che rientra da WIP, l'ordine è archiviato». **Fatto il 20/08, e per metà c'era già**: la chiusura era già un movimento con la sua data e la sua firma, e un ordine archiviato era già fuori da `ordiniWipAperti`, rifiutato da `entraInWip` e da `esceDaWip`, e stampato «chiuso — consuntivo» invece che «PROVVISORIO». Mancava **l'elenco da sfogliare**: l'archivio esisteva ma si apriva solo digitando a memoria il numero, e il consuntivo di una lavorazione si guarda mesi dopo. Ora c'è — `ordiniArchiviati()`, §1 | fatto |
-| ~~**30**~~ | ~~**Le sei righe orfane nel vano WIP.**~~ **Chiusa il 20/08, in due pezzi.** *Il dato*: quelle sei righe non sono più nel vano WIP — stanno in `M06-COM-01`, dove sono merce normale che qualunque maschera consuma. La premessa «nessuna maschera le può consumare» non vale più. *Il buco*: quello valeva ancora, e adesso c'è la difesa — `righeSenzaOrdine()` e il riquadro nel conto produzione, §1. Si ripresenta ogni volta che qualcuno posiziona a mano nel vano | fatto |
-| ~~**31**~~ | ~~**Le due righe di magazzino storte**~~ — **il saldo torna, misurato il 20/08.** `6000366B#123456` in `MAG-SCA-01-03-B` faceva elenco 101 contro saldo 81: adesso 3 colli, elenco e `qty_uom` tutti e due a 27. `7000924#123456` in `MAG-SPC-01`: 6 colli, tutti e due a 150. **E non è un caso isolato che si è sistemato**: su tutte e quindici le righe a colli dichiarati del magazzino, zero hanno l'elenco che non torna col saldo o col numero di colli. Resta vero il fatto storico — il collo di `MAG-SPC-01` comparve senza un movimento che lo spiegasse, il 19/08 — ma è una domanda sul registro, non una riga da raddrizzare | fatto |
-| **26** | **Decidere se Azure si accende.** Il ramo `server/azure/` è pronto e non lo chiama nessuno. I quattro punti che decidono stanno in `server/azure/LEGGIMI.md`, e il primo è che il magazzino si fermerebbe quando cade la linea | Andrea |
-| **32** | **Installare la 2.2 e vedere i due numeri coincidere.** Il pacchetto è in `consegna/Pathfinder 2.2/`, impronta `3945a5de…`. Prima di installare restano le maschere col PIN — voce 20 — e vale la trappola di §5: **installare non è accendere** | Andrea |
-| **33** | **Il registro racconta male i trasferimenti** — §1, trovato dal guardiano il 20/08: **54 movimenti su 256 sono `MOVE` con `delta 0`** e saldo invariato, e i `QREL` non portano nessuna quantità. La merce si sposta davvero, verificato. Ma il registro si tiene **sei anni**, e la domanda che ci si fa fra tre è «quanto»: un movimento che non porta la quantità a quella domanda non risponde. Non è un difetto che si vede lavorando, ed è il motivo per cui va scritto qui | da costruire |
-| **34** | **Un movimento `EDIT` senza merce** — `# MAG-ACC-03`, articolo e lotto vuoti. Uno solo su 256, trovato dal guardiano il 20/08 | da chiarire |
-| **36** | **Installare la 2.3 e vedere i due numeri coincidere.** Il pacchetto è in `consegna/Pathfinder 2.3/`, impronta `367d977e…`. Restano prima le maschere col PIN — voce 20: **nessuna maschera della 2.3 è stata provata con un operatore identificato vero**, al banco l'identità è stata messa a mano come fa `banco/ciclo/banco.js`. Vale la trappola di §5 | Andrea |
-| **37** | **Il vano WIP di produzione è `M06-COM-01`, quello del banco `MAG1-WIP-01`.** La 2.3 esclude il vano dalle ubicazioni in cui il percorso manda a prelevare: è giusto solo se l'area configurata è quella vera. Si controlla in Configurazione → Funzioni **prima** di installare | Andrea |
-| **38** | **Le righe già nel vano al momento dell'installazione non hanno misure a conto.** `quoteVano` le legge dai `packs` dell'inventario e dai `colliFuori` di ogni ordine: dove i movimenti non portano i colli — tutto quel che è entrato prima della 2.0 — la riga finisce fra quelle «senza misure dichiarate» e si lavora a numero. Non è un difetto: è la stessa condizione della voce 6 | da chiarire |
-| **39** | **L'ATTIVITÀ PIANIFICATA PUNTA AL REPOSITORY — e c'è il comando che la sistema.** Da PowerShell **come amministratore**: `& 'C:\Pathfinder\servizio\installa-servizio.ps1' -Porta 4173 -Database 'C:\Pathfinder\data\pathfinder.db' -CartellaBackup 'C:\Pathfinder\backup' -CartellaApplicativo 'C:\Pathfinder\app\corrente'`. Lo script disinstalla l'attività e la ri-registra con `$Qui` = la cartella da cui viene lanciato: lanciandolo da `C:\Pathfinder\servizio` l'attività punterà finalmente lì. Il magazzino resta giù i secondi del riavvio, il database non si tocca. Poi `/api/app-info` deve dire **2.2 due volte**. §1 | Andrea, a magazzino fermo |
-| **40** | **`PATHFINDER_APP` punta ancora a `MAPPER\pathfinder-1.6.1.html`** — un secondo filo fra la produzione e la cartella di lavoro, residuo del modo «file singolo». Oggi non serve a niente: `/api/app-info` dice `modo: cartella` e comanda `PATHFINDER_APP_DIR`, che è `C:\Pathfinder\app\corrente`. Va svuotata il giorno che si tocca il servizio, non prima: `installa-servizio.ps1` senza `-Applicativo` la lascia com'è apposta | da chiarire |
-| **35** | **La 2.1 è in servizio da un pacchetto che nessun documento nominava.** L'impronta in produzione (`7cd16b50…`, costruita il 20/08 alle 08:31) non è quella che l'INDEX dichiarava (`29f215e1…`). È la **terza volta in quattro giorni** che il documento dice dove gira la produzione e la produzione gira altrove. Non è una riga da correggere: è il motivo per cui §0 punto 2 esiste, e va riletto da chi apre una conversazione nuova | letto, non si chiude |
+I numeri **non si riusano e non si rinumerano**: una voce chiusa resta al suo
+posto barrata, perché altre righe di questo documento la citano per numero. Le
+disposizioni qui sotto sono di Andrea, 25/08/2026.
 
-**Quanto pesano le due voci qui sopra, misurato il 19/08.** La voce 5 (zone
-da caratterizzare) e la voce 6 (`pieces_per_pack`) non sono due righe di
-manutenzione: sono il motivo per cui **la verifica di conformità copre il 6%
-delle righe a scaffale** — 12 su 194 — e per cui **151 articoli su 153 a
-giacenza non hanno una quantità per collo**. Su tutto il resto la mappa non
-tace perché va bene: tace perché non ha con cosa confrontare, e chi la guarda
-vede un verde che non significa niente.
+Cinque stati, e vogliono dire cose diverse:
 
-### Le versioni da costruire
-
-Scadenza del progetto **31/12/2026**, ultima installazione utile **19/12** — poi
-c'è l'inventario. La numerazione è **progressiva**: una build definitiva porta
-**due numeri** (`1.8`), una di prova ne porta di più (`1.8.1`).
-
-| Versione | Cosa |
+| stato | vuol dire |
 |---|---|
-| **2.3** | **Il reparto, e il giro conto.** Un collo nel vano di lavorazione appartiene a **più ordini per quote**: il conto passa da uno all'altro senza che la merce si muova, il fabbisogno di una tappa si sconta di quel che il reparto ha già in mano, il vano è una lista piatta di colli e non più il conto di un ordine, e un percorso può portare **più ODP insieme**. **Costruita il 25/08, non installata** — §1 |
-| **1.8** | **UOM riscritta.** Gli item non hanno confezionamento costante: lo stesso articolo arriva in colli da 5 kg e la volta dopo da 25 kg. Al posizionamento l'operatore dichiara **la suddivisione dei colli** (10 × 1.000 + 1 × 900), **più colli incompleti sono ammessi**, il sistema calcola il totale e carica **colli e UM**. A prelievo, smaltimento e trasferimento sceglie **quali e quanti colli**. Il **prelievo parziale opera in colli e UM su tutte le funzioni**. L'unità è quella dell'articolo: kg dove è a kg, pezzi dove è a pezzi. **In costruzione — vedi sotto** |
+| **fatto** | chiusa, con la prova accanto |
+| **Andrea** | è un dato o una configurazione, e la compila lui quando è ora. Un agente non ci mette mano |
+| **da pianificare** | è lavoro di sviluppo riconosciuto: prima l'analisi, poi la correzione, poi il consolidamento |
+| **standby** | riconosciuta e ferma per scelta. Non si tocca finché non lo si decide |
+| **da chiarire** | manca un fatto per poter decidere |
 
-#### La 1.8, blocco per blocco
+### Chiuse il 25/08
 
-Il dato è **`inventory.packs`**, un numero per collo dentro la riga di
-giacenza. La riga resta **una** — l'indice `[location_code+item_key]` non si
-tocca, e il perché è lo stesso della 1.4.2 — e dove `packs` c'è, **`qty` e
-`qty_uom` diventano le sue due colonne materializzate**: le conta l'elenco,
-non il client. Dove manca, tutto si legge come nella 1.7.
-
-| | Cosa | Stato |
+| # | Cosa | Prova |
 |---|---|---|
-| 1 | **`modules/colli.ts`** — puro: dichiarazione, elenco, raggruppamento, prelievo per collo, il ponte `daSuddivisione` che legge una riga della 1.7. 39 prove | **fatto** |
-| 2 | **Il servizio arbitra.** `removeItem` e `commitPickStop` accettano `packs_out` (quanto esce da ogni collo) e `packs_before` (il seme, una volta sola). Un collo della misura esatta esce intero, se non c'è si apre **il più piccolo che basta**. 12 prove nuove | **fatto** |
-| 3 | **Store scrive.** `packs` su `Giacenza`, `colliDiRiga`, `descriviRiga`, `addItem` con la suddivisione dichiarata, `removeItem` con le scelte per collo. Interruttore **`feature.colli`**, che pretende `uom` acceso | **fatto** |
-| 4 | **Le maschere**: il posizionamento dichiara la suddivisione (il campo ④ Colli pilota la prima riga e resta scrivibile), la riga di giacenza si descrive dall'elenco — **una sorgente sola**, `Store.descriviRiga` — e una **maschera sola**, `_scegliColli`, chiede quali colli e quanto prenderne | **fatto** |
-| 5 | **Ogni funzione che toglie merce ci passa**: smaltimento, trasferimento, prelievo guidato, carrello di produzione, evasione DDT, quarantena e rilascio. Lo **spostamento** porta i colli scelti fino alla riga nuova. La **conta mirata** chiede quali colli mancano e **rifiuta la rettifica in aumento** su una riga a colli dichiarati — un collo trovato ha una misura che nessuno può indovinare, e si posiziona da Movimenta. L'**inventario di vano**, che corregge molte righe in fila, rimanda quelle a colli dichiarati alla Conta. Lo **storno** ritrova i colli per misura (`scelteDaMisure`) e si ferma se uno non c'è più | **fatto** |
-| 6 | L'interruttore è **`pronta: true`**: si può accendere da Configurazione → Funzioni, e pretende `uom` acceso | **fatto** |
-| 7 | **Il banco con un operatore in sessione.** Quel che si è provato è nella riga qui sotto; le maschere che pretendono l'identità — smaltimento, trasferimento, prelievo, quarantena — non sono state esercitate fino in fondo perché **il PIN lo digita Andrea** | da fare |
-| 8 | **Installare e provare in magazzino**, un turno, e accendere l'interruttore **il turno dopo**: installare non è accendere | Andrea |
+| ~~**2**~~ | ~~Provare il pacchetto su una macchina pulita~~ | **Fatta, conforme** — Andrea, 25/08 |
+| ~~**4**~~ | ~~Annullare a mano quattro attività rimaste `in_progress`~~ (`TA-MSRAXA3Q-PQ11`, `TA-MSRB4JXK-04C7`, `TA-MSRB80C2-2JLC`, `TA-MSRBEZLU-5M3E`) | **Annullate** — Andrea, 25/08 |
+| ~~**17**~~ | ~~La capienza dei vani non è dichiarata da nessuna parte~~ | **Non si dichiara, e non è un buco.** I vani non hanno un limite di capienza: la verifica la fanno **a vista gli operatori**. Il vincolo nel motore resta e non esclude mai per pieno, ed è il comportamento voluto |
+| ~~**20**~~ | ~~Provare le maschere che pretendono l'identità, col PIN~~ | **Provate e funzionanti** — smaltimento, trasferimento, prelievo, quarantena, conta, DDT, reso, chiusura del conto. Andrea, 25/08 |
+| ~~**23**~~ | ~~Leggere un'etichetta col lettore vero~~ | **Barcode funzionante e verificato, conforme** — Andrea, 25/08. Il Code128 di `modules/code128.ts` è stato letto da un lettore ottico su un foglio stampato da questo codice |
+| ~~**38**~~ | ~~Le righe già nel vano al momento dell'installazione non hanno misure a conto~~ | **Non si pone: un'installazione pulita parte con il database VUOTO.** È la regola, ed è anche il modo in cui la voce 2 è stata provata |
+| ~~**39**~~ | ~~L'attività pianificata punta al repository~~ | **Corretta il 25/08 all'01:49**, ri-registrando l'attività da `C:\Pathfinder\servizio`. La 4173 dice 2.2 due volte, e la prova per ore sta in §1 |
+| ~~**40**~~ | ~~`PATHFINDER_APP` punta ancora a `MAPPER\pathfinder-1.6.1.html`~~ | **Refuso dei primi giorni di sviluppo**, residuo del modo «file singolo». Non serve a niente: `/api/app-info` dice `modo: cartella` e comanda `PATHFINDER_APP_DIR`. Si svuota il giorno che si tocca il servizio |
+| ~~**32**~~ | ~~Installare la 2.2 e vedere i due numeri coincidere~~ | **Fatto il 25/08 all'01:39.** `08ce3f69…`, 1.777.087 byte. È la versione stabile |
+| ~~**36**~~ | ~~Installare la 2.3 e vedere i due numeri coincidere~~ | **Non si installa: la 2.3 è RITIRATA.** Ha disfunzionato, ed è stato necessario un ripristino d'emergenza alla 2.2 |
+| ~~**28**~~ | ~~Il campionamento non sa prendere un collo intero~~ | **Deciso da Andrea il 25/08, ed è una regola nuova:** se l'articolo **ha l'unità di misura configurata**, si preleva la quantità indicata e **i colli non calano**; se non ce l'ha, esce la quantità indicata dal collo. Va portata nel codice — voce 42 |
 
-**Cosa ha già visto il banco** (17–18/08, copia del database vero, porta 4199,
-`feature.colli` acceso): il posizionamento con «3 × 25 + 1 × 7» scrive
-`packs [25,25,25,7]`; un secondo carico accoda e la riga diventa «3 × 25 +
-1 × 10 + 1 × 7»; la maschera di scelta calcola cosa esce e cosa resta, e
-rifiuta una quantità più grande del collo; il prelievo `{da: 25, quantita:
-10}` apre il collo da 25 e **lascia intero quello da 10**; lo storno per
-misura riporta la riga a `[15,25,25]`, e un collo che non c'è più viene
-respinto con il motivo scritto. La riga con due colli da 5 si legge «2 × 25 +
-2 × 5», dove la 1.7 diceva «2 × 25 + 1 × 10» e segnalava uno scarto che non
-c'era.
+### Da pianificare — sviluppo riconosciuto
 
-**Cosa il banco non ha visto**: tutte le maschere che pretendono un operatore
-identificato. Si provano in un minuto col PIN — smaltimento parziale,
-trasferimento, prelievo guidato, quarantena — e sono l'ultimo passo prima di
-installare.
-| ~~**1.9**~~ | **Viste giacenza — scritta il 19/08.** Il pannello della mappa dice colli e UM; il resto e' il ramo «Per articolo» di Inventario, con il giro di conte e il riepilogo stampabile. §1. **Non installata, non impacchettata.** Originale: Selezionando un'ubicazione dalla mappa, il pannello a destra mostra la giacenza **in colli e in UM**. Più una pagina nuova: si cerca un articolo, si vedono tutti i lotti, se ne selezionano uno o più e si **apre la conta su tutti insieme**; PDF con intestazioni, piè di pagina e la lista dei lotti con ubicazione e quantità. Se costa meno, può diventare un ramo di Inventario |
-| ~~**1.10**~~ | **Trasferimenti dall'ODP — scritta il 19/08.** La riga d'avviso non esisteva: adesso e' la tappa fuori sito nell'anteprima del percorso. §1. **Non installata.** Originale: Sulla riga di avviso «articolo in un altro magazzino» — che già c'è — compare una spunta: genera un'**attività di trasferimento** nello schedulatore, il sistema **chiede in quale ubicazione** ricevere la merce, e **quell'ubicazione entra nel percorso come tappa di prelievo** |
-| ~~**1.11**~~ | **Il terminale — scritta il 19/08**, come adattamento su `--spacing`, non come interfaccia apposita: quella resta da decidere. §1. **Non installata.** Originale: Il sistema riconosce se gira su Android e ridimensiona. Probabilmente serve **un'interfaccia apposita**, non un adattamento |
-| ~~**1.12**~~ | **UDC — FATTA il 19/08**, e senza toccare lo schema: la collezione c'era gia' vuota dalla 1.4. Modulo del codice, Store, rotta composta `moveUdc`, maschera, etichetta 100x80. §1. **Costruita nel pacchetto 1.12, non installata.** Originale: contenitori che stanno in un'ubicazione e portano la merce con sé. `inventory.udc_id` esiste già, vuoto. Nasce su comando, **muore quando è vuota** (svuotamento automatico, creazione no), il record resta come storia e `udc_id` non si riusa mai. **L'etichetta si stampa alla creazione**, `100 × 80 mm` su A4 dal browser. Il prefisso GS1 è un **parametro di Configurazione**: vuoto → codice interno, compilato → SSCC. Lo spostamento passa da una rotta composta `moveUdc`, in **una** transazione |
-| ~~**1.13**~~ | **Motore di stoccaggio — FATTO il 19/08**, motore e faccia: riquadro nel posizionamento, elenco degli esclusi col motivo, scavalco a registro, scheda delle regole. 274 ubicazioni in 2 ms. §1. **Non installata.** Originale: dice dove mettere la merce. Funzione pura come `pickRoute`. Vincoli **duri** (sito imposto, segregazione allergeni, temperatura, capienza) e poi un **punteggio** sui morbidi. Le regole sono **un dato** in `storage_rules`, non codice: «`article_code` inizia per 700 → `MAG2`» è un record. Ogni proposta **dice perché**, e lo scavalco si registra col motivo |
-| ~~**1.14**~~ | **Conto di produzione — FATTO il 19/08**: il prelievo porta la merce nel vano WIP, la scheda «Conto produzione» mostra entrato/reso/consumato, e la chiusura dichiara il consumo. Ciclo provato al banco. §1. **Non installata, e si accende a gennaio.** Originale: il prelievo per ODP finisce in un'ubicazione WIP invece di sparire; ciò che entra e non torna **è il consumo reale di produzione**. È l'unica funzione che cambia il significato di un movimento esistente: a `feature.wip` spento, `PICK` resta quello di sempre. Si installa il 19/12 **spento** e si accende a gennaio |
+| # | Cosa | Passo successivo |
+|---|---|---|
+| **5** | **Caratterizzare le zone** in Configurazione → Zone: classe di conservazione, zona allergeni, zona pericolosi, refrigerata. Finché non è fatto **la mappa resta muta**, per quanti articoli si classifichino: la verifica confronta due metà e una manca | **Pianificare verifica e correzione.** Prima si misura quante zone e quante righe sono scoperte, poi si decide se il buco è nel dato o nel codice che lo legge |
+| **15** | **L'area WIP va consolidata.** È **un'ubicazione mappata**, non un prefisso: senza, il prelievo di produzione non ha dove portare la merce e lo dice. In produzione il vano è `M06-COM-01`, al banco `MAG1-WIP-01` | **Pianificare analisi e correzione.** Il vano configurato e quello vero devono essere una cosa sola, e il codice deve dirlo quando non lo sono |
+| **12** | **Le unità di carico sono in funzione.** Creazione, carico, spostamento, chiusura automatica, etichetta: al banco funzionano e in campo reggono | **Pianificare sviluppo e consolidamento.** `feature.udc` va portata da «funziona» a «si può accendere e dimenticare» |
+| **22** | **Il motore di stoccaggio va sviluppato e consolidato.** Il difetto segnalato — «l'ubicazione non soddisfa i criteri anche quando la regola è definita correttamente» — non è nessuno dei due chiusi con la 2.1 | **Pianificare sviluppo e consolidamento**, e riprodurre il difetto con la regola esatta, il vano e il messaggio a video |
+| **19** | **`6001055` MANGANESE SOLFATO: l'ODP lo chiede in KG, l'anagrafica lo dichiara PZ.** Il magazzino conta pezzi dove la produzione pesa chili | **Il parser XLS va controllato e corretto se serve.** La domanda è se l'unità di misura si perde in lettura o se il dato è storto all'origine: sono due difetti diversi, e si distinguono guardando il foglio |
+| **33** | **Il registro racconta male i trasferimenti**: **54 movimenti su 256** sono `MOVE` con `delta 0` e saldo invariato, e i `QREL` non portano nessuna quantità. La merce si sposta davvero, verificato | **Analizzare e pulire il database** — potrebbero essere un refuso. Si lavora **su una copia**, e la produzione si tocca solo dopo il via |
+| **42** | **La nuova regola del campionamento va nel codice.** Andrea, 25/08: articolo con unità di misura configurata → si preleva la quantità e **i colli non calano**; senza unità di misura → esce la quantità indicata dal collo. Oggi la rotta rifiuta il collo intero con «un campione lascia sempre un residuo» | Cambia una regola di §6 e il significato di `SAMPLE`: va scritta lì prima che nel codice, e il CQ deve saperlo |
+| **41** | **`C:\Pathfinder\app\precedente` porta la 2.3, che è ritirata.** `torna-indietro.ps1` scambia `corrente` e `precedente`: dato oggi, **rimetterebbe in servizio la versione che ha disfunzionato**. Trovato il 25/08 leggendo i due `manifest.json` | La via di ritorno va fatta puntare a una 2.2, o `precedente` va svuotata. Tocca `C:\Pathfinder\`: si propone e si aspetta il via |
+| **43** | **IL KIT DEMO NON ESISTE PIÙ.** `Avvia Demo.bat`, i tre `README-DEMO` e i tre `IT-TECH-SHEET` — la demo portatile su chiavetta e lo sheet tecnico IT, in italiano, inglese e francese — vivevano dentro `consegna/`, che **`npm run build` azzera a ogni giro**. Non li produce `vite.config.js` e non sono mai entrati in git. Il 24/08 furono messi da parte e rimessi dentro a mano quattro volte; il 25/08 la build ha girato altre quattro volte e li ha portati via. Cercati su tutto il disco il 25/08: **nessuna traccia, e non si recuperano** | Vanno **riscritti**, e stavolta fuori da `consegna/` oppure dentro la lista dei file del plugin di build. Finché stanno lì dentro, la prossima build li cancella di nuovo |
+
+### Sono di Andrea — dati e configurazione
+
+Un agente non ci mette mano. Restano qui perché senza di loro certe funzioni non
+hanno con cosa lavorare, non perché qualcuno debba sollecitarle.
+
+| # | Cosa |
+|---|---|
+| **6** | **`pieces_per_pack` in anagrafica** (colonna `Pezzi_Per_Collo` dell'import Excel). **L'anagrafica la corregge e la aggiorna Andrea.** Va compilata PRIMA di accendere `colli`: un lotto congelato senza `uom_per_collo` non lo recupera più dall'anagrafica — la confezione del lotto vince sempre |
+| **7** | **Partita IVA e dati mittente** in Configurazione → DDT. **Tutte le configurazioni manuali sono di Andrea** |
+| **3** | **Un secondo Team Leader.** `ANDS` è l'unico. **Situazione sotto controllo** — Andrea, 25/08 |
+| **13** | **Il prefisso GS1**, o lasciarlo vuoto. Vuoto: codici interni, che bastano dentro l'azienda. Compilato: SSCC veri. **Lo compila Andrea quando sarà ora** |
+| **16** | **Le prime regole di stoccaggio.** `storage_rules` è vuota, e finché non ci sono il motore lavora sui soli vincoli. **Le scrive Andrea** — sono un dato (`article_code` inizia per 700 → `MAG2` è un record), non codice. Il motore che le applica è la voce 22 |
+
+### Standby — ferme per scelta
+
+| # | Cosa |
+|---|---|
+| **8** | **Nome DNS interno e certificato** dalla CA aziendale. Il codice è pronto: due variabili e HTTPS si accende |
+| **24** | **Se le etichette escono dal cancello.** Quel che si stampa è **Code128, non GS1-128**: manca l'FNC1 e l'identificativo `(00)`. Dentro l'azienda si scansiona e si ritrova il documento, ed è tutto quello che serve. Il giorno che un cliente deve leggere un SSCC, `modules/code128.ts` va esteso — non aggirato |
+| **26** | **Se Azure si accende.** Il ramo `server/azure/` è pronto e non lo chiama nessuno. I quattro punti che decidono stanno in `server/azure/LEGGIMI.md`, e il primo è che il magazzino si fermerebbe quando cade la linea |
+
+### Da chiarire — manca un fatto
+
+| # | Cosa | Cosa manca |
+|---|---|---|
+| **18** | **Due sigle firmano movimenti e non sono in anagrafica operatori** — `DP` (14 movimenti) e `AS` (2). Il registro si tiene sei anni e la domanda che ci si fa fra tre è «chi»: una sigla senza un nome dietro non risponde | **Servono dettagli** — Andrea, 25/08. O sono operatori cancellati, o sigle digitate a mano, e le due cose si correggono in modi diversi |
+| **34** | **Un movimento `EDIT` senza merce** — `# MAG-ACC-03`, articolo e lotto vuoti. Uno solo su 256, trovato dal guardiano il 20/08 | Va guardato insieme alla voce 33: se è lo stesso refuso, si chiude con quella |
+| **1-bis** | **Chi ha cancellato `C:\Pathfinder\app\pathfinder-1.6.1`** il 17/08 alle 19:14. La cartella è stata ricostruita dal file singolo in radice e la via di ritorno è di nuovo intera, ma la causa non si conosce | Se non è stato un gesto di Andrea in un'altra finestra, qualcosa cancella dentro la directory di installazione |
+
+### Decise, e non si riaprono
+
+| # | Cosa |
+|---|---|
+| **25** | **La vista 3D della mappa: valutata, e no.** Le ubicazioni non hanno coordinate — `core/geometria.ts` le genera da corsie, campate e livelli — quindi una vista 3D sarebbe un rendering della stessa griglia con la prospettiva in più: costo alto, informazione zero. **La vista frontale con «Specchia» copre quello che serviva davvero**: vedere la corsia com'è, dal verso in cui la si percorre |
+| **35** | **La 2.1 andò in servizio da un pacchetto che nessun documento nominava.** L'impronta in produzione (`7cd16b50…`, 20/08 alle 08:31) non era quella che l'INDEX dichiarava (`29f215e1…`). Fu la **terza volta in quattro giorni**. Non è una riga da correggere: è il motivo per cui §0 punto 2 esiste, e va riletto da chi apre una conversazione nuova |
+
+**Quanto pesa la voce 5, misurato il 19/08.** Le zone da caratterizzare non sono
+una riga di manutenzione: sono il motivo per cui **la verifica di conformità
+copre il 6% delle righe a scaffale** — 12 su 194. Su tutto il resto la mappa non
+tace perché va bene: tace perché non ha con cosa confrontare, e chi la guarda
+vede un verde che non significa niente. Lo stesso vale per la voce 6: **151
+articoli su 153 a giacenza non hanno una quantità per collo**.
+
+### Le versioni
+
+La numerazione è **progressiva**: una build definitiva porta **due numeri**
+(`2.2`), una di prova ne porta di più (`2.2.1`). **Non c'è una scadenza** — la
+riga che dava il progetto al 31/12/2026, con ultima installazione utile il
+19/12, è stata tolta il 25/08.
+
+| Versione | Stato |
+|---|---|
+| **2.2** | **STABILE. È quella in servizio e l'unica che si installa.** `08ce3f69…`, 1.777.087 byte, 4 file. 925 prove su 32 file, `tsc` pulito su client e servizio. Porta la maschera delle attività, il registro completo, i colli per misura, e tutto quel che le versioni da 1.8 a 2.1 hanno costruito |
+| ~~**2.3**~~ | **RITIRATA — ha disfunzionato, ripristino d'emergenza alla 2.2.** Pacchetto e ramo git in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/`. Il problema che voleva risolvere resta aperto: §1 |
+| ~~**1.8 → 2.1**~~ | **ARCHIVIATE.** Sono dentro la 2.2 e non esistono più come lavoro da fare. La 1.8 (UOM riscritta, `feature.colli`), la 1.9 (viste giacenza), la 1.10 (trasferimenti dall'ODP), la 1.11 (il terminale su `--spacing`), la 1.12 (UDC), la 1.13 (motore di stoccaggio), la 1.14 (conto di produzione): scritte, cablate, collaudate e consegnate. Quel che di loro è rimasto aperto **non è la versione, è un interruttore o un dato** — voci 5, 6, 12, 15, 16, 22. La cronaca di come furono costruite sta in §1 |
+
+**Gli interruttori, e la regola che vale per tutti.** `feature.colli` è
+`pronta: true` e pretende `uom` acceso; `feature.udc` e `feature.wip` esistono e
+non sono accese in produzione. **Installare non è accendere**: si installa a fine
+turno, si guarda girare un turno intero, e si accende il turno dopo.
 
 ### Lavoro di fondo, non una versione
 
@@ -2231,7 +2263,10 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   prodotto niente torna in carico e `started_at` si azzera — è l'unico istante
   già scritto che si cancella.
 - **Il campionamento non muove i colli: muove ciò che c'è dentro** (causale
-  `SAMPLE`), e **un campione vale un collo di residuo**. **La Conta è un
+  `SAMPLE`) — **ma solo per gli articoli che hanno l'unità di misura
+  configurata.** Senza unità di misura esce la quantità indicata e il collo può
+  andarsene tutto: regola cambiata il 25/08, scritta per esteso più sotto e non
+  ancora nel codice (voce 42). **La Conta è un
   inventario mirato a una riga**, e il numero di sistema **non si mostra prima di
   aver contato**: un inventario che suggerisce la risposta non verifica niente.
 - **Il Posizionamento non è un compito** — avviene in coda all'accettazione, che
@@ -2263,10 +2298,22 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   lo scarto lo **mostra** `verificaUom`, che non corregge niente.
 - **Le UM escono dentro la stessa transazione dei colli**, e il saldo di partenza
   si legge dalla riga, non da ciò che manda il client.
-- **Un campione lascia sempre un residuo.** Svuotare un collo non è
-  campionare, è prelevarlo: la rotta si rifiuta, con il motivo. È ciò che
-  rende vera la promessa per cui `sampleItem` esiste separata da
-  `removeItem` — i colli non calano, mai.
+- **Il campione guarda l'unità di misura dell'articolo, e si comporta in due
+  modi** — regola cambiata da Andrea il **25/08/2026**, e **non ancora nel
+  codice: voce 42**.
+  - **Articolo con l'unità di misura configurata**: si preleva la quantità
+    indicata e **i colli non calano**. È la promessa per cui `sampleItem`
+    esiste separata da `removeItem`, e per quegli articoli resta intera.
+  - **Articolo senza unità di misura**: viene prelevata **la quantità
+    indicata**, e il collo può andarsene tutto.
+
+  *La regola di prima, valida fino al 25/08 e ancora quella che il codice
+  applica:* «un campione lascia sempre un residuo — svuotare un collo non è
+  campionare, è prelevarlo: la rotta si rifiuta, con il motivo». Il CQ a volte
+  ha bisogno di tutto il collo, e con quella regola non poteva averlo.
+
+  **Chi tocca `sampleItem` legga prima la voce 42**: cambia il significato di
+  `SAMPLE`, e il logbook della qualità si tiene sei anni.
 - **Chi conta non toglie e non aggiunge: dichiara com'è fatto lo scaffale**, e
   la differenza la traduce `rettifica`. Un collo più leggero è un'uscita
   PARZIALE dallo stesso collo, non uno che se ne va e un altro che arriva: il
@@ -2626,9 +2673,9 @@ scritto lì dentro trovi a chi rispondere — §7.
 | Serve | Dove |
 |---|---|
 | Installare il servizio da zero, diagnosticare, backup | [README.md](README.md) |
-| **Demo portatile su chiavetta USB** (senza privilegi admin) | `consegna/Pathfinder 2.2/README-DEMO.md` (IT/EN/FR) — **24/08/2026** |
-| **Sheet tecnico IT** (deploy, upgrade, troubleshooting) | `consegna/Pathfinder 2.2/IT-TECH-SHEET.md` (IT/EN/FR) — **24/08/2026** |
-| Versioni precedenti, loghi, etichette, file di prova | `ARCHIVIO/` — e **non si cancella niente**: un archivio svuotato funziona una volta sola |
+| ~~Demo portatile su chiavetta USB~~ · ~~Sheet tecnico IT~~ | **NON ESISTONO PIÙ — voce 43.** `Avvia Demo.bat`, i tre `README-DEMO` e i tre `IT-TECH-SHEET` vivevano dentro `consegna/`, che `npm run build` azzera a ogni giro. Non li produce `vite.config.js` e non sono mai entrati in git: cercati su tutto il disco il 25/08, non c'è traccia. **Vanno riscritti** |
+| Versioni precedenti, loghi, etichette, file di prova, banco storico | `ARCHIVIO/` — e **non si cancella niente**: un archivio svuotato funziona una volta sola. **Sta fuori dal repository dal 25/08**: il perché è scritto per esteso in `.gitignore`, e il backup è OneDrive |
+| Il ramo git della 2.3 ritirata | `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/2.3-reparto-e-giro-conto.bundle` — storia completa, recupero provato |
 | La storia: handoff e piani fino al 17/08/2026 | `ARCHIVIO/HANDOFF STORICI/` — **memoria, non istruzioni** |
 | Cosa è stato archiviato e quando | `ARCHIVIO/archive-manifest.json` |
 | Come si disegna un'interfaccia da magazzino | `.claude/skills/erp-wms-frontend/SKILL.md` — **2.1**. Se diverge da §6, vince §6 |
