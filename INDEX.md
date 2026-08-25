@@ -1025,6 +1025,7 @@ collauda al banco e si consegna il pacchetto.
 | **34** | **Un movimento `EDIT` senza merce** — `# MAG-ACC-03`, articolo e lotto vuoti. Uno solo su 256, trovato dal guardiano il 20/08 | da chiarire |
 | **35** | **La 2.1 è in servizio da un pacchetto che nessun documento nominava.** L'impronta in produzione (`7cd16b50…`, costruita il 20/08 alle 08:31) non è quella che l'INDEX dichiarava (`29f215e1…`). È la **terza volta in quattro giorni** che il documento dice dove gira la produzione e la produzione gira altrove. Non è una riga da correggere: è il motivo per cui §0 punto 2 esiste, e va riletto da chi apre una conversazione nuova | letto, non si chiude |
 | **36** | **La migrazione del database da SQLite a SQL è confermata** — Andrea, **25/08**. Chiude la voce 26 e supera la regola di §6 «niente Azure», che da oggi porta la data. **Resta da nominare il motore**: la conferma dice «SQL», e l'unica strada preparata in questo repository è **PostgreSQL** — `server/azure/schema-postgres.js` e `migra-sqlite-postgres.js`, 8 prove, scritti il 19/08 su Azure Database for PostgreSQL. Se «SQL» volesse dire **SQL Server / Azure SQL** quei due file non servono, il DDL va rigenerato e il driver è un altro: è **una parola sola, e decide tutto il lavoro sotto**. Finché non è detta, non si scrive codice di migrazione | Andrea, una riga |
+| **39** | **React nel front end: si comincia da un'isola, o non si comincia.** Chiesto da Andrea il 25/08, valutato lo stesso giorno — la valutazione, coi numeri, sta in §2 «Lavoro di fondo». In breve: **il beneficio è reale e non è la velocità**, è che lo stato smette di essere ricopiato a mano nel DOM; **il costo non è React, sono le 16.778 righe di viste che nessun collaudo guarda** — un solo file di prova su 34 tocca il DOM. Quel che va deciso non è «React sì o no», è **una cosa sola: quale maschera fa da prima isola, e quando**. La risposta consigliata è **il cruscotto** — si ridisegna intero a ogni giro, non muove merce, non chiede il PIN, e ha già 19 prove sul modulo che lo calcola — **dopo** che la forma della migrazione del database (voce 36) è nota, perché se `lib/db.js` diventa asincrono ogni vista cambia comunque il modo in cui legge, e convertire due volte la stessa maschera è il solo spreco sicuro | Andrea |
 | **38** | **I lotti sono sensibili al maiuscolo, e il lettore di barcode scrive minuscolo.** Segnalato da Andrea il 25/08. In azienda il lettore restituisce le lettere del codice **in minuscolo**: `6000366B#abc123` e `6000366B#ABC123` sono **due righe diverse nello stesso vano** — l'indice composto `[location_code+item_key]` le fa convivere — e il prelievo non trova la merce che vede a scaffale. **La regola che deve valere: articolo e lotto sono maiuscoli, sempre, e un campo che riceve minuscolo lo alza da solo invece di rifiutare.** Dove sta il difetto, misurato nel codice il 25/08: **(a)** `Validate.RE.LOT` porta la spia `/i` e `RE.ARTICLE` no — è **quel carattere** che lascia entrare il minuscolo, e solo sul lotto; **(b)** i **16 campi lotto** di dieci viste non portano nemmeno la classe `uppercase` che i campi articolo portano; **(c)** quella classe è **CSS, `text-transform`: cambia come il campo si vede, non `input.value`** — la portano 35 campi, la trasformazione vera la fanno **8 campi in tutto il client**, e nessuno degli otto è un articolo o un lotto; **(d)** `Store.addItem` compone `item_key` come `articolo#lotto` **senza normalizzare** (`core/store.ts:878`), e il servizio confronta `r.item_key === item_key`; **(e)** `pickRoute.ts:179` alza l'articolo e **lascia stare il lotto**, quindi un percorso nato dall'ODP non riaggancia la riga. Lo strumento c'è già — `Validate.clean(v, upper)`, che l'import Excel usa. **Ed è codice più dato**: le righe già scritte in minuscolo vanno raddrizzate, e dove le due grafie convivono nello stesso vano raddrizzarle **fonde due righe** — si fa su una copia e si contano prima, come per le voci 14 e 31 | da costruire |
 | **37** | **Dove gira il motore: in azienda o in cloud.** La voce 36 dice che si migra, non dove. Con il database su un server interno §6 «niente lavoro offline» resta quello di oggi; **in cloud diventa «niente lavoro senza linea»** — il magazzino si ferma quando cade la connessione dell'azienda, con 300÷500 movimenti al giorno e i muletti fermi. È una decisione di continuità operativa, non di architettura, e va presa **prima** di riscrivere `lib/db.js`: il codice è lo stesso, il piano di fermo no | Andrea |
 
@@ -1088,6 +1089,92 @@ installare.
 | ~~**1.14**~~ | **Conto di produzione — FATTO il 19/08**: il prelievo porta la merce nel vano WIP, la scheda «Conto produzione» mostra entrato/reso/consumato, e la chiusura dichiara il consumo. Ciclo provato al banco. §1. **Non installata, e si accende a gennaio.** Originale: il prelievo per ODP finisce in un'ubicazione WIP invece di sparire; ciò che entra e non torna **è il consumo reale di produzione**. È l'unica funzione che cambia il significato di un movimento esistente: a `feature.wip` spento, `PICK` resta quello di sempre. Si installa il 19/12 **spento** e si accende a gennaio |
 
 ### Lavoro di fondo, non una versione
+
+- **React nel front end — la valutazione del 25/08.** Chiesta da Andrea:
+  «pianifichiamo di inserire elementi in React». Qui ci sono i numeri, il
+  beneficio vero, il costo vero e la strada consigliata; la decisione è la voce
+  39.
+
+  **Cos'è il front end oggi, misurato e non ricordato.** Ventinove viste,
+  **16.778 righe** in `src/ui/views/`, più 1.569 di `app.ts`. Il markup nasce
+  da stringhe: **192 assegnazioni di `innerHTML`** in ventinove file. I gestori
+  stanno dentro quelle stringhe — **507**: 328 `onclick`, 53 `onkeydown`, 53
+  `onchange`, 51 `oninput`, 5 `onblur` — e chiamano `App` **per nome**, su
+  **278 punti d'ingresso distinti**. È il motivo per cui `App` deve restare un
+  oggetto solo, ed è scritto in testa a `views/vista.ts`.
+
+  **Il beneficio, e non è la velocità.** Nessuno ha mai detto che Pathfinder è
+  lento, e React non lo renderebbe più veloce: una vista che si ridisegna con
+  `innerHTML` è già l'operazione che il browser fa meglio. Il beneficio è un
+  altro, ed è di difetti:
+
+  1. **Lo stato smette di essere ricopiato a mano nel DOM.** Una vista oggi
+     disegna i campi e poi **rilegge `.value` dai campi che ha appena
+     disegnato**. I due difetti più costosi del 24/08 sono esattamente questa
+     classe: la riga che non compariva perché `style.display = ''` non batte
+     una classe `hidden` — e la maschera rifiutava un campo **assente dallo
+     schermo** — e la data delle copie locali sempre vuota perché si stampava
+     `b.modified` invece di `lastModified`. Con lo stato come sorgente sola e
+     il DOM come sua funzione, il primo non esiste e il secondo lo dice il
+     compilatore.
+  2. **Il fuoco e la scansione.** Una maschera dove il lettore spara in un
+     campo, il campo scatena una ricerca e un pannello si ridisegna è il posto
+     dove ricostruire l'`innerHTML` **perde il cursore**. È un costo che si
+     paga con la pistola in mano, in corsia, e non si vede in nessun collaudo.
+  3. **Le viste diventano collaudabili.** Ed è il punto che pesa di più: dei
+     **34 file di prova, uno solo tocca il DOM** — `modali.test.js`. Le 925
+     prove guardano i moduli puri e il servizio; **le 16.778 righe di maschere
+     non le guarda nessuno**, e ogni difetto di §1 trovato «in browser sul
+     pacchetto costruito, non leggendo» è quel buco che si manifesta.
+  4. **I 278 nomi globali si ritirano da soli.** Un gestore che è una chiusura
+     non ha bisogno di un nome pubblico su `App`. `superficie-app.test.js`
+     nasce per sorvegliare proprio quella superficie: ogni maschera convertita
+     la accorcia.
+
+  **Il costo, e non è React.** È che quelle 16.778 righe **non hanno una rete
+  sotto**: riscrivere codice non collaudato è la manovra che in questo progetto
+  è già costata due volte (§5). Poi, in ordine di peso:
+
+  1. **Una vista non si avvolge, si riscrive.** Le viste rientrano in `App` con
+     `Object.assign` e il loro `this` è il monolite intero — `any` per
+     necessità, TS7022, provato il 18/08. Un componente React vuole l'opposto:
+     stato locale, nessun `this`. Non c'è un adattatore, c'è una riscrittura
+     per maschera.
+  2. **Due dipendenze nuove**, e §6 dice «niente dipendenze nuove senza motivo
+     forte». Vale la stessa disciplina di `pg`: si prova con `--no-save`, e
+     diventano dipendenze il giorno che una maschera vera gira in produzione.
+  3. **Il peso sulla prima pittura.** La consegna è a quattro file **con il
+     code splitting acceso** — `xlsx` è già un pezzo a parte — ma React sta sul
+     percorso della prima pittura, non su quello di chi esporta ogni tanto.
+     L'ordine di grandezza è **una quarantina di kB compressi su 255**, e
+     **va misurato sul pacchetto vero e sull'MC9400**, non stimato qui: 4,3
+     pollici, 800×480, sul wi-fi del magazzino.
+  4. **Il calendario è già pieno.** Ultima installazione utile **19/12**, e da
+     qui a lì ci sono la migrazione del database (voci 36-37: `lib/db.js`
+     asincrono, 85 prove del servizio, 22 del collaudo di installazione da
+     riscrivere), la voce 38, le voci 33-34 e le maschere col PIN della voce
+     20. **Due riscritture strutturali nello stesso trimestre, su un
+     applicativo che regge un magazzino, sono la cosa da non fare.**
+  5. **Niente libreria di componenti.** Tailwind è arrivato il 18/08 in
+     trentun commit e **l'ordine dei layer è il contratto**; una libreria che
+     porta il suo CSS lo riapre. React accetta le classi che ci sono
+     (`className`), e con quelle deve restare.
+
+  **La strada consigliata: isole, non un trasloco.** React montato con
+  `createRoot` dentro **un contenitore solo**, in **una** vista, con le altre
+  ventotto che non se ne accorgono. La prima isola si sceglie con tre criteri —
+  si ridisegna spesso, **non muove merce**, **non chiede il PIN** — e la
+  maschera che li soddisfa tutti e tre è **il cruscotto**: 964 righe, di sola
+  lettura, con 19 prove già scritte sul modulo che lo calcola, e se si rompe
+  non ferma nessuno. **Non si comincia** da posizionamento, prelievo, percorso
+  o spedizioni: quelle muovono merce e pretendono un operatore identificato.
+
+  **Quando.** Dopo che la forma della migrazione del database è nota — voce 36.
+  Non per prudenza: se `lib/db.js` diventa asincrono, **ogni vista cambia
+  comunque il modo in cui legge lo Store**, e quello è il momento in cui una
+  maschera si tocca una volta sola invece di due. Un'isola sola, però, si può
+  fare prima: serve a misurare i kB e la prima pittura sul terminale, che sono
+  gli unici due numeri che questa valutazione non ha.
 
 - **Il database lascia SQLite — deciso il 25/08, e non è cominciato.** La
   decisione sta in §2, voce 36; qui c'è il lavoro che tira dietro, e ad oggi
