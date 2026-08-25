@@ -4,14 +4,14 @@ import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { ScanGuard } from '../../modules/scanGuard';
 import { Dialog } from '../dialog';
-import { formattaQuantita, descrivi as descriviColli } from '../../modules/misure';
+import { decimali as decimaliUom, formattaQuantita, descrivi as descriviColli } from '../../modules/misure';
 /* 1.8 - `descriviColli` qui sopra e' la suddivisione CALCOLATA della 1.4.2, e
    questi sono l'elenco DICHIARATO: due cose diverse con un nome che si
    somiglia, e per questo portano alias distinti. */
 import {
   espandi as espandiColli, validaDichiarazione, descriviColli as descriviElenco,
   totaleUom as totaleUomElenco, preleva as prelevaElenco, raggruppa as raggruppaColli,
-  scelteDaTaglie, riempiFabbisogno,
+  scelteDaTaglie, riempiFabbisogno, restoDaAprire, eccedenza as eccedenzaColli, type Verso,
 } from '../../modules/colli';
 import { scavalco as scavalcoStoccaggio } from '../../modules/stoccaggio';
 
@@ -26,6 +26,10 @@ type RigaColliIn = { colli: string; per: string };
    componendo «1.000». */
 type SceltaColli = {
   elenco: number[]; uom: string;
+  /** Quanto ne chiede l'ordine, per dire in anteprima di quanto si eccede.
+      `null` dove non c'è un fabbisogno in UM — le altre maschere chiedono
+      colli, e su quelle non c'è nessuna eccedenza da dichiarare. */
+  chiestoUom: number | null;
   gruppi: { colli: number; per: number }[];
   presi: string[];
   parte: string;
@@ -131,9 +135,16 @@ export const VistaPosiziona = {
      conta la dichiarazione, e due numeri che dicono la stessa cosa sono il
      modo piu' corto per scriverne uno sbagliato. */
   _colliIn: [] as RigaColliIn[],
+  /* 2.5 - A QUALE ARTICOLO#LOTTO APPARTENGONO LE RIGHE QUI SOPRA.
+     Senza questa chiave le righe seminate per un articolo sopravvivevano al
+     cambio di articolo: la sigla dell'unita' cambiava a video, i «per collo»
+     restavano quelli di prima, e il totale in UM usciva sbagliato senza che
+     niente lo dicesse. Quando la chiave cambia, la dichiarazione riparte. */
+  _colliInChiave: '' as string,
 
   _campoColliIngresso() {
     return `
+      <div class="text-label-small text-sx-text-muted mb-5" id="mInColliNota" hidden></div>
       <div class="form-group mb-5" id="mInColliBox" hidden>
         <label>Suddivisione dei colli — <span id="mInColliSigla" class="mono"></span></label>
         <div id="mInColliRighe"></div>
@@ -155,6 +166,14 @@ export const VistaPosiziona = {
   _colliQtyInput() {
     const box = $('mInColliBox');
     if (!box || box.hidden || !this._colliIn.length) return this._anteprimaUmIn();
+    /* 2.5 - CON PIU' DI UNA MISURA IL CAMPO 4 E' UNO SPECCHIO, E BASTA.
+       Mostra il TOTALE dei colli, ma scriverci dentro finiva sulla prima riga
+       sola: su «10 x 1.000 + 1 x 900» digitare 11 in 4 riscriveva la riga da
+       dieci e il totale diventava dodici. Il campo si blocca in sola lettura
+       quando le misure sono due o piu' - `_bloccaCampoColli` lo dice a video -
+       e resta digitabile con una misura sola, che e' il novantanove per cento
+       dei posizionamenti e il motivo per cui non e' mai stato muto. */
+    if (this._colliIn.length > 1) return this._anteprimaColliIn();
     this._colliIn[0].colli = $('mInQty')?.value ?? '';
     this._renderColliIn();
   },
@@ -174,16 +193,47 @@ export const VistaPosiziona = {
   _renderColliIn() {
     const box = $('mInColliRighe');
     if (!box) return;
+    /* 2.5 - IL PASSO DEL CAMPO LO DECIDE L'UNITA'. Con `step` fisso a 0,001 un
+       campo in PZ o in GR accettava 2,5, e la dichiarazione veniva rifiutata
+       DOPO averla digitata: un'unita' che non ha mezzi non deve nemmeno
+       lasciarli scrivere. */
+    const passo = decimaliUom(this._colliInUom()) === 0 ? '1' : '0.001';
     box.innerHTML = (this._colliIn as RigaColliIn[]).map((r, i) => `
       <div class="flex gap-3 items-center mb-2.5">
         <input class="input input-mono max-w-[90px] text-center" type="number" min="1" step="1" value="${this._esc(String(r.colli ?? ''))}" placeholder="colli"
           oninput="App._colliRigaSet(${i},'colli',this.value)">
         <span class="text-sx-text-muted">×</span>
-        <input class="input input-mono max-w-[130px] text-center" type="number" min="0" step="0.001" value="${this._esc(String(r.per ?? ''))}" placeholder="dentro"
+        <input class="input input-mono max-w-[130px] text-center" type="number" min="0" step="${passo}" value="${this._esc(String(r.per ?? ''))}" placeholder="dentro"
           oninput="App._colliRigaSet(${i},'per',this.value)">
         <button class="btn btn-sm" title="Togli questa misura" onclick="App._colliRigaDel(${i})">✕</button>
       </div>`).join('');
+    this._bloccaCampoColli(this._colliIn.length > 1);
     this._anteprimaColliIn();
+  },
+
+  /* L'unita' della dichiarazione aperta: quella del lotto se c'e', altrimenti
+     quella dell'articolo. Una lettura sola, perche' tre maschere che leggono
+     l'unita' in tre modi sono tre unita' diverse. */
+  _colliInUom(): string | null {
+    const art = Validate.clean($('mInArtCode')?.value, true);
+    const lot = Validate.clean($('mInLot')?.value);
+    return art ? (Store.getUomConfig(art, lot)?.uom ?? null) : null;
+  },
+
+  /* 4 in sola lettura quando le misure sono piu' d'una, e la ragione scritta
+     accanto: un campo che smette di accettare i tasti senza dire perche' e'
+     un campo rotto per chi lo sta usando. */
+  _bloccaCampoColli(blocca: boolean) {
+    const qtyEl = $('mInQty') as HTMLInputElement | null;
+    if (!qtyEl) return;
+    qtyEl.readOnly = blocca;
+    qtyEl.classList.toggle('opacity-70', blocca);
+    const nota = qtyEl.parentElement?.querySelector('.text-label-small') as HTMLElement | null;
+    if (nota) {
+      nota.textContent = blocca
+        ? 'I colli li conta la suddivisione qui sotto: qui si legge il totale.'
+        : 'Se il lotto è già in ubicazione, i colli si sommano.';
+    }
   },
 
   /* La dichiarazione si apre gia' compilata con la confezione dell'anagrafica
@@ -196,14 +246,43 @@ export const VistaPosiziona = {
     const lot = Validate.clean($('mInLot')?.value);
     const cfg = art ? Store.getUomConfig(art, lot) : null;
     const qtyEl = $('mInQty');
-    if (!cfg?.per_collo) {
+    /* 2.5 - SI APRE CON L'UNITA', NON CON LA QUANTITA' PER COLLO.
+       Dichiarare «10 x 1.000» non chiede di sapere quanto sta in un collo
+       pieno: lo dice l'operatore, riga per riga. La quantita' per collo serve
+       a PRECOMPILARE la prima riga, e mezza anagrafica non ce l'ha - gli
+       articoli senza quel numero cadevano sul ramo vecchio, a soli colli, ed
+       e' il motivo per cui la stessa maschera si comportava in due modi. */
+    if (!cfg?.uom) {
+      /* 2.5 - SPARIRE IN SILENZIO E' LA META' DEL DIFETTO. Un blocco che c'e'
+         su un articolo e non sull'altro, senza una riga che dica perche', e'
+         esattamente l'applicativo che «alcune volte funziona e altre no» per
+         chi lo usa. L'unita' si compila in Configurazione -> Articoli, e qui
+         si dice dove. */
       box.hidden = true;
+      this._bloccaCampoColli(false);
+      this._notaColliIn(art
+        ? `⚖ ${art}: nessuna unità di misura in anagrafica — si carica a soli colli. Si compila in Configurazione → Articoli.`
+        : '');
       return;
     }
     box.hidden = false;
+    this._notaColliIn('');
     $('mInColliSigla').textContent = cfg.uom;
+    /* La dichiarazione appartiene all'articolo#lotto per cui e' stata scritta.
+       Cambiarli la azzera: righe di un altro articolo, con la sigla nuova
+       accanto, sono un totale sbagliato che non si annuncia. */
+    const chiave = `${art}#${lot}`;
+    if (this._colliInChiave !== chiave) {
+      this._colliInChiave = chiave;
+      this._colliIn = [];
+    }
     if (!this._colliIn.length) {
-      this._colliIn = [{ colli: parseInt(qtyEl?.value) || 1, per: cfg.per_collo }];
+      /* Senza quantita' per collo la prima riga nasce VUOTA: proporre un
+         numero inventato e' peggio di non proporne nessuno. */
+      this._colliIn = [{
+        colli: String(parseInt(qtyEl?.value) || 1),
+        per: cfg.per_collo === null ? '' : String(cfg.per_collo),
+      }];
       return this._renderColliIn();
     }
     const prev = $('mInColliPrev');
@@ -222,6 +301,13 @@ export const VistaPosiziona = {
     if (qtyEl && qtyEl.value !== String(elenco!.length)) qtyEl.value = String(elenco!.length);
   },
 
+  _notaColliIn(testo: string) {
+    const nota = $('mInColliNota');
+    if (!nota) return;
+    nota.textContent = testo;
+    nota.hidden = !testo;
+  },
+
   /* L'elenco da mandare a Store, o `null` su un articolo senza confezione:
      li' non c'e' niente da dichiarare. */
   _elencoDichiarato() {
@@ -230,7 +316,7 @@ export const VistaPosiziona = {
     const art = Validate.clean($('mInArtCode')?.value, true);
     const lot = Validate.clean($('mInLot')?.value);
     const cfg = art ? Store.getUomConfig(art, lot) : null;
-    if (!cfg?.per_collo) return null;
+    if (!cfg?.uom) return null;
     const errori = validaDichiarazione(this._colliIn, cfg.uom);
     if (errori.length) throw new Error(errori.join(' · '));
     return espandiColli(this._colliIn, cfg.uom);
@@ -270,11 +356,31 @@ export const VistaPosiziona = {
   _colliSel: null as SceltaColli | null,
   _colliResolve: null,
 
-  _scegliColli(item, elenco, uom, titolo = 'Quali colli', fabbisogno = null) {
+  _scegliColli(item, elenco, uom, titolo = 'Quali colli', fabbisogno = null,
+               verso: Verso = 'pieni') {
     $('colliOverlay')?.remove();
     const gruppi = raggruppaColli(elenco, uom);
-    const presi = riempiFabbisogno(gruppi, fabbisogno, uom).map(n => (n ? String(n) : ''));
-    this._colliSel = { elenco, uom, gruppi, presi, parte: '', parteDa: null, parteScelta: false };
+    /* 2.5 — DA QUALE MISURA SI COMINCIA A RIEMPIRE. Il prelievo da ordine
+       parte dagli spaiati; tutto il resto dai pieni. La regola sta in
+       `modules/colli.ts`, qui si passa solo il verso che il chiamante ha
+       deciso. */
+    const righe = riempiFabbisogno(gruppi, fabbisogno, uom, verso);
+    const presi = righe.map(n => (n ? String(n) : ''));
+    const chiestoUom = Number.isFinite(Number(fabbisogno?.uom)) && Number(fabbisogno?.uom) > 0
+      ? Number(fabbisogno!.uom) : null;
+    /* 2.5 — E IL COLLO DA APRIRE, che è la seconda metà del verso `spaiati`.
+       Quel verso non prende mai un collo che sfonda l'ordine: ciò che avanza
+       — sempre meno di un collo — si tira fuori aprendone uno, ed è il campo
+       qui sotto. Precompilarlo è la differenza fra proporre 25 KG esatti e
+       proporne 49 per coprire l'ultimo chilo con un sacco intero. */
+    const resto = verso === 'spaiati' && chiestoUom !== null
+      ? restoDaAprire(gruppi, righe, chiestoUom, uom) : null;
+    this._colliSel = {
+      elenco, uom, chiestoUom, gruppi, presi,
+      parte: resto ? String(resto.quantita) : '',
+      parteDa: resto ? resto.per : null,
+      parteScelta: !!resto,
+    };
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'colliOverlay';
@@ -409,8 +515,18 @@ export const VistaPosiziona = {
     }
     try {
       const esito = prelevaElenco(s.elenco, this._colliSelScelte(), s.uom);
-      prev.style.color = 'var(--sx-success)';
-      prev.textContent = `Escono ${esito.usciti.length} coll. · ${formattaQuantita(esito.uom, s.uom)} ${s.uom} — restano ${descriviElenco(esito.rimasti, s.uom)}`;
+      /* 2.5 — DI QUANTO SI ECCEDE, quando c'è un ordine con cui confrontarsi.
+         Riempire dagli spaiati porta via più merce di quanta ne serva più
+         spesso che riempire dai pieni: il numero va sotto gli occhi di chi
+         conferma, non nascosto in una regola. */
+      const piu = s.chiestoUom !== null ? eccedenzaColli(esito.uom, s.chiestoUom, s.uom) : null;
+      const coda = piu === null || piu === 0
+        ? (s.chiestoUom !== null ? ' · esatti' : '')
+        : piu > 0
+          ? ` · ${formattaQuantita(piu, s.uom)} ${s.uom} in più dell'ordine`
+          : ` · ${formattaQuantita(-piu, s.uom)} ${s.uom} in meno dell'ordine`;
+      prev.style.color = piu !== null && piu < 0 ? 'var(--sx-warning)' : 'var(--sx-success)';
+      prev.textContent = `Escono ${esito.usciti.length} coll. · ${formattaQuantita(esito.uom, s.uom)} ${s.uom}${coda} — restano ${descriviElenco(esito.rimasti, s.uom)}`;
     } catch (err) {
       prev.style.color = 'var(--sx-warning)';
       prev.textContent = '⚠ ' + ((err as Error).message || 'scelta non valida');
@@ -630,7 +746,8 @@ export const VistaPosiziona = {
      Un elenco ristretto e VUOTO non e' un'assenza di elenco: e' una riga
      tutta impegnata, e vale un annullamento — se tornasse `null` la maschera
      che chiama scriverebbe una riga senza colli. */
-  async _chiediColli(item, titolo, elencoIn: number[] | null = null, fabbisogno = null) {
+  async _chiediColli(item, titolo, elencoIn: number[] | null = null, fabbisogno = null,
+                     verso: Verso = 'pieni') {
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
     const elenco = elencoIn ?? Store.colliDiRiga(item);
     if (!cfg || !elenco) return null;
@@ -649,7 +766,7 @@ export const VistaPosiziona = {
        Il fabbisogno la apre gia' compilata — l'ODP chiede chili, le altre
        maschere chiedono colli — e chi non lo sa non lo passa: le righe
        nascono a zero, che e' meglio di un numero inventato. */
-    const scelte = await this._scegliColli(item, elenco, cfg.uom, titolo, fabbisogno);
+    const scelte = await this._scegliColli(item, elenco, cfg.uom, titolo, fabbisogno, verso);
     return scelte === null ? undefined : scelte;
   },
 
@@ -916,12 +1033,12 @@ export const VistaPosiziona = {
     }
     ScanGuard.mark(signature);
 
-    /* 1.4.2 — vuoto vuol dire «colli pieni», e Store lo deriva dalla
-       confezione: qui si passa un numero solo quando qualcuno lo ha digitato,
-       cioe' quando ha in mano un collo che pieno non e'. */
-    const umRaw = $('mInUmQty')?.value;
-    const qtyUom = umRaw === undefined || umRaw === null || String(umRaw).trim() === ''
-      ? null : Number(String(umRaw).replace(',', '.'));
+    /* 2.5 - LE UM LE DICE LA DICHIARAZIONE, E NIENT'ALTRO.
+       Fino a qui si leggeva `mInUmQty`, il campo unico della 1.4.2: la 2.0
+       l'ha tolto dalla maschera e questa riga leggeva un elemento che non
+       esiste piu'. Dove la suddivisione c'e' comanda lei; dove non c'e',
+       Store deriva dai colli pieni come nella 1.7. */
+    const qtyUom: number | null = null;
     let res, elenco = null;
     try {
       /* 1.8 — dove la suddivisione e' dichiarata comanda lei: i colli sono
@@ -965,11 +1082,12 @@ export const VistaPosiziona = {
     this.toast(`✓ Posizionato: ${art}#${lot} → ${loc} · +${qty} Coll.${incrSuffix}`, 'success');
     this.updateSyncIndicator();
     // Reset campi articolo ma lascia loc; reset qty al default 1
-    for (const id of ['mInArtCode','mInArtDesc','mInLot','mInExp','mInNotes','mInUmQty']) { const e = $(id); if (e) e.value = ''; }
+    for (const id of ['mInArtCode','mInArtDesc','mInLot','mInExp','mInNotes']) { const e = $(id); if (e) e.value = ''; }
     const qtyEl = $('mInQty'); if (qtyEl) qtyEl.value = '1';
     /* 1.8 — la dichiarazione appartiene al collo che si e' appena posizionato:
        la prossima merce la dichiara chi ce l'ha in mano, da zero. */
     this._colliIn = [];
+    this._colliInChiave = '';
     this._anteprimaUmIn();
     $('mInArtInfo').innerHTML = '';
     $('mInDetails')?.removeAttribute('open');

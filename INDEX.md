@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **25/08/2026**
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **26/08/2026**
 
 ## LO STATO DEL PROGETTO È **ALFA**
 
@@ -99,6 +99,38 @@ non è perso: si riottiene dal commit, e che **l'impronta è la prova di quale
 codice c'è dentro**, non solo di quali byte. È il motivo per cui i binari non
 stanno nel repository — e il motivo per cui due impronte diverse vanno prese
 sul serio: dicono che il codice è diverso.
+
+---
+
+## LA **2.5** È COSTRUITA E **NON È INSTALLATA**
+
+**Costruita il 26/08 all'00:38.** Il magazzino continua a servire la 2.4.
+
+| | |
+|---|---|
+| `versione` nel pacchetto | **2.5** |
+| `VERSION` del servizio | **2.5** |
+| impronta | `8ed505b9c01c8d37e2669e4d231edf0f4a469ff2bfba7fab2aac3f3cdbb52c88` |
+| byte | **1.798.524** in **4 file** |
+| dove | `consegna/Pathfinder 2.5/` — **e la build azzera quella cartella a ogni giro** |
+| collaudi | **975 passati**, 34 file · `tsc --noEmit` pulito su client e server |
+
+**I tre numeri sono stati allineati a mano prima di costruire** —
+`vite.config.js`, `server/pathfinder-server.js`, `package.json` — perché il
+codice si dichiarava 2.5 nei commenti mentre i tre dicevano ancora 2.4.
+Costruire lavoro 2.5 dentro un pacchetto che si chiama 2.4 è la cosa che la
+**voce 41** ha già fatto pagare una volta.
+
+**Le sei funzioni nuove sono verificate per stringa dentro il bundle**
+costruito — `Merce non ancora arrivata`, `Prelievo in pausa`, `Rettifica
+tappa`, `Salta e vai avanti`, `nessuna unità di misura in anagrafica`, `I colli
+li conta la suddivisione`.
+
+**Cosa non è stato esercitato da capo a fondo, e va provato al banco prima di
+installare:** la **rettifica di una tappa già prelevata** e il **salta tappa**.
+Sono verificati per tipi, logica e resa a video, ma non sono stati fatti girare:
+avrebbero scritto movimenti veri nel registro del magazzino in servizio. Voce
+**51**.
 
 ---
 
@@ -199,6 +231,126 @@ porta dati veri, e per questo un collaudo si fa sempre su una **copia** — §5.
 ---
 
 ## 1. Stato
+
+### Il 26/08 — le unità di misura al carico, e il prelievo da ordine
+
+Due giri di lavoro nella stessa notte, tutti e due chiusi nella **2.5**.
+
+#### Il carico non gestiva le UM su quasi nessun articolo, e nessuno lo vedeva
+
+Andrea: «la gestione dei colli e della uom non funziona correttamente… alcune
+volte funziona altre no». Misurato sull'anagrafica vera — **11.197 articoli** —
+il numero era peggio di «alcune volte»:
+
+| stato UM in anagrafica | articoli | prima | dopo la 2.5 |
+|---|---|---|---|
+| unità valida **+** quantità per collo | **2** | funzionava | funziona |
+| unità valida, **senza** quantità per collo | **4.036** | maschera nascosta | **riparati** |
+| unità **non riconosciuta** | **7.159** | nascosta in silenzio | 7.077 riparati, **82 restano fuori e lo dicono** |
+
+**Quattro cause, tutte diverse.**
+
+1. **La maschera si nascondeva da sola.** `_anteprimaColliIn` apriva il blocco
+   «Suddivisione dei colli» solo con `pieces_per_pack > 0`. Ma dichiarare
+   «10 × 1.000» **non chiede di sapere quanto sta in un collo pieno**: quel
+   numero serve a precompilare la prima riga, e basta. Il cancello è
+   diventato l'**unità**, e la prima riga nasce vuota quando la confezione non
+   c'è. Sono i 4.036.
+2. **Un lotto congelato senza quantità per collo restava rotto per sempre.**
+   `getUomConfig` era `daLotto(...) ?? configurazione(articolo)`, e il `??` non
+   ripiegava **mai**: `daLotto` restituisce un oggetto anche col per-collo
+   vuoto. Compilare l'anagrafica dopo non riparava quel lotto — ed è la ragione
+   per cui lo stesso articolo si comportava in due modi. Ora ripiega **a
+   lettura e a unità uguale**, senza riscrivere una riga. **Questo cambia la
+   voce 6.**
+3. **`NR` non era un dato mancante: era una codifica non tradotta.** SAGE X3
+   chiama `NR` la quantità a numero, e **7.077 articoli su 11.197** la portano.
+   Letta come «unità non gestita», teneva fuori dalla gestione a UM due terzi
+   del magazzino per una differenza di due lettere. Tradotta in `misure.ts`,
+   **una riga sola**: si legge, non si riscrive, e l'export continua a dire
+   `NR`. Restano fuori di proposito `SCA` 48, `CON` 18, `RT` 7, `CAS` 4, `M2` 2,
+   `BAN` 1 e **due celle con dentro testo libero** — quelle sono errori di
+   compilazione della colonna UM: `MIN EPA=105 MG/G` e simile. Scatola,
+   confezione e cassa nominano un **contenitore**, e in questo sistema il
+   contenitore è il collo, cioè `qty`.
+4. **Tre difetti minori della maschera**, tutti intermittenti: le righe non si
+   azzeravano al cambio articolo (sigla nuova, «per collo» del precedente); il
+   campo ④ Colli mostrava il totale ma scriveva sulla **prima riga**, quindi con
+   due misure lo corrompeva; il passo dei campi era fisso a `0,001` anche su PZ
+   e GR.
+
+**E sparire in silenzio era la metà del difetto:** un blocco che c'è su un
+articolo e non sull'altro, senza una riga che dica perché, **è** l'applicativo
+che «alcune volte funziona e altre no» per chi lo usa. Adesso lo dice, e dice
+dove si compila.
+
+Lo **scarico non è stato toccato**: funzionava, e funziona.
+
+#### Il prelievo da ordine — sette interventi
+
+1. **Le richieste di trasferimento non si accorgevano della merce arrivata.**
+   `tappaInAttesa` scriveva `qty_available: 0` — vero il giorno in cui il
+   percorso nasce — e quel numero restava **congelato nella sessione**. Il
+   compito e il vano di partenza vivevano in una mappa dentro la vista, che
+   **muore quando il percorso parte**. Risultato: la tappa arrivava a scaffale
+   dicendo «0 colli» anche a merce arrivata, e senza niente che dicesse perché.
+   Ora il compito **viaggia con la tappa** (`transfer_task`, `transfer_from`) e
+   la disponibilità si rilegge **a ogni render** — che serve anche senza
+   trasferimenti, perché fra l'import e la tappa un altro terminale può aver
+   mosso quella riga. In testa alla scheda una banda dice se la merce è
+   arrivata o no, con lo stato del compito letto dalla coda, e offre
+   **↻ Ricontrolla il vano** e **↷ Salta e vai avanti** — che rimanda la tappa
+   in fondo al giro, che non è «non trovata».
+2. **La scansione dell'ubicazione si rifà a ogni tappa e a ogni apertura.**
+   `_routeScan` si azzerava nel render, ma il render non è l'unica strada per
+   tornare davanti alla scheda: si rientra dalla tessera, dalla ripresa
+   all'avvio, dal cambio di sottomodo. Adesso la scansione porta **per chi
+   vale** — `<tappa>@<ubicazione>@<apertura>` — e la conferma la ricontrolla
+   prima di scrivere. Come effetto si chiude un buco vero: spostarsi su
+   un'ubicazione **alternativa** precompilava il campo e dava la spunta per
+   buona, quindi si poteva confermare un prelievo da un vano davanti al quale
+   non si era mai passati.
+3. **Un tasto pausa**, con le pause scritte sulla sessione come fatti con
+   un'ora d'inizio e una di fine. In pausa la scheda sparisce e la conferma si
+   rifiuta anche da tastiera. Il report scorpora il fermo: su quattro ore
+   d'orologio con un'ora di mensa e dieci righe, **il tempo medio passa da 24 a
+   18 minuti a riga**.
+4. **Una tappa già prelevata si riapre dall'elenco** e si rettifica. Non
+   riscrive il prelievo — quello è successo: scrive un `REPOS` che riporta
+   indietro i colli, e se il prelievo aveva le misure sceglie fra **quelle**,
+   perché rimettere «due colli» su un prelievo fatto di un 25 e di un 7 sarebbe
+   un saldo giusto sui colli sbagliati. Il conto di produzione scende di
+   conseguenza. **Solo in meno**: prendere altri colli non è una correzione, è
+   un secondo prelievo.
+5. **I colli si propongono dai più piccoli** — e la regola è cambiata durante
+   il collaudo. Scritta alla lettera, con l'arrotondamento per eccesso di
+   sempre, **25 KG chiesti proponevano 49 KG**: due residui da 7, uno da 10 e
+   poi un sacco intero da 25 per coprire l'ultimo chilo. Quel chilo non è un
+   collo da prendere, è un collo da **aprire**, e la finestra ha già il campo.
+   I due versi ora arrotondano all'opposto: `pieni` per eccesso, `spaiati` per
+   difetto — e **gli spaiati non prendono mai un collo che sfonda l'ordine**.
+   Sulla riga vera dell'ODP, 44,42 KG da sacchi da 25: un sacco intero più
+   19,42 aperti dal secondo. L'anteprima dice di quanto si eccede **prima**
+   della conferma.
+6. **Il report porta le UM prelevate**: colonna accanto ai colli, imballo sotto
+   («1 × 20 + 1 × 8,5 KG»), riepilogo **per unità** — «228,5 KG · 500 PZ»,
+   perché chili e pezzi in una casella sola non vorrebbero dire niente — riga
+   dei tempi con la pausa, e le righe rettificate con la motivazione.
+7. **Sovrapposizioni: nessuna**, misurate a 375 px, 482 px e sulla larghezza
+   del foglio **con le regole di stampa applicate**. Tre cose sistemate: la
+   nona colonna aveva stretto «Descrizione» a **92 px** perché le ubicazioni in
+   `nowrap` sfondavano la loro colonna; sotto i **430 px** la scheda passa a
+   colonna singola, che è la forma preferita e lì l'unica leggibile; e
+   **`_fmtKg` forzava tre decimali ovunque** — cinquecento pezzi comparivano
+   come «500,000» nella colonna Ordinati e «500 PZ» in quella accanto, lo
+   stesso numero in due modi su due celle che si toccano. Adesso passano tutte
+   e due da `formattaQuantita`, che legge l'unità. È la regola già scritta in
+   testa a `misure.ts`.
+
+**Una contraddizione da sciogliere, e non è di questo giro:** la sezione della
+2.4 elenca la **voce 19** fra le due correzioni che quella versione porta,
+mentre la coda di lavoro la tiene ancora aperta. Una delle due righe è
+sbagliata e non si sa quale.
 
 ### Il 25/08 — il servizio girava dalla cartella di lavoro, ed è stato corretto
 
@@ -1371,6 +1523,8 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **51** | **DUE FUNZIONI DELLA 2.5 NON SONO STATE ESERCITATE DA CAPO A FONDO.** La **rettifica di una tappa già prelevata** e il **salta tappa** del prelievo da ordine sono verificate per tipi, logica e resa a video, ma non sono state fatte girare: farle girare avrebbe scritto movimenti veri nel registro del magazzino in servizio. La rettifica scrive un `REPOS` e chiama `esceDaWip`, cioè tocca giacenza **e** conto di produzione | **Vanno provate al banco con un ODP di prova, su una copia del database — §5 — prima di installare la 2.5.** Le due cose da guardare: che il `REPOS` rimetta le **misure giuste** e non colli di misura comoda, e che `esceDaWip` non rifiuti la riga quando l'ordine ha in lavorazione colli di misure diverse (lancia apposta in quel caso: la rettifica resta valida e l'operatore viene avvisato, ma va visto succedere) |
+| **52** | **82 ARTICOLI HANNO UN'UNITÀ CHE NON È UN'UNITÀ.** Dopo la traduzione `NR → PZ` del 26/08 restano fuori dalla gestione a UM: `SCA` 48, `CON` 18, `RT` 7, `CAS` 4, `M2` 2, `BAN` 1, più **due celle con dentro testo libero** — `MIN EPA=105 MG/G` e `MIN EPA=500MG/G DHA=250 MG/G C/L U.G.A`. Non è un difetto del codice: scatola, confezione e cassa nominano un **contenitore**, e in questo sistema il contenitore è il collo. `M2` è una superficie, che fra le cinque unità non c'è. Le due celle di testo sono errori di compilazione | Le 82 righe si caricano **a soli colli** e la maschera adesso lo dice. Va deciso sigla per sigla, guardando che merce sono: quelle che sono davvero un contenitore restano così, `M2` chiede se serva una sesta unità, e le due celle di testo vanno corrette in anagrafica — quello è di Andrea |
 | **50** | **UN DIFETTO «GRAVE» DEL CICLO NON FA FALLIRE NIENTE.** `difetto()` in `banco/ciclo/verbale.js` scrive la riga nel verbale e la prova risulta lo stesso **passata**: il 25/08, rimettendo apposta il difetto della voce 45, il banco ha alzato **PA6 (grave)** con `movimenti 112 → 0` e `vitest` ha detto «3 passed». Vale per tutto il ciclo, non solo per PA6 | Un difetto grave deve tingere di rosso la corsa, altrimenti lo vede solo chi apre il verbale e legge fino in fondo — e il verbale si apre quando si sospetta già qualcosa. Va deciso quali severità fermano la corsa |
 | **5** | **Caratterizzare le zone** in Configurazione → Zone: classe di conservazione, zona allergeni, zona pericolosi, refrigerata. Finché non è fatto **la mappa resta muta**, per quanti articoli si classifichino: la verifica confronta due metà e una manca | **Pianificare verifica e correzione.** Prima si misura quante zone e quante righe sono scoperte, poi si decide se il buco è nel dato o nel codice che lo legge |
 | **15** | **L'area WIP va consolidata.** È **un'ubicazione mappata**, non un prefisso, e `Store` la legge da `meta.areaWip`. **Misurata il 25/08 sul servizio vivo: `MAG1-WIP-01`** — non `M06-COM-01`, che è quel che questo documento ha detto fino a oggi. Sono tutte e due ubicazioni vere: `M06` è il magazzino Rinaldi, dichiarato «IN COSTRUZIONE», mentre `MAG1` è il magazzino materie prime alimentari e porta **tutte e 884** le righe di giacenza. Il valore è cambiato dopo il 19/08 e nessuno l'ha scritto | **Pianificare analisi e correzione**, e la domanda prima di ogni altra è **quale dei due vani sia quello giusto**. Il conto di produzione ci ha già lavorato dentro: in `wip` ci sono 9 righe |
@@ -1388,7 +1542,7 @@ hanno con cosa lavorare, non perché qualcuno debba sollecitarle.
 
 | # | Cosa |
 |---|---|
-| **6** | **`pieces_per_pack` in anagrafica** (colonna `Pezzi_Per_Collo` dell'import Excel). **L'anagrafica la corregge e la aggiorna Andrea.** Va compilata PRIMA di accendere `colli`: un lotto congelato senza `uom_per_collo` non lo recupera più dall'anagrafica — la confezione del lotto vince sempre |
+| **6** | **`pieces_per_pack` in anagrafica** (colonna `Pezzi_Per_Collo` dell'import Excel). **L'anagrafica la corregge e la aggiorna Andrea.** **Non è più urgente come era, e la ragione è cambiata il 26/08:** un lotto congelato senza `uom_per_collo` **ora lo ripiega dall'anagrafica** — a lettura e a unità uguale, senza riscrivere niente — quindi compilarla dopo ripara anche i lotti già a scaffale. E il carico non ne ha comunque bisogno: la suddivisione la **dichiara** chi ha la merce in mano, e quel numero serve solo a precompilare la prima riga. Resta il gesto che fa risparmiare una digitazione a ogni posizionamento, su 11.115 articoli che l'unità ce l'hanno e la confezione no |
 | **7** | **Partita IVA e dati mittente** in Configurazione → DDT. **Tutte le configurazioni manuali sono di Andrea** |
 | **3** | **Un secondo Team Leader.** `ANSA` è l'unico, ed è l'unico con un PIN: gli altri cinque record hanno `pin_salt: null`. **Situazione sotto controllo** — Andrea, 25/08. Da sapere però: **`DP` (Daniele Pedrazzi) è ATTIVO e senza PIN**, e senza PIN non si può firmare niente. O gli si dà un PIN, o lo si disattiva come i quattro storici: un operatore attivo che non può operare è una riga che promette quel che non mantiene |
 | **13** | **IL PREFISSO GS1 È GIÀ COMPILATO, E VALE `1234567`** — misurato il 25/08 sul servizio vivo, e `Store` lo legge davvero (`store.ts`). La regola scritta è: vuoto → codici interni, che bastano dentro l'azienda; compilato → **SSCC veri**. `1234567` non è un prefisso assegnato da un consorzio, è un segnaposto: un'etichetta UDC stampata adesso porterebbe un SSCC che *sembra* vero e non lo è. Dentro l'azienda non fa danno, fuori sì — voce 24. **La decisione resta di Andrea**, ma va presa sapendo che il campo non è vuoto |

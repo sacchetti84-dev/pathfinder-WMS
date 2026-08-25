@@ -653,8 +653,24 @@ const Store = {
      fatto gia' successo, e i colli a scaffale sono imballati come allora.
      L'anagrafica si legge solo per il lotto che non e' mai stato posizionato. */
   getUomConfig(articleCode: string, lotCode: string): Configurazione | null {
-    return daLotto(this.getLot(articleCode, lotCode))
-        ?? configurazioneUom(this.getArticle(articleCode));
+    const daArticolo = configurazioneUom(this.getArticle(articleCode));
+    const delLotto = daLotto(this.getLot(articleCode, lotCode));
+    if (!delLotto) return daArticolo;
+    if (delLotto.per_collo) return delLotto;
+    /* 2.5 — UN LOTTO CONGELATO SENZA QUANTITA' PER COLLO NON RESTA ROTTO PER
+       SEMPRE. `_congelaLotto` copia dall'anagrafica al primo posizionamento, e
+       mezza anagrafica quel numero non ce l'ha: quei lotti nascevano con
+       l'unita' scritta e il per-collo vuoto, e da li' in poi `daLotto`
+       restituiva un oggetto NON nullo — quindi il `??` non ripiegava mai e
+       compilare l'articolo dopo non riparava niente.
+
+       Il ripiego vale solo a LETTURA e solo a UNITA' UGUALE: un per-collo in
+       KG non si presta a un lotto in PZ. Niente viene riscritto — il lotto che
+       la quantita' ce l'ha continua a vincere, come sempre. */
+    if (daArticolo?.per_collo && daArticolo.uom === delLotto.uom) {
+      return { uom: delLotto.uom, per_collo: daArticolo.per_collo };
+    }
+    return delLotto;
   },
 
   /* IL CONGELAMENTO, AL PRIMO POSIZIONAMENTO.
@@ -2923,6 +2939,12 @@ const Store = {
         stop.status = 'done';
         stop.qty_picked = removed._packs_out ? removed._packs_out.length : qty;
         if (removed._packs_out) stop.packs_picked = removed._packs_out;
+        /* 2.5 — LE UM USCITE SI SCRIVONO SULLA TAPPA, non solo sul movimento.
+           Il report di prelievo legge le tappe: senza questo numero poteva
+           dire quanti colli sono usciti e non quanto pesavano, e su una riga
+           con un collo aperto i due dati non si ricavano l'uno dall'altro. */
+        stop.uom_picked = typeof removed._qty_uom_delta === 'number'
+          ? Math.abs(removed._qty_uom_delta) : null;
         stop.done_at = Date.now();
         session.updated_at = Date.now();
         await Persistence.put('pick_session', session);

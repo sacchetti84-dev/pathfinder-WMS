@@ -7,14 +7,21 @@ import { OdpParser } from '../../modules/odpParser';
 import { PickRoute } from '../../modules/pickRoute';
 import { tappeAltrove, richiestaTrasferimento, tappaInAttesa, sitoDiCasa } from '../../modules/trasferimentiOdp';
 import { etichettaTipo } from '../../modules/compiti';
+import { descriviColli as descriviElencoColli, eccedenza as eccedenzaColli } from '../../modules/colli';
+import { formattaQuantita } from '../../modules/misure';
 import type { Percorso, Tappa } from '../../modules/pickRoute';
 import type { TestataODP } from '../../modules/odpParser';
 import type { SessionePrelievo } from '../../types/entita';
+import { ScanGuard } from '../../modules/scanGuard';
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 
 /* Dove altro sta lo stesso lotto, quando la tappa non lo trova. */
 type Alternativa = { location_code: string; item_key: string; qty_available: number };
+
+/* Una pausa dichiarata: un'ora d'inizio, una di fine — nulla se è quella in
+   corso — e chi l'ha presa. */
+type Pausa = { from: number; to: number | null; by?: string };
 
 /* L'ordine appena letto da Excel, prima che diventi un percorso avviato: il
    risultato del parser piu' quello della serpentina, piu' il nome del file. */
@@ -28,6 +35,20 @@ export const VistaPercorso = {
   _routeStage: 'import',        // 'import' | 'run'
   _routeParsed: null,           // esito OdpParser, vivo solo fra import e avvio
   _routeScan: { loc: '', art: '', lot: '' },
+  /* 2.5 — PER QUALE TAPPA VALE LA SCANSIONE QUI SOPRA.
+
+     `_routeScan` era azzerato dal render, e il render non è l'unico modo di
+     tornare su questa schermata: si rientra dalla scheda, dalla ripresa
+     all'avvio, dal cambio di sottomodo. Bastava una di quelle strade perché
+     la spunta di un'ubicazione scansionata mezz'ora prima valesse ancora, e
+     l'operatore confermasse un prelievo senza essere passato dal vano.
+
+     La scansione vale per una tappa e per una sola apertura: qui si scrive
+     `<seq>@<apertura>`, e ogni cosa che non corrisponde è da rifare. */
+  _routeScanChiave: '',
+  /* Cambia a ogni ingresso nella schermata di esecuzione: è la metà
+     «apertura» della chiave qui sopra. */
+  _routeApertura: 0,
   _routeStartTime: null,
 
   /* ─── SCHERMATA 1: IMPORT ───────────────────────────────────────── */
@@ -228,7 +249,7 @@ export const VistaPercorso = {
           <span class="route-prev-seq">${s.seq}</span>
           <span class="mono route-prev-loc">${this._esc(s.location_code)}</span>
           <span class="route-prev-art"><span class="mono">${this._esc(s.article_code)}</span> · <span class="mono">${this._esc(s.lot_code)}</span></span>
-          <span class="route-prev-kg">${this._fmtKg(s.kg_required)} ${this._esc(s.um)}</span>
+          <span class="route-prev-kg">${this._qtaOrdine(s.kg_required, s.um)} ${this._esc(s.um)}</span>
           ${s.alternatives.length ? `<span class="badge badge-muted">+${s.alternatives.length} alt.</span>` : ''}
           ${this._routeRigaAltrove(s, altrove)}
         </div>`).join('')}
@@ -287,7 +308,7 @@ export const VistaPercorso = {
       `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
         <span class="mono font-bold text-sx-primary">${this._esc(s.article_code)}</span>
         ${this._esc(s.article_description || '')}<br>
-        Lotto <strong>${this._esc(s.lot_code)}</strong> · <strong>${this._fmtKg(s.kg_required)} ${this._esc(s.um)}</strong> richiesti dall’ordine<br>
+        Lotto <strong>${this._esc(s.lot_code)}</strong> · <strong>${this._qtaOrdine(s.kg_required, s.um)} ${this._esc(s.um)}</strong> richiesti dall’ordine<br>
         Adesso in <strong class="mono">${this._esc(s.location_code)}</strong> — ${this._esc(sito?.name || s.site_id || 'altro magazzino')}
       </div>
       <div class="form-group mb-6">
@@ -376,7 +397,7 @@ export const VistaPercorso = {
       <span class="badge badge-${o.reason === 'not_mapped' ? 'muted' : o.reason === 'marked_missing' ? 'red' : 'amber'}">${this._esc((PickRoute.REASON_LABELS as Record<string, string>)[o.reason] || o.reason)}</span>
       <span class="mono">${this._esc(o.article_code)}#${this._esc(o.lot_code)}</span>
       <span class="route-tail-desc">${this._esc(o.description || '')}</span>
-      <span class="route-tail-kg">${this._fmtKg(o.kg_required)} ${this._esc(o.um || '')}</span>
+      <span class="route-tail-kg">${this._qtaOrdine(o.kg_required, o.um)} ${this._esc(o.um || '')}</span>
       <div class="route-tail-detail">${this._esc(o.detail || '')}${o.forced_note ? ' — ' + this._esc(o.forced_note) : ''}</div>
     </div>`;
   },
@@ -486,9 +507,110 @@ export const VistaPercorso = {
 
   _routeResume() {
     this._routeStage = 'run';
-    this._routeScan = { loc: '', art: '', lot: '' };
+    this._routeNuovaApertura();
     if (!this._routeStartTime) this._routeStartTime = Date.now();
     this._formOrdine($('pickSubForm'));
+  },
+
+  /* Ogni ingresso nella schermata di esecuzione è un'apertura nuova, e una
+     scansione fatta nell'apertura precedente non vale più. */
+  _routeNuovaApertura() {
+    this._routeApertura = Date.now();
+    this._routeScan = { loc: '', art: '', lot: '' };
+    this._routeScanChiave = '';
+  },
+
+  /* ─── LA PAUSA ──────────────────────────────────────────────────────
+     2.5 — CHI SI FERMA LO DICE, E IL REPORT LO SA.
+
+     Il tempo medio di prelievo è la durata divisa per le righe, e finché la
+     durata comprendeva il pranzo, il cambio turno e l'attesa del muletto,
+     quel numero misurava le pause insieme al lavoro. Una pausa dichiarata è
+     un fatto con un'ora d'inizio e una di fine, come ogni altro in questo
+     applicativo, e si scrive sulla sessione perché è lì che il report la
+     ritrova anche dopo una chiusura imprevista.
+
+     IN PAUSA NON SI PRELEVA. La scheda della tappa sparisce: un campo di
+     scansione che accetta merce mentre il turno è fermo è il modo di
+     ritrovarsi un prelievo con l'ora sbagliata. */
+  _routePausaAperta(s: SessionePrelievo | null | undefined): Pausa | null {
+    const p: Pausa[] = (s?.pauses || []);
+    const ultima = p[p.length - 1];
+    return ultima && !ultima.to ? ultima : null;
+  },
+
+  /* I millisecondi fermi, pausa in corso compresa. */
+  _routeMsInPausa(s: SessionePrelievo | null | undefined, adesso = Date.now()): number {
+    return (s?.pauses || []).reduce((acc: number, x: Pausa) =>
+      acc + Math.max(0, (x.to ?? adesso) - x.from), 0);
+  },
+
+  async _routePausa() {
+    const s = Store.getActivePickSession();
+    if (!s) return;
+    if (this._routePausaAperta(s)) return;
+    const pauses = [...(s.pauses || []), {
+      from: Date.now(), to: null,
+      by: this._prodOperator || Store.getCurrentIdentity().initials,
+    }];
+    s.pauses = pauses;
+    try {
+      await Store.savePickSession(s);
+    } catch (err) {
+      s.pauses = pauses.slice(0, -1);
+      return this.toast(`Pausa non registrata · ${(err as Error).message}`, 'error');
+    }
+    this.setPrimaryScanField(null);
+    ScanGuard.clear();
+    this._renderRouteRun($('pickSubForm'));
+    this.toast('⏸ Prelievo in pausa — il tempo fermo non entra nella media', 'info');
+  },
+
+  async _routeRiprendi() {
+    const s = Store.getActivePickSession();
+    if (!s) return;
+    const aperta = this._routePausaAperta(s);
+    if (!aperta) return;
+    aperta.to = Date.now();
+    try {
+      await Store.savePickSession(s);
+    } catch (err) {
+      aperta.to = null;
+      return this.toast(`Ripresa non registrata · ${(err as Error).message}`, 'error');
+    }
+    /* Si torna in corsia da capo: l'ubicazione si riscansiona, perché fra
+       l'inizio della pausa e adesso l'operatore si è mosso. */
+    this._routeNuovaApertura();
+    this._renderRouteRun($('pickSubForm'));
+    this.toast('▶ Prelievo ripreso', 'success');
+  },
+
+  /* Il riassunto che sta nella LEGENDA: quante pause e quanto tempo fermo.
+     Vuoto finché nessuno si è fermato — una legenda che dice «0 pause» conta
+     una cosa che non è successa. Mentre la pausa è aperta tace, perché sopra
+     c'è il pannello intero e ripetersi in due punti è rumore. */
+  _routeFermoHTML(s: SessionePrelievo | null | undefined) {
+    if (this._routePausaAperta(s)) return '';
+    const fatte = (s?.pauses || []).filter((x: Pausa) => x.to).length;
+    const fermo = this._routeMsInPausa(s);
+    if (fermo <= 0) return '';
+    return `<span class="route-pause-info">⏸ ${fatte} paus${fatte === 1 ? 'a' : 'e'} · ${this._esc(this._fmtDurLong(fermo / 1000))} fermo</span>`;
+  },
+
+  /* Il pannello della pausa IN CORSO. Vuoto quando non ce n'è una aperta:
+     chi lo chiama lo mette solo lì, e restituire il riassunto da qui vorrebbe
+     dire che lo stesso testo esce in due posti diversi. */
+  _routePausaHTML(s: SessionePrelievo | null | undefined) {
+    const aperta = this._routePausaAperta(s);
+    if (!aperta) return '';
+    return `<div class="route-paused">
+      <div class="route-paused-ico">⏸</div>
+      <div class="route-paused-txt">
+        <strong>Prelievo in pausa</strong>
+        <div>Dalle ${this._esc(this._fmtClock(aperta.from))}${aperta.by ? ' · ' + this._esc(aperta.by) : ''}. Il tempo fermo non entra nel tempo medio di prelievo.</div>
+      </div>
+      <button class="btn btn-success min-h-[var(--md-touch)]" onclick="App._routeRiprendi()">▶ Riprendi</button>
+    </div>`;
   },
 
   async _routeAbandon() {
@@ -525,6 +647,7 @@ export const VistaPercorso = {
     const pending = (s.stops || []).filter(x => x.status === 'pending');
     const current = pending[0] || null;
     const pct     = Math.round(((done + missing) / (s.stops || []).length) * 100);
+    const inPausa = !!this._routePausaAperta(s);
 
     el.innerHTML = `
       <div class="route-runbar">
@@ -537,31 +660,150 @@ export const VistaPercorso = {
           <span>✓ ${done} prelevate</span>
           <span>✗ ${missing} non trovate</span>
           <span>◻ ${pending.length} da fare</span>
+          ${this._routeFermoHTML(s)}
         </div>
       </div>
 
-      <section id="routeCurrent">${current ? this._routeCurrentHTML(current) : this._routeFinishHTML(s)}</section>
+      ${inPausa ? this._routePausaHTML(s) : ''}
+
+      <section id="routeCurrent">${inPausa ? '' : (current ? this._routeCurrentHTML(current) : this._routeFinishHTML(s))}</section>
 
       <details class="route-details">
         <summary>Elenco completo delle tappe (${(s.stops || []).length})</summary>
+        <div class="text-label-small text-sx-text-muted py-1.5 px-0.5">
+          Una tappa già prelevata si può riaprire per correggere i colli: toccala nell'elenco.
+        </div>
         <div class="route-list">${(s.stops || []).map(st => this._routeListRowHTML(st, current)).join('')}</div>
       </details>
 
       <div class="flex gap-5 mt-7 flex-wrap">
+        ${current && !inPausa ? `<button class="btn btn-sm btn-warning min-h-[var(--md-touch)]" onclick="App._routePausa()">⏸ Pausa</button>` : ''}
         <button class="btn btn-sm" onclick="App._printRouteReport()">🖨 Report parziale</button>
         <button class="btn btn-sm btn-danger" onclick="App._routeAbandon()">✕ Chiudi percorso</button>
       </div>`;
 
-    if (current) {
+    /* 2.5 — LA SCANSIONE SI RIFÀ A OGNI TAPPA E A OGNI APERTURA.
+       `_routeScan` si azzera qui come prima, ma adesso porta anche PER CHI
+       vale: la chiave dice tappa e apertura, e `_routeConfermaScansioni` la
+       ricontrolla prima di scrivere. Azzerarlo e basta non bastava — questo
+       render non è l'unico modo di tornare davanti alla scheda. */
+    if (current && !inPausa) {
       this._routeScan = { loc: '', art: '', lot: '' };
+      this._routeScanChiave = '';
       this.setPrimaryScanField('rLoc');
     } else {
       this.setPrimaryScanField(null);
     }
   },
 
+  /* 2.5 — LA QUANTITÀ D'ORDINE SI SCRIVE CON I DECIMALI DELLA SUA UNITÀ.
+     `_fmtKg` ne forza tre: è giusto per i chili di un ODP — 44,420 KG — e su
+     una riga in PZ scriveva «500,000 PZ», cinquecento pezzi vestiti da
+     pesata. Peggio ancora accanto alle UM prelevate, che l'unità la leggono:
+     lo stesso numero in due celle vicine, scritto in due modi. */
+  _qtaOrdine(v, um) {
+    return formattaQuantita(v, um || null);
+  },
+
+  /* La chiave che lega una scansione alla tappa e all'apertura in cui è
+     stata fatta. Cambia l'una o l'altra, e la spunta non vale più. */
+  _routeChiaveScan(st) {
+    if (!this._routeApertura) this._routeApertura = Date.now();
+    return `${st?.seq ?? '?'}@${st?.location_code ?? ''}@${this._routeApertura}`;
+  },
+
+  _routeScanValida(st) {
+    return !!this._routeScanChiave && this._routeScanChiave === this._routeChiaveScan(st);
+  },
+
+  /* ─── A) LA MERCE TRASFERITA ────────────────────────────────────────
+     2.5 — LA TAPPA GUARDA LO SCAFFALE, NON IL SEME.
+
+     `qty_available` è il numero che la tappa aveva il giorno in cui il
+     percorso è nato: su una tappa spostata da un trasferimento vale zero per
+     costruzione, perché in quel vano allora non c'era niente. Restava zero
+     anche dopo che il trasferimento era stato eseguito e la merce era
+     arrivata davvero — e la maschera continuava a dire «0 colli» davanti a
+     uno scaffale pieno. Vale anche senza trasferimenti: fra l'import e la
+     tappa un altro terminale può aver mosso quella riga.
+
+     Qui si legge la giacenza di ADESSO, ogni volta. */
+  _routeDisponibili(st) {
+    if (!st?.location_code || !st?.item_key) return 0;
+    return Store.getAvailableQty(st.location_code, st.item_key);
+  },
+
+  /* Lo stato del trasferimento che ha spostato la tappa, letto dalla coda.
+     `null` quando la tappa non ne ha uno. */
+  _routeStatoTrasf(st) {
+    if (!st?.transfer_task && !st?.transfer_from) return null;
+    const disponibili = this._routeDisponibili(st);
+    const task = st.transfer_task ? Store.getTask(st.transfer_task) : null;
+    return {
+      task_id: st.transfer_task || '',
+      da: st.transfer_from || '',
+      stato: task?.status || (st.transfer_task ? 'sconosciuto' : 'non richiesto'),
+      arrivata: disponibili > 0,
+      disponibili,
+    };
+  },
+
+  _routeTrasfBandaHTML(st) {
+    const t = this._routeStatoTrasf(st);
+    if (!t) return '';
+    if (t.arrivata) {
+      return `<div class="route-trasf route-trasf--ok">
+        <strong>↔ Merce arrivata</strong>
+        <div>Trasferita da <span class="mono">${this._esc(t.da || '—')}</span>${t.task_id ? ` · compito <span class="mono">${this._esc(t.task_id)}</span>` : ''}. In questo vano ci sono <strong>${t.disponibili}</strong> coll.: si preleva da qui.</div>
+      </div>`;
+    }
+    const etichetta = t.stato === 'done' || t.stato === 'closed'
+      ? 'Il compito risulta chiuso, ma in questo vano non c’è ancora niente.'
+      : t.stato === 'in_progress'
+        ? 'Il trasferimento è stato preso in carico: la merce sta arrivando.'
+        : 'Il trasferimento è ancora in coda: nessuno l’ha preso in carico.';
+    return `<div class="route-trasf route-trasf--wait">
+      <strong>↔ Merce non ancora arrivata</strong>
+      <div>Attesa da <span class="mono">${this._esc(t.da || '—')}</span>${t.task_id ? ` · compito <span class="mono">${this._esc(t.task_id)}</span>` : ''}. ${this._esc(etichetta)}</div>
+      <div class="mt-2.5 flex gap-4 flex-wrap">
+        <button class="btn btn-sm" onclick="App._renderRouteRun($('pickSubForm'))">↻ Ricontrolla il vano</button>
+        <button class="btn btn-sm" onclick="App._routeSaltaTappa()">↷ Salta e vai avanti</button>
+      </div>
+    </div>`;
+  },
+
+  /* Una tappa che aspetta merce non blocca il giro: si rimanda in coda e si
+     prosegue. NON è «non trovata» — quella è una constatazione a scaffale, e
+     qui la merce esiste e sta arrivando. */
+  async _routeSaltaTappa() {
+    const session = Store.getActivePickSession();
+    const st = this._routeCurrentStop();
+    if (!session || !st) return;
+    const stops = session.stops || [];
+    const i = stops.indexOf(st);
+    if (i === -1) return;
+    if (stops.filter((x) => x.status === 'pending').length < 2) {
+      return this.toast('È l’ultima tappa da fare: non c’è dove rimandarla', 'warning');
+    }
+    stops.splice(i, 1);
+    stops.push(st);
+    try {
+      await Store.savePickSession(session);
+    } catch (err) {
+      return this.toast(`Salvataggio non riuscito · ${(err as Error).message}`, 'error');
+    }
+    this._routeNuovaApertura();
+    this._renderRouteRun($('pickSubForm'));
+    this.toast(`Tappa ${st.seq} rimandata in fondo al giro`, 'info');
+  },
+
   _routeCurrentHTML(st) {
     const site = Store.getSite(st.site_id);
+    /* 2.5 — la giacenza si legge ADESSO. Vedi `_routeDisponibili`. */
+    const disponibili = this._routeDisponibili(st);
+    const cfg = Store.getUomConfig(st.article_code, st.lot_code);
+    const riga = Store.getItemsAtLocation(st.location_code).find((i) => i.item_key === st.item_key) || null;
+    const elenco = riga ? Store.colliDiRiga(riga) : null;
     return `
       <article class="route-stop-card">
         <header class="route-stop-head">
@@ -572,14 +814,21 @@ export const VistaPercorso = {
           </div>
         </header>
 
+        ${this._routeTrasfBandaHTML(st)}
+
         <div class="route-stop-body">
           <div class="route-stop-kv"><span>Articolo</span><b class="mono">${this._esc(st.article_code)}</b></div>
           <div class="route-stop-kv"><span>Descrizione</span><b>${this._esc(st.article_description || '—')}</b></div>
           <div class="route-stop-kv"><span>Lotto</span><b class="mono">${this._esc(st.lot_code)}</b></div>
           <div class="route-stop-kv"><span>Scadenza</span><b>${this._esc(this._isoToIt(st.expiry_iso))}</b></div>
-          <div class="route-stop-kv route-stop-kg"><span>Richiesti da ordine</span><b>${this._fmtKg(st.kg_required)} ${this._esc(st.um)}</b></div>
-          <div class="route-stop-kv"><span>Colli disponibili</span><b>${st.qty_available}</b></div>
+          <div class="route-stop-kv route-stop-kg"><span>Richiesti da ordine</span><b>${this._qtaOrdine(st.kg_required, st.um)} ${this._esc(st.um)}</b></div>
+          <div class="route-stop-kv${disponibili <= 0 ? ' route-stop-vuoto' : ''}"><span>Colli in ubicazione</span><b>${disponibili}</b></div>
         </div>
+
+        ${elenco && cfg ? `<div class="route-stop-colli">
+          <span>Come sono imballati</span>
+          <b class="mono">${this._esc(descriviElencoColli(elenco, cfg.uom))}</b>
+        </div>` : ''}
 
         ${this._avvisiBanda(st.article_code)}
 
@@ -624,15 +873,145 @@ export const VistaPercorso = {
     const isCur = current && st.seq === current.seq;
     const icon = st.status === 'done' ? '✓' : st.status === 'missing' ? '✗' : isCur ? '▶' : '◻';
     const cls  = st.status === 'done' ? 'ok' : st.status === 'missing' ? 'ko' : isCur ? 'cur' : '';
-    return `<div class="route-list-row ${cls}">
-      <span class="route-list-ico">${icon}</span>
+    const fatta = st.status === 'done';
+    /* 2.5 — UNA TAPPA GIÀ PRELEVATA SI RIAPRE. Chi si accorge di aver preso
+       un collo di troppo tre tappe dopo non aveva nessun posto dove dirlo: il
+       giro andava avanti e la correzione finiva a voce. La riga diventa un
+       pulsante, e la rettifica scrive movimenti nuovi — il prelievo di prima
+       resta a registro, perché è successo. */
+    /* Le UM con i decimali della LORO unita': `_fmtKg` ne forza tre, e su un
+       articolo in PZ scriverebbe «12,000 PZ». */
+    const uom = st.uom_picked != null && st.um
+      ? ` · ${this._esc(formattaQuantita(st.uom_picked, st.um))} ${this._esc(st.um)}` : '';
+    const dentro = `<span class="route-list-ico">${icon}</span>
       <span class="route-list-seq">${st.seq}</span>
       <span class="mono route-list-loc">${this._esc(st.location_code)}</span>
       <span class="mono route-list-art">${this._esc(st.article_code)}#${this._esc(st.lot_code)}</span>
-      <span class="route-list-kg">${this._fmtKg(st.kg_required)} ${this._esc(st.um)}</span>
-      ${st.status === 'done' ? `<span class="badge badge-green">${st.qty_picked} Coll.</span>` : ''}
-      ${st.forced_note ? `<span class="badge badge-amber" title="${this._esc(st.forced_note)}">forzata</span>` : ''}
-    </div>`;
+      <span class="route-list-kg">${this._qtaOrdine(st.kg_required, st.um)} ${this._esc(st.um)}</span>
+      ${fatta ? `<span class="badge badge-green">${st.qty_picked} Coll.${uom}</span>` : ''}
+      ${st.corrections ? `<span class="badge badge-amber" title="${this._esc(st.correction_note || '')}">rettificata ×${st.corrections}</span>` : ''}
+      ${st.forced_note ? `<span class="badge badge-amber" title="${this._esc(st.forced_note)}">forzata</span>` : ''}`;
+    if (!fatta) return `<div class="route-list-row ${cls}">${dentro}</div>`;
+    return `<button type="button" class="route-list-row route-list-row--btn ${cls}"
+      title="Correggi i colli prelevati su questa tappa"
+      onclick="App._routeRettifica(${Number(st.seq)})">${dentro}
+      <span class="route-list-edit">✏</span>
+    </button>`;
+  },
+
+  /* ─── D) LA RETTIFICA DI UNA TAPPA GIÀ PRELEVATA ────────────────────
+     2.5 — SI CORREGGE QUELLO CHE È USCITO, NON QUELLO CHE È SCRITTO.
+
+     Il prelievo di prima resta a registro: è successo, e riscriverlo
+     vorrebbe dire che il registro racconta una giornata diversa da quella
+     che c'è stata. La rettifica RIMETTE A SCAFFALE i colli di troppo e
+     scrive il movimento che li riporta — la stessa coppia dell'inventario,
+     FIX− e FIX+, applicata a un prelievo.
+
+     Solo IN MENO. Prendere altri colli non è una correzione, è un secondo
+     prelievo: si fa con una tappa, e la tappa c'è già — questa maschera non
+     inventa un movimento di uscita che nessuno ha scansionato. */
+  async _routeRettifica(seq) {
+    const session = Store.getActivePickSession();
+    if (!session) return;
+    if (this._routePausaAperta(session)) {
+      return this.toast('Prelievo in pausa: premi ▶ Riprendi prima di rettificare', 'warning');
+    }
+    const st = (session.stops || []).find((x) => Number(x.seq) === Number(seq));
+    if (!st || st.status !== 'done') return this.toast('Questa tappa non è stata prelevata', 'error');
+    if (!this._requireOperator('la rettifica di un prelievo')) return;
+
+    const presi = Number(st.qty_picked) || 0;
+    if (presi <= 0) return this.toast('Su questa tappa non risulta nessun collo prelevato', 'error');
+
+    const cfg = Store.getUomConfig(st.article_code, st.lot_code);
+    const misure = Array.isArray(st.packs_picked) ? st.packs_picked : null;
+    const dettaglio = misure && cfg
+      ? descriviElencoColli(misure, cfg.uom)
+      : `${presi} Coll.`;
+
+    const resi = await Dialog.qty({
+      title: `Rettifica tappa ${st.seq}`,
+      message: `Quanti colli TORNANO a scaffale in ${st.location_code}. Il prelievo già registrato non si cancella: si scrive il movimento che li riporta indietro.`,
+      details: Dialog.kv([
+        ['Articolo', `${st.article_code}#${st.lot_code}`],
+        ['Ubicazione', st.location_code],
+        ['Prelevati', dettaglio],
+        ['Richiesti da ordine', `${this._qtaOrdine(st.kg_required, st.um)} ${st.um}`],
+      ]),
+      value: 1, min: 1, max: presi, unit: 'Coll.',
+    });
+    if (resi === null) return;
+
+    const nota = await Dialog.reason({
+      title: 'Motivo della rettifica',
+      message: 'Il testo va nelle note del movimento e compare sul report di prelievo.',
+      placeholder: 'Es. collo di troppo, ordine cambiato, errore di conta…',
+      minLen: 5, confirmLabel: 'Rettifica', icon: '✏',
+    });
+    if (!nota) return;
+
+    /* Quali colli tornano: se il prelievo aveva le misure, si sceglie fra
+       QUELLE — rimettere a scaffale «due colli» su un prelievo fatto di un
+       25 e di un 7 sarebbe un saldo giusto sui colli sbagliati. */
+    let daRimettere: number[] | null = null;
+    if (misure && cfg) {
+      const ordinate = [...misure].sort((a, b) => a - b);
+      daRimettere = ordinate.slice(0, resi);
+    }
+
+    const effectiveUser = this._prodOperator || Store.getCurrentIdentity().initials;
+    const notes = `Rettifica tappa ${st.seq} — ordine ${session.odp_num}: ${nota}`;
+    const dove = String(st.location_code ?? '');
+    const itemKey = String(st.item_key ?? `${st.article_code}#${st.lot_code}`);
+    let res;
+    try {
+      res = await Store.addItem(dove, st.article_code, st.article_description || '',
+        st.lot_code, '', notes, resi, null, daRimettere);
+    } catch (err) {
+      return this.toast(`Rettifica non applicata · ${(err as Error).message}`, 'error');
+    }
+
+    await this._logMov(MOV.REPOS, st.article_code, st.article_description || '', st.lot_code,
+      dove, null, effectiveUser, notes, session.odp_num,
+      res.qty_before ?? null, resi, res.qty_after ?? null,
+      typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);
+
+    /* Il conto di produzione scende di quello che è tornato indietro: la
+       merce non è entrata in lavorazione. Se non riesce, la rettifica resta —
+       stessa regola della conferma: la merce è già a scaffale. */
+    if (session.odp_num) {
+      try {
+        await Store.esceDaWip(session.odp_num, {
+          item_key: itemKey,
+          article_code: st.article_code,
+          lot_code: st.lot_code,
+          qty: resi,
+          qty_uom: typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null,
+          packs: daRimettere,
+        });
+      } catch (e) {
+        this.toast(`Conto di produzione non aggiornato — ${(e as Error).message}. La rettifica resta valida.`, 'error');
+      }
+    }
+
+    st.qty_picked = presi - resi;
+    if (misure) st.packs_picked = misure.slice(resi).length ? [...misure].sort((a, b) => a - b).slice(resi) : [];
+    if (cfg && st.packs_picked) st.uom_picked = st.packs_picked.reduce((a, n) => a + n, 0);
+    st.corrections = (Number(st.corrections) || 0) + 1;
+    st.correction_note = nota;
+    if (st.qty_picked <= 0) { st.status = 'pending'; st.qty_picked = 0; st.done_at = null; }
+    try {
+      await Store.savePickSession(session);
+    } catch (err) {
+      this.toast(`Movimento scritto ma tappa non salvata · ${(err as Error).message}`, 'error');
+    }
+
+    this._routeNuovaApertura();
+    this.updateSyncIndicator();
+    this._renderRouteRun($('pickSubForm'));
+    this._refreshSessionLog();
+    Feedback.signal('ok', `Tappa ${st.seq} rettificata`, `${resi} Coll. tornati in ${dove}`);
   },
 
   /* ─── VERIFICHE DI SCANSIONE ────────────────────────────────────── */
@@ -646,6 +1025,7 @@ export const VistaPercorso = {
     if (!val) return;
     if (val === st.location_code) {
       this._routeScan.loc = val;
+      this._routeScanChiave = this._routeChiaveScan(st);
       this._routeFb('ok', `Ubicazione ${val} confermata`);
       $('rArt')?.focus();
       return;
@@ -663,9 +1043,16 @@ export const VistaPercorso = {
           this.toast(`L'ubicazione ${val} non esiste a sistema`, 'error');
           return false;
         }
+        /* 2.5 — L'ATTESA SI LEGGE PRIMA DI SOVRASCRIVERLA. La nota diceva
+           «attesa <valore scansionato>» perché `st.location_code` era già
+           stato riassegnato una riga sopra: la motivazione registrata
+           nascondeva esattamente il dato per cui esiste. */
+        const attesa = st.location_code;
         st.location_code = val;
-        st.forced_note = `Ubicazione forzata (attesa ${st.location_code}): ${note}`;
+        st.item_key = st.item_key || `${st.article_code}#${st.lot_code}`;
+        st.forced_note = `Ubicazione forzata (attesa ${attesa}): ${note}`;
         this._routeScan.loc = val;
+        this._routeScanChiave = this._routeChiaveScan(st);
         await this._routeSave();
         return true;
       });
@@ -687,16 +1074,25 @@ export const VistaPercorso = {
     this._routeFb('ok', `Tappa spostata su ${alt.location_code} (ubicazione alternativa)`);
     Feedback.signal('info', 'Ubicazione alternativa',
       `La merce viene prelevata da ${alt.location_code} invece che da ${old}.`);
+    /* 2.5 — SPOSTARSI SU UN'ALTRA UBICAZIONE VUOL DIRE RISCANSIONARLA.
+       Fino alla 2.4 il campo si riempiva da solo e la spunta veniva data per
+       buona: l'operatore poteva confermare un prelievo da un vano davanti al
+       quale non era mai passato. Il codice resta scritto nel campo perché
+       serve a leggerlo, ma la spunta no — la chiave è quella della tappa
+       vecchia, e `_routeScanValida` la rifiuta. */
     this._renderRouteRun($('pickSubForm'));
     $('rLoc').value = alt.location_code;
-    this._routeScan.loc = alt.location_code;
-    $('rArt')?.focus();
+    this._routeFb('warn', `Tappa spostata su ${alt.location_code}: riscansiona l’ubicazione per confermare`);
+    $('rLoc')?.focus();
+    $('rLoc')?.select();
   },
 
   _routeCheckArt() {
     const st = this._routeCurrentStop();
     if (!st) return;
-    if (!this._routeScan.loc) {
+    if (!this._routeScan.loc || !this._routeScanValida(st)) {
+      this._routeScan = { loc: '', art: '', lot: '' };
+      this._routeScanChiave = '';
       this._routeFb('error', 'Scansiona prima l\u2019ubicazione');
       $('rLoc')?.focus();
       return;
@@ -722,7 +1118,7 @@ export const VistaPercorso = {
   _routeCheckLot() {
     const st = this._routeCurrentStop();
     if (!st) return;
-    if (!this._routeScan.art) {
+    if (!this._routeScan.art || !this._routeScanValida(st)) {
       this._routeFb('error', 'Scansiona prima l\u2019articolo');
       $('rArt')?.focus();
       return;
@@ -805,10 +1201,23 @@ export const VistaPercorso = {
     if (!session || !st) return;
     if (!this._requireOperator('il prelievo guidato')) return;
 
+    /* 2.5 — LA PAUSA NON PRELEVA. La scheda sparisce quando il turno è
+       fermo, ma la scorciatoia da tastiera no: si ferma qui. */
+    if (this._routePausaAperta(session)) {
+      return this.toast('Prelievo in pausa: premi ▶ Riprendi prima di confermare', 'warning');
+    }
     if (!this._routeScan.loc || !this._routeScan.art || !this._routeScan.lot) {
       Feedback.signal('error', 'Scansioni incomplete',
         'Servono ubicazione, articolo e lotto prima di confermare.');
       return;
+    }
+    /* E le tre scansioni devono essere di QUESTA tappa e di QUESTA apertura:
+       una spunta ereditata è un prelievo confermato senza passare dal vano. */
+    if (!this._routeScanValida(st)) {
+      this._routeScan = { loc: '', art: '', lot: '' };
+      this._routeScanChiave = '';
+      this._renderRouteRun($('pickSubForm'));
+      return this.toast('Scansione non più valida per questa tappa: riscansiona l’ubicazione', 'warning');
     }
 
     // ── Re-check sullo stato attuale, non su quello di quando è nato il percorso
@@ -822,7 +1231,13 @@ export const VistaPercorso = {
     }
     const avail = Store.getAvailableQty(st.location_code, st.item_key);
     if (avail <= 0) {
-      return this.toast(`${st.article_code}#${st.lot_code}: nessun collo disponibile (impegnato su DDT pendente)`, 'error');
+      /* 2.5 — se la tappa aspettava un trasferimento, il messaggio lo dice:
+         «nessun collo disponibile» su un vano che aspetta merce manda a
+         cercare un DDT che non c'è. */
+      const t = this._routeStatoTrasf(st);
+      return this.toast(t
+        ? `${st.article_code}#${st.lot_code}: la merce da ${t.da || 'l’altro magazzino'} non è ancora arrivata in ${st.location_code}${t.task_id ? ` (compito ${t.task_id})` : ''}`
+        : `${st.article_code}#${st.lot_code}: nessun collo disponibile (impegnato su DDT pendente)`, 'error');
     }
 
     /* 2.2 — UNA DOMANDA SOLA. Fino alla 2.1 la tappa ne faceva due: prima
@@ -834,11 +1249,17 @@ export const VistaPercorso = {
 
        La domanda secca resta per le righe che i colli non li dichiarano: li'
        non c'e' niente da scegliere, e il numero e' l'unico dato che esista. */
+    /* 2.5 — IL PRELIEVO PARTE DAGLI SPAIATI. I colli piccoli di una riga
+       sono quasi sempre i residui aperti in un giro precedente: prenderli per
+       primi li chiude, invece di lasciarli invecchiare dietro ai pieni. È una
+       regola di magazzino chiesta da Andrea, e la finestra dice in anteprima
+       di quanto si eccede rispetto all'ordine — perché il verso degli spaiati
+       eccede più spesso di quello dei pieni, e chi conferma deve vederlo. */
     const scelteColli = await this._chiediColli(
       { article_code: st.article_code, lot_code: st.lot_code, location_code: st.location_code, item_key: st.item_key,
         ...(Store.getItemsAtLocation(st.location_code).find(i => i.item_key === st.item_key) || {}) },
-      `Quali colli si prelevano · ordine ${this._fmtKg(st.kg_required)} ${st.um}`,
-      null, { uom: st.kg_required });
+      `Quali colli si prelevano · ordine ${this._qtaOrdine(st.kg_required, st.um)} ${st.um}`,
+      null, { uom: st.kg_required }, 'spaiati');
     if (scelteColli === undefined) return this.toast('Prelievo annullato', 'info');
 
     let qty;
@@ -849,7 +1270,7 @@ export const VistaPercorso = {
     } else {
       qty = await Dialog.qty({
         title: 'Colli prelevati',
-        message: `Ordine: ${this._fmtKg(st.kg_required)} ${st.um}. Indicare quanti COLLI vengono portati via.`,
+        message: `Ordine: ${this._qtaOrdine(st.kg_required, st.um)} ${st.um}. Indicare quanti COLLI vengono portati via.`,
         details: Dialog.kv([
           ['Ubicazione', st.location_code],
           ['Articolo', st.article_code],

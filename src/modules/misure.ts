@@ -39,6 +39,31 @@ export const UNITA_MISURA: readonly {
 
 const PER_CODICE = new Map(UNITA_MISURA.map(u => [u.code as string, u]));
 
+/* 2.5 — LE SIGLE CHE DICONO LA STESSA COSA CON UN'ALTRA PAROLA.
+
+   L'anagrafica arriva da SAGE X3, e SAGE la quantità a numero la chiama `NR`:
+   settemila articoli su undicimila portano quella sigla. Non è un dato
+   mancante ed è un dato scritto in un'altra codifica — leggerlo come «unità
+   non gestita» voleva dire tenere fuori dalla gestione a UM due terzi del
+   magazzino, per una differenza di due lettere.
+
+   TRADURRE UNA SIGLA NON È INDOVINARE UNA QUANTITÀ. Qui entra solo ciò che è
+   la STESSA unità con un altro nome. Le sigle che nominano un CONTENITORE —
+   `SCA` scatola, `CON` confezione, `CAS` cassa — restano fuori di proposito:
+   in questo sistema il contenitore è il collo, cioè `qty`, e metterlo dove va
+   il contenuto è il modo di contare due volte la stessa merce.
+
+   Si legge e basta: nessuna riga di anagrafica viene riscritta, l'export
+   continua a dire `NR`, e il foglio «Valori ammessi» continua a proporre le
+   cinque — un sinonimo si accetta, non si suggerisce. */
+const SINONIMI: Readonly<Record<string, UnitaMisura>> = {
+  /* SAGE X3 — «numero». È l'unica riga della tabella, e ci sta perché quella
+     sigla è NELL'ANAGRAFICA, su 7.077 articoli contati. Una sigla che nessuno
+     ha mai scritto non si aggiunge qui per previdenza: sarebbe un ramo che
+     nessuno percorre e nessun collaudo esercita. */
+  NR: 'PZ',
+};
+
 export function unitaValida(code: unknown): code is UnitaMisura {
   return typeof code === 'string' && PER_CODICE.has(code);
 }
@@ -60,7 +85,10 @@ export function decimali(code: string | null | undefined): number {
 export function leggiUnita(raw: unknown): UnitaMisura | null | undefined {
   const v = String(raw ?? '').trim().toUpperCase();
   if (!v) return null;
-  return unitaValida(v) ? v : undefined;
+  if (unitaValida(v)) return v;
+  /* Il sinonimo si risolve DOPO il codice proprio: una sigla che è già una
+     delle cinque non passa mai di qui, e la tabella non può nasconderne una. */
+  return SINONIMI[v] ?? undefined;
 }
 
 /* ── L'aritmetica, e la deriva del virgola mobile ────────────────────── */

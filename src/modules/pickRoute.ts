@@ -50,6 +50,20 @@ export interface Tappa {
   forced_note: string;
   qty_picked: number;
   done_at: number | null;
+  /* 2.5 — IL TRASFERIMENTO CHE HA SPOSTATO QUESTA TAPPA, se c'è.
+
+     Fino alla 2.4 la richiesta viveva in una mappa dentro la vista, e la
+     mappa muore quando il percorso si avvia: la sessione salvata portava una
+     tappa spostata su un vano vuoto, senza niente che dicesse perché né come
+     andasse a finire. In corsia voleva dire arrivare davanti a uno scaffale
+     vuoto e non sapere se aspettare o andarsela a prendere.
+
+     Adesso il compito viaggia CON la tappa, quindi sopravvive all'avvio, al
+     salvataggio e alla ripresa dopo una chiusura imprevista. */
+  transfer_task?: string;
+  /** Da dove la merce deve arrivare — l'ubicazione di partenza, che dopo lo
+      spostamento non è più `location_code`. */
+  transfer_from?: string;
 }
 
 export interface Percorso {

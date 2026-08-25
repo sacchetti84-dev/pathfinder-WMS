@@ -291,6 +291,73 @@
 }
 .route-alt .badge { margin: 0.2rem 0.2rem 0 0; }
 
+/* ── 2.5 · La banda del trasferimento ──
+   Sta SOPRA i dati della tappa e non in fondo: se la merce non è arrivata,
+   è la prima cosa da sapere — leggere articolo, lotto e scadenza per poi
+   scoprire in fondo che il vano è vuoto è il giro fatto per niente. */
+.route-trasf {
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.6rem 0.75rem;
+  margin: 0.6rem 0 0;
+  font-size: var(--md-sys-typescale-body-small-size);
+  line-height: 1.4;
+}
+.route-trasf > strong {
+  display: block;
+  font-size: var(--md-sys-typescale-title-small-size);
+  margin-bottom: 0.15rem;
+}
+.route-trasf--wait {
+  background: var(--md-sys-color-error-container);
+  color: var(--md-sys-color-on-error-container);
+}
+.route-trasf--ok {
+  background: var(--md-ext-success-container);
+  color: var(--md-ext-on-success-container);
+}
+/* Un vano che dice zero non deve somigliare a un vano che dice dodici. */
+.route-stop-vuoto > b { color: var(--md-sys-color-error); }
+
+/* Come sono imballati i colli della riga: una riga sola, e va a capo invece
+   di scavalcare la colonna accanto. */
+.route-stop-colli {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.5rem;
+  padding: 0.35rem 0.55rem;
+  border-radius: var(--md-sys-shape-corner-small);
+  background: var(--md-sys-color-surface-container);
+}
+.route-stop-colli > span {
+  font-size: var(--md-sys-typescale-label-small-size);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.route-stop-colli > b {
+  font-size: var(--md-sys-typescale-body-medium-size);
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+
+/* ── 2.5 · La pausa ── */
+.route-paused {
+  display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;
+  background: var(--md-sys-color-tertiary-container);
+  color: var(--md-sys-color-on-tertiary-container);
+  border-radius: var(--md-sys-shape-corner-large);
+  padding: 0.9rem 1rem;
+  margin-bottom: 0.7rem;
+}
+.route-paused-ico {
+  width: 44px; height: 44px; flex-shrink: 0;
+  border-radius: var(--md-sys-shape-corner-full);
+  background: var(--md-sys-color-tertiary);
+  color: var(--md-sys-color-on-tertiary);
+  display: flex; align-items: center; justify-content: center;
+  font-size: var(--md-sys-typescale-title-large-size); font-weight: 800;
+}
+.route-paused-txt { flex: 1; min-width: 160px; }
+.route-paused-txt > strong { font-size: var(--md-sys-typescale-title-medium-size); }
+.route-pause-info { opacity: 0.85; }
+
 /* ── Elenco completo delle tappe ── */
 .route-details {
   margin-top: 0.7rem;
@@ -318,8 +385,26 @@
 .route-list-ico { width: 16px; flex-shrink: 0; font-weight: 800; }
 .route-list-seq { width: 24px; flex-shrink: 0; text-align: right; opacity: 0.7; }
 .route-list-loc { font-weight: 700; }
-.route-list-art { flex: 1; min-width: 120px; }
-.route-list-kg { opacity: 0.8; }
+.route-list-art { flex: 1; min-width: 120px; overflow-wrap: anywhere; }
+.route-list-kg { opacity: 0.8; white-space: nowrap; }
+
+/* 2.5 — la riga di una tappa già prelevata è un pulsante: si riapre per
+   correggere i colli. Resta una riga a vedersi — un bottone che somiglia a
+   un bottone, in mezzo a un elenco, si preme per sbaglio col guanto. */
+.route-list-row--btn {
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  border: 0;
+  cursor: pointer;
+  min-height: var(--md-touch);
+}
+.route-list-row--btn:hover,
+.route-list-row--btn:focus-visible {
+  outline: 2px solid var(--md-sys-color-primary);
+  outline-offset: -2px;
+}
+.route-list-edit { margin-left: auto; flex-shrink: 0; opacity: 0.65; }
 
 /* ── Percorso concluso ── */
 .route-done {
@@ -348,6 +433,22 @@
   .route-stop-body { grid-template-columns: 1fr 1fr; }
   .route-preview, .route-tail { max-height: 34vh; }
 }
+
+/* 2.5 — SOTTO I 430px LA SCHEDA VA IN COLONNA.
+   Due colonne su un palmare stretto spezzavano «Richiesti da ordine» a metà
+   e gli infilavano sotto il valore della colonna accanto: le due etichette
+   in maiuscoletto si toccavano e non si capiva più quale numero apparteneva
+   a quale. Il verticale è la forma preferita, e qui è l'unica leggibile. */
+@media (max-width: 430px) {
+  .route-stop-body { grid-template-columns: 1fr; }
+  .route-list-row { gap: 0.3rem 0.45rem; }
+  .route-list-art { min-width: 0; flex-basis: 100%; order: 5; }
+  .route-paused { gap: 0.55rem; }
+}
+
+/* Una descrizione lunga non deve spingere fuori il valore accanto. */
+.route-stop-kv > b { overflow-wrap: anywhere; min-width: 0; }
+.route-stop-kv { min-width: 0; }
 
 .route-alert {
   background: var(--md-sys-color-error-container);

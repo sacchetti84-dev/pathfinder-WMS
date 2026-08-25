@@ -191,6 +191,12 @@ export function tappaInAttesa(
     alternatives: [],
     qty_available: 0,
     status: 'pending',
+    /* 2.5 — il compito e il vano di partenza viaggiano CON la tappa: la
+       mappa che li teneva viveva nella vista e moriva all'avvio del
+       percorso, e la sessione salvata restava con un vano vuoto e nessuna
+       spiegazione. Qui sopravvivono al salvataggio e alla ripresa. */
+    transfer_task: String(taskId ?? '') || undefined,
+    transfer_from: tappa.location_code,
     forced_note: [
       `In arrivo da ${tappa.location_code}`,
       taskId ? `trasferimento ${taskId}` : 'trasferimento richiesto',

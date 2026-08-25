@@ -1,6 +1,8 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
 import { PickRoute } from '../../modules/pickRoute';
+import { descriviColli } from '../../modules/colli';
+import { formattaQuantita } from '../../modules/misure';
 import type { SessionePrelievo, Movimento, TappaPrelievo, FuoriPercorso } from '../../types/entita';
 
 /* Un motivo di deviazione ha un'etichetta leggibile; quello che non ce l'ha
@@ -25,6 +27,17 @@ type RigaRapporto = {
   kg_required: number | null;
   um: string;
   qty_picked: number;
+  /** 2.5 — LE UM USCITE DAVVERO. Il report diceva quanti colli erano usciti
+      e quanti chili l'ordine chiedeva, e fra i due non c'era il dato che
+      conta: quanto è uscito. Su una riga con un collo aperto non si ricava
+      dai colli, e su una con colli di misure diverse nemmeno. `null` dove la
+      riga non è gestita a unità di misura. */
+  uom_picked: number | null;
+  /** Come erano imballati i colli usciti — «2 × 25 + 1 × 7». */
+  packs_desc: string;
+  /** Quante volte la tappa è stata rettificata dopo il prelievo. */
+  corrections: number;
+  correction_note: string;
   done_at: number | null;
 };
 
@@ -63,6 +76,10 @@ type RapportoPrelievo = {
   ended_at: number;
   closed_at: number;
   stops_total: number;
+  /** 2.5 — i millisecondi di pausa dichiarata, da scorporare dalla durata:
+      un tempo medio di prelievo che comprende il pranzo misura il pranzo. */
+  paused_ms: number;
+  pauses: number;
   rows: RigaRapporto[];
   tail: CodaRapporto[];
   notes: NotaRapporto[];
@@ -131,6 +148,8 @@ export const VistaRapportoPrelievo = {
       ended_at: endTs,
       closed_at: endTs,
       stops_total: tappe.length,
+      paused_ms: (s.pauses || []).reduce((acc, x) => acc + Math.max(0, (x.to ?? endTs) - x.from), 0),
+      pauses: (s.pauses || []).length,
       rows: done.map((x): RigaRapporto => ({
         seq: x.seq ?? null,
         article_code: x.article_code,
@@ -140,6 +159,11 @@ export const VistaRapportoPrelievo = {
         kg_required: x.kg_required ?? null,
         um: x.um || '',
         qty_picked: x.qty_picked || 0,
+        uom_picked: typeof x.uom_picked === 'number' ? x.uom_picked : null,
+        packs_desc: Array.isArray(x.packs_picked) && x.packs_picked.length
+          ? descriviColli(x.packs_picked, x.um || null) : '',
+        corrections: Number(x.corrections) || 0,
+        correction_note: x.correction_note || '',
         done_at: x.done_at || null
       })),
       tail: [
@@ -189,6 +213,8 @@ export const VistaRapportoPrelievo = {
       ended_at: endTs,
       closed_at: endTs,
       stops_total: cart.length,
+      paused_ms: 0,
+      pauses: 0,
       rows: cart.map((it): RigaRapporto => ({
         seq: null,
         article_code: it.article_code,
@@ -198,6 +224,10 @@ export const VistaRapportoPrelievo = {
         kg_required: null,
         um: '',
         qty_picked: it.qty_pick || Math.abs(it._qty_delta || 0) || 1,
+        uom_picked: null,
+        packs_desc: '',
+        corrections: 0,
+        correction_note: '',
         done_at: null
       })),
       tail: [], notes: [], warnings: []
@@ -223,6 +253,11 @@ export const VistaRapportoPrelievo = {
       ended_at: end,
       closed_at: end,
       stops_total: movs.length,
+      /* Il registro non sa niente delle pause: chi ricostruisce da lì ha in
+         mano gli orari dei movimenti, e fra due movimenti non c'è modo di
+         dire se qualcuno stava camminando o mangiando. */
+      paused_ms: 0,
+      pauses: 0,
       rows: movs.map((m): RigaRapporto => ({
         seq: null,
         article_code: m.article_code || '',
@@ -230,7 +265,13 @@ export const VistaRapportoPrelievo = {
         lot_code: m.lot_code || '',
         location_code: m.location_code || '',
         kg_required: null,
-        um: '',
+        um: m.uom || '',
+        /* Le UM il registro CE LE HA, dalla 1.4.2: `qty_uom_delta` è l'unico
+           dato che dice quanto è uscito su una riga con un collo aperto. */
+        uom_picked: typeof m.qty_uom_delta === 'number' ? Math.abs(m.qty_uom_delta) : null,
+        packs_desc: '',
+        corrections: 0,
+        correction_note: '',
         qty_picked: m.qty_delta != null ? Math.abs(m.qty_delta) : 1,
         done_at: m.ts
       })),
@@ -251,28 +292,71 @@ export const VistaRapportoPrelievo = {
           congelati alla chiusura: identici a ogni ristampa. ── */
     const nRows   = snap.rows.length;
     const durSec  = Math.max(0, Math.round(((snap.ended_at || 0) - (snap.started_at || 0)) / 1000));
-    const avgSec  = nRows > 0 ? durSec / nRows : null;
+    /* 2.5 — IL TEMPO MEDIO SI CALCOLA SUL TEMPO IN CUI SI È LAVORATO.
+       Finché la durata comprendeva le pause dichiarate, il tempo medio di
+       prelievo misurava il pranzo insieme al giro: su un ordine cominciato
+       alle 11 e chiuso alle 15 con un'ora di mensa, la media di dieci righe
+       usciva del venticinque per cento più alta di quella vera. La durata
+       lorda resta scritta — è quella dell'orologio — e accanto compare
+       quella netta, che è quella che si divide. */
+    const pausaSec = Math.max(0, Math.round((snap.paused_ms || 0) / 1000));
+    const nettoSec = Math.max(0, durSec - pausaSec);
+    const avgSec  = nRows > 0 ? nettoSec / nRows : null;
     const sameDay = this._fmtDayShort(snap.started_at) === this._fmtDayShort(snap.ended_at);
 
     const totColli   = snap.rows.reduce((a, r) => a + (r.qty_picked || 0), 0);
     const uniqueLocs = new Set(snap.rows.map((r) => r.location_code).filter(Boolean)).size;
+    const rettificate = snap.rows.filter((r) => (r.corrections || 0) > 0).length;
 
+    /* Le UM prelevate si sommano PER UNITÀ: chili e pezzi in una casella sola
+       sarebbero un numero che non vuol dire niente. Le righe che non sono
+       gestite a unità di misura restano fuori dal totale, e non ci entrano
+       come zero — uno zero direbbe «pesati, non pesano». */
+    const perUnita = new Map<string, number>();
+    for (const r of snap.rows) {
+      if (typeof r.uom_picked !== 'number' || !r.um) continue;
+      perUnita.set(r.um, (perUnita.get(r.um) || 0) + r.uom_picked);
+    }
+    const totUomTxt = perUnita.size
+      ? [...perUnita.entries()].map(([u, v]) => `${formattaQuantita(v, u)} ${u}`).join(' · ')
+      : '—';
+    const senzaUom = snap.rows.filter((r) => typeof r.uom_picked !== 'number').length;
+
+    /* 2.5 — LE UM PRELEVATE SI SCRIVONO CON I DECIMALI DELLA LORO UNITA'.
+       `_fmtKg` ne forza tre, ed e' giusto per i chili che l'ODP chiede: su un
+       articolo in PZ avrebbe stampato «12,000 PZ», cioe' dodici pezzi scritti
+       come se fossero pesati. `formattaQuantita` legge l'unita'. */
+    const uomCell = (v: number | null | undefined, um: string | undefined) => {
+      if (typeof v !== 'number') return '<span class="text-[#999]">—</span>';
+      const u = String(um || '').trim().toUpperCase();
+      return `${E(formattaQuantita(v, u || null))}${u ? ` <span style="font-size:7pt;color:#666">${E(u)}</span>` : ''}`;
+    };
+
+    /* 2.5 — E LA COLONNA DEGLI ORDINATI SI SCRIVE ALLO STESSO MODO.
+       Usava `_fmtKg`, che forza tre decimali: accanto alla colonna nuova,
+       cinquecento pezzi comparivano come «500,000» a sinistra e «500 PZ» a
+       destra — lo stesso numero scritto in due modi, su due celle che si
+       toccano. Sta in testa a `misure.ts` da sempre: tre formattazioni dello
+       stesso numero, per chi legge, sono tre numeri diversi. */
     const kgCell = (kg: number | string | null | undefined, um: string | undefined) => {
       if (kg == null || kg === '') return '<span class="text-[#999]">—</span>';
       const u = String(um || '').trim().toUpperCase();
       const suffix = (u && u !== 'KG') ? ` <span style="font-size:7pt;color:#666">${E(um)}</span>` : '';
-      return `${E(this._fmtKg(kg))}${suffix}`;
+      return `${E(formattaQuantita(kg, u || null))}${suffix}`;
     };
 
     const rowsHTML = snap.rows.map((r, i) => `<tr>
       <td class="td-num">${i + 1}</td>
       <td class="td-num">${r.seq != null ? E(r.seq) : '<span class="text-[#999]">—</span>'}</td>
       <td class="td-code">${E(r.article_code || '—')}</td>
-      <td>${E(r.article_description || '—')}${this._avvisiRigaStampa(r.article_code)}</td>
+      <td>${E(r.article_description || '—')}${this._avvisiRigaStampa(r.article_code)}${
+        r.corrections ? `<div class="pr-corr">✏ rettificata ${r.corrections === 1 ? 'una volta' : r.corrections + ' volte'}${r.correction_note ? ' — ' + E(r.correction_note) : ''}</div>` : ''}</td>
       <td class="td-lot">${E(r.lot_code || '—')}</td>
       <td class="td-loc">${E(r.location_code || '—')}</td>
       <td class="td-num">${kgCell(r.kg_required, r.um)}</td>
       <td class="td-num font-bold">${E(r.qty_picked)}</td>
+      <td class="td-num font-bold">${uomCell(r.uom_picked, r.um)}${
+        r.packs_desc ? `<div class="pr-packs">${E(r.packs_desc)}</div>` : ''}</td>
     </tr>`).join('');
 
     const tailHTML = snap.tail.map((t, i) => `<tr>
@@ -347,10 +431,15 @@ export const VistaRapportoPrelievo = {
           <div class="pr-time-val">${E(this._fmtDurLong(durSec))}</div>
           <div class="pr-time-sub">da inizio a chiusura</div>
         </div>
+        ${pausaSec > 0 ? `<div class="pr-time-cell">
+          <div class="pr-time-lbl">Di cui in pausa</div>
+          <div class="pr-time-val">${E(this._fmtDurLong(pausaSec))}</div>
+          <div class="pr-time-sub">${snap.pauses} paus${snap.pauses === 1 ? 'a' : 'e'} dichiarat${snap.pauses === 1 ? 'a' : 'e'}</div>
+        </div>` : ''}
         <div class="pr-time-cell pr-time-key">
           <div class="pr-time-lbl">Tempo medio di prelievo</div>
           <div class="pr-time-val">${avgSec != null ? E(this._fmtDurLong(avgSec)) : '—'}</div>
-          <div class="pr-time-sub">durata ÷ ${nRows} ${nRows === 1 ? 'prelievo' : 'prelievi'}</div>
+          <div class="pr-time-sub">${pausaSec > 0 ? 'tempo netto' : 'durata'} ÷ ${nRows} ${nRows === 1 ? 'prelievo' : 'prelievi'}</div>
         </div>
       </div>
 
@@ -359,6 +448,8 @@ export const VistaRapportoPrelievo = {
           <div class="pr-summary-val">${nRows}${snap.stops_total > nRows ? `<span style="font-size:9pt;color:#666">/${snap.stops_total}</span>` : ''}</div>
           <div class="pr-summary-lbl">Righe Prelevate</div></div>
         <div class="pr-summary-item"><div class="pr-summary-val">${totColli}</div><div class="pr-summary-lbl">Colli Prelevati</div></div>
+        <div class="pr-summary-item"><div class="pr-summary-val pr-summary-val--txt">${E(totUomTxt)}</div>
+          <div class="pr-summary-lbl">Quantità Prelevata${senzaUom ? ` <span style="font-weight:400">(${senzaUom} rig${senzaUom === 1 ? 'a' : 'he'} a soli colli)</span>` : ''}</div></div>
         <div class="pr-summary-item"><div class="pr-summary-val">${uniqueLocs}</div><div class="pr-summary-lbl">Ubicazioni</div></div>
         <div class="pr-summary-item"><div class="pr-summary-val">${snap.tail.length}</div><div class="pr-summary-lbl">Righe da Recuperare</div></div>
       </div>
@@ -372,11 +463,17 @@ export const VistaRapportoPrelievo = {
           <th>Descrizione</th>
           <th class="w-[76px]">Lotto</th>
           <th class="w-[100px]">Ubicazione</th>
-          <th class="w-[66px] text-center">Kg ordine</th>
-          <th class="w-[58px] text-center">Colli prelevati</th>
+          <th class="w-[66px] text-center">Ordinati</th>
+          <th class="w-[52px] text-center">Colli</th>
+          <th class="w-[78px] text-center">Prelevati</th>
         </tr></thead>
-        <tbody>${rowsHTML || '<tr class="pr-empty-row"><td colspan="8">Nessuna riga prelevata</td></tr>'}</tbody>
+        <tbody>${rowsHTML || '<tr class="pr-empty-row"><td colspan="9">Nessuna riga prelevata</td></tr>'}</tbody>
       </table>
+      ${rettificate ? `<div class="pr-sec-note pr-sec-note--block">
+        ✏ ${rettificate} rig${rettificate === 1 ? 'a è stata rettificata' : 'he sono state rettificate'} dopo il prelievo:
+        i colli tornati a scaffale hanno un movimento di riposizionamento a registro, e la riga qui sopra
+        porta la quantità che è rimasta fuori.
+      </div>` : ''}
 
       ${snap.tail.length ? `
       <div class="pr-sec">Da recuperare fuori percorso

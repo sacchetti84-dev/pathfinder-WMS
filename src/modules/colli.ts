@@ -465,43 +465,124 @@ export function scelteDaTaglie(
   return scelte;
 }
 
-/** La maschera nasce già compilata: si riempie dalle misure più piene finché
-    il fabbisogno è coperto. L'ultimo collo può eccedere — mezzo collo non si
-    prende senza dirlo, e dirlo è il campo della parte.
+/** In che ordine si consumano le misure quando la maschera si precompila. */
+export type Verso = 'pieni' | 'spaiati';
+
+/** La maschera nasce già compilata. L'ultimo collo può eccedere — mezzo collo
+    non si prende senza dirlo, e dirlo è il campo della parte.
 
     `uom` è il fabbisogno in unità di misura (l'ODP chiede chili), `colli` in
     colli. Chi non sa quanto serve non passa niente e le righe nascono a zero:
-    proporre un numero inventato è peggio di non proporne nessuno. */
+    proporre un numero inventato è peggio di non proporne nessuno.
+
+    2.5 — IL VERSO. Fino alla 2.4 si partiva sempre dalle misure più piene, ed
+    è il verso giusto per chi deve fare un numero di colli: il collo grande è
+    un viaggio in meno. Per il PRELIEVO DA ORDINE Andrea ha chiesto l'opposto —
+    `spaiati` — e la ragione sta a scaffale: i colli piccoli di una riga sono
+    quasi sempre i residui aperti in un prelievo precedente, e prenderli per
+    primi li chiude invece di lasciarli invecchiare dietro ai pieni.
+
+    I DUE VERSI ARROTONDANO ALL'OPPOSTO, ed è la metà della regola che conta.
+
+    `pieni` arrotonda PER ECCESSO: l'ultimo collo si prende intero anche se
+    basta un pezzo, perché chi conta a colli vuole colli interi.
+
+    `spaiati` arrotonda PER DIFETTO, e non prende MAI un collo che sfonda ciò
+    che l'ordine chiede. Con l'eccesso anche di qua, 25 KG su `2 × 25 + 1 × 10
+    + 2 × 7` proponevano 2×7 + 1×10 + 1×25 = 49 KG: il doppio dell'ordine, per
+    coprire l'ultimo chilo con un sacco intero. Quel chilo non è un collo da
+    prendere, è un collo da APRIRE — e la finestra ha il campo apposta.
+    `restoDaAprire` dice quanto resta e da quale collo tirarlo fuori. */
 export function riempiFabbisogno(
   gruppi: { colli: number; per: number }[] | null | undefined,
   fabbisogno: { uom?: number | null; colli?: number | null } | null | undefined,
   uom?: string | null,
+  verso: Verso = 'pieni',
 ): number[] {
   const righe = (gruppi ?? []).map(() => 0);
   if (!gruppi?.length || !fabbisogno) return righe;
   const dec = decimali(uom);
 
+  /* L'ordine di VISITA, che non è l'ordine delle righe: `raggruppa` le
+     consegna dalla più piena, e le righe a video restano in quell'ordine
+     perché è quello in cui il magazziniere le legge. Qui si decide solo da
+     quale si comincia a riempire. */
+  const visita = gruppi.map((g, i) => ({ i, per: g.per, colli: g.colli }));
+  visita.sort((a, b) => (verso === 'spaiati' ? a.per - b.per : b.per - a.per));
+
   const perColli = arrotonda(fabbisogno.colli, 0);
   if (perColli !== null && perColli > 0) {
     let restano = perColli;
-    gruppi.forEach((g, i) => {
-      if (restano <= 0) return;
+    for (const g of visita) {
+      if (restano <= 0) break;
       const presi = Math.min(g.colli, restano);
-      righe[i] = presi;
+      righe[g.i] = presi;
       restano -= presi;
-    });
+    }
     return righe;
   }
 
   const perUom = arrotonda(fabbisogno.uom, dec);
   if (perUom !== null && perUom > 0) {
     let restano = perUom;
-    gruppi.forEach((g, i) => {
-      if (restano <= 0) return;
-      const servono = Math.min(g.colli, Math.ceil(arrotonda(restano / g.per, 6)!));
-      righe[i] = servono;
+    for (const g of visita) {
+      if (restano <= 0) break;
+      const quanti = arrotonda(restano / g.per, 6)!;
+      const servono = Math.min(g.colli, verso === 'spaiati' ? Math.floor(quanti) : Math.ceil(quanti));
+      if (servono <= 0) continue;
+      righe[g.i] = servono;
       restano = arrotonda(restano - servono * g.per, dec)!;
-    });
+    }
   }
   return righe;
+}
+
+/** Quanto manca ancora, dopo i colli interi, e da quale collo tirarlo fuori.
+
+    È la seconda metà del verso `spaiati`: quello prende solo colli che stanno
+    dentro l'ordine, e ciò che avanza — sempre meno di un collo — si prende
+    APRENDONE uno. Il collo da aprire è il più PICCOLO fra quelli ancora
+    liberi che contenga abbastanza: aprire un sacco da 25 per tirarne fuori
+    uno quando c'è un 7 libero lascia in giro il residuo più grande.
+
+    `null` quando non manca niente, quando non c'è un fabbisogno in UM, o
+    quando non è rimasto nessun collo libero da aprire — lì non c'è una
+    proposta da fare, e inventarne una è peggio che tacere. */
+export function restoDaAprire(
+  gruppi: { colli: number; per: number }[] | null | undefined,
+  righe: readonly number[] | null | undefined,
+  fabbisognoUom: unknown,
+  uom?: string | null,
+): { per: number; quantita: number } | null {
+  if (!gruppi?.length) return null;
+  const dec = decimali(uom);
+  const chiesto = arrotonda(fabbisognoUom, dec);
+  if (chiesto === null || chiesto <= 0) return null;
+  const preso = gruppi.reduce((acc, g, i) => acc + g.per * (righe?.[i] ?? 0), 0);
+  const manca = arrotonda(chiesto - preso, dec)!;
+  if (manca <= 0) return null;
+  const liberi = gruppi
+    .map((g, i) => ({ per: g.per, liberi: g.colli - (righe?.[i] ?? 0) }))
+    .filter(g => g.liberi > 0)
+    .sort((a, b) => a.per - b.per);
+  if (!liberi.length) return null;
+  /* Il più piccolo che basta; se nessuno basta — il fabbisogno residuo è più
+     grande di ogni collo rimasto — il più grande che c'è, che è quanto si
+     riesce a dare. */
+  const scelto = liberi.find(g => g.per >= manca) ?? liberi[liberi.length - 1]!;
+  return { per: scelto.per, quantita: Math.min(manca, scelto.per) };
+}
+
+/** Quanto eccede la scelta rispetto a ciò che l'ordine chiede. Positivo = si
+    porta via più di quanto serve, ed è il caso normale quando l'ultimo collo
+    non si apre. `null` quando non c'è un fabbisogno in UM con cui
+    confrontarsi: senza, non c'è nessuna eccedenza da dichiarare. */
+export function eccedenza(
+  usciteUom: unknown, fabbisognoUom: unknown, uom?: string | null,
+): number | null {
+  const dec = decimali(uom);
+  const chiesto = arrotonda(fabbisognoUom, dec);
+  const uscito = arrotonda(usciteUom, dec);
+  if (chiesto === null || chiesto <= 0 || uscito === null) return null;
+  return arrotonda(uscito - chiesto, dec);
 }

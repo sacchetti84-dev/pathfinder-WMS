@@ -42,6 +42,44 @@
     border-bottom: 1.2pt solid #1b3a4b;
   }
   .pr-sec-note { font-size: 7.5pt; color: #666; font-weight: 500; text-transform: none; letter-spacing: 0; }
+  /* La stessa nota, quando sta sotto una tabella invece che dentro un titolo. */
+  .pr-sec-note--block {
+    display: block; margin: 3px 0 10px; padding: 4px 8px;
+    background: #eff1f3; border-left: 2pt solid #1b3a4b; border-radius: 2px;
+    line-height: 1.35;
+  }
+
+  /* ── 2.5 · Il dettaglio sotto una cella ──
+     Imballo dei colli usciti e nota di rettifica. Vanno SOTTO al numero, in
+     corpo minore: affiancarli lo spingerebbe contro la colonna accanto, e su
+     una tabella a nove colonne quello e' il punto in cui i caratteri si
+     toccano. */
+  .pr-packs, .pr-corr {
+    font-size: 6.8pt; color: #666; font-weight: 400;
+    line-height: 1.25; margin-top: 1px;
+    overflow-wrap: anywhere;
+  }
+  .pr-corr { color: #92400e; }
+
+  /* ── 2.5 · La nona colonna, e lo spazio per la descrizione ──
+     «Prelevati» in UM si è aggiunta alle otto di prima, e su una tabella a
+     larghezza fissa ogni colonna nuova la toglie all'unica elastica: la
+     descrizione era scesa a 92px, cioè un articolo che va a capo cinque
+     volte. I codici sono in `white-space: nowrap` — giusto, un codice
+     spezzato a metà non è più un codice — ma un'UBICAZIONE lunga come
+     `MAG1-RAKA-01-02-C` sfondava la sua colonna di trenta punti, e quei
+     trenta li pagava la descrizione. Qui l'ubicazione va a capo sui trattini,
+     che sono il punto in cui un magazziniere la legge già spezzata. */
+  .pr-table .td-loc {
+    white-space: normal;
+    overflow-wrap: anywhere;
+    word-break: break-word;
+  }
+  /* E la descrizione ha un minimo sotto cui non scende. */
+  .pr-table thead th:nth-child(4) { min-width: 150px; }
+  /* Il totale prelevato e' un testo — «1.250 KG · 40 PZ» — non un numero:
+     a 14pt sfondava la colonna. */
+  .pr-summary-val--txt { font-size: 10.5pt; line-height: 1.25; overflow-wrap: anywhere; }
 
   /* ── Casella di conferma recupero ── */
   .pr-check-col { width: 58px; text-align: center; }

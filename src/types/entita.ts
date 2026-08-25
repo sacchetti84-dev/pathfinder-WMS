@@ -394,6 +394,20 @@ export interface TappaPrelievo {
   forced_note?: string;
   reason?: string;
   alternatives?: unknown[];
+  /** 1.8 — le MISURE dei colli usciti. `commitPickStop` le scrive da sempre;
+      il tipo non le dichiarava, e il report non poteva leggerle. */
+  packs_picked?: number[] | null;
+  /** 1.4.2 — le UM uscite davvero, che non si ricavano dai colli quando uno
+      di loro si è aperto. */
+  uom_picked?: number | null;
+  /** 2.5 — il trasferimento che ha spostato questa tappa, e da dove. */
+  transfer_task?: string;
+  transfer_from?: string;
+  /** 2.5 — quante volte questa tappa è stata rettificata dopo il prelievo, e
+      l'ultima motivazione. Il registro porta i movimenti; qui resta il segno
+      che la riga a video non è quella della prima conferma. */
+  corrections?: number;
+  correction_note?: string;
 }
 
 /* Una riga presa fuori percorso, o una nota lasciata su una tappa: portano
@@ -425,6 +439,12 @@ export interface SessionePrelievo {
   offroute?: FuoriPercorso[];
   notes?: FuoriPercorso[];
   warnings?: string[];
+  /** 2.5 — LE PAUSE, come fatti con un'ora d'inizio e una di fine.
+
+      Il tempo medio di prelievo si calcola dividendo la durata per le righe,
+      e finché la durata comprendeva il pranzo quel numero misurava la pausa
+      insieme al lavoro. Una pausa aperta ha `to` nullo: è quella in corso. */
+  pauses?: { from: Istante; to: Istante | null; by?: string }[];
   [extra: string]: unknown;
 }
 
