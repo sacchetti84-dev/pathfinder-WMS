@@ -324,6 +324,8 @@ const App = monolite({
     this._loadScannerSettings();
     // v1.9.1 — Registra listener globale per fix barcode US→IT
     document.addEventListener('keydown', (e) => this._scanKeydownFix(e), true);
+    // 2.2 — articolo, lotto e gli altri codici: maiuscoli nel dato, non solo a vedersi
+    document.addEventListener('input', (e) => this._uppercaseFix(e), true);
     // v2.1.0 — Feedback multisensoriale, focus keeper e scorciatoie operative
     Feedback.init();
     document.addEventListener('keydown', (e) => this._focusKeeper(e), true);
@@ -429,6 +431,41 @@ const App = monolite({
     } catch {}
     this.toast(`Correzione layout scanner: ${this._scannerLayoutFix ? 'ATTIVA' : 'DISATTIVA'}`, 'info');
     if (this._configTab === 'data') this.renderConfig();
+  },
+
+  /* 2.2 — I CAMPI A MAIUSCOLO LO SONO DAVVERO, NON SOLO A VEDERSI.
+
+     `class="uppercase"` è `text-transform`: cambia come il campo si vede e
+     NON tocca `input.value`. Trentasette campi la portavano — articolo,
+     ubicazione, sigla, ordine — e leggevano il valore così com'era stato
+     scritto: a schermo MAIUSCOLO, nel dato quello che aveva battuto
+     l'operatore. Il lettore di barcode in azienda restituisce le lettere in
+     minuscolo, e `item_key` è `ARTICOLO#LOTTO` con il confronto fra
+     stringhe: la stessa merce finiva a scaffale in due righe. Voce 38.
+
+     Un gestore delegato invece di trentasette `oninput` in riga: la classe
+     diventa la dichiarazione — «questo campo è maiuscolo» — e vale una volta
+     sola, anche per i campi che verranno. Chi scrive una maschera nuova non
+     deve ricordarsi niente: mette la classe.
+
+     IL CURSORE SI RIMETTE DOV'ERA. Scrivere `value` lo butta in fondo, e in
+     un campo dove si corregge un carattere in mezzo — un lotto letto male —
+     sarebbe peggio del difetto. Si tocca solo se qualcosa cambia davvero,
+     così un campo già maiuscolo non paga niente. E si rimette solo se la
+     lunghezza è la stessa: `toUpperCase` non sempre la conserva — `ß`
+     diventa `SS` — e con gli offset di prima il cursore finirebbe altrove.
+     Quei caratteri un codice non li ha, la convalida li rifiuta, e proprio
+     per questo non è il posto dove indovinare. */
+  _uppercaseFix(e: Event) {
+    const t = e.target as HTMLInputElement | null;
+    if (!t || t.tagName !== 'INPUT' || !t.classList.contains('uppercase')) return;
+    const su = t.value.toUpperCase();
+    if (su === t.value) return;
+    const { selectionStart: da, selectionEnd: a } = t;
+    const stessaLunghezza = su.length === t.value.length;
+    t.value = su;
+    if (!stessaLunghezza) return;
+    try { t.setSelectionRange(da, a); } catch { /* i campi che non hanno selezione */ }
   },
 
   _scanKeydownFix(e: KeyboardEvent) {

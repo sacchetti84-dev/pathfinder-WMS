@@ -105,6 +105,62 @@ porta dati veri, e per questo un collaudo si fa sempre su una **copia** — §5.
 
 ## 1. Stato
 
+### Il 25/08 — articolo e lotto diventano maiuscoli, e non solo a vedersi
+
+**Il difetto non era una riga sbagliata: era una regola applicata a metà.**
+Ogni lettura di ARTICOLO passava da `Validate.clean(v, true)`. Nessuna delle
+**diciassette** letture di LOTTO portava quel `true` — non una. Presa da sola
+ogni maschera era coerente con sé stessa, ed è il motivo per cui in due
+settimane nessuno se n'era accorto leggendo: per vederlo bisogna guardare
+l'insieme, o avere il lettore in mano.
+
+**Il lettore restituisce le lettere in minuscolo.** `item_key` è
+`ARTICOLO#LOTTO` e il confronto è fra stringhe: `6000366B#abc123` e
+`6000366B#ABC123` sono due righe che l'indice composto `[location_code +
+item_key]` fa convivere **nello stesso vano**. La merce a scaffale è una, le
+righe sono due, e nessuna maschera le somma.
+
+**Dove stava, oltre alle diciassette letture.** `Validate.RE.LOT` portava la
+spia `/i` e `RE.ARTICLE` no — è **quel carattere** che lasciava entrare il
+minuscolo, e solo sul lotto. `chiaveLotto` alzava l'articolo e lasciava stare
+il lotto, **e il commento diceva perché**: «`item_key` nasce da
+`Validate.clean(lot)` senza `upper`, e due chiavi diverse per la stessa merce
+sono peggio di una chiave brutta». Era vero, ed era la ragione giusta per la
+scelta sbagliata: chiuso il buco di là, quel commento andava riscritto e la
+riga con lui. `pickRoute` faceva lo stesso, e un percorso nato dall'ODP non
+riagganciava la riga.
+
+**La classe `uppercase` era il difetto travestito da soluzione.** È
+`text-transform`: cambia come il campo si **vede**, non `input.value`. La
+portavano 35 campi; la trasformazione vera la facevano **8 campi in tutto il
+client**, e nessuno degli otto era un articolo o un lotto. A schermo
+maiuscolo, nel dato quello che aveva battuto l'operatore.
+
+**Come è stato chiuso.** Un **gestore delegato** invece di trentasette
+`oninput` in riga: la classe diventa la dichiarazione — «questo campo è
+maiuscolo» — e vale una volta sola, anche per i campi che verranno. Il cursore
+si rimette dov'era, e il campo già maiuscolo non paga niente. `addItem`
+normalizza **prima** di comporre la chiave, che è l'unica strada per cui una
+riga di giacenza viene al mondo. E c'è **un ponte per le righe di prima**: se
+il confronto esatto non trova la riga, la ricerca ripiega sul confronto senza
+maiuscole — la differenza fra accodare i colli alla riga che c'è e aprirne una
+seconda accanto. Si toglie il giorno che il dato è raddrizzato, non prima.
+
+**Cosa NON è stato toccato, e apposta.** `doCreateTask` continua a scrivere
+articolo e lotto **com'erano nella giacenza**: è la cicatrice 1.4.4 — alzarli
+lì sembrava una normalizzazione ed era una riscrittura della chiave, e
+`_taskLancia` andava a cercare una riga che non esiste. Vale ancora, e vale di
+più adesso che il dato è misto. `ntLot` è readonly e rispecchia una riga già a
+scaffale: la mostra com'è, che durante la transizione è l'unica lettura
+onesta. E i **documenti archiviati** non si raddrizzano: §6 dice che le
+ristampe partono dallo snapshot, e uno snapshot è il documento com'era il
+giorno che è uscito.
+
+**Misurato, non supposto**: 946 prove in 33 file (erano 925 in 32), 98 del
+servizio, `npm run check` pulito su client e servizio, pacchetto costruito.
+**Il dato resta da raddrizzare** — voce 38, e lo strumento è
+`server/raddrizza-maiuscole.js`.
+
 ### Il 24/08 — la maschera delle attività, il registro, i colli per misura
 
 **1. Un'attività di prelievo non si riusciva ad aprire, e il campo che la
@@ -1028,7 +1084,7 @@ collauda al banco e si consegna il pacchetto.
 | **35** | **La 2.1 è in servizio da un pacchetto che nessun documento nominava.** L'impronta in produzione (`7cd16b50…`, costruita il 20/08 alle 08:31) non è quella che l'INDEX dichiarava (`29f215e1…`). È la **terza volta in quattro giorni** che il documento dice dove gira la produzione e la produzione gira altrove. Non è una riga da correggere: è il motivo per cui §0 punto 2 esiste, e va riletto da chi apre una conversazione nuova | letto, non si chiude |
 | **36** | **Il database lascia SQLite e va su SQL SERVER** — confermato da Andrea il **25/08**, motore compreso. Supera la voce 26. **La conseguenza immediata è che il ramo `server/azure/` non serve**: `schema-postgres.js` e `migra-sqlite-postgres.js` sono scritti per PostgreSQL, e con loro le **8 prove** di `schemaPostgres.test.js` sorvegliano uno schema che non si userà. Vanno rifatti per SQL Server — DDL e copia — e il driver è `mssql`/`tedious`, non `pg`. **Le tre scelte di merito restano quelle**, perché non dipendevano dal motore: il `_id` **si preserva e non si rigenera** (`tasks.mov_ids` e gli archivi puntano a quei numeri), le colonne materializzate **si ricalcolano dal documento** invece di copiarle, e il documento resta un documento. **Due cose vanno verificate prima di scrivere il DDL**: (a) **quale versione di SQL Server** ha l'azienda — cambia se il documento è `NVARCHAR(MAX)` con vincolo `ISJSON` e colonne calcolate persistite indicizzate, oppure il tipo `json` nativo delle versioni recenti; (b) **se è l'istanza su cui gira già Sage X3** — §6 dice «Sage X3 fino al 2038», e se il motore è quello l'azienda ha già istanza, backup e chi la amministra, il che risponde da solo alla voce 37. Sono due domande all'IT, non due decisioni | IT, prima del DDL |
 | **39** | **React nel front end: si comincia da un'isola, o non si comincia.** Chiesto da Andrea il 25/08, valutato lo stesso giorno — la valutazione, coi numeri, sta in §2 «Lavoro di fondo». In breve: **il beneficio è reale e non è la velocità**, è che lo stato smette di essere ricopiato a mano nel DOM; **il costo non è React, sono le 16.778 righe di viste che nessun collaudo guarda** — un solo file di prova su 34 tocca il DOM. Quel che va deciso non è «React sì o no», è **una cosa sola: quale maschera fa da prima isola, e quando**. La risposta consigliata è **il cruscotto** — si ridisegna intero a ogni giro, non muove merce, non chiede il PIN, e ha già 19 prove sul modulo che lo calcola — **dopo** che la forma della migrazione del database (voce 36) è nota, perché se `lib/db.js` diventa asincrono ogni vista cambia comunque il modo in cui legge, e convertire due volte la stessa maschera è il solo spreco sicuro | Andrea |
-| **38** | **I lotti sono sensibili al maiuscolo, e il lettore di barcode scrive minuscolo.** Segnalato da Andrea il 25/08. In azienda il lettore restituisce le lettere del codice **in minuscolo**: `6000366B#abc123` e `6000366B#ABC123` sono **due righe diverse nello stesso vano** — l'indice composto `[location_code+item_key]` le fa convivere — e il prelievo non trova la merce che vede a scaffale. **La regola che deve valere: articolo e lotto sono maiuscoli, sempre, e un campo che riceve minuscolo lo alza da solo invece di rifiutare.** Dove sta il difetto, misurato nel codice il 25/08: **(a)** `Validate.RE.LOT` porta la spia `/i` e `RE.ARTICLE` no — è **quel carattere** che lascia entrare il minuscolo, e solo sul lotto; **(b)** i **16 campi lotto** di dieci viste non portano nemmeno la classe `uppercase` che i campi articolo portano; **(c)** quella classe è **CSS, `text-transform`: cambia come il campo si vede, non `input.value`** — la portano 35 campi, la trasformazione vera la fanno **8 campi in tutto il client**, e nessuno degli otto è un articolo o un lotto; **(d)** `Store.addItem` compone `item_key` come `articolo#lotto` **senza normalizzare** (`core/store.ts:878`), e il servizio confronta `r.item_key === item_key`; **(e)** `pickRoute.ts:179` alza l'articolo e **lascia stare il lotto**, quindi un percorso nato dall'ODP non riaggancia la riga. Lo strumento c'è già — `Validate.clean(v, upper)`, che l'import Excel usa. **Ed è codice più dato**: le righe già scritte in minuscolo vanno raddrizzate, e dove le due grafie convivono nello stesso vano raddrizzarle **fonde due righe** — si fa su una copia e si contano prima, come per le voci 14 e 31 | da costruire |
+| **38** | **I lotti erano sensibili al maiuscolo, e il lettore di barcode scrive minuscolo.** Segnalato da Andrea il 25/08. In azienda il lettore restituisce le lettere **in minuscolo**: `6000366B#abc123` e `6000366B#ABC123` erano **due righe diverse nello stesso vano** — l'indice composto `[location_code+item_key]` le fa convivere — e il prelievo non trovava la merce che vede a scaffale. **~~Il codice è chiuso il 25/08~~ — vedi §1**: le diciassette letture di lotto prendono il `true` che l'articolo aveva sempre avuto, `chiaveLotto` e `pickRoute` alzano tutti e due i lati, `addItem` normalizza prima di comporre la chiave, i campi alzano il **valore** e non solo il modo in cui si vedono, e `RE.LOT` perde la spia `/i`. 21 prove nuove. **RESTA IL DATO, ed è di Andrea**: le righe scritte prima portano ancora la grafia con cui sono nate. Lo strumento c'è — `server/raddrizza-maiuscole.js`, che **conta e basta** finché non gli si dice `--sul-serio` — e va lanciato **su una copia**. Quel che conta non è quante righe sono storte: è **quante si fonderebbero**, cioè dove le due grafie convivono nello stesso vano. Quelle lo script non le tocca e le elenca: sommare due giacenze è un movimento, non una correzione di grafia, e il registro vuole la riga che lo spiega. Come per le voci 14 e 31 | **Andrea, il dato** |
 | **37** | **Dove gira SQL Server: in azienda o su Azure SQL.** La voce 36 dice il motore, non dove sta. **Su un'istanza interna §6 regge com'è** — «niente Azure» compreso — e «niente lavoro offline» resta quello di oggi: cade la rete aziendale, non la linea verso Internet. **Su Azure SQL diventa «niente lavoro senza linea»**, e il magazzino si ferma quando cade la connessione dell'azienda: 300÷500 movimenti al giorno, coi muletti fermi. Cambia anche l'autenticazione — su un'istanza interna può essere **integrata Windows, senza nessuna password da custodire**; su Azure è una stringa di connessione, che allora vuole Key Vault. È una decisione di continuità operativa e va presa **prima** di riscrivere `lib/db.js`: il codice è quasi lo stesso, il piano di fermo no | Andrea |
 
 **Quanto pesano le due voci qui sopra, misurato il 19/08.** La voce 5 (zone
@@ -2459,6 +2515,7 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 | `torna-indietro.ps1` | — | Scambia il contenuto di `corrente` e `precedente`. **Riporta indietro il solo applicativo**, non il servizio: dal 18/08 si torna indietro reinstallando il pacchetto della versione di prima — §4 |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata delle 20:00 |
 | `azure/schema-postgres.js` · `azure/migra-sqlite-postgres.js` · `azure/LEGGIMI.md` | — | **Dal 25/08 è un ramo morto: la migrazione si fa su SQL Server** (voce 36), e questo è PostgreSQL. Non si cancella — il **metodo** che porta è quello che si riusa, e le quattro cose che «questo ramo non risolve» valgono identiche su qualunque motore di rete — ma **il codice va rifatto**, prove comprese. Quel che segue descrive com'è, non cosa si userà. **2.1 — il ramo parallelo, che non è in servizio e non lo chiama nessuno.** Lo schema PostgreSQL si genera dalla **stessa** dichiarazione di `lib/schema.js`, non da una copia; la migrazione copia una COPIA del database e ricontrolla i conteggi tavolo per tavolo. `pg` **non è** una dipendenza del progetto, ed è voluto: si installa con `--no-save` chi vuole provare. `server/azure` è escluso da `tsconfig.server.json` per la stessa ragione |
+| `raddrizza-maiuscole.js` | 195 | **2.2 — l'altra metà della voce 38: il dato.** Il codice adesso scrive maiuscolo, ma `item_key` è un campo **scritto** e le righe di prima portano la grafia con cui sono nate. Cosí com'è **conta e basta**; scrive solo con `--sul-serio`, e **rifiuta il database in servizio** prima di ogni altro controllo. Le **fusioni non le tocca**: due righe che dopo l'alzata avrebbero la stessa chiave nello stesso vano si elencano una per una e lo script si ferma — sommare due giacenze è un movimento, non una correzione di grafia, e il registro vuole la riga che lo spiega. Non tocca i documenti archiviati: §6 dice che le ristampe partono dallo snapshot |
 | `test/collaudo.js` · `test/collaudo-migrazione-1.4.js` | 520 · 158 | 81 prove sul servizio vero · 8 sul cambio di schema |
 | `test/collaudo-installazione.js` | — | **22 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte; e l'**installer a doppio clic** in `-Prova`, che è il modo di provarlo senza registrare attività pianificate su questa macchina |
 
@@ -2467,8 +2524,19 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
 `compiti` (114) · `misure` (65) · `colli` (66) · `parametri` (19) · `documenti` (6) ·
-`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) — **925 prove in 32 file**. `ambiente.js` è
+`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) · **`maiuscolo` (21)** — **946 prove in 33 file**. `ambiente.js` è
 il preambolo comune.
+
+**`maiuscolo` è il guardiano della voce 38**, e guarda l'INSIEME invece di una
+maschera per volta: il difetto non era una riga sbagliata, era **una regola
+applicata a metà** — ogni lettura di articolo portava `Validate.clean(v,
+true)` e nessuna delle diciassette letture di lotto lo portava. Presa da sola
+ogni maschera era coerente con sé stessa, ed è il motivo per cui nessuno se
+n'era accorto leggendo. Le prove contano le diciassette letture, pretendono la
+classe `uppercase` su ogni campo che porta un codice — con l'elenco delle
+eccezioni **dichiarato e verificato**, perché una descrizione non è un codice —
+e sorvegliano il modo in cui il difetto torna: una maschera **nuova** che si
+dimentica il `true`.
 
 Le tre prove del 2.2 leggono il SORGENTE invece di girare il codice, e non è
 un ripiego: fissano regole che un DOM non c'è per verificare — una riga che

@@ -605,7 +605,7 @@ export const VistaPercorso = {
         </div>
         <div class="form-group mb-4">
           <label>③ Scansiona LOTTO <span class="req">*</span></label>
-          <input class="input input-mono" id="rLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
+          <input class="input input-mono uppercase" id="rLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._routeCheckLot();}">
         </div>
 
@@ -727,7 +727,7 @@ export const VistaPercorso = {
       $('rArt')?.focus();
       return;
     }
-    const val = Validate.clean($('rLot')?.value);
+    const val = Validate.clean($('rLot')?.value, true);
     if (!val) return;
     if (val === st.lot_code) {
       this._routeScan.lot = val;

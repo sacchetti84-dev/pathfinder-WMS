@@ -269,8 +269,22 @@ describe('indice dei lotti', () => {
     expect(I.lotByKey.get('700#L1').uom_per_collo).toBe(1000);
   });
 
-  it('la chiave alza il codice e lascia stare il lotto, come item_key', () => {
-    expect(chiaveLotto(' 700 ', ' l1 ')).toBe('700#l1');
+  /* 2.2 — LA PROVA E' CAMBIATA DI PROPOSITO, e diceva il contrario: «alza il
+     codice e lascia stare il lotto». Lasciarlo stare era il difetto — il
+     lettore di barcode in azienda restituisce le lettere in minuscolo, e
+     `700#l1` e `700#L1` erano due confezioni congelate per lo stesso lotto.
+     Voce 38 dell'INDEX. */
+  it('alza articolo E lotto, come item_key', () => {
+    expect(chiaveLotto(' 700 ', ' l1 ')).toBe('700#L1');
+  });
+
+  /* La ragione per cui questa prova esiste: l'indice è derivato, quindi la
+     chiave si alza sui DUE lati — il lotto scritto minuscolo prima della 2.2
+     si ritrova cercandolo maiuscolo, senza toccare il dato. */
+  it('ritrova un lotto scritto minuscolo prima della 2.2', () => {
+    applica('lots', 'put', lotto(1, '700', 'l1'));
+    expect(I.lotByKey.get('700#L1')).toBeTruthy();
+    expect(chiaveLotto('700', 'L1')).toBe(chiaveLotto('700', 'l1'));
   });
 
   it('ricongelare lo stesso lotto sostituisce, non accoda', () => {

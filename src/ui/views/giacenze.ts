@@ -422,7 +422,7 @@ export const VistaGiacenze = {
         </div>
         <div class="form-group">
           <label>Lotto <span class="req">*</span></label>
-          <input class="input input-mono" id="editItemLot" value="${this._esc(item.lot_code)}" maxlength="${Validate.MAX.LOT_CODE}">
+          <input class="input input-mono uppercase" id="editItemLot" value="${this._esc(item.lot_code)}" maxlength="${Validate.MAX.LOT_CODE}">
         </div>
       </div>
 
@@ -498,7 +498,7 @@ export const VistaGiacenze = {
   async doEditItem(locationCode, originalItemKey) {
     if (!this._requireOperator('la modifica dati item')) return;   // v2.0.1 [B7]
     const art = Validate.clean($('editItemArt')?.value, true);
-    const lot = Validate.clean($('editItemLot')?.value);
+    const lot = Validate.clean($('editItemLot')?.value, true);
     const desc = Validate.clean($('editItemDesc')?.value);
     // v2.3.0 [D1] — il campo è in formato gg/mm/aaaa: conversione a ISO per lo storage/FEFO
     const exp = this._dateITtoISO($('editItemExp')?.value, 'Scadenza');
@@ -580,7 +580,7 @@ export const VistaGiacenze = {
       </div>
       <div class="form-row mb-6">
         <div class="form-group"><label>Codice Lotto <span class="req">*</span></label>
-          <input class="input input-mono" id="itemLotCode" placeholder="L240815" maxlength="${Validate.MAX.LOT_CODE}"></div>
+          <input class="input input-mono uppercase" id="itemLotCode" placeholder="L240815" maxlength="${Validate.MAX.LOT_CODE}"></div>
         <div class="form-group"><label>Scadenza (opz.)</label>
           <input class="input" id="itemExpiry" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" oninput="App._dateMaskInput(this)" onblur="App._dateMaskBlur(this)"></div>   <!-- v2.3.0 [D1]: era type=month -->
       </div>
@@ -609,7 +609,7 @@ export const VistaGiacenze = {
   async doAddItem(locationCode) {
     const code = Validate.clean($('itemArticleCode').value, true);
     const desc = Validate.clean($('itemArticleDesc').value);
-    const lot = Validate.clean($('itemLotCode').value);
+    const lot = Validate.clean($('itemLotCode').value, true);
     // v2.3.0 [D1] — il campo scadenza è in formato gg/mm/aaaa: conversione a ISO
     const expiry = this._dateITtoISO($('itemExpiry').value, 'Scadenza');
     if (expiry === null) return;   // data incompleta o non valida → inserimento interrotto

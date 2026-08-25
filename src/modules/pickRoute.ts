@@ -176,7 +176,7 @@ const PickRoute = {
       }
 
       for (const lot of line.lots) {
-        const itemKey = `${String(line.article_code).toUpperCase().trim()}#${String(lot.lot_code).trim()}`;
+        const itemKey = `${String(line.article_code).toUpperCase().trim()}#${String(lot.lot_code).toUpperCase().trim()}`;
         const found = Store.getItemByKey(itemKey);
 
         const base = {

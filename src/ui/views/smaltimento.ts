@@ -44,7 +44,7 @@ export const VistaSmaltimento = {
       </div>
       <div class="form-group mb-6">
         <label>② Scansiona Lotto <span class="req">*</span></label>
-        <input class="input input-mono" id="mOutLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
+        <input class="input input-mono uppercase" id="mOutLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._searchOut();}">
       </div>
       <div id="mOutResults"><div class="text-body-medium text-sx-text-muted p-4">Scansiona articolo e lotto, poi premi INVIO</div></div>`;
@@ -53,7 +53,7 @@ export const VistaSmaltimento = {
 
   _searchOut() {
     const art = Validate.clean($('mOutArt')?.value, true);
-    const lot = Validate.clean($('mOutLot')?.value);
+    const lot = Validate.clean($('mOutLot')?.value, true);
     const el = $('mOutResults');
     if (!art) {
       el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice articolo</div>';
@@ -200,7 +200,7 @@ export const VistaSmaltimento = {
         </div>
         <div class="form-group mb-4">
           <label>③ Scansiona LOTTO <span class="req">*</span></label>
-          <input class="input input-mono" id="dLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
+          <input class="input input-mono uppercase" id="dLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._dispCheckLot();}">
         </div>
 
@@ -362,7 +362,7 @@ export const VistaSmaltimento = {
       $('dArt')?.focus();
       return;
     }
-    const val = Validate.clean($('dLot')?.value);
+    const val = Validate.clean($('dLot')?.value, true);
     if (!val) return;
     if (val === d.lot_code) {
       d.scan.lot = val;

@@ -18,7 +18,12 @@
    `_colliSelOpzioniParte`.
    2.1: sono usciti i sei della copia esterna (`vault*`, `doVaultRestore`,
    `_scheduleVaultBackup`), `purgeOldLogsManual` con la purga, e i due
-   salvataggi a mano `forceSave` e `manualSave`. */
+   salvataggi a mano `forceSave` e `manualSave`.
+
+   2.2: e' entrato `_uppercaseFix` - il gestore delegato che alza a
+   maiuscolo il VALORE dei campi che portano la classe `uppercase`, non
+   solo il modo in cui si vedono. Il lettore di barcode in azienda scrive
+   minuscolo e `item_key` distingue le maiuscole: voce 38. */
 export const SUPERFICIE = [
   'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_KNOWN_OPERATORS_KEY',
   '_MIGRATED_KEY', '_MOVQUEUE_KEY', '_MOV_COLORS', '_MOV_SHORT', '_OPERATOR_KEY',
@@ -146,6 +151,7 @@ export const SUPERFICIE = [
   '_taskRun', '_taskScala', '_taskStatoClasse', '_taskTipo', '_testFeedback',
   '_tsBreve', '_tuttiIColli', '_umFuoriPosto', '_umMossa', '_undoBarHTML', '_undoEntry',
   '_undoLast', '_undoTimer', '_undoValid', '_updateProdCart', '_updateShipCart',
+  '_uppercaseFix',
   '_wireRemote', 'cancelMov', 'changeLevel', 'clearSearch', 'closeDetail', 'closeModal',
   'closeSearchPop', 'confirmDeleteArticle', 'confirmDeleteRecipient', 'confirmDeleteSite',
   'confirmDeleteZone', 'confirmRemoveItem', 'confirmResetData', 'currentLevel',

@@ -269,7 +269,7 @@ export const VistaSpedizioni = {
           </div>
           <div class="form-group mb-4">
             <label>② Scansiona Lotto <span class="req">*</span></label>
-            <input class="input input-mono" id="pShipLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
+            <input class="input input-mono uppercase" id="pShipLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
               onkeydown="if(event.key==='Enter'){event.preventDefault();App._shipLookup();}">
             <div id="pShipInfo"></div>
           </div>
@@ -492,7 +492,7 @@ export const VistaSpedizioni = {
 
   _shipLookup() {
     const art = Validate.clean($('pShipArt')?.value, true);
-    const lot = Validate.clean($('pShipLot')?.value);
+    const lot = Validate.clean($('pShipLot')?.value, true);
     const info = $('pShipInfo');
     const details = $('pShipDetails');
     if (!art) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona prima il codice articolo</div>`; $('pShipArt')?.focus(); return; }

@@ -875,9 +875,27 @@ const Store = {
   },
 
   async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1, qtyUom: number | null = null, packsIn: number[] | null = null) {
+    /* 2.2 — QUI NASCE OGNI `item_key`, E DA QUI ESCE MAIUSCOLO. Le maschere
+       normalizzano già quel che leggono, ma questa è l'unica strada per cui
+       una riga di giacenza viene al mondo: normalizzare anche qui vuol dire
+       che nessun chiamante — una maschera nuova, una prova, una rotta — può
+       piu' scrivere una chiave storta per distrazione. Il lettore di barcode
+       in azienda restituisce le lettere in minuscolo, e `item_key` distingue
+       le maiuscole: senza queste due righe la stessa merce sta a scaffale in
+       due righe che nessuna maschera somma. */
+    articleCode = String(articleCode ?? '').trim().toUpperCase();
+    lotCode = String(lotCode ?? '').trim().toUpperCase();
     const itemKey = `${articleCode}#${lotCode}`;
     const bucket = this._invByLoc.get(locationCode) || [];
-    const existing = bucket.find(i => i.item_key === itemKey);
+    /* IL PONTE PER LE RIGHE SCRITTE PRIMA DELLA 2.2. `item_key` è un campo
+       scritto, non un indice derivato: una riga posizionata con un lotto
+       minuscolo porta ancora quella chiave, e il confronto esatto non la
+       troverebbe piu'. Trovarla è la differenza fra accodare i colli alla
+       riga che c'è e aprirne una seconda accanto — cioè spaccare in due una
+       giacenza che a scaffale è una. Si toglie il giorno che il dato è
+       raddrizzato (voce 38 dell'INDEX), non prima. */
+    const existing = bucket.find(i => i.item_key === itemKey)
+      ?? bucket.find(i => (i.item_key || '').toUpperCase() === itemKey);
     const now = Date.now();
 
     /* 1.4.2 — la confezione si congela QUI, al primo posizionamento: da
