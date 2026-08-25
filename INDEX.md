@@ -42,14 +42,25 @@ scrivono come fatti avvenuti, non come promesse.
 correzioni per arrivarci: il pacchetto giusto rimesso in archivio e l'attività
 pianificata ri-registrata dalla cartella d'installazione.
 
-Sul repository la 2.2 è `main`, commit `3c68d0a`. **925 prove passano su 32
-file**, `tsc --noEmit` è pulito sul client e sul servizio.
+**Il pacchetto in servizio è il commit `3c68d0a`**, e ricostruendolo il 25/08
+è uscita l'impronta `08ce3f69…` cifra per cifra: la build installata *è*
+esattamente quel commit, verificato e non dedotto.
+
+**`main` è andato avanti.** Dal 25/08 sera porta anche la correzione della voce
+19 — il parser dell'ODP che inventava l'unità di misura in silenzio — quindi
+**una build fatta da `main` oggi dà `1cc1b135…`, non `08ce3f69…`**. Non è una
+versione nuova e non si installa: è la 2.2 più una correzione che aspetta il
+suo turno. Chi deve rimettere in servizio la 2.2 identica parte da `3c68d0a`.
+**927 prove passano su 32 file**, `tsc --noEmit` è pulito sul client e sul
+servizio.
 
 **La build è riproducibile bit per bit.** Ricostruendo lo stesso commit a cinque
 giorni di distanza esce la stessa impronta, cifra per cifra — provato il 25/08
-sul commit `495f38c`. Vuol dire che un pacchetto perso non è perso: si riottiene
-dal commit, e che **l'impronta è la prova di quale codice c'è dentro**, non solo
-di quali byte. È il motivo per cui i binari non stanno nel repository.
+sul commit `495f38c`, e di nuovo su `3c68d0a`. Vuol dire che un pacchetto perso
+non è perso: si riottiene dal commit, e che **l'impronta è la prova di quale
+codice c'è dentro**, non solo di quali byte. È il motivo per cui i binari non
+stanno nel repository — e il motivo per cui due impronte diverse vanno prese
+sul serio: dicono che il codice è diverso.
 
 ---
 
