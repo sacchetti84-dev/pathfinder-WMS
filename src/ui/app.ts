@@ -819,13 +819,21 @@ const App = monolite({
       const pacchetto = JSON.parse(testo);
       const check = Store.verifyExportPackage(pacchetto);
       const c = pacchetto._counts || Store._countsOf(pacchetto);
+      /* LE COPIE AUTOMATICHE NON PORTANO IL REGISTRO, e chi ripristina deve
+         saperlo prima di premere. Escono da `writeOPFSBackup` con
+         `includeMovLog: false`, quindi `_counts.mov_log` non c'e' e la riga
+         dei Movimenti mostrava «0» — che si legge «questo file non ha
+         movimenti», mentre vuol dire «questo file non li porta». Il registro
+         adesso resta dov'e' (vedi `importAll`), e va detto anche questo. */
+      const senzaRegistro = !Array.isArray(pacchetto.mov_log);
       if (!await Dialog.confirm({
         title: 'Ripristinare questa copia locale?',
         message: (check.ok ? '' : 'Verifica: ' + check.problemi.join(' · ') + '\n\n') +
-          'I dati attualmente presenti verranno sostituiti. Verrà prima scaricato un export dello stato attuale.',
+          'I dati attualmente presenti verranno sostituiti. Verrà prima scaricato un export dello stato attuale.' +
+          (senzaRegistro ? '\n\n⚠ Questa copia NON contiene il registro movimenti. Il registro di adesso resta dov\u2019è: non viene né sostituito né cancellato.' : ''),
         details: Dialog.kv([
           ['File', filename],
-          ['Movimenti', Number(c.mov_log || 0).toLocaleString('it-IT')],
+          ['Movimenti', senzaRegistro ? 'non inclusi nella copia — il registro attuale resta' : Number(c.mov_log || 0).toLocaleString('it-IT')],
           ['Giacenze', Number(c.inventory || 0).toLocaleString('it-IT')]
         ]),
         confirmLabel: 'Ripristina', danger: true

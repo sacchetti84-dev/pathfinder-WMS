@@ -153,6 +153,20 @@ describe('il registro dei movimenti', () => {
     expect('mov_log' in p).toBe(false);
     expect('mov_log' in p._counts).toBe(false);
   });
+
+  /* L'ALTRA META' DELLA DISTINZIONE, e da questa dipende il ripristino.
+     `Store.importAll` in overwrite svuota `mov_log` SOLO se il pacchetto lo
+     nomina: chiave assente vuol dire «non lo porto» e il registro resta dov'e';
+     elenco vuoto vuol dire «di movimenti non ce n'e' nessuno» e allora si
+     svuota davvero. Se un giorno `componi` smettesse di scrivere `mov_log: []`
+     per un magazzino senza movimenti, il ripristino non svuoterebbe piu' un
+     registro che andrebbe svuotato — ed e' un difetto che nessuno vedrebbe. */
+  it("un magazzino senza movimenti porta comunque un elenco vuoto, non l’assenza", () => {
+    const p = componi(cache(), []);
+    expect('mov_log' in p).toBe(true);
+    expect(p.mov_log).toEqual([]);
+    expect(p._counts.mov_log).toBe(0);
+  });
 });
 
 describe('la verifica di un pacchetto che rientra', () => {

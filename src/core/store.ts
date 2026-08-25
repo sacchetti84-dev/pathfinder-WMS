@@ -3301,9 +3301,34 @@ const Store = {
          porta. Una collezione assente dal pacchetto ma piena a database
          sopravviverebbe al ripristino: UDC e conti WIP che puntano a righe
          di giacenza appena sostituite. Il ripristino deve lasciare il
-         magazzino nello stato del file, non in una miscela dei due. */
+         magazzino nello stato del file, non in una miscela dei due.
+         UNA SOLA ECCEZIONE, ed e' il registro: qui sotto. */
+      /* IL REGISTRO NON SI SVUOTA SE IL PACCHETTO NON LO PORTA.
+
+         Le copie automatiche locali (`writeOPFSBackup`) escono con
+         `includeMovLog: false` e `componi` fa `delete data.mov_log`: il file
+         non porta il registro, e si dichiara con `_partial`. Rimettendone
+         dentro una, il `clearMany` qui sotto svuotava `mov_log` e il ciclo lo
+         saltava perche' non c'era niente da scrivere — il registro spariva, e
+         nessuno lo diceva. E' successo davvero: 253 movimenti al 19/08, uno
+         al 20/08, zero il 22 e il 23.
+
+         La distinzione e' fra CHIAVE ASSENTE e ELENCO VUOTO: un pacchetto che
+         non nomina `mov_log` non porta il registro, e il registro resta dov'e';
+         un pacchetto con `mov_log: []` dice che di movimenti non ce n'e'
+         nessuno, e allora svuotare e' giusto.
+
+         Per tutte le altre collezioni lo svuotamento in blocco resta com'era, e
+         il perche' e' scritto qui sopra: sono STATO, e devono combaciare con le
+         giacenze che stanno rientrando. Il registro non e' stato — e' storia
+         che si accumula, e non ha nessun vincolo di coerenza da rispettare. */
+      const portaRegistro = Array.isArray(data['mov_log']);
+      const daSvuotare = portaRegistro
+        ? COLLEZIONI_EXPORT
+        : COLLEZIONI_EXPORT.filter(c => c !== 'mov_log');
+
       await Persistence.transaction([...COLLEZIONI_EXPORT, 'meta'], async () => {
-        await Persistence.clearMany(COLLEZIONI_EXPORT);
+        await Persistence.clearMany(daSvuotare);
         for (const c of COLLEZIONI_EXPORT) {
           const righe = data[c];
           if (!Array.isArray(righe) || !righe.length) continue;

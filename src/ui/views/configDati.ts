@@ -408,6 +408,18 @@ export const VistaConfigDati = {
       const contenuto = Object.entries<number>(Store._countsOf(data))
         .filter(([, n]) => n > 0).map(([k, n]) => `${k}: ${n}`).join(' · ') || 'nessun record';
 
+      /* UN PACCHETTO CHE NON PORTA IL REGISTRO LO DEVE DIRE QUI, dove chi
+         ripristina legge cosa sta per entrare. Le copie automatiche escono
+         senza `mov_log` e il conteggio non lo nomina nemmeno: la riga diceva
+         quel che c'e', e taceva su quel che manca. Il registro di adesso non
+         viene piu' cancellato da un ripristino cosi' — vedi `Store.importAll`.
+         Vale il contrario per `mov_log: []`: quello e' un file che dichiara
+         zero movimenti, e allora il registro si svuota davvero. */
+      const senzaRegistro = !Array.isArray(data.mov_log);
+      const notaRegistro = senzaRegistro
+        ? ' — ⚠ senza registro movimenti: quello di adesso resta dov’è'
+        : '';
+
       let mode = null;
       if (destinazioneVuota) {
         const scelta = await Dialog.confirm({
@@ -416,7 +428,7 @@ export const VistaConfigDati = {
                    'L’importazione COMPLETA porta tutto il contenuto del file. Non cancella niente, perché non c’è niente da cancellare.\n\n' +
                    `Il merge, qui, porterebbe solo siti, zone, articoli e giacenze: resterebbero fuori ${NON_PORTATE}. ` +
                    'Senza operatori nessuno potrebbe entrare né registrare movimenti.',
-          details: Dialog.kv([['File', file.name], ['Contenuto', contenuto]]),
+          details: Dialog.kv([['File', file.name], ['Contenuto', contenuto + notaRegistro]]),
           confirmLabel: 'Importa TUTTO', cancelLabel: 'Altre opzioni…', icon: '\u{1F4E5}'
         });
         if (scelta === true) {
@@ -451,7 +463,7 @@ export const VistaConfigDati = {
           details: Dialog.kv([
             ['File', file.name],
             ['Scritto il', String(data._exported || '—').slice(0, 16).replace('T', ' ')],
-            ['Contenuto', contenuto],
+            ['Contenuto', contenuto + notaRegistro],
           ]),
           confirmLabel: 'RIPRISTINA tutto', cancelLabel: 'Altre opzioni…', danger: true, icon: '\u267B'
         });
