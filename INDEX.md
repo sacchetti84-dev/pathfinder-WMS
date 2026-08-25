@@ -105,6 +105,69 @@ porta dati veri, e per questo un collaudo si fa sempre su una **copia** — §5.
 
 ## 1. Stato
 
+### Il 25/08 — il passaggio a SQL Server è cominciato, e per ora è parallelo
+
+**Il ramo `server/sqlserver/` esiste, e non lo chiama nessuno.** È lo stesso
+metodo con cui era nato `azure/` il 19/08: si prepara schema e migrazione
+**senza toccare quello che lavora**, così il giorno che si accende c'è già, e
+nel frattempo dentro l'applicativo non c'è un ramo di codice che nessuno
+percorre. In servizio c'è SQLite e ci resta.
+
+**Copre due pezzi su cinque** — il DDL e la copia — e il DDL si **genera dalla
+stessa dichiarazione** di `lib/schema.js`, non da una copia: è la parte che
+era costata pensarla, ed è l'unica che si riusa dal ramo PostgreSQL.
+
+**Tre trappole di T-SQL, e due morderebbero già adesso su questo schema.**
+*(a)* `meta` ha una colonna che si chiama **`key`**, che in T-SQL è una parola
+riservata: senza le parentesi quadre quel `CREATE TABLE` non compila, e lo si
+scoprirebbe a metà migrazione. Qui è quotato **tutto**, tabelle e colonne, per
+togliere di mezzo la categoria intera invece di lasciare a chi verrà il compito
+di ricordarsi quali nomi sono a rischio. *(b)* **Una chiave di indice non può
+essere `NVARCHAR(MAX)`**, e su SQLite quelle colonne sono `TEXT` senza limite e
+indicizzate tutte: diventano `NVARCHAR(200)`, il doppio abbondante del valore
+più lungo che lo schema produce — `item_key` è 61 caratteri. *(c)* `IF NOT
+EXISTS` **non esiste** su `CREATE TABLE` né su `CREATE INDEX`: la guardia si
+scrive a mano con `OBJECT_ID` e `sys.indexes`, e serve perché lo schema si
+rilancia sopra un database che già c'è.
+
+**`NVARCHAR`, mai `VARCHAR`.** Descrizioni, nomi operatore e ragioni sociali
+sono italiani e portano le accentate: `VARCHAR` sotto una collation non Unicode
+le storpia **in silenzio** — non un errore, un punto interrogativo dentro una
+descrizione, per sei anni.
+
+**Il `_id` si preserva, e su SQL Server questo costa due gesti in più.**
+`SET IDENTITY_INSERT` — **una tabella per volta**, perché il motore ne ammette
+una sola accesa per sessione — e poi `DBCC CHECKIDENT ... RESEED`, senza il
+quale la prima scrittura nuova riparte da 1 e sbatte contro la chiave primaria
+a magazzino aperto. È lo stesso problema che di là si chiudeva con `setval`.
+
+**Una cosa che cambia rispetto a quel che si diceva con PostgreSQL, e va detta
+invece che nascosta.** Il ramo `azure/` metteva un indice **GIN** sul documento
+`JSONB` e lo dichiarava «l'unica ragione tecnica seria per cui PostgreSQL
+varrebbe la pena su questo modello». **Su SQL Server quell'argomento non si
+trasferisce**: non c'è un equivalente del GIN — si promuove un campo a colonna
+calcolata persistita e si indicizza quella, un campo per volta. Qui il documento
+è testo con un `CHECK (ISJSON(...))`, e basta. Non cambia la decisione, che è
+presa per altre ragioni; cambia cosa aspettarsi. Il client di oggi comunque non
+lo sfruttava: legge e filtra a monte.
+
+**Il documento resta `NVARCHAR(MAX)` e non il tipo `json` nativo** finché non si
+sa quale versione ha l'azienda — voce 36. Questa forma funziona su tutto quello
+che potrebbe rispondere, dal 2016 in avanti e su Azure SQL, e stringerla dopo è
+un `ALTER`, non una riscrittura.
+
+**Misurato:** 960 prove in 34 file (erano 946 in 33) — le 14 nuove sono
+`schemaSqlServer`, e girano a ogni `npm test` come quelle del ramo PostgreSQL.
+`npm run check` pulito. `server/sqlserver` è escluso da `tsconfig.server.json`
+per la stessa ragione di `server/azure`: `mssql` non è una dipendenza del
+progetto, e con `checkJs` acceso un `require` dentro il perimetro del servizio
+farebbe fallire il controllo su una libreria che nessuno ha chiesto.
+
+**Quel che NON è cominciato è il pezzo grosso**: `lib/db.js`, 315 righe di
+SQLite **sincrono**, che diventano asincrone insieme a ogni rotta e alle 98
+prove del servizio. Più backup e ritorno indietro, che cambiano padrone. Sta in
+§2, «Lavoro di fondo», e in `server/sqlserver/LEGGIMI.md`.
+
 ### Il 25/08 — articolo e lotto diventano maiuscoli, e non solo a vedersi
 
 **Il difetto non era una riga sbagliata: era una regola applicata a metà.**
@@ -1082,7 +1145,7 @@ collauda al banco e si consegna il pacchetto.
 | **33** | **Il registro racconta male i trasferimenti** — §1, trovato dal guardiano il 20/08: **54 movimenti su 256 sono `MOVE` con `delta 0`** e saldo invariato, e i `QREL` non portano nessuna quantità. La merce si sposta davvero, verificato. Ma il registro si tiene **sei anni**, e la domanda che ci si fa fra tre è «quanto»: un movimento che non porta la quantità a quella domanda non risponde. Non è un difetto che si vede lavorando, ed è il motivo per cui va scritto qui | da costruire |
 | **34** | **Un movimento `EDIT` senza merce** — `# MAG-ACC-03`, articolo e lotto vuoti. Uno solo su 256, trovato dal guardiano il 20/08 | da chiarire |
 | **35** | **La 2.1 è in servizio da un pacchetto che nessun documento nominava.** L'impronta in produzione (`7cd16b50…`, costruita il 20/08 alle 08:31) non è quella che l'INDEX dichiarava (`29f215e1…`). È la **terza volta in quattro giorni** che il documento dice dove gira la produzione e la produzione gira altrove. Non è una riga da correggere: è il motivo per cui §0 punto 2 esiste, e va riletto da chi apre una conversazione nuova | letto, non si chiude |
-| **36** | **Il database lascia SQLite e va su SQL SERVER** — confermato da Andrea il **25/08**, motore compreso. Supera la voce 26. **La conseguenza immediata è che il ramo `server/azure/` non serve**: `schema-postgres.js` e `migra-sqlite-postgres.js` sono scritti per PostgreSQL, e con loro le **8 prove** di `schemaPostgres.test.js` sorvegliano uno schema che non si userà. Vanno rifatti per SQL Server — DDL e copia — e il driver è `mssql`/`tedious`, non `pg`. **Le tre scelte di merito restano quelle**, perché non dipendevano dal motore: il `_id` **si preserva e non si rigenera** (`tasks.mov_ids` e gli archivi puntano a quei numeri), le colonne materializzate **si ricalcolano dal documento** invece di copiarle, e il documento resta un documento. **Due cose vanno verificate prima di scrivere il DDL**: (a) **quale versione di SQL Server** ha l'azienda — cambia se il documento è `NVARCHAR(MAX)` con vincolo `ISJSON` e colonne calcolate persistite indicizzate, oppure il tipo `json` nativo delle versioni recenti; (b) **se è l'istanza su cui gira già Sage X3** — §6 dice «Sage X3 fino al 2038», e se il motore è quello l'azienda ha già istanza, backup e chi la amministra, il che risponde da solo alla voce 37. Sono due domande all'IT, non due decisioni | IT, prima del DDL |
+| **36** | **Il database lascia SQLite e va su SQL SERVER** — confermato da Andrea il **25/08**, motore compreso. Supera la voce 26. **Cominciato lo stesso giorno, e per ora parallelo**: `server/sqlserver/` porta il DDL generato dalla stessa dichiarazione di `lib/schema.js` e la copia tavolo per tavolo, con 14 prove che girano a ogni `npm test` — §1. **Non lo chiama nessuno, e in servizio c'è SQLite.** Il ramo `azure/` resta come memoria del metodo: era PostgreSQL, e il suo codice non serve. **Restano due domande all'IT, e nessuna delle due blocca quel che c'è:** *(a)* **quale versione di SQL Server** — decide se il documento resta `NVARCHAR(MAX)` con `ISJSON` o diventa il tipo `json` nativo, e lo schema di oggi funziona in tutti e due i casi; *(b)* **se è la stessa istanza su cui gira Sage X3** — se lo fosse, l'azienda ha già istanza, backup e chi la amministra, e risponde da sola alla voce 37. **Quel che manca è il grosso**: `lib/db.js`, 315 righe di SQLite sincrono, e con lui ogni rotta e le 98 prove del servizio | IT, le due domande |
 | **39** | **React nel front end: si comincia da un'isola, o non si comincia.** Chiesto da Andrea il 25/08, valutato lo stesso giorno — la valutazione, coi numeri, sta in §2 «Lavoro di fondo». In breve: **il beneficio è reale e non è la velocità**, è che lo stato smette di essere ricopiato a mano nel DOM; **il costo non è React, sono le 16.778 righe di viste che nessun collaudo guarda** — un solo file di prova su 34 tocca il DOM. Quel che va deciso non è «React sì o no», è **una cosa sola: quale maschera fa da prima isola, e quando**. La risposta consigliata è **il cruscotto** — si ridisegna intero a ogni giro, non muove merce, non chiede il PIN, e ha già 19 prove sul modulo che lo calcola — **dopo** che la forma della migrazione del database (voce 36) è nota, perché se `lib/db.js` diventa asincrono ogni vista cambia comunque il modo in cui legge, e convertire due volte la stessa maschera è il solo spreco sicuro | Andrea |
 | **38** | **I lotti erano sensibili al maiuscolo, e il lettore di barcode scrive minuscolo.** Segnalato da Andrea il 25/08. In azienda il lettore restituisce le lettere **in minuscolo**: `6000366B#abc123` e `6000366B#ABC123` erano **due righe diverse nello stesso vano** — l'indice composto `[location_code+item_key]` le fa convivere — e il prelievo non trovava la merce che vede a scaffale. **~~Il codice è chiuso il 25/08~~ — vedi §1**: le diciassette letture di lotto prendono il `true` che l'articolo aveva sempre avuto, `chiaveLotto` e `pickRoute` alzano tutti e due i lati, `addItem` normalizza prima di comporre la chiave, i campi alzano il **valore** e non solo il modo in cui si vedono, e `RE.LOT` perde la spia `/i`. 21 prove nuove. **RESTA IL DATO, ed è di Andrea**: le righe scritte prima portano ancora la grafia con cui sono nate. Lo strumento c'è — `server/raddrizza-maiuscole.js`, che **conta e basta** finché non gli si dice `--sul-serio` — e va lanciato **su una copia**. Quel che conta non è quante righe sono storte: è **quante si fonderebbero**, cioè dove le due grafie convivono nello stesso vano. Quelle lo script non le tocca e le elenca: sommare due giacenze è un movimento, non una correzione di grafia, e il registro vuole la riga che lo spiega. Come per le voci 14 e 31 | **Andrea, il dato** |
 | **37** | **Dove gira SQL Server: in azienda o su Azure SQL.** La voce 36 dice il motore, non dove sta. **Su un'istanza interna §6 regge com'è** — «niente Azure» compreso — e «niente lavoro offline» resta quello di oggi: cade la rete aziendale, non la linea verso Internet. **Su Azure SQL diventa «niente lavoro senza linea»**, e il magazzino si ferma quando cade la connessione dell'azienda: 300÷500 movimenti al giorno, coi muletti fermi. Cambia anche l'autenticazione — su un'istanza interna può essere **integrata Windows, senza nessuna password da custodire**; su Azure è una stringa di connessione, che allora vuole Key Vault. È una decisione di continuità operativa e va presa **prima** di riscrivere `lib/db.js`: il codice è quasi lo stesso, il piano di fermo no | Andrea |
@@ -2515,6 +2578,7 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 | `torna-indietro.ps1` | — | Scambia il contenuto di `corrente` e `precedente`. **Riporta indietro il solo applicativo**, non il servizio: dal 18/08 si torna indietro reinstallando il pacchetto della versione di prima — §4 |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata delle 20:00 |
 | `azure/schema-postgres.js` · `azure/migra-sqlite-postgres.js` · `azure/LEGGIMI.md` | — | **Dal 25/08 è un ramo morto: la migrazione si fa su SQL Server** (voce 36), e questo è PostgreSQL. Non si cancella — il **metodo** che porta è quello che si riusa, e le quattro cose che «questo ramo non risolve» valgono identiche su qualunque motore di rete — ma **il codice va rifatto**, prove comprese. Quel che segue descrive com'è, non cosa si userà. **2.1 — il ramo parallelo, che non è in servizio e non lo chiama nessuno.** Lo schema PostgreSQL si genera dalla **stessa** dichiarazione di `lib/schema.js`, non da una copia; la migrazione copia una COPIA del database e ricontrolla i conteggi tavolo per tavolo. `pg` **non è** una dipendenza del progetto, ed è voluto: si installa con `--no-save` chi vuole provare. `server/azure` è escluso da `tsconfig.server.json` per la stessa ragione |
+| `sqlserver/schema-sqlserver.js` · `sqlserver/migra-sqlite-sqlserver.js` · `sqlserver/LEGGIMI.md` | 150 · 235 | **2.2 — il ramo verso SQL Server, ed è la strada** (voce 36). Non è in servizio e non lo chiama nessuno: prepara schema e copia **senza toccare quello che lavora**. Il DDL si genera dalla **stessa** dichiarazione di `lib/schema.js`. Chiude le tre trappole di T-SQL che SQLite e PostgreSQL non hanno — `meta.key` è una parola riservata, una chiave di indice non può essere `NVARCHAR(MAX)`, `IF NOT EXISTS` non esiste — e preserva il `_id` con `SET IDENTITY_INSERT` più `DBCC CHECKIDENT`. `mssql` **non è** una dipendenza del progetto, ed è voluto; `server/sqlserver` è escluso da `tsconfig.server.json` per la stessa ragione di `server/azure` |
 | `raddrizza-maiuscole.js` | 195 | **2.2 — l'altra metà della voce 38: il dato.** Il codice adesso scrive maiuscolo, ma `item_key` è un campo **scritto** e le righe di prima portano la grafia con cui sono nate. Cosí com'è **conta e basta**; scrive solo con `--sul-serio`, e **rifiuta il database in servizio** prima di ogni altro controllo. Le **fusioni non le tocca**: due righe che dopo l'alzata avrebbero la stessa chiave nello stesso vano si elencano una per una e lo script si ferma — sommare due giacenze è un movimento, non una correzione di grafia, e il registro vuole la riga che lo spiega. Non tocca i documenti archiviati: §6 dice che le ristampe partono dallo snapshot |
 | `test/collaudo.js` · `test/collaudo-migrazione-1.4.js` | 520 · 158 | 81 prove sul servizio vero · 8 sul cambio di schema |
 | `test/collaudo-installazione.js` | — | **22 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte; e l'**installer a doppio clic** in `-Prova`, che è il modo di provarlo senza registrare attività pianificate su questa macchina |
@@ -2524,8 +2588,18 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
 `compiti` (114) · `misure` (65) · `colli` (66) · `parametri` (19) · `documenti` (6) ·
-`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) · **`maiuscolo` (21)** — **946 prove in 33 file**. `ambiente.js` è
+`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) · **`maiuscolo` (21)** · **`schemaSqlServer` (14)** — **960 prove in 34 file**. `ambiente.js` è
 il preambolo comune.
+
+**`schemaSqlServer` sta al ramo SQL Server come `schemaPostgres` sta a quello
+PostgreSQL**, e per la stessa ragione: il giorno che qualcuno lo prova, lo
+schema deve descrivere le venti collezioni che il servizio usa **oggi**, non
+quelle di quando è stato scritto — una collezione aggiunta a `lib/schema.js` e
+dimenticata là sarebbe un tavolo che non esiste, e lo si scoprirebbe a metà
+migrazione. Porta in più le tre trappole di T-SQL: che `meta.key` resti quotato,
+che nessuna colonna indicizzata nasca `NVARCHAR(MAX)`, che ogni istruzione sia
+ripetibile. E che la migrazione non perda nessuno dei due gesti dell'identità —
+accenderla e poi riallinearla.
 
 **`maiuscolo` è il guardiano della voce 38**, e guarda l'INSIEME invece di una
 maschera per volta: il difetto non era una riga sbagliata, era **una regola
@@ -2594,6 +2668,7 @@ scritto lì dentro trovi a chi rispondere — §7.
 | La storia: handoff e piani fino al 17/08/2026 | `ARCHIVIO/HANDOFF STORICI/` — **memoria, non istruzioni** |
 | Cosa è stato archiviato e quando | `ARCHIVIO/archive-manifest.json` |
 | Come si disegna un'interfaccia da magazzino | `.claude/skills/erp-wms-frontend/SKILL.md` — **2.1**. Se diverge da §6, vince §6 |
+| Come si migra a SQL Server, e cosa manca ancora | `server/sqlserver/LEGGIMI.md` — **2.2** |
 | Cosa costerebbe davvero staccarsi da un file locale | `server/azure/LEGGIMI.md` — **2.1**. Scritto su PostgreSQL, e dal 25/08 il motore è SQL Server (voce 36): **i quattro punti che «questo ramo non risolve» valgono identici**, il codice no |
 
 ---
