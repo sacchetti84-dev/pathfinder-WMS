@@ -174,11 +174,9 @@ Fatto la sera del 25/08, dopo la ricognizione:
 - **I due rami `agents/*`** erano fusi in `main` senza un commit proprio:
   cancellati.
 
-**Il repository non è in pari con GitHub.** Misurato il 26/08 dopo il commit
-della 2.5: `origin/main` è fermo a `ecbf5b4` — la 2.4 in servizio — e `main` è
-avanti di **un commit solo**, quello della 2.5. Il riordino del 25/08 e la 2.4
-sono già arrivati sul remoto. **Il push non è stato fatto**: si propone, non si
-fa da soli.
+**Il repository è IN PARI con GitHub** — 26/08, dopo il push della 2.5:
+`main` e `origin/main` stanno tutti e due a `9c3fffd`. Prima di stanotte il
+remoto era fermo a `ecbf5b4`, la 2.4 in servizio.
 
 Il database **non è stato migrato**, perché non c'era niente da migrare: né la
 2.1 né la 2.2 toccano `lib/schema.js`.
