@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **24/08/2026**
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **25/08/2026**
 
 **In servizio c'è la 2.2 del 24/08** — impronta `08ce3f69…`, 1.777.087 byte,
 4 file, costruita alle **21:50** e installata alle **22:22**. Pacchetto e
@@ -44,6 +44,12 @@ aggiorna con `git remote set-url`.
 
 Il database **non è stato migrato**, perché non c'era niente da migrare:
 né la 2.1 né la 2.2 toccano `lib/schema.js`.
+
+**Il 25/08 è stata confermata la migrazione del database da SQLite a SQL.** La
+decisione è di Andrea e non è più una valutazione: si fa. **Non è cominciata** —
+in servizio c'è SQLite, e ci resta finché non è scritto il contrario. Cosa
+comporta sta in §2, voci **36** e **37**, e il lavoro che tira dietro in §2,
+«Lavoro di fondo».
 
 ---
 
@@ -1013,11 +1019,13 @@ collauda al banco e si consegna il pacchetto.
 | ~~**29**~~ | ~~**L'ODP chiuso va archiviato**~~ — Andrea, 20/08: «una volta chiuso l'ODP con quello che rientra da WIP, l'ordine è archiviato». **Fatto il 20/08, e per metà c'era già**: la chiusura era già un movimento con la sua data e la sua firma, e un ordine archiviato era già fuori da `ordiniWipAperti`, rifiutato da `entraInWip` e da `esceDaWip`, e stampato «chiuso — consuntivo» invece che «PROVVISORIO». Mancava **l'elenco da sfogliare**: l'archivio esisteva ma si apriva solo digitando a memoria il numero, e il consuntivo di una lavorazione si guarda mesi dopo. Ora c'è — `ordiniArchiviati()`, §1 | fatto |
 | ~~**30**~~ | ~~**Le sei righe orfane nel vano WIP.**~~ **Chiusa il 20/08, in due pezzi.** *Il dato*: quelle sei righe non sono più nel vano WIP — stanno in `M06-COM-01`, dove sono merce normale che qualunque maschera consuma. La premessa «nessuna maschera le può consumare» non vale più. *Il buco*: quello valeva ancora, e adesso c'è la difesa — `righeSenzaOrdine()` e il riquadro nel conto produzione, §1. Si ripresenta ogni volta che qualcuno posiziona a mano nel vano | fatto |
 | ~~**31**~~ | ~~**Le due righe di magazzino storte**~~ — **il saldo torna, misurato il 20/08.** `6000366B#123456` in `MAG-SCA-01-03-B` faceva elenco 101 contro saldo 81: adesso 3 colli, elenco e `qty_uom` tutti e due a 27. `7000924#123456` in `MAG-SPC-01`: 6 colli, tutti e due a 150. **E non è un caso isolato che si è sistemato**: su tutte e quindici le righe a colli dichiarati del magazzino, zero hanno l'elenco che non torna col saldo o col numero di colli. Resta vero il fatto storico — il collo di `MAG-SPC-01` comparve senza un movimento che lo spiegasse, il 19/08 — ma è una domanda sul registro, non una riga da raddrizzare | fatto |
-| **26** | **Decidere se Azure si accende.** Il ramo `server/azure/` è pronto e non lo chiama nessuno. I quattro punti che decidono stanno in `server/azure/LEGGIMI.md`, e il primo è che il magazzino si fermerebbe quando cade la linea | Andrea |
+| ~~**26**~~ | ~~**Decidere se Azure si accende.**~~ **Decisa il 25/08**: il database lascia SQLite — voce 36. I quattro punti di `server/azure/LEGGIMI.md` non erano il pro e il contro della decisione: sono **il lavoro che la decisione compra**, e restano aperti tutti e quattro — continuità (voce 37), latenza delle transazioni composte, backup e ritorno indietro, `lib/db.js` da riscrivere asincrono | decisa |
 | **32** | **Installare la 2.2 e vedere i due numeri coincidere.** Il pacchetto è in `consegna/Pathfinder 2.2/`, impronta `3945a5de…`. Prima di installare restano le maschere col PIN — voce 20 — e vale la trappola di §5: **installare non è accendere** | Andrea |
 | **33** | **Il registro racconta male i trasferimenti** — §1, trovato dal guardiano il 20/08: **54 movimenti su 256 sono `MOVE` con `delta 0`** e saldo invariato, e i `QREL` non portano nessuna quantità. La merce si sposta davvero, verificato. Ma il registro si tiene **sei anni**, e la domanda che ci si fa fra tre è «quanto»: un movimento che non porta la quantità a quella domanda non risponde. Non è un difetto che si vede lavorando, ed è il motivo per cui va scritto qui | da costruire |
 | **34** | **Un movimento `EDIT` senza merce** — `# MAG-ACC-03`, articolo e lotto vuoti. Uno solo su 256, trovato dal guardiano il 20/08 | da chiarire |
 | **35** | **La 2.1 è in servizio da un pacchetto che nessun documento nominava.** L'impronta in produzione (`7cd16b50…`, costruita il 20/08 alle 08:31) non è quella che l'INDEX dichiarava (`29f215e1…`). È la **terza volta in quattro giorni** che il documento dice dove gira la produzione e la produzione gira altrove. Non è una riga da correggere: è il motivo per cui §0 punto 2 esiste, e va riletto da chi apre una conversazione nuova | letto, non si chiude |
+| **36** | **La migrazione del database da SQLite a SQL è confermata** — Andrea, **25/08**. Chiude la voce 26 e supera la regola di §6 «niente Azure», che da oggi porta la data. **Resta da nominare il motore**: la conferma dice «SQL», e l'unica strada preparata in questo repository è **PostgreSQL** — `server/azure/schema-postgres.js` e `migra-sqlite-postgres.js`, 8 prove, scritti il 19/08 su Azure Database for PostgreSQL. Se «SQL» volesse dire **SQL Server / Azure SQL** quei due file non servono, il DDL va rigenerato e il driver è un altro: è **una parola sola, e decide tutto il lavoro sotto**. Finché non è detta, non si scrive codice di migrazione | Andrea, una riga |
+| **37** | **Dove gira il motore: in azienda o in cloud.** La voce 36 dice che si migra, non dove. Con il database su un server interno §6 «niente lavoro offline» resta quello di oggi; **in cloud diventa «niente lavoro senza linea»** — il magazzino si ferma quando cade la connessione dell'azienda, con 300÷500 movimenti al giorno e i muletti fermi. È una decisione di continuità operativa, non di architettura, e va presa **prima** di riscrivere `lib/db.js`: il codice è lo stesso, il piano di fermo no | Andrea |
 
 **Quanto pesano le due voci qui sopra, misurato il 19/08.** La voce 5 (zone
 da caratterizzare) e la voce 6 (`pieces_per_pack`) non sono due righe di
@@ -1079,6 +1087,41 @@ installare.
 | ~~**1.14**~~ | **Conto di produzione — FATTO il 19/08**: il prelievo porta la merce nel vano WIP, la scheda «Conto produzione» mostra entrato/reso/consumato, e la chiusura dichiara il consumo. Ciclo provato al banco. §1. **Non installata, e si accende a gennaio.** Originale: il prelievo per ODP finisce in un'ubicazione WIP invece di sparire; ciò che entra e non torna **è il consumo reale di produzione**. È l'unica funzione che cambia il significato di un movimento esistente: a `feature.wip` spento, `PICK` resta quello di sempre. Si installa il 19/12 **spento** e si accende a gennaio |
 
 ### Lavoro di fondo, non una versione
+
+- **Il database lascia SQLite — deciso il 25/08, e non è cominciato.** La
+  decisione sta in §2, voce 36; qui c'è il lavoro che tira dietro, e ad oggi
+  **non ne è scritta una riga**. Il ramo `server/azure/` copre **due pezzi su
+  cinque** — il DDL generato dalla **stessa** dichiarazione di `lib/schema.js`,
+  e la copia tavolo per tavolo con i conteggi ricontrollati — ed è scritto per
+  PostgreSQL: se il motore fosse un altro (voce 36) quei due pezzi si
+  rifanno. Gli altri tre non stanno in nessun ramo:
+
+  1. **`lib/db.js` va riscritto, non configurato.** Sono **315 righe di SQLite
+     sincrono**: `better-sqlite3` è sincrono, un driver di rete no. Ogni rotta,
+     ogni transazione composta e le **85 prove del servizio** diventano
+     asincrone. È il pezzo più grosso della migrazione, e va misurato sul
+     percorso vero — prelievo guidato, DDT, chiusura del conto — perché una
+     transazione che oggi costa microsecondi su un file lì costa un giro di
+     rete, e le operazioni composte ne fanno più d'uno.
+  2. **Il backup e il ritorno indietro cambiano padrone.** `backup-serale.ps1`
+     e `POST /api/backup` copiano un file, e `torna-indietro.ps1` riporta il
+     dato insieme all'applicativo. Con il dato fuori dal file quel gesto non
+     esiste più: `torna-indietro.ps1` riporta solo l'applicativo, e il
+     **collaudo di installazione — 22 prove — va riscritto per intero**.
+  3. **Le stringhe di connessione.** Mai nel repository e mai negli script di
+     installazione. Il pool si dimensiona sul numero di terminali, non si lascia
+     al valore di serie: un motore di rete chiude le connessioni inattive, e un
+     pool che non se ne accorge muore a metà turno.
+
+  **`pg` non è una dipendenza del progetto**, e per adesso resta fuori — si
+  installa con `--no-save` chi prova. Diventa una dipendenza vera il giorno che
+  il motore è nominato, non prima. **Le colonne materializzate si ricalcolano
+  dal documento invece di copiarle**: se una fosse rimasta indietro rispetto al
+  proprio `data` — la voce 14 era esattamente questo — la copia nasce coerente
+  invece di portarsi dietro l'errore. E il **`_id` si preserva, non si
+  rigenera**: `tasks.mov_ids` e i riferimenti degli archivi puntano a quei
+  numeri, rinumerare romperebbe in silenzio i legami che il registro delle
+  attività legge.
 
 - **Il front end è passato a Tailwind il 18/08**, in trentuno commit e senza
   spostare un pixel. Non è «tutto a utility»: l'applicativo non ha componenti,
@@ -1876,14 +1919,19 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 - **Niente lavoro offline.** Se il servizio non risponde l'applicativo si ferma
   e lo dice a schermo intero. Niente code da risincronizzare.
 - **Un solo database condiviso**, più terminali, e l'arbitro è il server: la
-  concorrenza si risolve con **una transazione SQLite dentro `/api/op/…`**, non
-  con la disciplina di chi scrive.
+  concorrenza si risolve con **una transazione dentro `/api/op/…`**, non con la
+  disciplina di chi scrive. Il motore è SQLite e cambia — voce 36, 25/08 — ma
+  **la regola è la transazione, non il motore**: la rotta composta resta il solo
+  posto dove la concorrenza si risolve, qualunque cosa ci sia sotto.
 - **Documento JSON con colonne materializzate**: si indicizza solo ciò che serve,
   il resto vive in `data`. È il motivo per cui un campo nuovo non è una
   migrazione.
 - **Servizio on-prem, attività pianificata**, non servizio Windows nativo (NSSM
-  è il file che l'antivirus blocca alle sette di mattina). Niente Azure, niente
-  Redis, niente Entra ID: si resta al PIN. Sage X3 fino al 2038.
+  è il file che l'antivirus blocca alle sette di mattina). **«Niente Azure» è
+  caduto il 25/08, e solo per il database**: la migrazione da SQLite è
+  confermata (voce 36), dove giri il motore è la voce 37, e **l'applicativo
+  resta qui**. Niente Redis, niente Entra ID: si resta al PIN. Sage X3 fino al
+  2038.
 - **`checkJs` spento sul client, acceso sul servizio.** Dove tipo e codice
   litigano, **cede il tipo**.
 - **Il CSS non si minifica**: toglieva 413 caratteri su 146.368 e riscriveva le
