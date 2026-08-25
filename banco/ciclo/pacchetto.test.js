@@ -117,6 +117,12 @@ describe('IL PACCHETTO DI EXPORT', () => {
       articoli: Store._cache.articles.length,
       operatori: Store._cache.operators.length,
       compiti: Store._cache.tasks.length,
+      /* IL REGISTRO ENTRA NEL CONFRONTO — 2.4. Mancava, ed e' il motivo per
+         cui il difetto e' passato di qui senza farsi vedere: il giro si fa
+         apposta con `includeMovLog: false`, cioe' con un pacchetto che il
+         registro non lo porta, e poi non lo si guardava. In produzione quel
+         gesto ha cancellato 253 movimenti. */
+      movimenti: Store.getMovLogTotal(),
     };
     const p = await Store.exportAll({ includeMovLog: false });
 
@@ -134,6 +140,7 @@ describe('IL PACCHETTO DI EXPORT', () => {
       articoli: Store._cache.articles.length,
       operatori: Store._cache.operators.length,
       compiti: Store._cache.tasks.length,
+      movimenti: Store.getMovLogTotal(),
     };
 
     riga('| Voce | prima | dopo |');

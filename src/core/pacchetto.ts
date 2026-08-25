@@ -28,7 +28,7 @@ export const FORMATO = 'warehouse-mapper-v1.5';
     nella copia esterna, che il proprio manifesto lo scriveva senza passare da
     `Store`. La copia esterna è uscita con la 2.1, e questo resta l'unico
     posto dove il numero è scritto. */
-export const VERSIONE_APP = '2.2';
+export const VERSIONE_APP = '2.4';
 
 /* L'ELENCO DELLE COLLEZIONI DA ESPORTARE STA IN UN POSTO SOLO.
    Fino alla 1.4.0 era scritto a mano in tre — `exportAll`, `_countsOf`,

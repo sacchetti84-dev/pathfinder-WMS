@@ -23,10 +23,10 @@ scrivono come fatti avvenuti, non come promesse.
 
 ---
 
-## LA VERSIONE STABILE È LA **2.2**
+## LA VERSIONE IN SERVIZIO È LA **2.2**
 
-**È l'unica che si installa, ed è quella in servizio.** Misurata sulla 4173 il
-25/08/2026 alle 21:18:
+**È quella che il magazzino sta usando adesso, e resta la sola installata
+finché la 2.4 non entra.** Misurata sulla 4173 il 25/08/2026 alle 21:18:
 
 | | |
 |---|---|
@@ -46,13 +46,49 @@ pianificata ri-registrata dalla cartella d'installazione.
 è uscita l'impronta `08ce3f69…` cifra per cifra: la build installata *è*
 esattamente quel commit, verificato e non dedotto.
 
-**`main` è andato avanti.** Dal 25/08 sera porta anche la correzione della voce
-19 — il parser dell'ODP che inventava l'unità di misura in silenzio — quindi
-**una build fatta da `main` oggi dà `1cc1b135…`, non `08ce3f69…`**. Non è una
-versione nuova e non si installa: è la 2.2 più una correzione che aspetta il
-suo turno. Chi deve rimettere in servizio la 2.2 identica parte da `3c68d0a`.
-**927 prove passano su 32 file**, `tsc --noEmit` è pulito sul client e sul
-servizio.
+Chi deve rimettere in servizio la 2.2 identica parte da `3c68d0a`.
+
+---
+
+## LA 2.4 È COSTRUITA E ASPETTA L'INSTALLAZIONE
+
+**`consegna/Pathfinder 2.4/`, impronta `99fc56ba744feafbe7b513a34f6543db9b92ea9d97b966b27ec035b9d8f4dbb3`, 1.777.772 byte, 4 file.**
+
+**Non porta funzioni nuove: porta due correzioni, e una delle due è il motivo
+per cui questa versione esiste.**
+
+- **Voce 45 — un ripristino non cancella più il registro dei movimenti.** È la
+  correzione del guasto che in produzione aveva spazzato 253 movimenti.
+- **Voce 19 — il parser dell'ODP dichiara l'unità di misura che inventa.**
+  Quando accanto al totale non c'è un'unità riconoscibile assumeva KG in
+  silenzio, e quel KG arrivava fino al movimento.
+
+**Perché 2.4 e non 2.3.** Il numero 2.3 è **speso**: l'archivio porta un
+pacchetto che si chiama così, con un'altra impronta e un altro contenuto.
+Riusarlo metterebbe in giro due cose diverse con lo stesso nome — la trappola
+che il 24/08 mandò in servizio il difetto per tre ore, e che è costata tre
+giorni a questo progetto.
+
+**Come è stata provata.** 928 prove su 32 file e `tsc --noEmit` pulito su client
+e servizio; 98 prove del collaudo del servizio; il pacchetto **minificato**
+servito sulla 4199 contro una copia del magazzino vero, che risponde 2.4 due
+volte; l'impronta ricostruita **tre volte di fila, sempre uguale**.
+
+**E il ciclo del banco adesso guarda il registro.** La prova `PA6` — export in
+`overwrite` e reimport, il gesto con cui si rimette in piedi una macchina —
+confrontava giacenza, colli, UM, articoli, operatori e compiti, **e non i
+movimenti**: è il motivo per cui il difetto della voce 45 le è passato davanti
+senza farsi vedere, visto che il giro si fa apposta con un pacchetto che il
+registro non lo porta. Adesso li conta. Provata nei due versi: **col difetto
+rimesso apposta il banco dice `movimenti 112 → 0` e alza PA6 (grave); con la
+correzione dice `112 → 112`.**
+
+> **PA6 SCATTA E NON FERMA NIENTE.** Il difetto viene scritto nel verbale e la
+> prova risulta lo stesso passata: `difetto()` registra, non fallisce. Vale per
+> tutto il ciclo, non solo per PA6 — un difetto **grave** non fa fallire la
+> suite. Vedi la voce 50.
+
+**Installare non è accendere, e installare lo fa Andrea.**
 
 **La build è riproducibile bit per bit.** Ricostruendo lo stesso commit a cinque
 giorni di distanza esce la stessa impronta, cifra per cifra — provato il 25/08
@@ -1320,6 +1356,7 @@ Cinque stati, e vogliono dire cose diverse:
 | ~~**32**~~ | ~~Installare la 2.2 e vedere i due numeri coincidere~~ | **Fatto il 25/08 all'01:39.** `08ce3f69…`, 1.777.087 byte. È la versione stabile |
 | ~~**36**~~ | ~~Installare la 2.3 e vedere i due numeri coincidere~~ | **Non si installa: la 2.3 è RITIRATA.** Ha disfunzionato, ed è stato necessario un ripristino d'emergenza alla 2.2 |
 | ~~**28**~~ | ~~Il campionamento non sa prendere un collo intero~~ | **Deciso da Andrea il 25/08, ed è una regola nuova:** se l'articolo **ha l'unità di misura configurata**, si preleva la quantità indicata e **i colli non calano**; se non ce l'ha, esce la quantità indicata dal collo. Va portata nel codice — voce 42 |
+| ~~**49**~~ | ~~`recipients` è vuota e il registro nomina «BIOTECH SRL» dieci volte~~ | **Rientrata UNA riga il 25/08**, non quattro: `RC-MSRLU2VU-4NDL`, la più vecchia delle quattro del backup del 19/08 — erano lo stesso cliente inserito quattro volte, stesso indirizzo «VIA NUOVA, 41032» e stessa partita IVA. I dieci `SHIP` del 13/08 e del 18/08 hanno di nuovo un cliente dietro. **Da sapere: la partita IVA vale `123456`, che è un segnaposto** — va corretta prima che quel cliente riceva un DDT vero |
 | ~~**18**~~ | ~~Due sigle firmano movimenti e non sono in anagrafica operatori~~ | **Chiusa il 25/08, e in due metà.** *Le prove sono uscite*: gli otto movimenti sugli articoli finti `123` e `123456` sono rimasti fuori dal recupero — sei di `DP` e `AS`, più due del 19/08 che `ANDS` e `ANAD` avevano fatto sullo stesso articolo. `AS` non compare più da nessuna parte. *La sigla ha un nome*: `DP` è **Daniele Pedrazzi** — Andrea, 25/08 — e i 10 `PICK` veri del 07/08 hanno la persona che li ha fatti. **Misurato dopo: NESSUNA FIRMA ORFANA su 264 movimenti.** `ANDS` 143, `ANAD` 86, `ANSA` 19, `DP` 10, `BABB` 6, e ognuna ha un nome in anagrafica. Era la domanda che il registro deve saper reggere per sei anni — «chi» — e adesso la regge |
 | ~~**47**~~ | ~~L'anagrafica dei mittenti va pulita~~ | **Fatto il 25/08, e con le giacenze rimesse a posto.** Il giro di banco del 24/08 sera è uscito **intero** dal database di produzione: 2 mittenti (`biotech`, `eurospin`), 2 DDT evasi (`DDT260006`, `DDT260007`), 2 attività (`PICK_SHIP`, `PICK_RET`) e i 2 movimenti `SHIP`. **E le due giacenze che quei movimenti avevano toccato sono tornate come stavano**, prese dal backup del 23/08 — l'ultimo prima del giro: `6000867#253047` **ricreata da zero** in `MAG1-RAKA-01-04-A` (la riga era sparita, era andata a zero) e `7000938#260474` riportata da 1 a 2, tutte e due con `placed_at` e `last_updated_at` originali. Confrontate campo per campo col 23/08: **identiche**. Cancellare i due `SHIP` senza questo avrebbe lasciato giacenza calata e niente a spiegarlo — il difetto delle voci 33 e 34, fatto da noi |
 | ~~**44**~~ | ~~Il registro dei movimenti veniva svuotato dal recupero di un backup automatico~~ | **Causa trovata e registro ricostruito, 25/08.** La catena: `writeOPFSBackup` esce con `includeMovLog: false`, `componi` fa `delete data.mov_log`, e `importAll` in overwrite svuotava `mov_log` col `clearMany` e poi lo saltava perché il pacchetto non lo portava. **`_partial` era scritto in un punto solo e non lo leggeva nessuno.** Il registro ora porta **266 movimenti, dal 07/08 al 25/08**, continui: 245 recuperati da `pathfinder-2026-08-19.db` più i 21 che c'erano. Otto movimenti sugli articoli di prova `123` e `123456` sono rimasti fuori |
@@ -1331,8 +1368,8 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **48** | **LA CORREZIONE DELLA VOCE 45 NON È IN SERVIZIO, E FINCHÉ NON LO È IL REGISTRO PUÒ SPARIRE DI NUOVO.** In magazzino gira la 2.2 (`08ce3f69…`), costruita il 24/08: porta ancora l'`importAll` che svuota `mov_log` quando il pacchetto non lo porta. I 266 movimenti ricostruiti il 25/08 sono esposti allo stesso gesto che ne aveva spazzati 253 — **un «recupera backup» da una copia automatica basta**. La correzione c'è, ma sta nel sorgente | **Fino all'installazione, non si recupera nessun backup automatico.** Se serve un ripristino, si usa un pacchetto esportato a mano — quelli portano il registro. Poi: si costruisce, si prova al banco, si installa a fine turno. È la voce che rende definitivo tutto il lavoro del 25/08 |
-| **49** | **`recipients` è VUOTA, e il registro nomina «BIOTECH SRL» dieci volte.** Le quattro righe duplicate del cliente vero stavano nel backup del 19/08, e il recupero della voce 44 ha riportato indietro **i movimenti** ma non l'anagrafica: dieci `SHIP` del 13/08 e del 18/08 firmati `ANDS` — documenti da `DDT260002` a `DDT260005` — nominano un cliente che a database non esiste più. **Non è rotto**: il movimento porta il nome come testo nelle note, non un `rcp_id`, quindi niente punta nel vuoto. Ma un DDT nuovo per quel cliente va ridigitato da zero | Rientra **una** riga «BIOTECH SRL» — non quattro: erano lo stesso cliente inserito quattro volte, tutte a «VIA NUOVA, 41032». I dati stanno in `pathfinder-2026-08-19.db`. È un'anagrafica di clienti: la scrive Andrea, o la si ricostruisce dal backup col suo via |
+| **48** | **LA CORREZIONE DELLA VOCE 45 NON È ANCORA IN SERVIZIO.** In magazzino gira la 2.2 del 24/08, che porta l'`importAll` vecchio: i **264 movimenti** ricostruiti il 25/08 sono esposti allo stesso gesto che ne aveva spazzati 253. **Il pacchetto che lo chiude è pronto: la 2.4, `99fc56ba…`, in `consegna/Pathfinder 2.4/`** — costruita, provata al banco sul pacchetto minificato contro una copia del magazzino, impronta riprodotta tre volte | **Installa Andrea, a fine turno.** I comandi stanno in §4. Fino ad allora: **non recuperare nessun backup automatico** — se serve un ripristino si usa un pacchetto esportato a mano, che il registro lo porta. A installazione fatta, `/api/app-info` deve dire **2.4 due volte** |
+| **50** | **UN DIFETTO «GRAVE» DEL CICLO NON FA FALLIRE NIENTE.** `difetto()` in `banco/ciclo/verbale.js` scrive la riga nel verbale e la prova risulta lo stesso **passata**: il 25/08, rimettendo apposta il difetto della voce 45, il banco ha alzato **PA6 (grave)** con `movimenti 112 → 0` e `vitest` ha detto «3 passed». Vale per tutto il ciclo, non solo per PA6 | Un difetto grave deve tingere di rosso la corsa, altrimenti lo vede solo chi apre il verbale e legge fino in fondo — e il verbale si apre quando si sospetta già qualcosa. Va deciso quali severità fermano la corsa |
 | **5** | **Caratterizzare le zone** in Configurazione → Zone: classe di conservazione, zona allergeni, zona pericolosi, refrigerata. Finché non è fatto **la mappa resta muta**, per quanti articoli si classifichino: la verifica confronta due metà e una manca | **Pianificare verifica e correzione.** Prima si misura quante zone e quante righe sono scoperte, poi si decide se il buco è nel dato o nel codice che lo legge |
 | **15** | **L'area WIP va consolidata.** È **un'ubicazione mappata**, non un prefisso, e `Store` la legge da `meta.areaWip`. **Misurata il 25/08 sul servizio vivo: `MAG1-WIP-01`** — non `M06-COM-01`, che è quel che questo documento ha detto fino a oggi. Sono tutte e due ubicazioni vere: `M06` è il magazzino Rinaldi, dichiarato «IN COSTRUZIONE», mentre `MAG1` è il magazzino materie prime alimentari e porta **tutte e 884** le righe di giacenza. Il valore è cambiato dopo il 19/08 e nessuno l'ha scritto | **Pianificare analisi e correzione**, e la domanda prima di ogni altra è **quale dei due vani sia quello giusto**. Il conto di produzione ci ha già lavorato dentro: in `wip` ci sono 9 righe |
 | **12** | **Le unità di carico sono in funzione, e sono ATTIVE in produzione** — l'interruttore non esiste più dalla 2.0. Creazione, carico, spostamento, chiusura automatica, etichetta: al banco funzionano. Ma in `udc` a database ci sono **zero righe**, misurato il 25/08: nessuno ne ha ancora creata una col muletto in mano | **Pianificare sviluppo e consolidamento**, e la prima domanda è perché a funzione attiva non ne sia nata nemmeno una |
@@ -1394,7 +1431,8 @@ riga che dava il progetto al 31/12/2026, con ultima installazione utile il
 
 | Versione | Stato |
 |---|---|
-| **2.2** | **STABILE. È quella in servizio e l'unica che si installa.** `08ce3f69…`, 1.777.087 byte, 4 file. 925 prove su 32 file, `tsc` pulito su client e servizio. Porta la maschera delle attività, il registro completo, i colli per misura, e tutto quel che le versioni da 1.8 a 2.1 hanno costruito |
+| **2.4** | **COSTRUITA IL 25/08, NON INSTALLATA.** `99fc56ba…`, 1.777.772 byte, 4 file. Non porta funzioni nuove: porta la correzione della voce 45 (un ripristino non cancella più il registro) e quella della voce 19 (il parser dell'ODP dichiara l'unità che inventa). Provata al banco sul pacchetto minificato, impronta riprodotta tre volte. **Salta il 2.3 apposta**: quel numero è speso, e due pacchetti con lo stesso nome sono la trappola che qui è già costata tre giorni — voce 48 |
+| **2.2** | **IN SERVIZIO.** È quella che il magazzino usa adesso, e resta l'unica installata finché la 2.4 non entra. `08ce3f69…`, 1.777.087 byte, 4 file. 925 prove su 32 file, `tsc` pulito su client e servizio. Porta la maschera delle attività, il registro completo, i colli per misura, e tutto quel che le versioni da 1.8 a 2.1 hanno costruito |
 | ~~**2.3**~~ | **RITIRATA — ha disfunzionato, ripristino d'emergenza alla 2.2.** Pacchetto e ramo git in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/`. Il problema che voleva risolvere resta aperto: §1 |
 | ~~**1.8 → 2.1**~~ | **ARCHIVIATE.** Sono dentro la 2.2 e non esistono più come lavoro da fare. La 1.8 (UOM riscritta, `feature.colli`), la 1.9 (viste giacenza), la 1.10 (trasferimenti dall'ODP), la 1.11 (il terminale su `--spacing`), la 1.12 (UDC), la 1.13 (motore di stoccaggio), la 1.14 (conto di produzione): scritte, cablate, collaudate e consegnate. Quel che di loro è rimasto aperto **non è la versione, è un interruttore o un dato** — voci 5, 6, 12, 15, 16, 22. La cronaca di come furono costruite sta in §1 |
 
