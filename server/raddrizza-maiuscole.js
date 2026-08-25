@@ -123,7 +123,7 @@ function main() {
 
   let Database;
   try { Database = require('better-sqlite3'); }
-  catch { esci("Manca `better-sqlite3`: si lancia da dentro `server/`, dove e' installato."); }
+  catch { esci("Manca `better-sqlite3`. Si installa una volta sola:  cd server && npm install"); }
 
   const db = new Database(DA, { readonly: !SUL_SERIO });
   const leggi = (nome) => db.prepare('SELECT * FROM ' + nome).all()
