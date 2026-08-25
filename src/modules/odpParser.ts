@@ -244,6 +244,20 @@ const OdpParser = {
       }
       const qtyPerUnit = nums.length > 1 ? nums[nums.length - 2]!.value : null;
 
+      /* L'UNITÀ INVENTATA SI DICHIARA. Quando accanto al totale non c'è
+         un'unità riconoscibile `um` resta vuota, e sotto diventa KG: è il
+         ripiego che tiene in piedi il percorso, ed è sempre stato MUTO.
+         Il magazzino conta pezzi dove l'ODP pesa chili e nessuna delle due
+         parti se ne accorge, perché la tappa si costruisce lo stesso e il
+         numero da solo non è assurdo — è il difetto della voce 19. Il
+         ripiego resta, perché toglierlo fermerebbe percorsi che oggi
+         funzionano; da qui in poi però lo dice, e l'unità inventata arriva
+         fino ai movimenti: pickRoute la copia sulla tappa e
+         trasferimentiOdp la scrive come `uom`. */
+      if (!um) {
+        warnings.push(`${code} — ${String(row[2] ?? '').trim()}: unità di misura non dichiarata nel foglio, assunta KG. Verificare l’anagrafica dell’articolo.`);
+      }
+
       current = {
         article_code: code,
         category: String(row[1] ?? '').trim(),

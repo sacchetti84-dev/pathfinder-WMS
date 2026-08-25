@@ -11,11 +11,11 @@
    contrario; e ciò che è entrato e non è tornato — a ordine chiuso — è il
    CONSUMO REALE di produzione. È l'unico numero che oggi non si può avere.
 
-   È L'UNICA FUNZIONE CHE CAMBIA IL SIGNIFICATO DI UN MOVIMENTO ESISTENTE, e
-   per questo l'interruttore conta più che altrove: a `feature.wip` SPENTO,
-   `PICK` resta quello di sempre e questo modulo non decide niente. Si
-   installa a dicembre spento, e si accende a gennaio — cioè in un momento in
-   cui, se i numeri non tornano, c'è tempo per accorgersene.
+   È L'UNICA FUNZIONE CHE CAMBIA IL SIGNIFICATO DI UN MOVIMENTO ESISTENTE:
+   dove questo modulo decide, `PICK` non vuol più dire quel che voleva dire
+   prima. Gli interruttori sono stati tolti con la 2.0 e non c'è più niente da
+   abbassare — la funzione è attiva, e chi cambia questo file cambia il
+   significato dei movimenti che il magazzino sta scrivendo adesso.
 
    IL CONSUMO SI DICHIARA CHIUSO, NON SI DEDUCE OGNI SERA. Finché l'ordine è
    aperto, il residuo è merce ancora in lavorazione: chiamarlo consumo

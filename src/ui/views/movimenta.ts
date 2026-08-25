@@ -35,11 +35,10 @@ export const VistaMovimenta = {
         ${this._movCard('shipping', 'c-orange', '🚚', 'Spedizioni', 'DDT · Resi e spedizioni · F8', 'var(--sx-orange)', pendRes + pendShip)}
         ${/* 1.4.2.1 — l'ottava operazione, che prima non c'era. Compare con lo
              schedulatore perché è lui che l'ha fatta nascere; quanto cala lo
-             decide `feature.uom`, dentro la maschera. */
+             decide la maschera, guardando l'unità di misura dell'articolo. */
           this._movCard('sampling', 'c-teal', '🧪', 'Campionamento', 'Il collo resta, cala ciò che c\'è dentro', 'var(--sx-teal)')}
-        ${/* 1.12 — la nona. Compare solo a interruttore acceso: senza unità di
-             carico sarebbe una tessera che porta a una maschera che dice
-             «spento», ed è la stessa regola del Campionamento qui sopra. */
+        ${/* 1.12 — la nona. Gli interruttori sono spariti con la 2.0: la
+             tessera c'è sempre. */
           this._movCard('udc', 'c-indigo', '📦', 'Unità di carico', 'Il pallet porta con sé quello che ha sopra', 'var(--sx-primary)', Store.getUdcAperte().length)}
       </div>
       <div id="undoBarArea">${this._undoBarHTML()}</div>

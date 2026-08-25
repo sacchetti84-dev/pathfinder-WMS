@@ -148,6 +148,24 @@ describe('ODP — righe materiali', () => {
     expect(r.lines[0].total_qty).toBe(12.5);
   });
 
+  /* VOCE 19 — `6001055` MANGANESE SOLFATO: l'ODP lo chiede in KG e
+     l'anagrafica lo dichiara PZ. Il ripiego a KG resta, perché toglierlo
+     fermerebbe percorsi che oggi funzionano, ma smette di essere muto: la
+     riga arriva fino a `uom` sul movimento passando per pickRoute. */
+  it('un’unità che il foglio non dichiara viene assunta KG, e lo dice', () => {
+    const r = OdpParser.parse(odp(
+      ['6001055', 'Materie prime ALIMENTARI', 'MANGANESE SOLFATO', '', '', 0.12, '', 4.8],
+      [], lotto('260777', 'MN-01', '', 4.8),
+    ));
+    expect(r.lines[0].um).toBe('KG');
+    expect(r.warnings.some(w => /6001055/.test(w) && /assunta KG/.test(w))).toBe(true);
+  });
+
+  it('un’unità che il foglio dichiara non produce nessun avviso', () => {
+    const r = OdpParser.parse(odp(CALCIO, [], lotto('261571', '3071555', 'KG', 194.9922)));
+    expect(r.warnings.some(w => /assunta KG/.test(w))).toBe(false);
+  });
+
   it('le righe delle lavorazioni non diventano materiali da prelevare', () => {
     const r = OdpParser.parse(odp(CALCIO, [], lotto('261571', '3071555', 'KG', 194.9922)));
     expect(r.lines.map(l => l.article_code)).toEqual(['6001418']);
