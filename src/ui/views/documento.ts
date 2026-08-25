@@ -82,7 +82,7 @@ export const VistaDocumento = {
         </div>
         <div class="form-group mb-3">
           <label class="text-label-small">② Lotto</label>
-          <input class="input input-mono" id="pEditLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
+          <input class="input input-mono uppercase" id="pEditLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._editLookupNewLine();}">
           <div id="pEditInfo"></div>
         </div>
@@ -236,7 +236,7 @@ export const VistaDocumento = {
     const s: ModificaDDT | null = this._editState;
     if (!s) return;
     const art = Validate.clean($('pEditArt')?.value, true);
-    const lot = Validate.clean($('pEditLot')?.value);
+    const lot = Validate.clean($('pEditLot')?.value, true);
     const info = $('pEditInfo');
     const details = $('pEditDetails');
     if (!art || !lot) {

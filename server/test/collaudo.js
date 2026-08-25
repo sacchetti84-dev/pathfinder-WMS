@@ -713,8 +713,20 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   // ── Backup a caldo ────────────────────────────────────────────────
   const dirBackup = path.join(os.tmpdir(), 'pathfinder-backup-' + Date.now());
   const bk = await call('POST', '/api/backup', { dir: dirBackup });
-  ok('backup a caldo del database', bk.stato === 200 && fs.existsSync(bk.dati.file),
-     bk.dati.file ? path.basename(bk.dati.file) : bk.dati.error);
+  /* 2.2 — IL BACKUP CAMBIA PADRONE COL MOTORE, e questa prova lo sa.
+     Con SQLite il dato e' un file e la copia a caldo la fa l'applicativo.
+     Con SQL Server il dato NON e' un file di questo servizio: la rotta
+     risponde 501 e dice cosa fare invece. Pretendere 200 anche li' darebbe
+     un rosso per il motivo sbagliato - e un rosso che non significa un
+     difetto e' il modo piu' rapido per insegnare a ignorare i collaudi. */
+  if ((process.env.PATHFINDER_DB_MOTORE || 'sqlite') === 'mssql') {
+    ok('col motore SQL Server il backup non finge: 501, e dice cosa fare invece',
+       bk.stato === 501 && /export JSON/.test(bk.dati.error || ''),
+       `stato ${bk.stato}`);
+  } else {
+    ok('backup a caldo del database', bk.stato === 200 && fs.existsSync(bk.dati.file),
+       bk.dati.file ? path.basename(bk.dati.file) : bk.dati.error);
+  }
 
   // ── 1.7 · L'applicativo servito da una cartella ───────────────────
   /* `fetch` chiede gzip da solo e lo decomprime senza dirlo: per sapere QUALE

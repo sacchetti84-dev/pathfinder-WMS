@@ -64,7 +64,7 @@ export const VistaPrelievo = {
       </div>
       <div class="form-group mb-5">
         <label>② Scansiona Lotto <span class="req">*</span></label>
-        <input class="input input-mono" id="pCambioLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
+        <input class="input input-mono uppercase" id="pCambioLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._cambioLookup();}">
         <div id="pCambioInfo"></div>
       </div>
@@ -100,7 +100,7 @@ export const VistaPrelievo = {
   _cambioLookup() {
     // v1.8.0: identificazione obbligatoria con ARTICOLO + LOTTO
     const art = Validate.clean($('pCambioArt')?.value, true);
-    const lot = Validate.clean($('pCambioLot')?.value);
+    const lot = Validate.clean($('pCambioLot')?.value, true);
     const info = $('pCambioInfo');
     if (!art) {
       info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">✗ Scansiona prima il codice articolo</div>`;
@@ -286,7 +286,7 @@ export const VistaPrelievo = {
       </div>
       <div class="form-group mb-5">
         <label>③ Scansiona Lotto <span class="req">*</span></label>
-        <input class="input input-mono" id="pProdLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
+        <input class="input input-mono uppercase" id="pProdLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._prodLookup();}">
         <div id="pProdInfo"></div>
       </div>
@@ -322,7 +322,7 @@ export const VistaPrelievo = {
   // v1.8.0: identificazione obbligatoria con ARTICOLO + LOTTO
   _prodLookup() {
     const art = Validate.clean($('pProdArt')?.value, true);
-    const lot = Validate.clean($('pProdLot')?.value);
+    const lot = Validate.clean($('pProdLot')?.value, true);
     const info = $('pProdInfo');
     if (!art) {
       info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona prima il codice articolo</div>`;

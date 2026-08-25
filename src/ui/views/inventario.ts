@@ -272,7 +272,7 @@ export const VistaInventario = {
       <div class="flex gap-3 mb-6">
         <input class="input input-mono uppercase flex-1" id="mInvExtraArt" placeholder="Cod. Articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('mInvExtraLot').focus();}">
-        <input class="input input-mono" id="mInvExtraLot" placeholder="Lotto" maxlength="${Validate.MAX.LOT_CODE}" class="flex-[0.8]"
+        <input class="input input-mono uppercase" id="mInvExtraLot" placeholder="Lotto" maxlength="${Validate.MAX.LOT_CODE}" class="flex-[0.8]"
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('mInvExtraQty').focus();}">
         <input class="input input-mono w-[70px] text-center" id="mInvExtraQty" type="number" min="1" step="1" value="1" placeholder="Coll."
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._invAddExtra();}">
@@ -373,7 +373,7 @@ export const VistaInventario = {
   _invAddExtra() {
     if (!this._invState) return;
     const art = Validate.clean($('mInvExtraArt')?.value, true);
-    const lot = Validate.clean($('mInvExtraLot')?.value);
+    const lot = Validate.clean($('mInvExtraLot')?.value, true);
     const qtyRaw = $('mInvExtraQty')?.value;
     const qty = parseInt(qtyRaw);
     const errs = [Validate.article(art), Validate.lot(lot)].filter(Boolean);
@@ -688,7 +688,7 @@ export const VistaInventario = {
         </div>
         <div class="form-group mb-4">
           <label>③ Scansiona LOTTO <span class="req">*</span></label>
-          <input class="input input-mono" id="cnLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
+          <input class="input input-mono uppercase" id="cnLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._contaCheckLot();}">
         </div>
 
@@ -775,7 +775,7 @@ export const VistaInventario = {
   _contaCheckLot() {
     const d = this._contaState;
     if (!d) return;
-    const val = Validate.clean($('cnLot')?.value);
+    const val = Validate.clean($('cnLot')?.value, true);
     if (!val) return;
     if (val !== d.lot_code) {
       d.scan.lot = '';

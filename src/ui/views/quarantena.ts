@@ -34,7 +34,7 @@ export const VistaQuarantena = {
       </div>
       <div class="form-group mb-6">
         <label>② Scansiona Lotto <span class="req">*</span></label>
-        <input class="input input-mono" id="qLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
+        <input class="input input-mono uppercase" id="qLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._searchQuar();}">
       </div>
       <div id="qResults"><div class="text-body-medium text-sx-text-muted p-4">Scansiona articolo e lotto, poi premi INVIO</div></div>
@@ -60,7 +60,7 @@ export const VistaQuarantena = {
      delle ubicazioni che li contengono, ordinato FEFO. */
   _searchQuar() {
     const art = Validate.clean($('qArt')?.value, true);
-    const lot = Validate.clean($('qLot')?.value);
+    const lot = Validate.clean($('qLot')?.value, true);
     const el = $('qResults');
     if (!art) {
       el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice articolo</div>';
@@ -215,7 +215,7 @@ export const VistaQuarantena = {
         </div>
         <div class="form-group mb-4">
           <label>③ Scansiona LOTTO <span class="req">*</span></label>
-          <input class="input input-mono" id="qvLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
+          <input class="input input-mono uppercase" id="qvLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._qCheckLot();}">
         </div>
 
@@ -361,7 +361,7 @@ export const VistaQuarantena = {
       $('qvArt')?.focus();
       return;
     }
-    const val = Validate.clean($('qvLot')?.value);
+    const val = Validate.clean($('qvLot')?.value, true);
     if (!val) return;
     if (val === d.lot_code) {
       d.scan.lot = val;

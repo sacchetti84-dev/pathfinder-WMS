@@ -73,7 +73,7 @@ export const VistaPosiziona = {
       </div>
       <div class="form-group mb-5">
         <label>③ Codice Lotto <span class="req">*</span></label>
-        <input class="input input-mono" id="mInLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
+        <input class="input input-mono uppercase" id="mInLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           oninput="App._anteprimaUmIn()"
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._proponiVano();$('mInQty').focus();$('mInQty').select();}">
       </div>
@@ -193,7 +193,7 @@ export const VistaPosiziona = {
     const box = $('mInColliBox');
     if (!box) return;
     const art = Validate.clean($('mInArtCode')?.value, true);
-    const lot = Validate.clean($('mInLot')?.value);
+    const lot = Validate.clean($('mInLot')?.value, true);
     const cfg = art ? Store.getUomConfig(art, lot) : null;
     const qtyEl = $('mInQty');
     if (!cfg?.per_collo) {
@@ -228,7 +228,7 @@ export const VistaPosiziona = {
     const box = $('mInColliBox');
     if (!box || box.hidden) return null;
     const art = Validate.clean($('mInArtCode')?.value, true);
-    const lot = Validate.clean($('mInLot')?.value);
+    const lot = Validate.clean($('mInLot')?.value, true);
     const cfg = art ? Store.getUomConfig(art, lot) : null;
     if (!cfg?.per_collo) return null;
     const errori = validaDichiarazione(this._colliIn, cfg.uom);
@@ -698,7 +698,7 @@ export const VistaPosiziona = {
     if (!box) return;
     this._propostaCorrente = null;
     const art = Validate.clean($('mInArtCode')?.value, true);
-    const lot = Validate.clean($('mInLot')?.value);
+    const lot = Validate.clean($('mInLot')?.value, true);
     if (!art) { box.innerHTML = ''; return; }
     const colli = parseInt($('mInQty')?.value, 10) || 1;
 
@@ -866,7 +866,7 @@ export const VistaPosiziona = {
     const loc = versoUdc ? versoUdc.location_code : scritto;
     const art = Validate.clean($('mInArtCode')?.value, true);
     const desc = Validate.clean($('mInArtDesc')?.value);
-    const lot = Validate.clean($('mInLot')?.value);
+    const lot = Validate.clean($('mInLot')?.value, true);
     // v2.3.0 [D1] — il campo scadenza è in formato gg/mm/aaaa: conversione a ISO
     const exp = this._dateITtoISO($('mInExp')?.value, 'Scadenza');
     if (exp === null) return;   // data incompleta o non valida → posizionamento interrotto

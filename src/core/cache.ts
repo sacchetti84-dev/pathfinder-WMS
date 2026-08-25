@@ -117,11 +117,22 @@ export interface Indici {
 
 /* La stessa forma di `item_key`, e non è un caso: le due chiavi descrivono
    la stessa merce da due lati — la riga dov'è adesso, la confezione con cui
-   è stata imballata. Il lotto NON si alza a maiuscolo, perché `item_key`
-   nasce da `Validate.clean(lot)` senza `upper` e due chiavi diverse per la
-   stessa merce sono peggio di una chiave brutta. */
+   è stata imballata. **Le due si muovono insieme, sempre**: fino alla 2.2 il
+   lotto non si alzava a maiuscolo qui perché non si alzava nemmeno in
+   `item_key`, che nasceva da `Validate.clean(lot)` SENZA `upper` — e due
+   chiavi diverse per la stessa merce sono peggio di una chiave brutta.
+
+   2.2 — SI ALZA DI LA', QUINDI SI ALZA ANCHE QUI. Il lettore di barcode in
+   azienda restituisce le lettere in minuscolo: senza questa riga
+   `6000366B#abc` e `6000366B#ABC` sono due lotti, due confezioni congelate e
+   due righe per la stessa merce. Chi tocca l'una tocchi l'altra.
+
+   Questo indice è DERIVATO — la chiave si ricalcola dai campi del record a
+   ogni giro, sui due lati — quindi alzare qui ritrova anche i lotti scritti
+   minuscoli prima della 2.2. `item_key` no: quello è un campo SCRITTO, e le
+   righe storte si raddrizzano nel dato. */
 export function chiaveLotto(articleCode: unknown, lotCode: unknown): string {
-  return `${String(articleCode ?? '').trim().toUpperCase()}#${String(lotCode ?? '').trim()}`;
+  return `${String(articleCode ?? '').trim().toUpperCase()}#${String(lotCode ?? '').trim().toUpperCase()}`;
 }
 
 /** Un record qualunque. Il tipo è volutamente largo: questa funzione lavora
