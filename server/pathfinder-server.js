@@ -12,6 +12,13 @@ const { NAMES } = require('./lib/schema');
 const PORT = Number(process.env.PATHFINDER_PORT || 4173);
 const ROOT = path.resolve(__dirname, '..');
 const DB_FILE = process.env.PATHFINDER_DB || path.join(__dirname, 'data', 'pathfinder.db');
+
+/* 2.2 — QUALE MOTORE. Di serie `sqlite`, cioe' quello che il magazzino ha
+   sempre avuto: chi non decide niente non cambia niente. Con `mssql` serve
+   anche `PATHFINDER_MSSQL` con la stringa di connessione, e il modulo
+   `mssql` installato in `server/`. Il motore si legge all'AVVIO: cambiarlo
+   a servizio acceso non ha effetto, come tutte le altre variabili. */
+const DB_MOTORE = process.env.PATHFINDER_DB_MOTORE || 'sqlite';
 /* ── 1.7 · L'APPLICATIVO E' UNA CARTELLA ──────────────────────────────────
    Fino alla 1.6 era un file HTML solo e `PATHFINDER_APP` ci puntava. Dalla
    1.7 e' una cartella — `index.html` piu' `assets/` coi nomi a impronta — e
@@ -238,8 +245,13 @@ const httpError = (err) => {
   return { status: 500, message: err.message || 'errore interno' };
 };
 
-const wrap = (fn) => (req, res) => {
-  try { fn(req, res); }
+/* 2.2 — `wrap` ASPETTA, e non e' un dettaglio di stile. Da quando il
+   servizio dati e' asincrono un gestore restituisce una promessa: senza
+   `await` qui un errore dentro una rotta diventerebbe un rifiuto non
+   gestito, la risposta non partirebbe mai, e il terminale resterebbe ad
+   aspettare invece di vedere il messaggio. Il `try` non lo prenderebbe. */
+const wrap = (fn) => async (req, res) => {
+  try { await fn(req, res); }
   catch (err) {
     const e = httpError(err);
     if (e.status >= 500) console.error('[pathfinder] guasto:', err);
@@ -254,20 +266,20 @@ const parseCriteria = (raw) => {
   catch { throw Object.assign(new Error('criterio non leggibile'), { status: 400 }); }
 };
 
-app.get('/api/health', wrap((req, res) => {
+app.get('/api/health', wrap(async (req, res) => {
   res.json({ ok: true, service: 'pathfinder', version: VERSION,
-             collections: NAMES, ...db.stats() });
+             collections: NAMES, ...await db.stats() });
 }));
 
-app.get('/api/load', wrap((req, res) => {
+app.get('/api/load', wrap(async (req, res) => {
   const from = req.query.movLogFrom != null && req.query.movLogFrom !== ''
     ? Number(req.query.movLogFrom) : null;
-  res.json(db.loadAll({ movLogFrom: from }));
+  res.json(await db.loadAll({ movLogFrom: from }));
 }));
 
-app.get('/api/c/:col/query', wrap((req, res) => {
+app.get('/api/c/:col/query', wrap(async (req, res) => {
   const { col } = req.params;
-  res.json(db.query(col, {
+  res.json(await db.query(col, {
     criteria: parseCriteria(req.query.criteria),
     limit: req.query.limit != null && req.query.limit !== '' ? Number(req.query.limit) : null,
     offset: req.query.offset ? Number(req.query.offset) : 0,
@@ -276,73 +288,73 @@ app.get('/api/c/:col/query', wrap((req, res) => {
   }));
 }));
 
-app.get('/api/c/:col/count', wrap((req, res) => {
-  res.json({ count: db.count(req.params.col, parseCriteria(req.query.criteria)) });
+app.get('/api/c/:col/count', wrap(async (req, res) => {
+  res.json({ count: await db.count(req.params.col, parseCriteria(req.query.criteria)) });
 }));
 
-app.get('/api/c/:col/:key', wrap((req, res) => {
-  const rec = db.get(req.params.col, req.params.key);
+app.get('/api/c/:col/:key', wrap(async (req, res) => {
+  const rec = await db.get(req.params.col, req.params.key);
   if (!rec) return res.status(404).json({ error: 'non trovato' });
   res.json(rec);
 }));
 
-app.get('/api/c/:col', wrap((req, res) => res.json(db.all(req.params.col))));
+app.get('/api/c/:col', wrap(async (req, res) => res.json(await db.all(req.params.col))));
 
-app.post('/api/c/:col/bulk', wrap((req, res) => {
+app.post('/api/c/:col/bulk', wrap(async (req, res) => {
   const mode = req.query.mode === 'put' ? 'bulkPut' : 'bulkAdd';
   const records = req.body;
   if (!Array.isArray(records)) throw Object.assign(new Error('atteso un elenco di record'), { status: 400 });
-  res.json({ keys: db[mode](req.params.col, records, originOf(req)) });
+  res.json({ keys: await db[mode](req.params.col, records, originOf(req)) });
 }));
 
-app.post('/api/c/:col', wrap((req, res) => {
-  res.json({ key: db.add(req.params.col, req.body, originOf(req)) });
+app.post('/api/c/:col', wrap(async (req, res) => {
+  res.json({ key: await db.add(req.params.col, req.body, originOf(req)) });
 }));
 
-app.put('/api/c/:col/:key', wrap((req, res) => {
+app.put('/api/c/:col/:key', wrap(async (req, res) => {
   const rec = { ...req.body };
-  res.json({ key: db.put(req.params.col, rec, originOf(req)) });
+  res.json({ key: await db.put(req.params.col, rec, originOf(req)) });
 }));
 
-app.patch('/api/c/:col/:key', wrap((req, res) => {
-  res.json({ changed: db.update(req.params.col, req.params.key, req.body, originOf(req)) });
+app.patch('/api/c/:col/:key', wrap(async (req, res) => {
+  res.json({ changed: await db.update(req.params.col, req.params.key, req.body, originOf(req)) });
 }));
 
-app.delete('/api/c/:col/:key', wrap((req, res) => {
-  res.json({ deleted: db.delete(req.params.col, req.params.key, originOf(req)) });
+app.delete('/api/c/:col/:key', wrap(async (req, res) => {
+  res.json({ deleted: await db.delete(req.params.col, req.params.key, originOf(req)) });
 }));
 
-app.delete('/api/c/:col', wrap((req, res) => {
-  res.json({ deleted: db.clear(req.params.col, originOf(req)) });
+app.delete('/api/c/:col', wrap(async (req, res) => {
+  res.json({ deleted: await db.clear(req.params.col, originOf(req)) });
 }));
 
-app.post('/api/deleteWhere/:col', wrap((req, res) => {
-  res.json({ deleted: db.deleteWhere(req.params.col, req.body, originOf(req)) });
+app.post('/api/deleteWhere/:col', wrap(async (req, res) => {
+  res.json({ deleted: await db.deleteWhere(req.params.col, req.body, originOf(req)) });
 }));
 
-app.post('/api/clear', wrap((req, res) => {
+app.post('/api/clear', wrap(async (req, res) => {
   const cols = req.body?.collections;
   if (!Array.isArray(cols)) throw Object.assign(new Error('atteso { collections: [...] }'), { status: 400 });
-  db.clearMany(cols, originOf(req));
+  await db.clearMany(cols, originOf(req));
   res.json({ ok: true });
 }));
 
-app.post('/api/tx', wrap((req, res) => {
+app.post('/api/tx', wrap(async (req, res) => {
   const { collections = [], ops = [] } = req.body || {};
   if (!Array.isArray(ops)) throw Object.assign(new Error('atteso { ops: [...] }'), { status: 400 });
   const results = [];
-  db.transaction(collections.length ? collections : NAMES, () => {
+  await db.transaction(collections.length ? collections : NAMES, async () => {
     for (const o of ops) {
       switch (o.op) {
-        case 'add':         results.push(db.add(o.collection, o.record)); break;
-        case 'put':         results.push(db.put(o.collection, o.record)); break;
-        case 'update':      results.push(db.update(o.collection, o.key, o.changes)); break;
-        case 'delete':      results.push(db.delete(o.collection, o.key)); break;
-        case 'bulkAdd':     results.push(db.bulkAdd(o.collection, o.records)); break;
-        case 'bulkPut':     results.push(db.bulkPut(o.collection, o.records)); break;
-        case 'clear':       results.push(db.clear(o.collection)); break;
-        case 'clearMany':   db.clearMany(o.collections); results.push(true); break;
-        case 'deleteWhere': results.push(db.deleteWhere(o.collection, o.criteria)); break;
+        case 'add':         results.push(await db.add(o.collection, o.record)); break;
+        case 'put':         results.push(await db.put(o.collection, o.record)); break;
+        case 'update':      results.push(await db.update(o.collection, o.key, o.changes)); break;
+        case 'delete':      results.push(await db.delete(o.collection, o.key)); break;
+        case 'bulkAdd':     results.push(await db.bulkAdd(o.collection, o.records)); break;
+        case 'bulkPut':     results.push(await db.bulkPut(o.collection, o.records)); break;
+        case 'clear':       results.push(await db.clear(o.collection)); break;
+        case 'clearMany':   await db.clearMany(o.collections); results.push(true); break;
+        case 'deleteWhere': results.push(await db.deleteWhere(o.collection, o.criteria)); break;
         default: throw Object.assign(new Error(`operazione sconosciuta: ${o.op}`), { status: 400 });
       }
     }
@@ -350,7 +362,7 @@ app.post('/api/tx', wrap((req, res) => {
   res.json({ ok: true, results });
 }));
 
-app.post('/api/op/removeItem', wrap((req, res) => {
+app.post('/api/op/removeItem', wrap(async (req, res) => {
   const { location_code, item_key, qty, qty_uom, qty_uom_before, packs_out, packs_before } = req.body || {};
   const n = Number(qty);
   assertPacksOut(packs_out);
@@ -359,8 +371,8 @@ app.post('/api/op/removeItem', wrap((req, res) => {
   if (!location_code || !item_key || (packs_out === undefined && (!Number.isFinite(n) || n < 1)))
     throw Object.assign(new Error('servono location_code, item_key e una quantita\' valida'), { status: 400 });
 
-  const out = db.transaction(['inventory'], () => {
-    const rows = db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
+  const out = await db.transaction(['inventory'], async () => {
+    const rows = await db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
     const item = rows.find(r => r.item_key === item_key);
     if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
 
@@ -377,14 +389,14 @@ app.post('/api/op/removeItem', wrap((req, res) => {
       : { _qty_uom_before: um.prima, _qty_uom_delta: um.delta, _qty_uom_after: um.dopo };
 
     if (colli ? colli.tutto : after <= 0) {
-      db.delete('inventory', item._id);
+      await db.delete('inventory', item._id);
       return { ...snapshot, _mode: 'full', _qty_before: have, _qty_delta: -usciti, _qty_after: 0, ...conti };
     }
     item.qty = after;
     if (um !== null) item.qty_uom = um.dopo;
     if (colli) item.packs = colli.rimasti;
     item.last_updated_at = Date.now();
-    db.put('inventory', item);
+    await db.put('inventory', item);
     return { ...snapshot, qty: after, ...(um === null ? {} : { qty_uom: um.dopo }),
              ...(colli ? { packs: colli.rimasti } : {}),
              _mode: 'partial', _qty_before: have, _qty_delta: -usciti, _qty_after: after, ...conti };
@@ -401,7 +413,7 @@ app.post('/api/op/removeItem', wrap((req, res) => {
 
    Come ovunque, il saldo di partenza si legge dalla RIGA: `qty_uom_before`
    e' solo il seme per la riga che un `qty_uom` non lo ha mai avuto. */
-app.post('/api/op/sampleItem', wrap((req, res) => {
+app.post('/api/op/sampleItem', wrap(async (req, res) => {
   const { location_code, item_key, qty_uom, qty_uom_before, packs_out } = req.body || {};
   const n = arrotondaUom(qty_uom);
 
@@ -422,8 +434,8 @@ app.post('/api/op/sampleItem', wrap((req, res) => {
   if (!location_code || !item_key || (!campione && (n === null || n <= 0)))
     throw Object.assign(new Error('servono location_code, item_key e una quantita\' di campione valida'), { status: 400 });
 
-  const out = db.transaction(['inventory'], () => {
-    const rows = db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
+  const out = await db.transaction(['inventory'], async () => {
+    const rows = await db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
     const item = rows.find(r => r.item_key === item_key);
     if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
 
@@ -448,7 +460,7 @@ app.post('/api/op/sampleItem', wrap((req, res) => {
       item.packs = dopoElenco;
       item.qty_uom = dopoUm;
       item.last_updated_at = Date.now();
-      db.put('inventory', item);
+      await db.put('inventory', item);
       return { ok: true, qty_uom_before: primaUm, qty_uom_after: dopoUm, qty_uom_delta: -q,
                qty: item.qty, packs: dopoElenco };
     }
@@ -462,7 +474,7 @@ app.post('/api/op/sampleItem', wrap((req, res) => {
     const dopo = arrotondaUom(prima - n);
     item.qty_uom = dopo;
     item.last_updated_at = Date.now();
-    db.put('inventory', item);
+    await db.put('inventory', item);
     /* `qty` non compare in questo oggetto, ed e' il punto: il collo resta. */
     return { ok: true, qty_uom_before: prima, qty_uom_after: dopo, qty_uom_delta: -n, qty: item.qty };
   }, originOf(req));
@@ -484,13 +496,13 @@ app.post('/api/op/sampleItem', wrap((req, res) => {
    L'ubicazione di partenza NON e' un parametro: e' quella scritta sull'UDC.
    Chiederla al client vorrebbe dire fidarsi di due dati che possono
    divergere, e sceglierne uno a caso quando divergono. */
-app.post('/api/op/moveUdc', wrap((req, res) => {
+app.post('/api/op/moveUdc', wrap(async (req, res) => {
   const { udc_id, to, movement } = req.body || {};
   if (!udc_id || !to)
     throw Object.assign(new Error('servono udc_id e l\'ubicazione di destinazione'), { status: 400 });
 
-  const out = db.transaction(['udc', 'inventory', 'mov_log', 'meta'], () => {
-    const udc = db.get('udc', udc_id);
+  const out = await db.transaction(['udc', 'inventory', 'mov_log', 'meta'], async () => {
+    const udc = await db.get('udc', udc_id);
     if (!udc) throw Object.assign(new Error(`${udc_id} non esiste`), { status: 404 });
     if (udc.status === 'shipped' || udc.status === 'empty')
       throw Object.assign(new Error(`${udc_id} e' ${udc.status}: non si sposta piu'`), { status: 409 });
@@ -501,7 +513,7 @@ app.post('/api/op/moveUdc', wrap((req, res) => {
     /* Le righe si prendono per `udc_id`, non per ubicazione: se una riga
        fosse rimasta indietro da uno spostamento non riuscito, e' proprio
        quella che deve raggiungere le altre. */
-    const righe = db.query('inventory', { criteria: { field: 'udc_id', op: 'equals', value: udc_id } });
+    const righe = await db.query('inventory', { criteria: { field: 'udc_id', op: 'equals', value: udc_id } });
 
     /* DUE RIGHE CON LA STESSA CHIAVE NELLO STESSO VANO NON DEVONO NASCERE.
        L'indice [location_code+item_key] e' di ricerca, non unico: il
@@ -514,7 +526,7 @@ app.post('/api/op/moveUdc', wrap((req, res) => {
        merce sale sul pallet. Si rifiuta e si dice quale lotto e' di mezzo —
        chi ha la merce davanti sposta prima l'altra riga, o carica anche
        quella sull'unita'. Trovato al banco il 19/08, alla prima prova. */
-    const gia = db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: to } });
+    const gia = await db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: to } });
     const nostre = new Set(righe.map(r => r._id));
     const scontro = gia.filter(r => !nostre.has(r._id) && righe.some(n => n.item_key === r.item_key));
     if (scontro.length) {
@@ -539,21 +551,21 @@ app.post('/api/op/moveUdc', wrap((req, res) => {
          `udc.updated_at`, qui sotto, e' un'altra entita' e un altro campo:
          quello e' il suo nome vero. */
       r.last_updated_at = ora;
-      db.put('inventory', r);
+      await db.put('inventory', r);
     }
 
     udc.location_code = to;
     udc.updated_at = ora;
-    db.put('udc', udc);
+    await db.put('udc', udc);
 
-    if (movement) db.add('mov_log', { ...movement, ts: movement.ts || ora });
+    if (movement) await db.add('mov_log', { ...movement, ts: movement.ts || ora });
     return { ok: true, udc_id, from: da, to, righe: righe.length };
   }, originOf(req));
 
   res.json(out);
 }));
 
-app.post('/api/op/commitPickStop', wrap((req, res) => {
+app.post('/api/op/commitPickStop', wrap(async (req, res) => {
   const { location_code, item_key, qty, qty_uom, qty_uom_before, packs_out, packs_before, movement, session } = req.body || {};
   const n = Number(qty);
   assertPacksOut(packs_out);
@@ -561,8 +573,8 @@ app.post('/api/op/commitPickStop', wrap((req, res) => {
       || (packs_out === undefined && (!Number.isFinite(n) || n < 1)))
     throw Object.assign(new Error('parametri incompleti'), { status: 400 });
 
-  const out = db.transaction(['inventory', 'mov_log', 'pick_session', 'meta'], () => {
-    const rows = db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
+  const out = await db.transaction(['inventory', 'mov_log', 'pick_session', 'meta'], async () => {
+    const rows = await db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
     const item = rows.find(r => r.item_key === item_key);
     if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
     const colli = uscitaColli(item, packs_out, packs_before);
@@ -573,13 +585,13 @@ app.post('/api/op/commitPickStop', wrap((req, res) => {
 
     const after = have - usciti;
     const um = colli ? colli.um : scalaUom(item, qty_uom, qty_uom_before, after <= 0);
-    if (colli ? colli.tutto : after <= 0) db.delete('inventory', item._id);
+    if (colli ? colli.tutto : after <= 0) await db.delete('inventory', item._id);
     else {
       item.qty = after;
       if (um !== null) item.qty_uom = um.dopo;
       if (colli) item.packs = colli.rimasti;
       item.last_updated_at = Date.now();
-      db.put('inventory', item);
+      await db.put('inventory', item);
     }
 
     /* Il movimento porta il delta in UM insieme a quello in colli: il
@@ -587,10 +599,10 @@ app.post('/api/op/commitPickStop', wrap((req, res) => {
     const mov = { ...movement, ts: movement?.ts || Date.now(),
                   qty_before: have, qty_delta: -usciti, qty_after: after,
                   ...(um === null ? {} : { qty_uom_delta: um.delta }) };
-    const movId = db.add('mov_log', mov);
+    const movId = await db.add('mov_log', mov);
 
-    db.put('pick_session', session);
-    db.put('meta', { key: 'lastModified', value: Date.now() });
+    await db.put('pick_session', session);
+    await db.put('meta', { key: 'lastModified', value: Date.now() });
 
     return { removed: { ...item, _mode: (colli ? colli.tutto : after <= 0) ? 'full' : 'partial',
                         _qty_before: have, _qty_delta: -usciti, _qty_after: after,
@@ -632,7 +644,7 @@ const frenoSegna = (chiave, riuscito) => {
   tentativi.set(chiave, t);
 };
 
-app.post('/api/op/verifyPin', wrap((req, res) => {
+app.post('/api/op/verifyPin', wrap(async (req, res) => {
   const { op_id, initials, pin } = req.body || {};
   if (!pin || (!op_id && !initials))
     throw Object.assign(new Error('servono il PIN e l\'operatore'), { status: 400 });
@@ -645,9 +657,9 @@ app.post('/api/op/verifyPin', wrap((req, res) => {
   }
 
   let op = null;
-  if (op_id) op = db.get('operators', op_id);
+  if (op_id) op = await db.get('operators', op_id);
   else {
-    const rows = db.query('operators', { criteria: { field: 'initials', op: 'equals', value: String(initials).toUpperCase() } });
+    const rows = await db.query('operators', { criteria: { field: 'initials', op: 'equals', value: String(initials).toUpperCase() } });
     op = rows[0] || null;
   }
 
@@ -661,7 +673,7 @@ app.post('/api/op/verifyPin', wrap((req, res) => {
   res.json({ ok });
 }));
 
-app.post('/api/op/hashPin', wrap((req, res) => {
+app.post('/api/op/hashPin', wrap(async (req, res) => {
   const pin = String(req.body?.pin || '');
   if (!/^\d{6}$/.test(pin))
     throw Object.assign(new Error('serve un PIN di sei cifre'), { status: 400 });
@@ -669,7 +681,7 @@ app.post('/api/op/hashPin', wrap((req, res) => {
   res.json({ pin_salt: salt, pin_hash: hashPin(pin, salt), pin_set_at: Date.now() });
 }));
 
-app.get('/api/events', (req, res) => {
+app.get('/api/events', async (req, res) => {
   res.writeHead(200, {
     'Content-Type': 'text/event-stream',
     'Cache-Control': 'no-cache',
@@ -677,7 +689,7 @@ app.get('/api/events', (req, res) => {
     'X-Accel-Buffering': 'no'
   });
   const me = req.query.client || null;
-  res.write(`event: hello\ndata: ${JSON.stringify({ rev: db.currentRevision(), version: VERSION })}\n\n`);
+  res.write(`event: hello\ndata: ${JSON.stringify({ rev: await db.currentRevision(), version: VERSION })}\n\n`);
 
   const off = db.onChange((ev) => {
     if (me && ev.origin && ev.origin === me) return;   // non ci si avvisa da soli
@@ -688,14 +700,17 @@ app.get('/api/events', (req, res) => {
   req.on('close', () => { off(); clearInterval(beat); });
 });
 
-app.post('/api/backup', wrap((req, res) => {
+app.post('/api/backup', wrap(async (req, res) => {
   const dir = req.body?.dir || path.join(__dirname, 'data', 'backup');
   const name = `pathfinder-${new Date().toISOString().slice(0, 10)}.db`;
   const dest = path.join(dir, name);
-  db.backupTo(dest).then(
-    () => res.json({ ok: true, file: dest }),
-    (err) => res.status(500).json({ error: err.message })
-  );
+  /* 2.2 — SI ATTENDE, e lo stato lo decide l'errore. Prima ogni guasto
+     diventava un 500; col motore SQL Server questa rotta non fallisce, NON
+     ESISTE - il dato non e' piu' un file di questo servizio - e il driver
+     lo dice con un 501 e con cosa fare invece. Schiacciarlo su 500
+     farebbe sembrare un guasto quello che e' un cambio di padrone. */
+  await db.backupTo(dest);
+  res.json({ ok: true, file: dest });
 }));
 
 const noCache = (res) => res.set('Cache-Control', 'no-cache');
@@ -788,7 +803,7 @@ if (APP_DIR) {
   });
 }
 
-app.get('/api/app-info', wrap((req, res) => {
+app.get('/api/app-info', wrap(async (req, res) => {
   if (APP_DIR) {
     const m = leggiManifesto();
     /* `app_dir` e' la giunzione, `punta_a` la cartella vera: e' cosi' che si
@@ -843,12 +858,22 @@ const creaServer = () => {
 
 const { srv, schema } = creaServer();
 
-const server = srv.listen(PORT, () => {
+const server = srv.listen(PORT, async () => {
   const nets = os.networkInterfaces();
   const lan = Object.values(nets).flat()
     .filter(n => n && n.family === 'IPv4' && !n.internal).map(n => n.address);
   console.log(`\n  Pathfinder ${VERSION} — servizio dati`);
-  console.log(`  database   ${DB_FILE}`);
+  /* 2.2 — CHI DIAGNOSTICA GUARDA QUESTA RIGA, e con due motori possibili
+     «database <file>» sarebbe una mezza verita': su SQL Server quel file non
+     esiste. §0 punto 2 dice che quello che risponde il servizio batte quello
+     che dice il documento - allora deve dire la cosa giusta. La stringa di
+     connessione NON si stampa: ci puo' stare dentro una password. */
+  if (DB_MOTORE === 'mssql') {
+    const host = /Server\s*=\s*([^;]+)/i.exec(process.env.PATHFINDER_MSSQL || '');
+    console.log(`  database   SQL Server${host ? ` — ${host[1].trim()}` : ''}`);
+  } else {
+    console.log(`  database   SQLite — ${DB_FILE}`);
+  }
   console.log(`  applicativo ${schema}://localhost:${PORT}/`);
   for (const ip of lan) console.log(`  in rete     ${schema}://${ip}:${PORT}/`);
   if (schema === 'http') console.log('  ATTENZIONE  senza certificato il PIN viaggia in chiaro');
@@ -879,12 +904,12 @@ const server = srv.listen(PORT, () => {
     console.error('              i terminali riceveranno una pagina vuota (404).');
     console.error('              Indicare il file giusto in PATHFINDER_APP e riavviare.');
   }
-  console.log(`  revisione   ${db.currentRevision()}\n`);
+  console.log(`  revisione   ${await db.currentRevision()}\n`);
 });
 
 const shutdown = (sig) => {
   console.log(`\n  ${sig}: chiusura ordinata…`);
-  server.close(() => { db.close(); process.exit(0); });
+  server.close(() => { db.close().finally(() => process.exit(0)); });
   setTimeout(() => process.exit(1), 5000).unref();
 };
 process.on('SIGINT', () => shutdown('SIGINT'));

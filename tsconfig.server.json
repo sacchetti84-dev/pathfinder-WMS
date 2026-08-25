@@ -63,6 +63,20 @@
      `test/schemaSqlServer.test.js` girano a ogni `npm test` e controllano
      che i loro schemi descrivano le stesse venti collezioni che il servizio
      usa oggi. **Quello che si userà è SQL Server** — voce 36 del 25/08; il
-     ramo `azure/` resta come memoria del metodo, non come strada. */
-  "exclude": ["server/node_modules", "node_modules", "server/azure", "server/sqlserver"]
+     ramo `azure/` resta come memoria del metodo, non come strada.
+
+     2.2 — `lib/driver-mssql.js` è escluso per la STESSA ragione, ed è
+     l'unico file dentro `lib/` che lo sia. Non è un ramo parallelo: è il
+     driver vero, quello che il servizio userà. Ma `require('mssql')` non
+     compila finché quel modulo non è installato, e installarlo prima che
+     SQL Server sia in servizio vorrebbe dire una dipendenza in più per
+     tutti — §6. **La riga si toglie da qui il giorno che `mssql` entra in
+     `server/package.json`**, cioè il giorno che il motore si accende, e da
+     quel momento il driver è controllato come tutto il resto.
+
+     Nel frattempo la sua rete è `test/driverMssql.test.js`, che esercita
+     la traduzione dei segnaposto e la forma del SQL generato senza aprire
+     nessuna connessione. */
+  "exclude": ["server/node_modules", "node_modules", "server/azure", "server/sqlserver",
+              "server/lib/driver-mssql.js"]
 }

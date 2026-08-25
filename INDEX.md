@@ -105,6 +105,66 @@ porta dati veri, e per questo un collaudo si fa sempre su una **copia** — §5.
 
 ## 1. Stato
 
+### Il 25/08 — il servizio dati è asincrono, e sotto ci sono due motori
+
+**Era il pezzo grosso, ed è fatto.** `lib/db.js` erano 315 righe di SQLite
+**sincrono**; adesso è asincrono, e con lui le 27 rotte, le 5 transazioni
+composte e i due collaudi del servizio. Nessuna prova è stata tolta: **98 su
+98** e **8 su 8**, e girano su SQLite come prima.
+
+**Due motori, e non per indecisione.** Il magazzino gira su SQLite e ci deve
+poter girare finché SQL Server non è provato per un turno intero — §0 dice che
+installare è un atto umano, a fine turno, con un backup fresco davanti. Un
+taglio netto vorrebbe dire scoprire in corsia quello che si scopre al banco.
+Quindi il motore è un interruttore, **`PATHFINDER_DB_MOTORE`**, e di serie vale
+`sqlite`: **chi non decide niente non cambia niente**. Il comportamento di
+riferimento resta SQLite, e se i due divergono ha ragione quello.
+
+**Quel che NON è cambiato è la superficie.** Stessi nomi, stessi ritorni,
+stesse eccezioni con lo stesso `status`. Chi legge una rotta vede la stessa
+cosa di prima con un `await` davanti; le differenze di dialetto stanno nei due
+driver e non arrivano in `db.js`.
+
+**LA COSA CHE L'ASINCRONO HA APERTO, e che va saputa prima di toccare una
+transazione.** `BEGIN` e `COMMIT` valgono per la **connessione**, non per la
+chiamata. Un `await` in mezzo a una transazione cede il turno, e un'altra
+richiesta che entrasse lì scriverebbe **dentro la transazione di qualcun
+altro** — e verrebbe annullata insieme a lei, o la porterebbe a termine per
+sbaglio. Non dà errore: dà due saldi che divergono il primo pomeriggio in cui
+due terminali prelevano lo stesso lotto. Le transazioni sono perciò
+**serializzate da una coda**, una per volta. È la lettura giusta di §6 — «la
+concorrenza si risolve con una transazione dentro `/api/op/…`, non con la
+disciplina di chi scrive»: la coda è quel che rende vera quella frase adesso
+che il codice attende. **La prova che la sorveglia è stata verificata
+togliendo la coda**: diventa rossa, e senza quella verifica sarebbe stata una
+prova che non prova niente.
+
+**Due cose che il passaggio ha reso visibili, e sono scritte dove si vedono.**
+`wrap` adesso **attende**: senza, un errore dentro una rotta diventerebbe un
+rifiuto non gestito, la risposta non partirebbe mai e il terminale resterebbe
+ad aspettare invece di vedere il messaggio — il `try` non lo prenderebbe. E il
+**banner d'avvio dice quale motore sta girando** invece di stampare un percorso
+che su SQL Server non esiste: §0 punto 2 dice che quello che risponde il
+servizio batte quello che dice il documento, e allora deve dire la cosa giusta.
+La stringa di connessione non si stampa mai — ci può stare dentro una password.
+
+**Il backup cambia padrone, ed è il punto in cui si vede.** `POST /api/backup`
+copiava un file; col motore SQL Server risponde **501** e dice cosa fare
+invece, perché il dato non è più un file di questo servizio: il ripristino è
+del motore e lo fa chi amministra l'istanza. Scrivere un file vuoto e lasciar
+credere che una copia ci sia sarebbe stato peggio del rifiuto.
+
+**Misurato:** 982 prove in 36 file (erano 960 in 34) · **98 su 98** il servizio
+· **8 su 8** la migrazione 1.4 · `npm run check` pulito · pacchetto costruito, e
+l'impronta **non si muove** perché il client non è stato toccato. Il collaudo
+di installazione non gira qui — chiede PowerShell — e falliva identico anche
+sull'albero pulito, verificato.
+
+**Cosa resta prima di accendere il motore nuovo:** provarlo su un'istanza vera,
+riscrivere le 22 prove del collaudo di installazione (il ritorno indietro non
+riporta più il dato), e dimensionare il pool sul numero di terminali. E la
+voce 37: se l'istanza sta in azienda o è Azure SQL.
+
 ### Il 25/08 — il passaggio a SQL Server è cominciato, e per ora è parallelo
 
 **Il ramo `server/sqlserver/` esiste, e non lo chiama nessuno.** È lo stesso
@@ -1145,7 +1205,7 @@ collauda al banco e si consegna il pacchetto.
 | **33** | **Il registro racconta male i trasferimenti** — §1, trovato dal guardiano il 20/08: **54 movimenti su 256 sono `MOVE` con `delta 0`** e saldo invariato, e i `QREL` non portano nessuna quantità. La merce si sposta davvero, verificato. Ma il registro si tiene **sei anni**, e la domanda che ci si fa fra tre è «quanto»: un movimento che non porta la quantità a quella domanda non risponde. Non è un difetto che si vede lavorando, ed è il motivo per cui va scritto qui | da costruire |
 | **34** | **Un movimento `EDIT` senza merce** — `# MAG-ACC-03`, articolo e lotto vuoti. Uno solo su 256, trovato dal guardiano il 20/08 | da chiarire |
 | **35** | **La 2.1 è in servizio da un pacchetto che nessun documento nominava.** L'impronta in produzione (`7cd16b50…`, costruita il 20/08 alle 08:31) non è quella che l'INDEX dichiarava (`29f215e1…`). È la **terza volta in quattro giorni** che il documento dice dove gira la produzione e la produzione gira altrove. Non è una riga da correggere: è il motivo per cui §0 punto 2 esiste, e va riletto da chi apre una conversazione nuova | letto, non si chiude |
-| **36** | **Il database lascia SQLite e va su SQL SERVER** — confermato da Andrea il **25/08**, motore compreso. Supera la voce 26. **Cominciato lo stesso giorno, e per ora parallelo**: `server/sqlserver/` porta il DDL generato dalla stessa dichiarazione di `lib/schema.js` e la copia tavolo per tavolo, con 14 prove che girano a ogni `npm test` — §1. **Non lo chiama nessuno, e in servizio c'è SQLite.** Il ramo `azure/` resta come memoria del metodo: era PostgreSQL, e il suo codice non serve. **Restano due domande all'IT, e nessuna delle due blocca quel che c'è:** *(a)* **quale versione di SQL Server** — decide se il documento resta `NVARCHAR(MAX)` con `ISJSON` o diventa il tipo `json` nativo, e lo schema di oggi funziona in tutti e due i casi; *(b)* **se è la stessa istanza su cui gira Sage X3** — se lo fosse, l'azienda ha già istanza, backup e chi la amministra, e risponde da sola alla voce 37. **Quel che manca è il grosso**: `lib/db.js`, 315 righe di SQLite sincrono, e con lui ogni rotta e le 98 prove del servizio | IT, le due domande |
+| **36** | **Il database lascia SQLite e va su SQL SERVER** — confermato da Andrea il **25/08**, motore compreso, e **l'IT ha confermato la migrazione lo stesso giorno**. Supera la voce 26. **Il codice c'è**: `server/sqlserver/` porta DDL e copia generati dalla stessa dichiarazione di `lib/schema.js`, e `lib/db.js` è **asincrono con due motori sotto** — `PATHFINDER_DB_MOTORE`, di serie `sqlite`, così il magazzino continua a girare su quello finché il nuovo non è provato per un turno. 27 rotte, 5 transazioni composte e i due collaudi convertiti: **98 su 98** e **8 su 8**. §1. **Quel che manca non è più codice da scrivere, è un'istanza su cui provarlo**: *(a)* misurare la latenza sul percorso vero — prelievo guidato, DDT, chiusura del conto; *(b)* riscrivere le **22 prove** del collaudo di installazione, perché il ritorno indietro non riporta più il dato; *(c)* dimensionare il pool sul numero di terminali. E resta utile sapere **quale versione** ha l'azienda — lo schema di oggi funziona in tutti i casi — e **se è l'istanza di Sage X3**, che risponderebbe da sola alla voce 37 | Andrea, un'istanza di prova |
 | **39** | **React nel front end: si comincia da un'isola, o non si comincia.** Chiesto da Andrea il 25/08, valutato lo stesso giorno — la valutazione, coi numeri, sta in §2 «Lavoro di fondo». In breve: **il beneficio è reale e non è la velocità**, è che lo stato smette di essere ricopiato a mano nel DOM; **il costo non è React, sono le 16.778 righe di viste che nessun collaudo guarda** — un solo file di prova su 34 tocca il DOM. Quel che va deciso non è «React sì o no», è **una cosa sola: quale maschera fa da prima isola, e quando**. La risposta consigliata è **il cruscotto** — si ridisegna intero a ogni giro, non muove merce, non chiede il PIN, e ha già 19 prove sul modulo che lo calcola — **dopo** che la forma della migrazione del database (voce 36) è nota, perché se `lib/db.js` diventa asincrono ogni vista cambia comunque il modo in cui legge, e convertire due volte la stessa maschera è il solo spreco sicuro | Andrea |
 | **38** | **I lotti erano sensibili al maiuscolo, e il lettore di barcode scrive minuscolo.** Segnalato da Andrea il 25/08. In azienda il lettore restituisce le lettere **in minuscolo**: `6000366B#abc123` e `6000366B#ABC123` erano **due righe diverse nello stesso vano** — l'indice composto `[location_code+item_key]` le fa convivere — e il prelievo non trovava la merce che vede a scaffale. **~~Il codice è chiuso il 25/08~~ — vedi §1**: le diciassette letture di lotto prendono il `true` che l'articolo aveva sempre avuto, `chiaveLotto` e `pickRoute` alzano tutti e due i lati, `addItem` normalizza prima di comporre la chiave, i campi alzano il **valore** e non solo il modo in cui si vedono, e `RE.LOT` perde la spia `/i`. 21 prove nuove. **RESTA IL DATO, ed è di Andrea**: le righe scritte prima portano ancora la grafia con cui sono nate. Lo strumento c'è — `server/raddrizza-maiuscole.js`, che **conta e basta** finché non gli si dice `--sul-serio` — e va lanciato **su una copia**. Quel che conta non è quante righe sono storte: è **quante si fonderebbero**, cioè dove le due grafie convivono nello stesso vano. Quelle lo script non le tocca e le elenca: sommare due giacenze è un movimento, non una correzione di grafia, e il registro vuole la riga che lo spiega. Come per le voci 14 e 31 | **Andrea, il dato** |
 | **37** | **Dove gira SQL Server: in azienda o su Azure SQL.** La voce 36 dice il motore, non dove sta. **Su un'istanza interna §6 regge com'è** — «niente Azure» compreso — e «niente lavoro offline» resta quello di oggi: cade la rete aziendale, non la linea verso Internet. **Su Azure SQL diventa «niente lavoro senza linea»**, e il magazzino si ferma quando cade la connessione dell'azienda: 300÷500 movimenti al giorno, coi muletti fermi. Cambia anche l'autenticazione — su un'istanza interna può essere **integrata Windows, senza nessuna password da custodire**; su Azure è una stringa di connessione, che allora vuole Key Vault. È una decisione di continuità operativa e va presa **prima** di riscrivere `lib/db.js`: il codice è quasi lo stesso, il piano di fermo no | Andrea |
@@ -1306,27 +1366,31 @@ installare.
   parte che era costata pensarla: il DDL si **genera dalla stessa
   dichiarazione** di `lib/schema.js` invece di ricopiare a mano le venti
   collezioni, e la copia procede **tavolo per tavolo ricontrollando i
-  conteggi**. Da rifare, quindi, cinque pezzi su cinque:
+  conteggi**. Erano cinque pezzi su cinque; il **25/08 ne sono stati chiusi
+  tre e mezzo**, e quel che resta non è codice da scrivere ma un'istanza su
+  cui provare.
 
-  1. **Il DDL per SQL Server, e la copia.** Prima serve sapere **quale versione
-     ha l'azienda**: sotto il tipo `json` nativo il documento è
-     `NVARCHAR(MAX)` con vincolo `ISJSON`, si interroga con `JSON_VALUE`, e le
-     colonne materializzate diventano **colonne calcolate persistite** — che si
-     indicizzano, ed è quello che serve. È una domanda all'IT, e va fatta prima
-     di scrivere una riga di DDL.
+  1. ~~**Il DDL per SQL Server, e la copia.**~~ **Fatti il 25/08** —
+     `server/sqlserver/`, §1. Il documento è `NVARCHAR(MAX)` con vincolo
+     `ISJSON`, e funziona su tutto quello che la domanda sulla versione
+     potrebbe rispondere: stringerlo al tipo `json` nativo dopo è un `ALTER`,
+     non una riscrittura.
 
-  2. **`lib/db.js` va riscritto, non configurato.** Sono **315 righe di SQLite
-     sincrono**: `better-sqlite3` è sincrono, un driver di rete no. Ogni rotta,
-     ogni transazione composta e le **85 prove del servizio** diventano
-     asincrone. È il pezzo più grosso della migrazione, e va misurato sul
-     percorso vero — prelievo guidato, DDT, chiusura del conto — perché una
-     transazione che oggi costa microsecondi su un file lì costa un giro di
-     rete, e le operazioni composte ne fanno più d'uno.
-  3. **Il backup e il ritorno indietro cambiano padrone.** `backup-serale.ps1`
-     e `POST /api/backup` copiano un file, e `torna-indietro.ps1` riporta il
-     dato insieme all'applicativo. Con il dato fuori dal file quel gesto non
-     esiste più: `torna-indietro.ps1` riporta solo l'applicativo, e il
-     **collaudo di installazione — 22 prove — va riscritto per intero**.
+  2. ~~**`lib/db.js` va riscritto, non configurato.**~~ **Fatto il 25/08** —
+     §1. Erano 315 righe di SQLite **sincrono**; adesso è asincrono, e con lui
+     le 27 rotte, le 5 transazioni composte e i due collaudi (98 e 8, tutte
+     verdi). **Il motore è un interruttore**, di serie `sqlite`. **Resta da
+     misurare sul percorso vero** — prelievo guidato, DDT, chiusura del conto —
+     perché una transazione che oggi costa microsecondi su un file lì costa un
+     giro di rete, e le operazioni composte ne fanno più d'uno. Quello si
+     misura su un'istanza, non qui.
+  3. **Il backup e il ritorno indietro cambiano padrone — metà fatta.**
+     `POST /api/backup` col motore SQL Server risponde **501** e dice cosa fare
+     invece, invece di scrivere un file vuoto e lasciar credere che una copia
+     ci sia. **Restano fuori** `backup-serale.ps1` e `torna-indietro.ps1`, che
+     riportava il dato insieme all'applicativo e da lì in poi riporterà solo
+     l'applicativo: il **collaudo di installazione — 22 prove — va riscritto**,
+     e non gira su questa macchina perché chiede PowerShell.
   4. **Come ci si autentica, e il pool.** Su un'istanza interna può essere
      **l'autenticazione integrata di Windows, e allora non c'è nessuna password
      da custodire** — il servizio gira già come SYSTEM da un'attività
@@ -2569,7 +2633,8 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 | File | Righe | Ruolo |
 |---|---:|---|
 | `pathfinder-server.js` | 378 | Express: rotte, SSE, TLS opzionale, la cartella dell'applicativo, avvio |
-| `lib/db.js` | 315 | Accesso SQLite, transazioni, operazioni composte, **`_migra`** |
+| `lib/db.js` | 415 | **2.2 — ASINCRONO, e con due motori sotto.** Stessa superficie di prima: stessi nomi, stessi ritorni, stesse eccezioni con lo stesso `status`. Le transazioni sono **serializzate da una coda** — `BEGIN` vale per la connessione, non per la chiamata, e un `await` in mezzo cede il turno. Il motore lo sceglie `PATHFINDER_DB_MOTORE`, di serie `sqlite`. Porta ancora **`_migra`** |
+| `lib/driver-sqlite.js` · `lib/driver-mssql.js` | 130 · 250 | I due dialetti. **Il riferimento e' quello SQLite**: e' cio' che il servizio ha sempre fatto, e se i due divergono ha ragione quello. Quello SQL Server porta le cinque differenze vere — segnaposto `?` → `@pN` (**saltando quel che sta fra apici**), `MERGE` col punto e virgola e `HOLDLOCK` al posto di `ON CONFLICT`, `OFFSET/FETCH` al posto di `LIMIT`, `SCOPE_IDENTITY()` al posto di `lastInsertRowid`, e `SET IDENTITY_INSERT` per preservare gli `_id` al ripristino. **`driver-mssql.js` e' l'unico file di `lib/` fuori dal controllo dei tipi**, finche' `mssql` non e' una dipendenza: la sua rete e' `test/driverMssql.test.js` |
 | `lib/schema.js` | 191 | Tabelle e indici — **due funzioni separate**, con la migrazione in mezzo |
 | `installa-pathfinder.ps1` | — | **L'installer**: chiede dove installare la prima volta e la rilegge dalla macchina aggiornando, capisce se è aggiornamento o prima installazione, si eleva **sempre** (ferma il servizio), porta applicativo **e** servizio, riavvia, e verifica che i due numeri coincidano. Nel pacchetto diventa `installa.ps1`. `-NonChiedere` per provarlo senza una persona davanti, **`-Prova`** per fargli dire cosa farebbe senza toccare niente |
 | `Installa Pathfinder.bat` · `LEGGIMI-pacchetto.txt` | — | Il doppio clic e le istruzioni per chi installa. Nel pacchetto diventano `Installa Pathfinder.bat` e `LEGGIMI.txt` |
@@ -2588,8 +2653,17 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
 `compiti` (114) · `misure` (65) · `colli` (66) · `parametri` (19) · `documenti` (6) ·
-`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) · **`maiuscolo` (21)** · **`schemaSqlServer` (14)** — **960 prove in 34 file**. `ambiente.js` è
+`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) · **`maiuscolo` (21)** · **`schemaSqlServer` (14)** · **`dbAsincrono` (9)** · **`driverMssql` (13)** — **982 prove in 36 file**. `ambiente.js` è
 il preambolo comune.
+
+**`dbAsincrono` guarda la cosa che il passaggio all'asincrono ha aperto**, e
+che dalle rotte non si vede perché per vederla servono due operazioni che
+partono insieme: che due transazioni concorrenti **non si infilino una
+nell'altra**. Quella prova è stata verificata togliendo la coda — diventa
+rossa. Una prova sulla concorrenza che nessuno ha visto fallire non prova
+niente. **`driverMssql`** esercita la traduzione dei segnaposto e la forma del
+SQL **senza aprire nessuna connessione**: è la rete dell'unico file di `lib/`
+che il controllo dei tipi non guarda.
 
 **`schemaSqlServer` sta al ramo SQL Server come `schemaPostgres` sta a quello
 PostgreSQL**, e per la stessa ragione: il giorno che qualcuno lo prova, lo
@@ -2642,12 +2716,14 @@ scritto lì dentro trovi a chi rispondere — §7.
 | **Colli (1.8)** | `packs_out` è un elenco di `{da, quantita}` — la misura del collo e quanto ne esce; un numero solo significa «quel collo, intero». `packs_before` è il seme, come `qty_uom_before` |
 | Collezioni | `GET/POST/PUT/PATCH/DELETE /api/c/:col[/:key]` · `/bulk` · `/count` · `/query` |
 | Operazioni composte | `/api/tx` · `/api/op/removeItem` · `/api/op/commitPickStop` · `/api/op/sampleItem` · **`/api/op/moveUdc`** · `/api/op/verifyPin` · `/api/op/hashPin`. **1.12**: `moveUdc` sposta l'unita' di carico e tutte le sue righe in una transazione, e rifiuta se nel vano di arrivo la stessa chiave sta gia' fuori dall'unita'. **1.8**: le prime due accettano `packs_out` e `packs_before`, e con l'elenco `qty` diventa facoltativo — un prelievo che apre un collo senza svuotarlo non toglie colli |
-| Servizio | `/api/health` · `/api/load` · `/api/clear` · `/api/deleteWhere/:col` · `/api/backup` · `/api/events` (SSE) · `/api/app-info` |
+| Servizio | `/api/health` · `/api/load` · `/api/clear` · `/api/deleteWhere/:col` · `/api/backup` · `/api/events` (SSE) · `/api/app-info`. **2.2** — `/api/health` dice anche **quale motore** sta girando, e `/api/backup` col motore SQL Server risponde **501**: il dato non e' piu' un file di questo servizio, e il ripristino e' del motore. Dirlo e' meglio che scrivere un file vuoto e lasciar credere che una copia ci sia |
 
 | Variabile di macchina | Valore |
 |---|---|
 | `PATHFINDER_PORT` | `4173` |
-| `PATHFINDER_DB` | `C:\Pathfinder\data\pathfinder.db` |
+| `PATHFINDER_DB` | `C:\Pathfinder\data\pathfinder.db` — col motore SQL Server non serve |
+| **`PATHFINDER_DB_MOTORE`** | **2.2** — `sqlite` (di serie) o `mssql`. Chi non decide niente non cambia niente: assente vuol dire quello che il magazzino ha sempre avuto |
+| **`PATHFINDER_MSSQL`** | **2.2** — la stringa di connessione, e serve **solo** col motore `mssql`. Su un'istanza interna puo' essere ad autenticazione integrata e non portare nessuna password: `Server=host;Database=pathfinder;Trusted_Connection=true;Encrypt=true`. Non si stampa mai — nemmeno nel banner d'avvio, che mostra il solo host |
 | **`PATHFINDER_APP_DIR`** | `C:\Pathfinder\app\corrente` — **si imposta una volta sola**: dopo, le versioni si scambiano sostituendo il contenuto di quella cartella, e la variabile non si muove mai più |
 | `PATHFINDER_APP_PREV` | il fratello `precedente`, da cui escono gli assets di chi stava caricando la pagina durante uno scambio. Si imposta solo per metterlo altrove |
 | `PATHFINDER_APP` | il ripiego a file singolo, usato solo se `APP_DIR` è assente |
