@@ -21,7 +21,24 @@ const { NAMES } = require('../server/lib/schema.js');
    dichiarano saltate — un collaudo che tace su meta' del lavoro sarebbe
    peggio di uno che dice «questa meta' non l'ho vista». */
 
-const PG = process.env.PATHFINDER_PG || leggiEnvLocale(process.cwd()).PATHFINDER_PG || null;
+/* IL COLLAUDO HA UN DATABASE SUO, E NON PUÒ AVERNE UN ALTRO.
+
+   Questa batteria fa `TRUNCATE` di tutti i tavoli a ogni corsa: puntata al
+   database su cui qualcuno sta PROVANDO l'applicativo, gli porta via i dati
+   sotto i piedi. È successo il 26/08 — una corsa di `npm test` ha svuotato
+   `pathfinder_prova`, dove stavano gli 11.197 articoli appena migrati, e se
+   n'è accorto solo chi è andato a guardare i conteggi.
+
+   Si usa `PATHFINDER_PG_COLLAUDO`, e in mancanza NON si ripiega su
+   `PATHFINDER_PG`: si salta, dicendo perché. Un ripiego silenzioso su un
+   database di lavoro è esattamente il gesto che ha fatto il danno. */
+const env = leggiEnvLocale(process.cwd());
+const PG = process.env.PATHFINDER_PG_COLLAUDO || env.PATHFINDER_PG_COLLAUDO || null;
+
+/** Il nome del database in fondo alla stringa di connessione. */
+function nomeDatabase(stringa) {
+  try { return new URL(stringa).pathname.replace(/^\//, ''); } catch { return ''; }
+}
 
 function batteria(etichetta, apri, chiudi) {
   describe(etichetta, () => {
@@ -345,7 +362,13 @@ batteria('driver SQLite',
    il motivo. Un collaudo che tace su meta' del lavoro sarebbe peggio di uno
    che dice «questa meta' non l'ho vista, ed ecco perche'». */
 async function raggiungibile(stringa) {
-  if (!stringa) return 'PATHFINDER_PG non impostata';
+  if (!stringa) return 'PATHFINDER_PG_COLLAUDO non impostata';
+  /* La cintura, oltre alle bretelle: anche se qualcuno impostasse
+     `PATHFINDER_PG_COLLAUDO` sul database sbagliato, il nome deve dirlo. */
+  const nome = nomeDatabase(stringa);
+  if (!/_collaudo$/.test(nome))
+    return `il database si chiama "${nome}" e non finisce per "_collaudo": ` +
+           'questa batteria svuota i tavoli, e non lo fa su un database di lavoro';
   try {
     const { DriverPostgres } = require('../server/lib/driver-postgres.js');
     const d = new DriverPostgres(stringa);

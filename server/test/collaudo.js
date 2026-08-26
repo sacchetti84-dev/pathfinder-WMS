@@ -63,8 +63,26 @@ process.env.PATHFINDER_APP_DIR = ORA;
 const SU_PG = process.env.PATHFINDER_COLLAUDO_PG === '1';
 if (SU_PG) {
   const { leggiEnvLocale } = require('../lib/db.js');
-  const pg = process.env.PATHFINDER_PG || leggiEnvLocale(path.join(__dirname, '..', '..')).PATHFINDER_PG;
-  if (!pg) { console.error("\n  PATHFINDER_COLLAUDO_PG=1 ma nessuna stringa di connessione.\n"); process.exit(1); }
+  const env = leggiEnvLocale(path.join(__dirname, "..", ".."));
+  /* IL DATABASE DEI COLLAUDI, NON QUELLO SU CUI SI PROVA — 26/08.
+     Qui sotto c'e un TRUNCATE di tutti i tavoli. Puntato al database dove
+     qualcuno sta provando l'applicativo, gli porta via i dati sotto i piedi:
+     e' successo il 26/08 su , con dentro gli 11.197
+     articoli appena migrati, e se n'e accorto solo chi e' andato a
+     guardare i conteggi. Si usa , e NON si ripiega
+     in silenzio su : il ripiego e' il gesto che ha fatto il danno. */
+  const pg = process.env.PATHFINDER_PG_COLLAUDO || env.PATHFINDER_PG_COLLAUDO;
+  if (!pg) { console.error("\n  PATHFINDER_COLLAUDO_PG=1 ma PATHFINDER_PG_COLLAUDO non e' impostata.\n"); process.exit(1); }
+  /* La cintura, oltre alle bretelle: anche impostando la variabile sul
+     database sbagliato, il nome deve dirlo. */
+  const nomeDb = (() => { try { return new URL(pg).pathname.slice(1); } catch { return String(); } })();
+  if (!/_collaudo$/.test(nomeDb)) {
+    console.error(`
+  Il database si chiama "${nomeDb}" e non finisce per "_collaudo".
+  Questo banco svuota i tavoli: non lo fa su un database di lavoro.
+`);
+    process.exit(1);
+  }
   process.env.PATHFINDER_PG = pg;
   /* Si parte da vuoto: le prove contano le righe che scrivono loro. */
   const { Client } = require('../node_modules/pg');
