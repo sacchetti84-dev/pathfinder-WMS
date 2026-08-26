@@ -127,13 +127,14 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   // ── Salute ────────────────────────────────────────────────────────
   const salute = await call('GET', '/api/health');
   ok('Servizio risponde', salute.stato === 200 && salute.dati.ok);
-  /* Quattordici fino alla 1.2, diciannove dalla 1.4.0, VENTI dalla 1.6:
+  /* Quattordici fino alla 1.2, diciannove dalla 1.4.0, venti dalla 1.6,
+     VENTUNO dalla 2.8 con `location_attrs`:
      le cinque della 1.4 nascono vuote in Fase 0 perche' lo schema si muova
      una volta sola; `recipients` no — e' nata dall'uso, e non c'era modo di
      prevederla. Che i nomi siano quelli che il client si aspetta lo prova il
      tipo in `lib/schema.js`, non questo conteggio. */
   const NUOVE_14 = ['lots', 'udc', 'tasks', 'wip', 'storage_rules'];
-  ok('Venti collezioni dichiarate', salute.dati.collections.length === 20,
+  ok('Ventuno collezioni dichiarate', salute.dati.collections.length === 21,
      salute.dati.collections.length + '');
   ok('le cinque collezioni della 1.4 ci sono e sono vuote',
      NUOVE_14.every(c => salute.dati.collections.includes(c))
