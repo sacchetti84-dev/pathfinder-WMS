@@ -27,6 +27,7 @@ function cache(sovrascrivi = {}) {
     pickSession: null, pickArchive: [], disposalArchive: [], operators: [],
     movLogTotal: 0,
     lots: [], udc: [], tasks: [], wip: [], storageRules: [], recipients: [],
+    locAttrs: new Map(),
     meta: metaVuota(),
     ...sovrascrivi,
   };

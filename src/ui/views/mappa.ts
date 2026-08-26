@@ -109,7 +109,7 @@ export const VistaMappa = {
       if (!conf.verificabili && senzaAttributi) {
         return `<div class="conf-bar conf-bar--muta">
           🧭 Verifica di stoccaggio inattiva — <strong>${senzaAttributi}</strong> articoli
-          senza classe di temperatura né allergeni. Si popolano da Configurazione → Articoli → Export/Import Excel.
+          senza classe di temperatura, allergeni né pericolosità. Si popolano da Configurazione → Articoli → Export/Import Excel.
         </div>`;
       }
       return '';
@@ -237,6 +237,12 @@ export const VistaMappa = {
       ALLERGENE_FUORI_ZONA: 'Allergeni fuori zona',
       ALLERGENE_NON_AMMESSO: 'Allergene non ammesso',
       PULITO_IN_ZONA_ALLERGENI: 'Senza allergeni in zona riservata',
+      /* 2.8 — la pericolosità, la matrice e la regola base 2. */
+      PERICOLO_FUORI_ZONA: 'Merce pericolosa fuori area',
+      PERICOLO_NON_AMMESSO: 'Pericolo non ammesso',
+      PULITO_IN_ZONA_PERICOLI: 'Merce non pericolosa in area pericoli',
+      INCOMPATIBILITA: 'Pericoli incompatibili nello stesso vano',
+      LOTTO_SPARSO: 'Stesso lotto in più ubicazioni',
     } as Record<string, string>)[tipo] || tipo;
   },
 

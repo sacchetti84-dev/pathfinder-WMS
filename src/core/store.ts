@@ -7,8 +7,9 @@ import type {
   Sito, Zona, Articolo, Giacenza, Movimento, Quarantena, DocumentoUscita,
   RigaDocumento, SessionePrelievo, ReportPrelievo, VerbaleSmaltimento,
   Operatore, Istante, Coordinate, GiacenzaRimossa, IngressoArticolo, Compito,
-  Lotto, Destinatario, Destinazione, Udc,
+  Lotto, Destinatario, Destinazione, Udc, AttributiUbicazione,
 } from '../types/entita';
+import type { CodiceAllergene } from '../modules/anagrafica';
 import {
   PRIORITA_NORMALE, ORE_URGENZA_DEFAULT, eAperto, ordinaCoda, componiCompito, validaRichiesta,
   prioritaConsentita, transizioneAmmessa, etichettaPriorita, etichettaStato,
@@ -53,6 +54,17 @@ import {
   proponi as proponiStoccaggio, validaRegola as validaRegolaStoccaggio,
 } from '../modules/stoccaggio';
 import type { PostoCandidato, RegolaStoccaggio } from '../modules/stoccaggio';
+/* 2.8 — le due regole che non si scrivono, e la matrice di
+   incompatibilita'. Il motore delle regole di POLITICA sta in
+   `stoccaggio.ts`; queste sono un'altra cosa e stanno da un'altra parte. */
+import {
+  verdettoCasa, caseDelLotto, udcConsigliata, scavalcoUdc,
+  normalizzaMatrice, scontri as scontriPericoli,
+  INCOMPATIBILITA_DI_SERIE, REGOLE_BASE,
+} from '../modules/regoleBase';
+import type {
+  CoppiaIncompatibile, VerdettoCasa, PropostaUdc, UdcCandidata,
+} from '../modules/regoleBase';
 import { conto as contoWip, colliFuori as colliFuoriWip, archiviato as archiviatoWip,
          ordiniArchiviati as ordiniArchiviatiWip,
          righeSenzaOrdine as righeSenzaOrdineWip } from '../modules/wip';
@@ -304,7 +316,7 @@ const Store = {
     const { sites, zones, articles, inventory, locStatus: locStat, disabled,
             movLog, movLogTotal, quarantine, pendingOut, meta: metaRows,
             pickSession: pickSessions, pickArchive, disposalArchive, operators,
-            lots, udc, tasks, wip, storageRules } =
+            lots, udc, tasks, wip, storageRules, recipients, locAttrs } =
       await Persistence.loadAll({ movLogFrom: this.movLogWindowFrom() });
     // Riassembla zones dentro sites
     const zonesBySite: Record<string, Zona[]> = {};
@@ -332,6 +344,18 @@ const Store = {
     this._cache.tasks = tasks || [];
     this._cache.wip = wip || [];
     this._cache.storageRules = storageRules || [];
+    /* 2.8 — I DESTINATARI NON RIENTRAVANO IN CACHE, e nessuno se n'era
+       accorto perche' il difetto si nasconde da solo: i due adapter li
+       leggevano dal 1.6, `_loadCache` non li assegnava, e la prima volta
+       che qualcuno ne scriveva uno `_applyToCache` popolava l'elenco per
+       il resto della sessione. Chi apriva un DDT senza aver toccato prima
+       l'anagrafica trovava zero destinatari e li riscriveva a mano.
+       Trovato cablando `location_attrs`, che passa da qui. */
+    this._cache.recipients = recipients || [];
+    /* 2.8 — la caratterizzazione della singola ubicazione. Mappa e non
+       elenco: la si legge per codice a ogni cella disegnata. */
+    this._cache.locAttrs = new Map(
+      (locAttrs || []).map((a: AttributiUbicazione) => [a.location_code, a]));
     /* v2.7.0 [G6] — Ordine alfabetico stabile: l'anagrafica si legge e si
        sceglie, non si scorre in ordine di inserimento. */
     this._cache.operators = (operators || []).sort((a: Operatore, b: Operatore) =>
@@ -353,7 +377,13 @@ const Store = {
       areaWip: metaObj.areaWip ?? '',
       /* 2.1 — il layout del cruscotto. Trappola 22: dichiarata qui, o
          vivrebbe in cache fino al primo ricaricamento e poi sparirebbe. */
-      dashboardLayout: metaObj.dashboardLayout ?? null
+      dashboardLayout: metaObj.dashboardLayout ?? null,
+      /* 2.8 — le coppie di pericolosita' che non dividono un vano. Trappola
+         22: dichiarata qui, o vivrebbe in cache fino al primo ricaricamento
+         e poi sparirebbe. `null` = mai configurata, e allora valgono le tre
+         di serie; un elenco VUOTO e' una decisione presa — «nessuna coppia
+         e' incompatibile» — e vale quel che dice. */
+      matriceIncompatibilita: metaObj.matriceIncompatibilita ?? null
     };
   },
 
@@ -509,11 +539,11 @@ const Store = {
       if (zone.has(code)) return zone.get(code);
       const g = geo.get(code);
       const z = g ? this.getZone(g.site_id, g.zone_id) : null;
+      /* 2.8 — la cella scavalca la zona, campo per campo. La cache per
+         codice qui sopra resta: `_fondiAttributi` è poco piu' di sei
+         confronti, ma su duemila celle per disegnata sono dodicimila. */
       const attr = z ? {
-        zone_name: z.name,
-        temp_class: z.temp_class || null,
-        allergen_zone: z.allergen_zone === true,
-        allergens: Array.isArray(z.allergens) ? z.allergens : null,
+        ...this._fondiAttributi(z, this.getLocationAttrs(code)),
         /* Uno stato «Riservata» esplicito vince su «occupata» dentro
            getLocationStatus, quindi una cella riservata CON merce dentro
            resta riservata: senza quello, la deroga non scatterebbe mai. */
@@ -522,7 +552,11 @@ const Store = {
       zone.set(code, attr);
       return attr;
     };
-    return verificaConformita(this._cache.inventory, (c) => this._artByCode.get(c), zonaDi);
+    return verificaConformita(
+      this._cache.inventory, (c) => this._artByCode.get(c), zonaDi, {
+        matrice: this.getMatriceIncompatibilita(),
+        areeDiTransito: [this.getAreaWip()].filter(Boolean) as string[],
+      });
   },
 
   async addZone(siteId: string, zone: Partial<Zona> & { id: string }) {
@@ -890,11 +924,37 @@ const Store = {
     return uomDaColli(item.qty ?? 0, cfg.per_collo, cfg.uom);
   },
 
-  async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1, qtyUom: number | null = null, packsIn: number[] | null = null) {
+  /* 2.8 — QUI SI APPLICA LA REGOLA CHE NON SI SCAVALCA.
+
+     `addItem` è il collo di bottiglia di TUTTO: non esiste un `moveItem`
+     — uno spostamento è `removeItem` seguito da `addItem` — quindi ogni
+     merce che riceve un'ubicazione nuova passa da qui, e questo è l'unico
+     punto in cui vale la pena mettere il controllo. Metterlo nelle maschere
+     vorrebbe dire otto copie che divergono alla prima maschera nuova.
+
+     E FUNZIONA ANCHE PER GLI SPOSTAMENTI, senza che si debba distinguerli.
+     La rimozione avviene PRIMA: uno spostamento intero lascia il lotto
+     senza casa, e `caseDelLotto` non trova niente da difendere. Uno
+     spostamento PARZIALE invece la casa ce l'ha ancora — ed è esattamente
+     il caso da rifiutare, perché è il gesto che spacca un lotto in due.
+
+     `regolaBase: false` è la via d'uscita per le CORREZIONI, e sono tre:
+     lo storno di un movimento, il ricalcolo di un inventario e il
+     ripristino di un pacchetto. Nessuna delle tre è una decisione su dove
+     mettere la merce: sono la registrazione di dove la merce già sta, e
+     rifiutarle vorrebbe dire impedire di correggere un errore. */
+  async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1, qtyUom: number | null = null, packsIn: number[] | null = null, opzioni: { regolaBase?: boolean } = {}) {
     const itemKey = `${articleCode}#${lotCode}`;
     const bucket = this._invByLoc.get(locationCode) || [];
     const existing = bucket.find(i => i.item_key === itemKey);
     const now = Date.now();
+
+    /* Se la riga c'è già in QUESTO vano, il vano è la casa del lotto e non
+       c'è niente da chiedere: si sta aggiungendo dove la merce sta già. */
+    if (!existing && opzioni.regolaBase !== false) {
+      const v = this.verdettoUbicazioneUnica(articleCode, lotCode, locationCode, Number(qty) || 1);
+      if (v.vietato) throw new Error(v.messaggio);
+    }
 
     /* 1.4.2 — la confezione si congela QUI, al primo posizionamento: da
        questo momento e' un fatto del lotto e non segue piu' l'anagrafica. */
@@ -1930,9 +1990,23 @@ const Store = {
     if (this.ordineWipArchiviato(odpNum)) {
       throw new Error(`L'ordine ${odpNum} è stato chiuso e archiviato: non può tornare in lavorazione. Se è una lavorazione nuova, serve un numero d'ordine nuovo.`);
     }
+    /* 2.8 — L'AREA WIP E' UN CONTO, NON UNO SCAFFALE, e la regola
+       dell'ubicazione unica non la riguarda.
+
+       Portare in produzione è quasi sempre un prelievo PARZIALE: si prende
+       quel che serve all'ordine e il resto resta a scaffale. Applicare qui
+       la regola vorrebbe dire rifiutare ogni ordine che non svuota un
+       lotto — cioè quasi tutti — e fermare la produzione per difendere
+       l'ordine di uno scaffale su cui quella merce non è più.
+
+       L'area WIP è UNA ubicazione mappata (voce 15) e a tenere distinti i
+       conti sono le righe, che portano l'ordine: `modules/wip.ts` sa già
+       leggerle, e nessuno cerca un lotto «in» il vano WIP. Per la stessa
+       ragione la mappa non la segnala come lotto sparso. */
     const res = await this.addItem(dove, riga.article_code, riga.article_description || '',
       riga.lot_code, riga.expiry_date || '', `Ordine ${odpNum}`, riga.qty,
-      typeof riga.qty_uom === 'number' ? riga.qty_uom : null, riga.packs ?? null);
+      typeof riga.qty_uom === 'number' ? riga.qty_uom : null, riga.packs ?? null,
+      { regolaBase: false });
     if (!res.ok) throw new Error(`Non è stato possibile portare ${riga.item_key} in ${dove}`);
 
     /* 2.0 — I COLLI DEL CONTO SONO QUELLI CHE SI SONO MOSSI, non il calo
@@ -2151,6 +2225,288 @@ const Store = {
     return true;
   },
 
+
+  /* ═══════════════════════════════════════════════════════════════════
+     2.8 — LA CARATTERIZZAZIONE DELLA SINGOLA UBICAZIONE
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Fino alla 2.7 temperatura, allergeni e pericolosità stavano SOLO sulla
+     zona e scendevano identiche a tutte le sue celle. Uno scaffale però non
+     è omogeneo: il livello a terra regge il doppio di quello in quota, la
+     cella davanti al portone è più calda del fondo corsia, e la campata con
+     la vasca di contenimento è l'unica che può tenere un corrosivo.
+
+     LA ZONA RESTA LA SORGENTE, LA CELLA SCAVALCA. Un campo assente sulla
+     cella non vuol dire «nessun vincolo»: vuol dire «come dice la zona». È
+     la differenza che tiene in piedi le migliaia di celle già configurate,
+     nessuna delle quali ha un record in `location_attrs`.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  getLocationAttrs(code: string): AttributiUbicazione | null {
+    return this._cache.locAttrs.get(String(code ?? '').trim().toUpperCase()) || null;
+  },
+
+  /** Quante celle sono state caratterizzate a mano. Su duemila ubicazioni
+      ce ne saranno dieci, e la scheda che le elenca deve poterlo dire. */
+  getLocationAttrsAll(): AttributiUbicazione[] {
+    return [...this._cache.locAttrs.values()]
+      .sort((a, b) => a.location_code.localeCompare(b.location_code));
+  },
+
+  /** Gli attributi che valgono DAVVERO in questo vano. `undefined` su un
+      campo della cella vuol dire «come la zona»; `null` vuol dire «qui no».
+      Sono due decisioni diverse, e per questo il confronto è con
+      `undefined` e non con la verità del valore. */
+  _fondiAttributi(zona: Zona | null | undefined, cella: AttributiUbicazione | null | undefined) {
+    const scegli = <T>(a: T | null | undefined, z: T | null | undefined): T | null =>
+      (a === undefined ? (z ?? null) : (a ?? null));
+    return {
+      zone_name: zona?.name ?? '',
+      temp_class: scegli(cella?.temp_class, zona?.temp_class),
+      allergen_zone: scegli(cella?.allergen_zone, zona?.allergen_zone) === true,
+      allergens: scegli(
+        cella?.allergens as CodiceAllergene[] | null | undefined,
+        Array.isArray(zona?.allergens) ? zona!.allergens : null),
+      hazard_zone: scegli(cella?.hazard_zone, zona?.hazard_zone) === true,
+      hazards: scegli(
+        cella?.hazards as string[] | null | undefined,
+        Array.isArray(zona?.hazards) ? zona!.hazards : null),
+      /* Capienza e portata sono SEMPRE della cella: una capienza di zona non
+         vuol dire niente, perché la zona è l'insieme dei vani e non un vano.
+         Fino alla 2.7 il motore le cercava su `zona.capienza`, che non è mai
+         esistita nemmeno come campo — vedi `modules/kpi.ts`, che lo dice da
+         allora: «il motore di stoccaggio ha il vincolo e non lo usa mai». */
+      capienza: typeof cella?.capienza === 'number' ? cella.capienza : null,
+      portata_kg: typeof cella?.portata_kg === 'number' ? cella.portata_kg : null,
+      nota: cella?.nota ?? '',
+      /* Vero quando qualcuno ha davvero scritto un record per questa cella. */
+      caratterizzata: !!cella,
+    };
+  },
+
+  /** Gli attributi risolti di un'ubicazione, partendo dal solo codice.
+      Comodo per una cella sola; nei cicli si passa la zona già letta a
+      `_fondiAttributi`, perché uno scaffale da trecento vani ha trecento
+      volte gli stessi quattro valori. */
+  attributiPosto(code: string) {
+    const c = String(code ?? '').trim().toUpperCase();
+    const g = this.buildLocationGeometry().get(c);
+    const z = g ? this.getZone(g.site_id, g.zone_id) : null;
+    return this._fondiAttributi(z, this.getLocationAttrs(c));
+  },
+
+  async saveLocationAttrs(code: string, attrs: Partial<AttributiUbicazione>) {
+    const location_code = String(code ?? '').trim().toUpperCase();
+    if (!location_code) throw new Error('Indica quale ubicazione');
+    const rec: AttributiUbicazione = {
+      ...attrs,
+      location_code,
+      updated_at: Date.now(),
+      updated_by: this.getCurrentIdentity().initials,
+    };
+    await Persistence.put('location_attrs', rec);
+    this._applyToCache('location_attrs', 'put', rec);
+    await this._touchMeta();
+    return rec;
+  },
+
+  /** Togliere il record NON disattiva la cella: la rimanda a quel che dice
+      la sua zona, che è dove stava prima che qualcuno la caratterizzasse. */
+  async deleteLocationAttrs(code: string) {
+    const location_code = String(code ?? '').trim().toUpperCase();
+    await Persistence.delete('location_attrs', location_code);
+    this._applyToCache('location_attrs', 'delete', { location_code });
+    await this._touchMeta();
+    return true;
+  },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     2.8 — LA MATRICE DI INCOMPATIBILITÀ
+
+     Quali pericolosità non dividono un vano. È un DATO come i codici di
+     pericolo — `modules/parametri.ts` — e per la stessa ragione: non è una
+     norma di etichettatura, è una politica di magazzino.
+
+     MAI CONFIGURATA E CONFIGURATA VUOTA SONO DUE COSE DIVERSE. `null` vuol
+     dire che nessuno ci ha ancora messo mano, e allora valgono le tre
+     coppie di serie; un elenco vuoto è una decisione presa — «da noi
+     nessuna coppia è incompatibile» — e vale quel che dice.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  getMatriceIncompatibilita(): CoppiaIncompatibile[] {
+    const m = (this._cache.meta as Record<string, unknown>).matriceIncompatibilita;
+    if (m === null || m === undefined) return [...INCOMPATIBILITA_DI_SERIE];
+    return normalizzaMatrice(m);
+  },
+
+  /** Vero finché nessuno ha toccato la matrice: la scheda lo dice, perché
+      «tre coppie» e «tre coppie che avete scelto voi» non sono la stessa
+      informazione per chi firma. */
+  matriceDiSerie(): boolean {
+    const m = (this._cache.meta as Record<string, unknown>).matriceIncompatibilita;
+    return m === null || m === undefined;
+  },
+
+  async saveMatriceIncompatibilita(coppie: readonly CoppiaIncompatibile[]) {
+    const pulita = normalizzaMatrice(coppie);
+    const rec = { key: 'matriceIncompatibilita', value: pulita };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    await this._touchMeta();
+    return pulita;
+  },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     2.8 — LE DUE REGOLE CHE NON SI SCRIVONO, ATTACCATE AI DATI
+
+     La regola sta in `modules/regoleBase.ts` ed è pura. Qui c'è solo il
+     lavoro di raccogliere quel che le serve: dove il lotto sta già, e se
+     quel vano può ancora ricevere.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  /** Le due regole preinstallate, come le legge chi apre Configurazione. */
+  getRegoleBase() { return REGOLE_BASE; },
+
+  /** Se un vano può ancora accogliere `colli` colli e `peso` chili. È la
+      domanda che la regola 2 fa sul vano di casa, e la risposta decide se
+      il lotto ci torna o se si estende su un secondo vano. */
+  vanoPuoRicevere(code: string, colli: number = 1, peso: number = 0) {
+    const c = String(code ?? '').trim().toUpperCase();
+    const stato = this.getLocationStatus(c);
+    if (stato === 'blocked') return { ok: false, motivo: 'bloccata' };
+    if (stato === 'disabled') return { ok: false, motivo: 'disattivata' };
+    const attr = this.attributiPosto(c);
+    const dentro = this._invByLoc.get(c) || [];
+    if (attr.capienza !== null) {
+      const occupati = dentro.reduce((t: number, r: Giacenza) => t + (r.qty || 0), 0);
+      const n = Number(colli) || 0;
+      if (n > 0 && occupati + n > attr.capienza) {
+        return { ok: false, motivo: `piena — ci stanno ${attr.capienza} colli e ce ne sono ${occupati}` };
+      }
+    }
+    if (attr.portata_kg !== null) {
+      const kg = Number(peso) || 0;
+      const presente = this._pesoInVano(c);
+      if (kg > 0 && presente + kg > attr.portata_kg) {
+        return { ok: false, motivo: `al limite di portata — regge ${attr.portata_kg} kg e ce ne sono ${Math.round(presente)}` };
+      }
+    }
+    return { ok: true };
+  },
+
+  /** Quanti chili ci sono in un vano. Il peso di un collo è quello netto
+      dichiarato in anagrafica, e in mancanza quello unitario: sono i due
+      soli numeri che l'articolo porta, e nessuno dei due è obbligatorio —
+      dove mancano il vano pesa zero e la portata non esclude nessuno. */
+  _pesoInVano(code: string): number {
+    let kg = 0;
+    for (const r of (this._invByLoc.get(code) || [])) {
+      kg += (Number(r.qty) || 0) * this._pesoDiUnCollo(r.article_code);
+    }
+    return kg;
+  },
+
+  _pesoDiUnCollo(articleCode: string): number {
+    const a = this._artByCode.get(String(articleCode ?? '').toUpperCase().trim());
+    if (!a) return 0;
+    return Number(a.weight_net_kg) || Number(a.weight) || 0;
+  },
+
+  /** Le pericolosità della merce che è già in un vano. Servono alla
+      matrice: la zona non basta a dirlo, perché due pericoli incompatibili
+      fra loro sono tutti e due «pericolosi» e la zona li ammette entrambi. */
+  _pericoliInVano(code: string): string[] {
+    const out = new Set<string>();
+    for (const r of (this._invByLoc.get(code) || [])) {
+      const a = this._artByCode.get(String(r.article_code ?? '').toUpperCase().trim());
+      for (const h of (Array.isArray(a?.hazards) ? a!.hazards : [])) out.add(h);
+    }
+    return [...out];
+  },
+
+  /** Si può mettere questo lotto in questo vano? La regola 2, con i dati.
+
+      `vietato` vero vuol dire che chi scrive DEVE rifiutare: non c'è
+      scavalco, non c'è motivo da registrare, non c'è ruolo che lo apra. */
+  verdettoUbicazioneUnica(
+    articleCode: string, lotCode: string, sceltoCode: string, colli: number = 1,
+  ): VerdettoCasa {
+    const peso = (Number(colli) || 0) * this._pesoDiUnCollo(articleCode);
+    return verdettoCasa(
+      this._cache.inventory, articleCode, lotCode, sceltoCode,
+      (code) => this.vanoPuoRicevere(code, colli, peso),
+      /* Il vano WIP non è casa: è un conto di produzione. Contarlo
+         rifiuterebbe di posizionare a scaffale un lotto di cui il reparto
+         ha in mano tre colli — vedi `entraInWip`. */
+      [this.getAreaWip()].filter(Boolean) as string[],
+    );
+  },
+
+  /** I lotti che stanno in più di un vano. Sono l'eccezione della regola 2
+      che ha già lavorato — vano di casa pieno o bloccato — e la mappa li
+      segnala come avviso: non è un errore, ma non è nemmeno niente. */
+  lottiSparsi(): { item_key: string; article_code: string; lot_code: string; ubicazioni: string[] }[] {
+    const per = new Map<string, { article_code: string; lot_code: string; loc: Set<string> }>();
+    /* Il vano WIP è un'area di transito, non uno scaffale: un lotto che sta
+       anche lì è in lavorazione, non stoccato due volte. Stessa esclusione
+       di `verificaConformita`, e per la stessa ragione. */
+    const wip = String(this.getAreaWip() ?? '').trim().toUpperCase();
+    for (const r of this._cache.inventory) {
+      if (!r?.item_key || !r.location_code || (Number(r.qty) || 0) <= 0) continue;
+      if (wip && String(r.location_code).toUpperCase() === wip) continue;
+      let v = per.get(r.item_key);
+      if (!v) {
+        v = { article_code: r.article_code, lot_code: r.lot_code ?? '', loc: new Set() };
+        per.set(r.item_key, v);
+      }
+      v.loc.add(r.location_code);
+    }
+    const out: { item_key: string; article_code: string; lot_code: string; ubicazioni: string[] }[] = [];
+    for (const [item_key, v] of per) {
+      if (v.loc.size < 2) continue;
+      out.push({
+        item_key, article_code: v.article_code, lot_code: v.lot_code,
+        ubicazioni: [...v.loc].sort(),
+      });
+    }
+    return out.sort((a, b) => b.ubicazioni.length - a.ubicazioni.length || a.item_key.localeCompare(b.item_key));
+  },
+
+  /** Su quale UDC va questo articolo — la regola 1, con i dati.
+
+      `null` non è un errore: la prima volta che un articolo entra, nessuna
+      unità di carico lo porta. E questa regola si scavalca: chi ha il
+      pallet davanti vede cose che il sistema non sa. */
+  proponiUdc(articleCode: string, lotCode: string): PropostaUdc | null {
+    const righePerUdc = new Map<string, Giacenza[]>();
+    for (const r of this._cache.inventory) {
+      if (!r?.udc_id) continue;
+      const e = righePerUdc.get(r.udc_id);
+      if (e) e.push(r); else righePerUdc.set(r.udc_id, [r]);
+    }
+    const candidate: UdcCandidata[] = this._cache.udc.map((u: Udc) => {
+      const righe = righePerUdc.get(u.udc_id) || [];
+      const attr = u.location_code ? this.attributiPosto(u.location_code) : null;
+      return {
+        udc_id: u.udc_id,
+        status: u.status,
+        location_code: u.location_code ?? null,
+        righe,
+        /* La capienza di un'UDC è quella del vano che la ospita: un pallet
+           non dichiara quanti colli regge, e l'unico numero scritto da
+           qualcuno è quello della cella. Dove manca, non si esclude. */
+        capienza: attr?.capienza ?? null,
+        occupati: righe.reduce((t, r) => t + (Number(r.qty) || 0), 0),
+      };
+    });
+    return udcConsigliata(candidate, articleCode, lotCode);
+  },
+
+  /** Il testo dello scavalco sull'UDC, per il registro. */
+  scavalcoUdc(proposta: string | null, scelta: string | null, motivo: string | null) {
+    return scavalcoUdc(proposta, scelta, motivo);
+  },
+
   /** Dove si può mettere questa merce, e dove conviene. `null` a motore
       spento: chi chiama non deve ricordarsi di controllare l'interruttore,
       ma nemmeno ricevere una proposta che nessuno ha chiesto. */
@@ -2158,27 +2514,30 @@ const Store = {
     const art = this._artByCode.get(String(articleCode ?? '').toUpperCase().trim());
     if (!art) return null;
 
-    const geo = this.buildLocationGeometry();
-    const attributiZona = new Map<string, any>();
     const posti: PostoCandidato[] = [];
     const chiaveItem = `${String(articleCode).toUpperCase().trim()}#${String(lotCode ?? '').trim()}`;
+    const nColli = Number(colli) || 0;
+    const pesoCollo = this._pesoDiUnCollo(art.code);
+
+    /* 2.8 — LA REGOLA BASE 2 SI DECIDE UNA VOLTA SOLA, PRIMA DEL CICLO.
+       Se il lotto ha una casa che può ricevere, i 274 vani sono già tutti
+       esclusi tranne uno, e chiederlo dentro il ciclo vorrebbe dire 274
+       giri sull'inventario per una risposta che non cambia. */
+    const verdetto = this.verdettoUbicazioneUnica(art.code, lotCode, '', nColli);
+    const matrice = this.getMatriceIncompatibilita();
 
     for (const site of this.getSites()) {
       for (const zona of (site.zones || []).filter((z: Zona) => z.active)) {
-        const kz = `${site.id}|${zona.id}`;
-        if (!attributiZona.has(kz)) {
-          attributiZona.set(kz, {
-            zone_name: zona.name,
-            temp_class: (zona as any).temp_class || null,
-            allergen_zone: (zona as any).allergen_zone === true,
-            allergens: Array.isArray((zona as any).allergens) ? (zona as any).allergens : null,
-          });
-        }
-        const attr = attributiZona.get(kz);
+        /* GLI ATTRIBUTI DELLA ZONA SI LEGGONO UNA VOLTA PER ZONA, non una
+           per ubicazione: uno scaffale da trecento vani ha trecento volte
+           gli stessi valori. Quel che invece è per cella — lo scavalco di
+           `location_attrs` — si fonde dentro il ciclo, ma solo dove un
+           record esiste davvero, e su duemila vani sono una decina. */
         const ubicazioni = this.generateLocations(site.id, zona.id);
         ubicazioni.forEach((loc: { code: string }, indice: number) => {
           const dentro = this._invByLoc.get(loc.code) || [];
           const stato = this.getLocationStatus(loc.code);
+          const attr = this._fondiAttributi(zona, this.getLocationAttrs(loc.code));
           posti.push({
             location_code: loc.code,
             site_id: site.id,
@@ -2188,10 +2547,21 @@ const Store = {
             allergen_zone: attr.allergen_zone,
             allergens: attr.allergens,
             temp_class: attr.temp_class,
+            /* 2.8 — la pericolosità, che stava sulla Zona dal 1.6 e questo
+               motore non l'ha mai letta. */
+            hazard_zone: attr.hazard_zone,
+            hazards: attr.hazards,
+            pericoli_presenti: this._pericoliInVano(loc.code),
             /* Come in `conformita`: «Riservata» è una decisione presa su un
                vano preciso, e deroga sugli allergeni. */
             riservata: stato === 'reserved',
-            capienza: (zona as any).capienza ?? null,
+            /* 2.8 — capienza e portata sono della CELLA. Fino alla 2.7 la
+               capienza si cercava su `zona.capienza`, che non è mai
+               esistita nemmeno come campo: il vincolo c'era e non mordeva
+               mai, ed è il difetto che `modules/kpi.ts` segnala da allora. */
+            capienza: attr.capienza,
+            portata_kg: attr.portata_kg,
+            peso_presente_kg: this._pesoInVano(loc.code),
             occupati: dentro.reduce((t: number, r: Giacenza) => t + (r.qty || 0), 0),
             stesso_articolo: dentro.some((r: Giacenza) => r.article_code === art.code),
             stesso_lotto: dentro.some((r: Giacenza) => r.item_key === chiaveItem),
@@ -2203,16 +2573,21 @@ const Store = {
         });
       }
     }
-    void geo;
 
     return proponiStoccaggio({
       article_code: art.code,
       description: art.description,
+      category: art.category,
       allergens: Array.isArray((art as any).allergens) ? (art as any).allergens : [],
       temp_class: (art as any).temp_class || null,
+      hazards: Array.isArray((art as any).hazards) ? (art as any).hazards : [],
       lot_code: lotCode,
-      colli: Number(colli) || 0,
-    }, posti, this._cache.storageRules);
+      colli: nColli,
+      peso_kg: nColli * pesoCollo,
+    }, posti, this._cache.storageRules, {
+      matrice,
+      casaLibera: verdetto.casaLibera,
+    });
   },
 
   /* ═══════════════════════════════════════════════════════════════════

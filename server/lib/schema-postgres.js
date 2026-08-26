@@ -10,7 +10,7 @@
    per questo che è sceso in `lib/`: un file che il servizio esegue non può
    stare in una cartella esclusa da `tsconfig.server.json`.
 
-   LE VENTI COLLEZIONI SI DICHIARANO IN UN POSTO SOLO, e quel posto resta
+   LE VENTUNO COLLEZIONI SI DICHIARANO IN UN POSTO SOLO, e quel posto resta
    `lib/schema.js`. Ricopiarle qui vorrebbe dire due vocabolari che
    combaciano finché qualcuno se ne ricorda — che è esattamente il difetto
    che quella dichiarazione unica esiste per chiudere. Qui c'è solo la

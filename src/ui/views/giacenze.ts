@@ -6,6 +6,7 @@ import { Dialog } from '../dialog';
 import { riepiloga } from '../../modules/giacenzaArticolo';
 import { formattaQuantita } from '../../modules/misure';
 import { svg as barcodeSvg, primoCarattereFuoriSet } from '../../modules/code128';
+import { etichettaClasse, etichettaAllergene } from '../../modules/anagrafica';
 
 export const VistaGiacenze = {
   selectLocation(code) {
@@ -36,6 +37,7 @@ export const VistaGiacenze = {
       <div class="detail-field"><span class="df-label">Codice</span><span class="df-value mono">${this._esc(code)}</span></div>
       <div class="detail-field"><span class="df-label">Stato</span><span class="df-value"><span class="badge badge-${status === 'occupied' ? 'green' : status === 'blocked' ? 'red' : status === 'reserved' ? 'amber' : 'muted'}">${status}</span></span></div>
       ${meta?.blocked_reason ? `<div class="detail-field"><span class="df-label">Motivo</span><span class="df-value text-body-small">${this._esc(meta.blocked_reason)}</span></div>` : ''}
+      ${this._rigaAttributiVano(code)}
     </div>
     <div class="detail-section">
       <div class="detail-section-title">Azioni Stato</div>
@@ -45,6 +47,11 @@ export const VistaGiacenze = {
         ${(status === 'blocked' || status === 'reserved') ? `<button class="btn btn-sm btn-success" onclick="App.setLocStatus('${code}','empty')">✓ Libera</button>` : ''}
         ${status !== 'disabled' && items.length === 0 ? `<button class="btn btn-sm" onclick="App.toggleLocDisabled('${code}')">⊘ Disattiva</button>` : ''}
         ${status === 'disabled' ? `<button class="btn btn-sm btn-success" onclick="App.toggleLocDisabled('${code}')">✓ Riattiva</button>` : ''}
+        <!-- 2.8 — la caratterizzazione sta fra le azioni di stato e non in
+             Configurazione, perche' e' qui che si guarda un vano preciso: chi
+             decide che QUESTA campata regge meno delle altre lo decide con la
+             campata davanti, non da una tabella di duemila righe. -->
+        <button class="btn btn-sm" title="Temperatura, allergeni, pericolosita, capienza e portata di questa sola cella" onclick="App.showCaratterizzaUbicazione('${code}')">🎯 Caratterizza</button>
       </div>
     </div>
     <div class="detail-section">
@@ -618,7 +625,16 @@ export const VistaGiacenze = {
     const errs = [Validate.article(code), Validate.articleDesc(desc, true), Validate.lot(lot), Validate.notes(notes)].filter(Boolean);
     if (errs.length) return this.toast(errs[0], 'error');
     if (qty < 1) return this.toast('Numero colli non valido (minimo 1)', 'error');
-    const res = await Store.addItem(locationCode, code, desc, lot, expiry, notes, qty);
+    /* 2.8 — QUI LA REGOLA MORDE: è un posizionamento, non una correzione.
+       `addItem` alza se il lotto sta già in un vano che può riceverlo, e il
+       messaggio porta il codice del vano di casa: senza il `try` finirebbe
+       in consolle e a video non comparirebbe niente. */
+    let res;
+    try {
+      res = await Store.addItem(locationCode, code, desc, lot, expiry, notes, qty);
+    } catch (err) {
+      return this.toast((err as Error).message, 'error');
+    }
     if (!res.ok) return this.toast('Errore posizionamento', 'error');
     await this._logMov(MOV.IN, code, desc, lot, locationCode, null, '', '', '', res.qty_before, qty, res.qty_after,
         typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);
@@ -628,5 +644,41 @@ export const VistaGiacenze = {
     this.updateSyncIndicator();
     const incrSuffix = res.mode === 'incremented' ? ` (saldo: ${res.qty_after})` : '';
     this.toast(`✓ ${code}#${lot} aggiunto a ${locationCode} · +${qty} Coll.${incrSuffix}`, 'success');
+  },
+
+  /* 2.8 — COSA VALE DAVVERO IN QUESTO VANO.
+
+     Prima di questa riga, per sapere che temperatura pretendeva una cella
+     bisognava aprire Configurazione, trovare il sito, trovare la zona e
+     leggerla lì. Adesso sta dove qualcuno la sta guardando.
+
+     Si scrive SOLO se c'è qualcosa da dire: un vano di una zona non
+     caratterizzata, senza capienza e senza portata, non ha niente da
+     dichiarare — e una riga che dice «nessun vincolo» si impara a non
+     leggere, come le altre righe che parlano quando va tutto bene.
+
+     La pallina 🎯 marca la cella che qualcuno ha caratterizzato a mano: chi
+     la cerca sta cercando l'eccezione, e su duemila vani sono una decina. */
+  _rigaAttributiVano(code) {
+    const a = Store.attributiPosto(code);
+    const pezzi = [];
+    if (a.temp_class) pezzi.push(etichettaClasse(a.temp_class));
+    if (a.allergen_zone) {
+      pezzi.push(a.allergens?.length
+        ? `allergeni: ${a.allergens.map(etichettaAllergene).join(', ')}`
+        : 'zona allergeni');
+    }
+    if (a.hazard_zone) {
+      pezzi.push(a.hazards?.length
+        ? `pericoli: ${a.hazards.join(', ')}`
+        : 'area merce pericolosa');
+    }
+    if (a.capienza !== null) pezzi.push(`capienza ${a.capienza} colli`);
+    if (a.portata_kg !== null) pezzi.push(`portata ${a.portata_kg} kg`);
+    if (!pezzi.length && !a.caratterizzata) return '';
+    return `<div class="detail-field ${a.caratterizzata ? 'loc-attr-riga' : ''}">
+      <span class="df-label">${a.caratterizzata ? '🎯 Caratterizzata' : 'Vincoli'}</span>
+      <span class="df-value text-body-small">${this._esc(pezzi.join(' · ') || 'nessun vincolo dichiarato')}${
+        a.nota ? `<br><em>${this._esc(a.nota)}</em>` : ''}</span></div>`;
   },
 } satisfies Vista;

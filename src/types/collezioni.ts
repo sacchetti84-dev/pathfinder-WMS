@@ -11,6 +11,10 @@ export const COLLEZIONI = [
      tenerli in `meta` avrebbe voluto dire riscrivere l'intero elenco a ogni
      DDT nuovo, e cercarli scorrendoli. */
   'recipients',
+  /* 2.8 — la ventunesima. Gli attributi della singola ubicazione: uno
+     SCAVALCO su quel che dice la zona, e un record solo per le celle che
+     qualcuno ha davvero caratterizzato. Su 2.000 vani ce ne saranno dieci. */
+  'location_attrs',
 ] as const;
 
 /** Una collezione, e nient'altro: `Persistence.get('sitess', …)` non compila. */
@@ -24,6 +28,7 @@ export const CHIAVE_PRIMARIA = {
   operators: 'op_id', meta: 'key',
   lots: '_id', udc: 'udc_id', tasks: 'task_id', wip: 'wip_id',
   storage_rules: 'rule_id', recipients: 'rcp_id',
+  location_attrs: 'location_code',
 } as const satisfies Record<Collezione, string>;
 
 export type ChiavePrimaria = typeof CHIAVE_PRIMARIA;
@@ -49,6 +54,9 @@ export const CAMPI_INDICIZZATI = {
   wip: ['odp_num', 'item_key', 'status'],
   storage_rules: ['priority', 'attiva'],
   recipients: ['vat', 'name'],
+  /* La chiave primaria È il codice dell'ubicazione: non c'è un secondo
+     campo su cui valga la pena costruire un criterio. */
+  location_attrs: [],
 } as const satisfies Record<Collezione, readonly string[]>;
 
 /** I campi su cui si può davvero costruire un criterio, per collezione. */

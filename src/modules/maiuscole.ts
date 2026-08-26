@@ -86,6 +86,10 @@ const CAMPI_TESTO: ReadonlySet<string> = new Set([
   'mInArtDesc', 'mInNotes', 'mInScavalco', 'newSiteAddress', 'newSiteNotes',
   'ntNote', 'ntSampleFor', 'pEditNotes', 'pShipAspetto', 'pShipDocNotes', 'pShipNotes',
   'pShipOrderRef', 'srNota', 'udcDispNota', 'udcQMotivo', 'udcQPersona', 'udcQReparto',
+  /* 2.8 — perche' QUESTA cella e' diversa dalle altre. E' prosa che legge
+     chi si vede escludere un vano, non un codice: «unica campata con la
+     vasca di contenimento» urlato in maiuscolo non aiuta nessuno. */
+  'laNota',
   /* INDIRIZZI */
   'pShipDestAddress', 'pShipDestCity', 'pShipDestZip',
   /* DATE, QUANTITA' E MISURE — non sono testo, e maiuscolarle non vuol

@@ -3,7 +3,7 @@ import type {
   Istante, Sito, Zona, Articolo, Giacenza, StatoUbicazione,
   UbicazioneDisattivata, Movimento, Quarantena, DocumentoUscita,
   SessionePrelievo, ReportPrelievo, VerbaleSmaltimento, Operatore, Meta,
-  Lotto, Udc, Compito, ContoWip, RegolaStoccaggio, Destinatario,
+  Lotto, Udc, Compito, ContoWip, RegolaStoccaggio, Destinatario, AttributiUbicazione,
 } from './entita.js';
 
 /* ── Tipi di movimento ───────────────────────────────────────────── */
@@ -88,6 +88,9 @@ export interface CaricamentoIniziale {
   wip?: ContoWip[];
   storageRules?: RegolaStoccaggio[];
   recipients?: Destinatario[];
+  /* 2.8 — stessa ragione del blocco qui sopra: un servizio 2.7 non manda
+     questa chiave, e un client 2.8 gli deve parlare lo stesso. */
+  locAttrs?: AttributiUbicazione[];
 }
 
 /* ── Il contratto ────────────────────────────────────────────────── */

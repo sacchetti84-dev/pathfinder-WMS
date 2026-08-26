@@ -228,3 +228,134 @@ describe('riepilogo per la mappa', () => {
     expect(e.perUbicazione.size).toBe(0);
   });
 });
+
+/* ═══════════════════════════════════════════════════════════════════
+   2.8 — LA PERICOLOSITÀ, LA MATRICE E IL LOTTO SPARSO
+   ═══════════════════════════════════════════════════════════════════ */
+
+describe('2.8 — la pericolosità, verificata sul magazzino fermo', () => {
+  const art = (h) => () => ({ hazards: h, description: 'roba' });
+  const r = (loc, code, lot) => ({
+    location_code: loc, item_key: `${code}#${lot}`,
+    article_code: code, lot_code: lot, qty: 1,
+  });
+
+  it('merce pericolosa fuori dall’area dedicata è grave', () => {
+    const e = verificaConformita([r('A-01', 'X1', 'L1')],
+      art(['INFIAMMABILE']), () => ({ hazard_zone: false }));
+    expect(e.nonConformita[0].tipo).toBe('PERICOLO_FUORI_ZONA');
+    expect(e.nonConformita[0].gravita).toBe('alta');
+  });
+
+  it('un pericolo non ammesso da quell’area è grave', () => {
+    const e = verificaConformita([r('A-01', 'X1', 'L1')],
+      art(['INFIAMMABILE']), () => ({ hazard_zone: true, hazards: ['CORROSIVO'] }));
+    expect(e.nonConformita[0].tipo).toBe('PERICOLO_NON_AMMESSO');
+  });
+
+  it('merce pulita nell’area dei pericoli è media, non grave', () => {
+    const e = verificaConformita([r('A-01', 'X1', 'L1')],
+      () => ({ temp_class: 'AMB' }), () => ({ hazard_zone: true, temp_class: 'AMB' }));
+    expect(e.nonConformita[0].tipo).toBe('PULITO_IN_ZONA_PERICOLI');
+    expect(e.nonConformita[0].gravita).toBe('media');
+  });
+
+  /* Fino alla 2.7 un articolo che dichiarava SOLO la pericolosità era
+     «ignoto» e non veniva verificato mai: si configurava, si vedeva in
+     maschera, e nessuno guardava se stesse dove poteva stare. */
+  it('un articolo che dichiara solo la pericolosità adesso si verifica', () => {
+    const e = verificaConformita([r('A-01', 'X1', 'L1')],
+      art(['INFIAMMABILE']), () => ({ hazard_zone: true }));
+    expect(e.verificabili).toBe(1);
+    expect(e.articoliSenzaAttributi.size).toBe(0);
+  });
+
+  it('l’area dedicata senza elenco ammette tutto', () => {
+    const e = verificaConformita([r('A-01', 'X1', 'L1')],
+      art(['INFIAMMABILE']), () => ({ hazard_zone: true }));
+    expect(e.nonConformita).toHaveLength(0);
+  });
+});
+
+describe('2.8 — la matrice, sul magazzino fermo', () => {
+  const matrice = [{ a: 'COMBURENTE', b: 'INFIAMMABILE', nota: 'alimenta la fiamma' }];
+  const pericoli = { X1: ['INFIAMMABILE'], X2: ['COMBURENTE'], X3: ['NOCIVO'] };
+  const art = (c) => ({ hazards: pericoli[c] ?? [] });
+  const zona = () => ({ hazard_zone: true });
+  const r = (loc, code) => ({
+    location_code: loc, item_key: `${code}#L1`,
+    article_code: code, lot_code: 'L1', qty: 1,
+  });
+
+  /* Si accusano TUTTE E DUE le righe: non c'è modo di sapere quale sia
+     arrivata per ultima, e dire «questa è di troppo» sceglierebbe a caso
+     chi deve spostarsi. */
+  it('due incompatibili nello stesso vano accusano tutte e due le righe', () => {
+    const e = verificaConformita([r('A-01', 'X1'), r('A-01', 'X2')], art, zona, { matrice });
+    const inc = e.nonConformita.filter(n => n.tipo === 'INCOMPATIBILITA');
+    expect(inc).toHaveLength(2);
+    expect(inc.map(n => n.article_code).sort()).toEqual(['X1', 'X2']);
+    expect(e.perUbicazione.get('A-01').gravita).toBe('alta');
+  });
+
+  it('due pericoli compatibili non dicono niente', () => {
+    const e = verificaConformita([r('A-01', 'X1'), r('A-01', 'X3')], art, zona, { matrice });
+    expect(e.nonConformita.filter(n => n.tipo === 'INCOMPATIBILITA')).toHaveLength(0);
+  });
+
+  it('in due vani diversi non si scontrano', () => {
+    const e = verificaConformita([r('A-01', 'X1'), r('A-02', 'X2')], art, zona, { matrice });
+    expect(e.nonConformita.filter(n => n.tipo === 'INCOMPATIBILITA')).toHaveLength(0);
+  });
+
+  it('senza matrice non si guarda niente', () => {
+    const e = verificaConformita([r('A-01', 'X1'), r('A-01', 'X2')], art, zona);
+    expect(e.nonConformita.filter(n => n.tipo === 'INCOMPATIBILITA')).toHaveLength(0);
+  });
+});
+
+describe('2.8 — lo stesso lotto in più vani', () => {
+  const r = (loc, qty = 1) => ({
+    location_code: loc, item_key: 'X1#L1',
+    article_code: 'X1', lot_code: 'L1', qty,
+  });
+  const nulla = () => null;
+
+  /* Non è un errore: è l'eccezione che lo stato del vano ha imposto, e chi
+     l'ha fatta non ha scavalcato niente. Ma finché dura, quella merce si
+     conta due volte e il FEFO la ordina come due partite. */
+  it('è un avviso di gravità media, su tutte e due le righe', () => {
+    const e = verificaConformita([r('A-01'), r('B-02')], nulla, nulla);
+    const sparsi = e.nonConformita.filter(n => n.tipo === 'LOTTO_SPARSO');
+    expect(sparsi).toHaveLength(2);
+    expect(sparsi.every(n => n.gravita === 'media')).toBe(true);
+    expect(sparsi[0].messaggio).toContain('B-02');
+  });
+
+  it('un lotto in un vano solo non dice niente', () => {
+    const e = verificaConformita([r('A-01')], nulla, nulla);
+    expect(e.nonConformita).toHaveLength(0);
+  });
+
+  /* Un lotto sparso è sparso anche se l'articolo non è mai stato
+     classificato: questo giro non passa dal cancello degli attributi. */
+  it('vale anche per un articolo senza attributi', () => {
+    const e = verificaConformita([r('A-01'), r('B-02')], nulla, nulla);
+    expect(e.articoliSenzaAttributi.has('X1')).toBe(true);
+    expect(e.nonConformita).toHaveLength(2);
+  });
+
+  /* Il vano WIP è un conto di produzione: portare in produzione è quasi
+     sempre un prelievo parziale, e senza questa esclusione la mappa
+     segnalerebbe ogni lotto che un ordine ha toccato. */
+  it('l’area di transito non conta: la merce è in lavorazione', () => {
+    const e = verificaConformita([r('A-01'), r('MAG1-WIP-01')], nulla, nulla,
+      { areeDiTransito: ['MAG1-WIP-01'] });
+    expect(e.nonConformita).toHaveLength(0);
+  });
+
+  it('una riga a zero non fa sparso niente', () => {
+    const e = verificaConformita([r('A-01', 5), r('B-02', 0)], nulla, nulla);
+    expect(e.nonConformita).toHaveLength(0);
+  });
+});

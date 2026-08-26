@@ -1453,12 +1453,15 @@ const App = monolite({
               }
             }
             if (diff.entrate.length) {
-              const su = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', diff.entrate.length, null, diff.entrate);
+              /* 2.8 — CORREZIONE, NON POSIZIONAMENTO: uno storno rimette la merce
+                 dov'era, e la regola dell'ubicazione unica non deve poter
+                 impedire di correggere un errore. Vedi `addItem`. */
+              const su = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', diff.entrate.length, null, diff.entrate, { regolaBase: false });
               await this._logMov(MOV.FIX_IN, a.art, a.desc || '', a.lot, a.loc, null, '',
                 `STORNO — ${entry.label}`, '', su.qty_before, diff.entrate.length, su.qty_after, su.qty_uom_delta);
             }
           } else {
-            const r = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', a.qty, a.qty_uom ?? null, a.packs ?? null);
+            const r = await Store.addItem(a.loc, a.art, a.desc || '', a.lot, a.exp || '', a.notes || '', a.qty, a.qty_uom ?? null, a.packs ?? null, { regolaBase: false });
             await this._logMov(MOV.FIX_IN, a.art, a.desc || '', a.lot, a.loc, null, '',
               `STORNO — ${entry.label}`, '', r.qty_before, a.qty, r.qty_after, r.qty_uom_delta);
           }

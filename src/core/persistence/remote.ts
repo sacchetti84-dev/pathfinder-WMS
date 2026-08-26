@@ -106,7 +106,10 @@ const RemotePersistence = {
          stesso mentre si rimette la versione di prima. */
       lots: d.lots ?? [], udc: d.udc ?? [], tasks: d.tasks ?? [],
       wip: d.wip ?? [], storageRules: d.storage_rules ?? [],
-      recipients: d.recipients ?? []
+      recipients: d.recipients ?? [],
+      /* 2.8 — stessa ragione del `?? []` qui sopra: un servizio 2.7 non
+         manda questa chiave, e un client 2.8 gli deve parlare lo stesso. */
+      locAttrs: d.location_attrs ?? []
     };
   },
 

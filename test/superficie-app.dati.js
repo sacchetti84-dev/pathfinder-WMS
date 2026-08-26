@@ -16,6 +16,12 @@
    sono usciti `_colliSelQta` e `_colliSelToggle`, sono entrati
    `_colliSelPreso`, `_colliSelParte`, `_colliSelParteDa` e
    `_colliSelOpzioniParte`.
+   2.8: sono entrati i nove delle regole di stoccaggio — `_regoleBaseHtml`,
+   `_matriceHtml` e `_toggleIncompatibilita` per la scheda delle regole;
+   `showCaratterizzaUbicazione`, `_salvaCaratterizzazione`,
+   `_scaratterizzaUbicazione` e `_rigaAttributiVano` per la
+   caratterizzazione della singola cella; `_usaVanoDiCasa` e
+   `_usaUdcProposta` per i due bottoni delle regole base.
    2.1: sono usciti i sei della copia esterna (`vault*`, `doVaultRestore`,
    `_scheduleVaultBackup`), `purgeOldLogsManual` con la purga, e i due
    salvataggi a mano `forceSave` e `manualSave`. */
@@ -203,6 +209,13 @@ export const SUPERFICIE = [
   '_propostaCorrente', '_proponiVano', '_usaVanoProposto', '_altreProposte',
   '_perchePropostaEsclusi', '_notaScavalco',
   '_renderConfigRules', '_salvaRegola', '_toggleRegola', '_eliminaRegola',
+
+  /* 2.8 - LE REGOLE DI STOCCAGGIO: le due che non si scrivono, la matrice
+     di incompatibilita' e la caratterizzazione della singola cella. */
+  '_regoleBaseHtml', '_matriceHtml', '_toggleIncompatibilita',
+  'showCaratterizzaUbicazione', '_salvaCaratterizzazione',
+  '_scaratterizzaUbicazione', '_rigaAttributiVano',
+  '_usaVanoDiCasa', '_usaUdcProposta',
 
   /* 1.14 - il conto di produzione. */
   '_wipOrdine', '_formWip', '_wipApri', '_wipRenderConto', '_wipChiediReso',

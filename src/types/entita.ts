@@ -192,6 +192,46 @@ export interface UbicazioneDisattivata {
   location_code: string;
 }
 
+/** 2.8 — LA CARATTERIZZAZIONE DELLA SINGOLA UBICAZIONE.
+
+    Fino alla 2.7 temperatura, allergeni e pericolosità stavano SOLO sulla
+    zona e scendevano identici a tutte le sue celle. Uno scaffale però non è
+    omogeneo: il livello a terra regge il doppio di quello in quota, la cella
+    accanto al portone d'ingresso è più calda del fondo corsia, e la campata
+    con la vasca di contenimento è l'unica che può tenere un corrosivo.
+
+    LA ZONA RESTA LA SORGENTE. Qui c'è solo lo SCAVALCO, e un campo assente
+    vuol dire «come dice la zona» — non «nessun vincolo». È la differenza che
+    tiene in piedi le migliaia di celle già configurate: nessuna di esse ha
+    un record qui dentro, e continuano a valere esattamente come prima.
+
+    Un record esiste solo per le celle che qualcuno ha davvero caratterizzato.
+    Su 2.000 ubicazioni ce ne saranno dieci, ed è giusto così. */
+export interface AttributiUbicazione {
+  location_code: string;
+  /** Scavalca `Zona.temp_class`. */
+  temp_class?: ClasseTemperatura | null;
+  /** Scavalca `Zona.allergen_zone`. */
+  allergen_zone?: boolean | null;
+  /** Scavalca `Zona.allergens`: i soli allergeni ammessi qui. */
+  allergens?: CodiceAllergene[] | null;
+  /** Scavalca `Zona.hazard_zone`. */
+  hazard_zone?: boolean | null;
+  /** Scavalca `Zona.hazards`: le sole pericolosità ammesse qui. */
+  hazards?: string[] | null;
+  /** Quanti colli ci stanno. È SEMPRE della cella: una capienza di zona non
+      vuol dire niente, perché la zona è l'insieme dei vani, non un vano. */
+  capienza?: number | null;
+  /** Quanti chili regge. Il livello a terra e quello in quota non sono lo
+      stesso posto, e questo è l'unico modo di scriverlo. */
+  portata_kg?: number | null;
+  /** Perché questa cella è diversa dalle altre. Lo legge chi la vede
+      esclusa da una proposta. */
+  nota?: string;
+  updated_at?: Istante;
+  updated_by?: string;
+}
+
 /* ── Registro ────────────────────────────────────────────────────── */
 
 /* Ogni movimento porta la sigla di chi lo ha fatto: è il requisito GMP, e
@@ -602,10 +642,37 @@ export interface ContoWip {
     quando cambia la politica, non quando cambia la versione. */
 export interface RegolaStoccaggio {
   rule_id: string;
+  /** Da 1 a 10: più alta = decide prima. Una regola scritta prima della 2.1
+      può portare 0 e continua a valere. */
   priority: number;
   attiva: boolean;
-  quando: { campo: string; operatore: string; valore: unknown };
-  allora: Record<string, unknown>;
+  /* ── SU QUALI ARTICOLI, in gerarchia: il codice esatto batte il prefisso,
+     e tutti e due battono la categoria. Vedi `regolePerArticolo` in
+     `modules/stoccaggio.ts`, che è l'unico posto dove la gerarchia si
+     applica davvero. */
+  article_code?: string;
+  article_prefix?: string;
+  /** 2.8 — la categoria merceologica: «i detersivi stanno in MAG3» non è
+      una regola sui codici, è una regola su una famiglia di merce. */
+  category?: string;
+  category_prefix?: string;
+  /* ── DOVE DEVONO ANDARE: un sito, oppure una zona. */
+  site_id?: string;
+  zone_id?: string;
+  /** `impone` è un VINCOLO: fuori da lì il motore non propone niente, e chi
+      posiziona altrove deve dichiarare perché — lo scavalco resta a
+      registro. `preferisce` alza il punteggio e non esclude nessuno. */
+  modo?: 'impone' | 'preferisce' | string;
+  /** Il perché, in chiaro: lo legge chi vede la proposta. */
+  nota?: string;
+  /* 2.8 — `quando`/`allora` erano la forma IMMAGINATA alla 1.4.4, e non è
+     mai stata scritta a database: la maschera di Configurazione scrive i
+     campi piatti qui sopra dal primo giorno, e questo tipo diceva un'altra
+     cosa da allora. Restano facoltativi perché nessuno ha verificato che
+     non esista un record antico che li porta, e toglierli sarebbe una
+     scommessa su un dato che non si è guardato. */
+  quando?: { campo: string; operatore: string; valore: unknown };
+  allora?: Record<string, unknown>;
   note?: string;
   updated_at?: Istante;
   updated_by?: string;

@@ -28,7 +28,7 @@ export const FORMATO = 'warehouse-mapper-v1.5';
     nella copia esterna, che il proprio manifesto lo scriveva senza passare da
     `Store`. La copia esterna è uscita con la 2.1, e questo resta l'unico
     posto dove il numero è scritto. */
-export const VERSIONE_APP = '2.4';
+export const VERSIONE_APP = '2.8';
 
 /* L'ELENCO DELLE COLLEZIONI DA ESPORTARE STA IN UN POSTO SOLO.
    Fino alla 1.4.0 era scritto a mano in tre — `exportAll`, `_countsOf`,
@@ -62,6 +62,10 @@ export const COLLEZIONI_EXPORT: Collezione[] =
    fino alla 2.1 lo tenevano: un backup vecchio deve continuare a rientrare. */
 export const IMPOSTAZIONI_ESPORTATE = [
   'docConfig', 'areaWip', 'udcPrefissoGS1', 'dashboardLayout', 'oreUrgenza',
+  /* 2.8 — la matrice di incompatibilità. Un ripristino che la lascia
+     indietro rimette un magazzino che ha dimenticato quali pericolosità non
+     possono dividere un vano, e nessuno se ne accorge finché non succede. */
+  'matriceIncompatibilita',
 ] as const;
 
 /** Le impostazioni da mettere nel pacchetto. Le chiavi mai valorizzate non
@@ -150,6 +154,11 @@ export function componi(
     wip: [...C.wip],
     storage_rules: [...C.storageRules],
     recipients: [...C.recipients],
+    /* 2.8 — la caratterizzazione delle celle. Sono dieci record su duemila
+       ubicazioni, e sono esattamente quelli che nessuno ha voglia di
+       riscrivere a mano dopo un ripristino: le eccezioni le ricorda solo
+       chi le ha decise. */
+    location_attrs: [...C.locAttrs.values()],
   };
 
   /* Senza registro il campo SPARISCE, non resta a zero: un pacchetto che

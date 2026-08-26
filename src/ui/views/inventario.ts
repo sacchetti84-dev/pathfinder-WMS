@@ -463,7 +463,14 @@ export const VistaInventario = {
           }
         }
         if (diff.entrate.length) {
-          const res = await Store.addItem(loc, it.article_code, it.article_description ?? '', it.lot_code, it.expiry_date || '', '', diff.entrate.length, null, diff.entrate);
+          /* 2.8 — CORREZIONE, NON POSIZIONAMENTO. Una rettifica di inventario
+             registra quel che l'operatore ha CONTATO in quel vano: la merce è
+             già fisicamente lì, e la regola dell'ubicazione unica non deve
+             poter impedire di scrivere un fatto. Se il conto rivela un lotto
+             sparso su due vani, a dirlo è la mappa — `LOTTO_SPARSO` in
+             `modules/conformita.ts` — non un rifiuto che blocca la conta.
+             Vale per tutte le `addItem` di questa vista. */
+          const res = await Store.addItem(loc, it.article_code, it.article_description ?? '', it.lot_code, it.expiry_date || '', '', diff.entrate.length, null, diff.entrate, { regolaBase: false });
           if (res.ok) {
             await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `${motivo} · trovati ${formattaQuantita(totaleUomColli(diff.entrate, cfg!.uom), cfg!.uom)} ${cfg!.uom}`, '', res.qty_before, diff.entrate.length, res.qty_after, typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);
             corrections++;
@@ -495,7 +502,7 @@ export const VistaInventario = {
           // FIX+: aggiungi delta colli (incrementa record esistente)
           /* DIFETTO NOTO — una riga senza descrizione la scrive `undefined`
              in giacenza; vedi `giacenze.ts`. Non si corregge qui. */
-          const res = await Store.addItem(loc, it.article_code, it.article_description ?? '', it.lot_code, it.expiry_date || '', '', delta);
+          const res = await Store.addItem(loc, it.article_code, it.article_description ?? '', it.lot_code, it.expiry_date || '', '', delta, null, null, { regolaBase: false });
           if (res.ok) {
             await this._logMov(MOV.FIX_IN, it.article_code, it.article_description, it.lot_code, loc, null, Store.getCurrentIdentity().initials, `Conta fisica: ${it.counted_qty}/${sysQty}`, '', sysQty, delta, it.counted_qty, typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);   // v2.0.1 [B7]
             corrections++;
@@ -507,7 +514,7 @@ export const VistaInventario = {
     // Extras: nuovi item trovati fisicamente
     for (const ex of extras) {
       const exQty = ex.qty || 1;
-      const res = await Store.addItem(loc, ex.article_code, ex.article_description ?? '', ex.lot_code, '', '', exQty);
+      const res = await Store.addItem(loc, ex.article_code, ex.article_description ?? '', ex.lot_code, '', '', exQty, null, null, { regolaBase: false });
       if (res.ok) {
         await this._logMov(MOV.FIX_IN, ex.article_code, ex.article_description, ex.lot_code, loc, null, Store.getCurrentIdentity().initials, 'Item extra trovato a inventario', '', res.qty_before, exQty, res.qty_after, typeof res.qty_uom_delta === 'number' ? res.qty_uom_delta : null);   // v2.0.1 [B7]
         corrections++;
@@ -870,7 +877,7 @@ export const VistaInventario = {
         }
         if (diff?.entrate.length) {
           const res = await Store.addItem(d.location_code, d.article_code, d.article_description,
-            d.lot_code, d.expiry_date || '', '', diff.entrate.length, null, diff.entrate);
+            d.lot_code, d.expiry_date || '', '', diff.entrate.length, null, diff.entrate, { regolaBase: false });
           if (!res.ok) return this.toast('Rettifica non riuscita', 'error');
           await this._logMov(MOV.FIX_IN, d.article_code, d.article_description, d.lot_code,
             d.location_code, null, sigla, `${motivo} · trovati ${formattaQuantita(totaleUomColli(diff.entrate, cfgConta.uom), cfgConta.uom)} ${cfgConta.uom}`, '', res.qty_before, diff.entrate.length, res.qty_after,
@@ -886,7 +893,7 @@ export const VistaInventario = {
           tolti._qty_uom_delta ?? null);
       } else if (delta > 0) {
         const res = await Store.addItem(d.location_code, d.article_code, d.article_description,
-          d.lot_code, d.expiry_date || '', '', delta);
+          d.lot_code, d.expiry_date || '', '', delta, null, null, { regolaBase: false });
         if (!res.ok) return this.toast('Rettifica non riuscita', 'error');
         await this._logMov(MOV.FIX_IN, d.article_code, d.article_description, d.lot_code,
           d.location_code, null, sigla, dettaglio, '', sistema, delta, contati,

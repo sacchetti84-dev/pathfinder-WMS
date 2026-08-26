@@ -24,6 +24,7 @@ import type {
   Sito, Zona, Articolo, Giacenza, StatoUbicazione, Movimento, Quarantena,
   DocumentoUscita, SessionePrelievo, ReportPrelievo, VerbaleSmaltimento,
   Operatore, Lotto, Udc, Compito, ContoWip, RegolaStoccaggio, Destinatario, Istante,
+  AttributiUbicazione,
 } from '../types/entita.js';
 
 /* ── Le forme ──────────────────────────────────────────────────────────── */
@@ -65,6 +66,11 @@ export const FORMA_CACHE = {
   wip:              { field: 'wip',             kind: 'list',   key: 'wip_id',   insert: 'unshift' },
   storage_rules:    { field: 'storageRules',    kind: 'list',   key: 'rule_id',  insert: 'push' },
   recipients:       { field: 'recipients',      kind: 'list',   key: 'rcp_id',   insert: 'push' },
+  /* 2.8 — una MAPPA e non un elenco, come `loc_status`: la si legge per
+     codice a ogni cella disegnata e a ogni proposta del motore, e scorrere
+     un elenco duemila volte per disegnata e' esattamente il difetto che
+     `verificaStoccaggio` esiste per non ripetere. */
+  location_attrs:   { field: 'locAttrs',        kind: 'map',    key: 'location_code' },
 } as const satisfies Record<Collezione, Forma>;
 
 /* ── La cache ──────────────────────────────────────────────────────────── */
@@ -100,6 +106,9 @@ export interface Cache {
   wip: ContoWip[];
   storageRules: RegolaStoccaggio[];
   recipients: Destinatario[];
+  /** 2.8 — gli scavalchi di caratterizzazione, per ubicazione. Assente =
+      la cella dice quel che dice la sua zona. */
+  locAttrs: Map<string, AttributiUbicazione>;
   meta: MetaCache;
 }
 
@@ -212,6 +221,7 @@ export function cacheVuota(): Cache {
     pickSession: null, pickArchive: [], disposalArchive: [], operators: [],
     movLogTotal: 0,
     lots: [], udc: [], tasks: [], wip: [], storageRules: [], recipients: [],
+    locAttrs: new Map(),
     meta: metaVuota(),
   };
 }

@@ -162,7 +162,7 @@ describe('validaRegola', () => {
   });
 
   it('senza SU COSA vale non si applica a niente: e un record invisibile', () => {
-    expect(validaRegola({ site_id: 'MAG2' })).toContain('Indica su quali articoli vale: un codice esatto o un prefisso');
+    expect(validaRegola({ site_id: 'MAG2' })).toContain('Indica su quali articoli vale: un codice esatto, un prefisso o una categoria');
   });
 
   it('senza DOVE mandare non e una regola', () => {
@@ -372,5 +372,168 @@ describe('2.1 — la priorita di una regola va da 1 a 10', () => {
       { rule_id: 'A', article_prefix: '7', site_id: 'M2', priority: 10 },
     ], '7001234');
     expect(r.map(x => x.rule_id)).toEqual(['A', 'B']);
+  });
+});
+
+/* ═══════════════════════════════════════════════════════════════════
+   2.8 — LA PERICOLOSITÀ, LA MATRICE, LA CASA DEL LOTTO E LA CATEGORIA
+   ═══════════════════════════════════════════════════════════════════ */
+
+describe('2.8 — la pericolosità, che stava sulla Zona dal 1.6 e non mordeva mai', () => {
+  const pericolosa = (extra = {}) => ({ ...merce(), hazards: extra.hazards ?? ['INFIAMMABILE'] });
+
+  it('merce pericolosa non entra dove i pericoli non sono ammessi', () => {
+    const e = proponi(pericolosa(), [posto('A-01'), posto('A-02')]);
+    expect(e.proposte).toHaveLength(0);
+    expect(e.esclusi.every(x => x.motivo === 'pericolo_fuori_zona')).toBe(true);
+  });
+
+  it('merce pericolosa entra nell’area dedicata', () => {
+    const e = proponi(pericolosa(), [{ ...posto('A-01'), hazard_zone: true }]);
+    expect(e.proposte.map(p => p.location_code)).toEqual(['A-01']);
+  });
+
+  it('un pericolo non ammesso da quell’area resta fuori', () => {
+    const e = proponi(pericolosa(), [
+      { ...posto('A-01'), hazard_zone: true, hazards: ['CORROSIVO'] },
+    ]);
+    expect(e.esclusi[0].motivo).toBe('pericolo_non_ammesso');
+  });
+
+  /* Non è simmetrico per caso: l'area dedicata serve a non contaminare il
+     resto, quindi è il prodotto pulito a rischiare quando ci finisce. */
+  it('merce pulita non entra nell’area dei pericoli', () => {
+    const e = proponi(merce(), [{ ...posto('A-01'), hazard_zone: true }]);
+    expect(e.esclusi[0].motivo).toBe('pulito_in_zona_pericoli');
+  });
+
+  /* «Riservata» è una decisione organizzativa sugli allergeni. Un comburente
+     accanto a un infiammabile non è organizzativo: è fisica, come la
+     temperatura, e su quella non si è mai derogato. */
+  it('la cella riservata NON deroga sulla pericolosità', () => {
+    const e = proponi(pericolosa(), [
+      { ...posto('A-01', { status: 'reserved' }), riservata: true },
+    ]);
+    expect(e.proposte).toHaveLength(0);
+  });
+});
+
+describe('2.8 — la matrice: due pericoli ammessi dalla zona e incompatibili fra loro', () => {
+  const matrice = [{ a: 'COMBURENTE', b: 'INFIAMMABILE', nota: 'Il comburente alimenta la fiamma' }];
+  const infiammabile = { ...merce(), hazards: ['INFIAMMABILE'] };
+
+  it('quel che c’è già nel vano esclude quel che arriva', () => {
+    const e = proponi(infiammabile, [
+      { ...posto('A-01'), hazard_zone: true, pericoli_presenti: ['COMBURENTE'] },
+      { ...posto('A-02'), hazard_zone: true, pericoli_presenti: ['NOCIVO'] },
+    ], null, { matrice });
+    expect(e.proposte.map(p => p.location_code)).toEqual(['A-02']);
+    expect(e.esclusi[0].motivo).toBe('incompatibilita');
+    expect(e.esclusi[0].messaggio).toContain('alimenta la fiamma');
+  });
+
+  it('senza matrice configurata non esclude niente', () => {
+    const e = proponi(infiammabile, [
+      { ...posto('A-01'), hazard_zone: true, pericoli_presenti: ['COMBURENTE'] },
+    ], null, { matrice: [] });
+    expect(e.proposte).toHaveLength(1);
+  });
+});
+
+describe('2.8 — capienza e portata sono della CELLA', () => {
+  it('la portata esclude quando il vano non regge il peso', () => {
+    const e = proponi({ ...merce(), peso_kg: 300 }, [
+      { ...posto('A-01'), portata_kg: 500, peso_presente_kg: 400 },
+      { ...posto('A-02'), portata_kg: 500, peso_presente_kg: 100 },
+    ]);
+    expect(e.proposte.map(p => p.location_code)).toEqual(['A-02']);
+    expect(e.esclusi[0].motivo).toBe('portata');
+  });
+
+  /* Un vincolo che nessuno ha scritto non è un vincolo che si viola: la
+     stessa regola che la capienza applica dal 1.13. */
+  it('la portata non dichiarata non esclude nessuno', () => {
+    const e = proponi({ ...merce(), peso_kg: 9000 }, [posto('A-01')]);
+    expect(e.proposte).toHaveLength(1);
+  });
+
+  it('dove è dichiarata, la proposta dice quanti chili restano', () => {
+    const e = proponi({ ...merce(), peso_kg: 10 }, [
+      { ...posto('A-01'), portata_kg: 500, peso_presente_kg: 100 },
+    ]);
+    expect(e.proposte[0].perche.join(' ')).toContain('400 kg');
+  });
+});
+
+describe('2.8 — la casa del lotto viene prima di tutto', () => {
+  it('con una casa libera, il resto del magazzino non è in gara', () => {
+    const e = proponi(merce(), [posto('A-01'), posto('B-02'), posto('C-03')],
+      null, { casaLibera: 'B-02' });
+    expect(e.proposte.map(p => p.location_code)).toEqual(['B-02']);
+    expect(e.proposte[0].punteggio).toBe(PUNTI.CASA_DEL_LOTTO);
+    expect(e.esclusi.every(x => x.motivo === 'casa_del_lotto')).toBe(true);
+  });
+
+  /* Quella merce è già fisicamente lì: rivalutare i vincoli darebbe
+     «nessun posto» su un vano che contiene già quel lotto, cioè un
+     messaggio falso su un fatto vero. A dirlo è `verificaConformita`. */
+  it('il vano di casa passa anche se i vincoli direbbero di no', () => {
+    const e = proponi({ ...merce(), temp_class: 'SURG' }, [
+      { ...posto('B-02'), temp_class: 'AMB', status: 'blocked' },
+    ], null, { casaLibera: 'B-02' });
+    expect(e.proposte.map(p => p.location_code)).toEqual(['B-02']);
+  });
+
+  it('senza casa libera il motore lavora come sempre', () => {
+    const e = proponi(merce(), [posto('A-01'), posto('B-02')], null, { casaLibera: null });
+    expect(e.proposte).toHaveLength(2);
+  });
+});
+
+describe('2.8 — la categoria merceologica come bersaglio di regola', () => {
+  const regolaCat = {
+    rule_id: 'R1', category: 'DETERSIVI', site_id: 'MAG3',
+    modo: 'impone', priority: 5, nota: 'i detersivi stanno in MAG3',
+  };
+
+  it('una regola di categoria vale per tutti gli articoli di quella famiglia', () => {
+    const trovate = regolePerArticolo([regolaCat], '9999999', 'DETERSIVI');
+    expect(trovate).toHaveLength(1);
+  });
+
+  /* «Categoria vuota» non vuol dire «qualunque categoria»: vuol dire che
+     nessuno ha classificato quell'articolo. */
+  it('senza categoria sull’articolo, la regola di categoria non lo riguarda', () => {
+    expect(regolePerArticolo([regolaCat], '9999999')).toHaveLength(0);
+    expect(regolePerArticolo([regolaCat], '9999999', '')).toHaveLength(0);
+  });
+
+  it('il prefisso di categoria prende tutta la famiglia', () => {
+    const r = { rule_id: 'R2', category_prefix: 'DET', zone_id: 'Z9' };
+    expect(regolePerArticolo([r], '1', 'DETERSIVI')).toHaveLength(1);
+    expect(regolePerArticolo([r], '1', 'DETERGENTI')).toHaveLength(1);
+    expect(regolePerArticolo([r], '1', 'PASTA')).toHaveLength(0);
+  });
+
+  /* Una regola scritta su un articolo preciso è una decisione presa su
+     QUELL'articolo, e non deve poter essere annacquata da una di famiglia. */
+  it('il codice esatto batte il prefisso, e tutti e due battono la categoria', () => {
+    const esatto = { rule_id: 'A', article_code: '7001234', site_id: 'MAG1' };
+    const trovate = regolePerArticolo([esatto, regolaCat], '7001234', 'DETERSIVI');
+    expect(trovate.map(r => r.rule_id)).toEqual(['A']);
+  });
+
+  it('una regola di categoria esclude come qualunque altra che impone', () => {
+    const e = proponi({ ...merce(), category: 'DETERSIVI' }, [
+      posto('A-01', { site: 'MAG1' }),
+      posto('B-01', { site: 'MAG3' }),
+    ], [regolaCat]);
+    expect(e.proposte.map(p => p.location_code)).toEqual(['B-01']);
+    expect(e.esclusi[0].motivo).toBe('regola_impone');
+  });
+
+  it('si può salvare una regola scritta sulla sola categoria', () => {
+    expect(validaRegola({ category: 'DETERSIVI', site_id: 'MAG3' })).toEqual([]);
+    expect(validaRegola({ category_prefix: 'DET', zone_id: 'Z1' })).toEqual([]);
   });
 });

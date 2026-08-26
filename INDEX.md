@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **26/08/2026**, notte
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **26/08/2026**, notte tarda
 
 ## LO STATO DEL PROGETTO È **ALFA**
 
@@ -20,6 +20,223 @@ che nessuno ha ancora compilato. Non è un prodotto finito che si manutiene, ed
 **Non c'è una scadenza.** La riga che dava il progetto al 31/12/2026 con
 ultima installazione utile il 19/12 è stata tolta il 25/08: le date si
 scrivono come fatti avvenuti, non come promesse.
+
+---
+
+## LA 2.8 È **COSTRUITA E CONSEGNATA**, E NON È ANCORA IN SERVIZIO
+
+**Costruita il 26/08/2026, notte. Non installata: quello lo fa Andrea.** In
+servizio resta la 2.7 — la sezione qui sotto — e le due cose non vanno
+confuse, perché il pacchetto esiste e la produzione non l'ha ancora visto.
+
+| | |
+|---|---|
+| `versione` applicativo | **2.8** |
+| `VERSION` del servizio | **2.8** |
+| impronta | `21c3f4b9a4ccd7857d65409bd80a3262a78b9dfe0782f62a288602c3dd6ca83e` |
+| byte | **1.836.612** in **4 file** — 468 kB sul filo, compressi |
+| dove | `consegna\Pathfinder 2.8\` |
+| collaudi | **1.178 client**, tutti verdi — 64 più della 2.7 |
+| tipi | `npm run check` a 0 su client e servizio |
+
+**Il pacchetto porta anche il servizio**, e questo è il motivo per cui va
+installato intero: la 2.8 aggiunge la **ventunesima collezione**
+(`location_attrs`), e un client 2.8 contro un servizio 2.7 la vede rifiutare
+con `400`. Non si rompe — `d.location_attrs ?? []` regge l'assenza, ed è
+stato **provato davvero**: la 2.8 gira contro il servizio 2.7 di collaudo e
+carica, semplicemente senza nessuna cella caratterizzata. Ma la funzione non
+c'è finché il servizio non sale.
+
+### Che cosa cambia: le regole di stoccaggio
+
+Il motore c'era dalla 1.13 e proponeva; da qui in poi **decide**, e su due
+cose non chiede il permesso a nessuno.
+
+**LE DUE REGOLE CHE NON SI SCRIVONO.** Stanno in `modules/regoleBase.ts`,
+non sono un record e non si cancellano.
+
+1. **Lo stesso articolo sta sulla stessa unità di carico.** Consiglio forte,
+   non divieto: prima una UDC aperta con lo stesso articolo E lo stesso
+   lotto, poi una con lo stesso articolo, e fra pari **la più vuota** —
+   riempire la più vuota tiene aperte meno unità. Chiuse e spedite escluse.
+   **L'operatore scavalca**, e il motivo resta a registro.
+2. **Lo stesso articolo/lotto sta nella stessa ubicazione.** Questa **non si
+   scavalca**, e non è una questione d'ordine: `item_key` è `articolo#lotto`
+   e la giacenza di quel lotto è UNA riga per vano. Lo stesso lotto in due
+   vani è la stessa merce contata due volte, e il FEFO la ordina come due
+   partite. Il 26/08 era già successo per una differenza di maiuscole —
+   §2.6 — e quella volta bastò un lotto digitato in minuscolo.
+
+**L'ECCEZIONE È DELLO STATO DEL VANO, NON DELLA PERSONA.** Se il vano di casa
+è pieno, bloccato o disattivato — e **solo** allora — il lotto si estende su
+un secondo vano e la mappa lo segnala. Chi decide non è l'operatore: è il
+vano. Appena torna disponibile, la regola torna a mordere.
+
+**DOVE MORDE, E DOVE NO.** Il controllo sta in `Store.addItem`, che è il
+collo di bottiglia di tutto: non esiste un `moveItem` — uno spostamento è
+`removeItem` seguito da `addItem` — quindi ogni merce che riceve
+un'ubicazione nuova ci passa. E funziona sugli spostamenti **senza doverli
+distinguere**: la rimozione avviene prima, quindi uno spostamento intero
+lascia il lotto senza casa e passa, uno **parziale** la casa ce l'ha ancora
+ed è esattamente il gesto da rifiutare.
+
+`regolaBase: false` è la via d'uscita per le **correzioni**, e sono quattro,
+tutte dichiarate sul posto: lo storno di un movimento (`app.ts`), la
+rettifica di inventario (`inventario.ts`), la rettifica di una tappa di
+prelievo (`percorso.ts`) e **l'ingresso in WIP** (`store.ts`). Le prime tre
+registrano dove la merce **già sta**; la quarta è un'altra cosa e vale la
+pena dirla per intero.
+
+**L'AREA WIP È UN CONTO, NON UNO SCAFFALE.** Portare in produzione è quasi
+sempre un prelievo parziale: applicare lì la regola vorrebbe dire rifiutare
+ogni ordine che non svuota un lotto — cioè quasi tutti — e fermare la
+produzione per difendere l'ordine di uno scaffale su cui quella merce non è
+più. Per la stessa ragione il vano WIP **non è casa** in `caseDelLotto` e
+**non si conta** fra i lotti sparsi: contarlo rifiuterebbe di posizionare a
+scaffale un lotto di cui il reparto ha in mano tre colli.
+
+### Il terzo vincolo, che si scavalca: la categoria merceologica
+
+`storage_rules` sapeva dire «gli articoli che iniziano per 700» e «questo
+articolo esatto». Adesso sa dire anche **«questa categoria»** e «le categorie
+che iniziano per», ed è il modo in cui la domanda si pone davvero in
+magazzino: «i detersivi stanno in MAG3» non è una regola sui codici, è una
+regola su una **famiglia**. Scriverla come prefisso funziona solo dove
+qualcuno ha avuto la disciplina di far cominciare tutti i detersivi con le
+stesse cifre, e nessuna anagrafica cresciuta in vent'anni ce l'ha.
+`category` sta su `Articolo` dalla v1 ed era già un indice a database.
+
+**È un vincolo con override**: `impone` esclude dalle proposte e chi
+posiziona altrove deve dichiarare perché.
+
+**CHI È PIÙ PRECISO ZITTISCE CHI È PIÙ GENERALE**, e questa parte è nuova
+anche per le regole vecchie. `regolePerArticolo` restituisce **solo il
+livello più preciso che ha colpito** — codice esatto, poi prefisso, poi
+categoria — e non più tutti insieme. Il perché: con due regole che impongono,
+«7001234 va in MAG1» e «i detersivi vanno in MAG3», tenerle entrambe voleva
+dire accettare i vani di MAG1 **e** quelli di MAG3, perché al motore basta
+che UNA sia soddisfatta. La decisione presa su quell'articolo preciso sarebbe
+stata annacquata proprio dalla regola generale che doveva scavalcare. La
+priorità continua a ordinare **dentro** un livello, che è il lavoro per cui
+esiste.
+
+### La pericolosità: c'era dal 1.6 e il motore non l'ha mai letta
+
+`hazard_zone` e `hazards` si configuravano sulla zona dal 1.6, si vedevano in
+maschera, e poi il motore proponeva **come se non ci fossero**. Da qui in poi
+valgono, simmetrici agli allergeni: merce pericolosa solo dove è ammessa,
+merce pulita fuori dall'area dedicata — e l'asimmetria apparente ha la stessa
+ragione degli allergeni, che l'area dedicata serve a non contaminare il
+resto, quindi è il prodotto pulito a rischiare quando ci finisce dentro.
+
+**LA CELLA «RISERVATA» NON DEROGA QUI**, e non è un'incoerenza. «Riservata» è
+la decisione di ammettere un allergene in un posto pulito: è un rischio di
+contaminazione, ed è organizzativo. Un comburente accanto a un infiammabile
+non è organizzativo — è la stessa fisica della temperatura, e su quella §6
+dice già che non si deroga.
+
+**LA MATRICE DI INCOMPATIBILITÀ.** Due pericolosità entrambe ammesse dalla
+zona possono essere incompatibili **fra loro**, e la zona non ha modo di
+dirlo: sono tutte e due «pericolose». La matrice è un dato in
+`meta.matriceIncompatibilita`, e si configura da Regole di stoccaggio come
+una **griglia** — mezza griglia, perché la coppia non ha un ordine e due
+caselle per la stessa domanda prima o poi si contraddicono a video.
+
+**Mai configurata e configurata vuota sono due cose diverse.** `null` vuol
+dire che nessuno ci ha messo mano, e allora valgono le tre coppie di serie —
+comburente/infiammabile, corrosivo/infiammabile, comburente/corrosivo. Un
+elenco **vuoto** è una decisione presa, «da noi nessuna coppia è
+incompatibile», e vale quel che dice. La scheda lo scrive a chiare lettere
+finché è di serie, perché «tre coppie» e «tre coppie che avete scelto voi»
+non sono la stessa informazione per chi firma.
+
+Il motore confronta quel che **arriva** con quel che **c'è già nel vano**;
+sul magazzino fermo la stessa domanda la fa `verificaConformita`, che accusa
+**tutte e due** le righe della coppia — non c'è modo di sapere quale sia
+arrivata per ultima, e dire «questa è di troppo» sceglierebbe a caso chi deve
+spostarsi.
+
+### La ventunesima collezione: `location_attrs`
+
+Fino alla 2.7 temperatura, allergeni e pericolosità stavano **solo sulla
+zona** e scendevano identiche a tutte le sue celle. Uno scaffale però non è
+omogeneo: il livello a terra regge il doppio di quello in quota, la cella
+davanti al portone è più calda del fondo corsia, e la campata con la vasca di
+contenimento è l'unica che può tenere un corrosivo.
+
+**LA ZONA RESTA LA SORGENTE, LA CELLA SCAVALCA.** Un campo assente sulla
+cella non vuol dire «nessun vincolo»: vuol dire «come dice la zona». È la
+differenza che tiene in piedi le migliaia di celle già configurate, nessuna
+delle quali ha un record. Su duemila ubicazioni ce ne saranno dieci, ed è
+giusto così. Nella maschera ogni campo ha **tre** stati e non due — «come la
+zona», «così», «qui no» — e la tendina scrive il valore della zona fra
+parentesi, invece di presentare un campo vuoto che sembra «nessun vincolo».
+
+Si caratterizza da **Mappa → dettaglio ubicazione → 🎯 Caratterizza**, e sta
+lì e non in Configurazione perché chi decide che QUESTA campata regge meno
+delle altre lo decide con la campata davanti, non da una tabella di duemila
+righe. «↺ Torna alla zona» toglie il record: non disattiva niente, rimanda la
+cella a quel che dice la sua zona.
+
+**CAPIENZA E PORTATA SONO SEMPRE DELLA CELLA**, e qui si chiude un difetto
+vecchio. Una capienza di zona non vuol dire niente — la zona è l'insieme dei
+vani, non un vano — e fino alla 2.7 il motore la cercava su `zona.capienza`,
+che **non è mai esistita nemmeno come campo del tipo `Zona`**. Il vincolo
+c'era e non mordeva mai: `modules/kpi.ts` lo dice da allora, «il motore di
+stoccaggio ha il vincolo e non lo usa mai». La **portata in chili** è nuova, e
+sta sulla cella per la stessa ragione: un livello in quota e uno a terra non
+reggono lo stesso peso.
+
+### I tre motivi precompilati dello scavalco
+
+Fino alla 2.7 lo scavalco aveva un campo di testo libero e basta. Un campo
+libero su un terminale, con la merce in mano e il muletto acceso, si compila
+con «ok», «vedi sopra» o niente — e allora il dato che dovrebbe dire fra tre
+mesi se le regole valgono non dice più niente. Adesso ci sono **tre bottoni**,
+in `MOTIVI_SCAVALCO`:
+
+- il posto proposto non è raggiungibile col mezzo disponibile;
+- merce in uscita a breve, tenuta vicino alla baia di spedizione;
+- il posto proposto è occupato o non ha lo spazio che dichiara.
+
+**Tre e non dieci**: un elenco lungo torna a essere una scelta da leggere,
+cioè lo stesso costo del campo libero con in più l'illusione di aver misurato
+qualcosa. **Il testo libero resta accanto**, per il caso che i tre non
+coprono: chi lo compila sta dicendo qualcosa che vale la pena leggere proprio
+perché ha fatto la fatica di scriverlo.
+
+### Che cosa ha trovato, acceso sul magazzino vero
+
+Misurato il 26/08 sul collaudo, contro le **886** righe di giacenza vere:
+
+| | |
+|---|---:|
+| lotti che stanno in **due** ubicazioni | **28** |
+| righe di giacenza coinvolte | **59** |
+| vani coinvolti | **32** |
+| ubicazioni valutate per proposta | **330** |
+| tempo di una proposta | **2,1 – 2,8 ms** |
+
+**Le 59 righe non sono un difetto della 2.8: sono quello che c'era già.** La
+regola nuova le rende visibili, e la mappa le segnala come `LOTTO_SPARSO`,
+gravità **media** — perché non sono un errore di nessuno, sono il magazzino
+com'è. Vanno guardate e ricomposte, voce 36.
+
+Provato anche il rifiuto vero, sul lotto `262567` dell'articolo `6001668`,
+che sta in `MAG1-RAKA-01-01-A`: `addItem` su un altro vano alza
+«…lo stesso lotto sta in un'ubicazione sola e questa non si scavalca.
+Posiziona in MAG1-RAKA-01-01-A», e le righe di giacenza restano **886 prima e
+886 dopo** — rifiuta **prima** di scrivere qualunque cosa.
+
+### Il difetto trovato per strada: i destinatari non rientravano in cache
+
+Cablando la collezione nuova è venuto fuori che **`recipients` non veniva mai
+assegnato in `_loadCache`**. I due adapter lo leggevano dal 1.6, `_loadCache`
+lo lasciava cadere, e la prima volta che qualcuno scriveva un destinatario
+`_applyToCache` popolava l'elenco per il resto della sessione. Chi apriva un
+DDT **senza aver toccato prima l'anagrafica trovava zero destinatari** e li
+riscriveva a mano. Il difetto si nascondeva da solo: bastava aver scritto un
+destinatario in quella sessione perché sparisse. Corretto.
 
 ---
 
@@ -1609,13 +1826,16 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **59** | **28 LOTTI STANNO IN DUE UBICAZIONI, E SONO 59 RIGHE SU 32 VANI.** Contati il 26/08 sulle 886 giacenze vere, appena la 2.8 ha acceso il controllo. **Non li ha fatti la 2.8**: sono il magazzino com'è, e fino a ieri nessuno aveva modo di vederli. Finché durano, quella merce si conta due volte e il FEFO la ordina come due partite diverse. Da oggi la regola base 2 impedisce di farne di nuovi, ma **non ricompone quelli che ci sono** | **Ricomporli, uno per uno, con la merce davanti.** L'elenco esce da Mappa → «Vedi elenco» → Esporta Excel, tipo `LOTTO_SPARSO`. Non è un lavoro da agente: sono 28 decisioni su dove sta davvero la merce |
+| **58** | **GLI ATTRIBUTI DEGLI ARTICOLI SONO ANCORA VUOTI, E ADESSO SI VEDE QUANTO PESA.** Misurato il 26/08: **644 articoli senza classe di temperatura, senza allergeni e senza pericolosità**, e `verificabili` a **zero** su 886 righe. La 2.8 ha aggiunto quattro controlli nuovi — pericolosità fuori area, non ammessa, merce pulita in area pericoli, matrice — e **nessuno dei quattro può scattare** finché quella colonna è vuota. È la voce 5 vista dall'altro capo: là mancano gli attributi delle ZONE, qui quelli degli ARTICOLI | **È di Andrea**, come la 5: si popola da Configurazione → Articoli → Export/Import Excel, e il foglio «Valori ammessi» porta già gli elenchi buoni |
+| **60** | **`ADMI` È UN OPERATORE ADMIN NATO PER SBAGLIO SUL COLLAUDO.** Creato il 26/08 alle 18:49:45 UTC da un clic finito su una maschera «Nuovo operatore» che si era aperta precompilata `admin`/`admin`/`ADMI`, con un PIN riempito dal gestore password del browser. **È attivo, ha ruolo admin, e il PIN non lo conosce nessuno dei due.** Sta sul servizio di collaudo (4199), non in produzione | **Decide Andrea**, e il 26/08 ha detto «lascialo, ci penso io». Si cancella o si disattiva da Configurazione → Operatori |
 | **51** | **DUE FUNZIONI NON ESERCITATE DA CAPO A FONDO, E ADESSO SONO IN SERVIZIO.** La 2.5 e' installata dal 26/08 — misurata, non dedotta — quindi questa non e' piu' una cosa da provare prima di installare: e' codice che il magazzino sta servendo. La **rettifica di una tappa già prelevata** e il **salta tappa** del prelievo da ordine sono verificate per tipi, logica e resa a video, ma non sono state fatte girare: farle girare avrebbe scritto movimenti veri nel registro del magazzino in servizio. La rettifica scrive un `REPOS` e chiama `esceDaWip`, cioè tocca giacenza **e** conto di produzione | **Vanno provate al banco con un ODP di prova, su una copia del database — §5 — prima di installare la 2.5.** Le due cose da guardare: che il `REPOS` rimetta le **misure giuste** e non colli di misura comoda, e che `esceDaWip` non rifiuti la riga quando l'ordine ha in lavorazione colli di misure diverse (lancia apposta in quel caso: la rettifica resta valida e l'operatore viene avvisato, ma va visto succedere) |
 | **52** | **82 ARTICOLI HANNO UN'UNITÀ CHE NON È UN'UNITÀ.** Dopo la traduzione `NR → PZ` del 26/08 restano fuori dalla gestione a UM: `SCA` 48, `CON` 18, `RT` 7, `CAS` 4, `M2` 2, `BAN` 1, più **due celle con dentro testo libero** — `MIN EPA=105 MG/G` e `MIN EPA=500MG/G DHA=250 MG/G C/L U.G.A`. Non è un difetto del codice: scatola, confezione e cassa nominano un **contenitore**, e in questo sistema il contenitore è il collo. `M2` è una superficie, che fra le cinque unità non c'è. Le due celle di testo sono errori di compilazione | Le 82 righe si caricano **a soli colli** e la maschera adesso lo dice. Va deciso sigla per sigla, guardando che merce sono: quelle che sono davvero un contenitore restano così, `M2` chiede se serva una sesta unità, e le due celle di testo vanno corrette in anagrafica — quello è di Andrea |
 | **50** | **UN DIFETTO «GRAVE» DEL CICLO NON FA FALLIRE NIENTE.** `difetto()` in `banco/ciclo/verbale.js` scrive la riga nel verbale e la prova risulta lo stesso **passata**: il 25/08, rimettendo apposta il difetto della voce 45, il banco ha alzato **PA6 (grave)** con `movimenti 112 → 0` e `vitest` ha detto «3 passed». Vale per tutto il ciclo, non solo per PA6 | Un difetto grave deve tingere di rosso la corsa, altrimenti lo vede solo chi apre il verbale e legge fino in fondo — e il verbale si apre quando si sospetta già qualcosa. Va deciso quali severità fermano la corsa |
 | **5** | **Caratterizzare le zone** in Configurazione → Zone: classe di conservazione, zona allergeni, zona pericolosi, refrigerata. Finché non è fatto **la mappa resta muta**, per quanti articoli si classifichino: la verifica confronta due metà e una manca | **Pianificare verifica e correzione.** Prima si misura quante zone e quante righe sono scoperte, poi si decide se il buco è nel dato o nel codice che lo legge |
 | **15** | **L'area WIP va consolidata.** È **un'ubicazione mappata**, non un prefisso, e `Store` la legge da `meta.areaWip`. **Misurata il 25/08 sul servizio vivo: `MAG1-WIP-01`** — non `M06-COM-01`, che è quel che questo documento ha detto fino a oggi. Sono tutte e due ubicazioni vere: `M06` è il magazzino Rinaldi, dichiarato «IN COSTRUZIONE», mentre `MAG1` è il magazzino materie prime alimentari e porta **tutte e 884** le righe di giacenza. Il valore è cambiato dopo il 19/08 e nessuno l'ha scritto | **Pianificare analisi e correzione**, e la domanda prima di ogni altra è **quale dei due vani sia quello giusto**. Il conto di produzione ci ha già lavorato dentro: in `wip` ci sono 9 righe |
 | **12** | **Le unità di carico sono in funzione, e sono ATTIVE in produzione** — l'interruttore non esiste più dalla 2.0. Creazione, carico, spostamento, chiusura automatica, etichetta: al banco funzionano. Ma in `udc` a database ci sono **zero righe**, misurato il 25/08: nessuno ne ha ancora creata una col muletto in mano | **Pianificare sviluppo e consolidamento**, e la prima domanda è perché a funzione attiva non ne sia nata nemmeno una |
-| **22** | **Il motore di stoccaggio va sviluppato e consolidato.** Il difetto segnalato — «l'ubicazione non soddisfa i criteri anche quando la regola è definita correttamente» — non è nessuno dei due chiusi con la 2.1 | **Pianificare sviluppo e consolidamento**, e riprodurre il difetto con la regola esatta, il vano e il messaggio a video |
+| **22** | **Il motore di stoccaggio è stato sviluppato con la 2.8 — regole base, pericolosità, matrice, categoria, attributi di cella — ma il difetto segnalato NON è ancora riprodotto.** «L'ubicazione non soddisfa i criteri anche quando la regola è definita correttamente»: resta una frase senza un caso. La 2.8 rende più facile riprodurlo, perché ogni esclusione porta il suo `motivo` in chiaro | **Serve il caso vero**: la regola esatta come è scritta, il vano che rifiuta, e il messaggio a video. Senza quei tre, non si sa nemmeno se sia ancora vivo |
 | **19** | **`6001055` MANGANESE SOLFATO: l'ODP lo chiede in KG, l'anagrafica lo dichiara PZ.** Il magazzino conta pezzi dove la produzione pesa chili | **Il parser XLS va controllato e corretto se serve.** La domanda è se l'unità di misura si perde in lettura o se il dato è storto all'origine: sono due difetti diversi, e si distinguono guardando il foglio |
 | **33** | **Il registro non dice QUANTO, e NON È UN REFUSO DEL DATO: è il codice che scrive.** Analizzato il 25/08 sulla copia di backup delle 20:00, sola lettura. Tre forme, tutte e tre riproducibili: un `MOVE` che sposta una riga intera scrive `qty_delta: 0` con `qty_before: 1` e `qty_after: 1` — registra la variazione della riga d'origine, che è zero perché la riga si è spostata tutta, invece della quantità mossa; un `PICK` di «Consumo di produzione» scrive `qty_delta: null` con `qty_before: 10` e `qty_after: 9`; un `SAMPLE` scrive `qty_delta: 0` **e** `qty_uom_delta: null`, cioè non registra niente. **La buona notizia: `qty_before` e `qty_after` ci sono sempre**, quindi la quantità è ricostruibile e nessun dato è perduto | **Non c'è niente da pulire: c'è da correggere chi scrive.** Il campo che deve rispondere alla domanda «quanto» va riempito con la quantità mossa, non con la variazione della riga. È un cambio di formato del registro, che si tiene sei anni: si decide prima in §6, poi si scrive. Le righe già scritte si raddrizzano da `qty_before`/`qty_after` |
 | **42** | **La nuova regola del campionamento va nel codice.** Andrea, 25/08: articolo **con** unità di misura configurata → si scala **la UM richiesta** e i colli non calano; articolo **senza** unità di misura → il campione **non modifica la giacenza**, né colli né UM. Oggi la rotta rifiuta il collo intero con «un campione lascia sempre un residuo» | Cambia una regola di §6 e il significato di `SAMPLE`: va scritta lì prima che nel codice, e il CQ deve saperlo |
@@ -2164,6 +2384,101 @@ percorso una volta l'anno.
 ## 5. Le trappole già pagate
 
 Ognuna è costata almeno una volta. Non sono opinioni.
+
+### Le regole di stoccaggio — 2.8
+
+**UNA COLLEZIONE CHE SI LEGGE MA NON SI ASSEGNA È UNA COLLEZIONE VUOTA, E NON
+LO DICE — trovato il 26/08.** `recipients` stava nei due adapter dal 1.6 e
+`_loadCache` non la assegnava mai a `_cache`. Nessuno se n'era accorto in due
+mesi perché **il difetto si nasconde da solo**: alla prima scrittura
+`_applyToCache` popola l'elenco, e da lì in poi la sessione sembra a posto. A
+vederlo era solo chi apriva un DDT *senza aver toccato prima l'anagrafica*.
+Quando si aggiunge una collezione si guardano **tre** punti e non due: il
+`loadAll` dell'adapter, la destructuring di `_loadCache`, **e l'assegnazione**.
+
+**`undefined` E `null` NON SONO LA STESSA ASSENZA, quando l'assenza è una
+decisione.** Su `location_attrs` un campo `undefined` vuol dire «come dice la
+zona» e `null` vuol dire «qui no»: due cose opposte, e un `??` le
+schiaccerebbe insieme mandando la cella a ereditare proprio dove qualcuno
+aveva scritto di non ereditare. `_fondiAttributi` confronta con `undefined` e
+non con la verità del valore, e la maschera ha **tre** stati per campo e non
+due. Vale ogni volta che si scrive uno scavalco sopra un valore di serie.
+
+**IL PRIMO POSIZIONAMENTO DI UN LOTTO NON HA CASA, E QUINDI OGNI CONTROLLO
+D'UNICITÀ DEVE SAPER DIRE «NESSUNA».** `verdettoCasa` restituisce `primo` e
+non un errore: un elenco vuoto non è un caso limite da tollerare, è il caso
+normale della prima volta. Le regole che vietano si scrivono partendo da lì,
+o il primo carico della giornata si rifiuta da solo.
+
+**UN'AREA DI TRANSITO NON È UNA CASA, e trattarla come tale ferma la
+produzione.** Il vano WIP tiene merce di passaggio: se `caseDelLotto` lo
+conta, posizionare a scaffale un lotto di cui il reparto ha in mano tre colli
+diventa vietato. Ed è lo stesso motivo per cui `entraInWip` passa con
+`regolaBase: false` e per cui la mappa non lo segnala fra i lotti sparsi.
+**Tre punti, una sola ragione**: quando se ne tocca uno si guardano gli altri
+due. È la stessa lezione di «UN'AREA NON E' UN'UBICAZIONE», §6, vista da un
+altro lato.
+
+**IL CONTROLLO CHE VIETA VA DOVE PASSA TUTTO, NON DOVE SI VEDE.** In
+Pathfinder non esiste un `moveItem`: uno spostamento è `removeItem` seguito
+da `addItem`. Mettere la regola dell'ubicazione unica dentro `addItem` la fa
+valere anche per gli spostamenti **senza doverli distinguere** — e in più la
+fa valere bene, perché la rimozione avviene prima: uno spostamento intero
+lascia il lotto senza casa e passa, uno parziale la casa ce l'ha ancora ed è
+esattamente il gesto da rifiutare. Metterla nelle otto maschere avrebbe
+voluto dire otto copie che divergono alla prima maschera nuova.
+
+**UN VINCOLO CHE ESCLUDE DEVE LASCIARE UNA PORTA DA CUI USCIRE.** «Non si
+può» senza «allora dove» è una porta chiusa: il messaggio della regola 2
+porta **il codice del vano di casa**, e la maschera mette il bottone che ce
+lo scrive. Ricopiare a mano un codice di ubicazione da un riquadro è il modo
+di sbagliarlo.
+
+**UN CAMPO LIBERO PER IL MOTIVO SI COMPILA CON «OK».** Con la merce in mano e
+il muletto acceso, il testo libero raccoglie rumore, e il dato che dovrebbe
+dire fra tre mesi se le regole valgono non dice più niente. Tre bottoni si
+premono — e sono **tre e non dieci**, perché un elenco lungo torna a essere
+una scelta da leggere, cioè lo stesso costo del libero con in più l'illusione
+di aver misurato qualcosa.
+
+**MAI CONFIGURATO E CONFIGURATO VUOTO SONO DUE COSE DIVERSE, e su una
+matrice di sicurezza la differenza pesa.** `null` in `meta.matriceIncompatibilita`
+vuol dire che nessuno ci ha messo mano, e allora valgono le tre coppie di
+serie; `[]` è la decisione «da noi nessuna coppia è incompatibile», e vale
+quel che dice. Un `?? []` scritto per prudenza avrebbe spento i tre vincoli
+di serie in silenzio.
+
+**UN VINCOLO LETTO DA UN CAMPO CHE NON ESISTE NON MORDE MAI, E NON DÀ
+ERRORE.** Fino alla 2.7 il motore leggeva la capienza da `zona.capienza`, che
+non è mai esistita nemmeno come campo del tipo `Zona`: l'indice generico
+`[config: string]: unknown` la rendeva legittima al compilatore, e il vincolo
+c'era e non escludeva mai nessuno. `kpi.ts` lo diceva da mesi in una riga che
+nessuno aveva collegato. **Un attributo di destinazione d'uso si configura,
+si vede in maschera, e poi bisogna andare a controllare che il motore lo
+legga davvero**: alla pericolosità era successa la stessa cosa dal 1.6.
+
+**UNA REGOLA GENERALE CHE SOPRAVVIVE ACCANTO A UNA PRECISA LE ANNACQUA
+TUTTE E DUE.** `proponi` accetta un vano se **una** regola che impone è
+soddisfatta. Con «7001234 va in MAG1» e «i detersivi vanno in MAG3» attive
+insieme, i vani buoni diventavano quelli di MAG1 *più* quelli di MAG3 — cioè
+la decisione presa sull'articolo preciso spariva proprio per colpa della
+regola di famiglia che doveva scavalcare. `regolePerArticolo` tiene **un solo
+livello**, il più preciso che ha colpito.
+
+**`open(percorso, 'w')` TRONCA PRIMA DI SCRIVERE, e un errore di codifica in
+mezzo lascia il file a ZERO byte — 26/08.** Una `UnicodeEncodeError` su un
+emoji ha azzerato `src/ui/views/giacenze.ts`, 37 KB, prima ancora di scrivere
+la prima riga. Recuperato con `git checkout` e riapplicato a mano. Uno script
+che riscrive un sorgente **compone tutto in memoria e apre in scrittura per
+ultimo**, o non tocca il file originale finché non ha finito.
+
+**UN CLIC A COORDINATE SU UN'INTERFACCIA CHE SI RIDISEGNA FINISCE DOVE NON
+DEVE — 26/08.** Due volte nella stessa mezz'ora: una casella della matrice
+accesa per sbaglio (e salvata a database), e un operatore `admin` creato
+premendo «Crea» al posto di «Annulla» su una maschera che si era aperta da
+sola e precompilata. Su questo applicativo si verifica **leggendo lo stato**
+— `read_page`, o le funzioni pure chiamate da consolle — non premendo bottoni
+a occhio: ogni bottone qui dentro scrive nel magazzino di qualcuno.
 
 ### Consegna e ambiente
 
@@ -3060,7 +3375,8 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/dispositivo.ts` | 74 | **1.11** — su che cosa sta girando. A decidere e' la larghezza, non il sistema operativo; Android si riconosce e si registra. Puro |
 | `modules/udc.ts` | 162 | **1.12** — il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perche' **un'etichetta dura**, e provarla altrimenti vorrebbe dire stamparla. Puro |
 | `modules/udc.ts` | 162 | **1.12** — il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perche' **un'etichetta dura**, e provarla altrimenti vorrebbe dire stamparla. Puro |
-| `modules/stoccaggio.ts` | 355 | **1.13** — dove si mette la merce: vincoli duri, poi punteggio. Le regole sono un dato di `storage_rules`. Ogni proposta dice perche'. Puro |
+| `modules/stoccaggio.ts` | 613 | **1.13** — dove si mette la merce: vincoli duri, poi punteggio. Le regole sono un dato di `storage_rules`. Ogni proposta dice perche'. Puro. **2.8**: pericolosita' e matrice fra i vincoli duri, portata accanto alla capienza, la casa del lotto che esclude tutto il resto, e la categoria merceologica come terzo bersaglio di regola — con la gerarchia che tiene UN livello solo, il piu' preciso che ha colpito |
+| `modules/regoleBase.ts` | 448 | **2.8** — le due regole che NON si scrivono: lo stesso articolo sulla stessa UDC (si scavalca) e lo stesso articolo/lotto nella stessa ubicazione (non si scavalca). Piu' la matrice di incompatibilita' e i tre motivi precompilati dello scavalco. Sta da solo e non dentro `stoccaggio.ts` perche' quelle sono regole di POLITICA, queste sono il modo in cui un magazzino resta leggibile. Puro |
 | `modules/wip.ts` | 813 | **1.14** — il conto di un ordine: entrato, tornato, residuo. Il consumo si dichiara **a ordine chiuso**, mai prima. **2.0**: `colliFuori` — le misure dei colli che un ordine ha ancora nel vano WIP, entrate meno quelle gia' tornate o consumate. Il vano e' UNO e ci convivono le righe di piu' ordini: senza queste misure, «rendi tre colli» non ha una risposta. **2.1**: `archiviato` — la chiusura e' un movimento, non il residuo a zero. **2.2**: `ordiniArchiviati` (l'archivio da sfogliare, col numero e la data, dal piu' recente) e `righeSenzaOrdine` (quel che sta nel vano e nessun movimento nomina: la chiusura e il reso lavorano per ordine, e non lo vedono). **2.3**: UN COLLO E' DI PIU' ORDINI — `quoteVano` (il vano collo per collo, con gli ordini che lo richiamano e quel che nessuno rivendica), `coperturaUom` (quanto un ordine ha gia' in mano, `null` quando non si sa), `ripartisciReso` (un reso che non dice per chi si scarica in ordine e TRABOCCA), `giro_odp` sul movimento e `ceduto_uom`/`ricevuto_uom` sul conto: il giro conto usa `out` e `in`, e il rendiconto non chiama «reso» merce mai risalita. Puro |
 | `modules/kpi.ts` | 330 | **2.0** — i numeri di articoli, movimenti e persone, che stanno gia' a database e nessuno sommava. Ogni movimento porta la sigla di chi l'ha fatto e ogni compito i suoi due tempi. `NON_MISURABILE` elenca cosa oggi non si puo' chiedere e quale campo servirebbe: chi cerca un numero che non trova capisce in dieci secondi se manca la funzione o manca il dato. Puro |
 | `modules/code128.ts` | 150 | **2.1** — il codice a barre, disegnato in casa. Solo il sottoinsieme B, e il perché è dichiarato: copre tutto quello che questo applicativo mette in un riferimento. **Non è un GS1-128** — manca FNC1 — e sta scritto nel modulo, non in una nota. La tabella dei 107 modelli si collauda con le due invarianti dello standard, non ricopiandola. Puro |
@@ -3071,11 +3387,11 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/destinatari.ts` | 200 | Chi è lo stesso destinatario (partita IVA), quale destinazione è nuova, cosa è cambiato |
 | `modules/parametri.ts` | 165 | Le tendine che sono un dato: valori di legge davanti e non rimovibili |
 | `modules/anagrafica.ts` | 158 | I 14 allergeni, le 3 classi di conservazione, le certificazioni |
-| `modules/conformita.ts` | 155 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio al contrario |
+| `modules/conformita.ts` | 364 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio al contrario. **2.8**: la pericolosita' (tre controlli simmetrici agli allergeni), la matrice sul magazzino fermo — che accusa TUTTE E DUE le righe della coppia — e il lotto sparso su piu' vani, con le aree di transito escluse |
 | `modules/validate.ts` · `auth.ts` · `session.ts` · `pickupAlert.ts` · `scanGuard.ts` | 104 · 88 · 69 · 43 · 31 | Validazioni · PIN e impronta · sessione · allerta ritiri · guardia del lettore |
 | `modules/excel.ts` | 31 | **Il punto unico da cui SheetJS si carica, e solo quando serve.** Chi rimette `import * as XLSX` in cima a un file annulla la 1.7 |
 | `modules/fogli.ts` | 112 | **2.0** — le due domande di un foglio Excel che non riguardano SheetJS: quante righe fa una giacenza (`colliDaStendere`: una per collo) e che numero scrive un riepilogo che ha visto unità diverse (`celleUom`: MISTA, e il totale vuoto). Sta qui e non nella vista perché una vista si importa solo passando da `App`, e una funzione pura non deve farlo per essere collaudata. **`distendiGiacenze` è il muro del foglio**: 1.048.575 righe, contate su TUTTE le giacenze insieme e non su una — duecento righe da diecimila colli fanno due milioni di righe, ognuna innocente e il foglio morto lo stesso. Una riga che da sola sfonda il foglio non ne consuma il budget e torna `null`, e chi chiama ne scrive una che lo dice: quella riga è un numero sbagliato, non merce. Puro |
-| `types/entita.ts` · `contratto.ts` · `collezioni.ts` | 409 · 146 · 58 | Le entità · l'interfaccia dei due adapter · **le 20 collezioni, sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono |
+| `types/entita.ts` · `contratto.ts` · `collezioni.ts` | 722 · 157 · 63 | Le entità · l'interfaccia dei due adapter · **le 21 collezioni, sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono. **2.8**: la ventunesima è `location_attrs`, e `RegolaStoccaggio` ha smesso di dichiarare `quando`/`allora` — una forma immaginata alla 1.4.4 e mai scritta a database, mentre la maschera scriveva i campi piatti dal primo giorno |
 | `styles/*.css` | 3.400 | **10 file**. `00-tailwind.css` è il tema — le utility, e i token dell'applicativo riletti da `@theme`: colore, scala tipografica, spaziatura a decimi di rem, raggi, ombre, soglie. Gli altri nove — token, base, componenti, layout, viste, grafici e report — **li importa lui**, dentro `@layer app`, e `main.js` importa solo lui. L'ordine fra i nove è la cascata di sempre |
 | `ui/dialog.js` · `feedback.js` · `tabs.js` | 367 · 181 · 59 | Modali · toast e spinner · schede |
 | `main.js` · `index.html` | 46 · 200 | Avvio e gancio globale · scheletro del DOM e marchi SVG |
@@ -3189,7 +3505,7 @@ browser che nessuna prova poteva vedere si chiude così, o non si chiude.
 
 `schemaPostgres` è l'unica prova del ramo Azure che gira a ogni `npm test`,
 e serve a una cosa: che il giorno che qualcuno decide di provarlo, lo
-schema PostgreSQL descriva le stesse venti collezioni che il servizio usa
+schema PostgreSQL descriva le stesse ventuno collezioni che il servizio usa
 oggi — non quelle di quando è stato scritto.
 
 `superficie-app` è la rete dell'estrazione, ed è l'unica prova che guarda

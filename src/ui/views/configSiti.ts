@@ -1,4 +1,4 @@
-import { type Vista, $ } from './vista';
+import { type Vista, $, $sel } from './vista';
 import { Store } from '../../core/store';
 import type { Zona } from '../../types/entita';
 import { Validate } from '../../modules/validate';
@@ -372,5 +372,194 @@ export const VistaConfigSiti = {
     this.renderSidebar(); this.renderDashboard(); this.renderConfig();
     this.updateSyncIndicator();
     this.toast(`Zona ${zoneId} eliminata`, 'success');
+  },
+
+  /* ═══════════════════════════════════════════════════════════════════
+     2.8 — CARATTERIZZARE UNA SINGOLA UBICAZIONE
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Fino alla 2.7 questa maschera non esisteva: temperatura, allergeni e
+     pericolosità stavano solo sulla zona e scendevano identiche a tutte le
+     sue celle. Uno scaffale però non è omogeneo — il livello a terra regge
+     il doppio di quello in quota, la cella davanti al portone è più calda
+     del fondo corsia, e la campata con la vasca di contenimento è l'unica
+     che può tenere un corrosivo.
+
+     OGNI CAMPO HA TRE STATI, NON DUE, ed è il punto di tutta la maschera:
+     «come la zona», «così», e — per gli interruttori — «qui no». Un campo
+     lasciato su «come la zona» NON scrive niente: la cella resta agganciata
+     alla zona e la segue se la zona cambia. È la differenza che tiene in
+     piedi le migliaia di celle già configurate, e per questo la tendina
+     dice «come la zona (…)» col valore vero fra parentesi, invece di
+     presentare un campo vuoto che sembra «nessun vincolo».
+
+     La capienza e la portata sono l'eccezione: sono SEMPRE della cella,
+     perché una capienza di zona non vuol dire niente — la zona è l'insieme
+     dei vani, non un vano. Fino alla 2.7 il motore le cercava su
+     `zona.capienza`, che non è mai esistita nemmeno come campo.
+     ═══════════════════════════════════════════════════════════════════ */
+
+  showCaratterizzaUbicazione(code: string) {
+    if (!this._requireOperator('la caratterizzazione di un’ubicazione')) return;
+    const c = String(code || '').toUpperCase();
+    const g = Store.buildLocationGeometry().get(c);
+    const zona = g ? Store.getZone(g.site_id, g.zone_id) : null;
+    if (!zona) return this.toast('Ubicazione non mappata: non appartiene a nessuna zona', 'error');
+    const cella = Store.getLocationAttrs(c);
+    const eff = Store.attributiPosto(c);
+
+    /* Il valore della zona, scritto in chiaro dentro l'opzione «come la
+       zona»: chi sceglie deve vedere da cosa si sta staccando. */
+    const daZona = (v: unknown, vuoto = 'non caratterizzata') =>
+      (v === undefined || v === null || v === '' ? vuoto : String(v));
+
+    const classi = Store.getClassiConservazione();
+    const tempSel = cella?.temp_class === undefined ? '' : (cella.temp_class ?? 'NO');
+    const opzTemp = classi.map((x) =>
+      `<option value="${x.code}" ${tempSel === x.code ? 'selected' : ''}>${this._esc(x.label)}</option>`).join('');
+
+    const tri = (id: string, etichetta: string, valCella: boolean | null | undefined, valZona: boolean) => {
+      const v = valCella === undefined ? '' : (valCella === true ? 'SI' : 'NO');
+      return `<div class="form-group mb-5">
+        <label>${etichetta}</label>
+        <select class="select" id="${id}">
+          <option value="" ${v === '' ? 'selected' : ''}>Come la zona (${valZona ? 'sì' : 'no'})</option>
+          <option value="SI" ${v === 'SI' ? 'selected' : ''}>Sì, questa cella sì</option>
+          <option value="NO" ${v === 'NO' ? 'selected' : ''}>No, questa cella no</option>
+        </select></div>`;
+    };
+
+    const chip = (prefisso: string, voci: { code: string; label: string }[], scelti: Set<string>) =>
+      voci.map((v) => `<label class="all-chip ${scelti.has(v.code) ? 'on' : ''}">
+        <input type="checkbox" id="${prefisso}${v.code}" ${scelti.has(v.code) ? 'checked' : ''}
+          onchange="this.parentElement.classList.toggle('on',this.checked)">
+        ${this._esc(v.label)}</label>`).join('');
+
+    const allScelti = new Set(cella?.allergens ?? []);
+    const hazScelti = new Set(cella?.hazards ?? []);
+    const pericoli = Store.getPericoli();
+
+    this.showModal(`🎯 Caratterizza ${this._esc(c)}`, `
+      <div class="mov-preview mb-5 leading-[1.6]">
+        Vale <strong>solo per questa cella</strong> e scavalca la zona
+        <span class="mono">${this._esc(zona.name || zona.id)}</span>.
+        Un campo lasciato su <em>«come la zona»</em> non scrive niente: la cella resta
+        agganciata alla zona e la segue se la zona cambia.
+      </div>
+
+      <div class="form-group mb-5">
+        <label>Classe di conservazione</label>
+        <select class="select" id="laTemp">
+          <option value="" ${tempSel === '' ? 'selected' : ''}>Come la zona (${this._esc(daZona(zona.temp_class))})</option>
+          <option value="NO" ${tempSel === 'NO' ? 'selected' : ''}>Nessuna: qui la temperatura non si verifica</option>
+          ${opzTemp}
+        </select></div>
+
+      ${tri('laAllZone', 'Riservata alla merce con allergeni', cella?.allergen_zone, zona.allergen_zone === true)}
+      <div class="form-group mb-5">
+        <label>Allergeni ammessi in questa cella — nessuno spuntato = come la zona</label>
+        <div class="all-grid">${chip('laAll_', Store.getAllergeniAmmessi(), allScelti)}</div></div>
+
+      ${tri('laHazZone', 'Dedicata alla merce pericolosa', cella?.hazard_zone, zona.hazard_zone === true)}
+      <div class="form-group mb-5">
+        <label>Pericolosità ammesse in questa cella — nessuna spuntata = come la zona</label>
+        ${pericoli.length
+          ? `<div class="all-grid">${chip('laHaz_', pericoli, hazScelti)}</div>`
+          : '<div class="text-label-small text-sx-text-muted">Nessuna pericolosità configurata — si aggiungono in Configurazione → Parametri Articolo.</div>'}</div>
+
+      <div class="form-row mb-5">
+        <div class="form-group">
+          <label>Capienza — quanti colli ci stanno</label>
+          <input class="input input-mono" id="laCapienza" type="number" min="1" max="99999"
+                 value="${cella?.capienza ?? ''}" placeholder="non dichiarata">
+        </div>
+        <div class="form-group">
+          <label>Portata — quanti chili regge</label>
+          <input class="input input-mono" id="laPortata" type="number" min="1" max="999999"
+                 value="${cella?.portata_kg ?? ''}" placeholder="non dichiarata">
+        </div>
+      </div>
+      <!-- 1.13 — un vincolo che nessuno ha scritto non e' un vincolo che si
+           viola: lasciati vuoti, capienza e portata non escludono nessuno. -->
+      <div class="text-label-small text-sx-text-muted mb-5">
+        Lasciati vuoti non escludono nessuno: il motore non può far rispettare un numero
+        che nessuno ha scritto. Oggi in questa cella ci sono
+        <strong>${Store.getItemsAtLocation(c).reduce((t: number, r: { qty?: number }) => t + (r.qty || 0), 0)}</strong> colli.
+      </div>
+
+      <div class="form-group mb-0">
+        <label>Perché questa cella è diversa — lo legge chi la vede esclusa</label>
+        <input class="input" id="laNota" maxlength="${Validate.MAX.REASON}"
+               value="${this._esc(cella?.nota ?? '')}" placeholder="Es: unica campata con la vasca di contenimento">
+      </div>
+
+      <div class="mov-preview mt-5 text-label-small">
+        <strong>Adesso qui vale:</strong>
+        ${this._esc(eff.temp_class ? String(eff.temp_class) : 'nessuna classe')} ·
+        ${eff.allergen_zone ? 'zona allergeni' : 'non zona allergeni'} ·
+        ${eff.hazard_zone ? 'area pericoli' : 'non area pericoli'} ·
+        capienza ${eff.capienza ?? '—'} · portata ${eff.portata_kg ?? '—'}
+      </div>`,
+      `<button class="btn" onclick="App.closeModal()">Annulla</button>
+       ${cella ? `<button class="btn btn-danger" onclick="App._scaratterizzaUbicazione('${this._esc(c)}')">↺ Torna alla zona</button>` : ''}
+       <button class="btn btn-primary" onclick="App._salvaCaratterizzazione('${this._esc(c)}')">Salva</button>`);
+  },
+
+  async _salvaCaratterizzazione(code: string) {
+    /* `undefined` = come la zona, `null` = qui no. Sono due decisioni
+       diverse e vanno scritte diverse: vedi `_fondiAttributi` in `store.ts`,
+       che è l'unico posto dove la differenza si legge. */
+    const triLeggi = (id: string): boolean | null | undefined => {
+      const v = String($sel(id)?.value || '');
+      return v === '' ? undefined : v === 'SI';
+    };
+    const numero = (id: string): number | undefined => {
+      const raw = String($(id)?.value ?? '').trim();
+      if (!raw) return undefined;
+      const n = parseInt(raw, 10);
+      return Number.isFinite(n) && n > 0 ? n : undefined;
+    };
+
+    const temp = String($sel('laTemp')?.value || '');
+    const all = Store.getAllergeniAmmessi().filter((a) => $(`laAll_${a.code}`)?.checked).map((a) => a.code);
+    const haz = Store.getPericoli().filter((h) => $(`laHaz_${h.code}`)?.checked).map((h) => h.code);
+
+    try {
+      await Store.saveLocationAttrs(code, {
+        temp_class: temp === '' ? undefined : (temp === 'NO' ? null : temp as never),
+        allergen_zone: triLeggi('laAllZone'),
+        allergens: all.length ? all as never : undefined,
+        hazard_zone: triLeggi('laHazZone'),
+        hazards: haz.length ? haz : undefined,
+        capienza: numero('laCapienza') ?? null,
+        portata_kg: numero('laPortata') ?? null,
+        nota: Validate.clean($('laNota')?.value),
+      });
+      this.closeModal();
+      this.renderMap();
+      this.renderDetail(code);
+      this.updateSyncIndicator();
+      this.toast(`✓ ${code} caratterizzata`, 'success');
+    } catch (e) {
+      this.toast((e as Error).message, 'error');
+    }
+  },
+
+  /* Togliere il record NON disattiva la cella: la rimanda a quel che dice la
+     sua zona, che è dove stava prima che qualcuno la caratterizzasse. */
+  async _scaratterizzaUbicazione(code: string) {
+    if (!await Dialog.confirm({
+      title: 'Rimandare alla zona?',
+      message: 'Le eccezioni scritte su questa cella spariscono e la cella torna a valere '
+        + 'esattamente come dice la sua zona. Non si disattiva niente.',
+      details: Dialog.kv([['Ubicazione', code]]),
+      confirmLabel: 'Torna alla zona', danger: true,
+    })) return;
+    await Store.deleteLocationAttrs(code);
+    this.closeModal();
+    this.renderMap();
+    this.renderDetail(code);
+    this.updateSyncIndicator();
+    this.toast(`✓ ${code} segue di nuovo la sua zona`, 'success');
   },
 } satisfies Vista;

@@ -128,6 +128,21 @@ const COLLECTIONS = {
   recipients: {
     pk: 'rcp_id', pkType: 'text',
     indexed: ['vat', 'name'], unique: []
+  },
+
+  /* ── 2.8 — la ventunesima: la caratterizzazione della singola cella ────
+     Fino alla 2.7 temperatura, allergeni e pericolosita' stavano SOLO sulla
+     zona e scendevano identiche a tutte le sue celle. Uno scaffale non e'
+     omogeneo: il livello a terra regge il doppio di quello in quota, e la
+     campata con la vasca di contenimento e' l'unica che tiene un corrosivo.
+
+     E' uno SCAVALCO, non una copia: un campo assente vuol dire «come dice
+     la zona», e un record esiste solo per le celle davvero caratterizzate.
+     Su duemila ubicazioni ce ne saranno dieci, ed e' giusto cosi'. La
+     chiave primaria E' il codice: una cella, un record. */
+  location_attrs: {
+    pk: 'location_code', pkType: 'text',
+    indexed: [], unique: []
   }
 };
 
@@ -185,6 +200,10 @@ const MAIUSCOLE = {
   wip:              ['wip_id', 'odp_num', 'item_key', 'article_code', 'lot_code', 'location_code', 'uom'],
   storage_rules:    ['rule_id'],
   recipients:       ['rcp_id', 'vat'],
+  /* Il codice dell'ubicazione e' la chiave primaria: se arriva in minuscolo
+     e non si maiuscola, la cella caratterizzata diventa una SECONDA cella
+     che non corrisponde a nessuna ubicazione generata. */
+  location_attrs:   ['location_code'],
 };
 
 /** Scrive un percorso dentro un documento, elenchi compresi. */

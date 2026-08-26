@@ -1,4 +1,4 @@
-import { type Vista, $ } from './vista';
+import { type Vista, $, $sel } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
@@ -14,6 +14,8 @@ import {
   scelteDaTaglie, riempiFabbisogno, restoDaAprire, eccedenza as eccedenzaColli, type Verso,
 } from '../../modules/colli';
 import { scavalco as scavalcoStoccaggio } from '../../modules/stoccaggio';
+/* 2.8 — le due regole che non si scrivono, e i tre motivi precompilati. */
+import { MOTIVI_SCAVALCO, testoScavalco } from '../../modules/regoleBase';
 
 /* Le due forme che vivono solo dentro questa maschera: la dichiarazione dei
    colli in ingresso — «quanti, e da quanto» — e la finestra che chiede quali
@@ -826,11 +828,50 @@ export const VistaPosiziona = {
     const scelto = Validate.clean($('mInLoc')?.value, true).replace(/'/g, '-');
     const primo = esito.proposte[0];
 
+    /* ── 2.8 — LA REGOLA CHE NON SI SCAVALCA, DETTA PRIMA DI TUTTO.
+
+       `addItem` la fa rispettare comunque e il posizionamento si rifiuta da
+       solo. Ma scoprirlo premendo «Posiziona», col pallet già sul muletto,
+       è il modo di farsi odiare da chi lavora: qui si dice PRIMA, e si dice
+       col codice del vano dove la merce deve andare — «non si può» senza
+       «allora dove» è una porta chiusa e basta. */
+    const verdetto = Store.verdettoUbicazioneUnica(art, lot, scelto, colli);
+    const casaHtml = verdetto.esito === 'vietato'
+      ? `<div class="mov-preview mov-preview-err mb-5">
+          <strong>⛔ Questo lotto sta già in <span class="mono">${this._esc(verdetto.casaLibera || '')}</span></strong><br>
+          ${this._esc(verdetto.messaggio)}
+          <div class="flex gap-3 mt-4 flex-wrap">
+            <button class="btn btn-sm btn-primary" type="button"
+                    onclick="App._usaVanoDiCasa('${this._esc(verdetto.casaLibera || '')}')">Usa ${this._esc(verdetto.casaLibera || '')}</button>
+          </div>
+        </div>`
+      : verdetto.esito === 'estensione'
+        ? `<div class="mov-preview mov-preview-warn mb-5">
+            <strong>⚠ Il lotto si estende su un secondo vano.</strong>
+            ${this._esc(verdetto.messaggio)}<br>
+            Finché dura, la mappa lo segnala come lotto sparso.
+          </div>`
+        : '';
+
+    /* 2.8 — LA REGOLA 1, che invece si scavalca: su quale unità di carico
+       va questo articolo. Si dice e basta — non riempie il campo. */
+    const propostaUdc = Store.proponiUdc(art, lot);
+    const udcHtml = propostaUdc && propostaUdc.udc_id !== scelto
+      ? `<div class="mov-preview mb-5">
+          <strong>📦 Unità di carico consigliata: <span class="mono">${this._esc(propostaUdc.udc_id)}</span></strong><br>
+          ${this._esc(propostaUdc.perche)}
+          <div class="flex gap-3 mt-4 flex-wrap">
+            <button class="btn btn-sm" type="button"
+                    onclick="App._usaUdcProposta('${this._esc(propostaUdc.udc_id)}')">Carica su ${this._esc(propostaUdc.udc_id)}</button>
+          </div>
+        </div>`
+      : '';
+
     /* Nessun posto passa i vincoli: è un'informazione, non un errore — la
        merce si posiziona lo stesso, e chi lo fa deve sapere che nessuna
        ubicazione mappata la accoglierebbe. */
     if (!primo) {
-      box.innerHTML = `<div class="mov-preview mov-preview-warn mb-5">
+      box.innerHTML = casaHtml + udcHtml + `<div class="mov-preview mov-preview-warn mb-5">
         <strong>🎯 Nessuna ubicazione soddisfa i vincoli</strong> per questa merce.
         ${esito.esclusi.length ? `Il primo motivo: ${this._esc(esito.esclusi[0]!.messaggio)}.` : ''}
         Si può posizionare comunque: il motivo resta a registro.
@@ -842,7 +883,7 @@ export const VistaPosiziona = {
        segno di spunta. Un riquadro che parla anche quando tutto va bene si
        smette di leggere. */
     if (scelto && scelto === primo.location_code) {
-      box.innerHTML = `<div class="mov-preview mov-preview-ok mb-5">
+      box.innerHTML = casaHtml + udcHtml + `<div class="mov-preview mov-preview-ok mb-5">
         <strong>🎯 ${this._esc(scelto)}</strong> è anche quella che il motore propone.
       </div>`;
       return;
@@ -853,7 +894,7 @@ export const VistaPosiziona = {
       ? `<ul class="mt-2 mb-0 ml-8 p-0 text-body-small">${primo.perche.map((r: string) => `<li>${this._esc(r)}</li>`).join('')}</ul>`
       : '';
 
-    box.innerHTML = `<div class="mov-preview ${escluso ? 'mov-preview-err' : ''} mb-5">
+    box.innerHTML = casaHtml + udcHtml + `<div class="mov-preview ${escluso ? 'mov-preview-err' : ''} mb-5">
       ${escluso
         ? `<strong>⛔ ${this._esc(scelto)} non va bene:</strong> ${this._esc(escluso.messaggio)}.<br>`
         : ''}
@@ -870,7 +911,16 @@ export const VistaPosiziona = {
       </div>
       ${scelto && !escluso ? `<div class="form-group mt-4 mb-0">
         <label class="text-label-small">Hai scelto ${this._esc(scelto)}: perché? (resta a registro)</label>
-        <input class="input" id="mInScavalco" maxlength="${Validate.MAX.REASON}" placeholder="Es: il muletto non arriva in quota">
+        <!-- 2.8 — TRE BOTTONI SI PREMONO, UN CAMPO LIBERO NO. Con la merce
+             in mano e il muletto acceso un campo libero si compila con «ok»
+             o con niente, e allora il dato che dovrebbe dire fra tre mesi se
+             le regole valgono non dice più niente. Il libero resta accanto,
+             per il caso che i tre non coprono. -->
+        <select class="select mb-3" id="mInScavalcoMotivo">
+          <option value="">— scegli un motivo —</option>
+          ${MOTIVI_SCAVALCO.map((m) => `<option value="${m.code}">${this._esc(m.testo)}</option>`).join('')}
+        </select>
+        <input class="input" id="mInScavalco" maxlength="${Validate.MAX.REASON}" placeholder="…oppure scrivilo, o aggiungi un dettaglio">
       </div>` : ''}
     </div>`;
   },
@@ -921,7 +971,27 @@ export const VistaPosiziona = {
     const primo = this._propostaCorrente?.proposte?.[0];
     if (!primo) return '';
     return scavalcoStoccaggio(primo.location_code, locScelta,
-      Validate.clean($('mInScavalco')?.value)) || '';
+      testoScavalco($sel('mInScavalcoMotivo')?.value, Validate.clean($('mInScavalco')?.value))) || '';
+  },
+
+  /* 2.8 — i due bottoni delle regole base. Non fanno niente di magico:
+     scrivono nel campo quel che la regola ha già detto a parole, perché
+     ricopiare a mano un codice di ubicazione da un riquadro è il modo di
+     sbagliarlo. */
+  _usaVanoDiCasa(code) {
+    const campo = $('mInLoc');
+    if (!campo || !code) return;
+    campo.value = code;
+    this._previewLoc('mInLoc', 'mInLocPrev');
+    this._proponiVano();
+  },
+
+  _usaUdcProposta(udcId) {
+    const campo = $('mInLoc');
+    if (!campo || !udcId) return;
+    campo.value = udcId;
+    this._previewLoc('mInLoc', 'mInLocPrev');
+    this._proponiVano();
   },
 
   /* 2.1 — LA DESTINAZIONE PUÒ ESSERE UN'UNITÀ DI CARICO.

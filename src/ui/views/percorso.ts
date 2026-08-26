@@ -966,8 +966,12 @@ export const VistaPercorso = {
     const itemKey = String(st.item_key ?? `${st.article_code}#${st.lot_code}`);
     let res;
     try {
+      /* 2.8 — CORREZIONE, NON POSIZIONAMENTO: la rettifica di una tappa
+         rimette a scaffale colli che da quello scaffale erano usciti, e la
+         regola dell'ubicazione unica non deve poter impedire di annullare
+         un prelievo sbagliato. Vedi `addItem`. */
       res = await Store.addItem(dove, st.article_code, st.article_description || '',
-        st.lot_code, '', notes, resi, null, daRimettere);
+        st.lot_code, '', notes, resi, null, daRimettere, { regolaBase: false });
     } catch (err) {
       return this.toast(`Rettifica non applicata · ${(err as Error).message}`, 'error');
     }

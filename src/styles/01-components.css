@@ -784,3 +784,53 @@
   background: var(--sx-accent-soft);
   color: var(--sx-text);
 }
+
+/* 2.8 — LA MATRICE DI INCOMPATIBILITÀ.
+
+   Una griglia e non un elenco di coppie, e la ragione è tutta nell'uso: la
+   domanda che qualcuno fa davanti a un pallet è «questi due possono stare
+   insieme», e su un elenco quella domanda si risponde scorrendolo tutto.
+   Su una griglia si risponde guardando una casella.
+
+   SOLO IL TRIANGOLO DI SOPRA si disegna: la coppia non ha un ordine, e due
+   caselle per la stessa domanda prima o poi si contraddicono a video. Il
+   triangolo di sotto resta, spento, perché togliere le celle spezzerebbe
+   l'allineamento delle colonne. */
+.sx-table.matrice th.matrice-testa {
+  /* I nomi dei pericoli sono lunghi e le colonne strette: scritti in
+     verticale la griglia resta leggibile senza scorrere in orizzontale. */
+  writing-mode: vertical-rl;
+  transform: rotate(180deg);
+  white-space: nowrap;
+  text-align: left;
+  vertical-align: bottom;
+  height: 8.5rem;
+  padding: 0.25rem 0;
+  font-weight: 600;
+}
+.sx-table.matrice td { text-align: center; padding: 0.125rem; }
+.sx-table.matrice td.matrice-vuota { background: transparent; opacity: 0.35; }
+
+.matrice-cella {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--md-sys-shape-corner-small, 4px);
+  background: transparent;
+  color: var(--sx-text-muted);
+  cursor: pointer;
+  font-size: 0.9rem;
+  line-height: 1;
+}
+.matrice-cella:hover { background: var(--sx-accent-soft); border-color: var(--sx-border-strong); }
+.matrice-cella--no {
+  background: var(--sx-danger-soft);
+  border-color: var(--sx-danger);
+  color: var(--sx-danger);
+}
+
+/* 2.8 — LA CELLA CARATTERIZZATA A MANO.
+   Su duemila ubicazioni sono una decina, e devono trovarsi a occhio: chi le
+   cerca sta cercando l'eccezione, non la regola. */
+.loc-attr-riga { border-left: 3px solid var(--sx-warning); padding-left: 0.75rem; }
+.loc-attr-eredita { color: var(--sx-text-muted); font-style: italic; }

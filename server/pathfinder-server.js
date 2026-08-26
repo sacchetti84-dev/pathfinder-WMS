@@ -51,7 +51,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.7';
+const VERSION = '2.8';
 
 const TLS_CERT = process.env.PATHFINDER_TLS_CERT || null;
 const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
