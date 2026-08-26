@@ -23,59 +23,99 @@ scrivono come fatti avvenuti, non come promesse.
 
 ---
 
-## LA VERSIONE IN SERVIZIO È LA **2.6**
+## LA VERSIONE IN SERVIZIO È LA **2.7**, E GIRA SU **POSTGRESQL**
 
-**Installata da Andrea il 26/08/2026, notte.** Misurata sulla 4173 subito dopo:
+**Installata e accesa da Andrea il 26/08/2026 sera.** È il primo giorno in cui
+il magazzino non sta su un file SQLite. Misurato sulla 4173 subito dopo:
 
 | | |
 |---|---|
-| `service_version` | **2.6** |
-| `versione` applicativo | **2.6** |
-| impronta | `d3865c53d94a8bff53441c7ee32c571aa45cb256406918a9f4a2e04860dca644` |
+| `service_version` | **2.7** |
+| `versione` applicativo | **2.7** |
+| impronta | `17cb722bf14e876c7a5301c9c4c6f4017dae7750da79530e405b046a298658d5` |
 | byte | **1.800.084** in **4 file** |
+| **database** | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, ruolo `pathfinder` |
 | dove | `C:\Pathfinder\app\corrente` |
-| via di ritorno | `C:\Pathfinder\app\precedente` → **2.5**, `8ed505b9…`, 1.798.524 byte |
-| collaudi | **1.334 passate**: 1.108 client · 98 di servizio su SQLite · **98 di servizio su PostgreSQL** · 8 di migrazione schema · 22 di installazione. `tsc --noEmit` pulito su client e servizio |
+| via di ritorno | `C:\Pathfinder\app\precedente` → **2.6**, `d3865c53…` |
+| collaudi | **1.340 passate**: 1.114 client · 98 di servizio su SQLite · 98 di servizio su PostgreSQL · 8 di migrazione schema · 22 di installazione |
 
-**I due numeri coincidono, e l'impronta è quella del pacchetto costruito.** Il
-servizio installato dice 2.6 anche nel file — `C:\Pathfinder\servizio\pathfinder-server.js`
-— e i tre numeri erano stati allineati **prima di scrivere il codice**, non
-prima di costruire: la voce 41 l'ha già fatto pagare una volta.
+**I due numeri coincidono, e l'impronta è quella del pacchetto costruito.**
 
-**IL MAGAZZINO GIRA SU SQLITE, ED È VOLUTO.** `PATHFINDER_PG` non è impostata:
-il servizio apre lo stesso file di sempre e si comporta come la 2.5. Il driver
-PostgreSQL è dentro il pacchetto, collaudato, e non lo chiama nessuno finché
-quella variabile resta assente — accenderla è un secondo gesto, e §6 dice a
-quali condizioni.
+### I dati sono passati interi, e si è contato dopo
 
-### Il database è stato normalizzato prima dell'installazione, e si è misurato dopo
-
-| | prima | dopo |
+| | prima, su SQLite | dopo, su PostgreSQL |
 |---|---:|---:|
-| giacenze | 887 | **886** |
-| movimenti | 319 | **320** |
-| operatori | 6 | **7** |
-| `lot_code` minuscoli in `inventory` | 53 | **0 su 886** |
-| `item_key` minuscoli | 53 | **0** |
-| `lot_code` minuscoli in `mov_log` | 6 | **0 su 320** |
+| articoli | 11.197 | **11.197** |
+| giacenze | 886 | **886** |
+| movimenti | 321 | **321** |
+| operatori | 7 | **7** |
+| unità di carico · conti WIP | 4 · 28 | **4 · 28** |
 
-**La riga doppia non c'è più.** In `MAG1-RAKA-01-05-C` c'era lo stesso lotto due
-volte — `6001412#cl260854` con 5 pezzi e `6001412#CL260854` con 1 — perché una
-volta era stato digitato in minuscolo, e il FEFO le ordinava separate. Adesso è
-**una riga sola, `6001412#CL260854`, qty 6**, e il registro porta l'`EDIT` che
-lo spiega: *«2.6 normalizzazione maiuscole: fuse 2 righe dello stesso lotto
-scritto con grafie diverse — 6001412#cl260854(5) + 6001412#CL260854(1)»*.
+Venti tavoli, conteggi ricontrollati uno per uno dalla migrazione e poi di
+nuovo da `/api/health`. **Il file SQLite non è stato toccato**: la migrazione
+lo legge e basta, e resta a `C:\Pathfinder\data\pathfinder.db` con dentro
+tutto. La copia presa prima è `banco/db/prima-di-postgres-2026-08-26-1903.db`.
 
-**Il settimo operatore è `SISTEMA`**, ed è la firma di quella fusione:
-disattivato e senza PIN, come gli operatori storici rientrati con la voce 46.
-Non può operare, esiste perché il registro lo nomina. **Nessuna firma orfana** —
-la voce 18 regge.
+Le sequenze sono state riallineate sopra le chiavi già scritte — `inventory`
+riparte da 2892, `mov_log` da 1075, `articles` da 111837 — perché il `_id` si
+è **preservato e non rigenerato**: `tasks.mov_ids` punta a quei numeri.
 
-**E la ricerca funziona con tutte e due le grafie**: chiedendo alla 4173 il
-lotto `cl260854` in minuscolo torna la riga `6001412#CL260854`. Il servizio
-maiuscola quel che scrive **e** quel che gli si chiede: senza la seconda metà,
-un terminale rimasto indietro avrebbe ricevuto «non c'è» invece della riga.
+### Come si torna indietro
 
+Un comando, da amministratore, e il magazzino riapre il file SQLite:
+
+```powershell
+& "C:\Pathfinder\servizio\installa-servizio.ps1"
+```
+
+Senza `-PostgreSQL` la variabile di macchina torna vuota. **Quel che è stato
+scritto su PostgreSQL nel frattempo resta lì e non rientra da solo**: il file
+SQLite è fermo alla sera del 26/08. Per un ritorno d'emergenza è il gesto
+giusto; per un rientro ordinato si migra al contrario, e quello script non
+c'è ancora.
+
+### Il backup funziona, ed è stato visto funzionare
+
+`backup-serale.ps1` non sa quale database c'è dietro: chiede a
+`POST /api/backup` e legge il nome dalla risposta. Su PostgreSQL il servizio
+fa un `pg_dump` in formato custom e **lo rilegge con `pg_restore --list`
+prima di dichiararlo buono**; se la rilettura fallisce il file si cancella,
+perché un file lasciato lì si fa contare da chi guarda la cartella.
+
+Provato di persona il 26/08 alle 19:09, sul magazzino vero:
+`pathfinder-2026-08-26-1909.dump`, 419 KB, **21 tavoli con dati dentro**,
+`exit 0`. E il registro racconta il passaggio da solo:
+
+```
+2026-08-25 20:00:00  OK  pathfinder-2026-08-25.db         (6 MB)
+2026-08-26 19:09:18  OK  pathfinder-2026-08-26-1909.dump  (0.4 MB)
+```
+
+### Cosa è costato accendere, e nessuno l'aveva previsto
+
+| Cosa | Come si è visto |
+|---|---|
+| **`pg` non era nel servizio installato.** L'installer reinstallava le dipendenze solo se `node_modules` mancava *del tutto*, e quella della 2.6 c'era. Con `PATHFINDER_PG` accesa il servizio non sarebbe partito, e i terminali avrebbero visto bianco | Misurato **prima** di installare, non dopo. Ora l'installer guarda dipendenza per dipendenza come le dichiara `package.json`, nomina quale manca, e si ferma se dopo `npm install` ne manca ancora una |
+| **La verifica finale dell'installer gridava al lupo su un'installazione riuscita.** Confrontava il database aperto col percorso del file SQLite: su PostgreSQL concludeva «il servizio ha aperto un altro database» e usciva con 1 | Visto all'accensione. Corretto: con `-PostgreSQL` si confronta il nome del database. **Il ramo del ritorno indietro non è cambiato**, ed era già giusto |
+| **Il segnaposto della password non era stato sostituito.** `LA-TUA`, sei caratteri, finito dentro la variabile di macchina | Il servizio **non è partito**, ed è il comportamento voluto: meglio fermo che vivo senza database. Rilanciato con la password vera |
+
+**Le prime due le ha trovate il guardare prima di premere.** La terza l'ha
+trovata il servizio rifiutandosi di partire — che è esattamente quello per
+cui quel rifiuto è stato scritto.
+
+### Quel che resta da guardare in faccia
+
+**Il database sta sulla stessa macchina del servizio.** Non è Azure: il
+magazzino si ferma quando si ferma questo PC, esattamente come quando i dati
+stavano in un file. Il primo punto di `server/azure/LEGGIMI.md` — «niente
+lavoro senza linea» — **non è ancora stato pagato**, e si paga il giorno che
+il database esce dal PC.
+
+**Il ritorno indietro riporta l'applicativo, non i dati.** Da oggi la via di
+casa è il `.dump` della sera prima, non il file SQLite: quel file invecchia
+da adesso.
+
+---
 ### Cosa porta la 2.6
 
 **IL SERVIZIO DATI PARLA DUE DATABASE.** Lo decide una variabile di macchina:
@@ -119,46 +159,52 @@ venti `COUNT` a uno.
 la batteria che fa girare le STESSE prove sui due driver a confronto.** Nessuna
 sarebbe uscita provando un database solo.
 
-### Cosa NON è stato fatto, e va fatto prima di accendere PostgreSQL in magazzino
+### Quel che la 2.6 lasciava aperto, e che la 2.7 ha chiuso
 
-**IL BACKUP CAMBIA PADRONE, E NON È ANCORA RIFATTO.** Con SQLite si copia un
-file; con PostgreSQL il ripristino è il point-in-time di Azure. Il driver alza
-un **501** invece di restituire un file finto — «qui non si fa così» — ma
-`backup-serale.ps1`, `POST /api/backup` e le 22 prove di installazione **vanno
-riscritti**. Voce **53**.
+**IL BACKUP CAMBIAVA PADRONE E NON ERA RIFATTO.** Con SQLite si copia un file;
+con PostgreSQL quel file smette di cambiare, e alle 20:00 lo script serale
+avrebbe copiato un `.db` fermo scrivendo `OK` nel registro — il guasto
+peggiore, quello che non si vede. Era la ragione per cui la 2.6 è stata
+installata **senza** accendere `PATHFINDER_PG`.
 
-**E resta il primo punto del LEGGIMI, che non è tecnico:** con il database in
-cloud il magazzino si ferma anche quando cade la connessione dell'azienda, non
-solo quando cade il PC. 300÷500 movimenti al giorno, con i muletti fermi. È una
-decisione di continuità operativa, e la prende Andrea.
+**Chiuso con la 2.7**, e provato sul magazzino vero: `pg_dump` in formato
+custom, riletto con `pg_restore --list` prima di essere dichiarato buono, e
+cancellato se non si rilegge. Voce **53**, chiusa.
 
 ---
 
-## LA 2.5 È LA VIA DI RITORNO
+## LA 2.6 È LA VIA DI RITORNO
 
-È stata in servizio dal 26/08 fino alla notte dello stesso giorno, e adesso sta
-in `C:\Pathfinder\app\precedente`: impronta `8ed505b9…`, 1.798.524 byte in 4
-file, confrontati col manifesto. Pacchetto in
-`ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/`, archiviato il 26/08 con i
-quattro file verificati per sha256.
+È stata in servizio dalla notte del 26/08 fino alla sera dello stesso giorno,
+e adesso sta in `C:\Pathfinder\app\precedente`: impronta `d3865c53…`,
+1.800.084 byte in 4 file. È la prima versione che ha parlato due database, e
+la 2.7 non aggiunge funzioni all'applicativo — aggiunge il backup su
+PostgreSQL e l'installer che sa accenderlo.
 
-**Un ritorno indietro alla 2.5 riporta l'APPLICATIVO, non i dati.** Il database
-è stato normalizzato — i codici sono maiuscoli e le due righe del lotto sono
-una sola — e la 2.5 quei dati li legge senza problemi: un codice maiuscolo è un
-codice. Quel che si perde tornando indietro è la *garanzia*, non il dato: la
-2.5 non normalizza quel che scrive, e da lì in poi potrebbero rinascere lotti
-con due grafie. **La copia prima della normalizzazione è
-`banco/db/pathfinder-2026-08-26.db`**, delle 02:50, e non ha avuto scritture
-dopo.
+**I byte dell'applicativo sono in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.6/`,
+confrontati per sha256 col manifesto: quattro file su quattro identici.** La
+metà servizio non c'è, perché `npm run build` azzera `consegna/` e la 2.7 è
+stata costruita prima che la 2.6 fosse archiviata: sta al commit `9796048`, e
+il LEGGIMI dentro la cartella dice come rifare il pacchetto e quale impronta
+deve tornare.
 
-**Fino a stanotte questo documento diceva che la 2.5 era «costruita e NON
-installata», e in servizio c'era la 2.4.** Erano sbagliate tutte e due: la
-misura del 26/08 all'01:50 ha trovato la 2.5 sulla 4173. **Quarta volta in
-cinque giorni** — la voce 35 in persona, e il motivo per cui §0 punto 2 esiste.
+**Tornare alla 2.6 vuol dire tornare a SQLite**, perché la 2.6 conosce
+`PATHFINDER_PG` ma non sa farci il backup: girerebbe, e alle 20:00 lo script
+serale copierebbe un file fermo scrivendo OK. Se si torna indietro, si torna
+**anche** al file — cioè si rilancia `installa-servizio.ps1` senza
+`-PostgreSQL`.
 
-**La voce 51 se ne va con lei, e resta aperta.** Le due funzioni mai esercitate
-da capo a fondo — la rettifica di una tappa già prelevata e il salta tappa —
-sono entrate in servizio con la 2.5 e ci sono ancora: la 2.6 non le tocca.
+---
+
+## LA 2.5 È ARCHIVIATA
+
+È stata in servizio il 26/08. Impronta `8ed505b9…`, 1.798.524 byte in 4 file,
+pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/`. Le unità di
+misura al carico su 11.115 articoli, e il prelievo da ordine.
+
+**Si porta dietro la voce 51**, che resta aperta: la rettifica di una tappa
+già prelevata e il salta tappa sono entrati in servizio con lei e non sono
+mai stati esercitati da capo a fondo. Né la 2.6 né la 2.7 li toccano.
 
 ---
 ## LA 2.3 È RITIRATA
@@ -237,9 +283,12 @@ Il database **non è stato migrato**, perché non c'era niente da migrare: né l
    giudizio sull'andamento lo dà Andrea.
 
 **Cos'è Pathfinder.** Applicativo web per la gestione di un magazzino alimentare
-in GMP. Servito da Node + Express + SQLite su rete interna, porta **4173**,
-database in `C:\Pathfinder\data\pathfinder.db`. Più terminali, un solo database,
-l'arbitro è il server. UNLICENSED, uso interno.
+in GMP. Servito da Node + Express su rete interna, porta **4173**. **Il
+database è PostgreSQL dal 26/08/2026** — `pathfinder` su `127.0.0.1:5432`,
+sulla stessa macchina del servizio — e il servizio sa parlare anche SQLite:
+lo decide `PATHFINDER_PG`, e senza quella variabile riapre
+`C:\Pathfinder\data\pathfinder.db`, che è ancora lì. Più terminali, un solo
+database, l'arbitro è il server. UNLICENSED, uso interno.
 
 ### Le due cartelle, e non si confondono
 
@@ -1527,6 +1576,8 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Prova |
 |---|---|---|
+| ~~**53**~~ | ~~Il backup cambia padrone su PostgreSQL, e non è rifatto~~ | **Chiusa con la 2.7, e provata sul magazzino vero.** `DriverPostgres.backupTo` fa un `pg_dump` in formato custom e **lo rilegge con `pg_restore --list` prima di dichiararlo buono**: se la rilettura fallisce il file si cancella, perché un file lasciato lì si fa contare da chi guarda la cartella. La password non entra nella riga di comando — si legge nell'elenco dei processi — ma in `PGPASSWORD`, nell'ambiente del solo processo figlio. `backup-serale.ps1` non sa quale database c'è dietro: chiede a `/api/backup` e legge il nome dalla risposta; la sua rotazione, che filtrava `pathfinder-*.db`, adesso prende tutte e due le estensioni. **Provato il 26/08 alle 19:09 sul magazzino vero**: `pathfinder-2026-08-26-1909.dump`, 419 KB, 21 tavoli con dati dentro, `exit 0` |
+| ~~**55**~~ | ~~`pg` non era nel servizio installato~~ | **Trovato PRIMA di installare, non dopo.** L'installer reinstallava le dipendenze solo se `node_modules` mancava del tutto, e quella della 2.6 c'era: con `PATHFINDER_PG` accesa il servizio non sarebbe partito e i terminali avrebbero visto bianco. Ora guarda dipendenza per dipendenza come le dichiara `package.json`, nomina quale manca, e si ferma se dopo `npm install` ne manca ancora una. All'installazione della 2.7 ha scritto `Dipendenze del servizio da installare: pg` e ne ha aggiunte 14 |
 | ~~**54**~~ | ~~Il database in servizio non è normalizzato, e la 2.6 lo pretende~~ | **Raddrizzato la notte del 26/08, prima di installare la 2.6, e misurato dopo.** Servizio fermo, backup fresco delle 02:50 (`banco/db/pathfinder-2026-08-26.db`), prova a vuoto che ha detto gli stessi numeri della copia — 53 righe e 1 fusione — e solo allora `--scrivi`. Misurato sulla 4173 a servizio ripartito: **0 codici minuscoli su 886 giacenze e 320 movimenti**, la riga doppia di `MAG1-RAKA-01-05-C` è **una sola da 6**, e il registro porta l'`EDIT` che lo spiega con dentro le due chiavi di partenza. La firma `SISTEMA` è entrata in anagrafica disattivata e senza PIN: **nessuna firma orfana**, la voce 18 regge |
 | ~~**48-bis**~~ | ~~L'INDEX diceva che in servizio c'era la 2.4~~ | **Erano sbagliate due righe, non una.** La misura del 26/08 all'01:50 ha trovato la **2.5** sulla 4173, mentre il documento dichiarava «la 2.5 è costruita e NON è installata» e «in servizio c'è la 2.4». **Quarta volta in cinque giorni** — voce 35. Corrette tutte e due, e da stanotte la riga «in servizio» si scrive solo dopo aver interrogato `/api/app-info` |
 ### Chiuse il 25/08
@@ -1557,7 +1608,6 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **53** | **IL BACKUP CAMBIA PADRONE SU POSTGRESQL, E NON È RIFATTO.** Con SQLite si copia un file; con PostgreSQL il ripristino è il point-in-time di Azure e non c'è niente da copiare da dentro il servizio. Il driver alza un **501** invece di restituire un file finto — è dichiarato e collaudato, non è una dimenticanza — ma `backup-serale.ps1`, `POST /api/backup` e le **22 prove di installazione** parlano ancora di file | **Vanno riscritti sul ripristino di Azure prima di accendere `PATHFINDER_PG` in magazzino.** Finché il magazzino gira su SQLite non è urgente: il backup serale funziona esattamente come prima. Diventa bloccante il giorno in cui la variabile si accende |
 | **51** | **DUE FUNZIONI NON ESERCITATE DA CAPO A FONDO, E ADESSO SONO IN SERVIZIO.** La 2.5 e' installata dal 26/08 — misurata, non dedotta — quindi questa non e' piu' una cosa da provare prima di installare: e' codice che il magazzino sta servendo. La **rettifica di una tappa già prelevata** e il **salta tappa** del prelievo da ordine sono verificate per tipi, logica e resa a video, ma non sono state fatte girare: farle girare avrebbe scritto movimenti veri nel registro del magazzino in servizio. La rettifica scrive un `REPOS` e chiama `esceDaWip`, cioè tocca giacenza **e** conto di produzione | **Vanno provate al banco con un ODP di prova, su una copia del database — §5 — prima di installare la 2.5.** Le due cose da guardare: che il `REPOS` rimetta le **misure giuste** e non colli di misura comoda, e che `esceDaWip` non rifiuti la riga quando l'ordine ha in lavorazione colli di misure diverse (lancia apposta in quel caso: la rettifica resta valida e l'operatore viene avvisato, ma va visto succedere) |
 | **52** | **82 ARTICOLI HANNO UN'UNITÀ CHE NON È UN'UNITÀ.** Dopo la traduzione `NR → PZ` del 26/08 restano fuori dalla gestione a UM: `SCA` 48, `CON` 18, `RT` 7, `CAS` 4, `M2` 2, `BAN` 1, più **due celle con dentro testo libero** — `MIN EPA=105 MG/G` e `MIN EPA=500MG/G DHA=250 MG/G C/L U.G.A`. Non è un difetto del codice: scatola, confezione e cassa nominano un **contenitore**, e in questo sistema il contenitore è il collo. `M2` è una superficie, che fra le cinque unità non c'è. Le due celle di testo sono errori di compilazione | Le 82 righe si caricano **a soli colli** e la maschera adesso lo dice. Va deciso sigla per sigla, guardando che merce sono: quelle che sono davvero un contenitore restano così, `M2` chiede se serva una sesta unità, e le due celle di testo vanno corrette in anagrafica — quello è di Andrea |
 | **50** | **UN DIFETTO «GRAVE» DEL CICLO NON FA FALLIRE NIENTE.** `difetto()` in `banco/ciclo/verbale.js` scrive la riga nel verbale e la prova risulta lo stesso **passata**: il 25/08, rimettendo apposta il difetto della voce 45, il banco ha alzato **PA6 (grave)** con `movimenti 112 → 0` e `vitest` ha detto «3 passed». Vale per tutto il ciclo, non solo per PA6 | Un difetto grave deve tingere di rosso la corsa, altrimenti lo vede solo chi apre il verbale e legge fino in fondo — e il verbale si apre quando si sospetta già qualcosa. Va deciso quali severità fermano la corsa |
@@ -1621,8 +1671,9 @@ riga che dava il progetto al 31/12/2026, con ultima installazione utile il
 
 | Versione | Stato |
 |---|---|
-| **2.6** | **IN SERVIZIO dalla notte del 26/08.** `d3865c53…`, 1.800.084 byte, 4 file. Il servizio dati parla due database — SQLite di serie, PostgreSQL con `PATHFINDER_PG`, che **non e' impostata** — i codici si scrivono in maiuscolo, e l'interfaccia del servizio dati e' diventata asincrona. Il database e' stato normalizzato prima di installarla: voce 54, chiusa |
-| **2.5** | **LA VIA DI RITORNO.** `8ed505b9…`, 1.798.524 byte, 4 file. E' stata in servizio il 26/08, e adesso sta in `precedente`: un `torna-indietro.ps1` la rimette in un comando. Le unita' di misura al carico su 11.115 articoli e il prelievo da ordine. **Si porta dietro la voce 51**: due funzioni mai esercitate da capo a fondo, entrate in servizio con lei e ancora aperte. Pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/` |
+| **2.7** | **IN SERVIZIO dal 26/08 sera, E GIRA SU POSTGRESQL.** `17cb722b…`, 1.800.084 byte, 4 file. Non porta funzioni nuove all'applicativo: porta il **backup su PostgreSQL** — `pg_dump` riletto prima di essere dichiarato buono — e l'installer che sa accendere il database con `-PostgreSQL`, controlla le dipendenze per nome, e verifica il database giusto dei due |
+| **2.6** | **LA VIA DI RITORNO.** `d3865c53…`, 1.800.084 byte, 4 file. La prima che ha parlato due database, i codici in maiuscolo, l'interfaccia del servizio dati asincrona. **Tornare a lei vuol dire tornare a SQLite**: conosce `PATHFINDER_PG` ma non sa farci il backup, e alle 20:00 copierebbe un file fermo scrivendo OK. Byte in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.6/`, servizio al commit `9796048` |
+| **2.5** | **ARCHIVIATA.** `8ed505b9…`, 1.798.524 byte, 4 file. Le unità di misura al carico su 11.115 articoli e il prelievo da ordine. **Si porta dietro la voce 51**, ancora aperta. Pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/` |
 | **2.4** | **ARCHIVIATA.** `99fc56ba…`, 1.777.772 byte, 4 file. Porta la correzione della voce 45 (un ripristino non cancella piu' il registro) e quella della voce 19 (il parser dell'ODP dichiara l'unita' che inventa). **Salta il 2.3 apposta**: quel numero e' speso, e due pacchetti con lo stesso nome sono la trappola che qui e' gia' costata tre giorni |
 | **2.2** | **ARCHIVIATA.** E' stata la via di ritorno fino alla 2.4, ed e' stata in servizio il 25/08. Impronta `08ce3f69…`, commit `3c68d0a`, pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.2/`. La via di ritorno adesso e' la **2.5** |
 | ~~**2.3**~~ | **RITIRATA — ha disfunzionato, ripristino d'emergenza alla 2.2.** Pacchetto e ramo git in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/`. Il problema che voleva risolvere resta aperto: §1 |
@@ -2057,6 +2108,35 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 
 ### Consegna e ambiente
 
+**`node_modules` che ESISTE non vuol dire che sia quello giusto — 2.7.**
+L'installer reinstallava le dipendenze solo quando la cartella mancava del
+tutto. Bastava finché l'elenco non cambiava mai; la 2.7 ha aggiunto `pg`, e
+quella della 2.6 c'era — controllo superato, driver assente, servizio che con
+`PATHFINDER_PG` accesa non parte affatto. **Si guarda dipendenza per
+dipendenza come le dichiara `package.json`**, e se dopo `npm install` ne manca
+ancora una l'installazione si ferma dicendo quale.
+
+**Un controllo che grida al lupo su un'installazione riuscita è come non
+averlo — 2.7.** La verifica finale confrontava il database aperto dal servizio
+con il percorso del file SQLite. Passando a PostgreSQL, un'installazione
+perfettamente riuscita usciva con «il servizio ha aperto un altro database» e
+codice 1. La volta che quell'avviso serve davvero, nessuno lo legge più.
+
+**Un segnaposto in una riga di comando viene incollato com'è.** `LA-TUA` è
+finito dentro la variabile di macchina al posto della password, sei caratteri.
+Non ha fatto danni perché **il servizio si rifiuta di partire senza
+database** — meglio fermo che vivo e senza — ma la lezione è sull'altro lato:
+un comando da incollare con dentro un buco da riempire, prima o poi si incolla
+intero. Meglio farselo comporre, o passarlo da un file.
+
+**Le barre rovesciate non sopravvivono a due livelli di virgolette.**
+`'C:\Pathfinder\data\pathfinder.db'` dentro un `node -e "…"` lanciato da
+una shell POSIX arriva come `C:Pathfinderdatapathfinder.db`, e
+`better-sqlite3` **crea** quel file invece di lamentarsi: un database vuoto,
+in una cartella a caso, che risponde `0 righe` con la faccia seria. Il 26/08
+è servito a far credere per un minuto che il magazzino fosse vuoto. Nei
+percorsi Windows dati a Node **si usano le barre in avanti**, che Windows
+accetta e nessuna shell mangia.
 - **I TRE POSTI DEL NUMERO DI VERSIONE, E `package.json` NON È NESSUNO DEI
   TRE — 19/08.** Alzare `package.json` a `2.1.0` non sposta niente: la
   build non lo legge. I posti veri sono
@@ -2512,18 +2592,25 @@ partenza. **Un audit si passa anche dopo, non solo prima.**
 - **Servizio on-prem, attività pianificata**, non servizio Windows nativo (NSSM
   è il file che l'antivirus blocca alle sette di mattina). Niente Redis, niente
   Entra ID: si resta al PIN. Sage X3 fino al 2038.
-- **«NIENTE AZURE» NON VALE PIÙ, ED È STATA UNA DECISIONE — 26/08/2026.** Fino
+- **«NIENTE AZURE» NON VALE PIÙ, E POSTGRESQL È ACCESO — 26/08/2026.** Fino
   alla 2.5 questa riga diceva «niente Azure». Il ramo `server/azure/` esisteva
-  perché la decisione si potesse prendere con i numeri davanti, e i numeri sono
-  stati messi davanti: la 2.6 porta il driver PostgreSQL **in servizio**, scelto
-  da `PATHFINDER_PG`. **Il database resta SQLite finché quella variabile è
-  assente**, e questa è la parte che non cambia: la 2.6 si installa senza
-  toccare il database, e accendere PostgreSQL è un secondo gesto che si annulla
-  spegnendo una variabile. Quel che la decisione NON ha ancora affrontato è il
-  primo punto di `server/azure/LEGGIMI.md`: con il database in cloud il
-  magazzino si ferma quando cade la connessione dell'azienda, non solo quando
-  cade il PC. Accendere `PATHFINDER_PG` in produzione è una decisione di
-  continuità operativa, e non è presa.
+  perché la decisione si potesse prendere con i numeri davanti; i numeri sono
+  stati messi davanti, e **il 26/08 sera il magazzino è passato a PostgreSQL**.
+  Lo decide `PATHFINDER_PG`, che `installa-servizio.ps1 -PostgreSQL` scrive in
+  una variabile di macchina — non in un file, non nel repository.
+- **IL DATABASE STA SULLA STESSA MACCHINA DEL SERVIZIO, e questo non è un
+  passo verso Azure: è un passo che lo evita.** `pathfinder` gira su
+  `127.0.0.1:5432`. La continuità operativa non è cambiata di una virgola —
+  il magazzino si ferma quando si ferma questo PC, esattamente come quando i
+  dati stavano in un file. **Il primo punto di `server/azure/LEGGIMI.md` —
+  «niente lavoro offline» diventa «niente lavoro senza linea» — NON è stato
+  pagato**, e si paga il giorno che il database esce da questa macchina. Quel
+  giorno è una decisione di continuità operativa, non di architettura, e non
+  è presa.
+- **Si torna a SQLite con un comando**, e il file è ancora lì:
+  `installa-servizio.ps1` senza `-PostgreSQL`. Ma **riporta l'applicativo, non
+  i dati**: da oggi la via di casa è il `.dump` della sera prima, e
+  `C:\Pathfinder\data\pathfinder.db` invecchia dal 26/08.
 - **`checkJs` spento sul client, acceso sul servizio.** Dove tipo e codice
   litigano, **cede il tipo**.
 - **Il CSS non si minifica**: toglieva 413 caratteri su 146.368 e riscriveva le
