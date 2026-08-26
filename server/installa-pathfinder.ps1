@@ -332,13 +332,42 @@ if ($aggiornamento) {
         Copy-Item (Join-Path $Servizio '*') $CasaServizio -Recurse -Force
         Riga 'Servizio' "$Versione in $CasaServizio" 'Green'
 
-        # Le dipendenze non viaggiano nel pacchetto: se il servizio nuovo ne
-        # chiede una che non c'e', non parte affatto.
-        if (-not (Test-Path (Join-Path $CasaServizio 'node_modules'))) {
-            Write-Host "   Dipendenze del servizio mancanti: le installo..." -ForegroundColor Yellow
+        # LE DIPENDENZE NON VIAGGIANO NEL PACCHETTO, e `node_modules` che
+        # ESISTE non vuol dire che sia quello giusto — 2.7.
+        #
+        # Fino alla 2.6 qui si guardava solo se la cartella c'era. Bastava
+        # finche' l'elenco delle dipendenze non cambiava mai; la 2.7 ha
+        # aggiunto `pg`, e una `node_modules` rimasta dalla 2.6 avrebbe
+        # superato il controllo lasciando il servizio senza il driver. Con
+        # PATHFINDER_PG impostata non sarebbe partito affatto: i terminali
+        # vedono bianco e il magazzino si ferma.
+        #
+        # Si guarda dipendenza per dipendenza, come le dichiara package.json.
+        $nm = Join-Path $CasaServizio 'node_modules'
+        $dichiarate = @()
+        try {
+            $pkg = Get-Content (Join-Path $CasaServizio 'package.json') -Raw | ConvertFrom-Json
+            if ($pkg.dependencies) { $dichiarate = @($pkg.dependencies.PSObject.Properties.Name) }
+        } catch { }
+        $mancanti = @($dichiarate | Where-Object { -not (Test-Path (Join-Path $nm $_)) })
+
+        if ((-not (Test-Path $nm)) -or $mancanti.Count -gt 0) {
+            if ($mancanti.Count -gt 0) {
+                Write-Host "   Dipendenze del servizio da installare: $($mancanti -join ', ')" -ForegroundColor Yellow
+            } else {
+                Write-Host '   Dipendenze del servizio mancanti: le installo...' -ForegroundColor Yellow
+            }
             Push-Location $CasaServizio
             npm install --omit=dev --no-audit --no-fund
             Pop-Location
+
+            # NON SI VA AVANTI SPERANDO. Se dopo npm install ne manca ancora
+            # una, il servizio non partira': meglio fermare l'installazione
+            # adesso, con scritto quale, che riavviarlo e scoprirlo domani.
+            $ancora = @($dichiarate | Where-Object { -not (Test-Path (Join-Path $nm $_)) })
+            if ($ancora.Count -gt 0) {
+                throw "Dopo npm install mancano ancora: $($ancora -join ', '). Il servizio non partirebbe."
+            }
         }
 
         & (Join-Path $CasaServizio 'installa-versione.ps1') -Da $App -Versione $Versione -Casa $CasaApp
