@@ -382,15 +382,35 @@ try {
     Write-Host "  database      $($r.file)"
     Write-Host "  revisione     $($r.revision)"
 
-    # Non basta che il servizio risponda: deve rispondere DAL database giusto.
-    # È l'unica prova che la variabile d'ambiente è arrivata fin dentro il
+    # Non basta che il servizio risponda: deve rispondere DAL database
+    # giusto. E' l'unica prova che la variabile e' arrivata fin dentro il
     # processo che gira come SYSTEM.
-    if ($r.file -ne $Database) {
-        Write-Host ""
-        Write-Host "  ATTENZIONE: il servizio ha aperto un altro database." -ForegroundColor Red
+    #
+    # DUE DATABASE, DUE COSE DA CONFRONTARE — 2.7. Fino alla 2.6 qui si
+    # confrontava sempre col percorso del file SQLite, e su PostgreSQL una
+    # installazione RIUSCITA usciva con «il servizio ha aperto un altro
+    # database» e codice 1. Un avviso che grida al lupo su un'installazione
+    # riuscita e' come non averlo: la volta che serve, nessuno lo legge.
+    if ($PostgreSQL) {
+        # Il servizio maschera la password: si confronta il database, che e'
+        # la parte che dice se sta parlando col posto giusto.
+        $nomeAtteso  = ($PostgreSQL  -split '/')[-1] -replace '\?.*$', ''
+        $nomeRisposto = ($r.file     -split '/')[-1] -replace '\?.*$', ''
+        if ($r.file -notmatch '^postgres' -or $nomeRisposto -ne $nomeAtteso) {
+            Write-Host ''
+            Write-Host '  ATTENZIONE: il servizio non ha aperto il PostgreSQL indicato.' -ForegroundColor Red
+            Write-Host "  atteso:  database '$nomeAtteso' su PostgreSQL"
+            Write-Host "  aperto:  $($r.file)"
+            Write-Host '  PATHFINDER_PG viene letta all avvio del processo, non al volo.'
+            exit 1
+        }
+    }
+    elseif ($r.file -ne $Database) {
+        Write-Host ''
+        Write-Host '  ATTENZIONE: il servizio ha aperto un altro database.' -ForegroundColor Red
         Write-Host "  atteso:  $Database"
         Write-Host "  aperto:  $($r.file)"
-        Write-Host "  Riavviare la macchina e ricontrollare: PATHFINDER_DB viene letta"
+        Write-Host '  Riavviare la macchina e ricontrollare: PATHFINDER_DB viene letta'
         Write-Host "  all'avvio del processo, non al volo."
         exit 1
     }
