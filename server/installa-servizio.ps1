@@ -77,7 +77,18 @@ param(
     [string]$OraBackup = '20:00',
     [int]$GiorniDiConservazione = 0,
     [string]$Applicativo = '',
-    [string]$CartellaApplicativo = 'C:\Pathfinder\app\corrente'
+    [string]$CartellaApplicativo = 'C:\Pathfinder\app\corrente',
+
+    # 2.7 — QUALE DATABASE. Vuota (di serie) = SQLite, il file di -Database.
+    # Valorizzata = PostgreSQL con quella stringa di connessione, e il file
+    # SQLite resta dov'e', intatto: si torna indietro rilanciando questo
+    # script senza -PostgreSQL.
+    #
+    # LA STRINGA NON VA SCRITTA IN UNO SCRIPT NE' IN UN FILE DEL REPOSITORY.
+    # Si passa qui una volta, finisce in una variabile di macchina che solo
+    # SYSTEM e gli amministratori leggono, e non compare nella riga di
+    # comando di nessun processo.
+    [string]$PostgreSQL = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -117,6 +128,12 @@ if ($Disinstalla) {
         # informazione serve anche a chi reinstalla domani.
         Write-Host "  Il database NON è stato toccato." -ForegroundColor Green
         Write-Host "  PATHFINDER_DB resta impostata su: $([Environment]::GetEnvironmentVariable('PATHFINDER_DB','Machine'))"
+        # 2.7 — e va detto anche QUALE database, o chi legge crede che sia
+        # ancora SQLite. Reinstallare senza -PostgreSQL la riporta a vuoto.
+        $pgResta = [Environment]::GetEnvironmentVariable('PATHFINDER_PG','Machine')
+        if ($pgResta) {
+            Write-Host "  PATHFINDER_PG resta impostata: il servizio, se reinstallato cosi', ripartira' su PostgreSQL." -ForegroundColor Yellow
+        }
     } else {
         Write-Host "  Nessun servizio da rimuovere."
     }
@@ -256,6 +273,20 @@ if (Test-Path $CartellaApplicativo) {
 }
 $env:PATHFINDER_DB   = $Database
 $env:PATHFINDER_PORT = "$Porta"
+
+# ── 2.7 · Quale database ────────────────────────────────────────────
+# Si scrive SEMPRE, anche vuota: una variabile lasciata da un'installazione
+# di prima manderebbe il servizio su un database che nessuno ha piu' in
+# mente. Vuota vuol dire SQLite, ed e' dichiarato, non dedotto.
+[Environment]::SetEnvironmentVariable('PATHFINDER_PG', $PostgreSQL, 'Machine')
+$env:PATHFINDER_PG = $PostgreSQL
+if ($PostgreSQL) {
+    $mascherata = $PostgreSQL -replace '://[^@]*@', '://***@'
+    Write-Host "  Database      PostgreSQL  $mascherata" -ForegroundColor Cyan
+    Write-Host "                il file SQLite resta a $Database, intatto"
+} else {
+    Write-Host "  Database      SQLite  $Database"
+}
 
 # ── Chi occupa la porta ─────────────────────────────────────────────
 # Un'istanza avviata a mano tiene la porta e continuerebbe a servire il
