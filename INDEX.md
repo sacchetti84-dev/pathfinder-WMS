@@ -2188,6 +2188,23 @@ database** — meglio fermo che vivo e senza — ma la lezione è sull'altro lat
 un comando da incollare con dentro un buco da riempire, prima o poi si incolla
 intero. Meglio farselo comporre, o passarlo da un file.
 
+**`Get-ScheduledTask` senza diritti NON DICE «accesso negato»: non
+restituisce niente — 26/08.** Un'attività pianificata su cui l'utente non ha
+diritti di lettura viene semplicemente omessa dall'elenco, senza un errore.
+Su questa macchina `Get-ScheduledTask | Where TaskName -like 'Pathfinder*'`
+ha risposto vuoto — 219 attività viste, nessuna di Pathfinder — e sembrava
+che il servizio girasse da un `node` avviato a mano, cioè che il magazzino
+non sarebbe tornato su da solo al riavvio. **Era falso.** `schtasks /query
+/tn "Pathfinder - Servizio dati"` risponde `ERRORE: Accesso negato`, e la
+prova che l'attività c'è è che il processo che serve la 4173 è **figlio di
+`svchost.exe`**, cioè dell'Utilità di pianificazione.
+
+**Una lettura andata a vuoto somiglia in tutto a un'assenza**, e le due
+conclusioni sono opposte. Su Windows lo stato delle attività pianificate si
+guarda **da amministratore**, o non lo si guarda: da non elevati la domanda
+si fa con `schtasks /query /tn <nome>`, che almeno l'accesso negato lo dice.
+Il controprova che non mente è la parentela del processo.
+
 **`Start-Process -ArgumentList` NON METTE LE VIRGOLETTE, e psql non
 protesta — 26/08.** `-ArgumentList @('-c', 'SELECT count(*) FROM x')` non
 passa due argomenti: incolla l'elenco con degli spazi in mezzo, e psql riceve

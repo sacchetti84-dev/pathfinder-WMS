@@ -262,9 +262,40 @@ function Migra-SuPostgres([string]$casa, [string]$copia, [string]$stringa) {
 }
 
 function Riavvia-Servizio {
+    # SE L'ATTIVITA' NON C'E', SI REGISTRA — NON CI SI ARRENDE. 26/08.
+    #
+    # Fino a stasera qui c'era un `Errore`, cioe' un'uscita con 1. Ma questa
+    # funzione la chiama il `finally` dell'aggiornamento, DOPO aver fermato il
+    # processo sulla porta: arrendersi qui vuol dire lasciare il magazzino
+    # giu' e andarsene, e la riga che lo spiega la legge chi passa domani.
+    # Un'attivita' che manca non e' un guaio da raccontare, e' un guaio da
+    # chiudere: la registra `installa-servizio.ps1`, che sa gia' farlo.
+    #
+    # QUANDO SUCCEDE DAVVERO: una macchina dove `installa-servizio.ps1` non e'
+    # mai passato, o dove qualcuno ha tolto l'attivita' a mano. Non e' il caso
+    # di una lettura andata a vuoto — qui si e' amministratori, perche'
+    # l'installer si eleva prima di arrivare a questa riga, e un
+    # amministratore l'attivita' la vede. Non elevati invece
+    # `Get-ScheduledTask` non dice «accesso negato»: non restituisce NIENTE, e
+    # una lettura a vuoto somiglia in tutto a un'assenza — §5.
     if (-not (Get-ScheduledTask -TaskName $NomeAttivita -ErrorAction SilentlyContinue)) {
-        Errore ("L'attivita' pianificata «$NomeAttivita» non risulta registrata.`n" +
-                "   Il servizio non si puo' riavviare: reinstallarlo con installa-servizio.ps1.")
+        Write-Host ""
+        Write-Host "   L'attivita' pianificata «$NomeAttivita» non risulta registrata." -ForegroundColor Yellow
+        Write-Host "   Il servizio girava senza: la registro adesso, o il magazzino non"
+        Write-Host "   tornerebbe su da solo al prossimo riavvio della macchina."
+        Write-Host ""
+        & (Join-Path $CasaServizio 'installa-servizio.ps1') -Porta $Porta `
+            -Database $FileSqlite -CartellaBackup $CartellaBackup `
+            -CartellaApplicativo (Join-Path $CasaApp 'corrente') `
+            -PostgreSQL $stringaPg
+        if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
+            Errore ("Non sono riuscito a registrare l'attivita' pianificata, e il servizio`n" +
+                    "   e' fermo. Rilanciare a mano, da amministratore:`n" +
+                    "     & `"$(Join-Path $CasaServizio 'installa-servizio.ps1')`"")
+        }
+        # installa-servizio.ps1 l'ha gia' accesa e verificata: qui non c'e'
+        # piu' niente da riavviare.
+        return
     }
     Stop-ScheduledTask -TaskName $NomeAttivita -ErrorAction SilentlyContinue
     foreach ($c in @(Get-NetTCPConnection -LocalPort $Porta -State Listen -ErrorAction SilentlyContinue)) {
