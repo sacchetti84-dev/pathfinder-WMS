@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **27/08/2026**, notte fonda
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **27/08/2026**, notte fonda — la 2.10
 
 ## LO STATO DEL PROGETTO È **ALFA**
 
@@ -20,6 +20,161 @@ che nessuno ha ancora compilato. Non è un prodotto finito che si manutiene, ed
 **Non c'è una scadenza.** La riga che dava il progetto al 31/12/2026 con
 ultima installazione utile il 19/12 è stata tolta il 25/08: le date si
 scrivono come fatti avvenuti, non come promesse.
+
+---
+
+## LA 2.10 CHIUDE SEI FALLE, E NE LASCIA UNA APERTA CHE SI VEDE
+
+**Notte del 27/08/2026.** Nasce da una valutazione di sicurezza chiesta da
+Andrea e fatta leggendo il codice e provandolo, non solo leggendolo. Il
+giudizio complessivo era buono e il difetto era uno solo, grosso: **il
+codice e' scritto con cura e non c'e' controllo d'accesso.** SQL
+parametrizzato dappertutto, escape HTML applicato con costanza, confronto a
+tempo costante sull'impronta, password generate bene negli script — e le
+rotte `/api` che rispondono a chiunque raggiunga la porta.
+
+| | |
+|---|---|
+| dove | `consegna\Pathfinder 2.10\`, e il codice nel ramo `main` |
+| pacchetto | app 4 file, **1,76 MB** — 469 kB sul filo, compressi · servizio, 12 voci |
+| impronta | `2a70b8e9fe2306eb4007e39289edd4b8db3b4a2ee2d09465c4898f10ac6dfbf6` |
+| collaudi | **1.180 client** in 40 file · **113 servizio** · **8 migrazione** · **29 installazione** |
+| tipi | `npm run check` a 0 su client e servizio |
+| provata | al banco, in browser: identificazione, elenco operatori, giro completo del PIN |
+
+### L'impronta del PIN non esce piu' dal servizio, e non e' piu' SHA-256
+
+**ERANO DUE DIFETTI CHE SI TENEVANO IN PIEDI A VICENDA.** `GET
+/api/c/operators` rispondeva coi record interi, `pin_hash` e `pin_salt`
+compresi, e l'impronta era uno SHA-256 a un giro. Un PIN e' di **sei cifre**:
+un milione di combinazioni. Misurato su questo codice, in Node, su una CPU
+sola e senza ottimizzare nulla: **204 ms per ricavare un PIN da un'impronta.**
+Lo spazio intero sta in meno di due secondi. Il freno a cinque tentativi non
+c'entrava niente — chi ha l'impronta non bussa piu'.
+
+**Il campo non sparisce e basta.** Al suo posto la risposta porta `pin_set`,
+che e' la sola cosa che il client chiedeva davvero: «questo operatore ha un
+PIN?», che serve a `getUsableLeaders` e alla maschera che completa il
+profilo. Nel client si legge da `Store.haPin`, mai dal campo. La verifica
+passa da `/api/op/verifyPin`, che l'impronta la legge dal database e non la
+fa viaggiare.
+
+**`scrypt` al posto di SHA-256, e le impronte vecchie si rifanno da sole.**
+SHA-256 e' veloce per costruzione, ed e' il difetto; scrypt costa memoria e
+tempo a ogni tentativo, sempre per costruzione — un accesso sta sui 50-100 ms,
+che chi digita non vede, e lo spazio intero passa da due secondi a una
+giornata di macchina. Le impronte gia' scritte restano valide: il record dice
+con che algoritmo e' fatta (`pin_algo`, assente = com'era prima), e **al primo
+accesso riuscito si riscrive in scrypt**. Non c'e' una migrazione da lanciare,
+e non potrebbe esserci: il PIN lo sa solo chi lo digita, e quello e' l'unico
+istante in cui si puo' ricalcolare.
+
+**Il modo «da file» resta a SHA-256**, ed e' dichiarato: `crypto.subtle` nel
+browser non ha scrypt, e quel modo ha un'altra superficie — un browser solo,
+su una macchina sola, senza una rete da cui leggere le impronte.
+
+### Un backup non esce piu' dalla macchina
+
+`dir` arrivava dal corpo della richiesta e non la guardava nessuno: **una
+richiesta sola scriveva l'intero database dove diceva chi chiamava.** Il
+processo gira come SYSTEM, e una condivisione di rete come destinazione
+faceva uscire anagrafica, movimenti e operatori dall'azienda con un `curl`.
+Provato al banco: cartella creata e 6,3 MB scritti fuori dall'area
+applicativa, senza credenziali.
+
+Non si stringe a **una** cartella, e il perche' e' che i chiamanti legittimi
+sono quattro e scrivono in quattro posti diversi — il backup serale, l'installer
+prima di aggiornare, i collaudi in una cartella temporanea, il banco nella
+propria. Si vietano invece le tre forme che nessuno di loro usa: **i percorsi
+di rete**, **le cartelle di sistema di Windows**, **i percorsi relativi**.
+`PATHFINDER_BACKUP_ROOTS` stringe ancora, quando c'e'.
+
+### Un codice non spezza piu' un gestore dell'interfaccia
+
+L'interfaccia costruisce i gestori dentro le stringhe — `onclick="App.qualcosa('CODICE')"`
+— e sono **due contesti annidati**: l'attributo HTML, e la stringa JavaScript
+che ci sta dentro. `_esc` copre il primo e non il secondo: trasforma l'apice in
+`&#39;`, il parser lo ridecodifica **prima** che il motore JavaScript lo legga,
+e quella stringa si chiude. Da li' in poi e' codice, e gira nel browser
+dell'operatore con la sua identita'.
+
+Sono **195 punti** nelle viste. Correggerli uno per uno voleva dire toccare 195
+gesti sperando di non sbagliarne nessuno, e lasciare aperto il 196esimo — quello
+che qualcuno scrivera' il mese prossimo. **La correzione sta invece in un posto
+solo**, e in quello giusto: `normalizza`, dove i campi che sono un CODICE
+passano gia' tutti per essere maiuscolati. Un articolo, un lotto, un'ubicazione,
+una sigla non hanno mai contenuto una virgoletta: adesso non possono.
+
+**Si rifiuta, non si ripulisce** — togliere l'apice di nascosto scriverebbe a
+database un codice diverso da quello che il chiamante crede di aver scritto, e
+due codici che si somigliano sono peggio di un errore che si vede. **`&` non e'
+nell'elenco**: l'escape HTML lo gestisce, in una stringa JavaScript non rompe
+niente, e una categoria merceologica ha il diritto di chiamarsi «OLI & GRASSI».
+C'e' un collaudo per ciascuno dei due versi, e il secondo non e' di cortesia: un
+campo di testo libero che rifiuta gli apostrofi rende impossibile scrivere
+«l'articolo e' arrivato rotto» in una nota.
+
+### I file del servizio non sono piu' di tutti
+
+`C:\Pathfinder` eredita da `C:\` il permesso `Authenticated Users : Modify`, e
+nessuno gliel'aveva tolto: **un utente qualunque della macchina poteva
+riscrivere `pathfinder-server.js`, e al riavvio quel codice girava come
+SYSTEM.** Non serviva un difetto dell'applicativo — bastava un blocco note.
+L'installer adesso spezza l'eredita' e riscrive l'elenco: pieno controllo a
+SYSTEM e agli Amministratori, lettura ed esecuzione a tutti gli altri. I
+terminali non leggono da disco — parlano col servizio — quindi non perdono
+niente.
+
+**Non ferma l'installazione se fallisce**, e usa i SID e non i nomi: su una
+macchina italiana `Administrators` non si chiama cosi', e su una macchina in
+dominio le ACL possono essere governate altrove. Un magazzino che non si
+aggiorna per un criterio di gruppo e' un danno peggiore di un permesso largo.
+
+### Tre intestazioni, e una quarta che non c'e'
+
+`nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: same-origin` su ogni
+risposta. **Non c'e' `Content-Security-Policy`, ed e' una scelta**: una CSP
+seria vieta proprio i gestori inline che sono l'architettura di questa
+interfaccia, e una permissiva al punto da lasciarli passare sarebbe una riga
+che non protegge da niente e che il prossimo lettore crede protegga.
+
+### Su quale interfaccia si ascolta, adesso, si sceglie
+
+`listen` non diceva su quale, e Node in quel caso le prende **tutte**. Il valore
+predefinito resta quello — cambiarlo spegnerebbe i terminali, ed e' il gesto che
+non si fa in una versione che nessuno ha ancora installato — ma la scelta ha un
+nome: `PATHFINDER_HOST=127.0.0.1` su una macchina dove l'applicativo si usa solo
+in locale. E all'avvio il servizio adesso **dichiara a chi risponde**, che e'
+l'unica difesa che ha finche' non c'e' un accesso vero.
+
+### QUEL CHE LA 2.10 NON HA FATTO, E VA GUARDATO IN FACCIA
+
+**LE ROTTE `/api` NON CHIEDONO ANCORA CREDENZIALI A NESSUNO.** Chi raggiunge
+la porta legge qualunque collezione, ne scrive qualunque record, e con una
+`DELETE` svuota le giacenze. Il PIN non e' un controllo d'accesso: e' una
+domanda che il client fa e a cui il client stesso obbedisce. E la procedura di
+recupero PIN in §6 — `PATCH` su `/api/c/operators` — funziona per chiunque
+sulla rete: si legge l'elenco, si sceglie un Team Leader, si scrive
+un'impronta nuova, si entra come lui.
+
+**Perche' non e' stata chiusa adesso, e non e' una dimenticanza.** Un segreto
+condiviso messo dentro il client non e' un segreto: la pagina la scarica
+chiunque, e il valore si legge aprendo gli strumenti del browser. La strada
+vera e' **una sessione emessa dopo il PIN**, che e' il modello a cui questo
+applicativo somiglia gia' — c'e' l'identificazione, c'e' `currentOperator`,
+c'e' la scadenza della sessione. Ma tocca ogni chiamata del client e ogni
+rotta del servizio, e nessun collaudo di oggi la esercita: e' una versione
+sua, con un turno di banco suo, non la coda di una notte in cui si e'
+sistemato dell'altro.
+
+**Un token d'amministrazione sulle sole rotte distruttive e' stato provato e
+scartato**: il client le usa per gesti legittimi — `deleteWhere` cancella una
+zona, `clearMany` fa il reset dei dati — e un token che il browser non ha
+avrebbe rotto la Configurazione. Una protezione che rompe l'applicativo e'
+una protezione che il primo giorno qualcuno spegne.
+
+**Fino ad allora la difesa e' la rete**, e va detto per intero: superata
+quella, non c'e' un secondo strato. `PATHFINDER_HOST` serve a questo.
 
 ---
 
@@ -36,7 +191,7 @@ l'applicativo, non l'installer né il servizio.
 
 | | |
 |---|---|
-| dove | `consegna\Pathfinder 2.9\`, e il codice nel ramo `main` |
+| dove | `ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.9\` — sceso dalla cartella di consegna quando la 2.10 e' stata costruita |
 | pacchetto | app 4 file, **1,75 MB** — 469 kB sul filo, compressi · servizio, 12 voci |
 | impronta | `b3b3b8daeca269bfcb4b1084157e61318729f015704443854988148693cc4e91` |
 | collaudi | **1.176 client** in 40 file · **98 servizio** · **8 migrazione** · **29 installazione** — tutti verdi |
@@ -2090,6 +2245,8 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **64** | **LE ROTTE `/api` NON CHIEDONO CREDENZIALI A NESSUNO, ed è il difetto più grosso che questo applicativo abbia.** Chi raggiunge la porta legge qualunque collezione, ne scrive qualunque record, e con una `DELETE` svuota le giacenze. Il PIN non è un controllo d'accesso: è una domanda che il client fa e a cui il client stesso obbedisce. La procedura di recupero PIN in §6 — `PATCH` su `/api/c/operators` — funziona per chiunque sulla rete: si legge l'elenco, si sceglie un Team Leader, si scrive un'impronta nuova, si entra come lui. La 2.10 ha chiuso tutto quello che si poteva chiudere senza toccare questo, e questo è rimasto | **Una sessione emessa dopo il PIN**, che è il modello a cui l'applicativo somiglia già: c'è l'identificazione, c'è `currentOperator`, c'è la scadenza della sessione. Tocca ogni chiamata del client e ogni rotta del servizio, e nessun collaudo di oggi la esercita: **è una versione sua, con un turno di banco suo.** Due strade scartate e perché: un segreto dentro il client non è un segreto — la pagina la scarica chiunque; un token sulle sole rotte distruttive romperebbe la Configurazione, che usa `deleteWhere` per cancellare una zona e `clearMany` per il reset |
+| **65** | **`xlsx` 0.18.5 PORTA DUE VULNERABILITÀ NOTE** — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — **e non c'è un fix su npm**: SheetJS pubblica le versioni corrette solo dal proprio sito. Il vettore è il file Excel che un operatore carica: ODP e anagrafica. Le dipendenze del servizio sono a **0 vulnerabilità** | La regola «`dexie` e `xlsx` non si aggiornano» esiste perché l'applicativo è collaudato con quelle versioni, ed è difendibile. **Va però ridecisa sapendo questo**, non per inerzia: o si passa alla versione di SheetJS e si riprova tutto quello che tocca Excel, o si scrive qui che si accetta il rischio e perché |
 | **61** | **IL CONTO WIP DIPENDE DA UN PARAMETRO FACOLTATIVO.** La riga `in` non registra le UM — `qty_uom` è `null` — e i chili si ricostruiscono dopo dalla confezione congelata del lotto, che `Store.contoWip` passa a `conto()` come ripiego. Ma quel parametro si può omettere, e allora lo stesso ordine perfettamente in pari risponde `residuo_uom: −25` e `incoerente: true`. Un residuo **negativo** su un ordine chiuso in pari: un numero plausibile e sbagliato, cioè la stessa forma del difetto di `#dlgOverlay`. Oggi il chiamante è uno solo e il ripiego lo passa | **Due strade, e la seconda è quella buona:** scrivere le UM sulla riga `in` quando si conoscono — la confezione è congelata già al posizionamento, quindi il dato c'è — oppure rendere `perCollo` obbligatorio, o far dichiarare `incoerente` con un motivo leggibile invece di un residuo negativo muto |
 | **62** | **IL BIP DI LETTURA E LA CONFERMA DI TAPPA SONO TUTTI E DUE ACUTI E SINUSOIDALI.** Misurati: `scan` è 1320 Hz, `ok` sale 1046 → 1568 Hz. Fra `ok` ed `error` non c'è confusione possibile — `error` scende 233 → 175 Hz in onda quadra — ma «ho letto il codice» e «tappa chiusa» possono somigliarsi col rumore del reparto e i tappi | **Serve una prova al banco, con il rumore vero**: se la confusione c'è, basta scendere il bip di lettura o accorciarne la coda, così l'unico suono che sale resta la conferma |
 | **63** | **`areaWip` SUL BANCO È UN VANO DELLO SCAFFALE, NON UN'AREA.** Il 27/08 è stata impostata su `MAG1-RAKA-04-01-T` per poter provare il conto di produzione, perché il banco non ha un vano di lavorazione. Funziona, ma sulla mappa quel vano non si distingue dallo stoccaggio, e il motore lo tratta come un vano qualunque | **Sul magazzino vero la domanda resta quella della voce 15** — quale vano sia l'area WIP. Sul banco, il giorno che serve una prova più fedele, si crea una zona `WIP` sua |
@@ -2384,11 +2541,11 @@ uscire incoerente.
 npm run dev      # sviluppo, ricarica a caldo — ATTENZIONE: parla col servizio VERO
 npm run build    # produce "consegna/Pathfinder <ver>/" — il pacchetto da consegnare
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest, 40 file, 1.176 prove
+npm test         # vitest, 40 file, 1.180 prove
 ```
 
 ```bash
-node test/collaudo.js                    # 98 prove sul servizio, da server/
+node test/collaudo.js                    # 113 prove sul servizio, da server/
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server/
 node test/collaudo-installazione.js      # 29 prove sugli script di installazione, da server/
 ```
