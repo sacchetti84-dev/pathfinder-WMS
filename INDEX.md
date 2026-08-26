@@ -2246,6 +2246,20 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 
 ### Prove e collaudi
 
+**Un banco che svuota tavoli non deve poter puntare a un database di lavoro
+— 2.6.** `test/driver.test.js` e il banco PostgreSQL di `collaudo.js` fanno
+`TRUNCATE` di tutti i tavoli a ogni corsa. Puntavano allo stesso database su
+cui si stava provando l'applicativo, e una corsa di `npm test` ha portato via
+gli 11.197 articoli appena migrati: se n'è accorto solo chi ha aperto
+l'applicativo ed è andato a guardare i conteggi — `3000 articoli · 5 giacenze`
+invece di `11.197 · 886`. **Nessuna prova era fallita**, perché il danno lo
+faceva il collaudo stesso, e faceva quel che doveva fare.
+
+Adesso i banchi usano `PATHFINDER_PG_COLLAUDO` e **non ripiegano** su
+`PATHFINDER_PG` quando manca: si saltano dicendo perché. Il ripiego silenzioso
+su un database di lavoro *è* il gesto che ha fatto il danno. E c'è una seconda
+guardia sul nome — il database deve finire per `_collaudo` — perché la prima
+protegge da una dimenticanza e la seconda da una distrazione.
 - **Non collaudare sul database di lavoro — e `npm run dev` NON è al riparo.**
   La pagina servita da Vite parla col servizio vero sulla 4173, perché l'adapter
   remoto non guarda da quale porta arrivi. La prova si fa su una **copia**, su
