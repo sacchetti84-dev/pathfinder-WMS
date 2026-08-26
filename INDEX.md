@@ -23,22 +23,58 @@ scrivono come fatti avvenuti, non come promesse.
 
 ---
 
-## LA **2.6** È COSTRUITA E **NON È INSTALLATA**
+## LA VERSIONE IN SERVIZIO È LA **2.6**
 
-**Costruita il 26/08 alle 02:46.** Il magazzino sta servendo la 2.5.
+**Installata da Andrea il 26/08/2026, notte.** Misurata sulla 4173 subito dopo:
 
 | | |
 |---|---|
-| `versione` nel pacchetto | **2.6** |
-| `VERSION` del servizio | **2.6** |
+| `service_version` | **2.6** |
+| `versione` applicativo | **2.6** |
 | impronta | `d3865c53d94a8bff53441c7ee32c571aa45cb256406918a9f4a2e04860dca644` |
 | byte | **1.800.084** in **4 file** |
-| dove | `consegna/Pathfinder 2.6/` — **e la build azzera quella cartella a ogni giro** |
+| dove | `C:\Pathfinder\app\corrente` |
+| via di ritorno | `C:\Pathfinder\app\precedente` → **2.5**, `8ed505b9…`, 1.798.524 byte |
 | collaudi | **1.334 passate**: 1.108 client · 98 di servizio su SQLite · **98 di servizio su PostgreSQL** · 8 di migrazione schema · 22 di installazione. `tsc --noEmit` pulito su client e servizio |
 
-**I tre numeri sono stati allineati PRIMA di scrivere il codice**, non prima di
-costruire: `vite.config.js`, `server/pathfinder-server.js`, `package.json`. La
-voce 41 l'ha già fatto pagare una volta.
+**I due numeri coincidono, e l'impronta è quella del pacchetto costruito.** Il
+servizio installato dice 2.6 anche nel file — `C:\Pathfinder\servizio\pathfinder-server.js`
+— e i tre numeri erano stati allineati **prima di scrivere il codice**, non
+prima di costruire: la voce 41 l'ha già fatto pagare una volta.
+
+**IL MAGAZZINO GIRA SU SQLITE, ED È VOLUTO.** `PATHFINDER_PG` non è impostata:
+il servizio apre lo stesso file di sempre e si comporta come la 2.5. Il driver
+PostgreSQL è dentro il pacchetto, collaudato, e non lo chiama nessuno finché
+quella variabile resta assente — accenderla è un secondo gesto, e §6 dice a
+quali condizioni.
+
+### Il database è stato normalizzato prima dell'installazione, e si è misurato dopo
+
+| | prima | dopo |
+|---|---:|---:|
+| giacenze | 887 | **886** |
+| movimenti | 319 | **320** |
+| operatori | 6 | **7** |
+| `lot_code` minuscoli in `inventory` | 53 | **0 su 886** |
+| `item_key` minuscoli | 53 | **0** |
+| `lot_code` minuscoli in `mov_log` | 6 | **0 su 320** |
+
+**La riga doppia non c'è più.** In `MAG1-RAKA-01-05-C` c'era lo stesso lotto due
+volte — `6001412#cl260854` con 5 pezzi e `6001412#CL260854` con 1 — perché una
+volta era stato digitato in minuscolo, e il FEFO le ordinava separate. Adesso è
+**una riga sola, `6001412#CL260854`, qty 6**, e il registro porta l'`EDIT` che
+lo spiega: *«2.6 normalizzazione maiuscole: fuse 2 righe dello stesso lotto
+scritto con grafie diverse — 6001412#cl260854(5) + 6001412#CL260854(1)»*.
+
+**Il settimo operatore è `SISTEMA`**, ed è la firma di quella fusione:
+disattivato e senza PIN, come gli operatori storici rientrati con la voce 46.
+Non può operare, esiste perché il registro lo nomina. **Nessuna firma orfana** —
+la voce 18 regge.
+
+**E la ricerca funziona con tutte e due le grafie**: chiedendo alla 4173 il
+lotto `cl260854` in minuscolo torna la riga `6001412#CL260854`. Il servizio
+maiuscola quel che scrive **e** quel che gli si chiede: senza la seconda metà,
+un terminale rimasto indietro avrebbe ricevuto «non c'è» invece della riga.
 
 ### Cosa porta la 2.6
 
@@ -98,30 +134,31 @@ decisione di continuità operativa, e la prende Andrea.
 
 ---
 
-## LA VERSIONE IN SERVIZIO È LA **2.5**
+## LA 2.5 È LA VIA DI RITORNO
 
-**Misurata sulla 4173 il 26/08 all'01:50**, e non è quello che questo documento
-diceva: fino a stanotte la riga qui sopra dichiarava «la 2.5 è costruita e NON è
-installata». `/api/app-info` risponde **2.5 due volte**, impronta
-`8ed505b9c01c8d37e2669e4d231edf0f4a469ff2bfba7fab2aac3f3cdbb52c88`, gli stessi
-**1.798.524 byte in 4 file** del pacchetto costruito.
+È stata in servizio dal 26/08 fino alla notte dello stesso giorno, e adesso sta
+in `C:\Pathfinder\app\precedente`: impronta `8ed505b9…`, 1.798.524 byte in 4
+file, confrontati col manifesto. Pacchetto in
+`ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/`, archiviato il 26/08 con i
+quattro file verificati per sha256.
 
-**È la quarta volta in cinque giorni che il documento dice una versione e la
-macchina ne serve un'altra** — la voce 35 in persona, e il motivo per cui §0
-punto 2 esiste.
+**Un ritorno indietro alla 2.5 riporta l'APPLICATIVO, non i dati.** Il database
+è stato normalizzato — i codici sono maiuscoli e le due righe del lotto sono
+una sola — e la 2.5 quei dati li legge senza problemi: un codice maiuscolo è un
+codice. Quel che si perde tornando indietro è la *garanzia*, non il dato: la
+2.5 non normalizza quel che scrive, e da lì in poi potrebbero rinascere lotti
+con due grafie. **La copia prima della normalizzazione è
+`banco/db/pathfinder-2026-08-26.db`**, delle 02:50, e non ha avuto scritture
+dopo.
 
-| | |
-|---|---|
-| `service_version` | **2.5** |
-| `versione` applicativo | **2.5** |
-| impronta | `8ed505b9c01c8d37e2669e4d231edf0f4a469ff2bfba7fab2aac3f3cdbb52c88` |
-| byte | **1.798.524** in **4 file** |
-| pacchetto | `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/` — archiviato il 26/08, quattro file confrontati per sha256 |
+**Fino a stanotte questo documento diceva che la 2.5 era «costruita e NON
+installata», e in servizio c'era la 2.4.** Erano sbagliate tutte e due: la
+misura del 26/08 all'01:50 ha trovato la 2.5 sulla 4173. **Quarta volta in
+cinque giorni** — la voce 35 in persona, e il motivo per cui §0 punto 2 esiste.
 
-**Conseguenza da guardare in faccia: la voce 51 non è più un debito di una
-versione da installare, è codice che gira.** La rettifica di una tappa già
-prelevata e il salta tappa non sono mai stati esercitati da capo a fondo, e il
-magazzino li sta servendo.
+**La voce 51 se ne va con lei, e resta aperta.** Le due funzioni mai esercitate
+da capo a fondo — la rettifica di una tappa già prelevata e il salta tappa —
+sono entrate in servizio con la 2.5 e ci sono ancora: la 2.6 non le tocca.
 
 ---
 ## LA 2.3 È RITIRATA
@@ -1486,6 +1523,12 @@ Cinque stati, e vogliono dire cose diverse:
 | **standby** | riconosciuta e ferma per scelta. Non si tocca finché non lo si decide |
 | **da chiarire** | manca un fatto per poter decidere |
 
+### Chiuse il 26/08
+
+| # | Cosa | Prova |
+|---|---|---|
+| ~~**54**~~ | ~~Il database in servizio non è normalizzato, e la 2.6 lo pretende~~ | **Raddrizzato la notte del 26/08, prima di installare la 2.6, e misurato dopo.** Servizio fermo, backup fresco delle 02:50 (`banco/db/pathfinder-2026-08-26.db`), prova a vuoto che ha detto gli stessi numeri della copia — 53 righe e 1 fusione — e solo allora `--scrivi`. Misurato sulla 4173 a servizio ripartito: **0 codici minuscoli su 886 giacenze e 320 movimenti**, la riga doppia di `MAG1-RAKA-01-05-C` è **una sola da 6**, e il registro porta l'`EDIT` che lo spiega con dentro le due chiavi di partenza. La firma `SISTEMA` è entrata in anagrafica disattivata e senza PIN: **nessuna firma orfana**, la voce 18 regge |
+| ~~**48-bis**~~ | ~~L'INDEX diceva che in servizio c'era la 2.4~~ | **Erano sbagliate due righe, non una.** La misura del 26/08 all'01:50 ha trovato la **2.5** sulla 4173, mentre il documento dichiarava «la 2.5 è costruita e NON è installata» e «in servizio c'è la 2.4». **Quarta volta in cinque giorni** — voce 35. Corrette tutte e due, e da stanotte la riga «in servizio» si scrive solo dopo aver interrogato `/api/app-info` |
 ### Chiuse il 25/08
 
 | # | Cosa | Prova |
@@ -1514,7 +1557,6 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **54** | **IL DATABASE IN SERVIZIO NON È ANCORA NORMALIZZATO, E LA 2.6 LO PRETENDE.** Ha **53 righe** con lotto e `item_key` minuscoli, e la coppia `6001412#cl260854` (5 pezzi) / `6001412#CL260854` (1) è ancora divisa in due nel vano `MAG1-RAKA-01-05-C`. Appena la 2.6 gira, **la prima scrittura che tocca quella riga la maiuscola**, e nel vano si troverebbero due righe con la stessa chiave — quello che `moveUdc` si rifiuta di far nascere, e che il client legge con `find` prendendone una a caso. **Provato sulla copia il 26/08: 63 righe riscritte, 1 fusione, un `EDIT` a registro** | **Si raddrizza PRIMA di installare la 2.6, non dopo.** Backup fresco, servizio fermo, poi `node banco/maiuscola-codici.cjs --da "C:\Pathfinder\data\pathfinder.db"` (senza `--scrivi` non tocca niente: deve dire **53 righe e 1 fusione**, i numeri già visti sulla copia), e solo se i numeri tornano si aggiunge `--scrivi`. La firma delle fusioni è `SISTEMA`, che entra in anagrafica **disattivato e senza PIN** come gli operatori storici della voce 46: nessuna firma orfana |
 | **53** | **IL BACKUP CAMBIA PADRONE SU POSTGRESQL, E NON È RIFATTO.** Con SQLite si copia un file; con PostgreSQL il ripristino è il point-in-time di Azure e non c'è niente da copiare da dentro il servizio. Il driver alza un **501** invece di restituire un file finto — è dichiarato e collaudato, non è una dimenticanza — ma `backup-serale.ps1`, `POST /api/backup` e le **22 prove di installazione** parlano ancora di file | **Vanno riscritti sul ripristino di Azure prima di accendere `PATHFINDER_PG` in magazzino.** Finché il magazzino gira su SQLite non è urgente: il backup serale funziona esattamente come prima. Diventa bloccante il giorno in cui la variabile si accende |
 | **51** | **DUE FUNZIONI NON ESERCITATE DA CAPO A FONDO, E ADESSO SONO IN SERVIZIO.** La 2.5 e' installata dal 26/08 — misurata, non dedotta — quindi questa non e' piu' una cosa da provare prima di installare: e' codice che il magazzino sta servendo. La **rettifica di una tappa già prelevata** e il **salta tappa** del prelievo da ordine sono verificate per tipi, logica e resa a video, ma non sono state fatte girare: farle girare avrebbe scritto movimenti veri nel registro del magazzino in servizio. La rettifica scrive un `REPOS` e chiama `esceDaWip`, cioè tocca giacenza **e** conto di produzione | **Vanno provate al banco con un ODP di prova, su una copia del database — §5 — prima di installare la 2.5.** Le due cose da guardare: che il `REPOS` rimetta le **misure giuste** e non colli di misura comoda, e che `esceDaWip` non rifiuti la riga quando l'ordine ha in lavorazione colli di misure diverse (lancia apposta in quel caso: la rettifica resta valida e l'operatore viene avvisato, ma va visto succedere) |
 | **52** | **82 ARTICOLI HANNO UN'UNITÀ CHE NON È UN'UNITÀ.** Dopo la traduzione `NR → PZ` del 26/08 restano fuori dalla gestione a UM: `SCA` 48, `CON` 18, `RT` 7, `CAS` 4, `M2` 2, `BAN` 1, più **due celle con dentro testo libero** — `MIN EPA=105 MG/G` e `MIN EPA=500MG/G DHA=250 MG/G C/L U.G.A`. Non è un difetto del codice: scatola, confezione e cassa nominano un **contenitore**, e in questo sistema il contenitore è il collo. `M2` è una superficie, che fra le cinque unità non c'è. Le due celle di testo sono errori di compilazione | Le 82 righe si caricano **a soli colli** e la maschera adesso lo dice. Va deciso sigla per sigla, guardando che merce sono: quelle che sono davvero un contenitore restano così, `M2` chiede se serva una sesta unità, e le due celle di testo vanno corrette in anagrafica — quello è di Andrea |
@@ -1579,10 +1621,10 @@ riga che dava il progetto al 31/12/2026, con ultima installazione utile il
 
 | Versione | Stato |
 |---|---|
-| **2.6** | **COSTRUITA, NON INSTALLATA.** `d3865c53…`, 1.800.084 byte, 4 file. Il servizio dati parla due database — SQLite di serie, PostgreSQL con `PATHFINDER_PG` — i codici si scrivono in maiuscolo, e l'interfaccia del servizio dati è diventata asincrona. **Prima di installarla va raddrizzato il database: voce 54** |
-| **2.5** | **IN SERVIZIO dal 26/08.** `8ed505b9…`, 1.798.524 byte, 4 file. Le unità di misura al carico su 11.115 articoli, il prelievo da ordine, e le sei funzioni della sera del 26. Porta con sé la voce 51: due funzioni mai esercitate da capo a fondo, e adesso in servizio. Pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/` |
-| **2.4** | **LA VIA DI RITORNO.** `99fc56ba…`, 1.777.772 byte, 4 file. Non porta funzioni nuove: porta la correzione della voce 45 (un ripristino non cancella più il registro) e quella della voce 19 (il parser dell'ODP dichiara l'unità che inventa). **Salta il 2.3 apposta**: quel numero è speso, e due pacchetti con lo stesso nome sono la trappola che qui è già costata tre giorni |
-| **2.2** | **ARCHIVIATA.** E' stata la via di ritorno fino alla 2.4, ed e' stata in servizio il 25/08. Impronta `08ce3f69…`, commit `3c68d0a`, pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.2/`. La via di ritorno adesso e' la **2.4** |
+| **2.6** | **IN SERVIZIO dalla notte del 26/08.** `d3865c53…`, 1.800.084 byte, 4 file. Il servizio dati parla due database — SQLite di serie, PostgreSQL con `PATHFINDER_PG`, che **non e' impostata** — i codici si scrivono in maiuscolo, e l'interfaccia del servizio dati e' diventata asincrona. Il database e' stato normalizzato prima di installarla: voce 54, chiusa |
+| **2.5** | **LA VIA DI RITORNO.** `8ed505b9…`, 1.798.524 byte, 4 file. E' stata in servizio il 26/08, e adesso sta in `precedente`: un `torna-indietro.ps1` la rimette in un comando. Le unita' di misura al carico su 11.115 articoli e il prelievo da ordine. **Si porta dietro la voce 51**: due funzioni mai esercitate da capo a fondo, entrate in servizio con lei e ancora aperte. Pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/` |
+| **2.4** | **ARCHIVIATA.** `99fc56ba…`, 1.777.772 byte, 4 file. Porta la correzione della voce 45 (un ripristino non cancella piu' il registro) e quella della voce 19 (il parser dell'ODP dichiara l'unita' che inventa). **Salta il 2.3 apposta**: quel numero e' speso, e due pacchetti con lo stesso nome sono la trappola che qui e' gia' costata tre giorni |
+| **2.2** | **ARCHIVIATA.** E' stata la via di ritorno fino alla 2.4, ed e' stata in servizio il 25/08. Impronta `08ce3f69…`, commit `3c68d0a`, pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.2/`. La via di ritorno adesso e' la **2.5** |
 | ~~**2.3**~~ | **RITIRATA — ha disfunzionato, ripristino d'emergenza alla 2.2.** Pacchetto e ramo git in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/`. Il problema che voleva risolvere resta aperto: §1 |
 | ~~**1.8 → 2.1**~~ | **ARCHIVIATE.** Sono dentro la 2.2 e non esistono più come lavoro da fare. La 1.8 (UOM riscritta, `feature.colli`), la 1.9 (viste giacenza), la 1.10 (trasferimenti dall'ODP), la 1.11 (il terminale su `--spacing`), la 1.12 (UDC), la 1.13 (motore di stoccaggio), la 1.14 (conto di produzione): scritte, cablate, collaudate e consegnate. Quel che di loro è rimasto aperto **non è la versione, è un interruttore o un dato** — voci 5, 6, 12, 15, 16, 22. La cronaca di come furono costruite sta in §1 |
 
