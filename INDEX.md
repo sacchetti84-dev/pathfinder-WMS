@@ -37,7 +37,7 @@ il magazzino non sta su un file SQLite. Misurato sulla 4173 subito dopo:
 | **database** | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, ruolo `pathfinder` |
 | dove | `C:\Pathfinder\app\corrente` |
 | via di ritorno | `C:\Pathfinder\app\precedente` → **2.6**, `d3865c53…` |
-| collaudi | **1.340 passate**: 1.114 client · 98 di servizio su SQLite · 98 di servizio su PostgreSQL · 8 di migrazione schema · 22 di installazione |
+| collaudi | **1.347 passate**: 1.114 client · 98 di servizio su SQLite · 98 di servizio su PostgreSQL · 8 di migrazione schema · 29 di installazione |
 
 **I due numeri coincidono, e l'impronta è quella del pacchetto costruito.**
 
@@ -1576,6 +1576,7 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Prova |
 |---|---|---|
+| ~~**56**~~ | ~~L'installer non sa consegnare PostgreSQL: una macchina nuova nasce su SQLite~~ | **Chiusa il 26/08 sera.** Il pacchetto porta `prepara-postgres.ps1`, che controlla il motore — psql, `pg_dump`, `pg_restore`, servizio Windows, porta, superuser — e prepara ruolo e database con `LC_COLLATE 'C'`, generando la password invece di farla digitare. Una prima installazione nasce su PostgreSQL; un aggiornamento lascia il magazzino dov'è, e il salto si chiede con `-Database postgresql` — copia a caldo, migrazione, conteggi ricontrollati, e `PATHFINDER_PG` riscritta **solo se si arriva in fondo**. `migrazione/` viaggia nel pacchetto: prima non poteva, perché `migra-sqlite-postgres.js` cercava `maiuscola-codici.cjs` dentro `banco/`, che nel pacchetto non c'è. **Le prove di installazione passano da 22 a 29**, e una di quelle nuove è la trappola qui sotto |
 | ~~**53**~~ | ~~Il backup cambia padrone su PostgreSQL, e non è rifatto~~ | **Chiusa con la 2.7, e provata sul magazzino vero.** `DriverPostgres.backupTo` fa un `pg_dump` in formato custom e **lo rilegge con `pg_restore --list` prima di dichiararlo buono**: se la rilettura fallisce il file si cancella, perché un file lasciato lì si fa contare da chi guarda la cartella. La password non entra nella riga di comando — si legge nell'elenco dei processi — ma in `PGPASSWORD`, nell'ambiente del solo processo figlio. `backup-serale.ps1` non sa quale database c'è dietro: chiede a `/api/backup` e legge il nome dalla risposta; la sua rotazione, che filtrava `pathfinder-*.db`, adesso prende tutte e due le estensioni. **Provato il 26/08 alle 19:09 sul magazzino vero**: `pathfinder-2026-08-26-1909.dump`, 419 KB, 21 tavoli con dati dentro, `exit 0` |
 | ~~**55**~~ | ~~`pg` non era nel servizio installato~~ | **Trovato PRIMA di installare, non dopo.** L'installer reinstallava le dipendenze solo se `node_modules` mancava del tutto, e quella della 2.6 c'era: con `PATHFINDER_PG` accesa il servizio non sarebbe partito e i terminali avrebbero visto bianco. Ora guarda dipendenza per dipendenza come le dichiara `package.json`, nomina quale manca, e si ferma se dopo `npm install` ne manca ancora una. All'installazione della 2.7 ha scritto `Dipendenze del servizio da installare: pg` e ne ha aggiunte 14 |
 | ~~**54**~~ | ~~Il database in servizio non è normalizzato, e la 2.6 lo pretende~~ | **Raddrizzato la notte del 26/08, prima di installare la 2.6, e misurato dopo.** Servizio fermo, backup fresco delle 02:50 (`banco/db/pathfinder-2026-08-26.db`), prova a vuoto che ha detto gli stessi numeri della copia — 53 righe e 1 fusione — e solo allora `--scrivi`. Misurato sulla 4173 a servizio ripartito: **0 codici minuscoli su 886 giacenze e 320 movimenti**, la riga doppia di `MAG1-RAKA-01-05-C` è **una sola da 6**, e il registro porta l'`EDIT` che lo spiega con dentro le due chiavi di partenza. La firma `SISTEMA` è entrata in anagrafica disattivata e senza PIN: **nessuna firma orfana**, la voce 18 regge |
@@ -1671,7 +1672,7 @@ riga che dava il progetto al 31/12/2026, con ultima installazione utile il
 
 | Versione | Stato |
 |---|---|
-| **2.7** | **IN SERVIZIO dal 26/08 sera, E GIRA SU POSTGRESQL.** `17cb722b…`, 1.800.084 byte, 4 file. Non porta funzioni nuove all'applicativo: porta il **backup su PostgreSQL** — `pg_dump` riletto prima di essere dichiarato buono — e l'installer che sa accendere il database con `-PostgreSQL`, controlla le dipendenze per nome, e verifica il database giusto dei due |
+| **2.7** | **IN SERVIZIO dal 26/08 sera, E GIRA SU POSTGRESQL.** `17cb722b…`, 1.800.084 byte, 4 file. Non porta funzioni nuove all'applicativo: porta il **backup su PostgreSQL** — `pg_dump` riletto prima di essere dichiarato buono — e l'installer che sa accendere il database con `-PostgreSQL`, controlla le dipendenze per nome, e verifica il database giusto dei due. **Dal 26/08 sera sa anche consegnarlo**: controlla PostgreSQL, prepara ruolo e database, e sul salto migra i dati — §4 |
 | **2.6** | **LA VIA DI RITORNO.** `d3865c53…`, 1.800.084 byte, 4 file. La prima che ha parlato due database, i codici in maiuscolo, l'interfaccia del servizio dati asincrona. **Tornare a lei vuol dire tornare a SQLite**: conosce `PATHFINDER_PG` ma non sa farci il backup, e alle 20:00 copierebbe un file fermo scrivendo OK. Byte in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.6/`, servizio al commit `9796048` |
 | **2.5** | **ARCHIVIATA.** `8ed505b9…`, 1.798.524 byte, 4 file. Le unità di misura al carico su 11.115 articoli e il prelievo da ordine. **Si porta dietro la voce 51**, ancora aperta. Pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/` |
 | **2.4** | **ARCHIVIATA.** `99fc56ba…`, 1.777.772 byte, 4 file. Porta la correzione della voce 45 (un ripristino non cancella piu' il registro) e quella della voce 19 (il parser dell'ODP dichiara l'unita' che inventa). **Salta il 2.3 apposta**: quel numero e' speso, e due pacchetti con lo stesso nome sono la trappola che qui e' gia' costata tre giorni |
@@ -1902,7 +1903,7 @@ npm test         # vitest, 28 suite, 811 prove
 ```bash
 node test/collaudo.js                    # 85 prove sul servizio, da server/
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server/
-node test/collaudo-installazione.js      # 17 prove sugli script di installazione, da server/
+node test/collaudo-installazione.js      # 29 prove sugli script di installazione, da server/
 ```
 
 `SINGLE_FILE=1 npm run build` riproduce il file unico di prima: è la via d'uscita
@@ -1987,11 +1988,69 @@ L'installer **capisce da solo** cosa ha davanti.
 
 - **Prima installazione**: chiede **dove** — INVIO accetta `C:\Pathfinder` — e da
   quella cartella discendono `servizio\`, `app\`, `data\` e `backup\`. Poi fa
-  tutto: copia il servizio, registra l'avvio all'accensione e il backup serale,
-  apre la porta sul firewall, crea il database, installa l'applicativo.
+  tutto: prepara ruolo e database su PostgreSQL, copia il servizio, registra
+  l'avvio all'accensione e il backup serale, apre la porta sul firewall,
+  installa l'applicativo.
 - **Aggiornamento**: **non** chiede dove, lo rilegge da `PATHFINDER_APP_DIR`, e
   una radice diversa la **rifiuta** — spostare un'installazione non è
   installare. Ferma il servizio, copia applicativo **e** servizio, lo riaccende.
+
+### DALLA 2.7 L'INSTALLER PORTA ANCHE IL DATABASE
+
+**Una prima installazione nasce su PostgreSQL**, che è quello che gira in
+magazzino dal 26/08. Fino alla 2.6 il pacchetto sapeva installare solo sul
+file, e il passaggio a PostgreSQL era un gesto a mano, fatto una volta su
+questa macchina e su nessun'altra: chi avesse installato Pathfinder altrove
+sarebbe partito su SQLite senza saperlo.
+
+**IL MOTORE NON LO INSTALLA E NON LO SCARICA.** `prepara-postgres.ps1`
+controlla che ci sia — psql, `pg_dump`, `pg_restore`, il servizio Windows, la
+porta — e se manca dice dove si prende e **si ferma senza toccare niente**. È
+la stessa regola per cui il servizio dati è un'attività pianificata e non un
+binario preso da internet: su un PC di magazzino un download è l'antivirus che
+blocca, l'IT che chiede conto e nessuno che sappia più perché si è fermo.
+`pg_dump` e `pg_restore` si guardano **prima**, non alla prima sera utile: su
+PostgreSQL il backup è fatto di quei due, e un magazzino che gira senza via di
+casa non è un'installazione riuscita.
+
+**LA PASSWORD DEL RUOLO LA GENERA L'INSTALLER, e nessuno la digita.** Il 26/08
+il segnaposto `LA-TUA` è finito dentro la variabile di macchina e il servizio
+non è partito: una password che nessuno scrive è una password che nessuno
+sbaglia a sostituire. L'alfabeto è quello che in un URL vale se stesso — una
+`@` dentro una password spezza la stringa di connessione, e il servizio
+finirebbe a cercare un host che non esiste. Si vede **una volta sola** a
+schermo, e poi vive solo in `PATHFINDER_PG`. Serve invece, **una volta**, la
+password di `postgres`: la chiede la finestra **elevata**, e non passa mai per
+la riga di comando — lì la leggerebbe chiunque apra Gestione attività.
+
+**IL DATABASE CHE STA GIÀ SERVENDO UN MAGAZZINO NON SI TOCCA.** Se la stringa
+che la macchina ha in mano risponde, non si crea niente e non si rigenera
+nessuna password: rigenerarla vorrebbe dire fermare il magazzino per
+rimetterlo com'era.
+
+**AGGIORNANDO, IL DATABASE RESTA QUELLO SU CUI SI TROVA.** Vale la regola con
+cui la 2.6 è entrata: si installa un turno e si accende quello dopo. Il
+passaggio si chiede a voce:
+
+```powershell
+.\installa.ps1 -Database postgresql   # da SQLite a PostgreSQL, MIGRANDO i dati
+.\installa.ps1 -Database sqlite       # sul file, come fino alla 2.6
+```
+
+Il passaggio fa, in quest'ordine: chiede al **servizio ancora acceso** una
+copia a caldo del file — un SQLite aperto ha un WAL accanto e con `Copy-Item`
+si porta via un database a metà —, ferma, rinfresca il servizio e le sue
+dipendenze, migra quella copia ricontrollando i conteggi tavolo per tavolo, e
+solo **se arriva in fondo** riscrive `PATHFINDER_PG` e riaccende. Una
+migrazione fallita a metà lascia il magazzino dov'era, sul file, che è intatto.
+**Non si scrive sopra un database che ha già dei tavoli dentro**: si rifiuta, e
+chi vuole partire vuoto lo chiede con `-SenzaMigrazione`.
+
+Dall'altra parte **non si torna con l'installer**: `-Database sqlite` su una
+macchina già su PostgreSQL viene rifiutato. Quel file è fermo al giorno del
+passaggio, e quello che si è scritto dopo non rientra da solo — il gesto
+d'emergenza resta `installa-servizio.ps1` senza `-PostgreSQL`, ed è scritto
+qui sopra.
 
 **L'autorizzazione di Windows serve adesso a ogni installazione**, non più solo
 alla prima: fermare un'attività pianificata che gira come SYSTEM la vuole. E
@@ -2128,6 +2187,22 @@ Non ha fatto danni perché **il servizio si rifiuta di partire senza
 database** — meglio fermo che vivo e senza — ma la lezione è sull'altro lato:
 un comando da incollare con dentro un buco da riempire, prima o poi si incolla
 intero. Meglio farselo comporre, o passarlo da un file.
+
+**`Start-Process -ArgumentList` NON METTE LE VIRGOLETTE, e psql non
+protesta — 26/08.** `-ArgumentList @('-c', 'SELECT count(*) FROM x')` non
+passa due argomenti: incolla l'elenco con degli spazi in mezzo, e psql riceve
+`-c SELECT` e poi `count(*)` come se fosse il nome del database. Il guaio è
+che **esce con 0**, e senza niente in mano: chi legge la risposta trova una
+stringa vuota, `[int]''` fa **0**, e uno zero lì dentro voleva dire «nessun
+tavolo, database vuoto, ci si può migrare sopra» — su un magazzino con 11.197
+articoli. Trovato provando `prepara-postgres.ps1` contro il database vero,
+che ha risposto `vuoto: True` avendo 21 tavoli dentro.
+
+Due correzioni, e servono tutte e due: le virgolette si mettono a mano con la
+regola di Windows, e **una risposta vuota non è uno zero** — si pretende una
+cifra (`-match '^\d+$'`), o non si conclude niente. La query per giunta viaggia
+in un file con `-f`, non in riga di comando: lì la vedrebbe chiunque, e da lì
+passano nomi di ruolo e, con `ALTER ROLE`, una password.
 
 **Le barre rovesciate non sopravvivono a due livelli di virgolette.**
 `'C:\Pathfinder\data\pathfinder.db'` dentro un `node -e "…"` lanciato da
@@ -3054,13 +3129,14 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 | `lib/schema-postgres.js` | 133 | Il DDL PostgreSQL, generato dalla **stessa** dichiarazione. Ogni colonna di testo porta `COLLATE "C"`: senza, `ORDER BY location_code` esce in un altro ordine e il magazzino vede le corsie rimescolate. **Salito da `azure/` in `lib/` con la 2.6**, perché il servizio lo esegue e `azure/` è escluso da `tsconfig.server.json` |
 | `installa-pathfinder.ps1` | — | **L'installer**: chiede dove installare la prima volta e la rilegge dalla macchina aggiornando, capisce se è aggiornamento o prima installazione, si eleva **sempre** (ferma il servizio), porta applicativo **e** servizio, riavvia, e verifica che i due numeri coincidano. Nel pacchetto diventa `installa.ps1`. `-NonChiedere` per provarlo senza una persona davanti, **`-Prova`** per fargli dire cosa farebbe senza toccare niente |
 | `Installa Pathfinder.bat` · `LEGGIMI-pacchetto.txt` | — | Il doppio clic e le istruzioni per chi installa. Nel pacchetto diventano `Installa Pathfinder.bat` e `LEGGIMI.txt` |
-| `installa-servizio.ps1` | — | Registra le due attività pianificate e le variabili. Da amministratore, **una volta**, **dal sorgente** o dalla copia in `C:\Pathfinder\servizio` |
+| `installa-servizio.ps1` | — | Registra le due attività pianificate e le variabili, **`PATHFINDER_PG` compresa**. Da amministratore, **una volta**, **dal sorgente** o dalla copia in `C:\Pathfinder\servizio` |
+| `prepara-postgres.ps1` | — | **2.7 — controlla PostgreSQL e prepara ruolo e database.** Binari (psql, pg_dump, pg_restore), servizio Windows, porta, superuser, poi `CREATE ROLE` e `CREATE DATABASE` con `LC_COLLATE 'C'`. **Il motore non lo installa e non lo scarica**: se manca, dice dove si prende e si ferma. La password del ruolo la **genera**, con un alfabeto che in un URL non va codificato, e la mostra una volta sola. `-Prova` guarda e non tocca |
 | `installa-versione.ps1` | — | **Disinstalla e reinstalla**: toglie dal deposito la cartella di quel numero, la riscrive con i byte del pacchetto e la **materializza** in `corrente`, spostando in `precedente` quella che c'era. Avvolge anche una consegna a file singolo. `-Casa` per il banco |
 | `torna-indietro.ps1` | — | Scambia il contenuto di `corrente` e `precedente`. **Riporta indietro il solo applicativo**, non il servizio: dal 18/08 si torna indietro reinstallando il pacchetto della versione di prima — §4 |
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata delle 20:00 |
-| `azure/schema-postgres.js` · `azure/migra-sqlite-postgres.js` · `azure/LEGGIMI.md` | — | **2.1 — il ramo parallelo, che non è in servizio e non lo chiama nessuno.** Lo schema PostgreSQL si genera dalla **stessa** dichiarazione di `lib/schema.js`, non da una copia; la migrazione copia una COPIA del database e ricontrolla i conteggi tavolo per tavolo. `pg` **non è** una dipendenza del progetto, ed è voluto: si installa con `--no-save` chi vuole provare. `server/azure` è escluso da `tsconfig.server.json` per la stessa ragione |
+| `migrazione/migra-sqlite-postgres.js` · `migrazione/audit.js` · `migrazione/audit-sqlite.js` · `migrazione/maiuscola-codici.cjs` · `migrazione/LEGGIMI.md` | — | **2.7 — si chiamava `azure/`, e adesso VIAGGIA NEL PACCHETTO.** Migra una COPIA del database e ricontrolla i conteggi tavolo per tavolo; prima di copiare gira l'audit e si ferma se ci sono valori che PostgreSQL rifiuta o grafie che collidono. `maiuscola-codici.cjs` è sceso qui **da `banco/`**, che nel pacchetto non c'è: finché stava lì, `migra-sqlite-postgres.js` non si poteva consegnare — su una macchina di magazzino `require('../../banco/...')` non risolve. `azure/schema-postgres.js` è stato **cancellato**: era il gemello di `lib/schema-postgres.js`, e non lo chiamava più nessuno dalla 2.6 |
 | `test/collaudo.js` · `test/collaudo-migrazione-1.4.js` | 520 · 158 | 81 prove sul servizio vero · 8 sul cambio di schema |
-| `test/collaudo-installazione.js` | — | **22 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte; e l'**installer a doppio clic** in `-Prova`, che è il modo di provarlo senza registrare attività pianificate su questa macchina |
+| `test/collaudo-installazione.js` | — | **29 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte; e l'**installer a doppio clic** in `-Prova`, che è il modo di provarlo senza registrare attività pianificate su questa macchina |
 
 ### Collaudi — `test/`
 

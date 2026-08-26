@@ -48,17 +48,20 @@
   },
   "include": ["server/**/*.js", "src/types/**/*.ts"],
 
-  /* 2.1 — `server/azure/` NON È IL SERVIZIO, ed è escluso apposta.
+  /* `server/migrazione/` NON È IL SERVIZIO, ed è escluso apposta — 2.7.
 
-     È il ramo parallelo verso PostgreSQL: non lo chiama nessuno, e il suo
-     script di migrazione richiede `pg`, che NON è una dipendenza del
-     progetto — §6, «niente dipendenze nuove senza motivo forte», e un ramo
-     che non è in servizio non è un motivo forte. Con `checkJs` acceso, un
-     `require('pg')` dentro il perimetro del servizio fa fallire
-     `npm run check` su una libreria che nessuno ha chiesto di installare.
+     Fino alla 2.5 si chiamava `server/azure/` ed era il ramo parallelo verso
+     PostgreSQL, che non chiamava nessuno. Adesso PostgreSQL è in servizio e
+     il driver sta in `lib/`: qui restano la migrazione e l'audit, cioè i
+     gesti che si passano UNA VOLTA su una macchina, non a ogni richiesta.
 
-     Quel ramo non resta comunque senza rete: `test/schemaPostgres.test.js`
-     gira a ogni `npm test` e controlla che il suo schema descriva le stesse
-     venti collezioni che il servizio usa oggi. */
-  "exclude": ["server/node_modules", "node_modules", "server/azure"]
+     Restano fuori dal controllo dei tipi perché `checkJs` è acceso e questi
+     file leggono un database SQLite con `node:sqlite` per riscriverne un
+     altro: sono due vocabolari insieme, e le annotazioni che servirebbero a
+     farli convivere sarebbero cerimonia su codice che gira una volta.
+
+     Senza rete non restano: `test/schemaPostgres.test.js` controlla che lo
+     schema descriva le stesse venti collezioni del servizio, e
+     `test/auditMigrazione.test.js` esercita l'audit a ogni `npm test`. */
+  "exclude": ["server/node_modules", "node_modules", "server/migrazione"]
 }

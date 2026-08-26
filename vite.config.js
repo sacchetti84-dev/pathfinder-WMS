@@ -27,9 +27,11 @@ const UNICO = process.env.SINGLE_FILE === '1';
 
 const DAL_SERVIZIO = [
   'pathfinder-server.js',   // il servizio
-  'lib',                    // SQLite e lo schema
+  'lib',                    // i due driver e lo schema
   'installa-servizio.ps1',  // l'installazione, in un comando
   'installa-versione.ps1',  // lo scambio di giunzione, senza amministratore
+  'prepara-postgres.ps1',   // 2.7 — controlla PostgreSQL e prepara ruolo e database
+  'migrazione',             // 2.7 — il passaggio da SQLite a PostgreSQL, e l'audit
   'torna-indietro.ps1',     // il ritorno indietro, un comando
   'backup-serale.ps1',      // il backup che l'installazione registra
   'test',                   // il collaudo: si verifica l'installazione appena fatta

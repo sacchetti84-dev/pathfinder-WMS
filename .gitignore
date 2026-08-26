@@ -76,10 +76,10 @@ banco/ciclo/esito.json
 # leggono la produzione dalle rotte del servizio, e la produzione non sta
 # qui dentro.
 !banco/campo-fantasma.cjs
-# ECCEZIONE — `maiuscola-codici.cjs` si passa una volta sola, come
-# `campo-fantasma.cjs`, ma la voce 54 dell'INDEX manda a lanciarlo: uno script
-# citato per nome e assente dal repository e' una riga che non si puo' seguire.
-!banco/maiuscola-codici.cjs
+# `maiuscola-codici.cjs` NON STA PIU' QUI: e' sceso in `server/migrazione/`
+# insieme alla migrazione, che lo chiama. Finche' stava in `banco/` la
+# migrazione non si poteva consegnare — il pacchetto non porta il banco, e
+# `require('../../banco/...')` su una macchina di magazzino non risolve.
 
 # Rumore di Windows e degli editor.
 Thumbs.db

@@ -157,6 +157,12 @@ try {
   fs.mkdirSync(path.join(pacchetto, 'servizio'), { recursive: true });
   fs.writeFileSync(path.join(pacchetto, 'servizio', 'pathfinder-server.js'), '// finto');
   fs.copyFileSync(path.join(SERVER, 'installa-pathfinder.ps1'), path.join(pacchetto, 'installa.ps1'));
+  /* 2.7 — il pacchetto porta anche chi prepara il database, e l'installer
+     lo pretende: senza, un'installazione su PostgreSQL si accorgerebbe che
+     manca a meta' strada, a servizio gia' fermo. Qui e' quello VERO, non un
+     finto: alcune prove lo eseguono. */
+  fs.copyFileSync(path.join(SERVER, 'prepara-postgres.ps1'),
+                  path.join(pacchetto, 'servizio', 'prepara-postgres.ps1'));
 
   const prova = (argomenti) => execFileSync('powershell', [
     '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(pacchetto, 'installa.ps1'),
@@ -195,6 +201,121 @@ try {
   } catch (e) { respintaRadice = true; dettoRadice = (e.stdout || '') + (e.stderr || ''); }
   ok('e una radice diversa da quella installata viene rifiutata',
      respintaRadice && /non e.* installare/i.test(dettoRadice));
+
+  /* ── 2.7 · IL DATABASE ───────────────────────────────────────────────────
+     Dalla 2.7 un'installazione decide anche SU COSA finisce il magazzino, e
+     quella decisione va detta a schermo prima di premere: dedurla dai valori
+     di serie e' esattamente come non dirla. */
+
+  ok('la prova dice su quale database si finirebbe',
+     /Database/i.test(detto) && /(PostgreSQL|SQLite)/.test(detto));
+
+  /* -Database sqlite resta la via di casa, e non deve pretendere PostgreSQL:
+     una macchina senza il motore installato deve poter installare lo stesso.
+     Su una macchina gia' su PostgreSQL invece si rifiuta, ed e' l'altro ramo
+     di questa stessa prova. */
+  /* SI LEGGE DALLA MACCHINA, non da `process.env`. La variabile e' di
+     macchina, e un processo nato prima che venisse impostata non ce l'ha:
+     questa shell e' esattamente uno di quelli, e il collaudo concluderebbe
+     «SQLite» su una macchina che gira su PostgreSQL.
+     Solo SE c'e', mai il contenuto: dentro c'e' la password del database, e
+     un collaudo che la stampa la mette in un registro. */
+  const suPostgres = /SI/.test(execFileSync('powershell', ['-NoProfile', '-Command',
+    'if ([Environment]::GetEnvironmentVariable("PATHFINDER_PG","Machine")) { "SI" } else { "NO" }'],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }));
+
+  let dettoSqlite = '';
+  let respintoSqlite = false;
+  try { dettoSqlite = prova(['-Database', 'sqlite']); }
+  catch (e) { respintoSqlite = true; dettoSqlite = (e.stdout || '') + (e.stderr || ''); }
+
+  if (suPostgres) {
+    /* TORNARE INDIETRO DA POSTGRESQL NON E' UN'INSTALLAZIONE. Il file SQLite
+       e' fermo al giorno del passaggio, e quello che si e' scritto dopo non
+       rientra da solo: l'installer si rifiuta e manda al gesto giusto. */
+    ok('su una macchina su PostgreSQL, -Database sqlite viene RIFIUTATO',
+       respintoSqlite && /non rientra da solo/i.test(dettoSqlite));
+  } else {
+    ok('-Database sqlite resta la via di casa, e non pretende PostgreSQL',
+       !respintoSqlite && /SQLite/.test(dettoSqlite));
+  }
+
+  /* Un pacchetto senza chi prepara il database si ferma PRIMA, non a meta'.
+     E' la stessa ragione per cui si controlla index.html: accorgersene a
+     servizio fermo vuol dire un magazzino giu' per un file mancante. */
+  const monco = path.join(CONSEGNE, 'monco');
+  fs.cpSync(pacchetto, monco, { recursive: true });
+  fs.rmSync(path.join(monco, 'servizio', 'prepara-postgres.ps1'), { force: true });
+  let respintoMonco = false;
+  let dettoMonco = '';
+  try {
+    dettoMonco = execFileSync('powershell', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', path.join(monco, 'installa.ps1'),
+      '-NonChiedere', '-Prova',
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) { respintoMonco = true; dettoMonco = (e.stdout || '') + (e.stderr || ''); }
+  ok('un pacchetto senza prepara-postgres.ps1 viene respinto subito',
+     respintoMonco && /Pacchetto incompleto/i.test(dettoMonco) && /prepara-postgres/.test(dettoMonco));
+
+  /* ── prepara-postgres.ps1, guardato da solo ─────────────────────────────
+     La sua -Prova non scrive niente e si puo' lanciare su una macchina in
+     servizio: e' l'unico modo di sapere se il motore c'e' senza scoprirlo a
+     meta' installazione. Il collaudo non pretende che PostgreSQL ci sia —
+     pretende che lo script lo DICA, in un verso o nell'altro. */
+  const preparaPg = path.join(pacchetto, 'servizio', 'prepara-postgres.ps1');
+  let dettoPg = '';
+  try {
+    dettoPg = execFileSync('powershell', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', preparaPg, '-Prova', '-NonChiedere',
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) { dettoPg = (e.stdout || '') + (e.stderr || ''); }
+  ok('prepara-postgres dice se il motore c\'e\' o se manca, e non lascia dubbi',
+     /PostgreSQL/.test(dettoPg) &&
+     (/nessuna modifica/i.test(dettoPg) || /non risulta installato/i.test(dettoPg)));
+
+  /* UNA RISPOSTA VUOTA NON E' UNO ZERO, e uno zero qui vuol dire «migraci
+     sopra». `Start-Process -ArgumentList` NON mette le virgolette: incolla
+     l'elenco con degli spazi in mezzo, e una query con gli spazi dentro
+     arriva a psql spezzata. psql non protesta — esce con 0 e senza niente in
+     mano — e lo script concludeva «nessun tavolo» su un magazzino con undici
+     mila articoli dentro. E' la direzione peggiore in cui sbagliare, ed e'
+     il conteggio da cui dipende il rifiuto di scrivere sopra dei dati.
+
+     Si prova contro il database VERO di questa macchina, che di tavoli ne ha:
+     la risposta giusta e' «non e' vuoto». Della stringa si legge solo se c'e'
+     — dentro c'e' la password. */
+  if (suPostgres) {
+    const dettoConteggio = execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command',
+      `& '${preparaPg}' -Prova -NonChiedere -StringaEsistente ` +
+      '([Environment]::GetEnvironmentVariable("PATHFINDER_PG","Machine"))' +
+      ' | ForEach-Object { "VUOTO=" + $_.vuoto }'],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+    ok('il conteggio dei tavoli vede quelli che ci sono, e non conclude «vuoto»',
+       /VUOTO=False/.test(dettoConteggio));
+  }
+
+  /* Anche qui un parametro scartato in silenzio significherebbe preparare un
+     database credendo di guardarlo. */
+  let respintoArgPg = false;
+  let dettoArgPg = '';
+  try {
+    dettoArgPg = execFileSync('powershell', [
+      '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', preparaPg, '-Prova', '-ParametroCheNonEsiste',
+    ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
+  } catch (e) { respintoArgPg = true; dettoArgPg = (e.stdout || '') + (e.stderr || ''); }
+  ok('un argomento che non esiste ferma anche prepara-postgres',
+     respintoArgPg && /non tocco niente/i.test(dettoArgPg));
+
+  /* LA PASSWORD DEL SUPERUSER NON PASSA PER LA RIGA DI COMANDO della
+     finestra elevata: la legge chiunque apra Gestione attivita'. Si guarda
+     nel codice, perche' e' l'unico posto dove si puo' vedere prima che
+     succeda. */
+  const sorgenteInstaller = fs.readFileSync(path.join(SERVER, 'installa-pathfinder.ps1'), 'utf8');
+  const bloccoElevazione = sorgenteInstaller.slice(
+    sorgenteInstaller.indexOf('$argomenti = @('),
+    sorgenteInstaller.indexOf('Start-Process powershell -Verb RunAs'));
+  ok('la password del superuser NON viene passata alla finestra elevata',
+     bloccoElevazione.length > 0 && !/PasswordSuperuser/.test(bloccoElevazione));
 
 } catch (err) {
   fallite++;

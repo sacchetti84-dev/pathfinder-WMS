@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 
 /* LA MIGRAZIONE DA SQLITE A POSTGRESQL — 2.1, aggiornata nella 2.6.
    © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
@@ -15,7 +15,7 @@
    · prima di copiare gira l'audit, e la migrazione si FERMA se il database
      di partenza ha valori che PostgreSQL rifiuta o grafie che collidono.
 
-     node server/azure/migra-sqlite-postgres.js --da "banco\\db\\pathfinder-<data>.db" --prova
+     node server/migrazione/migra-sqlite-postgres.js --da "banco\\db\\pathfinder-<data>.db" --prova
 
    `--prova` legge, conta e non scrive: è il modo di sapere quanto c'è
    dentro e se il file si apre, senza aver ancora acceso niente dall'altra
@@ -51,7 +51,7 @@ const { NAMES, COLLECTIONS, normalizza } = require('../lib/schema');
 const { schemaCompleto } = require('../lib/schema-postgres');
 const SQL = require('../lib/sql');
 const { analizza: analizzaAudit } = require('./audit-sqlite');
-const { analizza: analizzaMaiuscole } = require('../../banco/maiuscola-codici.cjs');
+const { analizza: analizzaMaiuscole } = require('./maiuscola-codici.cjs');
 
 function argomento(nome, ripiego = null) {
   const i = process.argv.indexOf(nome);
@@ -180,7 +180,7 @@ function guardiaDatiSporchi(db) {
     esci(
       `Il database di partenza ha ${audit.blocchi} valori che PostgreSQL rifiuta:\n    ${dettaglio}\n`
       + `\n  Si guardano per esteso con:\n`
-      + `    node server/azure/audit-sqlite.js --da "<file>"`);
+      + `    node server/migrazione/audit-sqlite.js --da "<file>"`);
   }
 
   const mai = analizzaMaiuscole(db);
@@ -190,7 +190,7 @@ function guardiaDatiSporchi(db) {
     esci(
       `Maiuscolando i codici, ${scontri.length} gruppi di righe collidono su una chiave sola:\n    ${elenco}\n`
       + `\n  Vanno risolti PRIMA, sulla copia, con:\n`
-      + `    node banco/maiuscola-codici.cjs --da "<file>" --scrivi`);
+      + `    node server/migrazione/maiuscola-codici.cjs --da "<file>" --scrivi`);
   }
   return audit;
 }

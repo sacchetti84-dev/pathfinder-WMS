@@ -37,8 +37,26 @@
   codice in esecuzione. Un pacchetto su una chiavetta e' la stessa trappola,
   con la chiavetta che si sfila.
 
+  QUALE DATABASE, dalla 2.7. Una prima installazione nasce su PostgreSQL: e'
+  quello che gira in magazzino dal 26/08/2026, ed e' l'unico dei due che
+  regge piu' terminali che scrivono insieme. Il motore NON viene installato
+  da qui — si controlla che ci sia, e se manca ci si ferma dicendo dove si
+  prende: §5 ha gia' pagato una volta il prezzo di un binario scaricato su un
+  PC di magazzino. Ruolo, database e password li prepara
+  `prepara-postgres.ps1`, e la password non la digita nessuno.
+    .\installa.ps1 -Database sqlite         installa sul file, come la 2.5
+    .\installa.ps1 -Database postgresql     su una macchina gia' in servizio:
+                                            porta il magazzino da SQLite a
+                                            PostgreSQL, migrando i dati
+
+  AGGIORNANDO IL DATABASE NON SI TOCCA. Vale la regola del 26/08: si installa
+  un turno e si accende quello dopo. Un aggiornamento lascia il magazzino sul
+  database su cui lo trova, e il passaggio si chiede a voce con -Database.
+
   PER PROVARLO SENZA TOCCARE NIENTE:  .\installa.ps1 -NonChiedere -Prova
-  Dice cosa farebbe — dove, quale versione, quale strada — ed esce.
+  Dice cosa farebbe — dove, quale versione, quale strada, quale database —
+  ed esce. Guarda anche PostgreSQL, e su una macchina in servizio si puo'
+  lanciare senza conseguenze.
 #>
 
 param(
@@ -60,7 +78,25 @@ param(
     [string]$Radice = '',
     # Solo il banco: la casa delle versioni, se diversa da <radice>\app. Con
     # una casa finta l'installer non tocca niente di questa macchina.
-    [string]$Casa = ''
+    [string]$Casa = '',
+
+    # ── 2.7 · Quale database ───────────────────────────────────────────────
+    # 'postgresql'  prima installazione: prepara ruolo e database e ci parte.
+    #               Su una macchina gia' in servizio su SQLite: MIGRA i dati.
+    # 'sqlite'      il file, come fino alla 2.6. Resta la via di casa.
+    # ''            aggiornando, il default: si lascia quello che c'e'.
+    [ValidateSet('', 'postgresql', 'sqlite')]
+    [string]$Database = '',
+    [string]$IndirizzoPostgreSQL = '127.0.0.1',
+    [int]$PortaPostgreSQL = 5432,
+    [string]$NomeDatabasePostgreSQL = 'pathfinder',
+    [string]$RuoloPostgreSQL = 'pathfinder',
+    # La password dell'utente «postgres», che serve UNA VOLTA a creare ruolo e
+    # database. Non fornendola la si chiede, mascherata. Non viene salvata.
+    [string]$PasswordSuperuser = '',
+    # Passando da SQLite a PostgreSQL: non migrare i dati, partire vuoti. E'
+    # il caso di una macchina nuova che ha un SQLite di prova dentro.
+    [switch]$SenzaMigrazione
 )
 
 $ErrorActionPreference = 'Stop'
@@ -90,6 +126,11 @@ $Servizio = Join-Path $Qui 'servizio'
 $Indirizzo = "http://localhost:$Porta/"
 $RADICE_PREDEFINITA = 'C:\Pathfinder'
 $NomeAttivita = 'Pathfinder - Servizio dati'
+# Si esegue DAL PACCHETTO, non dalla macchina: prepara PostgreSQL prima che
+# il servizio esista, e la logica di preparazione e' quella di questa
+# versione, non quella del giorno in cui la macchina e' nata.
+$PreparaPg = Join-Path $Servizio 'prepara-postgres.ps1'
+$Migrazione = Join-Path $Servizio 'migrazione\migra-sqlite-postgres.js'
 
 function Titolo($testo) {
     Write-Host ""
@@ -147,6 +188,79 @@ function Controlla-Radice([string]$percorso) {
 # Fermare e riaccendere il servizio dati. Non basta l'attivita' pianificata:
 # un'istanza avviata a mano tiene la porta, e da fuori sembrerebbe che il
 # riavvio non abbia avuto effetto — e' la stessa guardia di installa-servizio.
+# LE DIPENDENZE NON VIAGGIANO NEL PACCHETTO, e `node_modules` che ESISTE non
+# vuol dire che sia quello giusto — 2.7.
+#
+# Fino alla 2.6 qui si guardava solo se la cartella c'era. Bastava finche'
+# l'elenco delle dipendenze non cambiava mai; la 2.7 ha aggiunto `pg`, e una
+# `node_modules` rimasta dalla 2.6 avrebbe superato il controllo lasciando il
+# servizio senza il driver. Con PATHFINDER_PG impostata non sarebbe partito
+# affatto: i terminali vedono bianco e il magazzino si ferma.
+#
+# Si guarda dipendenza per dipendenza, come le dichiara package.json.
+function Assicura-Dipendenze([string]$casa) {
+    $nm = Join-Path $casa 'node_modules'
+    $dichiarate = @()
+    try {
+        $pkg = Get-Content (Join-Path $casa 'package.json') -Raw | ConvertFrom-Json
+        if ($pkg.dependencies) { $dichiarate = @($pkg.dependencies.PSObject.Properties.Name) }
+    } catch { }
+    $mancanti = @($dichiarate | Where-Object { -not (Test-Path (Join-Path $nm $_)) })
+
+    if ((-not (Test-Path $nm)) -or $mancanti.Count -gt 0) {
+        if ($mancanti.Count -gt 0) {
+            Write-Host "   Dipendenze del servizio da installare: $($mancanti -join ', ')" -ForegroundColor Yellow
+        } else {
+            Write-Host '   Dipendenze del servizio mancanti: le installo...' -ForegroundColor Yellow
+        }
+        Push-Location $casa
+        npm install --omit=dev --no-audit --no-fund
+        Pop-Location
+
+        # NON SI VA AVANTI SPERANDO. Se dopo npm install ne manca ancora una,
+        # il servizio non partira': meglio fermare l'installazione adesso, con
+        # scritto quale, che riavviarlo e scoprirlo domani.
+        $ancora = @($dichiarate | Where-Object { -not (Test-Path (Join-Path $nm $_)) })
+        if ($ancora.Count -gt 0) {
+            throw "Dopo npm install mancano ancora: $($ancora -join ', '). Il servizio non partirebbe."
+        }
+    }
+}
+
+# ── Il passaggio dei dati da SQLite a PostgreSQL ───────────────────────────
+# NON MIGRA IL DATABASE IN SERVIZIO, ma la copia a caldo che il servizio ha
+# appena scritto. E non scrive sopra niente: se dall'altra parte c'e' gia'
+# roba, si ferma. Una migrazione che si sovrappone a un magazzino esistente
+# e' il modo di perdere due magazzini invece di uno.
+function Migra-SuPostgres([string]$casa, [string]$copia, [string]$stringa) {
+    $scriptMigra = Join-Path $casa 'migrazione\migra-sqlite-postgres.js'
+    if (-not (Test-Path $scriptMigra)) {
+        throw "Non trovo ${scriptMigra}: il pacchetto non porta la migrazione, e senza non si passa a PostgreSQL."
+    }
+    if (-not $preparato.vuoto) {
+        throw ("Il database «$NomeDatabasePostgreSQL» ha gia' dei tavoli dentro: non ci scrivo sopra. " +
+               "Per partire comunque, senza portare i dati:  -SenzaMigrazione")
+    }
+
+    Write-Host "   Migro i dati su PostgreSQL. Puo' volerci qualche minuto..." -ForegroundColor Yellow
+
+    # La stringa entra dall'ambiente di QUESTO processo, che node eredita: in
+    # un parametro di riga di comando la leggerebbe chiunque.
+    $vecchia = $env:PATHFINDER_PG
+    $env:PATHFINDER_PG = $stringa
+    try {
+        $global:LASTEXITCODE = 0
+        & node $scriptMigra '--da' $copia
+        if ($LASTEXITCODE -ne 0) {
+            throw ("La migrazione dei dati non e' riuscita — quello che dice sta qui sopra.`n" +
+                   "   Niente e' andato perso: il file SQLite e' intatto e il servizio riparte da li'.")
+        }
+    } finally {
+        $env:PATHFINDER_PG = $vecchia
+    }
+    Riga 'Migrazione' 'riuscita, e i conteggi tornano tavolo per tavolo' 'Green'
+}
+
 function Riavvia-Servizio {
     if (-not (Get-ScheduledTask -TaskName $NomeAttivita -ErrorAction SilentlyContinue)) {
         Errore ("L'attivita' pianificata «$NomeAttivita» non risulta registrata.`n" +
@@ -163,6 +277,9 @@ function Riavvia-Servizio {
 # ── Il pacchetto e' completo? ──────────────────────────────────────────────
 if (-not (Test-Path (Join-Path $App 'index.html'))) { Errore "Pacchetto incompleto: manca app\index.html accanto a questo file." }
 if (-not (Test-Path (Join-Path $Servizio 'pathfinder-server.js'))) { Errore "Pacchetto incompleto: manca servizio\pathfinder-server.js." }
+# 2.7 — senza questo un'installazione su PostgreSQL non si puo' nemmeno
+# tentare, e ci si accorgerebbe a meta' strada, a servizio gia' fermo.
+if (-not (Test-Path $PreparaPg)) { Errore "Pacchetto incompleto: manca servizio\prepara-postgres.ps1, che controlla e prepara il database." }
 
 $Manifesto = Join-Path $App 'manifest.json'
 if (-not (Test-Path $Manifesto)) { Errore "Pacchetto incompleto: manca app\manifest.json, che dice quale versione e' questa." }
@@ -180,6 +297,41 @@ $node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $node) {
     Errore ("Node non risulta installato su questa macchina.`n" +
             "   Installarlo da https://nodejs.org (versione LTS) e rilanciare questo pacchetto.")
+}
+
+# ── 2.7 · Su quale database si va a finire ─────────────────────────────────
+# La decisione si prende ADESSO, prima di toccare qualunque cosa, perche' e'
+# quella che decide se serve un motore che magari non c'e'. Tre casi soli, e
+# ognuno ha un nome: chi installa deve poter leggere a schermo su cosa sta
+# per finire il suo magazzino, non dedurlo.
+$pgInServizio = [Environment]::GetEnvironmentVariable('PATHFINDER_PG', 'Machine')
+
+if ($Database) {
+    $modoDb = $Database
+} elseif ($aggiornamento) {
+    # AGGIORNANDO NON SI CAMBIA DATABASE. Si installa un turno e si accende
+    # quello dopo: e' la regola con cui la 2.6 e' entrata in magazzino senza
+    # portarsi dietro il salto, ed e' la ragione per cui il salto, quando e'
+    # arrivato, si e' potuto guardare da solo.
+    $modoDb = if ($pgInServizio) { 'postgresql' } else { 'sqlite' }
+} else {
+    # PRIMA INSTALLAZIONE: PostgreSQL. E' quello che gira in magazzino, ed e'
+    # l'unico dei due che regge piu' terminali che scrivono insieme.
+    $modoDb = 'postgresql'
+}
+
+# Il salto da un database all'altro: e' un gesto diverso da un aggiornamento,
+# e va nominato come tale.
+$saltoAPostgres = ($modoDb -eq 'postgresql' -and $aggiornamento -and -not $pgInServizio)
+$saltoASqlite   = ($modoDb -eq 'sqlite'     -and $aggiornamento -and $pgInServizio)
+
+if ($saltoASqlite) {
+    Errore ("Questa macchina sta girando su PostgreSQL, e -Database sqlite la riporterebbe`n" +
+            "   sul file: quel file e' fermo al giorno del passaggio, e quello che nel`n" +
+            "   frattempo e' stato scritto su PostgreSQL NON rientra da solo.`n`n" +
+            "   Per un ritorno d'emergenza il gesto e' un altro, ed e' scritto:`n" +
+            "     & `"$(Join-Path (Split-Path -Parent (Split-Path -Parent $varApp)) 'servizio\installa-servizio.ps1')`"`n" +
+            "   senza -PostgreSQL. Questo installer non lo fa per conto di nessuno.")
 }
 
 # ── Dove si installa ───────────────────────────────────────────────────────
@@ -214,7 +366,7 @@ if ($aggiornamento) {
 $Radice = $Radice.TrimEnd('\')
 $CasaServizio = Join-Path $Radice 'servizio'
 $CasaApp      = if ($Casa) { $Casa } else { Join-Path $Radice 'app' }
-$Database     = Join-Path $Radice 'data\pathfinder.db'
+$FileSqlite   = Join-Path $Radice 'data\pathfinder.db'
 $CartellaBackup = Join-Path $Radice 'backup'
 
 Riga 'Versione'  $Versione 'White'
@@ -225,15 +377,97 @@ Riga 'Percorso' $Radice 'White'
 if ($Casa) { Riga 'Casa versioni' $Casa 'Yellow' }
 Write-Host ""
 
+Riga 'Database' $(if ($modoDb -eq 'postgresql') {
+        "PostgreSQL — $NomeDatabasePostgreSQL su ${IndirizzoPostgreSQL}:$PortaPostgreSQL, ruolo $RuoloPostgreSQL"
+    } else { "SQLite — $FileSqlite" }) 'White'
+Write-Host ""
+
+# ── PostgreSQL: SI GUARDA PRIMA DI PREMERE ─────────────────────────────────
+# LE PRIME DUE COSE CHE LA 2.7 HA TROVATO, LE HA TROVATE IL GUARDARE PRIMA.
+# Un installer che scopre a meta' strada che il motore non c'e' ha gia'
+# fermato il servizio: si controlla adesso, con il magazzino ancora acceso e
+# niente di toccato. Il -Prova di prepara-postgres non scrive niente e si
+# puo' lanciare su una macchina in servizio.
+$argPg = @{
+    Indirizzo = $IndirizzoPostgreSQL; Porta = $PortaPostgreSQL
+    NomeDatabase = $NomeDatabasePostgreSQL; Ruolo = $RuoloPostgreSQL
+    StringaEsistente = $pgInServizio
+}
+
+function ProvaPostgres([string]$passwordSuper) {
+    # Azzerato prima: un codice rimasto da un comando di dieci righe fa
+    # fermerebbe un'installazione perfettamente sana.
+    $global:LASTEXITCODE = 0
+    $esito = & $PreparaPg @argPg -PasswordSuperuser $passwordSuper -Prova -NonChiedere
+    if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
+        # IN -Prova NON SI ESCE: si scrive che manca e si va avanti a dire il
+        # resto. Una prova serve a sapere cosa manca su una macchina, e una
+        # che si ferma alla prima riga ne nomina uno solo per giro.
+        if ($Prova) {
+            Write-Host "   PostgreSQL non e' pronto: installando davvero, ci si fermerebbe qui." -ForegroundColor Red
+            return $null
+        }
+        Errore ("PostgreSQL non e' pronto su questa macchina, e non ho toccato niente.`n" +
+                "   Il guaio e' scritto qui sopra. Per installare intanto sul file:`n" +
+                "     .\installa.ps1 -Database sqlite")
+    }
+    return $esito
+}
+
+if ($saltoAPostgres -and -not $SenzaMigrazione -and -not (Test-Path $Migrazione)) {
+    Errore ("Questo pacchetto non porta la migrazione (manca servizio\migrazione\), e senza`n" +
+            "   quella i dati non passano dall'altra parte. Non ho toccato niente.`n`n" +
+            "   Per passare comunque a PostgreSQL, ripartendo da un database VUOTO:`n" +
+            "     .\installa.ps1 -Database postgresql -SenzaMigrazione")
+}
+
+if ($modoDb -eq 'postgresql') {
+    $sguardo = ProvaPostgres $PasswordSuperuser
+
+    # LA PASSWORD DEL SUPERUSER SI CHIEDE NELLA FINESTRA ELEVATA, non in
+    # questa. Chiederla prima vorrebbe dire portarsela nell'altra finestra, e
+    # l'unico modo di portarcela e' un parametro di riga di comando — che
+    # legge chiunque guardi l'elenco dei processi. Qui si controlla quello
+    # che si puo' controllare senza; il resto lo controlla l'altra finestra,
+    # sempre prima di toccare qualcosa.
+    if (-not $sguardo.stringa -and -not $PasswordSuperuser -and -not $NonChiedere -and (Amministratore)) {
+        Write-Host ""
+        Write-Host "   Serve UNA VOLTA la password dell'utente «postgres» di PostgreSQL," -ForegroundColor White
+        Write-Host "   quella scelta installando il motore. Crea il ruolo e il database di"
+        Write-Host "   Pathfinder, non viene salvata da nessuna parte e non serve piu'."
+        Write-Host ""
+        $sicura = Read-Host "   Password di postgres" -AsSecureString
+        $PasswordSuperuser = [Runtime.InteropServices.Marshal]::PtrToStringAuto(
+            [Runtime.InteropServices.Marshal]::SecureStringToBSTR($sicura))
+        # Si riguarda con la password in mano: se e' sbagliata lo si sa
+        # adesso, con il magazzino ancora acceso e niente toccato.
+        $sguardo = ProvaPostgres $PasswordSuperuser
+    }
+}
+
 if ($aggiornamento) {
     Riga 'Macchina' 'Pathfinder e'' gia'' installato e in funzione' 'Green'
     Write-Host ""
     Write-Host "   Verranno installati insieme, e alla fine porteranno lo stesso numero:" -ForegroundColor White
     Write-Host "     - l'applicativo $Versione"
     Write-Host "     - il servizio dati $Versione, che viene RIAVVIATO"
-    Write-Host ""
-    Write-Host "   Windows chiedera' l'autorizzazione: fermare il servizio la vuole." -ForegroundColor Yellow
-    Write-Host "   L'applicativo resta giu' i secondi del riavvio. Il database NON viene toccato."
+    if ($saltoAPostgres) {
+        Write-Host ""
+        Write-Host "   E IL MAGAZZINO CAMBIA DATABASE: da SQLite a PostgreSQL." -ForegroundColor Yellow
+        Write-Host "     - una copia a caldo del file SQLite viene chiesta al servizio"
+        if ($SenzaMigrazione) {
+            Write-Host "     - i dati NON vengono migrati: si riparte da un database vuoto" -ForegroundColor Red
+        } else {
+            Write-Host "     - quella copia viene migrata su PostgreSQL, e i conteggi si ricontrollano"
+        }
+        Write-Host "     - il file SQLite resta dov'e', intatto, e da oggi invecchia"
+        Write-Host ""
+        Write-Host "   La via di casa da domani e' il .dump della sera prima, non quel file."
+    } else {
+        Write-Host ""
+        Write-Host "   Windows chiedera' l'autorizzazione: fermare il servizio la vuole." -ForegroundColor Yellow
+        Write-Host "   L'applicativo resta giu' i secondi del riavvio. Il database NON viene toccato."
+    }
 } else {
     Riga 'Macchina' 'Pathfinder non c''e'' ancora: prima installazione' 'Yellow'
     Write-Host ""
@@ -241,7 +475,12 @@ if ($aggiornamento) {
     Write-Host "     - il servizio dati in $CasaServizio"
     Write-Host "     - l'avvio automatico all'accensione e il backup serale delle 20:00"
     Write-Host "     - l'apertura della porta $Porta sul firewall, per gli altri terminali"
-    Write-Host "     - il database in $(Split-Path -Parent $Database) (vuoto, se non c'e' gia')"
+    if ($modoDb -eq 'postgresql') {
+        Write-Host "     - il ruolo «$RuoloPostgreSQL» e il database «$NomeDatabasePostgreSQL» su PostgreSQL, se non ci sono gia'"
+        Write-Host "     - i tavoli li crea il servizio al primo avvio"
+    } else {
+        Write-Host "     - il database in $(Split-Path -Parent $FileSqlite) (vuoto, se non c'e' gia')"
+    }
     Write-Host "     - l'applicativo $Versione"
     Write-Host ""
     Write-Host "   Windows chiedera' l'autorizzazione una volta sola." -ForegroundColor Yellow
@@ -251,11 +490,13 @@ if ($aggiornamento) {
 if ($Prova) {
     Write-Host ""
     Riga 'PROVA' 'nessuna modifica: ecco cosa farebbe' 'Cyan'
-    Riga 'strada'   $(if ($aggiornamento) { 'aggiornamento' } else { 'prima installazione' })
+    Riga 'strada'   $(if ($saltoAPostgres) { 'aggiornamento PIU'' passaggio a PostgreSQL' } elseif ($aggiornamento) { 'aggiornamento' } else { 'prima installazione' })
     Riga 'radice'   $Radice
     Riga 'servizio' $CasaServizio
     Riga 'versioni' $CasaApp
-    Riga 'database' $Database
+    Riga 'database' $(if ($modoDb -eq 'postgresql') { "PostgreSQL — $NomeDatabasePostgreSQL su ${IndirizzoPostgreSQL}:$PortaPostgreSQL" } else { $FileSqlite })
+    if ($modoDb -eq 'postgresql') { Riga 'file SQLite' "$FileSqlite  — non viene toccato" }
+    Riga 'migrazione' $(if ($saltoAPostgres -and -not $SenzaMigrazione) { 'si'' — copia a caldo e migrazione dei dati' } else { 'no' })
     Riga 'backup'   $CartellaBackup
     Riga 'riavvio'  $(if ($aggiornamento) { 'si'' — il servizio viene fermato e riacceso' } else { 'lo fa installa-servizio.ps1' })
     Write-Host ""
@@ -281,8 +522,20 @@ if (-not (Amministratore)) {
     Write-Host ""
     Write-Host "   Chiedo l'autorizzazione a Windows..." -ForegroundColor Yellow
     $argomenti = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$($MyInvocation.MyCommand.Path)`"",
-                   '-Elevato', '-Porta', "$Porta", '-Radice', "`"$Radice`"")
+                   '-Elevato', '-Porta', "$Porta", '-Radice', "`"$Radice`"",
+                   # La decisione sul database si porta di la' DECISA, o
+                   # l'altra finestra la riprenderebbe dai valori di serie e
+                   # potrebbe concludere un'altra cosa.
+                   '-Database', $modoDb,
+                   '-IndirizzoPostgreSQL', "`"$IndirizzoPostgreSQL`"",
+                   '-PortaPostgreSQL', "$PortaPostgreSQL",
+                   '-NomeDatabasePostgreSQL', "`"$NomeDatabasePostgreSQL`"",
+                   '-RuoloPostgreSQL', "`"$RuoloPostgreSQL`"")
     if ($Casa) { $argomenti += @('-Casa', "`"$Casa`"") }
+    if ($SenzaMigrazione) { $argomenti += '-SenzaMigrazione' }
+    # LA PASSWORD DEL SUPERUSER NON PASSA DI QUI. Un parametro di riga di
+    # comando lo legge chiunque apra Gestione attivita': la chiede l'altra
+    # finestra, che e' quella che poi la usa.
     try {
         Start-Process powershell -Verb RunAs -ArgumentList $argomenti | Out-Null
     } catch {
@@ -294,9 +547,33 @@ if (-not (Amministratore)) {
     exit 0
 }
 
+# ── Il database, quando e' PostgreSQL ──────────────────────────────────────
+# Ruolo, database e password: si prepara PRIMA che il servizio esista, cosi'
+# la stringa di connessione c'e' gia' quando installa-servizio.ps1 la vuole.
+# Non ci si passa se la macchina sta gia' girando su PostgreSQL e la sua
+# stringa risponde — quel database sta servendo un magazzino.
+$passi = if ($modoDb -eq 'postgresql' -and -not $aggiornamento) { 3 } else { 2 }
+$stringaPg = ''
+
+if ($modoDb -eq 'postgresql' -and (-not $aggiornamento -or $saltoAPostgres)) {
+    Titolo "1 di $passi  —  il database PostgreSQL"
+
+    $global:LASTEXITCODE = 0
+    $preparato = & $PreparaPg @argPg -PasswordSuperuser $PasswordSuperuser -NonChiedere:$NonChiedere
+    if (($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) -or -not $preparato -or -not $preparato.stringa) {
+        Errore ("Il database PostgreSQL non e' stato preparato, e non ho toccato altro.`n" +
+                "   Per installare intanto sul file:  .\installa.ps1 -Database sqlite")
+    }
+    $stringaPg = $preparato.stringa
+} elseif ($modoDb -eq 'postgresql') {
+    # Aggiornamento su una macchina gia' su PostgreSQL: la stringa e' quella
+    # che la macchina ha in mano, e NON si rigenera niente.
+    $stringaPg = $pgInServizio
+}
+
 # ── Prima installazione: il servizio nasce ─────────────────────────────────
 if (-not $aggiornamento) {
-    Titolo "1 di 2  —  il servizio dati"
+    Titolo "$(if ($passi -eq 3) { '2 di 3' } else { '1 di 2' })  —  il servizio dati"
 
     # Il servizio si copia FUORI dal pacchetto, e da li' viene registrato:
     # l'attivita' pianificata memorizza il percorso da cui viene lanciata, e
@@ -305,9 +582,15 @@ if (-not $aggiornamento) {
     Copy-Item (Join-Path $Servizio '*') $CasaServizio -Recurse -Force
     Riga 'Copiato in' $CasaServizio 'Green'
 
+    # LE DIPENDENZE PRIMA DI ACCENDERE. Con PATHFINDER_PG impostata e `pg`
+    # assente il servizio non parte affatto: i terminali vedono bianco. Il
+    # 26/08 e' stato visto guardando prima, e da allora si guarda sempre.
+    Assicura-Dipendenze $CasaServizio
+
     & (Join-Path $CasaServizio 'installa-servizio.ps1') -Porta $Porta `
-        -Database $Database -CartellaBackup $CartellaBackup `
-        -CartellaApplicativo (Join-Path $CasaApp 'corrente')
+        -Database $FileSqlite -CartellaBackup $CartellaBackup `
+        -CartellaApplicativo (Join-Path $CasaApp 'corrente') `
+        -PostgreSQL $stringaPg
     if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) { Errore "L'installazione del servizio non e' andata a buon fine." }
 }
 
@@ -315,12 +598,37 @@ if (-not $aggiornamento) {
 Titolo "$(if ($aggiornamento) { 'Installazione' } else { '2 di 2' })  —  l'applicativo $Versione"
 
 if ($aggiornamento) {
+    # LA COPIA DA MIGRARE SI CHIEDE ADESSO, A SERVIZIO ANCORA ACCESO.
+    # Un file SQLite aperto non si copia con Copy-Item: ha un WAL accanto, e
+    # quello che si porta via e' un database a meta'. La copia coerente la
+    # scrive il servizio, ed e' lo stesso gesto del 26/08.
+    $copiaCalda = $null
+    if ($saltoAPostgres -and -not $SenzaMigrazione) {
+        Write-Host "   Chiedo al servizio una copia a caldo del database..." -ForegroundColor Yellow
+        try {
+            $r = Invoke-RestMethod "http://127.0.0.1:$Porta/api/backup" -Method Post `
+                 -ContentType 'application/json' -Body (@{ dir = $CartellaBackup } | ConvertTo-Json) -TimeoutSec 300
+            if (-not $r.ok) { throw "il servizio ha risposto senza conferma" }
+            $copiaCalda = $r.file
+        } catch {
+            Errore ("Il servizio non ha saputo darmi una copia del database:`n" +
+                    "   $($_.Exception.Message)`n`n" +
+                    "   Senza una copia coerente non si migra niente, e non ho toccato nulla.")
+        }
+        if (-not $copiaCalda -or -not (Test-Path $copiaCalda)) {
+            Errore ("Il servizio ha risposto ma la copia non si trova: $copiaCalda`n" +
+                    "   Senza una copia coerente non si migra niente, e non ho toccato nulla.")
+        }
+        Riga 'Copia' "$copiaCalda  ($([math]::Round((Get-Item $copiaCalda).Length/1MB,1)) MB)" 'Green'
+    }
+
     # SI FERMA PRIMA DI COPIARE, e si riaccende comunque vada.
     # L'ordine non e' estetico: copiando a servizio fermo, gli script di
     # gestione che l'installazione userA' fra due righe sono gia' quelli del
     # pacchetto, e la macchina fa il gesto nuovo invece di quello del giorno
     # in cui e' nata. Il `finally` esiste perche' un'installazione fallita a
     # meta' deve lasciare acceso quello che ha spento.
+    $arrivatoInFondo = $false
     Write-Host "   Fermo il servizio dati..." -ForegroundColor Yellow
     Stop-ScheduledTask -TaskName $NomeAttivita -ErrorAction SilentlyContinue
     foreach ($c in @(Get-NetTCPConnection -LocalPort $Porta -State Listen -ErrorAction SilentlyContinue)) {
@@ -332,48 +640,40 @@ if ($aggiornamento) {
         Copy-Item (Join-Path $Servizio '*') $CasaServizio -Recurse -Force
         Riga 'Servizio' "$Versione in $CasaServizio" 'Green'
 
-        # LE DIPENDENZE NON VIAGGIANO NEL PACCHETTO, e `node_modules` che
-        # ESISTE non vuol dire che sia quello giusto — 2.7.
-        #
-        # Fino alla 2.6 qui si guardava solo se la cartella c'era. Bastava
-        # finche' l'elenco delle dipendenze non cambiava mai; la 2.7 ha
-        # aggiunto `pg`, e una `node_modules` rimasta dalla 2.6 avrebbe
-        # superato il controllo lasciando il servizio senza il driver. Con
-        # PATHFINDER_PG impostata non sarebbe partito affatto: i terminali
-        # vedono bianco e il magazzino si ferma.
-        #
-        # Si guarda dipendenza per dipendenza, come le dichiara package.json.
-        $nm = Join-Path $CasaServizio 'node_modules'
-        $dichiarate = @()
-        try {
-            $pkg = Get-Content (Join-Path $CasaServizio 'package.json') -Raw | ConvertFrom-Json
-            if ($pkg.dependencies) { $dichiarate = @($pkg.dependencies.PSObject.Properties.Name) }
-        } catch { }
-        $mancanti = @($dichiarate | Where-Object { -not (Test-Path (Join-Path $nm $_)) })
+        Assicura-Dipendenze $CasaServizio
 
-        if ((-not (Test-Path $nm)) -or $mancanti.Count -gt 0) {
-            if ($mancanti.Count -gt 0) {
-                Write-Host "   Dipendenze del servizio da installare: $($mancanti -join ', ')" -ForegroundColor Yellow
-            } else {
-                Write-Host '   Dipendenze del servizio mancanti: le installo...' -ForegroundColor Yellow
-            }
-            Push-Location $CasaServizio
-            npm install --omit=dev --no-audit --no-fund
-            Pop-Location
-
-            # NON SI VA AVANTI SPERANDO. Se dopo npm install ne manca ancora
-            # una, il servizio non partira': meglio fermare l'installazione
-            # adesso, con scritto quale, che riavviarlo e scoprirlo domani.
-            $ancora = @($dichiarate | Where-Object { -not (Test-Path (Join-Path $nm $_)) })
-            if ($ancora.Count -gt 0) {
-                throw "Dopo npm install mancano ancora: $($ancora -join ', '). Il servizio non partirebbe."
-            }
-        }
+        # IL PASSAGGIO A POSTGRESQL, se e' questo il giro. Sta QUI dentro, a
+        # servizio fermo e a dipendenze appena controllate, perche' la
+        # migrazione vuole `pg` e perche' nessuno deve scrivere sul file
+        # SQLite mentre lo si legge. La copia da migrare e' gia' stata presa
+        # a caldo prima di fermare: il file in servizio non si legge mai
+        # direttamente, e nemmeno lo si copia con Copy-Item.
+        if ($saltoAPostgres -and -not $SenzaMigrazione) { Migra-SuPostgres $CasaServizio $copiaCalda $stringaPg }
 
         & (Join-Path $CasaServizio 'installa-versione.ps1') -Da $App -Versione $Versione -Casa $CasaApp
+        $arrivatoInFondo = $true
     } finally {
-        Write-Host "   Riaccendo il servizio dati..." -ForegroundColor Yellow
-        Riavvia-Servizio
+        # NEL SALTO NON BASTA RIACCENDERE: va riscritta la variabile di
+        # macchina che dice quale database aprire, e quella la scrive
+        # installa-servizio.ps1 — che rifa' anche la registrazione e prova il
+        # backup, che su PostgreSQL e' un altro gesto e va visto funzionare
+        # il giorno che si installa, non la notte che serve.
+        #
+        # Solo se si e' arrivati in fondo. Una migrazione fallita a meta'
+        # deve lasciare il magazzino dov'era: sul file, che e' intatto.
+        if ($saltoAPostgres -and $arrivatoInFondo) {
+            Write-Host "   Riaccendo il servizio dati su PostgreSQL..." -ForegroundColor Yellow
+            & (Join-Path $CasaServizio 'installa-servizio.ps1') -Porta $Porta `
+                -Database $FileSqlite -CartellaBackup $CartellaBackup `
+                -CartellaApplicativo (Join-Path $CasaApp 'corrente') `
+                -PostgreSQL $stringaPg
+            if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) {
+                Errore "Il servizio non e' ripartito su PostgreSQL: il guaio e' scritto qui sopra."
+            }
+        } else {
+            Write-Host "   Riaccendo il servizio dati..." -ForegroundColor Yellow
+            Riavvia-Servizio
+        }
     }
 } else {
     & (Join-Path $CasaServizio 'installa-versione.ps1') -Da $App -Versione $Versione -Casa $CasaApp
@@ -415,10 +715,28 @@ if ($esito.service_version -ne $Versione) {
             "   Node legge all'avvio, e il processo in esecuzione e' ancora il vecchio.")
 }
 
+# TERZO NUMERO DA GUARDARE, dalla 2.7: QUALE DATABASE il servizio ha aperto.
+# Non basta che risponda e porti il numero giusto — il 26/08 una variabile
+# con dentro un segnaposto ha tenuto il servizio a terra, e un'installazione
+# che dichiara riuscito un servizio partito sul database sbagliato e' peggio
+# di una fallita. Lo si chiede a /api/health, che dice cosa ha aperto DAVVERO.
+$salute = $null
+try { $salute = Invoke-RestMethod "http://127.0.0.1:$Porta/api/health" -TimeoutSec 5 } catch { }
+$dbAperto = if ($salute) { $salute.file } else { '(il servizio non lo dice)' }
+
+if ($modoDb -eq 'postgresql' -and $salute -and $dbAperto -notmatch '^postgres') {
+    Write-Host "   Il servizio e' partito, ma NON su PostgreSQL:" -ForegroundColor Red
+    Riga 'atteso' "PostgreSQL — $NomeDatabasePostgreSQL"
+    Riga 'aperto' $dbAperto
+    Errore ("PATHFINDER_PG viene letta all'avvio del processo, non al volo.`n" +
+            "   L'applicativo e' installato: e' il database ad essere l'altro.")
+}
+
 Riga 'Versione'  $esito.versione 'Green'
 Riga 'Servizio'  $esito.service_version 'Green'
 Riga 'Impronta'  $esito.impronta 'Green'
-Riga 'Database'  ([Environment]::GetEnvironmentVariable('PATHFINDER_DB', 'Machine'))
+Riga 'Database'  $dbAperto $(if ($modoDb -eq 'postgresql') { 'Green' } else { 'Gray' })
+if ($modoDb -eq 'postgresql') { Riga 'File SQLite' "$FileSqlite  — fermo a oggi, e da oggi invecchia" }
 Riga 'Indirizzo' $Indirizzo 'White'
 Write-Host ""
 Write-Host "   Fatto. Sugli altri terminali mettere questo indirizzo come pagina iniziale:" -ForegroundColor Green

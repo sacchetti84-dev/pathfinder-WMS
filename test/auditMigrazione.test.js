@@ -1,8 +1,8 @@
-import { describe, it, expect } from 'vitest';
+﻿import { describe, it, expect } from 'vitest';
 import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
-const a = require('../server/azure/audit.js');
+const a = require('../server/migrazione/audit.js');
 
 /* LE REGOLE DELL'AUDIT SI COLLAUDANO SENZA UN DATABASE.
 
