@@ -76,9 +76,21 @@ banco/ciclo/esito.json
 # leggono la produzione dalle rotte del servizio, e la produzione non sta
 # qui dentro.
 !banco/campo-fantasma.cjs
+# ECCEZIONE — `maiuscola-codici.cjs` si passa una volta sola, come
+# `campo-fantasma.cjs`, ma la voce 54 dell'INDEX manda a lanciarlo: uno script
+# citato per nome e assente dal repository e' una riga che non si puo' seguire.
+!banco/maiuscola-codici.cjs
 
 # Rumore di Windows e degli editor.
 Thumbs.db
 desktop.ini
 .vscode/
 *.log
+
+# ── Le stringhe di connessione non entrano nel repository — 2.6 ──────────
+# `.env.local` porta `PATHFINDER_PG`, cioe' utente e password del database.
+# Per il servizio vero la stringa sta in Azure Key Vault, non in un file e
+# non in uno script di installazione: qui c'e' solo quella del banco.
+.env
+.env.local
+.env.*.local

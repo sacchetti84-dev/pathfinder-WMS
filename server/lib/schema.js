@@ -133,6 +133,105 @@ const COLLECTIONS = {
 
 const NAMES = Object.keys(COLLECTIONS);
 
+/* I CODICI SI SCRIVONO IN MAIUSCOLO, E LO DECIDE IL SERVIZIO — 2.6.
+
+   PERCHE'. Il 26/08, in `MAG1-RAKA-01-05-C`, lo stesso lotto stava a
+   scaffale DUE volte: `6001412#cl260854` con 5 pezzi e `6001412#CL260854`
+   con 1. Stessa merce, stesso scaffale, due righe, perche' una volta era
+   stato digitato in minuscolo. Il FEFO le ordinava separate e chi prelevava
+   ne trovava una e non l'altra. Un codice scritto in due grafie non e' un
+   problema di resa a video: e' una seconda entita' che nasce.
+
+   DOVE SI NORMALIZZA. Qui, sul servizio, che §6 dichiara l'arbitro. Il
+   client maiuscola anche lui — a video, mentre si digita, e sul lettore —
+   ma quello e' comodo, non e' la garanzia: due terminali e un import da
+   Excel non passano tutti dalla stessa maschera.
+
+   COSA NON SI TOCCA, E NON E' UNA DIMENTICANZA:
+   · `meta.key` — le chiavi di configurazione sono in camelCase (`areaWip`,
+     `udcPrefissoGS1`): maiuscolarle vorrebbe dire perderle tutte.
+   · `pin_hash` e `pin_salt` — sono base64, e maiuscolarli toglie il PIN a
+     ogni operatore del magazzino.
+   · `status`, `type`, `role`, `verso`, `kind` — sono enum confrontati alla
+     lettera nel codice (`'empty'`, `'pallet'`, `'open'`, `'in'`).
+   · descrizioni, note, nomi e indirizzi — sono prosa, non codici.
+
+   LA SINTASSI DEI PERCORSI: `campo`, `oggetto.campo`, `elenco[].campo`. */
+const MAIUSCOLE = {
+  sites:            ['id'],
+  zones:            ['site_id', 'id'],
+  articles:         ['code', 'category'],
+  inventory:        ['item_key', 'article_code', 'lot_code', 'location_code', 'udc_id'],
+  loc_status:       ['location_code'],
+  disabled:         ['location_code'],
+  mov_log:          ['article_code', 'lot_code', 'location_code', 'dest_location', 'user', 'uom', 'doc_ref'],
+  quarantine:       ['q_id', 'item_key', 'article_code', 'lot_code', 'original_location', 'blocked_location', 'operator', 'released_by'],
+  pending_outbound: ['doc_id', 'ddt_num'],
+  pick_session:     ['session_id', 'odp_num', 'odp_article', 'odp_lot', 'operator',
+                     'stops[].article_code', 'stops[].lot_code', 'stops[].location_code', 'stops[].item_key', 'stops[].uom'],
+  pick_archive:     ['doc_id', 'odp_num', 'odp_article', 'odp_lot', 'operator',
+                     'stops[].article_code', 'stops[].lot_code', 'stops[].location_code', 'stops[].item_key', 'stops[].uom'],
+  disposal_archive: ['doc_id', 'article_code', 'lot_code', 'location_code',
+                     'righe[].article_code', 'righe[].lot_code', 'righe[].location_code'],
+  operators:        ['op_id', 'initials'],
+  /* meta NON si tocca: le chiavi sono camelCase. */
+  meta:             [],
+  lots:             ['article_code', 'lot_code', 'uom'],
+  udc:              ['udc_id', 'sscc', 'location_code', 'site_id'],
+  tasks:            ['task_id', 'assigned_to', 'requested_by', 'completed_by',
+                     'payload.article_code', 'payload.lot_code', 'payload.item_key',
+                     'payload.from', 'payload.to', 'payload.location_code',
+                     'payload.odp_num', 'payload.uom'],
+  wip:              ['wip_id', 'odp_num', 'item_key', 'article_code', 'lot_code', 'location_code', 'uom'],
+  storage_rules:    ['rule_id'],
+  recipients:       ['rcp_id', 'vat'],
+};
+
+/** Scrive un percorso dentro un documento, elenchi compresi. */
+function _perCiascuno(oggetto, percorso, fn) {
+  if (oggetto === null || typeof oggetto !== 'object') return;
+  const punto = percorso.indexOf('.');
+  const testa = punto === -1 ? percorso : percorso.slice(0, punto);
+  const coda = punto === -1 ? null : percorso.slice(punto + 1);
+
+  if (testa.endsWith('[]')) {
+    const nome = testa.slice(0, -2);
+    const elenco = oggetto[nome];
+    if (!Array.isArray(elenco)) return;
+    for (const voce of elenco) {
+      if (coda === null) continue;          // `campo[]` senza coda non ha senso
+      _perCiascuno(voce, coda, fn);
+    }
+    return;
+  }
+  if (coda === null) { fn(oggetto, testa); return; }
+  _perCiascuno(oggetto[testa], coda, fn);
+}
+
+/* IL DOCUMENTO SI NORMALIZZA PRIMA DI ESSERE SCRITTO, non dopo.
+   Restituisce una copia: chi chiama passa spesso un record che il chiamante
+   di sopra tiene ancora, e maiuscolarlo sotto i piedi e' il genere di
+   effetto che si scopre tre viste piu' in la'. */
+function normalizza(nome, record) {
+  const percorsi = MAIUSCOLE[nome];
+  if (!percorsi || !percorsi.length || record === null || typeof record !== 'object') return record;
+  const copia = JSON.parse(JSON.stringify(record));
+  for (const p of percorsi) {
+    _perCiascuno(copia, p, (dentro, campo) => {
+      const v = dentro[campo];
+      if (typeof v === 'string' && v) dentro[campo] = v.toUpperCase();
+    });
+  }
+  return copia;
+}
+
+/** Il valore di un singolo campo, maiuscolato se quel campo e' un codice. */
+function normalizzaCampo(nome, campo, valore) {
+  if (typeof valore !== 'string' || !valore) return valore;
+  const percorsi = MAIUSCOLE[nome] || [];
+  return percorsi.includes(campo) ? valore.toUpperCase() : valore;
+}
+
 function colType(col, field) {
   return (col.numeric || []).includes(field) ? 'INTEGER' : 'TEXT';
 }
@@ -195,4 +294,5 @@ function materialize(name, record) {
 
 module.exports = {
   COLLECTIONS, NAMES, createTableSQL, createIndexSQL, createSQL, materialize, colType,
+  MAIUSCOLE, normalizza, normalizzaCampo,
 };

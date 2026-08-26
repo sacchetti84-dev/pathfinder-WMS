@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **26/08/2026**
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **26/08/2026**, notte
 
 ## LO STATO DEL PROGETTO È **ALFA**
 
@@ -23,117 +23,107 @@ scrivono come fatti avvenuti, non come promesse.
 
 ---
 
-## LA VERSIONE IN SERVIZIO È LA **2.4**
+## LA **2.6** È COSTRUITA E **NON È INSTALLATA**
 
-**Installata da Andrea il 25/08/2026 sera.** Misurata sulla 4173 subito dopo:
+**Costruita il 26/08 alle 02:46.** Il magazzino sta servendo la 2.5.
 
 | | |
 |---|---|
-| `service_version` | **2.4** |
-| `versione` applicativo | **2.4** |
-| impronta | `99fc56ba744feafbe7b513a34f6543db9b92ea9d97b966b27ec035b9d8f4dbb3` |
-| byte | **1.777.772** in **4 file** |
-| dove | `C:\Pathfinder\app\corrente` |
-| via di ritorno | `C:\Pathfinder\app\precedente` → **2.2**, `08ce3f69…` |
+| `versione` nel pacchetto | **2.6** |
+| `VERSION` del servizio | **2.6** |
+| impronta | `d3865c53d94a8bff53441c7ee32c571aa45cb256406918a9f4a2e04860dca644` |
+| byte | **1.800.084** in **4 file** |
+| dove | `consegna/Pathfinder 2.6/` — **e la build azzera quella cartella a ogni giro** |
+| collaudi | **1.334 passate**: 1.108 client · 98 di servizio su SQLite · **98 di servizio su PostgreSQL** · 8 di migrazione schema · 22 di installazione. `tsc --noEmit` pulito su client e servizio |
 
-**I due numeri coincidono, e l'impronta è quella del pacchetto costruito.** Il
-servizio installato dice 2.4 anche nel file — `C:\Pathfinder\servizio\pathfinder-server.js`
-— e le due correzioni sono **dentro il bundle che il magazzino sta servendo**,
-verificate per stringa dentro `corrente\assets\`.
+**I tre numeri sono stati allineati PRIMA di scrivere il codice**, non prima di
+costruire: `vite.config.js`, `server/pathfinder-server.js`, `package.json`. La
+voce 41 l'ha già fatto pagare una volta.
 
-**Il database ha attraversato l'installazione intatto**: 264 movimenti, 884
-giacenze, 6 operatori, 1 mittente.
+### Cosa porta la 2.6
 
-**La via di ritorno è giusta, e si è sistemata da sola** perché il numero è
-cambiato: `precedente` porta la **2.2 buona**, non la 2.3 ritirata. Era la voce
-41, chiusa qualche ora prima — e se non lo fosse stata, un ripristino
-d'emergenza avrebbe rimesso in servizio la versione che ha disfunzionato.
+**IL SERVIZIO DATI PARLA DUE DATABASE.** Lo decide una variabile di macchina:
+`PATHFINDER_PG` assente → SQLite, esattamente come la 2.5; presente →
+PostgreSQL. **La 2.6 si installa in magazzino senza toccare il database**, e il
+passaggio a PostgreSQL è un secondo gesto, separato, che si annulla spegnendo
+una variabile. La 2.3 ha già insegnato quanto costa un salto solo senza via di
+ritorno.
 
-**Non porta funzioni nuove: porta due correzioni, e una delle due è il motivo
-per cui questa versione esiste.**
+**I CODICI SI SCRIVONO IN MAIUSCOLO.** Articolo, lotto, `item_key`, ubicazione,
+UDC, ODP, DDT, sigla operatore: li normalizza il servizio a ogni scrittura, da
+qualunque parte arrivino, e il client li maiuscola mentre si digita — lettore
+ottico compreso, perché il lettore è una tastiera. **Non si toccano** il PIN
+(è base64: maiuscolarlo lo distruggerebbe), le chiavi di `meta` (sono
+camelCase), gli enum (`'empty'`, `'pallet'`, `'open'`) e la prosa.
 
-- **Voce 45 — un ripristino non cancella più il registro dei movimenti.** È la
-  correzione del guasto che in produzione aveva spazzato 253 movimenti.
-- **Voce 19 — il parser dell'ODP dichiara l'unità di misura che inventa.**
-  Quando accanto al totale non c'è un'unità riconoscibile assumeva KG in
-  silenzio, e quel KG arrivava fino al movimento.
+**L'INTERFACCIA DEL SERVIZIO DATI È ASINCRONA.** `better-sqlite3` è sincrono e
+`pg` no: le ventiquattro rotte, le operazioni composte e i collaudi del
+servizio sono diventati `await`. Era il pezzo di lavoro più grosso, ed è quello
+che il LEGGIMI del ramo Azure dichiarava «non è in questo ramo».
 
-**Perché 2.4 e non 2.3.** Il numero 2.3 è **speso**: l'archivio porta un
-pacchetto che si chiama così, con un'altra impronta e un altro contenuto.
-Riusarlo metterebbe in giro due cose diverse con lo stesso nome — la trappola
-che il 24/08 mandò in servizio il difetto per tre ore, e che è costata tre
-giorni a questo progetto.
+**I GIRI DI RETE TOLTI DAI CICLI.** `bulkPut` scriveva una INSERT per record:
+483 ms su un file locale e **11.197 giri di rete** verso una regione Azure per
+la sola anagrafica articoli — quasi tre minuti, cioè un import che va in
+timeout invece che in porto. Ora sono **12 istruzioni**. `countAll` passa da
+venti `COUNT` a uno.
 
-**Come è stata provata.** 928 prove su 32 file e `tsc --noEmit` pulito su client
-e servizio; 98 prove del collaudo del servizio; il pacchetto **minificato**
-servito sulla 4199 contro una copia del magazzino vero, che risponde 2.4 due
-volte; l'impronta ricostruita **tre volte di fila, sempre uguale**.
+### Cosa la 2.6 ha trovato guardando, e nessuno sapeva
 
-**E il ciclo del banco adesso guarda il registro.** La prova `PA6` — export in
-`overwrite` e reimport, il gesto con cui si rimette in piedi una macchina —
-confrontava giacenza, colli, UM, articoli, operatori e compiti, **e non i
-movimenti**: è il motivo per cui il difetto della voce 45 le è passato davanti
-senza farsi vedere, visto che il giro si fa apposta con un pacchetto che il
-registro non lo porta. Adesso li conta. Provata nei due versi: **col difetto
-rimesso apposta il banco dice `movimenti 112 → 0` e alza PA6 (grave); con la
-correzione dice `112 → 112`.**
+| Cosa | Dove |
+|---|---|
+| **Lo stesso lotto era a scaffale DUE volte.** `6001412#cl260854` con 5 pezzi e `6001412#CL260854` con 1, in `MAG1-RAKA-01-05-C`: stessa merce, due grafie, e il FEFO le ordinava separate. **Fuse in una riga da 6**, con un `EDIT` a registro che dice cosa e perché | È la ragione per cui il maiuscolo esiste |
+| **`startsWith` voleva dire tre cose diverse.** Sensibile alle maiuscole in Dexie e nella cache del client, **insensibile sul servizio** — l'unico dei tre a usare `LIKE`. Ora è `substr(colonna, 1, N) = ?`, uguale nei due database | `server/lib/sql.js` |
+| **Il backup nominava i file in UTC.** Alle 01:52 del 26/08 il file nasceva `pathfinder-2026-08-25.db`, **lo stesso nome del backup serale delle 20:00**, e glielo scriveva sopra. Ora il giorno è quello locale, e un secondo backup nello stesso giorno prende l'ora | `POST /api/backup` |
+| **DUE TERMINALI POTEVANO ENTRARE NELLA STESSA TRANSAZIONE.** `transaction()` distingueva «già dentro» da «chiamante nuovo» con un flag d'istanza: una seconda richiesta HTTP arrivata mentre la prima aveva la transazione aperta lo trovava alzato e girava **dentro la transazione dell'altro terminale**. Su SQLite non si vedeva — gli `await` si risolvono in microtask e la prima transazione finisce prima che Express prenda la seconda richiesta. **Su PostgreSQL si è visto alla prima corsa**, con la prova della contesa che passava due volte su due. Chiuso con `AsyncLocalStorage`, che segue la catena asincrona invece dello stato dell'oggetto | `server/lib/driver-base.js` |
+| **`BIGINT` tornava come stringa.** `pg` decodifica `int8` in stringa per non perdere cifre: il client avrebbe ricevuto `_id: "1"` da PostgreSQL e `_id: 1` da SQLite, e `tasks.mov_ids` confronta quei numeri con `===` | `server/lib/driver-postgres.js` |
+| **Lo stesso rifiuto tornava 409 su un database e 500 sull'altro.** SQLite alza `SQLITE_CONSTRAINT_UNIQUE`, PostgreSQL lo SQLSTATE `23505`, e la mappa ne conosceva solo metà: al terminale, «ci hai riprovato» contro «il servizio si è rotto» | `SQL_CONSTRAINT` |
+| **Il certificato non si verificava.** La prima stesura del driver scriveva `rejectUnauthorized: false`, che accetta qualunque certificato — cioè accetta anche chi si mette in mezzo, con la stringa di connessione e il PIN degli operatori che passano da lì. Corretto: si verifica, e una CA aziendale si indica con `PATHFINDER_PG_CA` | `server/lib/driver-postgres.js` |
 
-> **PA6 SCATTA E NON FERMA NIENTE.** Il difetto viene scritto nel verbale e la
-> prova risulta lo stesso passata: `difetto()` registra, non fallisce. Vale per
-> tutto il ciclo, non solo per PA6 — un difetto **grave** non fa fallire la
-> suite. Vedi la voce 50.
+**Le prime tre le ha trovate l'audit dei dati; le altre quattro le ha trovate
+la batteria che fa girare le STESSE prove sui due driver a confronto.** Nessuna
+sarebbe uscita provando un database solo.
 
-**Il turno di osservazione comincia adesso.** Installare non è accendere: la 2.4
-va guardata girare un turno intero prima di dirla buona. Se qualcosa non torna,
-`torna-indietro.ps1` rimette la 2.2 in un comando — e stavolta la rimette
-davvero.
+### Cosa NON è stato fatto, e va fatto prima di accendere PostgreSQL in magazzino
 
-**La 2.2 resta la via di ritorno.** Il pacchetto sta in `ARCHIVIO/VERSIONI
-PRECEDENTI/Pathfinder 2.2/`, impronta `08ce3f69…`, e il commit è `3c68d0a`: chi
-la deve rifare identica parte da lì.
+**IL BACKUP CAMBIA PADRONE, E NON È ANCORA RIFATTO.** Con SQLite si copia un
+file; con PostgreSQL il ripristino è il point-in-time di Azure. Il driver alza
+un **501** invece di restituire un file finto — «qui non si fa così» — ma
+`backup-serale.ps1`, `POST /api/backup` e le 22 prove di installazione **vanno
+riscritti**. Voce **53**.
 
-**La build è riproducibile bit per bit.** Ricostruendo lo stesso commit a cinque
-giorni di distanza esce la stessa impronta, cifra per cifra — provato il 25/08
-sul commit `495f38c`, e di nuovo su `3c68d0a`. Vuol dire che un pacchetto perso
-non è perso: si riottiene dal commit, e che **l'impronta è la prova di quale
-codice c'è dentro**, non solo di quali byte. È il motivo per cui i binari non
-stanno nel repository — e il motivo per cui due impronte diverse vanno prese
-sul serio: dicono che il codice è diverso.
+**E resta il primo punto del LEGGIMI, che non è tecnico:** con il database in
+cloud il magazzino si ferma anche quando cade la connessione dell'azienda, non
+solo quando cade il PC. 300÷500 movimenti al giorno, con i muletti fermi. È una
+decisione di continuità operativa, e la prende Andrea.
 
 ---
 
-## LA **2.5** È COSTRUITA E **NON È INSTALLATA**
+## LA VERSIONE IN SERVIZIO È LA **2.5**
 
-**Costruita il 26/08 all'00:38.** Il magazzino continua a servire la 2.4.
+**Misurata sulla 4173 il 26/08 all'01:50**, e non è quello che questo documento
+diceva: fino a stanotte la riga qui sopra dichiarava «la 2.5 è costruita e NON è
+installata». `/api/app-info` risponde **2.5 due volte**, impronta
+`8ed505b9c01c8d37e2669e4d231edf0f4a469ff2bfba7fab2aac3f3cdbb52c88`, gli stessi
+**1.798.524 byte in 4 file** del pacchetto costruito.
+
+**È la quarta volta in cinque giorni che il documento dice una versione e la
+macchina ne serve un'altra** — la voce 35 in persona, e il motivo per cui §0
+punto 2 esiste.
 
 | | |
 |---|---|
-| `versione` nel pacchetto | **2.5** |
-| `VERSION` del servizio | **2.5** |
+| `service_version` | **2.5** |
+| `versione` applicativo | **2.5** |
 | impronta | `8ed505b9c01c8d37e2669e4d231edf0f4a469ff2bfba7fab2aac3f3cdbb52c88` |
 | byte | **1.798.524** in **4 file** |
-| dove | `consegna/Pathfinder 2.5/` — **e la build azzera quella cartella a ogni giro** |
-| collaudi | **975 passati**, 34 file · `tsc --noEmit` pulito su client e server |
+| pacchetto | `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/` — archiviato il 26/08, quattro file confrontati per sha256 |
 
-**I tre numeri sono stati allineati a mano prima di costruire** —
-`vite.config.js`, `server/pathfinder-server.js`, `package.json` — perché il
-codice si dichiarava 2.5 nei commenti mentre i tre dicevano ancora 2.4.
-Costruire lavoro 2.5 dentro un pacchetto che si chiama 2.4 è la cosa che la
-**voce 41** ha già fatto pagare una volta.
-
-**Le sei funzioni nuove sono verificate per stringa dentro il bundle**
-costruito — `Merce non ancora arrivata`, `Prelievo in pausa`, `Rettifica
-tappa`, `Salta e vai avanti`, `nessuna unità di misura in anagrafica`, `I colli
-li conta la suddivisione`.
-
-**Cosa non è stato esercitato da capo a fondo, e va provato al banco prima di
-installare:** la **rettifica di una tappa già prelevata** e il **salta tappa**.
-Sono verificati per tipi, logica e resa a video, ma non sono stati fatti girare:
-avrebbero scritto movimenti veri nel registro del magazzino in servizio. Voce
-**51**.
+**Conseguenza da guardare in faccia: la voce 51 non è più un debito di una
+versione da installare, è codice che gira.** La rettifica di una tappa già
+prelevata e il salta tappa non sono mai stati esercitati da capo a fondo, e il
+magazzino li sta servendo.
 
 ---
-
 ## LA 2.3 È RITIRATA
 
 **Ha disfunzionato, ed è stato necessario un ripristino d'emergenza alla 2.2.**
@@ -1524,7 +1514,9 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **51** | **DUE FUNZIONI DELLA 2.5 NON SONO STATE ESERCITATE DA CAPO A FONDO.** La **rettifica di una tappa già prelevata** e il **salta tappa** del prelievo da ordine sono verificate per tipi, logica e resa a video, ma non sono state fatte girare: farle girare avrebbe scritto movimenti veri nel registro del magazzino in servizio. La rettifica scrive un `REPOS` e chiama `esceDaWip`, cioè tocca giacenza **e** conto di produzione | **Vanno provate al banco con un ODP di prova, su una copia del database — §5 — prima di installare la 2.5.** Le due cose da guardare: che il `REPOS` rimetta le **misure giuste** e non colli di misura comoda, e che `esceDaWip` non rifiuti la riga quando l'ordine ha in lavorazione colli di misure diverse (lancia apposta in quel caso: la rettifica resta valida e l'operatore viene avvisato, ma va visto succedere) |
+| **54** | **IL DATABASE IN SERVIZIO NON È ANCORA NORMALIZZATO, E LA 2.6 LO PRETENDE.** Ha **53 righe** con lotto e `item_key` minuscoli, e la coppia `6001412#cl260854` (5 pezzi) / `6001412#CL260854` (1) è ancora divisa in due nel vano `MAG1-RAKA-01-05-C`. Appena la 2.6 gira, **la prima scrittura che tocca quella riga la maiuscola**, e nel vano si troverebbero due righe con la stessa chiave — quello che `moveUdc` si rifiuta di far nascere, e che il client legge con `find` prendendone una a caso. **Provato sulla copia il 26/08: 63 righe riscritte, 1 fusione, un `EDIT` a registro** | **Si raddrizza PRIMA di installare la 2.6, non dopo.** Backup fresco, servizio fermo, poi `node banco/maiuscola-codici.cjs --da "C:\Pathfinder\data\pathfinder.db"` (senza `--scrivi` non tocca niente: deve dire **53 righe e 1 fusione**, i numeri già visti sulla copia), e solo se i numeri tornano si aggiunge `--scrivi`. La firma delle fusioni è `SISTEMA`, che entra in anagrafica **disattivato e senza PIN** come gli operatori storici della voce 46: nessuna firma orfana |
+| **53** | **IL BACKUP CAMBIA PADRONE SU POSTGRESQL, E NON È RIFATTO.** Con SQLite si copia un file; con PostgreSQL il ripristino è il point-in-time di Azure e non c'è niente da copiare da dentro il servizio. Il driver alza un **501** invece di restituire un file finto — è dichiarato e collaudato, non è una dimenticanza — ma `backup-serale.ps1`, `POST /api/backup` e le **22 prove di installazione** parlano ancora di file | **Vanno riscritti sul ripristino di Azure prima di accendere `PATHFINDER_PG` in magazzino.** Finché il magazzino gira su SQLite non è urgente: il backup serale funziona esattamente come prima. Diventa bloccante il giorno in cui la variabile si accende |
+| **51** | **DUE FUNZIONI NON ESERCITATE DA CAPO A FONDO, E ADESSO SONO IN SERVIZIO.** La 2.5 e' installata dal 26/08 — misurata, non dedotta — quindi questa non e' piu' una cosa da provare prima di installare: e' codice che il magazzino sta servendo. La **rettifica di una tappa già prelevata** e il **salta tappa** del prelievo da ordine sono verificate per tipi, logica e resa a video, ma non sono state fatte girare: farle girare avrebbe scritto movimenti veri nel registro del magazzino in servizio. La rettifica scrive un `REPOS` e chiama `esceDaWip`, cioè tocca giacenza **e** conto di produzione | **Vanno provate al banco con un ODP di prova, su una copia del database — §5 — prima di installare la 2.5.** Le due cose da guardare: che il `REPOS` rimetta le **misure giuste** e non colli di misura comoda, e che `esceDaWip` non rifiuti la riga quando l'ordine ha in lavorazione colli di misure diverse (lancia apposta in quel caso: la rettifica resta valida e l'operatore viene avvisato, ma va visto succedere) |
 | **52** | **82 ARTICOLI HANNO UN'UNITÀ CHE NON È UN'UNITÀ.** Dopo la traduzione `NR → PZ` del 26/08 restano fuori dalla gestione a UM: `SCA` 48, `CON` 18, `RT` 7, `CAS` 4, `M2` 2, `BAN` 1, più **due celle con dentro testo libero** — `MIN EPA=105 MG/G` e `MIN EPA=500MG/G DHA=250 MG/G C/L U.G.A`. Non è un difetto del codice: scatola, confezione e cassa nominano un **contenitore**, e in questo sistema il contenitore è il collo. `M2` è una superficie, che fra le cinque unità non c'è. Le due celle di testo sono errori di compilazione | Le 82 righe si caricano **a soli colli** e la maschera adesso lo dice. Va deciso sigla per sigla, guardando che merce sono: quelle che sono davvero un contenitore restano così, `M2` chiede se serva una sesta unità, e le due celle di testo vanno corrette in anagrafica — quello è di Andrea |
 | **50** | **UN DIFETTO «GRAVE» DEL CICLO NON FA FALLIRE NIENTE.** `difetto()` in `banco/ciclo/verbale.js` scrive la riga nel verbale e la prova risulta lo stesso **passata**: il 25/08, rimettendo apposta il difetto della voce 45, il banco ha alzato **PA6 (grave)** con `movimenti 112 → 0` e `vitest` ha detto «3 passed». Vale per tutto il ciclo, non solo per PA6 | Un difetto grave deve tingere di rosso la corsa, altrimenti lo vede solo chi apre il verbale e legge fino in fondo — e il verbale si apre quando si sospetta già qualcosa. Va deciso quali severità fermano la corsa |
 | **5** | **Caratterizzare le zone** in Configurazione → Zone: classe di conservazione, zona allergeni, zona pericolosi, refrigerata. Finché non è fatto **la mappa resta muta**, per quanti articoli si classifichino: la verifica confronta due metà e una manca | **Pianificare verifica e correzione.** Prima si misura quante zone e quante righe sono scoperte, poi si decide se il buco è nel dato o nel codice che lo legge |
@@ -1587,8 +1579,10 @@ riga che dava il progetto al 31/12/2026, con ultima installazione utile il
 
 | Versione | Stato |
 |---|---|
-| **2.4** | **IN SERVIZIO dal 25/08 sera.** `99fc56ba…`, 1.777.772 byte, 4 file. Non porta funzioni nuove: porta la correzione della voce 45 (un ripristino non cancella più il registro) e quella della voce 19 (il parser dell'ODP dichiara l'unità che inventa). Provata al banco sul pacchetto minificato, impronta riprodotta tre volte. **Salta il 2.3 apposta**: quel numero è speso, e due pacchetti con lo stesso nome sono la trappola che qui è già costata tre giorni |
-| **2.2** | **LA VIA DI RITORNO.** È stata in servizio dal 25/08 all'01:39 fino alla sera dello stesso giorno, e adesso sta in `precedente`: un `torna-indietro.ps1` la rimette in un comando. Impronta `08ce3f69…`, commit `3c68d0a`, pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.2/` |
+| **2.6** | **COSTRUITA, NON INSTALLATA.** `d3865c53…`, 1.800.084 byte, 4 file. Il servizio dati parla due database — SQLite di serie, PostgreSQL con `PATHFINDER_PG` — i codici si scrivono in maiuscolo, e l'interfaccia del servizio dati è diventata asincrona. **Prima di installarla va raddrizzato il database: voce 54** |
+| **2.5** | **IN SERVIZIO dal 26/08.** `8ed505b9…`, 1.798.524 byte, 4 file. Le unità di misura al carico su 11.115 articoli, il prelievo da ordine, e le sei funzioni della sera del 26. Porta con sé la voce 51: due funzioni mai esercitate da capo a fondo, e adesso in servizio. Pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/` |
+| **2.4** | **LA VIA DI RITORNO.** `99fc56ba…`, 1.777.772 byte, 4 file. Non porta funzioni nuove: porta la correzione della voce 45 (un ripristino non cancella più il registro) e quella della voce 19 (il parser dell'ODP dichiara l'unità che inventa). **Salta il 2.3 apposta**: quel numero è speso, e due pacchetti con lo stesso nome sono la trappola che qui è già costata tre giorni |
+| **2.2** | **ARCHIVIATA.** E' stata la via di ritorno fino alla 2.4, ed e' stata in servizio il 25/08. Impronta `08ce3f69…`, commit `3c68d0a`, pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.2/`. La via di ritorno adesso e' la **2.4** |
 | ~~**2.3**~~ | **RITIRATA — ha disfunzionato, ripristino d'emergenza alla 2.2.** Pacchetto e ramo git in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/`. Il problema che voleva risolvere resta aperto: §1 |
 | ~~**1.8 → 2.1**~~ | **ARCHIVIATE.** Sono dentro la 2.2 e non esistono più come lavoro da fare. La 1.8 (UOM riscritta, `feature.colli`), la 1.9 (viste giacenza), la 1.10 (trasferimenti dall'ODP), la 1.11 (il terminale su `--spacing`), la 1.12 (UDC), la 1.13 (motore di stoccaggio), la 1.14 (conto di produzione): scritte, cablate, collaudate e consegnate. Quel che di loro è rimasto aperto **non è la versione, è un interruttore o un dato** — voci 5, 6, 12, 15, 16, 22. La cronaca di come furono costruite sta in §1 |
 
@@ -2302,6 +2296,50 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 
 ### Codice
 
+**Un flag d'istanza non dice «sono dentro una transazione» — 2.6.** Con
+un'interfaccia asincrona, un booleano sull'oggetto viene letto anche da chi
+quella transazione non l'ha aperta: una seconda richiesta HTTP lo trova alzato,
+crede di essere annidata, e il suo corpo gira **dentro la transazione di un
+altro terminale**. Su SQLite non si vede mai — gli `await` si risolvono in
+microtask, e la prima transazione finisce prima che Express prenda la seconda
+richiesta — quindi 98 collaudi verdi non dicono niente su questo. Si è visto
+alla **prima corsa su PostgreSQL**, con la prova della contesa che passava due
+volte su due. La cosa giusta è `AsyncLocalStorage`, che segue la catena
+asincrona invece dello stato dell'oggetto.
+
+**Un `ON CONFLICT` senza la chiave nella INSERT non scatta mai — 2.6.** Su una
+collezione a chiave automatica, `put` deve scrivere la colonna `_id` fra le
+colonne dell'INSERT: senza, l'`ON CONFLICT(_id)` non ha su cosa scattare e
+l'aggiornamento diventa un inserimento. Il sintomo non è un errore: è **una
+riga nuova a ogni salvataggio** e un saldo che non scende. Tinse di rosso 28
+prove del servizio in un colpo, e il messaggio di ognuna parlava d'altro.
+
+**`toISOString()` non è il giorno di chi lavora — 2.6.** Il backup nominava i
+file con la data UTC: alle 01:52 del 26/08, ora di Roma, scriveva
+`pathfinder-2026-08-25.db` — **lo stesso nome del backup serale delle 20:00**,
+e glielo scriveva sopra. La copia che si prende prima di installare si prende a
+fine turno, ed è esattamente quella che serve se qualcosa va storto. Un backup
+che ne cancella un altro non è un backup.
+
+**Due database non nominano allo stesso modo lo stesso rifiuto — 2.6.** SQLite
+alza `SQLITE_CONSTRAINT_UNIQUE`, PostgreSQL lo SQLSTATE `23505`. Con mezza mappa
+la stessa richiesta respinta tornava **409 da una parte e 500 dall'altra**: al
+terminale, «ci hai riprovato» contro «il servizio si è rotto». Vale per i tipi
+allo stesso modo: `pg` decodifica `int8` in **stringa** per non perdere cifre, e
+`_id` sarebbe tornato `"1"` da un database e `1` dall'altro.
+
+**`rejectUnauthorized: false` non è «accetta il certificato di Azure»: è
+«accetta chiunque» — 2.6.** Era la prima stesura del driver PostgreSQL, e da lì
+sarebbero passati la stringa di connessione e il PIN degli operatori. Node porta
+con sé le CA di Mozilla e il certificato di Flexible Server risale a una di
+quelle: verificare non costa niente. Una CA aziendale si indica con un **file**,
+non spegnendo il controllo.
+
+**Un audit che trova un difetto nello script che lo ha scritto — 2.6.** Lo
+script che maiuscola i codici firmava le fusioni `SISTEMA`, che non era in
+anagrafica: avrebbe riaperto la voce 18, «nessuna firma orfana su 264
+movimenti». L'ha trovato l'audit stesso, girato sul risultato invece che sulla
+partenza. **Un audit si passa anche dopo, non solo prima.**
 - **CHI MODIFICA UN FILE DA UNO SCRIPT LO RILEGGE IN BINARIO.**
   `.gitattributes` dice `* -text`: Git non deve toccare i fine riga, e il
   perché sta scritto lì dentro. Uno script Python che apre un file in
@@ -2405,14 +2443,31 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 - **Niente lavoro offline.** Se il servizio non risponde l'applicativo si ferma
   e lo dice a schermo intero. Niente code da risincronizzare.
 - **Un solo database condiviso**, più terminali, e l'arbitro è il server: la
-  concorrenza si risolve con **una transazione SQLite dentro `/api/op/…`**, non
-  con la disciplina di chi scrive.
+  concorrenza si risolve con **una transazione dentro `/api/op/…`**, non con la
+  disciplina di chi scrive. **Dalla 2.6 le transazioni si fanno UNA PER
+  VOLTA**, e non è una svista: l'interfaccia del servizio dati è asincrona, e
+  un `await` dentro una transazione ridà il turno al ciclo degli eventi. Senza
+  una coda, una seconda richiesta HTTP si infilerebbe dentro la transazione
+  aperta — è successo, e su PostgreSQL si è visto alla prima corsa. Il prezzo è
+  un tetto di throughput che SQLite aveva già.
 - **Documento JSON con colonne materializzate**: si indicizza solo ciò che serve,
   il resto vive in `data`. È il motivo per cui un campo nuovo non è una
   migrazione.
 - **Servizio on-prem, attività pianificata**, non servizio Windows nativo (NSSM
-  è il file che l'antivirus blocca alle sette di mattina). Niente Azure, niente
-  Redis, niente Entra ID: si resta al PIN. Sage X3 fino al 2038.
+  è il file che l'antivirus blocca alle sette di mattina). Niente Redis, niente
+  Entra ID: si resta al PIN. Sage X3 fino al 2038.
+- **«NIENTE AZURE» NON VALE PIÙ, ED È STATA UNA DECISIONE — 26/08/2026.** Fino
+  alla 2.5 questa riga diceva «niente Azure». Il ramo `server/azure/` esisteva
+  perché la decisione si potesse prendere con i numeri davanti, e i numeri sono
+  stati messi davanti: la 2.6 porta il driver PostgreSQL **in servizio**, scelto
+  da `PATHFINDER_PG`. **Il database resta SQLite finché quella variabile è
+  assente**, e questa è la parte che non cambia: la 2.6 si installa senza
+  toccare il database, e accendere PostgreSQL è un secondo gesto che si annulla
+  spegnendo una variabile. Quel che la decisione NON ha ancora affrontato è il
+  primo punto di `server/azure/LEGGIMI.md`: con il database in cloud il
+  magazzino si ferma quando cade la connessione dell'azienda, non solo quando
+  cade il PC. Accendere `PATHFINDER_PG` in produzione è una decisione di
+  continuità operativa, e non è presa.
 - **`checkJs` spento sul client, acceso sul servizio.** Dove tipo e codice
   litigano, **cede il tipo**.
 - **Il CSS non si minifica**: toglieva 413 caratteri su 146.368 e riscriveva le
@@ -2432,6 +2487,23 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   modo di cancellarlo — per quanto protetto da export e doppia conferma — è
   un modo che prima o poi qualcuno percorre. Per portare via i dati resta
   l'export JSON, che non toglie niente da dove sta.
+- **I CODICI SI SCRIVONO IN MAIUSCOLO — 2.6.** Articolo, lotto, `item_key`,
+  ubicazione, UDC, SSCC, ODP, DDT, sigla operatore, unità di misura: un codice
+  scritto in due grafie **non è un problema di resa a video, è una seconda
+  entità che nasce**. Il 26/08, in `MAG1-RAKA-01-05-C`, lo stesso lotto stava a
+  scaffale due volte — `6001412#cl260854` con 5 pezzi e `6001412#CL260854` con
+  1 — e il FEFO le ordinava separate. **Normalizza il SERVIZIO**, a ogni
+  scrittura e da qualunque parte arrivi (§6 dice che l'arbitro è il server, e
+  due terminali più un import da Excel non passano dalla stessa maschera); il
+  client maiuscola mentre si digita, lettore ottico compreso, ma quella è la
+  comodità, non la garanzia. **L'elenco dei campi sta in `MAIUSCOLE`, dentro
+  `server/lib/schema.js`, e NON comprende**: il PIN (`pin_hash`, `pin_salt`,
+  che sono base64 e maiuscolati smettono di verificarsi), le chiavi di `meta`
+  (camelCase: `areaWip`, `udcPrefissoGS1`), gli enum confrontati alla lettera
+  nel codice (`'empty'`, `'pallet'`, `'operator'`, `'open'`, `'in'`), e la
+  prosa — descrizioni, note, nomi propri, indirizzi. La prova
+  `test/maiuscole.test.js` non lascia passare un campo che nessuno ha
+  classificato, e ha una guardia apposta perché il PIN non ci finisca dentro.
 - **`_format` del pacchetto di export non segue la versione dell'applicativo**:
   descrive la forma del file. A muoversi è `_appVersion`.
 - **I documenti si rileggono, non si ricostruiscono**: le ristampe partono dallo
@@ -2830,8 +2902,13 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 | File | Righe | Ruolo |
 |---|---:|---|
 | `pathfinder-server.js` | 378 | Express: rotte, SSE, TLS opzionale, la cartella dell'applicativo, avvio |
-| `lib/db.js` | 315 | Accesso SQLite, transazioni, operazioni composte, **`_migra`** |
-| `lib/schema.js` | 191 | Tabelle e indici — **due funzioni separate**, con la migrazione in mezzo |
+| `lib/db.js` | 78 | **La facciata, dalla 2.6**: legge `PATHFINDER_PG` (variabile di macchina, poi `.env.local`), sceglie il driver e lo restituisce pronto. Variabile **impostata vuota** = «no, SQLite», e batte il file: serve ai collaudi, che non devono cambiare comportamento perché su quella macchina qualcuno ha lasciato una stringa di connessione |
+| `lib/driver-base.js` | 318 | **TUTTA la logica del servizio dati, una volta sola per due database.** Scritture, letture, filtri, transazioni, revisione e notifica, e la normalizzazione in maiuscolo. I driver portano solo i quattro gesti che un database sa fare: esegui, leggi righe, apri e chiudi una transazione. **`AsyncLocalStorage`, non un flag**: un booleano d'istanza non distingue «annidato» da «un'altra richiesta HTTP», e la seconda finirebbe dentro la transazione della prima — §5 |
+| `lib/driver-sqlite.js` | 121 | `better-sqlite3`, **`_migra`**, backup a file. È quello in servizio, ed è la via di casa |
+| `lib/driver-postgres.js` | 199 | `pg`, il pool, la connessione fissata alla transazione, il riallineamento delle sequenze, il controllo della collazione. `int8` decodificato a numero, o `_id` tornerebbe stringa da una parte e numero dall'altra |
+| `lib/sql.js` | 259 | **TUTTO lo SQL, col dialetto come parametro.** Segnaposti (`?` contro `$1`), INSERT a molte righe, l'upsert, i filtri, `countAll` in una istruzione sola. `startsWith` è `substr(col,1,N) = ?` e **non** un `LIKE`: quello di SQLite ignora le maiuscole e quello di PostgreSQL no |
+| `lib/schema.js` | 297 | Tabelle e indici — **due funzioni separate**, con la migrazione in mezzo. E **`MAIUSCOLE`**: i campi che sono un codice, dichiarati accanto al vocabolario delle collezioni |
+| `lib/schema-postgres.js` | 133 | Il DDL PostgreSQL, generato dalla **stessa** dichiarazione. Ogni colonna di testo porta `COLLATE "C"`: senza, `ORDER BY location_code` esce in un altro ordine e il magazzino vede le corsie rimescolate. **Salito da `azure/` in `lib/` con la 2.6**, perché il servizio lo esegue e `azure/` è escluso da `tsconfig.server.json` |
 | `installa-pathfinder.ps1` | — | **L'installer**: chiede dove installare la prima volta e la rilegge dalla macchina aggiornando, capisce se è aggiornamento o prima installazione, si eleva **sempre** (ferma il servizio), porta applicativo **e** servizio, riavvia, e verifica che i due numeri coincidano. Nel pacchetto diventa `installa.ps1`. `-NonChiedere` per provarlo senza una persona davanti, **`-Prova`** per fargli dire cosa farebbe senza toccare niente |
 | `Installa Pathfinder.bat` · `LEGGIMI-pacchetto.txt` | — | Il doppio clic e le istruzioni per chi installa. Nel pacchetto diventano `Installa Pathfinder.bat` e `LEGGIMI.txt` |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate e le variabili. Da amministratore, **una volta**, **dal sorgente** o dalla copia in `C:\Pathfinder\servizio` |
@@ -2847,8 +2924,26 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 `serpentina` · `fefo` (19) · `geometria` (21) · `odp` (26) · `anagrafica` (27) ·
 `conformita` (19) · `cache` (43) · `pacchetto` (27) · `statistiche` (15) ·
 `compiti` (114) · `misure` (65) · `colli` (66) · `parametri` (19) · `documenti` (6) ·
-`destinatari` (27) · `giacenzaArticolo` (19) · `trasferimentiOdp` (26) · `dispositivo` (15) · `udc` (36) · `stoccaggio` (49) · `wip` (28) · `exportUm` · **2.1**: `code128` (14) · `cruscotto` (19) · `tabella` (22) · `schemaPostgres` (8) · **`superficie-app` (2)** · **2.2**: `modali` (2) · `maschera-attivita` (1) · `registro-completo` (3) · **2.3**: `reparto` (22 — il giro conto, le quote del vano, il reso che trabocca, `pianoUscita`) — **947 prove in 33 file**. `ambiente.js` è
+**2.6**: `auditMigrazione` (21 — le forme di data, il byte zero, il surrogato
+spaiato, la colonna che diverge dal documento) · `maiuscole` (17 — quali campi
+sono un codice, la guardia che tiene il PIN fuori dall'elenco, e la lettura dei
+sorgenti che non lascia passare un campo non classificato) · `sql` (31 — i due
+dialetti, i lotti di scrittura, `startsWith` che non è un `LIKE`, l'`orderBy`
+ostile) · **`driver` (62 — LE STESSE 31 PROVE SUI DUE DATABASE**: il giro
+normale, i codici in maiuscolo, i lotti da tremila righe, le transazioni che
+non si intrecciano, l'ordinamento byte per byte, e in fondo i tentativi di
+rottura — una collezione che non esiste, un campo non indicizzato, un `orderBy`
+con dentro una `DELETE`, un `anyOf` da ottantamila valori). Senza
+`PATHFINDER_PG` le trentuno di PostgreSQL si dichiarano **saltate col motivo
+scritto**, invece di tacere) — **1.108 prove in 38 file.** `ambiente.js` è
 il preambolo comune.
+
+**LA BATTERIA A CONFRONTO HA GUADAGNATO IL SUO COSTO ALLA PRIMA CORSA.** Quattro
+difetti che SQLite non poteva mostrare: due terminali che entravano nella stessa
+transazione, `_id` che tornava stringa da una parte e numero dall'altra, lo
+stesso rifiuto mappato 409 su un database e 500 sull'altro, e una chiave non
+numerica che su SQLite non trovava niente e su PostgreSQL alzava un errore di
+sintassi. Nessuno sarebbe uscito provando un database solo — §1.
 
 Le tre prove del 2.2 leggono il SORGENTE invece di girare il codice, e non è
 un ripiego: fissano regole che un DOM non c'è per verificare — una riga che
@@ -2885,6 +2980,10 @@ scritto lì dentro trovi a chi rispondere — §7.
 | **`PATHFINDER_APP_DIR`** | `C:\Pathfinder\app\corrente` — **si imposta una volta sola**: dopo, le versioni si scambiano sostituendo il contenuto di quella cartella, e la variabile non si muove mai più |
 | `PATHFINDER_APP_PREV` | il fratello `precedente`, da cui escono gli assets di chi stava caricando la pagina durante uno scambio. Si imposta solo per metterlo altrove |
 | `PATHFINDER_APP` | il ripiego a file singolo, usato solo se `APP_DIR` è assente |
+| **`PATHFINDER_PG`** | **2.6 — quale database.** Assente → SQLite, esattamente come la 2.5. Presente → PostgreSQL con quella stringa di connessione. **Impostata VUOTA** → SQLite, dichiarato, e batte `.env.local`: serve ai collaudi, che non devono cambiare comportamento perché su quella macchina qualcuno ha lasciato una stringa in un file. **Non sta nel repository**: al banco in `.env.local` (che `.gitignore` esclude), per il servizio vero in **Azure Key Vault**, mai in uno script di installazione |
+| `PATHFINDER_PG_POOL` · `_IDLE` · `_TIMEOUT` | Connessioni del pool (10), millisecondi prima di chiudere una connessione ferma (30.000), attesa per averne una (10.000). `_IDLE` **sta sotto** la soglia di Flexible Server apposta: è il pool a doverle chiudere per primo, o le trova morte a metà turno |
+| `PATHFINDER_PG_CA` | Il file della CA aziendale, quando il certificato non risale a una delle CA che Node porta con sé. **È un file, non un interruttore che spegne il controllo**: il certificato si verifica sempre |
+| `PATHFINDER_COLLAUDO_PG` | `1` fa girare `server/test/collaudo.js` — le stesse 98 prove del servizio — contro PostgreSQL invece che su SQLite |
 | `PATHFINDER_TLS_CERT` / `_KEY` | assenti → HTTP |
 
 **Si leggono all'avvio**: cambiate senza riavvio non hanno effetto.

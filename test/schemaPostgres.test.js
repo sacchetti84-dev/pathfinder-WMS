@@ -3,7 +3,7 @@ import { createRequire } from 'node:module';
 
 const require = createRequire(import.meta.url);
 const { COLLECTIONS, NAMES } = require('../server/lib/schema.js');
-const pg = require('../server/azure/schema-postgres.js');
+const pg = require('../server/lib/schema-postgres.js');
 
 /* IL RAMO AZURE È PARALLELO, MA NON È SCOLLEGATO.
 
@@ -32,7 +32,28 @@ describe('lo schema PostgreSQL segue quello vero, non una copia', () => {
 
   it('la chiave automatica diventa BIGSERIAL, quella testuale resta TEXT', () => {
     expect(pg.createTableSQL('inventory')).toContain('_id BIGSERIAL PRIMARY KEY');
-    expect(pg.createTableSQL('operators')).toContain('op_id TEXT PRIMARY KEY');
+    expect(pg.createTableSQL('operators')).toContain('op_id TEXT COLLATE "C" PRIMARY KEY');
+  });
+
+  /* SQLite confronta il testo byte per byte; PostgreSQL userebbe la
+     collazione del database, e con `it_IT` l'ordine cambia. `ORDER BY
+     location_code` e' quel che il client legge per disegnare una corsia:
+     due ordini diversi vogliono dire un magazzino rimescolato. — 2.6 */
+  it('OGNI COLONNA DI TESTO PORTA `COLLATE "C"`, o le corsie escono in un altro ordine', () => {
+    for (const nome of NAMES) {
+      const col = COLLECTIONS[nome];
+      const sql = pg.createTableSQL(nome);
+      for (const f of [col.pk, ...col.indexed]) {
+        if (f === col.pk && col.pkType === 'auto') continue;
+        if ((col.numeric || []).includes(f)) continue;
+        expect(sql, `${nome}.${f}`).toContain(`${f} TEXT COLLATE "C"`);
+      }
+    }
+  });
+
+  it('e una colonna numerica NON la porta: i numeri non si collazionano', () => {
+    expect(pg.createTableSQL('mov_log')).toContain('ts BIGINT');
+    expect(pg.createTableSQL('mov_log')).not.toContain('ts BIGINT COLLATE');
   });
 
   it('LE COLONNE MATERIALIZZATE SONO LE STESSE, una per una', () => {

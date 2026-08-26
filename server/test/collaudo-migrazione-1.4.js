@@ -57,9 +57,11 @@ function schema14() {
   rinomina();
 }
 
-/* Cio' che va salvato a tutti i costi: ubicazione, articolo, lotto, colli. */
-function impronta(db) {
-  const inv = db.all('inventory');
+/* Cio' che va salvato a tutti i costi: ubicazione, articolo, lotto, colli.
+   2.6 — l'interfaccia del servizio dati e' asincrona: `better-sqlite3` e'
+   sincrono e `pg` no, e una sola interfaccia serve tutti e due. */
+async function impronta(db) {
+  const inv = await db.all('inventory');
   const v = inv.map(r => `${r.location_code}|${r.article_code}|${r.lot_code}|${r.qty}`).sort();
   return {
     righe: v.length,
@@ -68,6 +70,7 @@ function impronta(db) {
   };
 }
 
+async function principale() {
 console.log('\n  Migrazione 1.4 — i dati di oggi sopravvivono?\n');
 
 /* ── 1. Un magazzino con lo schema della 1.2 ────────────────────────────── */
@@ -80,7 +83,7 @@ for (const z of ['A', 'B', 'C']) for (let corsia = 1; corsia <= 6; corsia++) for
     if (++n % 3 === 0) continue;
     const art = `70${n % 9}${String(n % 40).padStart(3, '0')}`;
     const lot = `L2026${String(n % 90 + 1).padStart(3, '0')}`;
-    db.add('inventory', {
+    await db.add('inventory', {
       location_code: `DP-${z}-${String(corsia).padStart(2, '0')}-${String(posto).padStart(2, '0')}-${liv}`,
       item_key: `${art}|${lot}`, article_code: art, article_description: `Articolo ${art}`,
       lot_code: lot, expiry_date: '2027-03-31', qty: (n % 24) + 1,
@@ -88,45 +91,50 @@ for (const z of ['A', 'B', 'C']) for (let corsia = 1; corsia <= 6; corsia++) for
     });
   }
 }
-db.add('sites', { id: 'DP', name: 'Deposito' });
-db.add('articles', { code: '700001', description: 'Prova', unit: 'PZ' });
-const prima = impronta(db);
+await db.add('sites', { id: 'DP', name: 'Deposito' });
+await db.add('articles', { code: '700001', description: 'Prova', unit: 'PZ' });
+const prima = await impronta(db);
 console.log(`  base di partenza: ${prima.righe} righe, ${prima.colli} colli, impronta ${prima.sha}`);
-db.close();
+await db.close();
 
 /* ── 2. Lo stesso file, riaperto con lo schema della 1.4 ────────────────── */
 schema14();
 DB = fresh();
 db = new DB(file);
 console.log(`  migrazione: ${db.migrazioni.map(m => `${m.collezione}.${m.campo} (${m.righe} righe)`).join(' · ') || '(niente da fare)'}\n`);
-const dopo = impronta(db);
+const dopo = await impronta(db);
 
 verifica(dopo.sha === prima.sha, `ubicazione, articolo, lotto e colli identici — impronta ${dopo.sha}`);
 verifica(dopo.righe === prima.righe, `nessuna riga persa — ${dopo.righe}`);
 verifica(dopo.colli === prima.colli, `nessun collo perso — ${dopo.colli}`);
 verifica(db.db.prepare('PRAGMA table_info(inventory)').all().some(c => c.name === 'udc_id'),
   'inventory ha la colonna udc_id');
-verifica(NUOVE.every(c => db.count(c) === 0),
+const contati = [];
+for (const c of NUOVE) contati.push(await db.count(c));
+verifica(contati.every(n => n === 0),
   `le ${NUOVE.length} collezioni nuove esistono e sono vuote`);
 
-const una = db.all('inventory')[0];
-db.put('inventory', { ...una, udc_id: 'UDC-000001' });
-db.add('udc', { udc_id: 'UDC-000001', location_code: una.location_code, status: 'open', site_id: 'DP' });
-verifica(db.query('inventory', { criteria: { field: 'udc_id', op: 'equals', value: 'UDC-000001' } }).length === 1,
+const una = (await db.all('inventory'))[0];
+await db.put('inventory', { ...una, udc_id: 'UDC-000001' });
+await db.add('udc', { udc_id: 'UDC-000001', location_code: una.location_code, status: 'open', site_id: 'DP' });
+verifica((await db.query('inventory', { criteria: { field: 'udc_id', op: 'equals', value: 'UDC-000001' } })).length === 1,
   'la 1.4 scrive e interroga udc_id sulle righe di ieri');
-db.close();
+await db.close();
 
 /* ── 3. Il ritorno indietro ─────────────────────────────────────────────── */
 schema12();
 DB = fresh();
 db = new DB(file);
-const indietro = impronta(db);
+const indietro = await impronta(db);
 verifica(indietro.sha === prima.sha, 'la 1.2 rilegge lo stesso magazzino dal database della 1.4');
-const caricato = db.loadAll();
+const caricato = await db.loadAll();
 verifica(caricato.inventory.length === prima.righe && caricato.sites.length === 1,
   `loadAll della 1.2 non inciampa su colonne e tabelle che non conosce — ${caricato.inventory.length} righe`);
-db.close();
+await db.close();
 pulisci();
 
 console.log(`\n  ${6 + 2 - falliti} passate, ${falliti} fallite\n`);
 process.exit(falliti ? 1 : 0);
+}
+
+principale().catch((e) => { console.error(e); process.exit(1); });

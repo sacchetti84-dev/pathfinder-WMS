@@ -48,8 +48,39 @@ fs.writeFileSync(path.join(ORA, 'manifest.json'), '﻿' + JSON.stringify({
 }));
 
 process.env.PATHFINDER_APP_DIR = ORA;
+/* 2.6 — LE STESSE 98 PROVE, SUI DUE DATABASE.
+   Di serie gira su SQLite, e lo DICE invece di lasciarlo decidere a un
+   `.env.local` che magari sta li' da un'altra prova. Con
+   `PATHFINDER_COLLAUDO_PG=1` gira le stesse identiche prove contro
+   PostgreSQL, prendendo la stringa da `.env.local`:
 
-const { app, db, server } = require('../pathfinder-server.js');
+     $env:PATHFINDER_COLLAUDO_PG='1'; node test/collaudo.js
+
+   Non e' lo stesso di `test/driver.test.js`: li' si prova il driver, qui si
+   prova IL SERVIZIO — le ventiquattro rotte, le operazioni composte, la
+   contesa fra due terminali, le notifiche. E' l'unico posto in cui si vede
+   se un magazzino vero funzionerebbe dall'altra parte. */
+const SU_PG = process.env.PATHFINDER_COLLAUDO_PG === '1';
+if (SU_PG) {
+  const { leggiEnvLocale } = require('../lib/db.js');
+  const pg = process.env.PATHFINDER_PG || leggiEnvLocale(path.join(__dirname, '..', '..')).PATHFINDER_PG;
+  if (!pg) { console.error("\n  PATHFINDER_COLLAUDO_PG=1 ma nessuna stringa di connessione.\n"); process.exit(1); }
+  process.env.PATHFINDER_PG = pg;
+  /* Si parte da vuoto: le prove contano le righe che scrivono loro. */
+  const { Client } = require('../node_modules/pg');
+  const { NAMES } = require('../lib/schema.js');
+  const c = new Client({ connectionString: pg, ssl: false });
+  module.exports = c.connect()
+    .then(() => c.query(`TRUNCATE ${[...NAMES, '_revision'].join(', ')} RESTART IDENTITY CASCADE`).catch(() => {}))
+    .then(() => c.end());
+} else {
+  process.env.PATHFINDER_PG = '';
+}
+
+/* 2.6 — `db` e' un getter: il servizio lo apre dentro `pronto`, e prima di
+   quel momento vale `null`. Destrutturarlo qui darebbe null per sempre. */
+const servizio = require('../pathfinder-server.js');
+const { app, server } = servizio;
 
 const BASE = 'http://127.0.0.1:4199';
 let passate = 0, fallite = 0;
@@ -713,8 +744,21 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   // ── Backup a caldo ────────────────────────────────────────────────
   const dirBackup = path.join(os.tmpdir(), 'pathfinder-backup-' + Date.now());
   const bk = await call('POST', '/api/backup', { dir: dirBackup });
-  ok('backup a caldo del database', bk.stato === 200 && fs.existsSync(bk.dati.file),
-     bk.dati.file ? path.basename(bk.dati.file) : bk.dati.error);
+  if (SU_PG) {
+    /* IL BACKUP CAMBIA PADRONE, ed e' uno dei quattro punti aperti del
+       LEGGIMI. Con PostgreSQL il ripristino e' il point-in-time di Azure, e
+       non c'e' un file da copiare da dentro il servizio. La prova verifica
+       che il servizio LO DICA — 501, «qui non si fa cosi'» — invece di
+       restituire un file finto o un 500 che sembra un guasto.
+       `backup-serale.ps1` e le 22 prove d'installazione vanno riscritte
+       prima di mandare il magazzino su PostgreSQL. */
+    ok("il backup dichiara che con PostgreSQL non e' una copia di file",
+       bk.stato === 501 && /point-in-time/.test(bk.dati.error || ''),
+       `stato ${bk.stato}`);
+  } else {
+    ok('backup a caldo del database', bk.stato === 200 && fs.existsSync(bk.dati.file),
+       bk.dati.file ? path.basename(bk.dati.file) : bk.dati.error);
+  }
 
   // ── 1.7 · L'applicativo servito da una cartella ───────────────────
   /* `fetch` chiede gzip da solo e lo decomprime senza dirlo: per sapere QUALE
@@ -836,7 +880,7 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   // ── Chiusura ──────────────────────────────────────────────────────
   console.log(`\n  ${passate} passate, ${fallite} fallite\n`);
   server.close();
-  db.close();
+  await servizio.db.close();
   try {
     fs.unlinkSync(TMP);
     fs.rmSync(dirBackup, { recursive: true, force: true });

@@ -12,6 +12,7 @@ import { Tabs } from './tabs';
 import { classifica, classeCSS, classiPossibili, eAndroid, LARGHEZZA_TERMINALE, LARGHEZZA_TAVOLETTA } from '../modules/dispositivo';
 import { Store } from '../core/store';
 import { rettifica as rettificaColli } from '../modules/colli';
+import { accendi as accendiMaiuscole } from '../modules/maiuscole';
 import type { Operatore } from '../types/entita';
 
 /* IL CAMPO CHE LA MASCHERA HA APPENA DISEGNATO.
@@ -324,6 +325,12 @@ const App = monolite({
     this._loadScannerSettings();
     // v1.9.1 — Registra listener globale per fix barcode US→IT
     document.addEventListener('keydown', (e) => this._scanKeydownFix(e), true);
+    /* 2.6 — I CODICI SI DIGITANO IN MAIUSCOLO, lettore ottico compreso: il
+       lettore e' una tastiera, e digita dentro il campo che ha il fuoco.
+       Un ascoltatore solo e in delega, perche' le maschere nascono dentro
+       le modali e riagganciarsi a ogni apertura vuol dire dimenticarsene
+       una. La garanzia resta sul servizio — `MAIUSCOLE` in `schema.js`. */
+    accendiMaiuscole(document);
     // v2.1.0 — Feedback multisensoriale, focus keeper e scorciatoie operative
     Feedback.init();
     document.addEventListener('keydown', (e) => this._focusKeeper(e), true);
