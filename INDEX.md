@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **27/08/2026**, notte
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **27/08/2026**, notte fonda
 
 ## LO STATO DEL PROGETTO È **ALFA**
 
@@ -23,21 +23,31 @@ scrivono come fatti avvenuti, non come promesse.
 
 ---
 
-## LA 2.9 È **SCRITTA E NON È COSTRUITA**
+## LA 2.9 È **COSTRUITA E NON È INSTALLATA**
 
-**Notte fra il 26 e il 27/08/2026.** Non c'è nessun pacchetto: il codice sta
-nel repository, i collaudi passano, e la build si fa nella prossima sessione
-per decisione di Andrea. In servizio resta la **2.7**; la **2.8** è
-costruita e consegnata ma non installata, e la sezione qui sotto la
-descrive ancora — non è stata riscritta perché quel pacchetto esiste
-davvero e ha la sua impronta.
+**Notte fra il 26 e il 27/08/2026.** Il pacchetto esiste e ha la sua
+impronta; nessuno l'ha ancora installato. In servizio resta la **2.7**; la
+**2.8** è costruita e consegnata ma non è mai andata in servizio, e la
+sezione qui sotto la descrive ancora — quel pacchetto esiste davvero, ed è
+sceso in `ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.8\` prima della build,
+perché `npm run build` azzera `consegna\` a ogni giro e quella era l'unica
+copia del pacchetto intero: il deposito di `C:\Pathfinder\app\` ne tiene
+l'applicativo, non l'installer né il servizio.
 
 | | |
 |---|---|
-| dove | solo nel repository, ramo `main` |
-| pacchetto | **nessuno** — `consegna\Pathfinder 2.8\` è di ieri sera e non contiene questo lavoro |
-| collaudi | **1.176 client**, tutti verdi |
+| dove | `consegna\Pathfinder 2.9\`, e il codice nel ramo `main` |
+| pacchetto | app 4 file, **1,75 MB** — 469 kB sul filo, compressi · servizio, 12 voci |
+| impronta | `b3b3b8daeca269bfcb4b1084157e61318729f015704443854988148693cc4e91` |
+| collaudi | **1.176 client** in 40 file · **98 servizio** · **8 migrazione** · **29 installazione** — tutti verdi |
 | tipi | `npm run check` a 0 su client e servizio |
+
+**Il collaudo del servizio contava ancora venti collezioni**, e la
+ventunesima — `location_attrs` — è entrata con la 2.8: falliva sul numero,
+non sul comportamento. Corretto insieme alla build, ed è la ragione per cui
+il pacchetto è stato costruito due volte. L'impronta dell'applicativo **non
+è cambiata** fra le due: il collaudo viaggia in `servizio\test\`, e l'app
+non lo tocca.
 
 **La 2.9 rovescia una decisione della 2.8**, ed è il motivo per cui è una
 versione sua e non una correzione: il motore di stoccaggio smette di
@@ -2374,11 +2384,11 @@ uscire incoerente.
 npm run dev      # sviluppo, ricarica a caldo — ATTENZIONE: parla col servizio VERO
 npm run build    # produce "consegna/Pathfinder <ver>/" — il pacchetto da consegnare
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest, 28 suite, 811 prove
+npm test         # vitest, 40 file, 1.176 prove
 ```
 
 ```bash
-node test/collaudo.js                    # 85 prove sul servizio, da server/
+node test/collaudo.js                    # 98 prove sul servizio, da server/
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server/
 node test/collaudo-installazione.js      # 29 prove sugli script di installazione, da server/
 ```
@@ -2395,8 +2405,12 @@ repository perché contiene dati veri:
 $BANCO = "$PWD\banco"
 Invoke-RestMethod -Method Post http://127.0.0.1:4173/api/backup -ContentType 'application/json' -Body (@{dir="$BANCO\db"} | ConvertTo-Json)
 .\server\installa-versione.ps1 -Da ".\consegna\Pathfinder 1.7\app" -Versione 1.7 -Casa "$BANCO\app"
-$env:PATHFINDER_PORT='4199'; $env:PATHFINDER_DB="$BANCO\db\pathfinder-<data>.db"; $env:PATHFINDER_APP_DIR="$BANCO\app\corrente"; node server\pathfinder-server.js
+$env:PATHFINDER_PG=''; $env:PATHFINDER_PORT='4199'; $env:PATHFINDER_DB="$BANCO\db\pathfinder-<data>.db"; $env:PATHFINDER_APP_DIR="$BANCO\app\corrente"; node server\pathfinder-server.js
 ```
+
+**`PATHFINDER_PG=''` apre la riga e non è un ornamento**: senza, il banco
+eredita dalla macchina la connessione al database in servizio e scrive nel
+vero, con la porta e il file di banco che dicono il contrario — §5.
 
 **Per provare il front end** — quello che serve a un'estrazione o a una vista
 nuova — al banco basta accendere Vite e dirgli con chi parlare, invece di
@@ -3004,6 +3018,26 @@ Adesso i banchi usano `PATHFINDER_PG_COLLAUDO` e **non ripiegano** su
 su un database di lavoro *è* il gesto che ha fatto il danno. E c'è una seconda
 guardia sul nome — il database deve finire per `_collaudo` — perché la prima
 protegge da una dimenticanza e la seconda da una distrazione.
+
+**E IL SERVIZIO DI BANCO EREDITA `PATHFINDER_PG` DALLA MACCHINA — 2.9.** Quella
+guardia copre i collaudi, non il banco. `installa-servizio.ps1` scrive
+`PATHFINDER_PG` fra le variabili di macchina, e punta al database **in
+servizio**: da lì in avanti ogni `node server\pathfinder-server.js` lanciato a
+mano se la porta dietro, `PATHFINDER_DB` compreso — perché la variabile batte
+il file, ed è scritto in `lib/db.js`. Il banco nasceva così su PostgreSQL di
+produzione con una porta sua e un file SQLite ignorato: la porta 4199 e il
+nome del file dicevano «banco», e le scritture andavano nel vero. Si accende
+**passandola vuota nella stessa riga**, che è la forma già usata per
+`PATHFINDER_DEV_API` in §3:
+
+```powershell
+$env:PATHFINDER_PG=''; $env:PATHFINDER_PORT='4199'; $env:PATHFINDER_DB="$BANCO\db\<file>.db"; node server\pathfinder-server.js
+```
+
+Il servizio lo dichiara all'avvio — `database  SQLite — <percorso>` — e
+**quella riga si legge prima di toccare qualunque cosa**: è l'unico posto in
+cui la differenza fra banco e produzione si vede a occhio.
+
 - **Non collaudare sul database di lavoro — e `npm run dev` NON è al riparo.**
   La pagina servita da Vite parla col servizio vero sulla 4173, perché l'adapter
   remoto non guarda da quale porta arrivi. La prova si fa su una **copia**, su
@@ -3745,7 +3779,7 @@ rottura — una collezione che non esiste, un campo non indicizzato, un `orderBy
 con dentro una `DELETE`, un `anyOf` da ottantamila valori). Senza
 `PATHFINDER_PG` le trentuno di PostgreSQL si dichiarano **saltate col motivo
 scritto**, invece di tacere) — **1.108 prove in 38 file.** `ambiente.js` è
-il preambolo comune.
+il preambolo comune. **Alla 2.9 sono 1.176 in 40 file.**
 
 **LA BATTERIA A CONFRONTO HA GUADAGNATO IL SUO COSTO ALLA PRIMA CORSA.** Quattro
 difetti che SQLite non poteva mostrare: due terminali che entravano nella stessa
