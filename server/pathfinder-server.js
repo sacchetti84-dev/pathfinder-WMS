@@ -719,25 +719,27 @@ app.get('/api/events', async (req, res) => {
    quello di quel turno; e se un file con quel nome c'e' gia' si aggiunge
    l'ora, invece di sostituirlo. Un backup che ne cancella un altro non e'
    un backup. */
-const nomeBackup = (dir, ora = new Date()) => {
+const nomeBackup = (dir, est, ora = new Date()) => {
   const p = (n) => String(n).padStart(2, '0');
   const giorno = `${ora.getFullYear()}-${p(ora.getMonth() + 1)}-${p(ora.getDate())}`;
-  const primo = path.join(dir, `pathfinder-${giorno}.db`);
+  const primo = path.join(dir, `pathfinder-${giorno}${est}`);
   if (!fs.existsSync(primo)) return primo;
-  return path.join(dir, `pathfinder-${giorno}-${p(ora.getHours())}${p(ora.getMinutes())}.db`);
+  return path.join(dir, `pathfinder-${giorno}-${p(ora.getHours())}${p(ora.getMinutes())}${est}`);
 };
 
 app.post('/api/backup', wrap(async (req, res) => {
   const dir = req.body?.dir || path.join(__dirname, 'data', 'backup');
   fs.mkdirSync(dir, { recursive: true });
-  const dest = nomeBackup(dir);
+  /* L'ESTENSIONE LA DICE IL DRIVER, non questa rotta.
+     Su SQLite la copia e' un `.db`; su PostgreSQL e' un `.dump` scritto da
+     `pg_dump`. Chi chiama — `backup-serale.ps1` — non deve sapere quale dei
+     due c'e' dietro: legge il nome dalla risposta, e ci scrive la riga di
+     registro senza guardare l'estensione. */
+  const dest = nomeBackup(dir, db.estensioneBackup);
   /* `await`, non `.then`: cosi' l'errore passa da `wrap`, che rispetta lo
-     stato dichiarato. Con PostgreSQL `backupTo` alza un 501 — il ripristino
-     e' il point-in-time di Azure, non una copia di file — e un 501 che
-     arriva come 500 dice «il servizio si e' rotto» invece di «questa cosa
-     qui non si fa cosi'». */
+     stato dichiarato dall'eccezione. */
   await db.backupTo(dest);
-  res.json({ ok: true, file: dest });
+  res.json({ ok: true, file: dest, bytes: fs.statSync(dest).size });
 }));
 
 const noCache = (res) => res.set('Cache-Control', 'no-cache');

@@ -110,6 +110,9 @@ class DriverSqlite extends DriverBase {
     return { file: this.file, bytes: byte, counts: conti, revision: await this.currentRevision() };
   }
 
+  /** Che estensione ha una copia di questo database. */
+  get estensioneBackup() { return '.db'; }
+
   async backupTo(destinazione) {
     fs.mkdirSync(path.dirname(destinazione), { recursive: true });
     return this.db.backup(destinazione);

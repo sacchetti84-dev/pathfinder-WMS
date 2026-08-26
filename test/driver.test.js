@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest';
 import { createRequire } from 'node:module';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { rmSync } from 'node:fs';
+import { rmSync, statSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 
 const require = createRequire(import.meta.url);
 const { DriverSqlite } = require('../server/lib/driver-sqlite.js');
@@ -332,6 +332,47 @@ function batteria(etichetta, apri, chiudi) {
       const troppi = Array.from({ length: 80000 }, (_, i) => i);
       await expect(db.count('mov_log', { field: 'ts', op: 'anyOf', value: troppi }))
         .rejects.toMatchObject({ status: 400 });
+    });
+
+    /* IL BACKUP E' LA META' DEL RIPRISTINO, E VA PROVATO COME TALE.
+       Su SQLite e' una copia coerente del file; su PostgreSQL un `pg_dump`
+       in formato custom. In tutti e due i casi la prova non guarda che il
+       file esista — un file esiste anche quando dentro non c'e' niente —
+       ma che pesi, e che porti l'estensione che il driver dichiara. */
+    it('scrive un backup, e il backup non e vuoto', async () => {
+      const dir = join(tmpdir(), `pathfinder-bk-${process.pid}-${Date.now()}`);
+      const dest = join(dir, `copia${db.estensioneBackup}`);
+      await db.backupTo(dest);
+      const st = statSync(dest);
+      expect(st.size).toBeGreaterThan(1024);
+      rmSync(dir, { recursive: true, force: true });
+    });
+
+    /* MEGLIO NESSUN BACKUP CHE UNO CHE SEMBRA UN BACKUP.
+       Se la rilettura fallisce, il file NON deve restare li' a farsi contare
+       da chi guarda la cartella e conclude che le copie ci sono. Si prova
+       facendo fallire `pg_restore` apposta. Vale solo per PostgreSQL: su
+       SQLite la copia la fa il motore, e non c'e' un secondo processo da
+       far sbagliare. */
+    it('un dump che non si rilegge viene cancellato, non tenuto', async () => {
+      if (db.dialetto !== 'postgres') return;
+      const dir = join(tmpdir(), `pathfinder-bk-rotto-${process.pid}-${Date.now()}`);
+      mkdirSync(dir, { recursive: true });
+      const dest = join(dir, 'copia.dump');
+      const prima = process.env.PATHFINDER_PG_RESTORE;
+      process.env.PATHFINDER_PG_RESTORE = join(dir, 'non-esiste-questo.exe');
+      try {
+        await expect(db.backupTo(dest)).rejects.toThrow(/non si rilegge/);
+        expect(existsSync(dest)).toBe(false);
+      } finally {
+        if (prima === undefined) delete process.env.PATHFINDER_PG_RESTORE;
+        else process.env.PATHFINDER_PG_RESTORE = prima;
+        rmSync(dir, { recursive: true, force: true });
+      }
+    });
+
+    it('e dichiara l estensione giusta per il database che ha dietro', () => {
+      expect(db.estensioneBackup).toMatch(/^\.(db|dump)$/);
     });
 
     it('chiedere una riga con una chiave assurda non esplode', async () => {

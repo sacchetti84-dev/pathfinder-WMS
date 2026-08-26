@@ -24,6 +24,8 @@
    e' in `pronto()`, e se non torna lo dice invece di lasciarlo scoprire. */
 
 const fs = require('node:fs');
+const path = require('node:path');
+const { execFile } = require('node:child_process');
 const { DriverBase } = require('./driver-base');
 const { NAMES } = require('./schema');
 const { POSTGRES } = require('./sql');
@@ -35,6 +37,44 @@ const { schemaCompleto } = require('./schema-postgres');
 const POOL_MAX = Number(process.env.PATHFINDER_PG_POOL) || 10;
 const FERMA_MS = Number(process.env.PATHFINDER_PG_IDLE) || 30_000;
 const ATTESA_MS = Number(process.env.PATHFINDER_PG_TIMEOUT) || 10_000;
+
+/* Quanto puo' durare un dump prima che lo si consideri piantato. Il
+   magazzino di oggi sta in venti megabyte e ci mette secondi; il tetto e'
+   largo perche' un dump interrotto a meta' e' peggio di uno lento. */
+const DUMP_MS = Number(process.env.PATHFINDER_PG_DUMP_TIMEOUT) || 15 * 60 * 1000;
+
+/* DOVE STANNO `pg_dump` E `pg_restore`.
+   Non sono nel PATH di serie su Windows: l'installazione li mette sotto
+   `Program Files\PostgreSQL\<major>\bin`. Si cerca li', si accetta un
+   percorso dichiarato, e in mancanza si prova il PATH — cosi' su una
+   macchina dove ci sono funziona senza configurare niente. */
+function trovaBinario(nome) {
+  const dichiarato = process.env[nome === 'pg_dump' ? 'PATHFINDER_PG_DUMP' : 'PATHFINDER_PG_RESTORE'];
+  if (dichiarato) return dichiarato;
+  const radici = [process.env['ProgramFiles'], process.env['ProgramW6432'], process.env['ProgramFiles(x86)']]
+    .filter(Boolean).map(r => path.join(r, 'PostgreSQL'));
+  for (const radice of radici) {
+    let versioni = [];
+    try { versioni = fs.readdirSync(radice); } catch { continue; }
+    /* La piu' recente prima: un dump scritto da una versione piu' vecchia
+       del server viene rifiutato, il contrario no. */
+    for (const v of versioni.sort((a, b) => Number(b) - Number(a))) {
+      const f = path.join(radice, v, 'bin', nome + '.exe');
+      if (fs.existsSync(f)) return f;
+    }
+  }
+  return nome;
+}
+
+function esegui(binario, argomenti, ambiente) {
+  return new Promise((ok, no) => {
+    execFile(binario, argomenti, { env: ambiente, timeout: DUMP_MS, windowsHide: true, maxBuffer: 16 * 1024 * 1024 },
+      (err, out, errOut) => {
+        if (err) { err.message = `${path.basename(binario)}: ${String(errOut || err.message).trim()}`; return no(err); }
+        ok(String(out));
+      });
+  });
+}
 
 /** Il database sta su questa macchina? Solo li' si accetta il chiaro. */
 function suQuestaMacchina(stringa) {
@@ -205,15 +245,61 @@ class DriverPostgres extends DriverBase {
     };
   }
 
-  /* IL BACKUP CAMBIA PADRONE, ED E' UNO DEI QUATTRO PUNTI DEL LEGGIMI.
-     Con SQLite si copiava un file; qui il ripristino e' il point-in-time di
-     Azure, e non c'e' niente da copiare da dentro il servizio. Dirlo e'
-     meglio che restituire un file finto: `backup-serale.ps1` e la rotta
-     `/api/backup` vanno rifatti sul ripristino di Azure. */
-  async backupTo() {
-    throw Object.assign(
-      new Error('Con PostgreSQL il backup non e\' una copia di file: si usa il ripristino point-in-time di Azure. Vedi server/azure/LEGGIMI.md.'),
-      { status: 501 });
+  /** Che estensione ha una copia di questo database. */
+  get estensioneBackup() { return '.dump'; }
+
+  /* IL BACKUP E' UN `pg_dump`, E SI RILEGGE PRIMA DI DICHIARARLO BUONO.
+
+     Con SQLite si copiava un file. Qui si chiede a PostgreSQL un dump in
+     formato custom: e' compresso, `pg_restore` ne ripesca anche un tavolo
+     solo, e soprattutto e' COERENTE — `pg_dump` legge dentro una
+     transazione, quindi non c'e' il problema del WAL che rendeva sbagliata
+     la copia a freddo di un file SQLite aperto.
+
+     LA PASSWORD NON VA NELLA RIGA DI COMANDO. Un `postgres://utente:password@`
+     passato come argomento si legge nell'elenco dei processi. Va in
+     `PGPASSWORD`, dentro l'ambiente del solo processo figlio.
+
+     E SI VERIFICA. Un backup che dichiara «fatto» senza aver riletto quel
+     che ha scritto e' il guasto che questa versione e' nata per togliere di
+     mezzo: `pg_restore --list` deve rileggere il sommario, o il file si
+     cancella e la rotta fallisce. Meglio nessun backup che uno che sembra
+     un backup. */
+  async backupTo(destinazione) {
+    const u = new URL(this.stringa);
+    fs.mkdirSync(path.dirname(destinazione), { recursive: true });
+
+    const ambiente = Object.assign({}, process.env, { PGPASSWORD: decodeURIComponent(u.password || '') });
+    const comuni = [
+      '--host', u.hostname,
+      '--port', u.port || '5432',
+      '--username', decodeURIComponent(u.username || ''),
+      '--no-password',
+    ];
+
+    await esegui(trovaBinario('pg_dump'), comuni.concat([
+      '--dbname', u.pathname.slice(1),
+      '--format', 'custom',
+      '--compress', '6',
+      '--file', destinazione,
+    ]), ambiente);
+
+    let sommario = '';
+    try {
+      sommario = await esegui(trovaBinario('pg_restore'), ['--list', destinazione], ambiente);
+    } catch (err) {
+      try { fs.unlinkSync(destinazione); } catch { /* se non c'e', tanto meglio */ }
+      throw Object.assign(
+        new Error(`il dump e' stato scritto ma non si rilegge, e non lo tengo: ${err.message}`),
+        { status: 500 });
+    }
+    if (!/^;/m.test(sommario)) {
+      try { fs.unlinkSync(destinazione); } catch { /* idem */ }
+      throw Object.assign(
+        new Error("il dump si apre ma non ha un sommario: non e' un backup"),
+        { status: 500 });
+    }
+    return { file: destinazione, bytes: fs.statSync(destinazione).size };
   }
 
   async close() { await this.pool.end(); }

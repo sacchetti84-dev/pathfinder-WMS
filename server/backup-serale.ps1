@@ -5,6 +5,12 @@
 #  Chiede al servizio di duplicare il proprio database e scrive una riga
 #  di esito in un registro.
 #
+#  FUNZIONA SU TUTTI E DUE I DATABASE, E NON SA QUALE C'È — 2.6.
+#  Chiede al servizio, e il servizio sceglie: su SQLite una copia coerente
+#  del file, su PostgreSQL un `pg_dump` in formato custom riletto con
+#  `pg_restore --list` prima di dichiararlo buono. Questo script legge il
+#  nome dalla risposta e non guarda l'estensione.
+#
 #  PERCHÉ PASSARE DAL SERVIZIO E NON COPIARE IL FILE.
 #  Il database è aperto e ha un WAL accanto: copiarlo con Copy-Item mentre
 #  qualcuno ci scrive produce un file che sembra buono e non lo è — le
@@ -65,7 +71,11 @@ catch {
 # ── Rotazione, solo se richiesta esplicitamente ─────────────────────
 if ($GiorniDiConservazione -gt 0) {
     $limite = (Get-Date).AddDays(-$GiorniDiConservazione)
-    $vecchi = Get-ChildItem -Path $Cartella -Filter 'pathfinder-*.db' |
+    # 2.6 — NON PIU' SOLO `.db`. Su PostgreSQL la copia e' un `.dump` scritto
+    # da pg_dump: un filtro che nomina l'estensione smette di trovare i
+    # backup il giorno che si cambia database, e la rotazione non ruota piu'.
+    $vecchi = Get-ChildItem -Path $Cartella -Filter 'pathfinder-*' -File |
+              Where-Object { $_.Extension -in '.db', '.dump' } |
               Where-Object { $_.LastWriteTime -lt $limite }
     foreach ($v in $vecchi) {
         Remove-Item $v.FullName -Force

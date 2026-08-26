@@ -763,16 +763,16 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   const dirBackup = path.join(os.tmpdir(), 'pathfinder-backup-' + Date.now());
   const bk = await call('POST', '/api/backup', { dir: dirBackup });
   if (SU_PG) {
-    /* IL BACKUP CAMBIA PADRONE, ed e' uno dei quattro punti aperti del
-       LEGGIMI. Con PostgreSQL il ripristino e' il point-in-time di Azure, e
-       non c'e' un file da copiare da dentro il servizio. La prova verifica
-       che il servizio LO DICA — 501, «qui non si fa cosi'» — invece di
-       restituire un file finto o un 500 che sembra un guasto.
-       `backup-serale.ps1` e le 22 prove d'installazione vanno riscritte
-       prima di mandare il magazzino su PostgreSQL. */
-    ok("il backup dichiara che con PostgreSQL non e' una copia di file",
-       bk.stato === 501 && /point-in-time/.test(bk.dati.error || ''),
-       `stato ${bk.stato}`);
+    /* IL BACKUP CAMBIA PADRONE, E DALLA 2.6 SA CAMBIARLO.
+       Con SQLite e' una copia coerente del file; con PostgreSQL un
+       `pg_dump` in formato custom, riletto con `pg_restore --list` prima
+       di essere dichiarato buono. La prova non guarda che il file esista
+       — un file esiste anche quando dentro non c'e' niente — ma che pesi
+       e che si chiami `.dump`, cioe' che sia quel che dice di essere. */
+    const f = bk.dati.file || '';
+    ok('il backup su PostgreSQL e un pg_dump vero',
+       bk.stato === 200 && /\.dump$/.test(f) && fs.existsSync(f) && fs.statSync(f).size > 1024,
+       bk.stato === 200 ? `${path.basename(f)} (${bk.dati.bytes} byte)` : bk.dati.error);
   } else {
     ok('backup a caldo del database', bk.stato === 200 && fs.existsSync(bk.dati.file),
        bk.dati.file ? path.basename(bk.dati.file) : bk.dati.error);
