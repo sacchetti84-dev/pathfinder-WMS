@@ -16,6 +16,11 @@
    sono usciti `_colliSelQta` e `_colliSelToggle`, sono entrati
    `_colliSelPreso`, `_colliSelParte`, `_colliSelParteDa` e
    `_colliSelOpzioniParte`.
+   2.9: la griglia di incompatibilita' e' uscita e con lei `_matriceHtml` e
+   `_toggleIncompatibilita`; sono entrati `_srCambiaBersaglio` (la
+   pericolosita' come bersaglio di regola), `_scanErrore` e `_scanAvanti`
+   (la scansione che segnala e non chiude), `_elencoNCAperto` e
+   `_trasferisciDaElenco` (il trasferimento dall'elenco fuori posto).
    2.8: sono entrati i nove delle regole di stoccaggio — `_regoleBaseHtml`,
    `_matriceHtml` e `_toggleIncompatibilita` per la scheda delle regole;
    `showCaratterizzaUbicazione`, `_salvaCaratterizzazione`,
@@ -212,10 +217,19 @@ export const SUPERFICIE = [
 
   /* 2.8 - LE REGOLE DI STOCCAGGIO: le due che non si scrivono, la matrice
      di incompatibilita' e la caratterizzazione della singola cella. */
-  '_regoleBaseHtml', '_matriceHtml', '_toggleIncompatibilita',
+  '_regoleBaseHtml',
   'showCaratterizzaUbicazione', '_salvaCaratterizzazione',
   '_scaratterizzaUbicazione', '_rigaAttributiVano',
   '_usaVanoDiCasa', '_usaUdcProposta',
+
+  /* 2.9 - IL MODELLO GUIDATO. `_matriceHtml` e `_toggleIncompatibilita`
+     sono USCITI con la griglia di incompatibilita': la pericolosita' si
+     dichiara adesso dentro le regole di stoccaggio. */
+  '_srCambiaBersaglio', '_scanErrore', '_scanAvanti',
+  '_elencoNCAperto', '_trasferisciDaElenco',
+  /* Il campo scansionato bene si vede da lontano: verde su ogni maschera
+     che legge un codice — percorso, conta, posizionamento. */
+  '_campoScansionato', '_campiScansioneReset',
 
   /* 1.14 - il conto di produzione. */
   '_wipOrdine', '_formWip', '_wipApri', '_wipRenderConto', '_wipChiediReso',

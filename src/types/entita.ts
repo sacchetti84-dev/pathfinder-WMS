@@ -656,6 +656,10 @@ export interface RegolaStoccaggio {
       una regola sui codici, è una regola su una famiglia di merce. */
   category?: string;
   category_prefix?: string;
+  /** 2.9 — gli articoli che dichiarano QUESTA pericolosità. È il livello
+      più largo, e sta sotto a tutti gli altri: «tutti gli infiammabili» è
+      la rete più grossa che si possa gettare. */
+  hazard?: string;
   /* ── DOVE DEVONO ANDARE: un sito, oppure una zona. */
   site_id?: string;
   zone_id?: string;

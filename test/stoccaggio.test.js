@@ -162,7 +162,7 @@ describe('validaRegola', () => {
   });
 
   it('senza SU COSA vale non si applica a niente: e un record invisibile', () => {
-    expect(validaRegola({ site_id: 'MAG2' })).toContain('Indica su quali articoli vale: un codice esatto, un prefisso o una categoria');
+    expect(validaRegola({ site_id: 'MAG2' })).toContain('Indica su quali articoli vale: un codice esatto, un prefisso, una categoria o una pericolosità');
   });
 
   it('senza DOVE mandare non e una regola', () => {
@@ -418,28 +418,6 @@ describe('2.8 — la pericolosità, che stava sulla Zona dal 1.6 e non mordeva m
   });
 });
 
-describe('2.8 — la matrice: due pericoli ammessi dalla zona e incompatibili fra loro', () => {
-  const matrice = [{ a: 'COMBURENTE', b: 'INFIAMMABILE', nota: 'Il comburente alimenta la fiamma' }];
-  const infiammabile = { ...merce(), hazards: ['INFIAMMABILE'] };
-
-  it('quel che c’è già nel vano esclude quel che arriva', () => {
-    const e = proponi(infiammabile, [
-      { ...posto('A-01'), hazard_zone: true, pericoli_presenti: ['COMBURENTE'] },
-      { ...posto('A-02'), hazard_zone: true, pericoli_presenti: ['NOCIVO'] },
-    ], null, { matrice });
-    expect(e.proposte.map(p => p.location_code)).toEqual(['A-02']);
-    expect(e.esclusi[0].motivo).toBe('incompatibilita');
-    expect(e.esclusi[0].messaggio).toContain('alimenta la fiamma');
-  });
-
-  it('senza matrice configurata non esclude niente', () => {
-    const e = proponi(infiammabile, [
-      { ...posto('A-01'), hazard_zone: true, pericoli_presenti: ['COMBURENTE'] },
-    ], null, { matrice: [] });
-    expect(e.proposte).toHaveLength(1);
-  });
-});
-
 describe('2.8 — capienza e portata sono della CELLA', () => {
   it('la portata esclude quando il vano non regge il peso', () => {
     const e = proponi({ ...merce(), peso_kg: 300 }, [
@@ -465,13 +443,19 @@ describe('2.8 — capienza e portata sono della CELLA', () => {
   });
 });
 
-describe('2.8 — la casa del lotto viene prima di tutto', () => {
-  it('con una casa libera, il resto del magazzino non è in gara', () => {
+describe('2.9 — la casa del lotto è la PRIMA proposta, e non esclude piu\u2019 le altre', () => {
+  /* Fino alla 2.8 questo campo cancellava tutto il resto del magazzino,
+     perché la regola rifiutava. Adesso la regola guida: il vano di casa è
+     la prima riga e il campo si precompila con lui, ma chi ha un motivo per
+     non usarlo deve poter vedere il secondo posto migliore senza combattere
+     con la maschera. */
+  it('sale in cima, e le alternative restano leggibili', () => {
     const e = proponi(merce(), [posto('A-01'), posto('B-02'), posto('C-03')],
       null, { casaLibera: 'B-02' });
-    expect(e.proposte.map(p => p.location_code)).toEqual(['B-02']);
+    expect(e.proposte[0].location_code).toBe('B-02');
     expect(e.proposte[0].punteggio).toBe(PUNTI.CASA_DEL_LOTTO);
-    expect(e.esclusi.every(x => x.motivo === 'casa_del_lotto')).toBe(true);
+    expect(e.proposte).toHaveLength(3);
+    expect(e.esclusi).toHaveLength(0);
   });
 
   /* Quella merce è già fisicamente lì: rivalutare i vincoli darebbe
@@ -535,5 +519,52 @@ describe('2.8 — la categoria merceologica come bersaglio di regola', () => {
   it('si può salvare una regola scritta sulla sola categoria', () => {
     expect(validaRegola({ category: 'DETERSIVI', site_id: 'MAG3' })).toEqual([]);
     expect(validaRegola({ category_prefix: 'DET', zone_id: 'Z1' })).toEqual([]);
+  });
+});
+
+describe('2.9 — la pericolosita\u2019 come bersaglio di regola', () => {
+  const rHaz = {
+    rule_id: 'H1', hazard: 'INFIAMMABILE', zone_id: 'ZVASCA',
+    modo: 'impone', priority: 5, nota: 'gli infiammabili stanno nella campata con la vasca',
+  };
+
+  it('prende ogni articolo che dichiara quella pericolosita\u2019', () => {
+    expect(regolePerArticolo([rHaz], '9999', '', ['INFIAMMABILE'])).toHaveLength(1);
+    expect(regolePerArticolo([rHaz], '9999', '', ['NOCIVO'])).toHaveLength(0);
+    expect(regolePerArticolo([rHaz], '9999', '')).toHaveLength(0);
+  });
+
+  /* Un pericolo non si annulla perche\u2019 ce n'e\u2019 un altro: un articolo
+     INFIAMMABILE e NOCIVO lo prendono tutte e due le regole, e a decidere
+     fra le due e\u2019 la priorita\u2019 come per ogni altra coppia dello stesso
+     livello. */
+  it('basta UNA delle pericolosita\u2019 dell\u2019articolo', () => {
+    const rNoc = { rule_id: 'H2', hazard: 'NOCIVO', zone_id: 'ZNOC', priority: 3 };
+    const trovate = regolePerArticolo([rHaz, rNoc], '9999', '', ['INFIAMMABILE', 'NOCIVO']);
+    expect(trovate.map(r => r.rule_id)).toEqual(['H1', 'H2']);
+  });
+
+  /* E\u2019 la rete piu\u2019 larga che si possa gettare, e sta sotto a tutte le
+     altre: una decisione presa piu\u2019 da vicino la zittisce. */
+  it('la categoria e l\u2019articolo la zittiscono', () => {
+    const rCat = { rule_id: 'C1', category: 'CHIMICI', site_id: 'MAG3' };
+    expect(regolePerArticolo([rHaz, rCat], '9999', 'CHIMICI', ['INFIAMMABILE'])
+      .map(r => r.rule_id)).toEqual(['C1']);
+    const rArt = { rule_id: 'A1', article_code: '9999', site_id: 'MAG1' };
+    expect(regolePerArticolo([rHaz, rArt], '9999', 'CHIMICI', ['INFIAMMABILE'])
+      .map(r => r.rule_id)).toEqual(['A1']);
+  });
+
+  it('si puo\u2019 salvare una regola scritta sulla sola pericolosita\u2019', () => {
+    expect(validaRegola({ hazard: 'INFIAMMABILE', zone_id: 'ZVASCA' })).toEqual([]);
+  });
+
+  it('e vale come qualunque altra regola che impone', () => {
+    const e = proponi({ ...merce(), hazards: ['INFIAMMABILE'] }, [
+      { ...posto('A-01', { zona: 'ZALTRA' }), hazard_zone: true },
+      { ...posto('B-01', { zona: 'ZVASCA' }), hazard_zone: true },
+    ], [rHaz]);
+    expect(e.proposte.map(p => p.location_code)).toEqual(['B-01']);
+    expect(e.esclusi[0].motivo).toBe('regola_impone');
   });
 });

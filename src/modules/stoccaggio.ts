@@ -27,8 +27,6 @@
 
 import type { CodiceAllergene, ClasseTemperatura } from './anagrafica.js';
 import { etichettaAllergene, etichettaClasse } from './anagrafica.js';
-import type { CoppiaIncompatibile } from './regoleBase.js';
-import { scontri } from './regoleBase.js';
 
 /** L'articolo da posizionare, per quel che serve a decidere. */
 export interface MerceDaStoccare {
@@ -87,10 +85,6 @@ export interface PostoCandidato {
   /** Se valorizzato, le sole pericolosità ammesse qui. Vuoto su zona
       pericolosa = tutte, come per gli allergeni. */
   hazards?: readonly string[] | null;
-  /** Le pericolosità della merce che è GIA' in questo vano. Servono alla
-      matrice: un infiammabile non entra dove c'è un comburente, e la zona
-      non basta a dirlo — sono tutte e due «pericolose». */
-  pericoli_presenti?: readonly string[] | null;
   /** Quanti chili regge. Assente = portata non dichiarata, e allora non si
       può escludere per sfondamento: stessa regola della capienza. */
   portata_kg?: number | null;
@@ -99,13 +93,18 @@ export interface PostoCandidato {
 }
 
 /** 2.8 — Quel che il motore deve sapere e non sta né sulla merce né sul
-    vano: la matrice delle incompatibilità, e il verdetto della regola base
-    sull'ubicazione unica. Li calcola chi ha lo Store — `regoleBase.ts` è
-    puro anche lui, ma ha bisogno dell'inventario intero. */
+    vano. Lo calcola chi ha lo Store — `regoleBase.ts` è puro anche lui, ma
+    ha bisogno dell'inventario intero. */
 export interface OpzioniStoccaggio {
-  matrice?: readonly CoppiaIncompatibile[] | null;
   /** Il vano dove questo lotto sta già E che può ancora ricevere. Quando
-      c'è, è l'UNICO posto proposto: è la regola base 2, e non si scavalca. */
+      c'è, sale in cima alle proposte con `PUNTI.CASA_DEL_LOTTO`.
+
+      2.9 — SALE IN CIMA, NON ESCLUDE PIU' GLI ALTRI. Fino alla 2.8 questo
+      campo cancellava tutto il resto del magazzino dalle proposte, perché la
+      regola rifiutava. Adesso la regola guida: il vano di casa è la prima
+      riga e il campo si precompila con lui, ma le altre proposte restano
+      leggibili — chi ha un motivo per non usarlo deve poter vedere il
+      secondo posto migliore senza combattere con la maschera. */
   casaLibera?: string | null;
 }
 
@@ -135,6 +134,25 @@ export interface RegolaStoccaggio {
   category?: string;
   /** Le categorie che iniziano così. */
   category_prefix?: string;
+  /* ── 2.9 — LA PERICOLOSITA' COME BERSAGLIO ──────────────────
+     «Gli articoli INFIAMMABILE vanno nella zona con la vasca» è la stessa
+     forma di «i detersivi stanno in MAG3»: una regola su una proprietà
+     dell'articolo, scritta da chi decide la politica di magazzino.
+
+     PRIMA STAVA IN UNA GRIGLIA SUA, ed è uscita. La matrice di
+     incompatibilità chiedeva la stessa cosa in un'altra forma — quali
+     pericoli non stanno insieme — e viveva in una seconda schermata: un
+     posto in più dove guardare, uno in più da tenere in pari, e due modi di
+     dire la stessa politica che prima o poi si contraddicono. Qui la regola
+     è una sola e si legge dove si leggono tutte le altre.
+
+     BASTA UNA delle pericolosità dell'articolo: un articolo INFIAMMABILE e
+     NOCIVO lo prende sia la regola sugli infiammabili sia quella sui nocivi.
+     È il comportamento giusto — un pericolo non si annulla perché ce n'è un
+     altro — e a decidere fra le due, se impongono posti diversi, è la
+     priorità come per ogni altra coppia di regole dello stesso livello. */
+  /** Gli articoli che dichiarano QUESTA pericolosità. */
+  hazard?: string;
   /** Dove deve andare — un sito, oppure una zona. */
   site_id?: string;
   zone_id?: string;
@@ -147,11 +165,9 @@ export interface RegolaStoccaggio {
 export type MotivoEsclusione =
   | 'stato' | 'temperatura' | 'allergene_fuori_zona' | 'pulito_in_zona_allergeni'
   | 'allergene_non_ammesso' | 'pieno' | 'regola_impone'
-  /* 2.8 — la regola base che non si scavalca, e i quattro vincoli che la
-     pericolosita' porta con se'. */
-  | 'casa_del_lotto'
+  /* 2.8 — i vincoli che la pericolosita' porta con se'. */
   | 'pericolo_fuori_zona' | 'pulito_in_zona_pericoli'
-  | 'pericolo_non_ammesso' | 'incompatibilita' | 'portata';
+  | 'pericolo_non_ammesso' | 'portata';
 
 export interface Escluso {
   location_code: string;
@@ -230,10 +246,12 @@ export function regolePerArticolo(
   regole: readonly RegolaStoccaggio[] | null | undefined,
   articleCode: string,
   category?: string | null,
+  hazards?: readonly string[] | null,
 ): RegolaStoccaggio[] {
   if (!regole?.length) return [];
   const code = String(articleCode ?? '').toUpperCase();
   const cat = String(category ?? '').trim().toUpperCase();
+  const haz = new Set((hazards ?? []).map(h => String(h ?? '').trim().toUpperCase()).filter(Boolean));
   const vive = regole
     .filter(r => r && r.attiva !== false)
     .filter(r => r.site_id || r.zone_id);
@@ -262,6 +280,13 @@ export function regolePerArticolo(
       || (!r.category && r.category_prefix
         && cat.startsWith(String(r.category_prefix).trim().toUpperCase()))
     )),
+    /* 2.9 — LA PERICOLOSITA' È IL LIVELLO PIU' LARGO, e sta in fondo per
+       questo: dice «tutti gli infiammabili», che è la rete piu' grossa che
+       si possa gettare. Una regola sulla categoria o sull'articolo la
+       zittisce, perché è una decisione presa piu' da vicino. */
+    !haz.size ? [] : vive.filter(r =>
+      !r.article_code && !r.article_prefix && !r.category && !r.category_prefix
+      && !!r.hazard && haz.has(String(r.hazard).trim().toUpperCase())),
   ];
 
   const vinto = livelli.find(l => l.length) ?? [];
@@ -279,8 +304,9 @@ export function validaRegola(r: Partial<RegolaStoccaggio> | null | undefined): s
   const errori: string[] = [];
   if (!r) return ['Regola vuota'];
   const su = String(r.article_code ?? '').trim() || String(r.article_prefix ?? '').trim()
-    || String(r.category ?? '').trim() || String(r.category_prefix ?? '').trim();
-  if (!su) errori.push('Indica su quali articoli vale: un codice esatto, un prefisso o una categoria');
+    || String(r.category ?? '').trim() || String(r.category_prefix ?? '').trim()
+    || String(r.hazard ?? '').trim();
+  if (!su) errori.push('Indica su quali articoli vale: un codice esatto, un prefisso, una categoria o una pericolosità');
   const dove = String(r.site_id ?? '').trim() || String(r.zone_id ?? '').trim();
   if (!dove) errori.push('Indica dove devono andare: un sito o una zona');
   if (r.modo && r.modo !== 'impone' && r.modo !== 'preferisce') {
@@ -325,10 +351,9 @@ export function proponi(
   const allergeniMerce = merce.allergens ?? [];
   const pericoliMerce = merce.hazards ?? [];
   const tempMerce = merce.temp_class ?? null;
-  const matrice = opzioni?.matrice ?? null;
   const casaLibera = String(opzioni?.casaLibera ?? '').trim().toUpperCase() || null;
   const peso = Number(merce.peso_kg) || 0;
-  const mie = regolePerArticolo(regole, merce.article_code, merce.category);
+  const mie = regolePerArticolo(regole, merce.article_code, merce.category, pericoliMerce);
   const impongono = mie.filter(r => r.modo === 'impone');
   const preferiscono = mie.filter(r => r.modo !== 'impone');
   const colli = Number(merce.colli) || 0;
@@ -340,11 +365,12 @@ export function proponi(
     /* ── I VINCOLI DURI. Chi non passa esce, e nessun punteggio lo salva. */
     const stato = posto.status || 'empty';
 
-    /* ── 2.8 — LA REGOLA BASE 2, E VIENE PRIMA DI TUTTO.
+    /* ── 2.8 — LA REGOLA BASE 2: IL VANO DI CASA È LA PRIMA PROPOSTA.
 
-       Se questo lotto sta già in un vano che può ricevere, la merce va lì e
-       il resto del magazzino non è in gara. Non è un criterio forte: è
-       l'unica risposta, e il ciclo qui sotto non deve nemmeno girare.
+       2.9 — e da qui in poi è SOLO la prima proposta. Fino alla 2.8
+       escludeva tutti gli altri vani, perché la regola rifiutava; adesso la
+       regola guida, e togliere di mezzo le alternative servirebbe solo a
+       nascondere l'informazione a chi ha un motivo per non usare quel vano.
 
        IL VANO DI CASA PASSA I VINCOLI SENZA RIGUARDARLI, e non è una
        scorciatoia. Quella merce è già fisicamente lì: se il vano non fosse
@@ -353,19 +379,12 @@ export function proponi(
        è il posto giusto per accorgersene. Rivalutare i vincoli qui darebbe
        «nessun posto» su un vano che contiene già quel lotto, cioè un
        messaggio falso su un fatto vero. */
-    if (casaLibera) {
-      if (posto.location_code === casaLibera) {
-        proposte.push({
-          location_code: posto.location_code,
-          punteggio: PUNTI.CASA_DEL_LOTTO,
-          perche: ['Questo lotto sta già qui: lo stesso articolo/lotto sta in un’ubicazione sola, e questa regola non si scavalca'],
-        });
-      } else {
-        esclusi.push({
-          location_code: posto.location_code, motivo: 'casa_del_lotto',
-          messaggio: `Il lotto sta già in ${casaLibera}: lo stesso articolo/lotto sta in un’ubicazione sola`,
-        });
-      }
+    if (casaLibera && posto.location_code === casaLibera) {
+      proposte.push({
+        location_code: posto.location_code,
+        punteggio: PUNTI.CASA_DEL_LOTTO,
+        perche: ['Questo lotto sta già qui: portalo qui e la giacenza resta una riga sola'],
+      });
       continue;
     }
 
@@ -487,22 +506,6 @@ export function proponi(
       esclusi.push({
         location_code: posto.location_code, motivo: 'pulito_in_zona_pericoli',
         messaggio: 'Merce non pericolosa: l’area dedicata è per gli altri',
-      });
-      continue;
-    }
-
-    /* LA MATRICE. Due pericolosità entrambe ammesse dalla zona possono
-       essere incompatibili FRA LORO, e la zona non ha modo di dirlo: sono
-       tutte e due «pericolose». Il confronto è fra quel che arriva e quel
-       che c'è già nel vano — spostare la merce che c'è non è compito di
-       chi sta posizionando, e se due cose incompatibili si trovano già
-       insieme a dirlo è la verifica di conformità. */
-    const urti = scontri(matrice, pericoliMerce, posto.pericoli_presenti);
-    if (urti.length) {
-      const u = urti[0]!;
-      esclusi.push({
-        location_code: posto.location_code, motivo: 'incompatibilita',
-        messaggio: `${u.entrante} non può stare con ${u.presente}, che è già qui${u.nota ? ` — ${u.nota}` : ''}`,
       });
       continue;
     }

@@ -756,11 +756,13 @@ export const VistaInventario = {
     if (!val) return;
     if (val !== d.location_code) {
       d.scan.loc = '';
+      this._campoScansionato('cnLoc', false);
       this._scanFb('cnFeedback', 'error', `Sei in ${val}, ma la conta è su ${d.location_code}`);
       return;
     }
     d.scan.loc = val;
     this._scanFb('cnFeedback', 'ok', `Ubicazione ${val} confermata`);
+    this._campoScansionato('cnLoc');
     $('cnArt')?.focus();
   },
 
@@ -771,11 +773,13 @@ export const VistaInventario = {
     if (!val) return;
     if (val !== d.article_code) {
       d.scan.art = '';
+      this._campoScansionato('cnArt', false);
       this._scanFb('cnFeedback', 'error', `Articolo ${val} diverso da quello da contare (${d.article_code})`);
       return;
     }
     d.scan.art = val;
     this._scanFb('cnFeedback', 'ok', `Articolo ${val} confermato`);
+    this._campoScansionato('cnArt');
     $('cnLot')?.focus();
   },
 
@@ -786,11 +790,13 @@ export const VistaInventario = {
     if (!val) return;
     if (val !== d.lot_code) {
       d.scan.lot = '';
+      this._campoScansionato('cnLot', false);
       this._scanFb('cnFeedback', 'error', `Lotto ${val} diverso da quello da contare (${d.lot_code})`);
       return;
     }
     d.scan.lot = val;
     this._scanFb('cnFeedback', 'ok', `Lotto ${val} confermato — adesso conta i colli`);
+    this._campoScansionato('cnLot');
     $('cnQty')?.focus();
   },
 

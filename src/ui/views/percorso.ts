@@ -1031,6 +1031,7 @@ export const VistaPercorso = {
       this._routeScan.loc = val;
       this._routeScanChiave = this._routeChiaveScan(st);
       this._routeFb('ok', `Ubicazione ${val} confermata`);
+      this._campoScansionato('rLoc');
       $('rArt')?.focus();
       return;
     }
@@ -1086,6 +1087,9 @@ export const VistaPercorso = {
        vecchia, e `_routeScanValida` la rifiuta. */
     this._renderRouteRun($('pickSubForm'));
     $('rLoc').value = alt.location_code;
+    /* La spunta decade insieme alla chiave: il codice resta scritto perche'
+       serve a leggerlo, ma quel vano non l'ha ancora scansionato nessuno. */
+    this._campiScansioneReset('rLoc', 'rArt', 'rLot');
     this._routeFb('warn', `Tappa spostata su ${alt.location_code}: riscansiona l’ubicazione per confermare`);
     $('rLoc')?.focus();
     $('rLoc')?.select();
@@ -1097,6 +1101,7 @@ export const VistaPercorso = {
     if (!this._routeScan.loc || !this._routeScanValida(st)) {
       this._routeScan = { loc: '', art: '', lot: '' };
       this._routeScanChiave = '';
+      this._campiScansioneReset('rLoc', 'rArt', 'rLot');
       this._routeFb('error', 'Scansiona prima l\u2019ubicazione');
       $('rLoc')?.focus();
       return;
@@ -1106,6 +1111,7 @@ export const VistaPercorso = {
     if (val === st.article_code) {
       this._routeScan.art = val;
       this._routeFb('ok', `Articolo ${val} confermato`);
+      this._campoScansionato('rArt');
       $('rLot')?.focus();
       return;
     }
@@ -1132,6 +1138,7 @@ export const VistaPercorso = {
     if (val === st.lot_code) {
       this._routeScan.lot = val;
       this._routeFb('ok', 'Lotto confermato — pronto per la conferma');
+      this._campoScansionato('rLot');
       return;
     }
     this._routeBlock('rLot', 'Lotto errato',
@@ -1154,6 +1161,9 @@ export const VistaPercorso = {
 
   async _scanBlock({ fieldId, title, message, onForce, fbId, onUnlocked }) {
     Feedback.signal('error', title, message);
+    /* Il campo che ha ricevuto la lettura sbagliata perde il verde: dopo un
+       errore non c'e' niente di confermato lì dentro. */
+    this._campoScansionato(fieldId, false);
     this._scanFb(fbId, 'error', `${title} — ${message}`);
     const el = $(fieldId);
     el?.select();

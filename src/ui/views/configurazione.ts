@@ -123,7 +123,8 @@ export const VistaConfigurazione = {
             ${r.article_code ? `articolo <span class="mono">${this._esc(r.article_code)}</span>`
               : r.article_prefix ? `codici che iniziano per <span class="mono">${this._esc(r.article_prefix)}</span>`
               : r.category ? `categoria <span class="mono">${this._esc(r.category)}</span>`
-              : `categorie che iniziano per <span class="mono">${this._esc(r.category_prefix || '')}</span>`}
+              : r.category_prefix ? `categorie che iniziano per <span class="mono">${this._esc(r.category_prefix)}</span>`
+              : `articoli <span class="mono">${this._esc(r.hazard || '')}</span>`}
             <span class="badge ${r.modo === 'impone' ? 'badge-red' : 'badge-muted'}">${r.modo === 'impone' ? 'impone' : 'preferisce'}</span>
             ${r.attiva === false ? '<span class="badge badge-muted">spenta</span>' : ''}
           </div>
@@ -154,7 +155,7 @@ export const VistaConfigurazione = {
           <div class="form-group">
             <label>Su quali articoli <span class="req">*</span></label>
             <div class="flex gap-3">
-              <select class="select w-[200px]" id="srSuCosa">
+              <select class="select w-[200px]" id="srSuCosa" onchange="App._srCambiaBersaglio()">
                 <option value="prefisso">Codici che iniziano per…</option>
                 <option value="esatto">Questo articolo esatto</option>
                 <!-- 2.8 — LA CATEGORIA E' IL TERZO MODO, e in magazzino è il
@@ -165,8 +166,17 @@ export const VistaConfigurazione = {
                      anagrafica cresciuta in vent'anni ce l'ha. -->
                 <option value="categoria">Questa categoria esatta</option>
                 <option value="catPrefisso">Categorie che iniziano per…</option>
+                <!-- 2.9 — LA PERICOLOSITA' ENTRA QUI, e la griglia di
+                     incompatibilità è uscita. Chiedevano la stessa cosa in due
+                     forme diverse, in due schermate diverse: un posto in più
+                     dove guardare, uno in più da tenere in pari, e due modi di
+                     dire la stessa politica che prima o poi si contraddicono. -->
+                <option value="pericolo">Questa pericolosità</option>
               </select>
               <input class="input input-mono uppercase flex-1" id="srPrefisso" maxlength="${Validate.MAX.ARTICLE_CODE}" placeholder="Es: 700">
+              <select class="select flex-1 hidden" id="srPericolo">
+                ${Store.getPericoli().map((h) => `<option value="${this._esc(h.code)}">${this._esc(h.label)}</option>`).join('')}
+              </select>
             </div>
             <!-- 1.13 — LA SCELTA E' ESPLICITA, e non si indovina dal fatto che
                  il valore esista in anagrafica: «6000366» e' un codice vero E
@@ -174,7 +184,7 @@ export const VistaConfigurazione = {
                  il primo. Chi voleva il prefisso non aveva modo di dirlo.
                  Trovato al banco il 19/08, alla prima regola scritta. -->
             <div class="text-label-small text-sx-text-muted mt-2">Un prefisso vale per tutti i codici che iniziano così — anche se quel prefisso è a sua volta un codice.<br>
-              <strong>Chi è più preciso zittisce chi è più generale:</strong> una regola sull'articolo esatto batte il prefisso, e tutti e due battono la categoria.</div>
+              <strong>Chi è più preciso zittisce chi è più generale:</strong> l'articolo esatto batte il prefisso, il prefisso batte la categoria, e la categoria batte la pericolosità — che è la rete più larga.</div>
           </div>
           <div class="form-group">
             <label>Dove <span class="req">*</span></label>
@@ -206,8 +216,7 @@ export const VistaConfigurazione = {
         <button class="btn btn-primary" onclick="App._salvaRegola()">+ Aggiungi regola</button>
       </div>
       <strong class="text-body-medium">Regole scritte (${regole.length})</strong>
-      <div class="mt-4">${righe}</div>
-      <div class="mt-8">${this._matriceHtml()}</div>`;
+      <div class="mt-4">${righe}</div>`;
   },
 
   /* ═══════════════════════════════════════════════════════════════════
@@ -241,79 +250,15 @@ export const VistaConfigurazione = {
     </div>`;
   },
 
-  /* LA MATRICE È UNA GRIGLIA, E NON UN ELENCO DI COPPIE.
-
-     Un elenco di coppie si compila una riga per volta e non si rilegge: per
-     sapere se INFIAMMABILE sta con CORROSIVO bisogna scorrerlo tutto. Una
-     griglia si guarda, e la domanda «questi due possono stare insieme» ha
-     una risposta a colpo d'occhio — che è il modo in cui la matrice di
-     compatibilità si usa in ogni magazzino chimico.
-
-     Solo METÀ griglia si disegna: la coppia non ha un ordine, e disegnare
-     anche il triangolo di sotto vorrebbe dire due caselle per la stessa
-     domanda, che prima o poi si contraddicono a video. */
-  _matriceHtml() {
-    const pericoli = Store.getPericoli();
-    const m = Store.getMatriceIncompatibilita();
-    const diSerie = Store.matriceDiSerie();
-    const acceso = (a: string, b: string) =>
-      m.some((c) => (c.a === a && c.b === b) || (c.a === b && c.b === a));
-
-    if (pericoli.length < 2) {
-      return `<div class="config-card mb-8">
-        <strong>Pericolosità incompatibili</strong>
-        <p class="text-body-small text-sx-text-secondary mt-4">
-          Servono almeno due codici di pericolosità. Si aggiungono da
-          <strong>Configurazione → Parametri Articolo</strong>.
-        </p>
-      </div>`;
-    }
-
-    const righe = pericoli.map((r, i) => `<tr>
-      <th class="text-left whitespace-nowrap">${this._esc(r.label)}</th>
-      ${pericoli.map((c, j) => {
-        if (j <= i) return '<td class="matrice-vuota"></td>';
-        const on = acceso(r.code, c.code);
-        return `<td>
-          <button class="matrice-cella ${on ? 'matrice-cella--no' : ''}"
-                  title="${this._esc(r.label)} + ${this._esc(c.label)} — ${on ? 'non possono stare insieme' : 'possono stare insieme'}"
-                  onclick="App._toggleIncompatibilita('${this._esc(r.code)}','${this._esc(c.code)}')">${on ? '⛔' : '·'}</button>
-        </td>`;
-      }).join('')}
-    </tr>`).join('');
-
-    return `<div class="config-card mb-8">
-      <strong>Pericolosità che non dividono un vano</strong>
-      <div class="text-label-small text-sx-text-muted mt-2 mb-4">
-        Premi una casella per accendere o spegnere l’incompatibilità. Vale come <strong>vincolo</strong>:
-        il motore non propone un vano dove c’è già qualcosa di incompatibile, e la mappa segnala
-        le coppie che si trovano già insieme.
-        ${diSerie
-          ? '<br><span class="text-sx-warning">Nessuno l’ha ancora configurata: valgono le tre coppie di serie. Alla prima modifica diventano le vostre.</span>'
-          : ''}
-      </div>
-      <div class="overflow-x-auto">
-        <table class="sx-table matrice">
-          <thead><tr><th></th>${pericoli.map((c) => `<th class="matrice-testa">${this._esc(c.label)}</th>`).join('')}</tr></thead>
-          <tbody>${righe}</tbody>
-        </table>
-      </div>
-    </div>`;
+  /* 2.9 — IL CAMPO CAMBIA FORMA CON IL BERSAGLIO. Un codice e un prefisso
+     si digitano; una pericolosità no — è un elenco chiuso che qualcuno ha
+     configurato in Parametri Articolo, e farla digitare vorrebbe dire
+     accettare «INFIAMABILE» e non applicarla mai a niente. */
+  _srCambiaBersaglio() {
+    const pericolo = $sel('srSuCosa')?.value === 'pericolo';
+    $('srPrefisso')?.classList.toggle('hidden', pericolo);
+    $sel('srPericolo')?.classList.toggle('hidden', !pericolo);
   },
-
-  async _toggleIncompatibilita(a: string, b: string) {
-    if (!this._requireOperator('la modifica della matrice di incompatibilità')) return;
-    const m = Store.getMatriceIncompatibilita();
-    const i = m.findIndex((c) => (c.a === a && c.b === b) || (c.a === b && c.b === a));
-    const nuova = i >= 0 ? m.filter((_, k) => k !== i) : [...m, { a, b }];
-    try {
-      await Store.saveMatriceIncompatibilita(nuova);
-      this.renderConfig();
-    } catch (e) {
-      this.toast((e as Error).message, 'error');
-    }
-  },
-
 
   async _salvaRegola() {
     if (!this._requireOperator('la scrittura di una regola di stoccaggio')) return;
@@ -329,6 +274,7 @@ export const VistaConfigurazione = {
         article_prefix: suCosa === 'prefisso' ? (su || undefined) : undefined,
         category: suCosa === 'categoria' ? su : undefined,
         category_prefix: suCosa === 'catPrefisso' ? (su || undefined) : undefined,
+        hazard: suCosa === 'pericolo' ? (String($sel('srPericolo')?.value || '') || undefined) : undefined,
         site_id: tipo === 'sito' ? id : undefined,
         zone_id: tipo === 'zona' ? id : undefined,
         modo: String($sel('srModo')?.value || 'preferisce'),

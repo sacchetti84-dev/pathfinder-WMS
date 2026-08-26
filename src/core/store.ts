@@ -54,16 +54,14 @@ import {
   proponi as proponiStoccaggio, validaRegola as validaRegolaStoccaggio,
 } from '../modules/stoccaggio';
 import type { PostoCandidato, RegolaStoccaggio } from '../modules/stoccaggio';
-/* 2.8 — le due regole che non si scrivono, e la matrice di
-   incompatibilita'. Il motore delle regole di POLITICA sta in
-   `stoccaggio.ts`; queste sono un'altra cosa e stanno da un'altra parte. */
+/* 2.8 — le due regole che non si scrivono. Il motore delle regole di
+   POLITICA sta in `stoccaggio.ts`; queste sono un'altra cosa e stanno da
+   un'altra parte. */
 import {
-  verdettoCasa, caseDelLotto, udcConsigliata, scavalcoUdc,
-  normalizzaMatrice, scontri as scontriPericoli,
-  INCOMPATIBILITA_DI_SERIE, REGOLE_BASE,
+  verdettoCasa, caseDelLotto, udcConsigliata, scavalcoUdc, REGOLE_BASE,
 } from '../modules/regoleBase';
 import type {
-  CoppiaIncompatibile, VerdettoCasa, PropostaUdc, UdcCandidata,
+  VerdettoCasa, PropostaUdc, UdcCandidata,
 } from '../modules/regoleBase';
 import { conto as contoWip, colliFuori as colliFuoriWip, archiviato as archiviatoWip,
          ordiniArchiviati as ordiniArchiviatiWip,
@@ -377,13 +375,7 @@ const Store = {
       areaWip: metaObj.areaWip ?? '',
       /* 2.1 — il layout del cruscotto. Trappola 22: dichiarata qui, o
          vivrebbe in cache fino al primo ricaricamento e poi sparirebbe. */
-      dashboardLayout: metaObj.dashboardLayout ?? null,
-      /* 2.8 — le coppie di pericolosita' che non dividono un vano. Trappola
-         22: dichiarata qui, o vivrebbe in cache fino al primo ricaricamento
-         e poi sparirebbe. `null` = mai configurata, e allora valgono le tre
-         di serie; un elenco VUOTO e' una decisione presa — «nessuna coppia
-         e' incompatibile» — e vale quel che dice. */
-      matriceIncompatibilita: metaObj.matriceIncompatibilita ?? null
+      dashboardLayout: metaObj.dashboardLayout ?? null
     };
   },
 
@@ -554,7 +546,6 @@ const Store = {
     };
     return verificaConformita(
       this._cache.inventory, (c) => this._artByCode.get(c), zonaDi, {
-        matrice: this.getMatriceIncompatibilita(),
         areeDiTransito: [this.getAreaWip()].filter(Boolean) as string[],
       });
   },
@@ -924,37 +915,35 @@ const Store = {
     return uomDaColli(item.qty ?? 0, cfg.per_collo, cfg.uom);
   },
 
-  /* 2.8 — QUI SI APPLICA LA REGOLA CHE NON SI SCAVALCA.
+  /* 2.9 — QUI NON SI RIFIUTA PIU' NIENTE, ED È UNA SCELTA DICHIARATA.
 
-     `addItem` è il collo di bottiglia di TUTTO: non esiste un `moveItem`
-     — uno spostamento è `removeItem` seguito da `addItem` — quindi ogni
-     merce che riceve un'ubicazione nuova passa da qui, e questo è l'unico
-     punto in cui vale la pena mettere il controllo. Metterlo nelle maschere
-     vorrebbe dire otto copie che divergono alla prima maschera nuova.
+     Fino alla 2.8 questa funzione alzava quando il lotto aveva già una casa
+     altrove: la regola dell'ubicazione unica era un divieto. Non lo è piu'.
 
-     E FUNZIONA ANCHE PER GLI SPOSTAMENTI, senza che si debba distinguerli.
-     La rimozione avviene PRIMA: uno spostamento intero lascia il lotto
-     senza casa, e `caseDelLotto` non trova niente da difendere. Uno
-     spostamento PARZIALE invece la casa ce l'ha ancora — ed è esattamente
-     il caso da rifiutare, perché è il gesto che spacca un lotto in due.
+     PERCHE'. Chi ha la merce in mano e il muletto acceso non discute con una
+     maschera che dice di no: o trova il modo di aggirarla — e allora il dato
+     diventa peggiore di prima, perché nessuno sa piu' dove sia finita la
+     merce — o si ferma, e si ferma il magazzino. Un banchina che si blocca
+     costa piu' di una riga fuori posto, e una riga fuori posto si vede e si
+     corregge; una merce posata di nascosto no.
 
-     `regolaBase: false` è la via d'uscita per le CORREZIONI, e sono tre:
-     lo storno di un movimento, il ricalcolo di un inventario e il
-     ripristino di un pacchetto. Nessuna delle tre è una decisione su dove
-     mettere la merce: sono la registrazione di dove la merce già sta, e
-     rifiutarle vorrebbe dire impedire di correggere un errore. */
+     COSA C'E' AL SUO POSTO, e non è «niente»:
+     · la maschera PRECOMPILA il vano giusto e lo scrive a schermo prima che
+       qualcuno debba sbagliare per scoprirlo — `_proponiVano`;
+     · la mappa accende il vano di un bagliore rosso;
+     · la riga resta fra le giacenze fuori posto col suo tasto «Trasferisci»,
+       che riapre la maschera già compilata sul vano di casa.
+
+     `opzioni.regolaBase` resta nella firma e resta letto da quattro
+     chiamanti — storno, rettifica di inventario, rettifica di tappa,
+     ingresso in WIP. Non spegne piu' un divieto che non c'è: spegne il
+     SUGGERIMENTO, perché su una correzione non c'è niente da suggerire e
+     dirlo sarebbe rumore. */
   async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1, qtyUom: number | null = null, packsIn: number[] | null = null, opzioni: { regolaBase?: boolean } = {}) {
     const itemKey = `${articleCode}#${lotCode}`;
     const bucket = this._invByLoc.get(locationCode) || [];
     const existing = bucket.find(i => i.item_key === itemKey);
     const now = Date.now();
-
-    /* Se la riga c'è già in QUESTO vano, il vano è la casa del lotto e non
-       c'è niente da chiedere: si sta aggiungendo dove la merce sta già. */
-    if (!existing && opzioni.regolaBase !== false) {
-      const v = this.verdettoUbicazioneUnica(articleCode, lotCode, locationCode, Number(qty) || 1);
-      if (v.vietato) throw new Error(v.messaggio);
-    }
 
     /* 1.4.2 — la confezione si congela QUI, al primo posizionamento: da
        questo momento e' un fatto del lotto e non segue piu' l'anagrafica. */
@@ -2321,42 +2310,6 @@ const Store = {
   },
 
   /* ═══════════════════════════════════════════════════════════════════
-     2.8 — LA MATRICE DI INCOMPATIBILITÀ
-
-     Quali pericolosità non dividono un vano. È un DATO come i codici di
-     pericolo — `modules/parametri.ts` — e per la stessa ragione: non è una
-     norma di etichettatura, è una politica di magazzino.
-
-     MAI CONFIGURATA E CONFIGURATA VUOTA SONO DUE COSE DIVERSE. `null` vuol
-     dire che nessuno ci ha ancora messo mano, e allora valgono le tre
-     coppie di serie; un elenco vuoto è una decisione presa — «da noi
-     nessuna coppia è incompatibile» — e vale quel che dice.
-     ═══════════════════════════════════════════════════════════════════ */
-
-  getMatriceIncompatibilita(): CoppiaIncompatibile[] {
-    const m = (this._cache.meta as Record<string, unknown>).matriceIncompatibilita;
-    if (m === null || m === undefined) return [...INCOMPATIBILITA_DI_SERIE];
-    return normalizzaMatrice(m);
-  },
-
-  /** Vero finché nessuno ha toccato la matrice: la scheda lo dice, perché
-      «tre coppie» e «tre coppie che avete scelto voi» non sono la stessa
-      informazione per chi firma. */
-  matriceDiSerie(): boolean {
-    const m = (this._cache.meta as Record<string, unknown>).matriceIncompatibilita;
-    return m === null || m === undefined;
-  },
-
-  async saveMatriceIncompatibilita(coppie: readonly CoppiaIncompatibile[]) {
-    const pulita = normalizzaMatrice(coppie);
-    const rec = { key: 'matriceIncompatibilita', value: pulita };
-    await Persistence.put('meta', rec);
-    this._applyToCache('meta', 'put', rec);
-    await this._touchMeta();
-    return pulita;
-  },
-
-  /* ═══════════════════════════════════════════════════════════════════
      2.8 — LE DUE REGOLE CHE NON SI SCRIVONO, ATTACCATE AI DATI
 
      La regola sta in `modules/regoleBase.ts` ed è pura. Qui c'è solo il
@@ -2410,18 +2363,6 @@ const Store = {
     const a = this._artByCode.get(String(articleCode ?? '').toUpperCase().trim());
     if (!a) return 0;
     return Number(a.weight_net_kg) || Number(a.weight) || 0;
-  },
-
-  /** Le pericolosità della merce che è già in un vano. Servono alla
-      matrice: la zona non basta a dirlo, perché due pericoli incompatibili
-      fra loro sono tutti e due «pericolosi» e la zona li ammette entrambi. */
-  _pericoliInVano(code: string): string[] {
-    const out = new Set<string>();
-    for (const r of (this._invByLoc.get(code) || [])) {
-      const a = this._artByCode.get(String(r.article_code ?? '').toUpperCase().trim());
-      for (const h of (Array.isArray(a?.hazards) ? a!.hazards : [])) out.add(h);
-    }
-    return [...out];
   },
 
   /** Si può mettere questo lotto in questo vano? La regola 2, con i dati.
@@ -2502,6 +2443,69 @@ const Store = {
     return udcConsigliata(candidate, articleCode, lotCode);
   },
 
+  /* ════════════════════════════════════════════════════════════════
+     2.9 — DOVE VA QUESTA MERCE: LA DOMANDA CHE L'ASSISTENTE DEVE SAPER
+     RISPONDERE DA SOLO
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     È il cuore del modello guidato. Ogni maschera che sposta o posiziona
+     merce fa questa domanda PRIMA di chiedere qualcosa all'operatore, e
+     precompila il campo con la risposta. Il sistema sa già dove va quella
+     roba: farla cercare a chi ha il muletto acceso è tempo buttato, e farlo
+     sbagliare per poi dirgli di no è peggio.
+
+     DUE STRADE, NELL'ORDINE. Prima si guarda se quel lotto ha già una casa
+     ALTROVE: se c'è, non c'è altro da decidere — la merce va a ricongiungersi
+     con la sua riga, ed è la regola base 2. Solo se non ce l'ha si chiede al
+     motore, che pesa vincoli e criteri su tutto il magazzino.
+
+     `null` NON È UN ERRORE: vuol dire che non c'è niente di meglio da
+     suggerire, e allora la maschera lascia il campo vuoto invece di
+     riempirlo con un'ipotesi. Un suggerimento sbagliato costa piu' di un
+     campo vuoto, perché il campo vuoto lo si compila e il suggerimento
+     sbagliato lo si conferma.
+     ════════════════════════════════════════════════════════════════ */
+
+  destinazioneSuggerita(
+    articleCode: string, lotCode: string,
+    daDove: string | null = null, colli: number = 1,
+  ): { location_code: string; perche: string } | null {
+    const escludi = [this.getAreaWip(), daDove].filter(Boolean) as string[];
+    const case_ = caseDelLotto(this._cache.inventory, articleCode, lotCode, escludi);
+    for (const c of case_) {
+      /* Una casa che non può ricevere non si suggerisce: mandarci qualcuno
+         per fargli trovare il vano pieno è il modo di far smettere di
+         leggere i suggerimenti. */
+      if (this.vanoPuoRicevere(c.location_code, colli).ok !== false) {
+        return {
+          location_code: c.location_code,
+          perche: `Questo lotto sta già in ${c.location_code}: la giacenza torna una riga sola`,
+        };
+      }
+    }
+    const esito = this.proponiStoccaggio(articleCode, lotCode, colli);
+    const primo = esito?.proposte?.find(p => p.location_code !== daDove);
+    if (!primo) return null;
+    return {
+      location_code: primo.location_code,
+      perche: primo.perche[0] || 'Il motore di stoccaggio propone questo vano',
+    };
+  },
+
+  /** Le righe fuori posto in un vano, per `item_key`, con il perché in
+      chiaro. Il pannello laterale la usa per marcare SOLO quelle: le altre
+      si disegnano come sempre, senza contrassegno. */
+  fuoriPostoIn(locationCode: string): Map<string, string> {
+    const out = new Map<string, string>();
+    const conf = this.verificaStoccaggio();
+    for (const n of conf.nonConformita) {
+      if (n.location_code !== locationCode || !n.item_key) continue;
+      const gia = out.get(n.item_key);
+      out.set(n.item_key, gia ? `${gia} · ${n.messaggio}` : n.messaggio);
+    }
+    return out;
+  },
+
   /** Il testo dello scavalco sull'UDC, per il registro. */
   scavalcoUdc(proposta: string | null, scelta: string | null, motivo: string | null) {
     return scavalcoUdc(proposta, scelta, motivo);
@@ -2524,7 +2528,6 @@ const Store = {
        esclusi tranne uno, e chiederlo dentro il ciclo vorrebbe dire 274
        giri sull'inventario per una risposta che non cambia. */
     const verdetto = this.verdettoUbicazioneUnica(art.code, lotCode, '', nColli);
-    const matrice = this.getMatriceIncompatibilita();
 
     for (const site of this.getSites()) {
       for (const zona of (site.zones || []).filter((z: Zona) => z.active)) {
@@ -2551,7 +2554,6 @@ const Store = {
                motore non l'ha mai letta. */
             hazard_zone: attr.hazard_zone,
             hazards: attr.hazards,
-            pericoli_presenti: this._pericoliInVano(loc.code),
             /* Come in `conformita`: «Riservata» è una decisione presa su un
                vano preciso, e deroga sugli allergeni. */
             riservata: stato === 'reserved',
@@ -2585,7 +2587,6 @@ const Store = {
       colli: nColli,
       peso_kg: nColli * pesoCollo,
     }, posti, this._cache.storageRules, {
-      matrice,
       casaLibera: verdetto.casaLibera,
     });
   },

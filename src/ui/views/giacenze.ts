@@ -60,11 +60,24 @@ export const VistaGiacenze = {
     if (!items.length) {
       html += '<div class="empty-state p-7.5"><p>Nessun item</p></div>';
     } else {
+      /* 2.9 — QUALI RIGHE SONO FUORI POSTO, e SOLO quelle portano il chip.
+         Mettere un contrassegno anche sulle righe giuste — fosse pure un
+         «ok» verde — vorrebbe dire farne leggere dieci per trovarne uno.
+         Si chiede una volta per pannello e non una per riga: la verifica
+         gira su tutto l'inventario, e chiamarla per ogni item vorrebbe dire
+         rileggerlo dieci volte per disegnare dieci righe. */
+      const fuoriPosto = Store.fuoriPostoIn(code);
       html += '<div class="item-list">';
       for (const item of items) {
         const qty = item.qty || 1;
         const quarantined = Store.isItemQuarantined(item.item_key, code);
         const k = this._esc(item.item_key);
+        const sbagliata = fuoriPosto.get(item.item_key) || '';
+        /* Dove va rimessa. Si calcola solo per le righe segnalate: sulle
+           altre non c'è niente da suggerire, e il conto non si fa. */
+        const dove = sbagliata
+          ? Store.destinazioneSuggerita(item.article_code, item.lot_code, code, qty)
+          : null;
         /* 2.1 — LA GERARCHIA DELLA SCHEDA, e non è un riordino estetico.
 
            Chi apre un vano sulla mappa sta cercando UNA cosa: quale merce
@@ -79,18 +92,23 @@ export const VistaGiacenze = {
            distinta dei colli). Data di posizionamento, scadenza e note
            escono da qui e stanno dietro «Dettaglio»: si guardano quando
            servono, e non sono mai la domanda con cui si apre un vano. */
-        html += `<div class="item-card">
+        html += `<div class="item-card${sbagliata ? ' item-fuori-posto' : ''}">
           <div class="item-card-header">
             <span class="item-code">${this._esc(item.article_code)}</span>
             <span class="item-lot-inline mono">${this._esc(item.lot_code)}</span>
             ${quarantined ? '<span class="badge bg-sx-purple-soft text-sx-purple border border-sx-purple" title="Item già in quarantena">🔒 NC</span>' : ''}
+            ${sbagliata ? `<span class="chip-fuori-posto" title="${this._esc(sbagliata)}">Fuori posto</span>` : ''}
           </div>
+          ${sbagliata ? `<div class="item-fuori-posto-perche text-label-small">${this._esc(sbagliata)}${
+            dove ? ` — va in <strong class="mono">${this._esc(dove.location_code)}</strong>` : ''}</div>` : ''}
           <div class="item-qty">${qty} Coll.${this._umTotaliRiga(item)}</div>
           <div class="item-desc">${this._esc(item.article_description || '—')}</div>
           ${this._rigaUM(item)}
           <div class="item-actions item-actions-pari">
             <button class="btn btn-sm" title="Modifica i dati dell’item" onclick="App.showEditItemModal('${this._esc(code)}','${k}')">✏️ Modifica</button>
-            <button class="btn btn-sm" title="Trasferisci in un’altra ubicazione" onclick="App.showMoveItemModal('${this._esc(code)}','${k}')">🔀 Trasferisci</button>
+            <button class="btn btn-sm${sbagliata ? ' btn-primary' : ''}" title="${
+              dove ? `Rimetti a posto: destinazione ${this._esc(dove.location_code)}` : 'Trasferisci in un’altra ubicazione'
+            }" onclick="App.showMoveItemModal('${this._esc(code)}','${k}'${dove ? `,'${this._esc(dove.location_code)}'` : ''})">🔀 Trasferisci</button>
             ${quarantined
               ? '<button class="btn btn-sm" disabled title="Item gia’ in quarantena — il rilascio si fa da Movimenta">🔒 In quarantena</button>'
               : `<button class="btn btn-sm" title="Blocco qualità / non conformità" onclick="App.showQuarantineItemModal('${this._esc(code)}','${k}')">🚫 Quarantena</button>`}
@@ -205,10 +223,28 @@ export const VistaGiacenze = {
     </div>`;
   },
 
-  showMoveItemModal(locationCode, itemKey) {
+  /* 2.9 — LA MASCHERA ARRIVA GIÀ COMPILATA.
+
+     `destSuggerita` è la destinazione che chi ha premuto «Trasferisci»
+     aveva già davanti: il vano di casa del lotto, o la proposta del motore.
+     Passarla qui evita l'unico passaggio manuale che restava — ricopiare a
+     mano un codice di ubicazione letto in un altro riquadro, che è anche il
+     modo migliore di sbagliarlo.
+
+     RESTA EDITABILE, e non è una concessione: chi è sul posto vede cose che
+     il sistema non sa, e un campo precompilato che non si può cambiare è
+     peggio di un campo vuoto. La quantità nasce sul trasferimento INTERO
+     della riga, perché rimettere a posto metà lotto lascia il problema dov'era.
+
+     L'AUTOFOCUS È SUL CAMPO DELL'UBICAZIONE, ed è lì che serve: l'operatore
+     apre la maschera col lettore in mano, e il primo gesto è scansionare il
+     vano dove sta portando la merce. `select()` sul testo precompilato fa sì
+     che la scansione lo sostituisca invece di accodarsi. */
+  showMoveItemModal(locationCode, itemKey, destSuggerita = '') {
     const item = Store.getItemsAtLocation(locationCode).find(i => i.item_key === itemKey);
     if (!item) return this.toast('Item non trovato', 'error');
     const qty = item.qty || 1;
+    const dest = String(destSuggerita || '').toUpperCase();
     this.showModal(
       `🔀 Trasferimento — da ${this._esc(locationCode)}`,
       `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
@@ -217,10 +253,15 @@ export const VistaGiacenze = {
         Lotto <strong>${this._esc(item.lot_code)}</strong> · giacenza <strong class="text-sx-accent">${qty} Coll.</strong>
         ${item.expiry_date ? ` · Scad. ${this._esc(item.expiry_date)}` : ''}
       </div>
+      ${dest ? `<div class="mov-preview mov-preview-ok mb-6">
+        <strong>Destinazione già compilata: <span class="mono">${this._esc(dest)}</span></strong><br>
+        Scansiona il vano per confermare, oppure scrivine un altro.
+      </div>` : ''}
       <div class="form-row mb-6">
         <div class="form-group">
           <label>Ubicazione di destinazione <span class="req">*</span></label>
-          <input class="input input-mono uppercase" id="moveItemDest" placeholder="Scansiona o digita" autofocus maxlength="${Validate.MAX.LOC_CODE}"
+          <input class="input input-mono uppercase" id="moveItemDest" placeholder="Scansiona o digita" maxlength="${Validate.MAX.LOC_CODE}"
+            value="${this._esc(dest)}"
             oninput="this.value=this.value.toUpperCase();App._moveItemDestPreview()"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App.doMoveItem('${this._esc(locationCode)}','${this._esc(itemKey)}')}">
           <div class="text-label-small mt-2 min-h-[1em]" id="moveItemDestPrev"></div>
@@ -234,6 +275,12 @@ export const VistaGiacenze = {
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
        <button class="btn btn-primary" onclick="App.doMoveItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">🔀 Trasferisci</button>`
     );
+    /* Il fuoco si mette DOPO che il modal è nel documento: `autofocus` in una
+       stringa HTML iniettata non scatta, perché l'attributo agisce al parse
+       del documento e questo nodo arriva dopo. */
+    const campo = $('moveItemDest');
+    if (campo) { campo.focus(); campo.select(); }
+    this._moveItemDestPreview();
   },
 
   /* Anteprima della destinazione: dire subito "bloccata" evita di scoprirlo
@@ -264,8 +311,21 @@ export const VistaGiacenze = {
     const out = await this._moveItemCore({ item, dest, qty });
     if (!out.ok) return;
     this.closeModal();
+    /* 2.9 — L'ANOMALIA SPARISCE SUBITO, E DA TUTTI I POSTI IN CUI SI VEDE.
+
+       La verifica di stoccaggio è memorizzata in `_conf` per non rifarla a
+       ogni cella disegnata: dopo un trasferimento è VECCHIA, e senza questa
+       riga la mappa continuerebbe ad accendere un vano che è appena tornato
+       a posto. Chi ha appena rimesso la merce dove va deve vedere il
+       bagliore spegnersi, o non crede più a quello che legge.
+
+       L'ordine conta: prima si rinfresca il conto, poi si ridisegna. */
+    this._aggiornaConformita();
     this.renderMap();
     this.renderDetail(locationCode);
+    /* Se l'elenco delle giacenze fuori posto era aperto, si riapre sui dati
+       nuovi: la riga appena sistemata non c'è più. */
+    if (this._elencoNCAperto) this.mostraNonConformita();
   },
 
   showQuarantineItemModal(locationCode, itemKey) {

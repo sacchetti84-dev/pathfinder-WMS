@@ -10,8 +10,6 @@
 
 import type { CodiceAllergene, ClasseTemperatura } from './anagrafica.js';
 import { etichettaAllergene, etichettaClasse } from './anagrafica.js';
-import type { CoppiaIncompatibile } from './regoleBase.js';
-import { incompatibili } from './regoleBase.js';
 
 export interface AttributiArticolo {
   allergens?: readonly CodiceAllergene[] | null;
@@ -53,9 +51,8 @@ export interface RigaGiacenza {
 
 export type TipoNonConformita =
   | 'TEMPERATURA' | 'ALLERGENE_FUORI_ZONA' | 'ALLERGENE_NON_AMMESSO' | 'PULITO_IN_ZONA_ALLERGENI'
-  /* 2.8 — la pericolosità, simmetrica agli allergeni, e la matrice. */
+  /* 2.8 — la pericolosità, simmetrica agli allergeni. */
   | 'PERICOLO_FUORI_ZONA' | 'PERICOLO_NON_AMMESSO' | 'PULITO_IN_ZONA_PERICOLI'
-  | 'INCOMPATIBILITA'
   /* 2.8 — la regola base 2 che ha già lavorato in deroga: lo stesso lotto
      in due vani. Grave media, e non alta, perché non è un errore — è
      l'eccezione che lo stato del vano ha imposto, e va vista. */
@@ -86,11 +83,9 @@ export interface Deroga {
 }
 
 /** 2.8 — Quel che la verifica deve sapere e non sta né sull'articolo né
-    sul posto. Era il quarto parametro posizionale della matrice: quando ne
-    è servito un secondo, due posizionali di seguito sarebbero diventati
-    illeggibili al primo terzo. */
+    sul posto. È un oggetto e non un posizionale perché due parametri di
+    seguito sarebbero diventati illeggibili al primo terzo. */
 export interface OpzioniConformita {
-  matrice?: readonly CoppiaIncompatibile[] | null;
   /** Le ubicazioni dove un lotto sta di passaggio — oggi il solo vano WIP.
       Non si accusano di lotto sparso: la merce è in lavorazione, non
       stoccata due volte. */
@@ -130,7 +125,6 @@ export function verificaConformita(
   postoDi: (location_code: string) => AttributiPosto | null | undefined,
   opzioni: OpzioniConformita | null | undefined = null,
 ): Esito {
-  const matrice = opzioni?.matrice ?? null;
   /* 2.8 — le aree di TRANSITO, dove un lotto sta di passaggio e non di
      casa. Il vano WIP è l'unica di oggi: portare in produzione è quasi
      sempre un prelievo parziale, e senza questa esclusione la mappa
@@ -142,14 +136,6 @@ export function verificaConformita(
   const deroghe: Deroga[] = [];
   const articoliSenzaAttributi = new Set<string>();
   let verificabili = 0;
-
-  /* 2.8 — LA MATRICE SI GUARDA DA FERMO, e non può essere altrimenti.
-     `stoccaggio.ts` confronta quel che ARRIVA con quel che c'è, perché lì
-     la domanda è «posso metterlo qui». Qui la domanda è un'altra — «c'è
-     qualcosa che non può stare insieme» — e la risposta richiede tutte le
-     righe del vano prima di poterne giudicare una. Per questo si raccoglie
-     in un primo giro e si giudica in un secondo. */
-  const pericoliPerVano = new Map<string, Map<string, RigaGiacenza[]>>();
 
   for (const r of righe) {
     const art = articolo(r.article_code);
@@ -195,17 +181,6 @@ export function verificaConformita(
        accanto a un infiammabile non è organizzativo — è la stessa fisica
        della temperatura, e su quella non si deroga già dal 1.4.0. */
     const pericoliArt = art?.hazards ?? [];
-    if (pericoliArt.length) {
-      /* Si annota per la matrice PRIMA di giudicare: anche una riga che qui
-         risulta a posto può essere quella che rende sbagliata un'altra. */
-      let perVano = pericoliPerVano.get(r.location_code);
-      if (!perVano) { perVano = new Map(); pericoliPerVano.set(r.location_code, perVano); }
-      for (const h of pericoliArt) {
-        const e = perVano.get(h);
-        if (e) e.push(r); else perVano.set(h, [r]);
-      }
-    }
-
     if (pericoliArt.length && !zona.hazard_zone) {
       trovate.push({
         ...base,
@@ -274,34 +249,6 @@ export function verificaConformita(
       const cur = perUbicazione.get(nc.location_code);
       if (!cur) perUbicazione.set(nc.location_code, { n: 1, gravita: nc.gravita });
       else { cur.n++; if (nc.gravita === 'alta') cur.gravita = 'alta'; }
-    }
-  }
-
-  /* ── 2.8 — LA MATRICE, SUL MAGAZZINO FERMO ─────────────────────────
-     Due pericolosità incompatibili nello stesso vano. Si accusano TUTTE E
-     DUE le righe e non solo una: non c'è modo di sapere quale delle due sia
-     arrivata per ultima, e dire «questa è di troppo» sceglierebbe a caso
-     chi deve spostarsi. Chi legge vede la coppia e decide lui. */
-  if (matrice?.length) {
-    for (const [location_code, perVano] of pericoliPerVano) {
-      const codici = [...perVano.keys()].sort();
-      for (let i = 0; i < codici.length; i++) {
-        for (let j = i + 1; j < codici.length; j++) {
-          const a = codici[i]!;
-          const b = codici[j]!;
-          if (!incompatibili(matrice, a, b)) continue;
-          for (const [uno, altro] of [[a, b], [b, a]] as const) {
-            for (const r of (perVano.get(uno) || [])) {
-              nonConformita.push({
-                location_code, item_key: r.item_key, article_code: r.article_code,
-                article_description: r.article_description, lot_code: r.lot_code, qty: r.qty,
-                tipo: 'INCOMPATIBILITA', gravita: 'alta',
-                messaggio: `${uno} non può stare con ${altro}, che è nello stesso vano`,
-              });
-            }
-          }
-        }
-      }
     }
   }
 

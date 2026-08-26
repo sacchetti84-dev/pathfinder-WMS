@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **26/08/2026**, notte tarda
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **27/08/2026**, notte
 
 ## LO STATO DEL PROGETTO È **ALFA**
 
@@ -20,6 +20,260 @@ che nessuno ha ancora compilato. Non è un prodotto finito che si manutiene, ed
 **Non c'è una scadenza.** La riga che dava il progetto al 31/12/2026 con
 ultima installazione utile il 19/12 è stata tolta il 25/08: le date si
 scrivono come fatti avvenuti, non come promesse.
+
+---
+
+## LA 2.9 È **SCRITTA E NON È COSTRUITA**
+
+**Notte fra il 26 e il 27/08/2026.** Non c'è nessun pacchetto: il codice sta
+nel repository, i collaudi passano, e la build si fa nella prossima sessione
+per decisione di Andrea. In servizio resta la **2.7**; la **2.8** è
+costruita e consegnata ma non installata, e la sezione qui sotto la
+descrive ancora — non è stata riscritta perché quel pacchetto esiste
+davvero e ha la sua impronta.
+
+| | |
+|---|---|
+| dove | solo nel repository, ramo `main` |
+| pacchetto | **nessuno** — `consegna\Pathfinder 2.8\` è di ieri sera e non contiene questo lavoro |
+| collaudi | **1.176 client**, tutti verdi |
+| tipi | `npm run check` a 0 su client e servizio |
+
+**La 2.9 rovescia una decisione della 2.8**, ed è il motivo per cui è una
+versione sua e non una correzione: il motore di stoccaggio smette di
+rifiutare.
+
+### Il modello cambia: da cancello ad assistente
+
+La 2.8 aveva fatto della regola dell'ubicazione unica un **divieto**:
+`addItem` alzava, e il posizionamento non avveniva. Andrea l'ha rovesciata il
+27/08 — «il sistema non deve MAI bloccare o interrompere l'operazione se
+l'operatore sbaglia» — e la ragione vale più della regola.
+
+**PERCHÉ UN CANCELLO NON FUNZIONA IN MAGAZZINO.** Chi ha la merce in mano e
+il muletto acceso non discute con una maschera che dice di no: o trova il
+modo di aggirarla — e allora il dato diventa peggiore di prima, perché
+nessuno sa più dove sia finita la merce — o si ferma, e si ferma il
+magazzino. Una banchina bloccata costa più di una riga fuori posto, e una
+riga fuori posto si vede e si corregge; una merce posata di nascosto no.
+
+**COSA C'È AL POSTO DEL DIVIETO**, e non è «niente»:
+
+1. **Il campo si precompila.** Il sistema sa già dove va quel lotto, e lo
+   scrive nel campo dell'ubicazione prima che qualcuno debba sbagliare per
+   scoprirlo. Solo su un campo ANCORA VUOTO: riscrivere quel che l'operatore
+   ha appena scansionato è il modo di far odiare i suggerimenti.
+2. **La mappa accende il vano** con un bagliore rosso.
+3. **La riga resta in elenco** col suo tasto «Trasferisci», che riapre la
+   maschera già compilata sul vano di casa.
+
+`VerdettoCasa.vietato` **non esiste più**, e c'è un collaudo che fallisce se
+qualcuno lo rimette: al suo posto `segnala` e `suggerita`, che sono le due
+cose che servono a chi lavora. `Store.addItem` non alza più niente.
+
+Anche il motore ha smesso di stringere: il vano di casa **sale in cima** alle
+proposte con `PUNTI.CASA_DEL_LOTTO`, ma non esclude più gli altri — chi ha un
+motivo per non usarlo deve poter vedere il secondo posto migliore senza
+combattere con la maschera.
+
+### La matrice di incompatibilità è uscita, la pericolosità è entrata nelle regole
+
+La griglia di Configurazione, `meta.matriceIncompatibilita`,
+`INCOMPATIBILITA_DI_SERIE`, `scontri`, il tipo di non conformità e il motivo
+di esclusione: tutti tolti, insieme al loro CSS e ai loro collaudi.
+
+Al loro posto la pericolosità è il **quinto bersaglio** di `storage_rules`,
+accanto a codice esatto, prefisso, categoria e prefisso di categoria: «gli
+articoli INFIAMMABILE vanno nella campata con la vasca» è la stessa forma di
+«i detersivi stanno in MAG3». È una **tendina e non un campo libero** —
+«INFIAMABILE» digitato a mano non si applicherebbe mai a niente.
+
+**PERCHÉ LA GRIGLIA ERA DI TROPPO.** Chiedeva la stessa politica in
+un'altra forma, in una seconda schermata: un posto in più dove guardare, uno
+in più da tenere in pari, e due modi di dire la stessa cosa che prima o poi
+si contraddicono.
+
+La gerarchia si allunga di un gradino e resta una riga sola: **chi è più
+preciso zittisce chi è più generale**. Articolo esatto → prefisso → categoria
+→ pericolosità, che è la rete più larga.
+
+### La mappa, il pannello, il trasferimento
+
+**IL BAGLIORE AL POSTO DEL CONTORNO.** Un `outline` di due pixel su una cella
+di quaranta si vede solo se la si sta già cercando. Adesso la cella intera si
+accende di un bagliore rosso sfumato dal bordo verso il centro, `inset` per
+non sporcare i vani vicini, **statico** — trenta celle che lampeggiano sono
+un albero di Natale che dopo due giorni non guarda più nessuno. Uno per
+cella, qualunque sia il numero di righe sbagliate dentro: la mappa risponde
+«questo vano ha un problema», e il quanto si legge aprendo il pannello.
+
+**IL CHIP SOLO SULLE RIGHE SBAGLIATE.** Nel pannello laterale le righe a
+posto si disegnano come sempre; quelle fuori posto portano «Fuori posto», il
+perché, e dove vanno rimesse. Misurato su `MAG1-RAKA-01-01-C`: **sette item,
+uno solo marcato**. Mettere un contrassegno anche su quelle giuste — fosse
+pure un «ok» verde — vorrebbe dire farne leggere dieci per trovarne uno.
+
+**IL TRASFERIMENTO ARRIVA GIÀ COMPILATO.** Da entrambe le strade — pannello
+della mappa ed elenco tabellare — la maschera si apre con la destinazione
+scritta, la quantità sull'intera riga, il cursore **sul campo
+dell'ubicazione** e il testo selezionato, così la scansione lo sostituisce
+invece di accodarsi. Resta tutto editabile: chi è sul posto vede cose che il
+sistema non sa.
+
+`autofocus` in una stringa HTML iniettata **non scatta** — l'attributo agisce
+al parse del documento e quel nodo arriva dopo. Si mette a mano.
+
+**L'ANOMALIA SPARISCE SUBITO.** `doMoveItem` rinfresca la verifica di
+stoccaggio PRIMA di ridisegnare: senza, la mappa continuerebbe ad accendere
+un vano appena sistemato, e chi ha rimesso la merce dove va non crede più a
+quello che legge. Poi mappa, pannello, e — se era aperto — l'elenco. Se era
+l'ultima anomalia, l'elenco si chiude da solo.
+
+### L'elenco riproporzionato
+
+Alla prima stesura le righe erano alte **261 px** e la tabella scorreva di
+lato: due righe visibili su quarantasei. Misurato, non dedotto.
+
+| larghezza | riga | righe visibili | scorrimento |
+|---|---:|---:|---|
+| 1440 | **53 px** | 10 | no |
+| 820 | 53 px | 9 | no |
+| 500 | 109 px | 4 | no |
+| 375 | 94 px | 5 | no |
+
+Quattro correzioni, tutte sulla stessa idea — dare a ogni dato lo spazio che
+merita e non di più:
+
+- **il riquadro si allarga**, e solo per gli elenchi: `showModal` accetta una
+  classe, e `modal-larga` vale `min(1100px, 94vw)`;
+- **`table-layout: fixed`**, senza il quale il `<colgroup>` è solo un
+  consiglio: la colonna «Perché» si prendeva 791 px su 1.042 e i puntini non
+  comparivano mai, perché non c'era nessun bordo da cui traboccare;
+- **una riga di testo e basta**, col testo intero nel `title`; la descrizione
+  scende sotto il codice, il «va in» diventa una pastiglia in linea;
+- **sotto i 720 px diventa una lista**, perché su un terminale in magazzino
+  lo scorrimento orizzontale non lo trova nessuno.
+
+Tre cose del ramo stretto sono nate dalla misura e non dal disegno:
+`minmax(0, 1fr)` e non `1fr` — quel minimo `auto` è la larghezza della frase
+intera e teneva la riga a 163 px; il tasto diventa **un'icona**, perché la
+pastiglia con la parola dentro tagliava `MAG1-RAKA-01-03-A` a metà, e un
+codice troncato non è un'abbreviazione ma un dato sbagliato; il tasto
+**attraversa le tre bande**, perché i suoi 48 px di bersaglio tattile
+imposti a una riga di testo alta 20 costavano 28 px per niente.
+
+### La scansione: errore che non chiude, conferma che si vede
+
+**UNA LETTURA SBAGLIATA NON CHIUDE PIÙ NIENTE.** `_scanAvanti` controlla ogni
+passo del posizionamento. Se il codice non è né un vano né un'unità di
+carico, `Feedback.signal('error', …)` dà suono, vibrazione, lampo e riquadro;
+il fuoco **resta** nel campo col testo selezionato — così la scansione dopo
+sostituisce invece di accodarsi, che è il difetto classico dei lettori — e la
+maschera non si chiude, non si svuota, non avanza.
+
+Un articolo fuori anagrafica **non è** una scansione sbagliata: è un articolo
+nuovo, e questa maschera sa accoglierlo da sempre.
+
+**IL CAMPO CONFERMATO SI VEDE DA UN METRO E MEZZO.** Diventa la stessa
+pastiglia verde del riquadro di conferma — `--sx-success-soft` di fondo,
+`--sx-success` di bordo e testo, bordo pieno da 2 px, grassetto. Lo stesso
+verde e non uno suo: un campo confermato con un verde diverso insegnerebbe
+due volte la stessa cosa con due segni diversi.
+
+Vale su tutte e tre le maschere che leggono un codice — prelievo guidato,
+conta d'inventario, posizionamento — con tre regole che valgono più del
+colore: **si spegne al primo tasto** (un campo che resta verde dopo che
+qualcuno ci ha riscritto dentro dichiara vero un dato che nessuno ha più
+verificato), **l'errore lo toglie**, e **la tappa spostata su un'ubicazione
+alternativa azzera tutti e tre** — il codice resta scritto perché serve
+leggerlo, ma quel vano non l'ha ancora scansionato nessuno.
+
+Il suono, misurato: `ok` sale 1046 → 1568 Hz in sinusoide, `error` scende 233
+→ 175 Hz in onda quadra. Un'ottava e mezza di distanza, uno sale e l'altro
+scende. Resta un punto da guardare al banco: `scan` (1320 Hz) e `ok` sono
+tutti e due acuti e sinusoidali, e col rumore del reparto «ho letto» e
+«tappa chiusa» possono somigliarsi più di quanto somiglino ok ed errore.
+
+### Il difetto peggiore che questo applicativo abbia avuto
+
+**`#dlgOverlay` che manca era un silenzio.** È un div vuoto dichiarato in
+`index.html`: il pavimento su cui ogni finestra di dialogo si monta. Se non
+c'era, `Dialog._open` usciva con `Promise.resolve(null)` — e `null` è la
+stessa risposta che dà chi preme «Annulla».
+
+**Ogni conferma del magazzino si comportava come un annullamento.**
+`_routeConfirmStop` legge `if (qty === null) return`, e tornava indietro
+senza una parola: nessun errore in consolle, nessun messaggio a video,
+nessuna traccia nel registro. Da fuori, un tasto che non fa niente. E non
+riguardava una maschera — prelievo, conta, smaltimento, quarantena e
+spedizione passano tutte da lì.
+
+Trovato il 27/08 al banco, e trovato **per caso**: un giro di pulizia del DOM
+scritto da un agente aveva cancellato quel div dalla pagina viva, e dodici
+clic sul tasto di conferma non avevano prodotto un solo errore.
+
+Corretto con due cose insieme, perché nessuna basta da sola. **Si
+ricostruisce**: il div è vuoto e inerte, il CSS lo aggancia per `id`, e
+fermare un magazzino per un contenitore vuoto è sproporzionato — «meglio
+fermo che vivo e sbagliato» vale quando il dubbio è sui DATI, e qui non c'è
+nessun dubbio sui dati. **E urla**, una volta sola per sessione: la
+ricostruzione ripara il sintomo e nasconderebbe la causa, e una causa
+nascosta torna; ma trecento righe uguali in consolle sono di nuovo un
+silenzio.
+
+Sei collaudi nuovi in `test/dialogOspite.test.js`, di cui **due leggono il
+sorgente** — perché quel `return` muto non lasciava nessuna traccia
+osservabile, ed è esattamente il punto. Il DOM delle prove è scritto a mano,
+come `test/ambiente.js` fa con `location` e `localStorage`: `_overlay` ha
+bisogno di cinque funzioni in croce, e portarsi dentro jsdom per quelle
+sarebbe una dipendenza per niente.
+
+### Il conto di produzione, provato sul magazzino vero
+
+Andrea l'ha indicato come «la parte più critica e debole», e la notte del 27
+ci è passato sopra un ciclo intero — ordine vero, dati veri.
+
+Prima però: **`areaWip` sul banco non era impostata**, e senza quella
+`entraInWip` rifiuta ogni ingresso. Il banco non ha un vano di lavorazione —
+ha un solo scaffale — quindi si è scelto `MAG1-RAKA-04-01-T`, livello a terra
+in fondo corsia. È una chiave di `meta` e nient'altro: nessuna zona creata,
+nessuna giacenza toccata.
+
+Il ciclo che ne è uscito, sull'ordine `ODP2607777`:
+
+| verso | colli | UM | |
+|---|---:|---:|---|
+| `in` | 1 | — | un collo entra in lavorazione |
+| `out` | 1 | 10 KG | torna a scaffale |
+| `consumo` | 0 | 15 KG | finito nel prodotto |
+| `chiuso` | — | — | l'ordine si archivia |
+
+**Il conto torna**: entrato 25 kg, tornato 10, consumato 15, **residuo 0**. E
+i movimenti raccontano la stessa storia dal lato del magazzino — `PICK` dallo
+scaffale, `IN` nell'area WIP, `MOVE` di ritorno: la merce non è mai sparita,
+che è quello per cui il modulo esiste.
+
+Le altre tre invarianti reggono: un ordine chiuso **non si riapre**
+(`archiviato` risponde `true` anche in minuscolo o con gli spazi ai bordi);
+la chiusura **non è merce** (un conto sulla sola riga `chiuso` dà `entrato:
+0`, e non gonfia l'ordine di un collo che non esiste); un ordine mai visto
+non inventa niente.
+
+**IL PUNTO FRAGILE, ed è una voce nuova.** La riga `in` **non registra le
+UM**: `qty_uom` è `null`, e i 25 kg si ricostruiscono dopo dalla confezione
+congelata del lotto. A farlo è `Store.contoWip`, che passa a `conto()` il
+ripiego `per_collo`. Finché si passa da lì il numero è giusto — ma quel
+parametro è **facoltativo**, e chiamando `conto()` senza, lo stesso ordine
+perfettamente in pari risponde `entrato_uom: null`, `residuo_uom: −25`,
+`incoerente: true`. Un residuo **negativo** su un ordine chiuso in pari: un
+numero plausibile e sbagliato, cioè la stessa forma del difetto dei dialoghi.
+Oggi il chiamante è uno solo e il ripiego lo passa; il giorno che qualcuno ne
+scrive un secondo e se lo dimentica, il conto mente. Voce 61.
+
+### Due rinomine
+
+«Da Ordine (XLSX)» è diventata **«Prelievo automatico»**, e «Conto
+produzione» è diventata **«WIP»**.
 
 ---
 
@@ -1826,6 +2080,9 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **61** | **IL CONTO WIP DIPENDE DA UN PARAMETRO FACOLTATIVO.** La riga `in` non registra le UM — `qty_uom` è `null` — e i chili si ricostruiscono dopo dalla confezione congelata del lotto, che `Store.contoWip` passa a `conto()` come ripiego. Ma quel parametro si può omettere, e allora lo stesso ordine perfettamente in pari risponde `residuo_uom: −25` e `incoerente: true`. Un residuo **negativo** su un ordine chiuso in pari: un numero plausibile e sbagliato, cioè la stessa forma del difetto di `#dlgOverlay`. Oggi il chiamante è uno solo e il ripiego lo passa | **Due strade, e la seconda è quella buona:** scrivere le UM sulla riga `in` quando si conoscono — la confezione è congelata già al posizionamento, quindi il dato c'è — oppure rendere `perCollo` obbligatorio, o far dichiarare `incoerente` con un motivo leggibile invece di un residuo negativo muto |
+| **62** | **IL BIP DI LETTURA E LA CONFERMA DI TAPPA SONO TUTTI E DUE ACUTI E SINUSOIDALI.** Misurati: `scan` è 1320 Hz, `ok` sale 1046 → 1568 Hz. Fra `ok` ed `error` non c'è confusione possibile — `error` scende 233 → 175 Hz in onda quadra — ma «ho letto il codice» e «tappa chiusa» possono somigliarsi col rumore del reparto e i tappi | **Serve una prova al banco, con il rumore vero**: se la confusione c'è, basta scendere il bip di lettura o accorciarne la coda, così l'unico suono che sale resta la conferma |
+| **63** | **`areaWip` SUL BANCO È UN VANO DELLO SCAFFALE, NON UN'AREA.** Il 27/08 è stata impostata su `MAG1-RAKA-04-01-T` per poter provare il conto di produzione, perché il banco non ha un vano di lavorazione. Funziona, ma sulla mappa quel vano non si distingue dallo stoccaggio, e il motore lo tratta come un vano qualunque | **Sul magazzino vero la domanda resta quella della voce 15** — quale vano sia l'area WIP. Sul banco, il giorno che serve una prova più fedele, si crea una zona `WIP` sua |
 | **59** | **28 LOTTI STANNO IN DUE UBICAZIONI, E SONO 59 RIGHE SU 32 VANI.** Contati il 26/08 sulle 886 giacenze vere, appena la 2.8 ha acceso il controllo. **Non li ha fatti la 2.8**: sono il magazzino com'è, e fino a ieri nessuno aveva modo di vederli. Finché durano, quella merce si conta due volte e il FEFO la ordina come due partite diverse. Da oggi la regola base 2 impedisce di farne di nuovi, ma **non ricompone quelli che ci sono** | **Ricomporli, uno per uno, con la merce davanti.** L'elenco esce da Mappa → «Vedi elenco» → Esporta Excel, tipo `LOTTO_SPARSO`. Non è un lavoro da agente: sono 28 decisioni su dove sta davvero la merce |
 | **58** | **GLI ATTRIBUTI DEGLI ARTICOLI SONO ANCORA VUOTI, E ADESSO SI VEDE QUANTO PESA.** Misurato il 26/08: **644 articoli senza classe di temperatura, senza allergeni e senza pericolosità**, e `verificabili` a **zero** su 886 righe. La 2.8 ha aggiunto quattro controlli nuovi — pericolosità fuori area, non ammessa, merce pulita in area pericoli, matrice — e **nessuno dei quattro può scattare** finché quella colonna è vuota. È la voce 5 vista dall'altro capo: là mancano gli attributi delle ZONE, qui quelli degli ARTICOLI | **È di Andrea**, come la 5: si popola da Configurazione → Articoli → Export/Import Excel, e il foglio «Valori ammessi» porta già gli elenchi buoni |
 | **60** | **`ADMI` È UN OPERATORE ADMIN NATO PER SBAGLIO SUL COLLAUDO.** Creato il 26/08 alle 18:49:45 UTC da un clic finito su una maschera «Nuovo operatore» che si era aperta precompilata `admin`/`admin`/`ADMI`, con un PIN riempito dal gestore password del browser. **È attivo, ha ruolo admin, e il PIN non lo conosce nessuno dei due.** Sta sul servizio di collaudo (4199), non in produzione | **Decide Andrea**, e il 26/08 ha detto «lascialo, ci penso io». Si cancella o si disattiva da Configurazione → Operatori |
@@ -3387,7 +3644,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/destinatari.ts` | 200 | Chi è lo stesso destinatario (partita IVA), quale destinazione è nuova, cosa è cambiato |
 | `modules/parametri.ts` | 165 | Le tendine che sono un dato: valori di legge davanti e non rimovibili |
 | `modules/anagrafica.ts` | 158 | I 14 allergeni, le 3 classi di conservazione, le certificazioni |
-| `modules/conformita.ts` | 364 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio al contrario. **2.8**: la pericolosita' (tre controlli simmetrici agli allergeni), la matrice sul magazzino fermo — che accusa TUTTE E DUE le righe della coppia — e il lotto sparso su piu' vani, con le aree di transito escluse |
+| `modules/conformita.ts` | 300 | Cosa è stoccato dove non dovrebbe: il motore di stoccaggio al contrario. **2.8**: la pericolosita' (tre controlli simmetrici agli allergeni) e il lotto sparso su piu' vani, con le aree di transito escluse. **2.9**: la matrice e' uscita, e con lei il tipo `INCOMPATIBILITA` |
 | `modules/validate.ts` · `auth.ts` · `session.ts` · `pickupAlert.ts` · `scanGuard.ts` | 104 · 88 · 69 · 43 · 31 | Validazioni · PIN e impronta · sessione · allerta ritiri · guardia del lettore |
 | `modules/excel.ts` | 31 | **Il punto unico da cui SheetJS si carica, e solo quando serve.** Chi rimette `import * as XLSX` in cima a un file annulla la 1.7 |
 | `modules/fogli.ts` | 112 | **2.0** — le due domande di un foglio Excel che non riguardano SheetJS: quante righe fa una giacenza (`colliDaStendere`: una per collo) e che numero scrive un riepilogo che ha visto unità diverse (`celleUom`: MISTA, e il totale vuoto). Sta qui e non nella vista perché una vista si importa solo passando da `App`, e una funzione pura non deve farlo per essere collaudata. **`distendiGiacenze` è il muro del foglio**: 1.048.575 righe, contate su TUTTE le giacenze insieme e non su una — duecento righe da diecimila colli fanno due milioni di righe, ognuna innocente e il foglio morto lo stesso. Una riga che da sola sfonda il foglio non ne consuma il budget e torna `null`, e chi chiama ne scrive una che lo dice: quella riga è un numero sbagliato, non merce. Puro |

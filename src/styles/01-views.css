@@ -182,18 +182,52 @@
 .fp-badge { position: absolute; top: 2px; right: 2px; background: var(--sx-primary); color: #fff; font-size: var(--md-sys-typescale-label-small-size); padding: 0 3px; border-radius: 99px; }
 
 /* ════ Verifica di stoccaggio / Allergeni ════ */
-.grid-cell.conf-ko, .front-cell.conf-ko, .floor-pallet.conf-ko {
-  outline: 2px solid var(--sx-danger); outline-offset: -2px;
-}
+
+/* 2.9 — IL BAGLIORE, AL POSTO DEL CONTORNO.
+
+   Un `outline` di due pixel su una cella di quaranta si vede solo se la si
+   sta già cercando, ed è esattamente il contrario di quel che serve: chi
+   apre la mappa deve accorgersi da lontano di quale vano ha qualcosa
+   dentro che non ci va. Un bagliore che entra dal bordo verso il centro
+   colora la cella INTERA, si legge con la coda dell'occhio, e non si
+   confonde con nessuno dei bordi che il disegno usa già per lo stato.
+
+   E' STATICO, e non pulsa. Una cella che lampeggia in un magazzino dove i
+   vani segnati sono trenta trasforma la mappa in un albero di Natale, e
+   dopo il secondo giorno non la guarda piu' nessuno.
+
+   UNO PER CELLA, qualunque sia il numero di righe sbagliate dentro: la
+   domanda che la mappa risponde è «questo vano ha un problema», e il
+   quanto si legge aprendo il pannello. `inset` tiene il bagliore DENTRO i
+   confini della cella, così due vani vicini non si sporcano a vicenda. */
+.grid-cell.conf-ko, .front-cell.conf-ko, .floor-pallet.conf-ko,
 .grid-cell.conf-warn, .front-cell.conf-warn, .floor-pallet.conf-warn {
-  outline: 2px dashed var(--sx-warning); outline-offset: -2px;
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--sx-danger) 55%, transparent),
+    inset 0 0 10px 2px color-mix(in srgb, var(--sx-danger) 45%, transparent);
 }
+
+/* Il marcatore resta, e da solo dice QUANTE: il bagliore dice «qui»,
+   il numero dice «quante», e sono due domande diverse. */
 .conf-mark {
   position: absolute; top: -2px; left: 2px;
   font-weight: 900; font-size: 0.7rem; line-height: 1;
   color: var(--sx-danger); pointer-events: none;
 }
-.conf-warn .conf-mark { color: var(--sx-warning); }
+
+/* 2.9 — IL CHIP DELLA RIGA FUORI POSTO, nel pannello laterale.
+   Lo portano SOLO le righe sbagliate: mettere un contrassegno anche su
+   quelle giuste — fosse pure un «ok» verde — vorrebbe dire far leggere
+   dieci contrassegni per trovarne uno. */
+.item-fuori-posto { border-left: 3px solid var(--sx-danger); padding-left: 0.6rem; }
+.chip-fuori-posto {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  background: var(--sx-danger-soft); color: var(--sx-danger);
+  border: 1px solid color-mix(in srgb, var(--sx-danger) 40%, transparent);
+  border-radius: 99px; padding: 0 0.45rem;
+  font-size: var(--md-sys-typescale-label-small-size); font-weight: 700;
+  white-space: nowrap;
+}
 
 .conf-bar {
   display: flex; align-items: center; gap: 0.7rem; flex-wrap: wrap;
@@ -935,3 +969,134 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
 /* 1.12 — la nona tessera di Movimenta, e l'etichetta dell'unita' di carico. */
 .mov-action-card.c-indigo { border-top-color: var(--sx-primary); }
 .mov-action-card.c-indigo.active { background: var(--sx-primary-soft); border-color: var(--sx-primary); }
+
+/* ════ 2.9 — L'ELENCO DELLE GIACENZE FUORI POSTO ════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   IL RIQUADRO LARGO, e solo per gli elenchi. I 500 px di `.modal` sono
+   giusti per una domanda con due campi; per una tabella a sei colonne
+   lasciano 442 px utili, e ogni colonna si spezza su cinque righe.
+   `min()` tiene la larghezza dentro la finestra sui portatili stretti,
+   dove un `max-width` fisso da 1.100 px produrrebbe una barra di
+   scorrimento orizzontale su tutta la pagina. */
+.modal.modal-larga { max-width: min(1100px, 94vw); }
+
+/* UNA RIGA DI TESTO E BASTA. È questa la regola che tiene l'elenco
+   leggibile: il testo intero sta nel `title`, e chi lo vuole ci passa
+   sopra. Mandarlo a capo cinque volte per farlo leggere tutto insieme
+   costa l'intera schermata — 261 px di altezza per riga, misurati, cioè
+   due righe visibili su quarantasei. */
+.nc-una-riga {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+/* La descrizione non identifica niente — centinaia di righe la portano
+   uguale — ma serve a riconoscere la merce a colpo d'occhio. Sotto al
+   codice, e più piccola, fa quel lavoro senza rubare una colonna. */
+.nc-desc {
+  font-size: var(--md-sys-typescale-label-small-size);
+  color: var(--sx-text-secondary);
+  line-height: 1.25;
+}
+
+/* Il «va in» è l'informazione che fa AGIRE, e in linea invece che a capo
+   non raddoppia l'altezza di ogni riga per una freccia e un codice. */
+.nc-va-in {
+  display: inline-block;
+  margin-top: 0.1rem;
+  font-size: var(--md-sys-typescale-label-small-size);
+  font-weight: 700;
+  color: var(--sx-accent);
+  white-space: nowrap;
+}
+
+/* `fixed` E' QUELLO CHE FA FUNZIONARE I PUNTINI, e senza non serve a
+   niente il resto. Con la disposizione automatica il `<colgroup>` e'
+   soltanto un consiglio: il browser allarga la colonna fino a far stare il
+   testo, il contenitore va in scorrimento orizzontale e `text-overflow`
+   non tronca mai niente perche' non c'e' nessun bordo da cui traboccare.
+   Misurato: la colonna «Perché» si prendeva 791 px su 1.042 disponibili,
+   e la tabella arrivava a 1.560. */
+.sx-table-nc { table-layout: fixed; }
+
+/* Righe strette e allineate in alto: con due righe di testo in una cella
+   e una sola nelle altre, il centraggio verticale fa ballare i codici. */
+.sx-table-nc tbody td { padding: 0.3rem 0.5rem; vertical-align: top; }
+.sx-table-nc tbody td .btn { margin-top: 0.1rem; }
+.sx-table-nc .conf-vai { white-space: nowrap; }
+
+/* Sotto i 720 px la tabella non ci sta più in nessun modo onesto: le
+   colonne diventano blocchi, una riga per dato, e l'intestazione sparisce
+   perché a quel punto non intesta niente. Meglio una lista alta e leggibile
+   che una tabella che scorre di lato — su un terminale in magazzino lo
+   scorrimento orizzontale non lo trova nessuno. */
+@media (max-width: 720px) {
+  .sx-table-nc colgroup { display: none; }
+  .sx-table-nc thead { display: none; }
+  .sx-table-nc, .sx-table-nc tbody, .sx-table-nc tr, .sx-table-nc td { display: block; width: 100%; }
+  .sx-table-nc tbody tr {
+    border-bottom: 1px solid var(--sx-border);
+    padding: 0.35rem 0.15rem;
+    display: grid;
+    /* `minmax(0, 1fr)` E NON `1fr`, ed e' tutta qui la differenza fra una
+       riga da 90 px e una da 163 con lo scorrimento di lato. `1fr` vale
+       `minmax(auto, 1fr)`, e quel minimo `auto` e' la larghezza del
+       contenuto piu' lungo: la colonna non scende sotto la frase intera,
+       il testo non trabocca mai da nessun bordo e i puntini di
+       `text-overflow` non compaiono. Con `0` la colonna puo' stringersi, e
+       allora il troncamento funziona. */
+    grid-template-columns: 1.3rem auto minmax(0, 1fr) auto;
+    /* IL TASTO ATTRAVERSA TUTTE E TRE LE BANDE invece di stare nella prima.
+       Ha 48 px di altezza perche' e' un bersaglio tattile, e con i guanti
+       quei 48 px servono: lasciarlo dentro la prima banda li imponeva a una
+       riga di testo alta 20, e la scheda cresceva di 28 px per niente.
+       Attraversandole si centra da solo e non alza nessuna banda. */
+    grid-template-areas:
+      'grav loc    lotto  tasto'
+      '.    art    art    tasto'
+      '.    perche perche tasto';
+    gap: 0.15rem 0.4rem;
+    align-items: center;
+  }
+  .sx-table-nc tbody td { border: none; padding: 0; min-width: 0; }
+  .sx-table-nc tbody td:nth-child(1) { grid-area: grav; }
+  .sx-table-nc tbody td:nth-child(2) { grid-area: loc; }
+  .sx-table-nc tbody td:nth-child(3) { grid-area: art; }
+  .sx-table-nc tbody td:nth-child(4) { grid-area: lotto; text-align: left; opacity: 0.85; }
+  .sx-table-nc tbody td:nth-child(5) { grid-area: perche; }
+  .sx-table-nc tbody td:nth-child(6) { grid-area: tasto; }
+
+  /* IL TASTO DIVENTA UN'ICONA, e non e' un risparmio estetico: a schermo
+     stretto la pastiglia con la parola dentro si prendeva meta' riga e
+     spingeva fuori il codice dell'ubicazione, che veniva troncato a meta'.
+     Un codice di ubicazione tagliato non e' un'abbreviazione: e' un dato
+     sbagliato, perche' `MAG1-RAKA-01-03-A` e `MAG1-RAKA-01-03-B` finiscono
+     per assomigliarsi. La parola resta nel `title` per chi ci passa sopra. */
+  .sx-table-nc .nc-tasto-testo { display: none; }
+  .sx-table-nc tbody td:nth-child(6) .btn {
+    padding: 0.2rem 0.45rem;
+    min-width: 0;
+    margin-top: 0;
+  }
+
+  /* IL CODICE NON SI TRONCA MAI. E' il dato con cui si va allo scaffale:
+     tutto il resto puo' accorciarsi, questo no. */
+  .sx-table-nc .conf-vai { overflow: visible; text-overflow: clip; }
+
+  /* Righe compatte: interlinea stretta e niente spazio sprecato fra le tre
+     bande. Su un telefono la differenza fra 129 px e 80 e' fra tre righe
+     visibili e cinque. */
+  .sx-table-nc tbody tr { padding: 0.3rem 0.15rem; }
+  .sx-table-nc .nc-una-riga, .sx-table-nc .nc-desc { line-height: 1.3; }
+}
+
+/* Sotto i 480 px la descrizione esce. Non identifica niente — il codice e
+   il lotto lo fanno gia' — e su uno schermo da telefono quella riga in piu'
+   costa il venti per cento delle righe visibili. Chi ha bisogno di sapere
+   cos'e' apre il vano. */
+@media (max-width: 480px) {
+  .sx-table-nc .nc-desc { display: none; }
+}

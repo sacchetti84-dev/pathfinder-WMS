@@ -46,13 +46,74 @@ const Dialog = {
     return Boolean(o && o.classList.contains('open'));
   },
 
-  _overlay(): HTMLElement | null { return document.getElementById('dlgOverlay'); },
+  /* ═══════════════════════════════════════════════════════════════════
+     2.9 — L'OSPITE MANCANTE NON PUO' ESSERE UN SILENZIO
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     `#dlgOverlay` è un div vuoto dichiarato in `index.html`: è il pavimento
+     su cui ogni finestra di dialogo si monta. Fino alla 2.8, se non c'era,
+     `_open` usciva con `Promise.resolve(null)` — e `null` è la stessa
+     risposta che dà chi preme «Annulla».
+
+     COSA VOLEVA DIRE, e vale la pena scriverlo per intero perché è il
+     difetto più difficile da diagnosticare che questo applicativo abbia
+     avuto. Ogni conferma del magazzino si comportava come un annullamento:
+     `_routeConfirmStop` legge `if (qty === null) return`, e tornava indietro
+     in silenzio. Nessun errore in consolle, nessun messaggio a video,
+     nessuna traccia nel registro. Da fuori: un tasto che non fa niente. E
+     non riguardava una maschera — riguardava TUTTE, perché tutte passano da
+     qui: prelievo, conta, smaltimento, quarantena, spedizione.
+
+     Trovato il 27/08 al banco, e trovato per caso: un giro di pulizia del
+     DOM aveva cancellato quel div dalla pagina viva. Che sia stato un
+     ripulitore, un `index.html` sbagliato in una build o un'estensione del
+     browser, il risultato per chi lavora è lo stesso.
+
+     DUE COSE INSIEME, e nessuna delle due basta da sola:
+
+     ① SI RICOSTRUISCE. Il div è vuoto e inerte — non porta stato, non porta
+        contenuto, e il CSS lo aggancia per `id`: ricrearlo lo rimette
+        esattamente com'era. Rifiutarsi di lavorare sarebbe la scelta giusta
+        se il dubbio fosse sui DATI — «meglio fermo che vivo e sbagliato»,
+        §6 — ma qui non c'è nessun dubbio sui dati: c'è un contenitore vuoto
+        che manca, e fermare un magazzino per un div è sproporzionato.
+     ② SI URLA. La ricostruzione ripara il sintomo e nasconderebbe la causa,
+        e una causa nascosta torna. `console.error` una volta sola per
+        sessione: chi apre gli strumenti la trova, e chi non li apre lavora
+        lo stesso.
+
+     UNA VOLTA SOLA, non a ogni dialogo: un magazzino ne apre centinaia in un
+     turno, e trecento righe uguali in consolle sono rumore che si impara a
+     saltare — cioè di nuovo un silenzio. */
+  _ospiteRicostruito: false,
+
+  _overlay(): HTMLElement {
+    const gia = document.getElementById('dlgOverlay');
+    if (gia) return gia;
+
+    if (!this._ospiteRicostruito) {
+      this._ospiteRicostruito = true;
+      console.error(
+        '[WM] Dialog: #dlgOverlay non c\u2019era nel documento ed è stato ricostruito. '
+        + 'Finché mancava, OGNI conferma dell\u2019applicativo si comportava come un annullamento, '
+        + 'senza dirlo. Va capito chi lo ha tolto: index.html, un ripulitore del DOM, un\u2019estensione.');
+    }
+
+    /* Gli stessi attributi di `index.html`: il lettore di schermo deve
+       trovare quel che troverebbe se il div non fosse mai mancato. */
+    const nuovo = document.createElement('div');
+    nuovo.id = 'dlgOverlay';
+    nuovo.setAttribute('role', 'dialog');
+    nuovo.setAttribute('aria-modal', 'true');
+    nuovo.setAttribute('aria-labelledby', 'dlgTitle');
+    document.body.appendChild(nuovo);
+    return nuovo;
+  },
 
   /* Costruisce e apre il dialogo. Ritorna una Promise risolta alla chiusura. */
   _open<T extends Esito>({ icon = 'ℹ', title, bodyNode, actions, danger = false, kind = 'confirm',
           guardMs = null, focusTarget = null }: Apertura): Promise<T | null> {
     const overlay = this._overlay();
-    if (!overlay) return Promise.resolve(null);
     if (this.isOpen) this._finish(null);   // un dialogo per volta
 
     this._kind = kind;

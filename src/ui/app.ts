@@ -1141,6 +1141,47 @@ const App = monolite({
     }
   },
 
+  /* ═══════════════════════════════════════════════════════════════════
+     2.9 — IL CAMPO SCANSIONATO BENE SI VEDE DA LONTANO
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Fino alla 2.8 la conferma di una lettura era un suono e una riga di
+     testo sotto la maschera. Vanno bene tutti e due, e nessuno dei due
+     risponde alla domanda che l'operatore si fa davvero: «quali ho già
+     fatto?». Il suono è passato — chi arriva un secondo dopo non l'ha
+     sentito — e la riga di testo parla dell'ULTIMA lettura, non delle tre.
+
+     Il colore invece RESTA, e resta su ogni campo per conto suo: uno
+     sguardo alla maschera da un metro e mezzo dice quanti passi mancano,
+     senza leggere niente. È l'unica forma di riscontro che funziona con i
+     guanti, il rumore del muletto e il terminale appoggiato al bancale.
+
+     PERCHÉ NON BASTA IL BORDO VERDE. Un filetto da un pixel a un metro e
+     mezzo non esiste. Servono tre cose insieme: la barra spessa a sinistra,
+     che è la parte che si vede per prima perché è la più grande area di
+     colore pieno; lo sfondo tenue, che colora il campo INTERO; e la spunta
+     a destra, che disambigua per chi non distingue bene i colori — un verde
+     e un grigio chiaro si somigliano molto in una deuteranopia.
+
+     SI SPEGNE DA SÉ AL PRIMO TASTO. Un campo che resta verde dopo che
+     qualcuno ha ricominciato a scriverci dentro è peggio di nessun
+     riscontro: dichiara vero un dato che nessuno ha più verificato. Il
+     `once: true` fa sparire il segno alla prima modifica, e tocca alla
+     maschera rimetterlo dopo il controllo nuovo. */
+  _campoScansionato(fieldId: string, ok = true) {
+    const el = campo(fieldId);
+    if (!el) return;
+    el.classList.toggle('campo-ok', !!ok);
+    if (!ok) return;
+    el.addEventListener('input', () => el.classList.remove('campo-ok'), { once: true });
+  },
+
+  /** Spegne il segno su più campi in un gesto: serve quando una maschera si
+      riapre, o quando un passo precedente decade e i successivi con lui. */
+  _campiScansioneReset(...fieldIds: string[]) {
+    for (const id of fieldIds) campo(id)?.classList.remove('campo-ok');
+  },
+
   _getLocInfo(code: string) {
     for (const site of Store.getSites()) {
       for (const zone of (site.zones || []).filter(z => z.active)) {
@@ -1298,13 +1339,20 @@ const App = monolite({
      gestore — Personalizza il cruscotto, a ogni spunta — ne impila una nuova
      sopra l'altra, e `closeModal()` toglie la PRIMA del documento, cioe'
      quella sotto: si clicca Chiudi tante volte quante sono le modifiche. */
-  showModal(title: string, bodyHtml: string, footerHtml = '') {
+  /* 2.9 — `classi` allarga il riquadro dove serve, e SOLO dove serve.
+
+     I 500 px di `.modal` sono giusti per una domanda con due campi, ed è
+     il caso di quasi tutte le maschere. Un ELENCO è un'altra cosa: sette
+     colonne in 442 px utili si spezzano ognuna su cinque righe, e una
+     riga alta 261 px ne lascia vedere due per schermata. Misurato il
+     26/08 sull'elenco delle giacenze fuori posto, che ne ha 46. */
+  showModal(title: string, bodyHtml: string, footerHtml = '', classi = '') {
     document.getElementById('modalOverlay')?.remove();
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
     overlay.id = 'modalOverlay';
     overlay.onclick = (e) => { if (e.target === overlay) this.closeModal(); };
-    overlay.innerHTML = `<div class="modal">
+    overlay.innerHTML = `<div class="modal ${classi}">
       <div class="modal-header"><h2>${title}</h2><button class="btn btn-sm btn-icon btn-ghost" onclick="App.closeModal()">✕</button></div>
       <div class="modal-body">${bodyHtml}</div>
       ${footerHtml ? `<div class="modal-footer">${footerHtml}</div>` : ''}

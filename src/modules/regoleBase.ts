@@ -11,25 +11,38 @@
    il pallet è già alto, il carrello non ci arriva, quel bancale parte domani.
    L'operatore scavalca, e il motivo resta a registro.
 
-   LA SECONDA — LO STESSO ARTICOLO/LOTTO STA NELLA STESSA UBICAZIONE. Questa
-   NON si scavalca, e la ragione non è l'ordine: è che `item_key` è
-   `articolo#lotto` e la giacenza di quel lotto è UNA riga per vano. Lo stesso
-   lotto in due vani è la stessa merce contata due volte da chi guarda, e il
-   FEFO la ordina come se fossero due partite diverse. Il 26/08 è già successo
-   per una differenza di maiuscole — §2.6 — e quella volta bastò un lotto
-   digitato in minuscolo. Qui si chiude la porta anche a chi lo fa apposta.
+   LA SECONDA — LO STESSO ARTICOLO/LOTTO STA NELLA STESSA UBICAZIONE. La
+   ragione non è l'ordine: è che `item_key` è `articolo#lotto` e la giacenza
+   di quel lotto è UNA riga per vano. Lo stesso lotto in due vani è la stessa
+   merce contata due volte da chi guarda, e il FEFO la ordina come se fossero
+   due partite diverse. Il 26/08 è già successo per una differenza di
+   maiuscole — §2.6 — e quella volta bastò un lotto digitato in minuscolo.
 
-   L'ECCEZIONE, CHE È DELLO STATO DEL VANO E NON DELLA PERSONA. Se il vano di
-   casa è pieno, bloccato o disattivato, il lotto non può tornarci e rifiutare
-   vorrebbe dire fermare uno scarico in banchina. Allora — e SOLO allora — si
-   apre un secondo vano, e la mappa lo segnala come lotto sparso: un avviso,
-   non un errore. Chi decide non è l'operatore, è lo stato del vano; e appena
-   il vano di casa torna disponibile la regola torna a mordere.
+   E NON BLOCCA NESSUNO — 2.9, ed è un cambio di rotta dichiarato. Fino alla
+   2.8 questa regola RIFIUTAVA: `addItem` alzava, e il posizionamento non
+   avveniva. Non si fa piu', per una ragione che vale piu' della regola: chi
+   ha la merce in mano e il muletto acceso non discute con una maschera che
+   dice di no. O trova il modo di aggirarla — e allora il dato diventa
+   peggiore di prima, perché nessuno sa piu' dove sia finita la merce — o si
+   ferma, e si ferma il magazzino.
 
-   LA MATRICE DI INCOMPATIBILITÀ è la terza cosa che sta qui, ed è un dato:
-   quali pericolosità non possono dividere lo stesso vano. INFIAMMABILE con
-   COMBURENTE è l'esempio che tutti conoscono, ma l'elenco è aziendale come i
-   codici di pericolo — `modules/parametri.ts` — e quindi si configura.
+   Il sistema fa un'altra cosa, che è quella utile: SA già dove va quel
+   lotto, e lo dice PRIMA — precompilando il campo dell'ubicazione e
+   scrivendolo a schermo. Se l'operatore mette la merce altrove lo fa
+   consapevolmente, l'operazione passa, e la riga resta segnata come fuori
+   posto finché qualcuno non la ricompone con un trasferimento. Un assistente
+   che indica la strada porta piu' lontano di un cancello che sbarra.
+
+   LA TERZA COSA CHE STA QUI sono i tre motivi precompilati dello scavalco.
+   Non sono una regola: sono il modo in cui il motivo di uno scavalco diventa
+   un dato invece che rumore.
+
+   COSA NON STA PIU' QUI — 2.9. C'era una matrice di incompatibilità fra
+   pericolosità, con una griglia sua in Configurazione. E' uscita: la
+   pericolosità si dichiara adesso dentro le regole di stoccaggio come
+   qualunque altro bersaglio — «gli articoli INFIAMMABILE vanno in quella
+   zona» — e una seconda schermata che diceva la stessa cosa in un'altra
+   forma era un posto in più dove guardare e uno in più da tenere in pari.
 
    Nessuno stato, nessun accesso a Store, nessun DOM. Collaudato da fermo in
    `test/regoleBase.test.js`. */
@@ -101,18 +114,30 @@ export type EsitoCasa =
   | 'primo'
   /** Il vano scelto È quello di casa. */
   | 'casa'
-  /** Casa non può ricevere: il secondo vano è ammesso, e si segnala. */
+  /** Casa non può ricevere: il secondo vano è la scelta giusta. */
   | 'estensione'
-  /** Casa può ricevere: il vano scelto si rifiuta. */
-  | 'vietato';
+  /** Casa può ricevere, e l'operatore sta guardando altrove: si SUGGERISCE. */
+  | 'altrove';
 
 export interface VerdettoCasa {
   esito: EsitoCasa;
-  /** Vero quando chi scrive DEVE rifiutare. Non c'è scavalco che lo tolga. */
-  vietato: boolean;
+  /* 2.9 — `vietato` non c'è piu', ed è la riga che riassume il cambio di
+     rotta: nessun verdetto di questo modulo ferma piu' un'operazione. Al suo
+     posto due cose che SERVONO a chi lavora — dove va la merce, e se c'è da
+     dirlo. */
+
+  /** Vero quando c'è qualcosa da far vedere all'operatore. Non è un rifiuto:
+      è il segnale che questo riquadro ha una riga da scrivere. */
+  segnala: boolean;
   /** I vani dove il lotto sta già. */
   case: string[];
-  /** Il vano di casa che potrebbe ricevere — è quello dove va la merce. */
+  /** DOVE VA LA MERCE, e il campo dell'ubicazione si precompila con questo.
+      È il cuore del modello guidato: il sistema sa già la risposta, e la
+      dà prima che qualcuno debba sbagliare per scoprirla. */
+  suggerita: string | null;
+  /** L'ubicazione di casa che può ricevere. Coincide con `suggerita` tranne
+      quando casa è piena o bloccata, e allora `suggerita` resta vuota perché
+      la sceglie il motore fra i vani liberi. */
   casaLibera: string | null;
   messaggio: string;
 }
@@ -139,14 +164,14 @@ export function verdettoCasa(
 
   if (!codici.length) {
     return {
-      esito: 'primo', vietato: false, case: [], casaLibera: null,
+      esito: 'primo', segnala: false, case: [], suggerita: null, casaLibera: null,
       messaggio: '',
     };
   }
 
   if (scelto && codici.includes(scelto)) {
     return {
-      esito: 'casa', vietato: false, case: codici, casaLibera: scelto,
+      esito: 'casa', segnala: true, case: codici, suggerita: scelto, casaLibera: scelto,
       messaggio: `${scelto} è dove questo lotto sta già: la giacenza resta una riga sola`,
     };
   }
@@ -163,14 +188,17 @@ export function verdettoCasa(
   }
 
   if (casaLibera) {
+    /* 2.9 — SI SUGGERISCE, NON SI VIETA. Il messaggio dice dove va la merce
+       e perché, e chi legge decide: se posiziona altrove l'operazione passa
+       e la riga resta segnata fuori posto finché non la ricompone. */
     return {
-      esito: 'vietato', vietato: true, case: codici, casaLibera,
-      messaggio: `Il lotto ${String(lotCode ?? '').trim() || '—'} di ${String(articleCode ?? '').trim().toUpperCase()} sta in ${casaLibera}: lo stesso lotto sta in un'ubicazione sola e questa non si scavalca. Posiziona in ${casaLibera}.`,
+      esito: 'altrove', segnala: true, case: codici, suggerita: casaLibera, casaLibera,
+      messaggio: `Il lotto ${String(lotCode ?? '').trim() || '—'} di ${String(articleCode ?? '').trim().toUpperCase()} sta già in ${casaLibera}: portalo lì e la giacenza resta una riga sola.`,
     };
   }
 
   return {
-    esito: 'estensione', vietato: false, case: codici, casaLibera: null,
+    esito: 'estensione', segnala: true, case: codici, suggerita: null, casaLibera: null,
     messaggio: `${codici.join(', ')} non ${codici.length > 1 ? 'possono' : 'può'} ricevere (${perche.join(' · ')}): il lotto si estende su un secondo vano, e la mappa lo segnala.`,
   };
 }
@@ -319,106 +347,6 @@ export function testoScavalco(
   return l;
 }
 
-/* ── La matrice di incompatibilità ──────────────────────────────────── */
-
-/** Due pericolosità che non possono dividere lo stesso vano. L'ordine dentro
-    la coppia non conta: la si normalizza alfabetica per poterla confrontare. */
-export interface CoppiaIncompatibile {
-  a: string;
-  b: string;
-  /** Perché, in chiaro: lo legge chi si vede escludere un vano. */
-  nota?: string;
-}
-
-/** Un punto di partenza, non un vincolo: come i sei pericoli di
-    `parametri.ts`, queste tre coppie si tolgono e se ne aggiungono altre.
-    Sono le tre che nessun magazzino chimico discute — un comburente cede
-    ossigeno a un infiammabile, un corrosivo apre i contenitori degli altri
-    due — e servono a far trovare la matrice già utile al primo giorno. */
-export const INCOMPATIBILITA_DI_SERIE: readonly CoppiaIncompatibile[] = [
-  { a: 'COMBURENTE', b: 'INFIAMMABILE', nota: 'Il comburente alimenta la fiamma' },
-  { a: 'CORROSIVO', b: 'INFIAMMABILE', nota: 'Il corrosivo apre i contenitori' },
-  { a: 'COMBURENTE', b: 'CORROSIVO', nota: 'Il corrosivo apre i contenitori' },
-];
-
-function normalizzaCodice(v: unknown): string {
-  return String(v ?? '').trim().toUpperCase().replace(/\s+/g, '_');
-}
-
-/** La chiave di una coppia, indipendente dall'ordine. */
-function chiaveCoppia(a: string, b: string): string {
-  return a < b ? `${a} ${b}` : `${b} ${a}`;
-}
-
-/** La matrice ripulita: codici in maiuscolo, coppie senza doppioni, e via
-    quelle che non dicono niente — una coppia vuota, o un codice con se
-    stesso. Due colli dello stesso pericolo stanno insieme benissimo: è
-    quello il motivo per cui esistono le zone dedicate. */
-export function normalizzaMatrice(raw: unknown): CoppiaIncompatibile[] {
-  if (!Array.isArray(raw)) return [];
-  const out: CoppiaIncompatibile[] = [];
-  const viste = new Set<string>();
-  for (const c of raw) {
-    const a = normalizzaCodice((c as CoppiaIncompatibile)?.a);
-    const b = normalizzaCodice((c as CoppiaIncompatibile)?.b);
-    if (!a || !b || a === b) continue;
-    const k = chiaveCoppia(a, b);
-    if (viste.has(k)) continue;
-    viste.add(k);
-    const nota = String((c as CoppiaIncompatibile)?.nota ?? '').trim();
-    out.push(a < b ? { a, b, ...(nota ? { nota } : {}) } : { a: b, b: a, ...(nota ? { nota } : {}) });
-  }
-  return out.sort((x, y) => x.a.localeCompare(y.a) || x.b.localeCompare(y.b));
-}
-
-/** Vero se queste due pericolosità non possono stare nello stesso vano. */
-export function incompatibili(
-  matrice: readonly CoppiaIncompatibile[] | null | undefined,
-  a: string, b: string,
-): boolean {
-  if (!matrice?.length) return false;
-  const k = chiaveCoppia(normalizzaCodice(a), normalizzaCodice(b));
-  return matrice.some(c => chiaveCoppia(normalizzaCodice(c.a), normalizzaCodice(c.b)) === k);
-}
-
-export interface Scontro {
-  /** La pericolosità della merce che sta arrivando. */
-  entrante: string;
-  /** Quella che è già nel vano. */
-  presente: string;
-  nota?: string;
-}
-
-/** Gli scontri fra ciò che sta arrivando e ciò che c'è già nel vano.
-
-    Si guarda una direzione sola — entrante contro presente — perché è quella
-    la domanda: la merce che c'è è già lì, e spostarla non è compito di chi
-    sta posizionando. Se due cose incompatibili si trovano già insieme, a
-    dirlo è la verifica di conformità, che guarda il magazzino da fermo. */
-export function scontri(
-  matrice: readonly CoppiaIncompatibile[] | null | undefined,
-  entranti: readonly string[] | null | undefined,
-  presenti: readonly string[] | null | undefined,
-): Scontro[] {
-  if (!matrice?.length || !entranti?.length || !presenti?.length) return [];
-  const out: Scontro[] = [];
-  const viste = new Set<string>();
-  for (const e of entranti) {
-    for (const p of presenti) {
-      const ce = normalizzaCodice(e);
-      const cp = normalizzaCodice(p);
-      if (!ce || !cp || ce === cp) continue;
-      const k = chiaveCoppia(ce, cp);
-      if (viste.has(k)) continue;
-      const coppia = matrice.find(c => chiaveCoppia(normalizzaCodice(c.a), normalizzaCodice(c.b)) === k);
-      if (!coppia) continue;
-      viste.add(k);
-      out.push({ entrante: ce, presente: cp, ...(coppia.nota ? { nota: coppia.nota } : {}) });
-    }
-  }
-  return out;
-}
-
 /* ── Le regole base, dichiarate ─────────────────────────────────────── */
 
 /** Le due regole preinstallate, come le legge chi apre Configurazione.
@@ -439,10 +367,10 @@ export const REGOLE_BASE = Object.freeze([
   Object.freeze({
     id: 'UBICAZIONE_UNICA',
     titolo: 'Lo stesso articolo/lotto sta nella stessa ubicazione',
-    testo: 'Quando il lotto è già in un vano, la merce di quel lotto va lì e in nessun altro posto. '
+    testo: 'Quando il lotto è già in un vano, il sistema propone quel vano e precompila il campo. '
       + 'Lo stesso lotto in due vani è la stessa merce contata due volte, e il FEFO la ordina come due partite.',
-    override: false,
-    comeSiScavalca: 'Non si scavalca. Se il vano di casa è pieno, bloccato o disattivato — e solo allora — '
-      + 'il lotto si estende su un secondo vano e la mappa lo segnala.',
+    override: true,
+    comeSiScavalca: 'Non blocca niente: se la merce finisce altrove l’operazione passa, '
+      + 'la mappa accende il vano e la riga resta fra le giacenze fuori posto, con il suo tasto «Trasferisci».',
   }),
 ] as const);

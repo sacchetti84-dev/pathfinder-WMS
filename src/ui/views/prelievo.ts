@@ -21,8 +21,8 @@ export const VistaPrelievo = {
       <div class="prel-tabs">
         <button class="prel-tab ${this._pickSubMode === 'cambio' ? 'active' : ''}" onclick="App._pickSub('cambio')"><span class="prel-tab-icon">🔄</span>Trasferimento</button>
         <button class="prel-tab ${this._pickSubMode === 'produzione' ? 'active' : ''}" onclick="App._pickSub('produzione')"><span class="prel-tab-icon">🏭</span>Prelievo Produzione</button>
-        <button class="prel-tab ${this._pickSubMode === 'ordine' ? 'active' : ''}" onclick="App._pickSub('ordine')"><span class="prel-tab-icon">🧭</span>Da Ordine (XLSX)</button>
-        <button class="prel-tab ${this._pickSubMode === 'wip' ? 'active' : ''}" onclick="App._pickSub('wip')"><span class="prel-tab-icon">🏗</span>Conto produzione</button>
+        <button class="prel-tab ${this._pickSubMode === 'ordine' ? 'active' : ''}" onclick="App._pickSub('ordine')"><span class="prel-tab-icon">🧭</span>Prelievo automatico</button>
+        <button class="prel-tab ${this._pickSubMode === 'wip' ? 'active' : ''}" onclick="App._pickSub('wip')"><span class="prel-tab-icon">🏗</span>WIP</button>
       </div>
       <div id="pickSubForm"></div>
       <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>

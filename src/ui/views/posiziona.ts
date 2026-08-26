@@ -1,6 +1,7 @@
 import { type Vista, $, $sel } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
+import { Feedback } from '../feedback';
 import { Validate } from '../../modules/validate';
 import { ScanGuard } from '../../modules/scanGuard';
 import { Dialog } from '../dialog';
@@ -64,7 +65,7 @@ export const VistaPosiziona = {
         <div class="flex gap-3">
           <input class="input input-mono flex-1" id="mInLoc" placeholder="Scansiona ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('mInLoc');App._previewLoc('mInLoc','mInLocPrev')"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('mInLoc');App._previewLoc('mInLoc','mInLocPrev');$('mInArtCode').focus();}">
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('mInLoc');App._previewLoc('mInLoc','mInLocPrev');App._scanAvanti('loc');}">
           <button class="btn btn-sm" onclick="App._pickLoc('mInLoc','_cbPickIn')" title="Sfoglia le ubicazioni">📍</button>
           <button class="btn btn-sm" onclick="App._pickUdcIn()" title="Scegli un'unità di carico aperta">🔀</button>
         </div>
@@ -74,14 +75,14 @@ export const VistaPosiziona = {
         <label>② Codice Articolo <span class="req">*</span></label>
         <input class="input input-mono uppercase" id="mInArtCode" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
           oninput="App._anteprimaUmIn()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();App._autoLookupArticle('mInArtCode','mInArtInfo','mInArtDesc');App._proponiVano();$('mInLot').focus();}">
+          onkeydown="if(event.key==='Enter'){event.preventDefault();App._autoLookupArticle('mInArtCode','mInArtInfo','mInArtDesc');App._proponiVano();App._scanAvanti('art');}">
         <div class="text-label-small text-sx-text-muted mt-1.5" id="mInArtInfo"></div>
       </div>
       <div class="form-group mb-5">
         <label>③ Codice Lotto <span class="req">*</span></label>
         <input class="input input-mono" id="mInLot" placeholder="Scansiona barcode lotto" maxlength="${Validate.MAX.LOT_CODE}"
           oninput="App._anteprimaUmIn()"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();App._proponiVano();$('mInQty').focus();$('mInQty').select();}">
+          onkeydown="if(event.key==='Enter'){event.preventDefault();App._proponiVano();App._scanAvanti('lotto');}">
       </div>
       <div id="mInProposta"></div>
       <div class="form-group mb-5">
@@ -810,6 +811,70 @@ export const VistaPosiziona = {
      `Store.proponiStoccaggio`. Qui c'è il riquadro e basta.
      ═══════════════════════════════════════════════════════════════════ */
 
+  /* ═══════════════════════════════════════════════════════════════════
+     2.9 — LA SCANSIONE SBAGLIATA NON CHIUDE NIENTE
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     L'operatore arriva al vano col lettore in mano e scansiona in fila:
+     ① ubicazione ② articolo ③ lotto. Se una lettura non torna — il codice
+     non è un'ubicazione, il campo è vuoto — il sistema deve dirlo SUBITO e
+     in modo che si senta, e poi stare fermo.
+
+     COSA VUOL DIRE «STARE FERMO», ed è tutto il punto: la maschera non si
+     chiude, non si svuota, non perde i campi già compilati e non avanza al
+     passo successivo. Il fuoco RESTA dove l'errore è successo e il testo si
+     seleziona, così la scansione successiva sostituisce quella sbagliata
+     invece di accodarvisi — che è il difetto classico dei lettori, e
+     produce codici lunghi il doppio che non corrispondono a niente.
+
+     `Feedback.signal('error', …)` è già suono, vibrazione, lampo e riquadro
+     in un gesto solo: chi ha i guanti e il rumore del muletto intorno il
+     riquadro non lo legge, ma il suono lo sente.
+
+     COSA NON È UN ERRORE, e va detto perché la tentazione è di allargare:
+     un articolo che non sta in anagrafica NON è una scansione sbagliata —
+     è un articolo nuovo, e questa maschera sa accoglierlo da sempre. E un
+     vano diverso da quello suggerito nemmeno: quella è una decisione di chi
+     ha la merce in mano, e dal 2.9 il sistema non discute più. */
+  _scanErrore(campo, titolo, dettaglio) {
+    const el = $(campo);
+    Feedback.signal('error', titolo, dettaglio);
+    this._campoScansionato(campo, false);
+    if (el) { el.focus(); el.select?.(); }
+    return false;
+  },
+
+  /** Il passo è valido? In caso contrario segnala e NON avanza. */
+  _scanAvanti(passo) {
+    if (passo === 'loc') {
+      const v = Validate.clean($('mInLoc')?.value, true).replace(/'/g, '-');
+      if (!v) return this._scanErrore('mInLoc', 'Ubicazione mancante', 'Scansiona il vano dove stai posizionando.');
+      /* Un'unità di carico è una destinazione legittima quanto un vano:
+         `_udcDestinazione` la riconosce, e rifiutarla qui vorrebbe dire
+         rompere il carico su pallet che funziona dal 2.1. */
+      if (!Store.locationExists(v) && !this._udcDestinazione(v)) {
+        return this._scanErrore('mInLoc', `${v} non è un'ubicazione`,
+          'Il codice letto non corrisponde a nessun vano né a un\u2019unità di carico. Riscansiona.');
+      }
+      this._campoScansionato('mInLoc');
+      $('mInArtCode')?.focus();
+      return true;
+    }
+    if (passo === 'art') {
+      const v = Validate.clean($('mInArtCode')?.value, true);
+      if (!v) return this._scanErrore('mInArtCode', 'Articolo mancante', 'Scansiona il codice articolo.');
+      this._campoScansionato('mInArtCode');
+      $('mInLot')?.focus();
+      return true;
+    }
+    const lot = Validate.clean($('mInLot')?.value);
+    if (!lot) return this._scanErrore('mInLot', 'Lotto mancante', 'Scansiona il lotto.');
+    this._campoScansionato('mInLot');
+    const q = $('mInQty');
+    if (q) { q.focus(); q.select(); }
+    return true;
+  },
+
   _propostaCorrente: null,
 
   _proponiVano() {
@@ -828,22 +893,38 @@ export const VistaPosiziona = {
     const scelto = Validate.clean($('mInLoc')?.value, true).replace(/'/g, '-');
     const primo = esito.proposte[0];
 
-    /* ── 2.8 — LA REGOLA CHE NON SI SCAVALCA, DETTA PRIMA DI TUTTO.
+    /* ── 2.9 — SI DICE PRIMA, E SI PRECOMPILA. Non si blocca niente.
 
-       `addItem` la fa rispettare comunque e il posizionamento si rifiuta da
-       solo. Ma scoprirlo premendo «Posiziona», col pallet già sul muletto,
-       è il modo di farsi odiare da chi lavora: qui si dice PRIMA, e si dice
-       col codice del vano dove la merce deve andare — «non si può» senza
-       «allora dove» è una porta chiusa e basta. */
+       Il sistema sa già dove va quel lotto. Dirlo DOPO, quando l'operatore
+       ha premuto «Posiziona» col pallet già sul muletto, è il modo di farsi
+       odiare da chi lavora; dirlo prima e scrivere il codice nel campo è il
+       modo di fargli risparmiare un giro. Se poi la merce va altrove
+       l'operazione passa lo stesso, e la mappa accende il vano. */
     const verdetto = Store.verdettoUbicazioneUnica(art, lot, scelto, colli);
-    const casaHtml = verdetto.esito === 'vietato'
-      ? `<div class="mov-preview mov-preview-err mb-5">
-          <strong>⛔ Questo lotto sta già in <span class="mono">${this._esc(verdetto.casaLibera || '')}</span></strong><br>
+
+    /* LA PRECOMPILAZIONE AVVIENE SOLO SU UN CAMPO ANCORA VUOTO: riscrivere
+       un campo che l'operatore ha già compilato — o peggio scansionato —
+       vorrebbe dire cancellargli sotto le dita quel che ha appena fatto, ed
+       è il modo di far odiare i suggerimenti. */
+    if (!scelto && verdetto.suggerita) {
+      const campo = $('mInLoc');
+      if (campo) {
+        campo.value = verdetto.suggerita;
+        this._previewLoc('mInLoc', 'mInLocPrev');
+        return this._proponiVano();
+      }
+    }
+
+    const casaHtml = verdetto.esito === 'altrove'
+      ? `<div class="mov-preview mov-preview-warn mb-5">
+          <strong>Questo lotto sta già in <span class="mono">${this._esc(verdetto.casaLibera || '')}</span></strong><br>
           ${this._esc(verdetto.messaggio)}
           <div class="flex gap-3 mt-4 flex-wrap">
             <button class="btn btn-sm btn-primary" type="button"
                     onclick="App._usaVanoDiCasa('${this._esc(verdetto.casaLibera || '')}')">Usa ${this._esc(verdetto.casaLibera || '')}</button>
           </div>
+          <div class="text-label-small mt-3">Puoi posizionare dove vuoi: se scegli un altro vano l’operazione passa,
+          e la riga resta segnalata fra le giacenze fuori posto finché non la ricomponi.</div>
         </div>`
       : verdetto.esito === 'estensione'
         ? `<div class="mov-preview mov-preview-warn mb-5">

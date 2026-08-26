@@ -124,24 +124,81 @@ export const VistaMappa = {
     </div>`;
   },
 
+  /* 2.9 — L'elenco si segna aperto: `doMoveItem` lo ridisegna appena
+     un'anomalia è risolta, così la riga sistemata sparisce sotto gli occhi
+     invece di restare lì a dire una cosa che non è più vera. */
+  _elencoNCAperto: false,
+
+  _trasferisciDaElenco(locationCode: string, itemKey: string, dest: string) {
+    this.closeModal();
+    this.selectedLocation = locationCode;
+    this.showMoveItemModal(locationCode, itemKey, dest);
+  },
+
   /* L'elenco completo, di tutto il magazzino: da qui si va all'ubicazione. */
   mostraNonConformita() {
-    const conf = this._conf || this._aggiornaConformita();
+    const conf = this._aggiornaConformita();
     if (!conf || !conf.nonConformita.length) {
+      this._elencoNCAperto = false;
+      this.closeModal();
+      this.renderMap();
       return this.toast('Nessuna giacenza fuori posto', 'success');
     }
+    this._elencoNCAperto = true;
     const perTipo = new Map();
     for (const n of conf.nonConformita) perTipo.set(n.tipo, (perTipo.get(n.tipo) || 0) + 1);
 
-    const righe = conf.nonConformita.slice(0, 300).map((n: NonConformita) => `
+    /* ── 2.9 — QUARANTASEI RIGHE DEVONO STARE IN UNA SCHERMATA.
+
+       Ogni riga segnalata porta il suo tasto, e il tasto sa già dove va la
+       merce: senza, chi legge doveva ricordarsi il codice, chiudere, aprire
+       la mappa, trovare il vano, aprire il pannello e premere Trasferisci —
+       sei gesti per uno.
+
+       COME SI TENGONO BASSE LE RIGHE, che è il vero problema di un elenco
+       lungo. Alla prima stesura le colonne erano sette e il riquadro largo
+       442 px utili: ognuna si spezzava su cinque righe, e una riga alta 261
+       px ne lasciava vedere DUE per schermata. Tre correzioni, tutte sulla
+       stessa idea — dare a ogni dato lo spazio che merita e non di più:
+
+       ① LA DESCRIZIONE SCENDE SOTTO IL CODICE, e non occupa una colonna sua.
+          Non identifica niente — centinaia di righe la portano uguale — ma
+          serve a riconoscere la merce a colpo d'occhio, e sotto al codice fa
+          quel lavoro senza rubare larghezza a nessuno.
+       ② UNA RIGA DI TESTO E BASTA, con i puntini. Il messaggio completo sta
+          nel `title`, e chi lo vuole ci passa sopra: mandarlo a capo cinque
+          volte per farlo leggere tutto insieme costa l'intera schermata.
+       ③ IL «VA IN» DIVENTA UNA PASTIGLIA IN LINEA, non una seconda riga.
+          È l'informazione che fa agire, e messa a capo raddoppiava l'altezza
+          di ogni singola riga per una parola e un codice.
+
+       Il `<colgroup>` fissa le proporzioni una volta sola: senza, il browser
+       le ricalcola sul contenuto e una descrizione lunga si prende metà
+       tabella lasciando il codice a spezzarsi. */
+    const righe = conf.nonConformita.slice(0, 300).map((n: NonConformita) => {
+      const dove = n.item_key
+        ? Store.destinazioneSuggerita(n.article_code, n.lot_code || '', n.location_code, n.qty || 1)
+        : null;
+      return `
       <tr class="${n.gravita === 'alta' ? 'conf-riga-alta' : ''}">
-        <td>${n.gravita === 'alta' ? '⛔' : '⚠'}</td>
-        <td class="mono"><button class="conf-vai" onclick="App.closeModal();App.goToLocation('${this._esc(n.location_code)}')">${this._esc(n.location_code)}</button></td>
-        <td class="mono">${this._esc(n.article_code)}</td>
-        <td>${this._esc(n.article_description || '')}</td>
-        <td class="mono">${this._esc(n.lot_code || '')}</td>
-        <td>${this._esc(n.messaggio)}</td>
-      </tr>`).join('');
+        <td class="text-center">${n.gravita === 'alta' ? '⛔' : '⚠'}</td>
+        <td><button class="conf-vai mono" onclick="App.closeModal();App.goToLocation('${this._esc(n.location_code)}')">${this._esc(n.location_code)}</button></td>
+        <td>
+          <div class="mono font-bold nc-una-riga">${this._esc(n.article_code)}</div>
+          <div class="nc-desc nc-una-riga" title="${this._esc(n.article_description || '')}">${this._esc(n.article_description || '')}</div>
+        </td>
+        <td class="mono nc-una-riga">${this._esc(n.lot_code || '')}</td>
+        <td>
+          <div class="nc-una-riga" title="${this._esc(n.messaggio)}">${this._esc(n.messaggio)}</div>
+          ${dove ? `<span class="nc-va-in">→ <span class="mono">${this._esc(dove.location_code)}</span></span>` : ''}
+        </td>
+        <td class="text-right">${n.item_key
+          ? `<button class="btn btn-sm btn-primary whitespace-nowrap" title="${
+              dove ? `Rimetti a posto in ${this._esc(dove.location_code)}` : 'Scegli la destinazione'
+            }" onclick="App._trasferisciDaElenco('${this._esc(n.location_code)}','${this._esc(n.item_key)}','${this._esc(dove?.location_code || '')}')">🔀<span class="nc-tasto-testo"> Trasferisci</span></button>`
+          : ''}</td>
+      </tr>`;
+    }).join('');
 
     this.showModal(`Giacenze fuori posto — ${conf.nonConformita.length}`, `
       <div class="conf-riepilogo">
@@ -149,15 +206,20 @@ export const VistaMappa = {
         <span class="conf-chip conf-chip--muta">verificate ${conf.verificabili} di ${conf.righe} giacenze</span>
         ${conf.deroghe.length ? `<button class="conf-deroghe" onclick="App.mostraDeroghe()">🔓 ${conf.deroghe.length} in deroga su celle riservate</button>` : ''}
       </div>
-      <div class="overflow-x-auto max-h-[56vh]">
-        <table class="sx-table">
-          <thead><tr><th class="w-[34px]"></th><th>Ubicazione</th><th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Perché</th></tr></thead>
+      <div class="overflow-x-auto max-h-[62vh]">
+        <table class="sx-table sx-table-nc">
+          <colgroup>
+            <col style="width:30px"><col style="width:145px"><col style="width:26%">
+            <col style="width:100px"><col><col style="width:130px">
+          </colgroup>
+          <thead><tr><th></th><th>Ubicazione</th><th>Articolo</th><th>Lotto</th><th>Perché</th><th></th></tr></thead>
           <tbody>${righe}</tbody>
         </table>
       </div>
       ${conf.nonConformita.length > 300 ? `<div class="dlg-nota">Mostrate le prime 300 di ${conf.nonConformita.length}. L'export Excel le porta tutte.</div>` : ''}
     `, `<button class="btn" onclick="App.closeModal()">Chiudi</button>
-        <button class="btn btn-accent" onclick="App.esportaNonConformita()">📊 Esporta Excel</button>`);
+        <button class="btn btn-accent" onclick="App.esportaNonConformita()">📊 Esporta Excel</button>`,
+        'modal-larga');
   },
 
   /* Le eccezioni volute, in chiaro. Non sono difetti, ma sono la risposta a

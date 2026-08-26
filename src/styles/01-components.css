@@ -785,52 +785,60 @@
   color: var(--sx-text);
 }
 
-/* 2.8 — LA MATRICE DI INCOMPATIBILITÀ.
-
-   Una griglia e non un elenco di coppie, e la ragione è tutta nell'uso: la
-   domanda che qualcuno fa davanti a un pallet è «questi due possono stare
-   insieme», e su un elenco quella domanda si risponde scorrendolo tutto.
-   Su una griglia si risponde guardando una casella.
-
-   SOLO IL TRIANGOLO DI SOPRA si disegna: la coppia non ha un ordine, e due
-   caselle per la stessa domanda prima o poi si contraddicono a video. Il
-   triangolo di sotto resta, spento, perché togliere le celle spezzerebbe
-   l'allineamento delle colonne. */
-.sx-table.matrice th.matrice-testa {
-  /* I nomi dei pericoli sono lunghi e le colonne strette: scritti in
-     verticale la griglia resta leggibile senza scorrere in orizzontale. */
-  writing-mode: vertical-rl;
-  transform: rotate(180deg);
-  white-space: nowrap;
-  text-align: left;
-  vertical-align: bottom;
-  height: 8.5rem;
-  padding: 0.25rem 0;
-  font-weight: 600;
-}
-.sx-table.matrice td { text-align: center; padding: 0.125rem; }
-.sx-table.matrice td.matrice-vuota { background: transparent; opacity: 0.35; }
-
-.matrice-cella {
-  width: 2rem;
-  height: 2rem;
-  border: 1px solid var(--sx-border);
-  border-radius: var(--md-sys-shape-corner-small, 4px);
-  background: transparent;
-  color: var(--sx-text-muted);
-  cursor: pointer;
-  font-size: 0.9rem;
-  line-height: 1;
-}
-.matrice-cella:hover { background: var(--sx-accent-soft); border-color: var(--sx-border-strong); }
-.matrice-cella--no {
-  background: var(--sx-danger-soft);
-  border-color: var(--sx-danger);
-  color: var(--sx-danger);
-}
-
 /* 2.8 — LA CELLA CARATTERIZZATA A MANO.
    Su duemila ubicazioni sono una decina, e devono trovarsi a occhio: chi le
    cerca sta cercando l'eccezione, non la regola. */
 .loc-attr-riga { border-left: 3px solid var(--sx-warning); padding-left: 0.75rem; }
 .loc-attr-eredita { color: var(--sx-text-muted); font-style: italic; }
+
+/* ════ 2.9 — IL CAMPO SCANSIONATO BENE ════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   Deve rispondere da UN METRO E MEZZO alla domanda «quali passi ho gia'
+   fatto?», con i guanti e il rumore del muletto intorno. Il suono e' gia'
+   passato quando qualcuno alza gli occhi, e la riga di testo sotto la
+   maschera parla dell'ULTIMA lettura, non delle tre. Il colore invece
+   RESTA, e resta su ogni campo per conto suo: uno sguardo alla maschera
+   dice quanti passi mancano, senza leggere niente.
+
+   E' LO STESSO VERDE DEL RIQUADRO DI CONFERMA, e non e' un dettaglio:
+   `.mov-preview-ok` sotto la maschera dice «Ubicazione ... confermata» con
+   fondo `--sx-success-soft`, bordo e testo `--sx-success`. Un campo
+   confermato che usasse un verde suo insegnerebbe due volte la stessa cosa
+   con due segni diversi, e chi guarda si chiederebbe che differenza c'e'.
+   Non ce n'e' nessuna: e' lo stesso fatto, detto nel posto dove serve.
+
+   BORDO PIENO TUTT'ATTORNO E NON UNA BARRA LATERALE. Il campo intero
+   diventa la pastiglia verde: e' la forma che si riconosce da lontano
+   perche' e' un blocco di colore chiuso, mentre un filetto su un lato solo
+   si perde fra i bordi che il modulo ha gia'.
+
+   `!important` sul bordo e' per il fuoco: `.input:focus` ridipinge il bordo
+   con l'accento, e il campo appena scansionato — che e' anche quello dove
+   sta il cursore un attimo prima di passare al successivo — perderebbe il
+   verde proprio nell'istante in cui serve.
+
+   SI SPEGNE DA SE' AL PRIMO TASTO, e lo fa `_campoScansionato` con un
+   ascoltatore `once`. Un campo che resta verde dopo che qualcuno ha
+   ricominciato a scriverci dentro e' peggio di nessun riscontro: dichiara
+   vero un dato che nessuno ha piu' verificato. */
+.input.campo-ok,
+.select.campo-ok {
+  background: var(--sx-success-soft);
+  border: 2px solid var(--sx-success) !important;
+  color: var(--sx-success);
+  font-weight: 700;
+}
+
+/* Il fuoco resta riconoscibile: la sottolineatura interna diventa verde
+   invece di sparire, cosi' si vede insieme «questo e' a posto» e «il
+   cursore e' qui». */
+.input.campo-ok:focus,
+.select.campo-ok:focus {
+  box-shadow: inset 0 -2px 0 var(--sx-success);
+}
+
+/* Il segnaposto non deve diventare verde: se il campo e' confermato il
+   segnaposto non si vede, e se si vedesse direbbe che e' confermato il
+   vuoto. */
+.input.campo-ok::placeholder { color: var(--sx-text-muted); font-weight: 400; }
