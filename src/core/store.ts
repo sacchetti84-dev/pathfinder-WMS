@@ -224,13 +224,22 @@ const Store = {
      magazzino chiuderebbe il cerchio esattamente come il 13/08. */
   _comanda(o: Operatore) { return o.role === 'leader' || o.role === 'admin'; },
 
+  /** 2.10 — HA UN PIN, E NON SI GUARDA L'IMPRONTA PER SAPERLO.
+      Col servizio `pin_hash` non arriva più: la risposta porta `pin_set`.
+      Da file il database sta nel browser e l'impronta c'è davvero, quindi
+      il ripiego non è cortesia — è l'altro modo di funzionare. */
+  haPin(o: Operatore | null | undefined): boolean {
+    if (!o) return false;
+    return o.pin_set ?? Boolean(o.pin_hash);
+  },
+
   getActiveLeaders() {
     return this._cache.operators.filter(o => this._comanda(o) && o.active !== false);
   },
 
   getUsableLeaders() {
     return this._cache.operators.filter(o =>
-      this._comanda(o) && o.active !== false && !!o.pin_hash);
+      this._comanda(o) && o.active !== false && this.haPin(o));
   },
 
   getActiveAdmins() {
@@ -239,7 +248,7 @@ const Store = {
 
   getUsableAdmins() {
     return this._cache.operators.filter(o =>
-      o.role === 'admin' && o.active !== false && !!o.pin_hash);
+      o.role === 'admin' && o.active !== false && this.haPin(o));
   },
 
   /** 2.1 — CHI PUÒ APRIRE LA CONFIGURAZIONE E IL RESET.
@@ -271,6 +280,9 @@ const Store = {
       role:       rec.role === 'admin' ? 'admin' : rec.role === 'leader' ? 'leader' : 'operator',
       pin_hash:   rec.pin_hash || null,
       pin_salt:   rec.pin_salt || null,
+      /* 2.10 — se si perde qui, l'impronta scritta con scrypt verrebbe
+         riletta come SHA-256 e il PIN non entrerebbe piu'. */
+      pin_algo:   rec.pin_algo,
       pin_set_at: rec.pin_hash ? now : null,
       active:     true,
       created_at: now,

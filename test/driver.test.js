@@ -304,12 +304,37 @@ function batteria(etichetta, apri, chiudi) {
       expect(await db.count('lots')).toBeGreaterThan(0);
     });
 
+    /* L'APICE E' USCITO DA QUESTO VALORE CON LA 2.10, e non perche' la
+       parametrizzazione sia diventata meno sicura: `item_key` e' un CODICE, e
+       dalla 2.10 un codice rifiuta apici e virgolette prima ancora di
+       arrivare allo SQL — sono i caratteri che spezzano i gestori inline
+       dell'interfaccia. Quel che questa prova doveva dimostrare lo dimostra
+       ancora: `;` e `--` sono i pezzi che trasformerebbero un valore in una
+       seconda istruzione, e passano interi fino a database. */
     it('un valore ostile è un valore, non SQL', async () => {
-      const ostile = "'; DROP TABLE inventory; --";
+      const ostile = '; DROP TABLE inventory; --';
       const id = await db.add('inventory', { item_key: ostile, location_code: 'X', qty: 1 });
       const r = await db.get('inventory', id);
       expect(r.item_key).toBe(ostile.toUpperCase());
       expect(await db.count('inventory')).toBeGreaterThan(0);
+    });
+
+    /* 2.10 — I DUE VERSI DELLA REGOLA NUOVA, e sono due prove e non una
+       perche' il rischio sta nell'esagerare tanto quanto nel non fare: un
+       campo di testo libero che comincia a rifiutare gli apostrofi rende
+       impossibile scrivere «l'articolo e' arrivato rotto» in una nota. */
+    it('un codice con dentro un apice non entra a database', async () => {
+      const prima = await db.count('inventory');
+      await expect(
+        db.add('inventory', { item_key: "X'); alert(1); //", location_code: 'X', qty: 1 })
+      ).rejects.toThrow(/codice/i);
+      expect(await db.count('inventory')).toBe(prima);
+    });
+
+    it('il testo libero tiene apici e virgolette, che non sono un codice', async () => {
+      const nota = 'l\'operatore ha detto "arrivato rotto" <urgente>';
+      const id = await db.add('inventory', { item_key: 'NOTA#1', location_code: 'X', qty: 1, notes: nota });
+      expect((await db.get('inventory', id)).notes).toBe(nota);
     });
 
     it('un documento con dentro di tutto sopravvive al giro', async () => {

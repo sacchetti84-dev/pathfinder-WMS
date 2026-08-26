@@ -4,6 +4,10 @@ import type { Istante, Operatore } from '../types/entita.js';
 export interface CampiPin {
   pin_salt: string;
   pin_hash: string;
+  /** 2.10 — con quale algoritmo è fatta l'impronta. Lo decide chi la scrive:
+      il servizio dice `scrypt`, il modo «da file» lascia il campo assente e
+      quello vuol dire SHA-256, cioè tutto ciò che esisteva prima. */
+  pin_algo?: 'scrypt';
   pin_set_at: Istante;
 }
 

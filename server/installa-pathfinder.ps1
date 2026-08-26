@@ -602,6 +602,44 @@ if ($modoDb -eq 'postgresql' -and (-not $aggiornamento -or $saltoAPostgres)) {
     $stringaPg = $pgInServizio
 }
 
+
+# ── 2.10 · I PERMESSI DELLA RADICE ─────────────────────────────────────────
+#
+#  IL SERVIZIO GIRA COME SYSTEM, E I SUOI FILE ERANO DI TUTTI. `C:\` eredita
+#  ai figli `Authenticated Users : Modify`, e nessuno gliel'aveva tolto: un
+#  utente qualunque della macchina poteva riscrivere `pathfinder-server.js`,
+#  e al riavvio del servizio quel codice girava come SYSTEM. Non serviva un
+#  difetto dell'applicativo — bastava un blocco note.
+#
+#  Qui si spezza l'eredita' e si riscrive l'elenco da zero: pieno controllo a
+#  SYSTEM e agli Amministratori, lettura ed esecuzione a tutti gli altri.
+#  I terminali di magazzino non leggono da disco — parlano col servizio via
+#  HTTP — quindi togliere la scrittura non toglie niente a chi lavora.
+#
+#  NON FERMA L'INSTALLAZIONE SE FALLISCE. Su una macchina in dominio le ACL
+#  possono essere governate altrove, e un magazzino che non si aggiorna per
+#  un criterio di gruppo e' un danno peggiore del permesso largo. Si dice, e
+#  si va avanti.
+function Blinda-Radice([string]$Percorso) {
+    if (-not (Test-Path $Percorso)) { return }
+    try {
+        # /inheritance:r stacca l'eredita' e SVUOTA l'elenco: le tre righe
+        # che seguono sono tutto quello che resta, e vanno date insieme.
+        $esito = & icacls $Percorso /inheritance:r `
+            /grant '*S-1-5-18:(OI)(CI)F' `
+            /grant '*S-1-5-32-544:(OI)(CI)F' `
+            /grant '*S-1-5-32-545:(OI)(CI)RX' `
+            /T /C 2>&1
+        if ($LASTEXITCODE -eq 0) {
+            Riga 'Permessi' 'scrittura riservata ad Amministratori e SYSTEM' 'Green'
+        } else {
+            Riga 'Permessi' "non applicati: $($esito | Select-Object -Last 1)" 'Yellow'
+        }
+    } catch {
+        Riga 'Permessi' "non applicati: $($_.Exception.Message)" 'Yellow'
+    }
+}
+
 # ── Prima installazione: il servizio nasce ─────────────────────────────────
 if (-not $aggiornamento) {
     Titolo "$(if ($passi -eq 3) { '2 di 3' } else { '1 di 2' })  —  il servizio dati"
@@ -623,6 +661,8 @@ if (-not $aggiornamento) {
         -CartellaApplicativo (Join-Path $CasaApp 'corrente') `
         -PostgreSQL $stringaPg
     if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) { Errore "L'installazione del servizio non e' andata a buon fine." }
+
+    Blinda-Radice $Radice
 }
 
 # ── L'applicativo, e il servizio che porta lo stesso numero ────────────────

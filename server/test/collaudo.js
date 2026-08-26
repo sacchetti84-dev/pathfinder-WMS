@@ -5,6 +5,7 @@ const fs = require('fs');
 const os = require('os');
 
 const zlib = require('zlib');
+const crypto = require('crypto');   // 2.10 — le prove di sicurezza
 
 const TMP = path.join(os.tmpdir(), `pathfinder-collaudo-${Date.now()}.db`);
 process.env.PATHFINDER_DB = TMP;
@@ -895,6 +896,88 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   ok('app-info dice quale cartella sta servendo',
      typeof info.dati.punta_a === 'string' && info.dati.punta_a.length > 0,
      info.dati.punta_a ? path.basename(info.dati.punta_a) : '(nessuna)');
+
+
+  // ── 2.10 · Sicurezza ──────────────────────────────────────────────
+  /* Le quattro correzioni di sicurezza della 2.10, provate dall'esterno —
+     cioe' da dove arriverebbe chi le aggira: una richiesta HTTP. */
+
+  // 1 · L'impronta del PIN non esce
+  const nuovoPin = await call('POST', '/api/op/hashPin', { pin: '482913' });
+  ok('hashPin risponde con scrypt, non piu\' con SHA-256',
+     nuovoPin.dati.pin_algo === 'scrypt' && typeof nuovoPin.dati.pin_hash === 'string',
+     nuovoPin.dati.pin_algo || '(nessun algoritmo dichiarato)');
+
+  await call('POST', '/api/c/operators', {
+    op_id: 'OP-SIC-1', initials: 'SIC1', first_name: 'Prova', last_name: 'Sicurezza',
+    role: 'operator', active: true, ...nuovoPin.dati,
+  });
+
+  const elenco = await call('GET', '/api/c/operators');
+  const sic = (elenco.dati || []).find(o => o.op_id === 'OP-SIC-1');
+  ok('l\'elenco degli operatori non porta fuori l\'impronta del PIN',
+     !!sic && sic.pin_hash === undefined && sic.pin_salt === undefined,
+     sic ? `pin_hash ${sic.pin_hash === undefined ? 'assente' : 'PRESENTE'} · pin_salt ${sic.pin_salt === undefined ? 'assente' : 'PRESENTE'}` : '(operatore non trovato)');
+  ok('e al suo posto dice soltanto se un PIN c\'e\'', sic?.pin_set === true,
+     'pin_set = ' + String(sic?.pin_set));
+
+  const singolo = await call('GET', '/api/c/operators/OP-SIC-1');
+  ok('nemmeno leggendo il singolo operatore', singolo.dati.pin_hash === undefined,
+     singolo.dati.pin_hash === undefined ? 'assente' : 'PRESENTE');
+
+  const tutto = await call('GET', '/api/load');
+  const daLoad = (tutto.dati.operators || []).find(o => o.op_id === 'OP-SIC-1');
+  ok('ne\' dal carico iniziale, che e\' la strada che usa il client',
+     !!daLoad && daLoad.pin_hash === undefined && daLoad.pin_set === true,
+     daLoad ? (daLoad.pin_hash === undefined ? 'assente' : 'PRESENTE') : '(non trovato)');
+
+  // 2 · Il PIN si verifica lo stesso, ed e' il punto
+  const buono = await call('POST', '/api/op/verifyPin', { op_id: 'OP-SIC-1', pin: '482913' });
+  ok('il PIN giusto entra, con l\'impronta scrypt', buono.dati.ok === true);
+  const storto = await call('POST', '/api/op/verifyPin', { op_id: 'OP-SIC-1', pin: '000000' });
+  ok('e quello sbagliato no', storto.dati.ok === false);
+
+  // 3 · L'impronta vecchia si rifa' da sola al primo accesso riuscito
+  const saleVecchio = crypto.randomBytes(16).toString('hex');
+  await call('POST', '/api/c/operators', {
+    op_id: 'OP-SIC-2', initials: 'SIC2', first_name: 'Impronta', last_name: 'Vecchia',
+    role: 'operator', active: true, pin_salt: saleVecchio,
+    pin_hash: crypto.createHash('sha256').update(`${saleVecchio}:271828`).digest('hex'),
+  });
+  const vecchioOk = await call('POST', '/api/op/verifyPin', { op_id: 'OP-SIC-2', pin: '271828' });
+  ok('un PIN scritto prima della 2.10 entra ancora', vecchioOk.dati.ok === true);
+  const rifatto = await servizio.db.get('operators', 'OP-SIC-2');
+  ok('e la sua impronta viene rifatta in scrypt, senza che nessuno lo chieda',
+     rifatto.pin_algo === 'scrypt' && rifatto.pin_salt !== saleVecchio,
+     rifatto.pin_algo || '(rimasta com\'era)');
+  const ancora = await call('POST', '/api/op/verifyPin', { op_id: 'OP-SIC-2', pin: '271828' });
+  ok('e lo stesso PIN entra anche dopo che l\'impronta e\' cambiata', ancora.dati.ok === true);
+
+  // 4 · Il backup non esce dalla macchina
+  const rete = await call('POST', '/api/backup', { dir: '\\\\\\\\altra-macchina\\\\condivisione' });
+  ok('un backup verso un percorso di rete viene rifiutato', rete.stato === 400,
+     `stato ${rete.stato}`);
+  const relativo = await call('POST', '/api/backup', { dir: 'backup' });
+  ok('e uno verso un percorso relativo pure', relativo.stato === 400,
+     `stato ${relativo.stato}`);
+  const sistema = await call('POST', '/api/backup', { dir: path.join(process.env.SystemRoot || 'C:\\Windows', 'Temp', 'pf') });
+  ok('e uno dentro le cartelle di Windows, dove il servizio scrive come SYSTEM',
+     sistema.stato === 400, `stato ${sistema.stato}`);
+
+  // 5 · Le intestazioni
+  const teste = await fetch(BASE + '/api/health');
+  ok('ogni risposta porta le tre intestazioni di sicurezza',
+     teste.headers.get('x-content-type-options') === 'nosniff'
+       && teste.headers.get('x-frame-options') === 'DENY'
+       && teste.headers.get('referrer-policy') === 'same-origin',
+     `${teste.headers.get('x-content-type-options')} · ${teste.headers.get('x-frame-options')} · ${teste.headers.get('referrer-policy')}`);
+
+  // 6 · Un codice non spezza un gestore dell'interfaccia
+  const codiceOstile = await call('POST', '/api/c/articles', {
+    code: "MP-9'); alert(1); //", description: 'articolo con un apice nel codice',
+  });
+  ok('un codice con dentro un apice viene rifiutato, non maiuscolato',
+     codiceOstile.stato === 400, `stato ${codiceOstile.stato}`);
 
   // ── Chiusura ──────────────────────────────────────────────────────
   console.log(`\n  ${passate} passate, ${fallite} fallite\n`);

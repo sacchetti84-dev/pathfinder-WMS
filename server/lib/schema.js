@@ -227,6 +227,41 @@ function _perCiascuno(oggetto, percorso, fn) {
   _perCiascuno(oggetto[testa], coda, fn);
 }
 
+/* ── 2.10 · QUEL CHE UN CODICE NON PUO' CONTENERE ─────────────────────────
+   L'interfaccia costruisce i suoi gestori dentro le stringhe: `onclick=
+   "App.qualcosa('CODICE')"`. Sono due contesti annidati — l'attributo HTML,
+   e la stringa JavaScript che ci sta dentro — e l'escape HTML copre solo il
+   primo: un apice diventa `&#39;`, il parser lo ridecodifica in apice PRIMA
+   che il motore JavaScript lo legga, e quella stringa si chiude. Da li' in
+   poi quel che segue e' codice, e gira nel browser dell'operatore con la sua
+   identita'.
+
+   Sono 195 punti nelle viste, e correggerli uno per uno vuol dire toccare
+   195 gesti dell'applicativo sperando di non sbagliarne nessuno — e lasciare
+   la porta aperta al 196esimo, che qualcuno scrivera' il mese prossimo.
+
+   QUI INVECE E' UN POSTO SOLO, ed e' quello giusto: questi campi sono gia'
+   dichiarati «codice» perche' vanno maiuscolati, e un codice — un articolo,
+   un lotto, un'ubicazione, una sigla — non ha mai contenuto una virgoletta
+   in vita sua. Vietarglielo non toglie niente a nessuno e chiude tutti e 196
+   i punti insieme.
+
+   SI RIFIUTA, non si ripulisce. Togliere l'apice di nascosto vorrebbe dire
+   scrivere a database un codice diverso da quello che il chiamante crede di
+   aver scritto — e due codici che si somigliano sono peggio di un errore che
+   si vede. `&` non e' nell'elenco: l'escape HTML lo gestisce, in una stringa
+   JavaScript non rompe niente, e una categoria merceologica ha il diritto di
+   chiamarsi «OLI & GRASSI». */
+const VIETATI_NEI_CODICI = /["'\\<>\u0000-\u001f]/;
+
+function controllaCodice(nome, percorso, valore) {
+  if (typeof valore !== 'string' || !VIETATI_NEI_CODICI.test(valore)) return;
+  const visto = valore.replace(/[\u0000-\u001f]/g, '?');
+  throw Object.assign(
+    new Error(`${nome}.${percorso}: un codice non puo' contenere virgolette, apici, barre rovesce o segni di tag — ricevuto "${visto}"`),
+    { status: 400 });
+}
+
 /* IL DOCUMENTO SI NORMALIZZA PRIMA DI ESSERE SCRITTO, non dopo.
    Restituisce una copia: chi chiama passa spesso un record che il chiamante
    di sopra tiene ancora, e maiuscolarlo sotto i piedi e' il genere di
@@ -238,7 +273,10 @@ function normalizza(nome, record) {
   for (const p of percorsi) {
     _perCiascuno(copia, p, (dentro, campo) => {
       const v = dentro[campo];
-      if (typeof v === 'string' && v) dentro[campo] = v.toUpperCase();
+      if (typeof v === 'string' && v) {
+        controllaCodice(nome, p, v);
+        dentro[campo] = v.toUpperCase();
+      }
     });
   }
   return copia;
@@ -248,7 +286,9 @@ function normalizza(nome, record) {
 function normalizzaCampo(nome, campo, valore) {
   if (typeof valore !== 'string' || !valore) return valore;
   const percorsi = MAIUSCOLE[nome] || [];
-  return percorsi.includes(campo) ? valore.toUpperCase() : valore;
+  if (!percorsi.includes(campo)) return valore;
+  controllaCodice(nome, campo, valore);
+  return valore.toUpperCase();
 }
 
 function colType(col, field) {
@@ -313,5 +353,5 @@ function materialize(name, record) {
 
 module.exports = {
   COLLECTIONS, NAMES, createTableSQL, createIndexSQL, createSQL, materialize, colType,
-  MAIUSCOLE, normalizza, normalizzaCampo,
+  MAIUSCOLE, normalizza, normalizzaCampo, VIETATI_NEI_CODICI,
 };

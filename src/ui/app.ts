@@ -627,7 +627,7 @@ const App = monolite({
     const op = this._loginSelectedId ? Store.getOperator(this._loginSelectedId) : null;
     if (!op) return err('Seleziona il tuo nominativo.');
 
-    if (!op.pin_hash) { this._renderCompleteProfile(op); return; }
+    if (!Store.haPin(op)) { this._renderCompleteProfile(op); return; }
 
     const pin = campo('loginPin')?.value || '';
     if (!/^\d{6}$/.test(pin)) return err('Digita il PIN a 6 cifre.');

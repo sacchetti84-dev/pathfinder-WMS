@@ -51,7 +51,19 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.9';
+const VERSION = '2.10';
+
+/* ── 2.10 · SU QUALE INTERFACCIA SI ASCOLTA ───────────────────────────────
+   Fino alla 2.9 `listen` non diceva su quale, e Node in quel caso le prende
+   TUTTE: il servizio rispondeva a chiunque sulla rete, e le rotte `/api` non
+   chiedono credenziali a nessuno.
+
+   Il valore predefinito resta quello — cambiarlo qui spegnerebbe i terminali
+   di magazzino, che arrivano dalla rete, ed e' esattamente il gesto che non
+   si fa in una versione che nessuno ha ancora provato. Ma adesso la scelta
+   esiste e ha un nome: su una macchina dove l'applicativo si usa solo in
+   locale, `PATHFINDER_HOST=127.0.0.1` chiude tutto il resto. */
+const HOST = process.env.PATHFINDER_HOST || null;
 
 const TLS_CERT = process.env.PATHFINDER_TLS_CERT || null;
 const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
@@ -64,9 +76,60 @@ const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
    aspetta due secondi. */
 let db = null;
 const app = express();
+
+/* ── 2.10 · LE TRE INTESTAZIONI CHE COSTANO DUE RIGHE ─────────────────────
+   Non c'e' `Content-Security-Policy`, e non e' una dimenticanza: l'interfaccia
+   costruisce i suoi gestori dentro le stringhe — 258 `onclick` — e una CSP
+   seria vieta proprio quelli. Metterne una permissiva al punto da lasciarli
+   passare vorrebbe dire scrivere una riga che non protegge da niente e che
+   il prossimo lettore crede protegga.
+
+   Queste tre invece valgono subito e non chiedono niente in cambio:
+   · `nosniff`        — un file servito come testo non diventa uno script
+                        perche' il browser ci ha guardato dentro.
+   · `DENY`           — l'applicativo non si apre dentro la cornice di
+                        un'altra pagina, che e' il modo in cui si fa cliccare
+                        un bottone a chi crede di cliccarne un altro.
+   · `same-origin`    — l'indirizzo di questa pagina non esce verso terzi.
+                        Oggi non ci sono richieste all'esterno, e questa riga
+                        serve a che continui a essere vero. */
+app.use((req, res, next) => {
+  res.set('X-Content-Type-Options', 'nosniff');
+  res.set('X-Frame-Options', 'DENY');
+  res.set('Referrer-Policy', 'same-origin');
+  next();
+});
+
 app.use(express.json({ limit: '256mb' }));   // un import completo puo' pesare
 
 const originOf = (req) => req.get('X-Pathfinder-Client') || null;
+
+/* ── 2.10 · L'IMPRONTA DEL PIN NON ESCE DAL SERVIZIO ──────────────────────
+   Fino alla 2.9 `GET /api/c/operators` rispondeva coi record interi, e
+   dentro c'erano `pin_hash` e `pin_salt`. Un PIN e' di sei cifre: un milione
+   di combinazioni, e SHA-256 le prova tutte in meno di due secondi su una
+   CPU sola — misurato, 204 ms per trovarne uno. Il freno a cinque tentativi
+   di `verifyPin` non c'entra niente: chi ha l'impronta non bussa piu'.
+
+   Il campo non sparisce e basta: al suo posto esce `pin_set`, che e' la sola
+   cosa che il client chiedeva davvero — «questo operatore ha un PIN?» — e
+   che serve a `getUsableLeaders` e alla maschera che completa il profilo.
+   La verifica passa da `/api/op/verifyPin`, che l'impronta la legge dal
+   database e non la fa viaggiare.
+
+   NON e' nel driver: il driver deve restituire il record com'e', e c'e' un
+   collaudo che lo pretende. E' qui, sul confine, perche' il confine e'
+   questo — quel che entra in una risposta HTTP. */
+const senzaPin = (rec) => {
+  if (!rec || typeof rec !== 'object') return rec;
+  const { pin_hash, pin_salt, pin_algo, ...resto } = rec;
+  return { ...resto, pin_set: Boolean(pin_hash && pin_salt) };
+};
+
+const nascondiPin = (col, dati) => {
+  if (col !== 'operators') return dati;
+  return Array.isArray(dati) ? dati.map(senzaPin) : senzaPin(dati);
+};
 
 /* ── 1.4.2 · Le UM escono dentro la stessa transazione dei colli ──────────
    Due scritture separate sono due numeri che divergono il primo pomeriggio in
@@ -280,18 +343,20 @@ app.get('/api/health', wrap(async (req, res) => {
 app.get('/api/load', wrap(async (req, res) => {
   const from = req.query.movLogFrom != null && req.query.movLogFrom !== ''
     ? Number(req.query.movLogFrom) : null;
-  res.json(await db.loadAll({ movLogFrom: from }));
+  const tutto = await db.loadAll({ movLogFrom: from });
+  if (tutto.operators) tutto.operators = nascondiPin('operators', tutto.operators);
+  res.json(tutto);
 }));
 
 app.get('/api/c/:col/query', wrap(async (req, res) => {
   const { col } = req.params;
-  res.json(await db.query(col, {
+  res.json(nascondiPin(col, await db.query(col, {
     criteria: parseCriteria(req.query.criteria),
     limit: req.query.limit != null && req.query.limit !== '' ? Number(req.query.limit) : null,
     offset: req.query.offset ? Number(req.query.offset) : 0,
     reverse: req.query.reverse === 'true',
     orderBy: req.query.orderBy || null
-  }));
+  })));
 }));
 
 app.get('/api/c/:col/count', wrap(async (req, res) => {
@@ -301,10 +366,11 @@ app.get('/api/c/:col/count', wrap(async (req, res) => {
 app.get('/api/c/:col/:key', wrap(async (req, res) => {
   const rec = await db.get(req.params.col, req.params.key);
   if (!rec) return res.status(404).json({ error: 'non trovato' });
-  res.json(rec);
+  res.json(nascondiPin(req.params.col, rec));
 }));
 
-app.get('/api/c/:col', wrap(async (req, res) => res.json(await db.all(req.params.col))));
+app.get('/api/c/:col', wrap(async (req, res) =>
+  res.json(nascondiPin(req.params.col, await db.all(req.params.col)))));
 
 app.post('/api/c/:col/bulk', wrap(async (req, res) => {
   const mode = req.query.mode === 'put' ? 'bulkPut' : 'bulkAdd';
@@ -622,8 +688,46 @@ app.post('/api/op/commitPickStop', wrap(async (req, res) => {
 
 const crypto = require('crypto');
 
+/* ── 2.10 · UN PIN DI SEI CIFRE MERITA UN CONTO LENTO ─────────────────────
+   SHA-256 e' fatto per essere veloce, ed e' il difetto: un milione di
+   combinazioni — tutte quelle che sei cifre possono fare — cadono in meno di
+   due secondi su una CPU sola. Misurato su questo codice: 204 ms.
+
+   `scrypt` costa memoria e tempo a ogni singolo tentativo, per costruzione.
+   Con i parametri qui sotto un tentativo sta intorno ai 50-100 ms, che per
+   chi digita il PIN non si vede, e porta lo spazio intero da due secondi a
+   una giornata di macchina.
+
+   SI RESTA COMPATIBILI. Le impronte gia' scritte sono SHA-256, e nessuno
+   conosce i PIN per riscriverle: il record dice con quale algoritmo e' stato
+   fatto, `pin_algo`, e quando manca vuol dire `sha256` — cioe' tutto quello
+   che c'era prima di questa versione. Al primo accesso riuscito l'impronta
+   si riscrive in scrypt, e da li' in poi il record e' nuovo. Non c'e' una
+   migrazione da lanciare: il PIN lo sa solo chi lo digita, e il momento in
+   cui lo digita e' l'unico in cui si puo' ricalcolare.
+
+   IL CLIENT NON SEGUE. Nel modo «da file» il database sta in IndexedDB e la
+   verifica avviene nel browser, dove `crypto.subtle` non ha scrypt: quel
+   modo resta a SHA-256, e la sua superficie e' un'altra — un browser solo,
+   su una macchina sola, senza una rete da cui leggere le impronte. */
+const SCRYPT = { N: 16384, r: 8, p: 1, lunghezza: 32 };
+
 const hashPin = (pin, salt) =>
   crypto.createHash('sha256').update(`${salt}:${pin}`).digest('hex');
+
+const hashPinScrypt = (pin, salt) =>
+  crypto.scryptSync(String(pin), String(salt), SCRYPT.lunghezza,
+                    { N: SCRYPT.N, r: SCRYPT.r, p: SCRYPT.p }).toString('hex');
+
+/* L'algoritmo lo dichiara il record. Assente = com'era prima. */
+const impronta = (pin, salt, algo) =>
+  (algo === 'scrypt' ? hashPinScrypt(pin, salt) : hashPin(pin, salt));
+
+const campiPin = (pin) => {
+  const salt = crypto.randomBytes(16).toString('hex');
+  return { pin_salt: salt, pin_hash: hashPinScrypt(pin, salt),
+           pin_algo: 'scrypt', pin_set_at: Date.now() };
+};
 
 const equal = (a, b) => {
   if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
@@ -674,8 +778,28 @@ app.post('/api/op/verifyPin', wrap(async (req, res) => {
     return res.json({ ok: false, reason: 'operatore senza PIN impostato' });
   }
 
-  const ok = equal(hashPin(String(pin), op.pin_salt), op.pin_hash);
+  const ok = equal(impronta(String(pin), op.pin_salt, op.pin_algo), op.pin_hash);
   frenoSegna(chiave, ok);
+
+  /* L'IMPRONTA VECCHIA SI RIFA' QUI, e non altrove: e' l'unico istante in cui
+     il PIN esiste in chiaro dentro il servizio. Se la riscrittura fallisce si
+     tace e si risponde lo stesso — chi sta entrando in magazzino non deve
+     sapere che una migrazione non e' andata, e al prossimo accesso ci si
+     riprova. */
+  if (ok && op.pin_algo !== 'scrypt') {
+    try {
+      const salt = crypto.randomBytes(16).toString('hex');
+      await db.update('operators', op.op_id, {
+        pin_salt: salt,
+        pin_hash: hashPinScrypt(String(pin), salt),
+        pin_algo: 'scrypt',
+        updated_at: Date.now(),
+      });
+    } catch (err) {
+      console.error('[pathfinder] impronta del PIN non rinnovata:', err.message);
+    }
+  }
+
   res.json({ ok });
 }));
 
@@ -683,8 +807,7 @@ app.post('/api/op/hashPin', wrap(async (req, res) => {
   const pin = String(req.body?.pin || '');
   if (!/^\d{6}$/.test(pin))
     throw Object.assign(new Error('serve un PIN di sei cifre'), { status: 400 });
-  const salt = crypto.randomBytes(16).toString('hex');
-  res.json({ pin_salt: salt, pin_hash: hashPin(pin, salt), pin_set_at: Date.now() });
+  res.json(campiPin(pin));
 }));
 
 app.get('/api/events', async (req, res) => {
@@ -727,8 +850,69 @@ const nomeBackup = (dir, est, ora = new Date()) => {
   return path.join(dir, `pathfinder-${giorno}-${p(ora.getHours())}${p(ora.getMinutes())}${est}`);
 };
 
+/* ── 2.10 · DOVE PUO' FINIRE UN BACKUP ────────────────────────────────────
+   `dir` arriva dal corpo della richiesta, e finche' nessuno l'ha guardata
+   arrivava DAVUNQUE: una richiesta sola scriveva l'intero database in un
+   percorso a scelta di chi chiamava. Il processo gira come SYSTEM, e un
+   percorso di rete — una condivisione su un'altra macchina — faceva uscire
+   anagrafica, movimenti e operatori dall'azienda con un `curl`.
+
+   NON SI STRINGE A UNA CARTELLA SOLA. Il backup serale scrive nella cartella
+   di backup dell'installazione, l'installer mette da parte il database prima
+   di aggiornare, i collaudi scrivono in una cartella temporanea e il banco
+   nella propria: erano tutti legittimi, e una radice sola li avrebbe rotti
+   tutti e quattro. Si vietano invece le tre forme che nessun chiamante
+   legittimo usa:
+
+   1. I PERCORSI DI RETE — UNC e barre doppie. E' la via dell'esfiltrazione,
+      e nessuno fa un backup su un'altra macchina passando da questa rotta.
+   2. LE CARTELLE DI SISTEMA di Windows, dove un file scritto da SYSTEM e' un
+      problema piu' grosso di un backup fuori posto.
+   3. UN PERCORSO RELATIVO, che si risolverebbe sulla cartella di lavoro del
+      servizio — che nessuno sa quale sia, ed e' gia' costata una versione.
+
+   `PATHFINDER_BACKUP_ROOTS` stringe ancora, quando c'e': solo dentro quelle
+   radici, separate da `;`. L'installazione la imposta, il banco no, e chi non
+   la imposta resta con le tre regole qui sopra. */
+const RADICI_BACKUP = (process.env.PATHFINDER_BACKUP_ROOTS || '')
+  .split(';').map((s) => s.trim()).filter(Boolean).map((s) => path.resolve(s));
+
+const CARTELLE_DI_SISTEMA = [
+  process.env.SystemRoot || 'C:\\Windows',
+  process.env.ProgramFiles || 'C:\\Program Files',
+  process.env['ProgramFiles(x86)'] || 'C:\\Program Files (x86)',
+].map((s) => path.resolve(s));
+
+/* `path.relative` risponde con un percorso che risale — `..` — quando il
+   figlio sta fuori. E' il modo di chiederlo che regge anche i `..` scritti
+   nel mezzo, che un confronto di stringhe si lascerebbe sfuggire. */
+const dentro = (figlio, padre) => {
+  const r = path.relative(padre, figlio);
+  return r === '' || (!r.startsWith('..') && !path.isAbsolute(r));
+};
+
+const controllaCartellaBackup = (dir) => {
+  const grezzo = String(dir);
+  const rifiuta = (m) => { throw Object.assign(new Error(m), { status: 400 }); };
+
+  if (grezzo.startsWith('\\\\') || grezzo.startsWith('//'))
+    rifiuta('Un backup non si scrive su un percorso di rete.');
+  if (!path.isAbsolute(grezzo))
+    rifiuta('La cartella di backup deve essere un percorso assoluto.');
+
+  const pieno = path.resolve(grezzo);
+  for (const v of CARTELLE_DI_SISTEMA) {
+    if (dentro(pieno, v)) rifiuta(`Un backup non si scrive dentro ${v}.`);
+  }
+  if (RADICI_BACKUP.length && !RADICI_BACKUP.some((r) => dentro(pieno, r)))
+    rifiuta(`Cartella fuori dalle radici consentite: ${RADICI_BACKUP.join(' ; ')}`);
+
+  return pieno;
+};
+
+
 app.post('/api/backup', wrap(async (req, res) => {
-  const dir = req.body?.dir || path.join(__dirname, 'data', 'backup');
+  const dir = controllaCartellaBackup(req.body?.dir || path.join(__dirname, 'data', 'backup'));
   fs.mkdirSync(dir, { recursive: true });
   /* L'ESTENSIONE LA DICE IL DRIVER, non questa rotta.
      Su SQLite la copia e' un `.db`; su PostgreSQL e' un `.dump` scritto da
@@ -901,6 +1085,13 @@ async function annuncia() {
   console.log(`  applicativo ${schema}://localhost:${PORT}/`);
   for (const ip of lan) console.log(`  in rete     ${schema}://${ip}:${PORT}/`);
   if (schema === 'http') console.log('  ATTENZIONE  senza certificato il PIN viaggia in chiaro');
+  /* 2.10 — LE DUE RIGHE CHE DESCRIVONO LA SUPERFICIE. Chi legge questo
+     annuncio deve sapere a chi sta rispondendo il servizio: le rotte `/api`
+     non chiedono credenziali, e finche' e' cosi' «da chi e' raggiungibile»
+     e' l'unica difesa che c'e'. */
+  console.log(`  ascolta su  ${HOST || 'tutte le interfacce'}`);
+  if (!HOST && lan.length)
+    console.log('  ATTENZIONE  le rotte /api rispondono a chiunque sulla rete: PATHFINDER_HOST le restringe');
   /* Un applicativo che non c'e' NON ferma il servizio: le rotte `/api`
      devono rispondere lo stesso, e i terminali gia' aperti continuano a
      lavorare. E' la stessa scelta del 13/08, quando il file servito fu
@@ -957,7 +1148,10 @@ const pronto = (async () => {
 `);
     process.exit(1);
   }
-  await new Promise((ok) => { srv.listen(PORT, () => ok(undefined)); });
+  await new Promise((ok) => {
+    if (HOST) srv.listen(PORT, HOST, () => ok(undefined));
+    else srv.listen(PORT, () => ok(undefined));
+  });
   await annuncia();
   return db;
 })();

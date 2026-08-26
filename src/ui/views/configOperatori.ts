@@ -21,7 +21,7 @@ export const VistaConfigOperatori = {
       { campo: 'nome', titolo: 'Nome e cognome',
         valore: (o) => [o.first_name, o.last_name].filter(Boolean).join(' ') },
       { campo: 'role', titolo: 'Ruolo' },
-      { campo: 'pin', titolo: 'PIN', valore: (o) => (o.pin_hash ? 'impostato' : 'mancante') },
+      { campo: 'pin', titolo: 'PIN', valore: (o) => (Store.haPin(o) ? 'impostato' : 'mancante') },
       { campo: 'stato', titolo: 'Stato', valore: (o) => (o.active === false ? 'disattivato' : 'attivo') },
     ];
   },
@@ -53,7 +53,7 @@ export const VistaConfigOperatori = {
               : o.role === 'leader'
                 ? '<span class="badge badge-blue">👑 Team Leader</span>'
                 : '<span class="badge badge-muted">Operatore</span>'}</td>
-        <td>${o.pin_hash
+        <td>${Store.haPin(o)
               ? '<span class="badge badge-green">impostato</span>'
               : '<span class="badge badge-amber">mancante</span>'}</td>
         <td>${inactive ? '<span class="badge badge-red">disattivato</span>' : '<span class="badge badge-green">attivo</span>'}</td>

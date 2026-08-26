@@ -533,8 +533,20 @@ export interface Operatore {
       il rinnovo di un PIN non descrive nessuno. Un record scritto prima
       della 2.1 non porta `admin` e resta quel che era. */
   role: 'operator' | 'leader' | 'admin';
+  /** 2.10 — DAL SERVIZIO QUESTI DUE ARRIVANO SEMPRE ASSENTI: l'impronta del
+      PIN non esce da una risposta HTTP, e al suo posto arriva `pin_set`. Ci
+      sono ancora perché nel modo «da file» il database sta nel browser e la
+      verifica avviene lì — vedi `Auth.verifyPin`. Chi deve sapere se un
+      operatore ha un PIN usa `Store.haPin`, mai il campo. */
   pin_hash?: string | null;
   pin_salt?: string | null;
+  /** 2.10 — «questo operatore ha un PIN», che è la sola cosa che il client
+      chiedeva a `pin_hash`. Lo scrive il servizio a ogni lettura. */
+  pin_set?: boolean;
+  /** 2.10 — con quale algoritmo è fatta l'impronta: `scrypt` dalla 2.10,
+      assente per tutto ciò che è stato scritto prima. Come `pin_hash`, dal
+      servizio non arriva mai. */
+  pin_algo?: 'scrypt';
   pin_set_at?: Istante | null;
   active?: boolean;
   created_at?: Istante;
