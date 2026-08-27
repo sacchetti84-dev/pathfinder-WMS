@@ -7,6 +7,7 @@ import { Store } from '../core/store';
 import type { Coordinate, Geometria, Giacenza } from '../types/entita.js';
 import type { RigaODP } from './odpParser';
 import { sitoDiCasa } from './trasferimentiOdp';
+import { chiaveRiga, unisci, type OrdineDelGiro, type Richiesta } from './giroOdp';
 
 /** Perché una riga non è percorribile, o perché lo è ma con un avvertimento. */
 export type MotivoFuoriPercorso =
@@ -64,6 +65,14 @@ export interface Tappa {
   /** Da dove la merce deve arrivare — l'ubicazione di partenza, che dopo lo
       spostamento non è più `location_code`. */
   transfer_from?: string;
+  /* 2.12 — CHI HA CHIESTO QUESTA MERCE, quando il giro porta più ordini.
+
+     La tappa è una sola perché il vano è uno e il cammino è uno: `kg_required`
+     è la somma. Ma la somma da sola non dice per chi è sceso quel sacco, e
+     quella domanda se la fa la produzione — non il magazziniere, e non
+     oggi. Assente su un giro di un ordine solo: lì la risposta è il numero
+     d'ordine della sessione, e ripeterla su ogni tappa sarebbe rumore. */
+  richieste?: Richiesta[];
 }
 
 export interface Percorso {
@@ -287,6 +296,32 @@ const PickRoute = {
     stops.forEach((s, i) => { s.seq = i + 1; });
 
     return { stops, offroute, notes };
+  },
+
+  /* 2.12 — PIÙ ORDINI IN UN GIRO SOLO.
+
+     Il cammino non cambia: le distinte si sommano PRIMA, e quello che arriva
+     qui è una distinta come tutte le altre. Righe che chiedono lo stesso
+     articolo dallo stesso lotto sono già diventate una riga sola, quindi
+     escono una tappa sola — che è il punto: cinque ordini che vogliono
+     cinque chili dallo stesso sacco si presentano davanti a quel sacco una
+     volta.
+
+     Le `richieste` si riattaccano DOPO la costruzione e per chiave, non
+     dentro il ciclo: `build` è la funzione che decide quale ubicazione e
+     quali alternative, ed è già collaudata così. Una riga senza lotto non
+     diventa una tappa — finisce in coda — e la sua richiesta resta nella
+     mappa senza destinatario, che è giusto: non c'è niente da prelevare. */
+  buildGiro(ordini: readonly OrdineDelGiro[]): Percorso {
+    const { lines, richieste } = unisci(ordini);
+    const percorso = this.build(lines);
+    if ((ordini || []).length > 1) {
+      for (const s of percorso.stops) {
+        const r = richieste.get(chiaveRiga(s.article_code, s.lot_code));
+        if (r?.length) s.richieste = r.map((x) => ({ ...x }));
+      }
+    }
+    return percorso;
   },
 
   /* 1.10 — RIMETTERE IN FILA LE TAPPE dopo che una si e' spostata. La

@@ -58,6 +58,27 @@ export interface MovimentoWip {
       lo storno usa per ritrovare i colli usciti: un elenco messo da parte si
       ritrova per MISURA, mai per indice. */
   packs?: number[] | null;
+  /* 2.12 — IL GIRO CHE HA PORTATO GIÙ QUESTA MERCE.
+
+     Quando un percorso serve più ordini insieme, il conto lo intesta UNO —
+     il capofila, che è `odp_num` — e gli altri stanno scritti qui. Non è un
+     secondo conto e non entra in nessun saldo: `conto()` non lo guarda. È la
+     risposta alla domanda che si fa la produzione fra sei mesi, «per chi era
+     sceso quel sacco», e la si scrive nel momento in cui la si sa.
+
+     LA RIPARTIZIONE NON SI FA QUI E NON SI FA ADESSO. Un collo che scende
+     per cinque ordini si divide quando si dichiara il consumo, cioè alla
+     chiusura, quando i numeri esistono: prima di allora ogni quota sarebbe
+     una previsione scritta come un fatto. Vedi §6. */
+  giro_odps?: string[] | null;
+  /** QUANTO NE AVEVA CHIESTO CIASCUN ORDINE, su questa riga. È un fatto del
+      momento in cui la merce è scesa — sta scritto nei file di produzione —
+      e NON è una quota di consumo: quella si sa alla chiusura, e si calcola
+      da qui in proporzione. Vedi `quote` in `modules/giroOdp.ts`. */
+  giro_richieste?: { odp_num: string; qty: number }[] | null;
+  /** L'identificativo del percorso che ha scritto il movimento: lega fra
+      loro le righe di un giro, anche quelle di ordini diversi. */
+  giro_id?: string | null;
   ts?: number;
 }
 
@@ -299,6 +320,122 @@ export function ordiniArchiviati(
   return [...visti.entries()]
     .map(([odp_num, chiuso_il]) => ({ odp_num, chiuso_il }))
     .sort((a, b) => (b.chiuso_il ?? 0) - (a.chiuso_il ?? 0));
+}
+
+/** 2.12 — QUANTO AVEVANO CHIESTO GLI ORDINI DEL GIRO, su una riga di questo
+    conto. Somma le richieste scritte sulle entrate: una riga può essere
+    scesa in più viaggi, e ogni viaggio porta le sue.
+
+    Vuoto quando la riga non è di un giro. Chi la usa per ripartire un
+    consumo deve sapere che questo è quel che era stato CHIESTO, non quel
+    che è stato preso: la proporzione fra i due la fa `quote`. */
+export function richiesteDiRiga(
+  movimenti: readonly MovimentoWip[] | null | undefined,
+  odpNum: string | null | undefined,
+  itemKey: string | null | undefined,
+): { odp_num: string; qty: number }[] {
+  const odp = chiave(odpNum);
+  const k = String(itemKey ?? '').trim();
+  if (!odp || !k) return [];
+  const somma = new Map<string, number>();
+  for (const m of movimenti ?? []) {
+    if (!m || m.verso !== 'in') continue;
+    if (chiave(m.odp_num) !== odp) continue;
+    if (String(m.item_key ?? '').trim() !== k) continue;
+    for (const r of m.giro_richieste ?? []) {
+      const a = chiave(r?.odp_num);
+      if (!a) continue;
+      somma.set(a, arrotonda((somma.get(a) ?? 0) + (Number(r.qty) || 0)));
+    }
+  }
+  return [...somma.entries()].map(([odp_num, qty]) => ({ odp_num, qty }));
+}
+
+/** 2.12 — QUANTO HA CONSUMATO CIASCUN ORDINE DEL GIRO, articolo per articolo.
+
+    Legge le quote scritte sulle dichiarazioni di consumo — non le richieste:
+    quelle dicono quanto era stato CHIESTO, e fra il chiesto e il consumato
+    ci sono il reso e i colli interi. È il numero che va sul rendiconto, ed
+    è l'unica risposta alla domanda «quanto ne è finito nel prodotto di
+    quest'ordine» quando la merce è scesa sotto un altro numero.
+
+    Vuoto finché nessuna riga è stata dichiarata: prima della chiusura il
+    consumo di un ordine non esiste, e nemmeno la sua quota. */
+export function consumoPerOrdine(
+  movimenti: readonly MovimentoWip[] | null | undefined,
+  odpNum: string | null | undefined,
+): { odp_num: string; item_key: string; article_code: string; lot_code: string; qty: number; uom: string | null }[] {
+  const odp = chiave(odpNum);
+  if (!odp) return [];
+  const out = new Map<string, { odp_num: string; item_key: string; article_code: string; lot_code: string; qty: number; uom: string | null }>();
+  for (const m of movimenti ?? []) {
+    if (!m || m.verso !== 'consumo') continue;
+    if (chiave(m.odp_num) !== odp) continue;
+    for (const q of m.giro_richieste ?? []) {
+      const a = chiave(q?.odp_num);
+      if (!a) continue;
+      const k = `${a}|${String(m.item_key ?? '')}`;
+      const gia = out.get(k);
+      if (gia) { gia.qty = arrotonda(gia.qty + (Number(q.qty) || 0)) ?? gia.qty; continue; }
+      out.set(k, {
+        odp_num: a,
+        item_key: String(m.item_key ?? ''),
+        article_code: String(m.article_code ?? ''),
+        lot_code: String(m.lot_code ?? ''),
+        qty: arrotonda(Number(q.qty) || 0) ?? 0,
+        uom: m.uom ?? null,
+      });
+    }
+  }
+  return [...out.values()];
+}
+
+/** 2.12 — DOVE STA IL CONTO DI UN ORDINE CHE NON LO TIENE LUI.
+
+    Un ordine prelevato dentro un giro non ha movimenti suoi: la merce è
+    scesa sotto il capofila, e il suo numero sta nel `giro_odps` di quelle
+    righe. Cercarlo con `conto()` e trovare zero sarebbe la risposta
+    sbagliata alla domanda giusta — «di quest'ordine non risulta niente»
+    quando invece la merce è in reparto da stamattina.
+
+    Torna il capofila e l'identificativo del giro, oppure `null` quando
+    l'ordine il conto ce l'ha per conto suo (o non ne ha nessuno). Un ordine
+    che è capofila di se stesso NON esce di qui: per lui `conto()` risponde,
+    ed è quella la strada. */
+export function contoTenutoDa(
+  movimenti: readonly MovimentoWip[] | null | undefined,
+  odpNum: string | null | undefined,
+): { capofila: string; giro_id: string | null } | null {
+  const odp = chiave(odpNum);
+  if (!odp) return null;
+  for (const m of movimenti ?? []) {
+    if (!m || !Array.isArray(m.giro_odps)) continue;
+    const capofila = chiave(m.odp_num);
+    if (capofila === odp) return null;
+    if (!m.giro_odps.some((x) => chiave(x) === odp)) continue;
+    return { capofila, giro_id: m.giro_id ? String(m.giro_id) : null };
+  }
+  return null;
+}
+
+/** GLI ALTRI ORDINI SERVITI DAL CONTO DI QUESTO, senza doppioni e senza se
+    stesso. È la faccia opposta di `contoTenutoDa`: la legge il rendiconto del
+    capofila, che deve dichiarare per chi ha prelevato. */
+export function ordiniServiti(
+  movimenti: readonly MovimentoWip[] | null | undefined,
+  odpNum: string | null | undefined,
+): string[] {
+  const odp = chiave(odpNum);
+  if (!odp) return [];
+  const out = new Set<string>();
+  for (const m of movimenti ?? []) {
+    if (!m || chiave(m.odp_num) !== odp || !Array.isArray(m.giro_odps)) continue;
+    for (const x of m.giro_odps) {
+      const k = chiave(x);
+      if (k && k !== odp) out.add(k);
+    }
+  }
+  return [...out];
 }
 
 /** Il consumo reale di un ordine: quello che è entrato e non è tornato.

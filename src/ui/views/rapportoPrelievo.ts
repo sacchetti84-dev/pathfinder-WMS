@@ -76,6 +76,12 @@ type RapportoPrelievo = {
   ended_at: number;
   closed_at: number;
   stops_total: number;
+  /** 2.12 — GLI ORDINI DEL GIRO, quando il percorso ne ha serviti piu' d'uno.
+      Vuoto sul prelievo di un ordine solo. Il documento e' intestato al
+      CAPOFILA — `odp_num` — e chi lo rilegge fra sei mesi deve poter vedere
+      per quali altri ordini quella merce e' scesa: un foglio che nomina un
+      ordine solo, su un giro di cinque, ne nasconde quattro. */
+  giro_odps: string[];
   /** 2.5 — i millisecondi di pausa dichiarata, da scorporare dalla durata:
       un tempo medio di prelievo che comprende il pranzo misura il pranzo. */
   paused_ms: number;
@@ -148,6 +154,9 @@ export const VistaRapportoPrelievo = {
       ended_at: endTs,
       closed_at: endTs,
       stops_total: tappe.length,
+      giro_odps: (s.odps || []).length > 1
+        ? (s.odps || []).map((o) => String(o.odp_num || '').trim().toUpperCase()).filter(Boolean)
+        : [],
       paused_ms: (s.pauses || []).reduce((acc, x) => acc + Math.max(0, (x.to ?? endTs) - x.from), 0),
       pauses: (s.pauses || []).length,
       rows: done.map((x): RigaRapporto => ({
@@ -205,6 +214,9 @@ export const VistaRapportoPrelievo = {
       app_ver: this._PICK_REPORT_VER,
       partial: false,
       degraded: false,
+      /* Il carrello e' di UN ordine: non nasce da un giro, e non c'e' niente
+         da elencare. */
+      giro_odps: [],
       odp_num: meta.odp_num || '',
       odp_article: '', odp_article_desc: '', odp_lot: '', odp_qty: '',
       operator: meta.operator || '',
@@ -245,6 +257,9 @@ export const VistaRapportoPrelievo = {
       app_ver: this._PICK_REPORT_VER,
       partial: false,
       degraded: true,
+      /* Il ripiego ricostruisce dal registro, che porta il solo `doc_ref`:
+         quale giro fosse non si sa, e inventarlo sarebbe peggio del vuoto. */
+      giro_odps: [],
       odp_num: ref || '',
       odp_article: '', odp_article_desc: '', odp_lot: '', odp_qty: '',
       operator: [...new Set(movs.map((m) => m.user).filter(Boolean))].join(', '),
@@ -403,6 +418,9 @@ export const VistaRapportoPrelievo = {
        di testata, dove ogni documento mette cio' che lo identifica. */
     const headExtra = `<div class="doc-idblock doc-idblock--3">
         ${this._docCell('N° ordine produzione', snap.odp_num)}
+        ${(snap.giro_odps || []).length > 1
+          ? this._docCell('Giro — ordini serviti', snap.giro_odps.join(' · '), 'doc-cell--wide')
+          : ''}
         ${this._docCell('Lotto produzione', snap.odp_lot)}
         ${this._docCell('Quantità ordine', snap.odp_qty)}
         ${this._docCell('Articolo finito',

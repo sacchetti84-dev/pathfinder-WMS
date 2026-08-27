@@ -337,6 +337,90 @@
   overflow-wrap: anywhere;
 }
 
+/* ══ 2.12 · IL GIRO E LA SOSTA ══════════════════════════════════════
+   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) */
+
+/* Il capofila si distingue dagli altri ordini del giro: è quello che
+   intesta il conto di produzione, e chi guarda la schermata deve poterlo
+   dire senza leggere le etichette. */
+.route-head-card--capo {
+  border-left: 4px solid var(--md-sys-color-primary);
+}
+.route-head-tools {
+  display: flex; align-items: center; flex-wrap: wrap;
+  gap: 0.4rem 0.6rem;
+  margin-top: 0.6rem;
+  padding-top: 0.55rem;
+  border-top: 1px solid var(--md-sys-color-outline-variant);
+}
+.route-head-tools > label {
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Le quote di un giro, nell'anteprima e sulla tappa: badge che vanno a capo
+   invece di allargare la riga — con cinque ordini sfonderebbero la colonna. */
+.route-prev-quote {
+  display: flex; flex-wrap: wrap; gap: 0.2rem;
+  flex-basis: 100%;
+}
+.route-stop-quote {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.2rem 0.5rem;
+  padding: 0.35rem 0.55rem;
+  margin-bottom: 0.35rem;
+  border-radius: var(--md-sys-shape-corner-small);
+  background: var(--md-sys-color-surface-container);
+}
+.route-stop-quote > span {
+  font-size: var(--md-sys-typescale-label-small-size);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.route-stop-quote > b { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+
+/* ── LA SOSTA: le righe da prendere in questo stesso vano ──
+   Sta sotto la banda del trasferimento e sopra i dati dell'articolo: la
+   domanda «quanti pezzi devo prendere qui» viene prima di «qual è il primo». */
+.route-sosta {
+  background: var(--md-sys-color-secondary-container);
+  color: var(--md-sys-color-on-secondary-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.6rem 0.75rem;
+  margin: 0.6rem 0 0;
+  font-size: var(--md-sys-typescale-body-small-size);
+}
+.route-sosta > strong { font-size: var(--md-sys-typescale-title-small-size); }
+.route-sosta-row {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.2rem 0.6rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: var(--md-sys-shape-corner-small);
+}
+.route-sosta-row--cur {
+  background: var(--md-sys-color-secondary);
+  color: var(--md-sys-color-on-secondary);
+  font-weight: 700;
+}
+.route-sosta-ico { width: 1.2rem; flex-shrink: 0; text-align: center; font-weight: 800; }
+.route-sosta-desc { flex: 1; min-width: 0; opacity: 0.85; overflow-wrap: anywhere; }
+.route-sosta-kg { font-weight: 700; white-space: nowrap; }
+
+/* ── IL VANO GIÀ CONFERMATO ──
+   Prende il posto del campo ①. Non è un campo disabilitato: un campo che
+   c'è e non si può usare è un campo che si prova a usare lo stesso. */
+.route-vano-ok {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 0.3rem 0.7rem;
+  background: var(--md-ext-success-container);
+  color: var(--md-ext-on-success-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.6rem 0.75rem;
+  margin: 0.7rem 0 0.5rem;
+}
+.route-vano-ok > strong {
+  flex-basis: 100%;
+  font-size: var(--md-sys-typescale-title-small-size);
+}
+.route-vano-ok > div { flex: 1; min-width: 160px; }
+
 /* ── 2.5 · La pausa ── */
 .route-paused {
   display: flex; align-items: center; gap: 0.8rem; flex-wrap: wrap;

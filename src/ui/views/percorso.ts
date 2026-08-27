@@ -10,7 +10,10 @@ import { etichettaTipo } from '../../modules/compiti';
 import { descriviColli as descriviElencoColli, eccedenza as eccedenzaColli } from '../../modules/colli';
 import { formattaQuantita } from '../../modules/misure';
 import type { Percorso, Tappa } from '../../modules/pickRoute';
-import type { TestataODP } from '../../modules/odpParser';
+import {
+  ordineDelGiro, ricalibra, qtaPianificata, normalizzaOdp,
+  type OrdineDelGiro, type Richiesta,
+} from '../../modules/giroOdp';
 import type { SessionePrelievo } from '../../types/entita';
 import { ScanGuard } from '../../modules/scanGuard';
 import { Dialog } from '../dialog';
@@ -23,17 +26,26 @@ type Alternativa = { location_code: string; item_key: string; qty_available: num
    corso — e chi l'ha presa. */
 type Pausa = { from: number; to: number | null; by?: string };
 
-/* L'ordine appena letto da Excel, prima che diventi un percorso avviato: il
-   risultato del parser piu' quello della serpentina, piu' il nome del file. */
-type OrdineLetto = Percorso & {
-  header: TestataODP;
+/* 2.12 — IL GIRO LETTO, prima che diventi un percorso avviato: gli ordini
+   caricati piu' la serpentina che ne esce.
+
+   Fino alla 2.11 questo era UN ordine — `header`, `warnings`, `file_name` —
+   e la maschera lo leggeva da lì. Adesso gli ordini sono uno o piu': quel
+   che resta di singolare e' il CAPOFILA, che intesta il conto di produzione
+   e che con un file solo e' l'unico ordine che c'e'. */
+type GiroLetto = Percorso & {
+  ordini: OrdineDelGiro[];
+  capofila: string;
   warnings: string[];
-  file_name: string;
 };
 
 export const VistaPercorso = {
   _routeStage: 'import',        // 'import' | 'run'
-  _routeParsed: null,           // esito OdpParser, vivo solo fra import e avvio
+  _routeParsed: null,           // il giro letto, vivo solo fra import e avvio
+  /* 2.12 — GLI ORDINI CARICATI, nell'ordine in cui sono stati letti. Il
+     primo e' il capofila finche' non si sceglie altrimenti. */
+  _routeOrdini: [],
+  _routeCapofila: '',
   _routeScan: { loc: '', art: '', lot: '' },
   /* 2.5 — PER QUALE TAPPA VALE LA SCANSIONE QUI SOPRA.
 
@@ -43,8 +55,17 @@ export const VistaPercorso = {
      la spunta di un'ubicazione scansionata mezz'ora prima valesse ancora, e
      l'operatore confermasse un prelievo senza essere passato dal vano.
 
-     La scansione vale per una tappa e per una sola apertura: qui si scrive
-     `<seq>@<apertura>`, e ogni cosa che non corrisponde è da rifare. */
+     2.12 — LA SCANSIONE VALE PER UN VANO, NON PER UNA TAPPA. Chi deve
+     prendere quattro articoli dallo stesso scaffale scansionava quattro
+     volte lo stesso codice a terra, e la quarta la digitava senza guardare:
+     una verifica che si ripete quando non c'è niente da riverificare è una
+     verifica che si smette di fare.
+
+     La chiave e' `<ubicazione>@<apertura>`. `seq` e' uscito, e non e' un
+     allentamento: quel che la spunta deve garantire e' che l'operatore sia
+     passato DAVANTI A QUEL VANO in QUESTA apertura, e il numero della tappa
+     non c'entrava. Cambiare vano, spostarsi su un'alternativa o rientrare
+     nella schermata la invalidano tutte e tre, come prima. */
   _routeScanChiave: '',
   /* Cambia a ogni ingresso nella schermata di esecuzione: è la metà
      «apertura» della chiave qui sopra. */
@@ -92,8 +113,8 @@ export const VistaPercorso = {
 
       <div class="flex gap-5 flex-wrap mb-7">
         <button class="btn btn-primary min-h-[var(--md-touch)]"
-          onclick="$('fileImportOdp').click()">📄 Carica ordine (.xlsx)</button>
-        ${parsed ? '<button class="btn btn-ghost" onclick="App._routeClearImport()">Scarta</button>' : ''}
+          onclick="$('fileImportOdp').click()">📄 ${parsed ? 'Aggiungi un altro ordine' : 'Carica ordine'} (.xlsx)</button>
+        ${parsed ? '<button class="btn btn-ghost" onclick="App._routeClearImport()">Scarta tutto</button>' : ''}
       </div>
 
       <section id="routeImportResult">${parsed ? this._routeImportResultHTML() : ''}</section>
@@ -102,6 +123,8 @@ export const VistaPercorso = {
         <span class="text-body-small text-sx-text-muted">
           Sorgente accettata: solo il file <strong>.xlsx</strong> esportato da Sage X3.
           Il PDF dello stesso ordine espone quantit&agrave; arrotondate ed &egrave; meno affidabile.
+          Pi&ugrave; ordini si caricano uno alla volta: le righe che chiedono lo stesso lotto
+          diventano <strong>una tappa sola</strong>.
         </span>
       </div>`;
     this.setPrimaryScanField(null);
@@ -109,11 +132,100 @@ export const VistaPercorso = {
 
   _routeClearImport() {
     this._routeParsed = null;
+    this._routeOrdini = [];
+    this._routeCapofila = '';
     this._formOrdine($('pickSubForm'));
   },
 
+  /* ─── 2.12 · IL GIRO: PIÙ ORDINI, UN PERCORSO ───────────────────────
+     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+     Il caso e' quello dei cinque ODP che chiedono lo stesso articolo dallo
+     stesso lotto: prelevati uno per volta sono cinque giri sulle stesse
+     corsie, e il primo che apre un collo lascia agli altri quattro un lotto
+     che a scaffale non basta piu'.
+
+     LE DISTINTE SI SOMMANO PRIMA DEL CAMMINO. `modules/giroOdp.ts` le
+     unisce, `PickRoute.buildGiro` ne fa un percorso solo, e le tappe
+     portano `richieste` — quanto ne vuole ciascun ordine.
+
+     IL CONTO DI PRODUZIONE RESTA UNO, intestato al CAPOFILA. Gli altri
+     ordini stanno scritti sul movimento, e la ripartizione si dichiara alla
+     chiusura, quando i numeri si sanno: prima di allora ogni quota sarebbe
+     una previsione scritta come un fatto. */
+
+  /* Ricostruisce il percorso da quel che e' caricato adesso. Si richiama a
+     ogni cambiamento — un ordine in piu', uno tolto, una quantita'
+     ricalibrata — perche' la serpentina dipende da TUTTE le tappe insieme:
+     ricalcolarne una sola darebbe un giro che cammina all'indietro. */
+  _routeRicostruisci() {
+    const ordini: OrdineDelGiro[] = this._routeOrdini || [];
+    if (!ordini.length) { this._routeParsed = null; this._routeCapofila = ''; return; }
+    if (!ordini.some((o) => o.odp_num === this._routeCapofila)) {
+      this._routeCapofila = ordini[0]!.odp_num;
+    }
+    const route = PickRoute.buildGiro(ordini);
+    this._routeParsed = {
+      ...route,
+      ordini,
+      capofila: this._routeCapofila,
+      /* Gli avvisi portano il numero dell'ordine da cui vengono: con piu'
+         file, «unita' non dichiarata» senza dire di chi manda a cercare in
+         cinque fogli. */
+      warnings: ordini.flatMap((o) => (o.warnings || []).map(
+        (w) => (ordini.length > 1 ? `${o.odp_num} · ${w}` : w))),
+    };
+  },
+
+  /** L'ordine capofila: quello che intesta il conto di produzione. */
+  _routeSetCapofila(odp) {
+    const k = normalizzaOdp(odp);
+    if (!(this._routeOrdini || []).some((o: OrdineDelGiro) => o.odp_num === k)) return;
+    this._routeCapofila = k;
+    this._routeRicostruisci();
+    this._formOrdine($('pickSubForm'));
+  },
+
+  /** Toglie un ordine dal giro. Gli altri non si ricaricano: la distinta si
+      rifa' da quelli rimasti. */
+  _routeTogliOrdine(odp) {
+    const k = normalizzaOdp(odp);
+    this._routeOrdini = (this._routeOrdini || []).filter((o: OrdineDelGiro) => o.odp_num !== k);
+    this._routeRicostruisci();
+    this._formOrdine($('pickSubForm'));
+    this.toast(`Ordine ${k} tolto dal giro`, 'info');
+  },
+
+  /* LA QUANTITÀ TOTALE SI PUÒ CAMBIARE, E LA DISTINTA SI RICALIBRA.
+
+     La distinta di Sage e' proporzionale alla quantita' in testata: produrre
+     il doppio vuol dire il doppio di ogni materia prima. Il fattore riparte
+     SEMPRE dalle righe originali — vedi `ricalibra` — perche' due
+     ricalibrazioni di fila comporrebbero i fattori.
+
+     Campo vuoto o non numerico = si torna alla quantita' dell'ordine. */
+  _routeQtaOrdine(odp, valore) {
+    const k = normalizzaOdp(odp);
+    const i = (this._routeOrdini || []).findIndex((o: OrdineDelGiro) => o.odp_num === k);
+    if (i === -1) return;
+    const prima = this._routeOrdini[i];
+    if (qtaPianificata(prima.header) === null && String(valore ?? '').trim()) {
+      return this.toast(`${k}: la quantità dell'ordine non è un numero nel foglio — non si può ricalibrare`, 'error');
+    }
+    this._routeOrdini[i] = ricalibra(prima, valore);
+    this._routeRicostruisci();
+    this._formOrdine($('pickSubForm'));
+    const f = this._routeOrdini[i].fattore;
+    if (f !== 1) this.toast(`${k} ricalibrato · ×${this._qtaOrdine(f, null)}`, 'warning');
+  },
+
   /* Lettura del file. Ogni errore è esplicito: un import che fallisce a metà
-     e lascia un percorso parziale sarebbe il peggior esito possibile. */
+     e lascia un percorso parziale sarebbe il peggior esito possibile.
+
+     2.12 — UN FILE SI AGGIUNGE, NON SOSTITUISCE. Il giro si compone un
+     ordine alla volta, e un file che non si legge lascia intatti quelli
+     gia' caricati: buttare via quattro ordini letti bene perche' il quinto
+     e' il documento sbagliato sarebbe il modo di far ricominciare da capo. */
   async handleImportOdp(event) {
     const file = event.target.files?.[0];
     event.target.value = '';                     // consente di ricaricare lo stesso file
@@ -128,28 +240,88 @@ export const VistaPercorso = {
       const buf = await file.arrayBuffer();
       const res = OdpParser.parse(buf);
       if (!res.ok) {
-        this._routeParsed = null;
         this._formOrdine($('pickSubForm'));
         return this.toast(`Import non riuscito · ${res.error}`, 'error');
       }
-      const route = PickRoute.build(res.lines);
-      this._routeParsed = { ...res, ...route, file_name: file.name };
+      const odp = normalizzaOdp(res.header.odp_num);
+      /* LO STESSO ORDINE DUE VOLTE RADDOPPIEREBBE LA SUA DISTINTA, e il
+         percorso chiederebbe il doppio della merce senza che si veda da
+         nessuna parte. Chi voleva davvero il doppio lo scrive nella
+         quantita', che e' il campo che serve a quello. */
+      if ((this._routeOrdini || []).some((o: OrdineDelGiro) => o.odp_num === odp)) {
+        return this.toast(`L'ordine ${odp} è già nel giro · per prelevarne di più, cambia la quantità`, 'warning');
+      }
+      /* 2.1 — un ordine chiuso non si ricarica, e con piu' file va detto
+         all'ingresso: scoprirlo all'avvio vorrebbe dire aver composto un
+         giro intero attorno a un ordine che non puo' entrarci. */
+      if (Store.ordineWipArchiviato(odp)) {
+        return this.toast(`L'ordine ${odp} è chiuso e archiviato: il suo conto di produzione è storia. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
+      }
+      this._routeOrdini = [...(this._routeOrdini || []),
+        ordineDelGiro(res.header, res.lines, res.warnings, file.name)];
+      this._routeRicostruisci();
       this._formOrdine($('pickSubForm'));
-      const n = (route.stops || []).length, o = route.offroute.length;
-      this.toast(`Ordine ${res.header.odp_num} letto · ${n} tappe, ${o} righe in coda`, n ? 'success' : 'warning');
+      const p: GiroLetto = this._routeParsed;
+      const n = (p.stops || []).length, o = p.offroute.length;
+      const quanti = this._routeOrdini.length;
+      this.toast(`Ordine ${odp} letto · ${quanti > 1 ? `${quanti} ordini nel giro · ` : ''}${n} tappe, ${o} righe in coda`, n ? 'success' : 'warning');
     } catch (err) {
       console.error('[WM] handleImportOdp:', err);
-      this._routeParsed = null;
       this._formOrdine($('pickSubForm'));
       this.toast(`Errore di lettura · ${(err as Error).message}`, 'error');
     }
   },
 
+  /* La scheda di UN ordine del giro: testata, quantità ricalibrabile, e i
+     due gesti — farlo capofila, toglierlo. Con un ordine solo il capofila
+     non si sceglie (è lui) e non si toglie (resterebbe il vuoto): quei due
+     comandi nascono con il secondo file. */
+  _routeOrdineCardHTML(o: OrdineDelGiro, soli: boolean) {
+    const h = o.header;
+    const base = qtaPianificata(h);
+    const capo = o.odp_num === this._routeCapofila;
+    const id = `rq_${o.odp_num.replace(/[^A-Z0-9]/gi, '')}`;
+    return `
+      <div class="route-head-card${capo && !soli ? ' route-head-card--capo' : ''}">
+        <div class="route-head-grid">
+          <div><span class="route-head-lbl">Ordine</span><span class="route-head-val mono">${this._esc(h.odp_num)}</span></div>
+          <div><span class="route-head-lbl">Articolo finito</span><span class="route-head-val mono">${this._esc(h.article_code)}</span></div>
+          <div><span class="route-head-lbl">Lotto produzione</span><span class="route-head-val mono">${this._esc(h.lot || '—')}</span></div>
+          <div><span class="route-head-lbl">Qt&agrave; da ordine</span><span class="route-head-val">${this._esc(h.qty_planned)} ${this._esc(h.um)}</span></div>
+        </div>
+        <div class="route-head-desc">${this._esc(h.article_desc)}</div>
+        <div class="route-head-tools">
+          <label class="text-label-small" for="${id}">Quantit&agrave; da produrre</label>
+          <input class="input input-mono w-28" id="${id}" inputmode="decimal"
+            placeholder="${this._esc(String(base ?? h.qty_planned ?? ''))}"
+            value="${o.qty_voluta !== null ? this._esc(String(o.qty_voluta)) : ''}"
+            ${base === null ? 'disabled title="Il foglio non porta una quantità numerica in testata"' : ''}
+            onchange="App._routeQtaOrdine('${this._esc(o.odp_num)}', this.value)">
+          <span class="text-label-small text-sx-text-muted">${this._esc(h.um || '')}</span>
+          ${o.fattore !== 1 ? `<span class="badge badge-amber">distinta ricalibrata ×${this._esc(this._qtaOrdine(o.fattore, null))}</span>`
+            : '<span class="text-label-small text-sx-text-muted">vuoto = quella dell&rsquo;ordine</span>'}
+          ${soli ? '' : `
+            ${capo ? '<span class="badge badge-green">capofila &mdash; tiene il conto</span>'
+              : `<button class="btn btn-sm" onclick="App._routeSetCapofila('${this._esc(o.odp_num)}')">Fallo capofila</button>`}
+            <button class="btn btn-sm btn-ghost" onclick="App._routeTogliOrdine('${this._esc(o.odp_num)}')">✕ Togli</button>`}
+        </div>
+      </div>`;
+  },
+
+  /* Chi ha chiesto la merce di una tappa, quando il giro porta più ordini. */
+  _routeRichiesteHTML(s: Tappa) {
+    const r = (s.richieste || []) as Richiesta[];
+    if (r.length < 2) return '';
+    return `<span class="route-prev-quote">${r.map((x) =>
+      `<span class="badge badge-muted mono">${this._esc(x.odp_num)} · ${this._qtaOrdine(x.qty, s.um)}</span>`).join(' ')}</span>`;
+  },
+
   /* Esito dell'import: testata, avvisi, ordine siti, anteprima tappe e coda. */
   _routeImportResultHTML() {
-    const p: OrdineLetto | null = this._routeParsed;
+    const p: GiroLetto | null = this._routeParsed;
     if (!p) return '';
-    const h = p.header;
+    const ordini: OrdineDelGiro[] = p.ordini || [];
+    const soli = ordini.length < 2;
     const bySite: Record<string, Tappa[]> = {};
     for (const s of p.stops) (bySite[s.site_id!] = bySite[s.site_id!] || []).push(s);
 
@@ -216,15 +388,17 @@ export const VistaPercorso = {
       </div>` : '';
 
     return `
-      <div class="route-head-card">
-        <div class="route-head-grid">
-          <div><span class="route-head-lbl">Ordine</span><span class="route-head-val mono">${this._esc(h.odp_num)}</span></div>
-          <div><span class="route-head-lbl">Articolo finito</span><span class="route-head-val mono">${this._esc(h.article_code)}</span></div>
-          <div><span class="route-head-lbl">Lotto produzione</span><span class="route-head-val mono">${this._esc(h.lot || '—')}</span></div>
-          <div><span class="route-head-lbl">Qt&agrave; prevista</span><span class="route-head-val">${this._esc(h.qty_planned)} ${this._esc(h.um)}</span></div>
+      ${ordini.map((o) => this._routeOrdineCardHTML(o, soli)).join('')}
+
+      ${soli ? '' : `<div class="route-warn mb-5">
+        <strong>🔗 Giro di ${ordini.length} ordini</strong>
+        <div class="text-body-small mt-2">
+          Le righe che chiedono lo stesso articolo dallo stesso lotto sono diventate
+          <strong>una tappa sola</strong>, e la quantit&agrave; &egrave; la somma.
+          Il conto di produzione lo intesta <strong class="mono">${this._esc(this._routeCapofila)}</strong>:
+          gli altri ordini restano scritti sui movimenti, e la ripartizione si dichiara alla chiusura.
         </div>
-        <div class="route-head-desc">${this._esc(h.article_desc)}</div>
-      </div>
+      </div>`}
 
       ${sceltaCasaHTML}
       ${alertHTML}
@@ -252,6 +426,7 @@ export const VistaPercorso = {
           <span class="route-prev-kg">${this._qtaOrdine(s.kg_required, s.um)} ${this._esc(s.um)}</span>
           ${s.alternatives.length ? `<span class="badge badge-muted">+${s.alternatives.length} alt.</span>` : ''}
           ${this._routeRigaAltrove(s, altrove)}
+          ${this._routeRichiesteHTML(s)}
         </div>`).join('')}
       </div>` : '<div class="pick-cart-empty">Nessuna tappa percorribile: tutte le righe finiscono in coda.</div>'}
 
@@ -369,8 +544,7 @@ export const VistaPercorso = {
   _routeSetCasa(siteId) {
     PickRoute.setCasaScelta(String(siteId || '') || null);
     if (this._routeParsed) {
-      const route = PickRoute.build(this._routeParsed.lines);
-      this._routeParsed = { ...this._routeParsed, ...route };
+      this._routeRicostruisci();
       this._routeApplicaTrasf(sitoDiCasa(this._routeParsed.stops, PickRoute.getSiteOrder(), PickRoute.getCasaScelta()));
     }
     this._formOrdine($('pickSubForm'));
@@ -432,8 +606,7 @@ export const VistaPercorso = {
     PickRoute.setSiteOrder(order);
     // Il percorso va ricostruito: l'ordine dei siti ne determina la sequenza
     if (this._routeParsed) {
-      const route = PickRoute.build(this._routeParsed.lines);
-      this._routeParsed = { ...this._routeParsed, ...route };
+      this._routeRicostruisci();
       /* 1.10 - le richieste gia' fatte sopravvivono alla ricostruzione. */
       this._routeApplicaTrasf(sitoDiCasa(this._routeParsed.stops, order, PickRoute.getCasaScelta()));
     }
@@ -444,18 +617,26 @@ export const VistaPercorso = {
   /* ─── AVVIO DEL PERCORSO ────────────────────────────────────────── */
   async _routeStart() {
     if (!this._requireOperator('il prelievo guidato da ordine')) return;
-    const p: OrdineLetto | null = this._routeParsed;
+    const p: GiroLetto | null = this._routeParsed;
     if (!p?.stops!.length) return this.toast('Nessuna tappa da percorrere', 'error');
     this._prodOperator = Validate.clean($('pRouteOperator')?.value) || this._prodOperator;
     const opErr = Validate.operator(this._prodOperator);
     if (opErr) return this.toast(opErr, 'error');
 
+    const ordini: OrdineDelGiro[] = p.ordini || [];
+    const capo = ordini.find((o) => o.odp_num === p.capofila) || ordini[0]!;
     /* 2.1 — UN ORDINE CHIUSO NON SI RICARICA. Il file di produzione porta
        lo stesso numero d'ordine di un ciclo gia' archiviato, e senza questa
        riga il percorso partiva: i prelievi scrivevano altri movimenti sotto
-       quel numero e il conto sommava due lavorazioni. */
-    if (Store.ordineWipArchiviato(p.header.odp_num)) {
-      return this.toast(`L'ordine ${p.header.odp_num} e' chiuso e archiviato: il suo conto di produzione e' storia. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
+       quel numero e il conto sommava due lavorazioni.
+
+       2.12 — SI RICONTROLLANO TUTTI, non solo il capofila: l'import lo
+       verifica all'ingresso, ma fra il primo file e l'avvio un altro
+       terminale puo' aver chiuso uno di questi ordini. */
+    for (const o of ordini) {
+      if (Store.ordineWipArchiviato(o.odp_num)) {
+        return this.toast(`L'ordine ${o.odp_num} e' chiuso e archiviato: il suo conto di produzione e' storia. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
+      }
     }
 
     const existing = Store.getActivePickSession();
@@ -466,7 +647,7 @@ export const VistaPercorso = {
         details: Dialog.kv([
           ['Ordine in corso', existing.odp_num],
           ['Tappe completate', `${(existing.stops || []).filter(s => s.status !== 'pending').length} di ${(existing.stops || []).length}`],
-          ['Nuovo ordine', p.header.odp_num]
+          ['Nuovo ordine', ordini.map((o) => o.odp_num).join(' · ')]
         ]),
         confirmLabel: 'Chiudi e avvia il nuovo', danger: true, icon: '\u26A0'
       });
@@ -476,12 +657,33 @@ export const VistaPercorso = {
     }
 
     const session = {
-      session_id: `PS-${p.header.odp_num.replace(/\s/g, '')}-${Date.now().toString(36).toUpperCase().slice(-6)}`,
-      odp_num: p.header.odp_num,
-      odp_article: p.header.article_code,
-      odp_article_desc: p.header.article_desc,
-      odp_lot: p.header.lot,
-      odp_qty: `${p.header.qty_planned} ${p.header.um}`,
+      session_id: `PS-${capo.odp_num.replace(/\s/g, '')}-${Date.now().toString(36).toUpperCase().slice(-6)}`,
+      /* `odp_num` RESTA IL CAPOFILA e non cambia significato: e' l'ordine
+         che intesta il conto di produzione, ed e' l'unico campo che il
+         rendiconto, il registro e lo storico leggevano fino alla 2.11. Con
+         un file solo e' l'unico ordine che c'e', e tutto si comporta come
+         prima. */
+      odp_num: capo.odp_num,
+      odp_article: capo.header.article_code,
+      odp_article_desc: capo.header.article_desc,
+      odp_lot: capo.header.lot,
+      odp_qty: `${capo.qty_voluta ?? capo.header.qty_planned} ${capo.header.um}`,
+      /* 2.12 — l'elenco si scrive solo quando gli ordini sono piu' d'uno: un
+         elenco con dentro il solo capofila direbbe che c'e' un giro dove non
+         c'e', e il rendiconto lo stamperebbe. */
+      ...(ordini.length > 1 ? {
+        odps: ordini.map((o) => ({
+          odp_num: o.odp_num,
+          article_code: o.header.article_code,
+          article_desc: o.header.article_desc,
+          lot: o.header.lot,
+          qty_planned: o.header.qty_planned,
+          um: o.header.um,
+          qty_voluta: o.qty_voluta,
+          fattore: o.fattore,
+          file_name: o.file_name,
+        })),
+      } : {}),
       operator: this._prodOperator,
       status: 'active',
       created_at: Date.now(),
@@ -497,11 +699,13 @@ export const VistaPercorso = {
       return this.toast(`Avvio non riuscito · ${(err as Error).message}`, 'error');
     }
     this._routeParsed = null;
+    this._routeOrdini = [];
+    this._routeCapofila = '';
     this._routeStage = 'run';
     this._routeStartTime = Date.now();
     this._routeScan = { loc: '', art: '', lot: '' };
     this._formOrdine($('pickSubForm'));
-    this.toast(`Percorso avviato · ${(session.stops || []).length} tappe`, 'success');
+    this.toast(`Percorso avviato · ${(session.stops || []).length} tappe${ordini.length > 1 ? ` · ${ordini.length} ordini` : ''}`, 'success');
     this.updateSyncIndicator();
   },
 
@@ -646,13 +850,21 @@ export const VistaPercorso = {
     const missing = (s.stops || []).filter(x => x.status === 'missing').length;
     const pending = (s.stops || []).filter(x => x.status === 'pending');
     const current = pending[0] || null;
+    const sosta   = this._routeSosta();
     const pct     = Math.round(((done + missing) / (s.stops || []).length) * 100);
     const inPausa = !!this._routePausaAperta(s);
+    /* 2.12 — la spunta del vano si decide PRIMA di disegnare: la scheda
+       mostra il campo ① oppure la banda verde a seconda di questa, e
+       calcolarla dopo vorrebbe dire disegnare col valore di prima. */
+    const vanoOk  = !!current && !inPausa && this._routeScanValida(current) && !!this._routeScan.loc;
+    if (!vanoOk) { this._routeScan = { loc: '', art: '', lot: '' }; this._routeScanChiave = ''; }
+    else this._routeScan = { loc: this._routeScan.loc, art: '', lot: '' };
 
     el.innerHTML = `
       <div class="route-runbar">
         <div class="route-runbar-top">
           <span class="mono route-runbar-odp">${this._esc(s.odp_num)}</span>
+          ${(s.odps || []).length > 1 ? `<span class="badge badge-muted" title="${this._esc((this._giroDellaSessione(s) || []).join(' · '))}">🔗 giro di ${(s.odps || []).length} ordini</span>` : ''}
           <span class="route-runbar-count">${done + missing} / ${(s.stops || []).length}</span>
         </div>
         <div class="route-progress"><i style="width:${pct}%"></i></div>
@@ -666,7 +878,7 @@ export const VistaPercorso = {
 
       ${inPausa ? this._routePausaHTML(s) : ''}
 
-      <section id="routeCurrent">${inPausa ? '' : (current ? this._routeCurrentHTML(current) : this._routeFinishHTML(s))}</section>
+      <section id="routeCurrent">${inPausa ? '' : (current ? this._routeCurrentHTML(current, sosta) : this._routeFinishHTML(s))}</section>
 
       <details class="route-details">
         <summary>Elenco completo delle tappe (${(s.stops || []).length})</summary>
@@ -682,18 +894,16 @@ export const VistaPercorso = {
         <button class="btn btn-sm btn-danger" onclick="App._routeAbandon()">✕ Chiudi percorso</button>
       </div>`;
 
-    /* 2.5 — LA SCANSIONE SI RIFÀ A OGNI TAPPA E A OGNI APERTURA.
-       `_routeScan` si azzera qui come prima, ma adesso porta anche PER CHI
-       vale: la chiave dice tappa e apertura, e `_routeConfermaScansioni` la
-       ricontrolla prima di scrivere. Azzerarlo e basta non bastava — questo
-       render non è l'unico modo di tornare davanti alla scheda. */
-    if (current && !inPausa) {
-      this._routeScan = { loc: '', art: '', lot: '' };
-      this._routeScanChiave = '';
-      this.setPrimaryScanField('rLoc');
-    } else {
-      this.setPrimaryScanField(null);
-    }
+    /* 2.5 — LA SCANSIONE SI RIFÀ A OGNI VANO E A OGNI APERTURA, e la chiave
+       dice per quale dei due vale: `_routeConfirmStop` la ricontrolla prima
+       di scrivere. Azzerarla e basta non bastava — questo render non è
+       l'unico modo di tornare davanti alla scheda.
+
+       2.12 — QUEL CHE VALE ANCORA NON SI BUTTA. Confermata una riga, il
+       render successivo cancellava anche la spunta del vano, e la riga dopo
+       ripartiva dal codice a terra: l'azzeramento è deciso sopra, dove si
+       guarda se la chiave regge ancora. */
+    this.setPrimaryScanField(current && !inPausa ? (vanoOk ? 'rArt' : 'rLoc') : null);
   },
 
   /* 2.5 — LA QUANTITÀ D'ORDINE SI SCRIVE CON I DECIMALI DELLA SUA UNITÀ.
@@ -705,15 +915,54 @@ export const VistaPercorso = {
     return formattaQuantita(v, um || null);
   },
 
-  /* La chiave che lega una scansione alla tappa e all'apertura in cui è
-     stata fatta. Cambia l'una o l'altra, e la spunta non vale più. */
+  /* La chiave che lega una scansione al VANO e all'apertura in cui è stata
+     fatta. Cambia l'uno o l'altra, e la spunta non vale più.
+
+     2.12 — `seq` è uscito dalla chiave. Quel che la spunta deve garantire è
+     che l'operatore sia passato davanti a QUESTO vano in QUESTA apertura;
+     il numero della tappa non c'entrava, e teneva fuori il caso normale —
+     quattro articoli sullo stesso scaffale — costringendo a scansionare
+     quattro volte lo stesso codice a terra. */
   _routeChiaveScan(st) {
     if (!this._routeApertura) this._routeApertura = Date.now();
-    return `${st?.seq ?? '?'}@${st?.location_code ?? ''}@${this._routeApertura}`;
+    return `${st?.location_code ?? ''}@${this._routeApertura}`;
   },
 
   _routeScanValida(st) {
     return !!this._routeScanChiave && this._routeScanChiave === this._routeChiaveScan(st);
+  },
+
+  /* ─── LA SOSTA ──────────────────────────────────────────────────────
+     2.12 — L'UBICAZIONE SI SCANSIONA UNA VOLTA, GLI ARTICOLI TUTTI.
+
+     Una sosta sono le tappe ANCORA DA FARE che stanno nello stesso vano e
+     che si incontrano di fila. La serpentina le tiene già adiacenti — stesso
+     vano vuol dire stesse coordinate — quindi non c'è niente da riordinare:
+     c'è da smettere di trattarle come quattro fermate.
+
+     SI GUARDA L'ELENCO DELLE PENDENTI, non `stops`: una tappa già prelevata
+     o rimandata in fondo non sta più fra quelle che si fanno adesso, e
+     contarla romperebbe la contiguità dove non è rotta. */
+  _routeSosta() {
+    const s = Store.getActivePickSession();
+    const pending = (s?.stops || []).filter((x) => x.status === 'pending');
+    const cur = pending[0];
+    if (!cur) return [];
+    const out = [];
+    for (const x of pending) {
+      if (x.location_code !== cur.location_code) break;
+      out.push(x);
+    }
+    return out;
+  },
+
+  /* Rifare la verifica del vano è sempre possibile, e non chiede un motivo:
+     chi si è allontanato e torna vuole poterlo dire. */
+  _routeRiscansionaVano() {
+    this._routeScan = { loc: '', art: '', lot: '' };
+    this._routeScanChiave = '';
+    this._renderRouteRun($('pickSubForm'));
+    this._routeFb('warn', 'Riscansiona l’ubicazione per confermare di essere davanti al vano');
   },
 
   /* ─── A) LA MERCE TRASFERITA ────────────────────────────────────────
@@ -797,13 +1046,46 @@ export const VistaPercorso = {
     this.toast(`Tappa ${st.seq} rimandata in fondo al giro`, 'info');
   },
 
-  _routeCurrentHTML(st) {
+  /* Le altre righe da prendere in questo stesso vano, con quella in corso in
+     evidenza. Vuoto quando la sosta è di una riga sola: un elenco di uno
+     dice solo che c'è un elenco. */
+  _routeSostaHTML(st, sosta) {
+    if ((sosta || []).length < 2) return '';
+    return `<div class="route-sosta">
+      <strong>📦 In questo vano ci sono ${sosta.length} righe da prelevare</strong>
+      <div class="text-body-small opacity-85 mt-2 mb-3">
+        L&rsquo;ubicazione si conferma una volta sola: da qui in avanti si scansionano
+        articolo e lotto di ciascuna riga, senza tornare sul codice a terra.
+      </div>
+      ${sosta.map((x: Tappa, i: number) => `<div class="route-sosta-row${x === st ? ' route-sosta-row--cur' : ''}">
+        <span class="route-sosta-ico">${x === st ? '▶' : i + 1}</span>
+        <span class="mono">${this._esc(x.article_code)}#${this._esc(x.lot_code)}</span>
+        <span class="route-sosta-desc">${this._esc(x.article_description || '')}</span>
+        <span class="route-sosta-kg">${this._qtaOrdine(x.kg_required, x.um)} ${this._esc(x.um)}</span>
+      </div>`).join('')}
+    </div>`;
+  },
+
+  /* Per chi è questa tappa, quando il giro porta più ordini. La somma sta
+     già nella riga «Richiesti da ordine»: qui c'è chi l'ha chiesta, che è la
+     domanda che ci si fa quando si guarda il conto, non quando si cammina. */
+  _routeQuoteHTML(st) {
+    const r = (st?.richieste || []) as Richiesta[];
+    if (r.length < 2) return '';
+    return `<div class="route-stop-quote">
+      <span>Per conto di</span>
+      <b>${r.map((x) => `<span class="badge badge-muted mono">${this._esc(x.odp_num)} · ${this._qtaOrdine(x.qty, st.um)} ${this._esc(st.um)}</span>`).join(' ')}</b>
+    </div>`;
+  },
+
+  _routeCurrentHTML(st, sosta = null) {
     const site = Store.getSite(st.site_id);
     /* 2.5 — la giacenza si legge ADESSO. Vedi `_routeDisponibili`. */
     const disponibili = this._routeDisponibili(st);
     const cfg = Store.getUomConfig(st.article_code, st.lot_code);
     const riga = Store.getItemsAtLocation(st.location_code).find((i) => i.item_key === st.item_key) || null;
     const elenco = riga ? Store.colliDiRiga(riga) : null;
+    const vanoOk = this._routeScanValida(st) && !!this._routeScan.loc;
     return `
       <article class="route-stop-card">
         <header class="route-stop-head">
@@ -815,6 +1097,7 @@ export const VistaPercorso = {
         </header>
 
         ${this._routeTrasfBandaHTML(st)}
+        ${this._routeSostaHTML(st, sosta)}
 
         <div class="route-stop-body">
           <div class="route-stop-kv"><span>Articolo</span><b class="mono">${this._esc(st.article_code)}</b></div>
@@ -824,6 +1107,8 @@ export const VistaPercorso = {
           <div class="route-stop-kv route-stop-kg"><span>Richiesti da ordine</span><b>${this._qtaOrdine(st.kg_required, st.um)} ${this._esc(st.um)}</b></div>
           <div class="route-stop-kv${disponibili <= 0 ? ' route-stop-vuoto' : ''}"><span>Colli in ubicazione</span><b>${disponibili}</b></div>
         </div>
+
+        ${this._routeQuoteHTML(st)}
 
         ${elenco && cfg ? `<div class="route-stop-colli">
           <span>Come sono imballati</span>
@@ -838,7 +1123,13 @@ export const VistaPercorso = {
           <div class="text-label-small mt-2.5 opacity-80">Scansionandone una, la tappa si sposta l&agrave;.</div>
         </div>` : ''}
 
-        <div class="form-group mt-6 mx-0 mb-4">
+        ${vanoOk ? `<div class="route-vano-ok">
+          <strong>✓ Ubicazione <span class="mono">${this._esc(st.location_code)}</span> confermata</strong>
+          <div class="text-body-small opacity-85">
+            Vale per tutte le righe di questo vano, fino a quando il giro non si sposta.
+          </div>
+          <button class="btn btn-sm" type="button" onclick="App._routeRiscansionaVano()">↻ Riscansiona l&rsquo;ubicazione</button>
+        </div>` : `<div class="form-group mt-6 mx-0 mb-4">
           <label>① Scansiona UBICAZIONE <span class="req">*</span></label>
           <div class="flex gap-3">
           <input class="input input-mono" id="rLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
@@ -846,7 +1137,7 @@ export const VistaPercorso = {
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('rLoc');App._routeCheckLoc();}">
           <button class="btn btn-sm" type="button" onclick="App._pickLoc('rLoc','_routeCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
           </div>
-        </div>
+        </div>`}
         <div class="form-group mb-4">
           <label>② Scansiona ARTICOLO <span class="req">*</span></label>
           <input class="input input-mono uppercase" id="rArt" placeholder="Scansiona o digita articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
@@ -1101,6 +1392,11 @@ export const VistaPercorso = {
     if (!this._routeScan.loc || !this._routeScanValida(st)) {
       this._routeScan = { loc: '', art: '', lot: '' };
       this._routeScanChiave = '';
+      /* 2.12 \u2014 si ridisegna, perch\u00e9 senza spunta la scheda deve tornare a
+         mostrare il campo dell'ubicazione: lasciarla con la banda verde
+         direbbe che il vano \u00e8 confermato mentre qui si \u00e8 appena stabilito
+         che non lo \u00e8. */
+      this._renderRouteRun($('pickSubForm'));
       this._campiScansioneReset('rLoc', 'rArt', 'rLot');
       this._routeFb('error', 'Scansiona prima l\u2019ubicazione');
       $('rLoc')?.focus();
@@ -1202,6 +1498,18 @@ export const VistaPercorso = {
   _routeCurrentStop() {
     const s = Store.getActivePickSession();
     return s ? ((s.stops || []).find(x => x.status === 'pending') || null) : null;
+  },
+
+  /* 2.12 — i numeri d'ordine del giro, capofila in testa. `null` quando il
+     giro è di un ordine solo: là non c'è nessun giro da nominare, e scrivere
+     un elenco di uno lo farebbe comparire sul rendiconto di ogni prelievo
+     normale. */
+  _giroDellaSessione(session): string[] | null {
+    const odps = (session?.odps || []) as { odp_num: string }[];
+    if (odps.length < 2) return null;
+    const capo = normalizzaOdp(session?.odp_num);
+    const numeri = odps.map((o) => normalizzaOdp(o.odp_num)).filter(Boolean);
+    return [capo, ...numeri.filter((x) => x !== capo)];
   },
 
   async _routeSave() {
@@ -1353,6 +1661,13 @@ export const VistaPercorso = {
           qty_uom: this._umMossa(removed),
           uom: Store.getUomConfig(st.article_code, st.lot_code)?.uom ?? null,
           packs: removed!._packs_out ?? null,
+          /* 2.12 — GLI ALTRI ORDINI DEL GIRO viaggiano fino al movimento. Il
+             conto resta uno, intestato al capofila: questo elenco non entra
+             in nessun saldo e risponde a «per chi era sceso quel sacco». La
+             ripartizione si dichiara alla chiusura, quando i numeri si sanno. */
+          giro_odps: this._giroDellaSessione(session),
+          giro_richieste: (st.richieste || null) as Richiesta[] | null,
+          giro_id: session.session_id,
         });
         /* 2.2 — L'ARRIVO NEL VANO SI SCRIVE. Il prelievo diceva da dove la
            merce usciva e nient'altro: nel vano WIP compariva una giacenza che
@@ -1360,9 +1675,10 @@ export const VistaPercorso = {
            registro vedeva merce sparita dallo scaffale. Sono due fatti in due
            vani diversi, come la coppia FIX−/FIX+ dell'inventario, e il secondo
            si scrive solo se il conto è riuscito davvero. */
+        const altri = (this._giroDellaSessione(session) || []).filter((x: string) => x !== session.odp_num);
         await this._logMov(MOV.IN, st.article_code, st.article_description, st.lot_code,
           entrata.location_code, null, effectiveUser,
-          `Entrata nel conto di produzione — ordine ${session.odp_num}`, session.odp_num,
+          `Entrata nel conto di produzione — ordine ${session.odp_num}${altri.length ? ` · giro con ${altri.join(', ')}` : ''}`, session.odp_num,
           entrata.qty_before ?? null,
           (entrata.qty_after ?? 0) - (entrata.qty_before ?? 0),
           entrata.qty_after ?? null,
@@ -1443,6 +1759,11 @@ export const VistaPercorso = {
         <div class="route-done-ico">✓</div>
         <strong>Percorso completato</strong>
         <div>${done.length} tappe prelevate su ${(s.stops || []).length} per l'ordine ${this._esc(s.odp_num)}.</div>
+        ${(s.odps || []).length > 1 ? `<div class="text-body-small mt-2 opacity-85">
+          Giro di ${(s.odps || []).length} ordini — ${this._esc((this._giroDellaSessione(s) || []).join(' · '))}.
+          Il conto di produzione &egrave; intestato a <strong class="mono">${this._esc(s.odp_num)}</strong>:
+          la ripartizione fra gli ordini si dichiara alla chiusura del conto, in Registro ODP.
+        </div>` : ''}
       </div>
 
       ${tail.length ? `<div class="route-tail">

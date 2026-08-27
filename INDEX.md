@@ -7,7 +7,7 @@ gli originali sono scesi in `ARCHIVIO/HANDOFF STORICI/` come memoria — non son
 istruzioni e non vanno più aperti per lavorare.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
-Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **27/08/2026**, notte fonda — la 2.10
+Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` · agg. **27/08/2026**, notte fonda — la 2.12
 
 ## LO STATO DEL PROGETTO È **ALFA**
 
@@ -20,6 +20,165 @@ che nessuno ha ancora compilato. Non è un prodotto finito che si manutiene, ed
 **Non c'è una scadenza.** La riga che dava il progetto al 31/12/2026 con
 ultima installazione utile il 19/12 è stata tolta il 25/08: le date si
 scrivono come fatti avvenuti, non come promesse.
+
+---
+
+## LA 2.12 CONCATENA GLI ORDINI, E SMETTE DI FAR RISCANSIONARE LO STESSO VANO
+
+**27/08/2026, notte.** Andrea: «mi trovo in difficolta' quando devo prelevare
+diversi ordini di produzione dello stesso articolo». Cinque ODP della stessa
+serie chiedono lo stesso lotto: prelevati uno alla volta sono cinque giri
+sulle stesse corsie, e il primo che apre un collo lascia agli altri quattro un
+lotto che a scaffale non basta piu'. **E' lo stesso caso che la 2.3 aveva
+provato a risolvere e per cui e' stata ritirata.** La strada scelta qui e'
+un'altra, e la differenza sta tutta in una riga: **il conto di produzione
+resta UNO**.
+
+| | |
+|---|---|
+| dove | `consegna\Pathfinder 2.12\`, e il codice nel ramo `main` |
+| pacchetto | app 4 file, **1,78 MB** — 475 kB sul filo, compressi · servizio, 12 voci |
+| impronta | `1c43313dbea398098fabe38f8d16ccbb8670547f35657017ebcab2d5a69af2d0` |
+| collaudi | **1.218 client** in 41 file · **127 servizio** |
+| tipi | `npm run check` a 0 su client e servizio |
+| provata | **NON in corsia, e NON con un ODP vero** — vedi «quel che la 2.12 non ha provato» |
+
+### PERCHE' NON E' LA 2.3
+
+La 2.3 divideva **il collo**: `quoteVano` assegnava a ciascun ordine la sua
+parte di ogni sacco, `pianoUscita` traduceva una quantita' in colli, il giro
+conto passava i chili da un ordine all'altro, il reso traboccava sul piu'
+vecchio. Erano quattro meccanismi nuovi che dovevano stare in piedi insieme, e
+tre difetti sono usciti solo costruendo.
+
+Qui il collo non si divide. **La merce scende una volta sola e sotto un numero
+solo — il capofila** — e gli altri ordini stanno scritti sul movimento, in
+`giro_odps`. Non e' un secondo conto e non entra in nessun saldo: `conto()`
+non lo guarda nemmeno. La ripartizione si dichiara **alla chiusura**, che e'
+gia' la regola di questo applicativo — «il consumo si dichiara a ordine
+chiuso, mai prima» — e alla chiusura i colli non ci sono piu': ci sono
+quantita', e le quantita' si dividono.
+
+**Il prezzo, dichiarato:** fra il prelievo e la chiusura gli ordini non
+capofila non hanno un conto proprio da guardare. Chi ne apre uno nel Registro
+non si sente rispondere «nessun movimento» — che sarebbe la risposta sbagliata
+alla domanda giusta — ma **«il conto di ODP-2 lo tiene ODP-1»**, con il
+pulsante che ce lo porta. E nell'elenco dei conti aperti compare una riga in
+piu', «serviti da un giro»: chi non sa che il giro esiste non sa nemmeno che
+c'e' un numero da digitare.
+
+### CONCATENARE: si caricano piu' file, e le righe si sommano prima del cammino
+
+Un file **si aggiunge**, non sostituisce — e un file che non si legge lascia
+intatti quelli gia' caricati. Lo stesso ordine due volte si rifiuta:
+raddoppierebbe la sua distinta senza che si veda da nessuna parte, e chi
+voleva davvero il doppio lo scrive nella quantita', che e' il campo che serve
+a quello. Un ordine gia' archiviato si rifiuta **all'ingresso**, non
+all'avvio: scoprirlo dopo vorrebbe dire aver composto un giro intero attorno a
+un ordine che non puo' entrarci. All'avvio si ricontrollano comunque tutti,
+perche' fra il primo file e la partenza un altro terminale puo' averne chiuso
+uno.
+
+Le righe che chiedono lo stesso articolo **dallo stesso lotto** diventano una
+tappa sola, e la quantita' e' la somma. Una riga **senza lotto** non si fonde
+con una assegnata: quella non e' prelevabile e finisce in coda, e sommarla la
+farebbe sparire dentro una tappa che il lotto ce l'ha.
+
+Sulla tappa resta `richieste` — quanto ne vuole ciascun ordine. Non serve al
+cammino: serve al conto, e la domanda a cui risponde e' «di chi era quel
+sacco», che ci si fa fra sei mesi.
+
+### RICALIBRARE: la quantita' totale si cambia, e la distinta la segue
+
+La distinta di Sage e' proporzionale alla quantita' in testata: produrre il
+doppio vuol dire il doppio di ogni materia prima. Il fattore si applica al
+totale **e a ogni lotto** — l'ordine assegna i lotti riga per riga, e scalare
+solo il totale lascerebbe una distinta che non somma con se stessa — con i
+decimali **dell'unita' di ciascuno**: un articolo in KG puo' portare un lotto
+in PZ, e su quello non si scrive mezzo pezzo.
+
+**Si riparte sempre dalle righe originali.** Chi scrive 700 dopo aver scritto
+350 vuole il doppio dell'ordine, non il doppio del doppio: `ricalibra` tiene
+`lines_originali` accanto a `lines` apposta, e due ricalibrazioni di fila non
+compongono i fattori. Campo vuoto = si torna alla quantita' dell'ordine.
+
+Una testata che non porta un numero **non si ricalibra**, e il campo lo dice
+invece di moltiplicare per un numero inventato.
+
+### LA SOSTA: l'ubicazione si scansiona una volta, gli articoli tutti
+
+Andrea: «se devo prelevare piu' items nella stessa ubicazione questa deve
+essere richiesta solo una volta». Chi doveva prendere quattro articoli dallo
+stesso scaffale scansionava quattro volte lo stesso codice a terra, e la
+quarta la digitava senza guardare: **una verifica che si ripete quando non
+c'e' niente da riverificare e' una verifica che si smette di fare.**
+
+Una **sosta** sono le tappe ancora da fare che stanno nello stesso vano e che
+si incontrano di fila. Non c'e' niente da riordinare: la serpentina le tiene
+gia' adiacenti, perche' stesso vano vuol dire stesse coordinate. C'era da
+smettere di trattarle come quattro fermate. Si guarda l'elenco delle
+**pendenti** e non `stops`: una tappa gia' prelevata o rimandata in fondo non
+sta piu' fra quelle che si fanno adesso, e contarla romperebbe la contiguita'
+dove non e' rotta.
+
+**La chiave della scansione ha perso `seq`.** Era `<tappa>@<vano>@<apertura>`,
+adesso e' `<vano>@<apertura>`. **Non e' un allentamento**, ed e' il punto piu'
+delicato di questa versione: quel che la spunta deve garantire e' che
+l'operatore sia passato **davanti a quel vano in quest'apertura**, e il numero
+della tappa non c'entrava — teneva fuori il caso normale e basta. Le tre cose
+che invalidavano la spunta la invalidano ancora, e sono state riprovate una
+per una in browser: cambiare vano, spostarsi su un'ubicazione alternativa,
+rientrare nella schermata.
+
+Il campo ① sparisce quando il vano e' confermato e al suo posto compare una
+banda verde con **↻ Riscansiona l'ubicazione**. Non e' un campo disabilitato:
+un campo che c'e' e non si puo' usare e' un campo che si prova a usare lo
+stesso. Sopra la scheda, quando le righe sono piu' d'una, l'elenco di quel che
+si prende in questo vano — perche' «quanti pezzi devo prendere qui» viene
+prima di «qual e' il primo».
+
+**Il render non butta piu' quel che vale ancora.** `_renderRouteRun` azzerava
+`_routeScan` a ogni disegno: confermata una riga, la successiva ripartiva dal
+codice a terra anche stando fermi davanti allo stesso scaffale. Adesso
+l'azzeramento si decide guardando se la chiave regge, e a cadere sono solo
+articolo e lotto.
+
+### DOVE FINISCE IL GIRO SUI DOCUMENTI
+
+Il rapporto di prelievo porta **«Giro — ordini serviti»** in testata: un
+foglio che nomina un ordine solo, su un giro di cinque, ne nasconde quattro.
+Il rendiconto di consumo porta la stessa cella e, quando la chiusura ha
+scritto le quote, una seconda tabella — **la ripartizione fra gli ordini del
+giro**, ordine per articolo. Le quote si leggono dalle dichiarazioni di
+consumo e non dalle entrate: fra quel che era stato chiesto e quel che e'
+finito nel prodotto ci sono il reso e i colli interi.
+
+### QUEL CHE LA 2.12 NON HA PROVATO, E VA GUARDATO IN FACCIA
+
+**Non e' stata esercitata con un ODP vero ne' in corsia.** Il banco di questa
+sessione si e' fermato al PIN — la 2.11 ha chiuso le rotte, e senza sessione
+non si entra. Quel che e' stato provato davvero:
+
+- **1.218 collaudi** in 41 file, `npm run check` pulito su client e servizio,
+  **127** sul servizio. `giroOdp` porta **38 prove** sue: la ricalibrazione
+  che non compone i fattori, i cinque ODP che diventano una riga da 25, la
+  riga senza lotto che non si fonde, le quote la cui somma fa **esattamente**
+  quello che e' uscito, e il conto che dice dove sta quando non e' suo.
+- **In browser, sul bundle di sviluppo**, chiamando i metodi di `App` a mano:
+  le cinque invarianti della sosta (senza spunta compare ①; con la spunta
+  compare la banda; la stessa spunta su un altro vano non vale; vale per la
+  seconda riga dello stesso vano; non vale dopo una nuova apertura), le tre
+  schede d'ordine con la banda del giro, e il ricalibro di un ordine su tre
+  che porta la somma da 15 a 20 KG.
+- **Non provato**: il prelievo vero da un file `.xlsx`, l'entrata nel vano WIP
+  con `giro_odps` scritto, la chiusura che ripartisce, il rendiconto stampato.
+  **E' la voce 51 vista una versione dopo**: prima di installare, il giro dei
+  cinque ODP va fatto girare al banco su una copia del database — **voce 68**.
+
+**La quota di consumo non si corregge a mano.** Alla chiusura si scrive la
+ripartizione proporzionale a quel che ciascun ordine aveva chiesto, e
+l'operatore la vede sul rendiconto. Se la produzione ha consumato in
+proporzione diversa, oggi non c'e' dove dirlo — **voce 67**.
 
 ---
 
@@ -2469,6 +2628,8 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **68** | **IL GIRO DEI CINQUE ODP NON E' MAI GIRATO PER INTERO.** La 2.12 e' costruita e collaudata sui moduli puri — 1.218 prove — e provata in browser chiamando i metodi di `App` a mano, ma **nessun file `.xlsx` vero le e' passato dentro**: il banco di quella sessione si e' fermato al PIN. Non e' stata vista scrivere `giro_odps` su un movimento, ne' chiudere un conto ripartendo il consumo | **Va fatto girare al banco, su una copia del database, prima di installare.** Cinque ODP veri della stessa serie, tre cose da guardare: che le righe dello stesso lotto diventino **una** tappa; che l'ubicazione si chieda **una volta** per vano e che riscansionarla resti possibile; che alla chiusura la somma delle quote faccia esattamente il consumo dichiarato. E' la voce 51 vista una versione dopo |
+| **67** | **LA QUOTA DI CONSUMO NON SI CORREGGE A MANO.** Alla chiusura di un giro la ripartizione fra gli ordini si scrive **proporzionale a quanto ciascuno aveva chiesto**, e l'operatore la vede sul rendiconto. Se la produzione ha consumato in proporzione diversa — ed e' il caso normale, non l'eccezione — oggi non c'e' dove dirlo | **La proporzione e' una proposta, non un fatto misurato**, e va scritto anche sul foglio. Serve una maschera che, riga per riga, lasci spostare quantita' da un ordine all'altro con il vincolo che la somma resti quella del consumo. Il dato per farlo c'e' gia': `giro_richieste` sul movimento di consumo |
 | **66** | **I PERMESSI PER RUOLO STANNO ANCORA NEL CLIENT.** La 2.11 ha chiuso l'accesso — senza sessione non si entra — ma è ancora il client a decidere se aprire la Configurazione o il reset dei dati: `comandaLaConfigurazione` gira nel browser. Chi si identifica come operatore semplice e poi chiama a mano la rotta del reset **non trova nessuno che glielo impedisca**. È la metà che la 2.11 ha lasciato indietro di proposito, per non raddoppiare la superficie da provare tutta in una volta | **Il token porta già il ruolo** — la sessione sa chi sei, e la sua scheda ce l'ha. Serve dichiarare quali rotte sono di comando (reset, `clearMany`, `deleteWhere`, la scrittura sugli operatori) e verificarlo sul servizio. Il lavoro è nelle rotte, non nel modello: quello c'è già |
 | **65** | **`xlsx` 0.18.5 PORTA DUE VULNERABILITÀ NOTE** — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — **e non c'è un fix su npm**: SheetJS pubblica le versioni corrette solo dal proprio sito. Il vettore è il file Excel che un operatore carica: ODP e anagrafica. Le dipendenze del servizio sono a **0 vulnerabilità** | La regola «`dexie` e `xlsx` non si aggiornano» esiste perché l'applicativo è collaudato con quelle versioni, ed è difendibile. **Va però ridecisa sapendo questo**, non per inerzia: o si passa alla versione di SheetJS e si riprova tutto quello che tocca Excel, o si scrive qui che si accetta il rischio e perché |
 | **61** | **IL CONTO WIP DIPENDE DA UN PARAMETRO FACOLTATIVO.** La riga `in` non registra le UM — `qty_uom` è `null` — e i chili si ricostruiscono dopo dalla confezione congelata del lotto, che `Store.contoWip` passa a `conto()` come ripiego. Ma quel parametro si può omettere, e allora lo stesso ordine perfettamente in pari risponde `residuo_uom: −25` e `incoerente: true`. Un residuo **negativo** su un ordine chiuso in pari: un numero plausibile e sbagliato, cioè la stessa forma del difetto di `#dlgOverlay`. Oggi il chiamante è uno solo e il ripiego lo passa | **Due strade, e la seconda è quella buona:** scrivere le UM sulla riga `in` quando si conoscono — la confezione è congelata già al posizionamento, quindi il dato c'è — oppure rendere `perCollo` obbligatorio, o far dichiarare `incoerente` con un motivo leggibile invece di un residuo negativo muto |
@@ -2540,6 +2701,8 @@ riga che dava il progetto al 31/12/2026, con ultima installazione utile il
 
 | Versione | Stato |
 |---|---|
+| **2.12** | **COSTRUITA, E NON PROVATA CON UN ODP VERO.** `1c43313d…`, 4 file. Concatena piu' ordini in un percorso solo, ricalibra la distinta su una quantita' diversa, e chiede l'ubicazione **una volta per vano**. Il conto di produzione resta **uno**, intestato al capofila. **Non si installa prima della voce 68** |
+| **2.11** | **COSTRUITA.** `4a8b5a6c…`. Il PIN emette una sessione, e senza sessione le rotte `/api` non si aprono — voce 64 |
 | **2.7** | **IN SERVIZIO dal 26/08 sera, E GIRA SU POSTGRESQL.** `17cb722b…`, 1.800.084 byte, 4 file. Non porta funzioni nuove all'applicativo: porta il **backup su PostgreSQL** — `pg_dump` riletto prima di essere dichiarato buono — e l'installer che sa accendere il database con `-PostgreSQL`, controlla le dipendenze per nome, e verifica il database giusto dei due. **Dal 26/08 sera sa anche consegnarlo**: controlla PostgreSQL, prepara ruolo e database, e sul salto migra i dati — §4 |
 | **2.6** | **LA VIA DI RITORNO.** `d3865c53…`, 1.800.084 byte, 4 file. La prima che ha parlato due database, i codici in maiuscolo, l'interfaccia del servizio dati asincrona. **Tornare a lei vuol dire tornare a SQLite**: conosce `PATHFINDER_PG` ma non sa farci il backup, e alle 20:00 copierebbe un file fermo scrivendo OK. Byte in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.6/`, servizio al commit `9796048` |
 | **2.5** | **ARCHIVIATA.** `8ed505b9…`, 1.798.524 byte, 4 file. Le unità di misura al carico su 11.115 articoli e il prelievo da ordine. **Si porta dietro la voce 51**, ancora aperta. Pacchetto in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.5/` |
@@ -3900,6 +4063,64 @@ partenza. **Un audit si passa anche dopo, non solo prima.**
   risalendo la catena darebbe un numero plausibile e falso su ogni riga
   storica, che è il difetto peggiore di tutti.
 
+### Il giro di prelievo — 2.12
+
+- **UN GIRO PUO' PORTARE PIU' ORDINI, E IL CONTO DI PRODUZIONE RESTA UNO.**
+  La merce scende dallo scaffale una volta sola e sotto un numero solo — il
+  **capofila** — e gli altri ordini stanno scritti sul movimento in
+  `giro_odps`. Non e' un secondo conto e non entra in nessun saldo: `conto()`
+  non lo guarda. Il capofila e' il primo file caricato finche' non si sceglie
+  altrimenti, e `session.odp_num` resta lui: e' l'unico campo che il
+  rendiconto, il registro e lo storico leggevano fino alla 2.11, e cambiarne
+  il significato avrebbe cambiato quei tre documenti senza toccarli.
+- **LA RIPARTIZIONE SI DICHIARA ALLA CHIUSURA, MAI AL PRELIEVO.** E' la
+  regola del consumo, applicata alle quote: prima della chiusura il residuo
+  di un ordine e' merce sul bancone, e dividerla fra cinque ordini
+  scriverebbe una previsione come un fatto. Alla chiusura i colli non ci sono
+  piu' — ci sono quantita', e le quantita' si dividono. **Un collo non si
+  divide: e' la strada che la 2.3 aveva preso, ed e' quella che l'ha
+  ritirata.**
+- **QUEL CHE SI SCRIVE AL PRELIEVO E' IL CHIESTO, NON IL CONSUMATO.**
+  `giro_richieste` sull'entrata dice quanto ne voleva ciascun ordine: e' un
+  fatto del file di produzione, noto in quel momento. Fra il chiesto e quel
+  che finisce nel prodotto ci sono il reso e i colli interi, e chiamarli con
+  lo stesso nome sarebbe la bugia che il verso `out`/`consumo` esiste per
+  evitare.
+- **LA SOMMA DELLE QUOTE FA ESATTAMENTE QUELLO CHE E' USCITO.** L'ultima
+  assorbe il resto dell'arrotondamento. Un centesimo in piu' su una quota e'
+  un errore che si vede e si spiega; una somma che non torna e' un conto che
+  nessuno riesce a chiudere.
+- **RIGHE CHE SI FONDONO: STESSO ARTICOLO E STESSO LOTTO.** Una riga senza
+  lotto non si fonde con una assegnata — quella non e' prelevabile, e
+  sommarla la farebbe sparire dentro una tappa che il lotto ce l'ha.
+- **LA RICALIBRAZIONE RIPARTE SEMPRE DALL'ORDINE, non dall'ultimo
+  risultato.** Chi scrive 700 dopo aver scritto 350 vuole il doppio
+  dell'ordine, non il doppio del doppio. E si applica al totale **e a ogni
+  lotto**, con i decimali dell'unita' di ciascuno.
+- **UN ORDINE SERVITO DA UN GIRO NON RISPONDE «NESSUN MOVIMENTO».** Dice dove
+  sta il suo conto. La risposta sbagliata alla domanda giusta e' peggio del
+  silenzio: «di quest'ordine non risulta niente» mentre la merce e' in
+  reparto da stamattina.
+
+### La scansione in corsia — 2.12
+
+- **L'UBICAZIONE SI VERIFICA UNA VOLTA PER VANO, NON UNA PER TAPPA.** La
+  chiave della spunta e' `<ubicazione>@<apertura>`. Quel che deve garantire e'
+  che l'operatore sia passato davanti a quel vano in quest'apertura; il numero
+  della tappa non c'entrava, e chiedere quattro volte lo stesso codice a terra
+  otteneva solo che la quarta si digitasse senza guardare. **Una verifica che
+  si ripete quando non c'e' niente da riverificare e' una verifica che si
+  smette di fare.**
+- **LA SPUNTA CADE SU TRE COSE, E SONO LE STESSE DI SEMPRE:** cambiare vano,
+  spostarsi su un'ubicazione alternativa, rientrare nella schermata. Chi tocca
+  `_routeChiaveScan` deve poterle riprovare tutte e tre.
+- **IL VANO CONFERMATO NON E' UN CAMPO SPENTO: E' UNA BANDA.** Un campo che
+  c'e' e non si puo' usare e' un campo che si prova a usare lo stesso. E
+  riscansionare resta possibile senza chiedere un motivo — chi si e'
+  allontanato e torna vuole poterlo dire.
+- **ARTICOLO E LOTTO SI RISCANSIONANO A OGNI RIGA.** Il vano e' uno; la merce
+  no.
+
 ### Stoccaggio — 2.1
 
 - **La priorità di una regola va da 1 a 10.** Era «da zero in su» e non
@@ -4029,7 +4250,7 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 
 | File | Righe | Ruolo |
 |---|---:|---|
-| `ui/app.js` | 1.328 | **Quel che non è una vista**: avvio e riallineamento col servizio, identità e sessione, il telaio (`switchView`, barra laterale, `showModal`, `toast`, scorciatoie), l'annulla, e le utilità che chiamano tutti — `_esc`, `_requireOperator`, le maschere di data, `_pickLoc`. In coda, il **rientro delle viste** |
+| `ui/app.ts` | 1.328 | **Quel che non è una vista**: avvio e riallineamento col servizio, identità e sessione, il telaio (`switchView`, barra laterale, `showModal`, `toast`, scorciatoie), l'annulla, e le utilità che chiamano tutti — `_esc`, `_requireOperator`, le maschere di data, `_pickLoc`. In coda, il **rientro delle viste** |
 | `core/store.ts` | 2.283 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` |
 | `core/cache.ts` | 321 | Punto unico di mutazione della cache: 5 forme, 4 indici derivati |
 | `core/statistiche.ts` | 181 | Stato di una cella, conteggi, cruscotto |
@@ -4049,13 +4270,14 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/udc.ts` | 162 | **1.12** — il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perche' **un'etichetta dura**, e provarla altrimenti vorrebbe dire stamparla. Puro |
 | `modules/stoccaggio.ts` | 613 | **1.13** — dove si mette la merce: vincoli duri, poi punteggio. Le regole sono un dato di `storage_rules`. Ogni proposta dice perche'. Puro. **2.8**: pericolosita' e matrice fra i vincoli duri, portata accanto alla capienza, la casa del lotto che esclude tutto il resto, e la categoria merceologica come terzo bersaglio di regola — con la gerarchia che tiene UN livello solo, il piu' preciso che ha colpito |
 | `modules/regoleBase.ts` | 448 | **2.8** — le due regole che NON si scrivono: lo stesso articolo sulla stessa UDC (si scavalca) e lo stesso articolo/lotto nella stessa ubicazione (non si scavalca). Piu' la matrice di incompatibilita' e i tre motivi precompilati dello scavalco. Sta da solo e non dentro `stoccaggio.ts` perche' quelle sono regole di POLITICA, queste sono il modo in cui un magazzino resta leggibile. Puro |
-| `modules/wip.ts` | 813 | **1.14** — il conto di un ordine: entrato, tornato, residuo. Il consumo si dichiara **a ordine chiuso**, mai prima. **2.0**: `colliFuori` — le misure dei colli che un ordine ha ancora nel vano WIP, entrate meno quelle gia' tornate o consumate. Il vano e' UNO e ci convivono le righe di piu' ordini: senza queste misure, «rendi tre colli» non ha una risposta. **2.1**: `archiviato` — la chiusura e' un movimento, non il residuo a zero. **2.2**: `ordiniArchiviati` (l'archivio da sfogliare, col numero e la data, dal piu' recente) e `righeSenzaOrdine` (quel che sta nel vano e nessun movimento nomina: la chiusura e il reso lavorano per ordine, e non lo vedono). **2.3**: UN COLLO E' DI PIU' ORDINI — `quoteVano` (il vano collo per collo, con gli ordini che lo richiamano e quel che nessuno rivendica), `coperturaUom` (quanto un ordine ha gia' in mano, `null` quando non si sa), `ripartisciReso` (un reso che non dice per chi si scarica in ordine e TRABOCCA), `giro_odp` sul movimento e `ceduto_uom`/`ricevuto_uom` sul conto: il giro conto usa `out` e `in`, e il rendiconto non chiama «reso» merce mai risalita. Puro |
+| `modules/wip.ts` | 700 | **1.14** — il conto di un ordine: entrato, tornato, residuo. Il consumo si dichiara **a ordine chiuso**, mai prima. **2.0**: `colliFuori` — le misure dei colli che un ordine ha ancora nel vano WIP, entrate meno quelle gia' tornate o consumate. Il vano e' UNO e ci convivono le righe di piu' ordini: senza queste misure, «rendi tre colli» non ha una risposta. **2.1**: `archiviato` — la chiusura e' un movimento, non il residuo a zero. **2.2**: `ordiniArchiviati` (l'archivio da sfogliare, col numero e la data, dal piu' recente) e `righeSenzaOrdine` (quel che sta nel vano e nessun movimento nomina: la chiusura e il reso lavorano per ordine, e non lo vedono). **2.3**: UN COLLO E' DI PIU' ORDINI — `quoteVano` (il vano collo per collo, con gli ordini che lo richiamano e quel che nessuno rivendica), `coperturaUom` (quanto un ordine ha gia' in mano, `null` quando non si sa), `ripartisciReso` (un reso che non dice per chi si scarica in ordine e TRABOCCA), `giro_odp` sul movimento e `ceduto_uom`/`ricevuto_uom` sul conto: il giro conto usa `out` e `in`, e il rendiconto non chiama «reso» merce mai risalita. **LA PARTE 2.3 DI QUESTA RIGA E' RITIRATA e non sta in `main`: `quoteVano`, `coperturaUom`, `ripartisciReso`, `giro_odps` come giro conto non esistono.** **2.12**: il movimento porta `giro_odps` (gli altri ordini del giro — non un secondo conto, non entra in nessun saldo), `giro_richieste` (quanto ne aveva chiesto ciascuno: un fatto del file di produzione, non una quota di consumo) e `giro_id`. Quattro letture nuove: `contoTenutoDa` (dove sta il conto di un ordine che non lo tiene lui), `ordiniServiti`, `richiesteDiRiga` e `consumoPerOrdine` — che legge le quote scritte **alla chiusura**, non le entrate. Puro |
 | `modules/kpi.ts` | 330 | **2.0** — i numeri di articoli, movimenti e persone, che stanno gia' a database e nessuno sommava. Ogni movimento porta la sigla di chi l'ha fatto e ogni compito i suoi due tempi. `NON_MISURABILE` elenca cosa oggi non si puo' chiedere e quale campo servirebbe: chi cerca un numero che non trova capisce in dieci secondi se manca la funzione o manca il dato. Puro |
 | `modules/code128.ts` | 150 | **2.1** — il codice a barre, disegnato in casa. Solo il sottoinsieme B, e il perché è dichiarato: copre tutto quello che questo applicativo mette in un riferimento. **Non è un GS1-128** — manca FNC1 — e sta scritto nel modulo, non in una nota. La tabella dei 107 modelli si collauda con le due invarianti dello standard, non ricopiandola. Puro |
 | `modules/cruscotto.ts` | 155 | **2.1** — il layout della Dashboard: ordine, larghezza, quali riquadri, quali scorciatoie. Riconcilia il salvato con quello che il codice sa fare oggi — un riquadro nuovo si accoda visibile, uno sparito si ignora. **Ordine e larghezza, non coordinate**: una posizione in pixel salvata su un 27 pollici, riletta a 480, mette due riquadri uno sull'altro. Puro |
 | `modules/tabella.ts` | 200 | **2.1** — ordinare e filtrare, §3. Ordinamento stabile, il vuoto in fondo nei due versi, numeri confrontati da numeri. Il markup lo costruiscono le viste: qui c'è la regola. Puro |
-| `modules/pickRoute.ts` | 471 | Percorso di prelievo a serpentina. **2.3**: `buildSerie` — piu' ODP in un giro solo, con `richieste` sulla tappa; il fabbisogno scontato di quel che il reparto ha gia' in mano (`in_wip`, `in_reparto_altrui`, `reparto`); e **il vano WIP escluso dalle ubicazioni in cui si preleva** |
-| `modules/odpParser.ts` | 246 | Lettura degli ODP da Excel |
+| `modules/pickRoute.ts` | 353 | Percorso di prelievo a serpentina. **2.3**: `buildSerie` — piu' ODP in un giro solo, con `richieste` sulla tappa; il fabbisogno scontato di quel che il reparto ha gia' in mano (`in_wip`, `in_reparto_altrui`, `reparto`); e **il vano WIP escluso dalle ubicazioni in cui si preleva**. **QUELLA RIGA DESCRIVE LA 2.3, CHE E' RITIRATA E NON STA IN `main`.** Quel che c'e' davvero: la serpentina, l'ordine dei siti, il magazzino di casa, `riordina`. **2.12**: `buildGiro` — le distinte si sommano PRIMA (in `giroOdp.ts`) e quel che arriva qui e' una distinta come tutte le altre; le `richieste` si riattaccano dopo e per chiave, perche' `build` decide ubicazione e alternative ed e' gia' collaudata cosi' |
+| `modules/odpParser.ts` | 286 | Lettura degli ODP da Excel |
+| `modules/giroOdp.ts` | 267 | **2.12 — IL GIRO: piu' ordini in un percorso solo.** Due cose, e nessuna tocca il magazzino: **ricalibra** un ordine su una quantita' diversa (la distinta di Sage e' proporzionale alla testata, e il fattore si applica a ogni lotto con i decimali della SUA unita'), e **unisce** piu' distinte sommando quel che chiede lo stesso articolo dallo stesso lotto, tenendo da parte QUANTO ne vuole ciascuno. `ricalibra` riparte sempre da `lines_originali`: due ricalibrazioni di fila comporrebbero i fattori. `quote` ripartisce quel che e' uscito davvero, e **l'ultima quota assorbe il resto dell'arrotondamento** — una somma che non torna e' un conto che nessuno chiude. **Non decide niente sul conto di produzione.** Puro |
 | `modules/destinatari.ts` | 200 | Chi è lo stesso destinatario (partita IVA), quale destinazione è nuova, cosa è cambiato |
 | `modules/parametri.ts` | 165 | Le tendine che sono un dato: valori di legge davanti e non rimovibili |
 | `modules/anagrafica.ts` | 158 | I 14 allergeni, le 3 classi di conservazione, le certificazioni |
@@ -4064,10 +4286,10 @@ esiste crea un secondo operatore invece di dare errore. E poi si toglie la causa
 | `modules/excel.ts` | 31 | **Il punto unico da cui SheetJS si carica, e solo quando serve.** Chi rimette `import * as XLSX` in cima a un file annulla la 1.7 |
 | `modules/fogli.ts` | 112 | **2.0** — le due domande di un foglio Excel che non riguardano SheetJS: quante righe fa una giacenza (`colliDaStendere`: una per collo) e che numero scrive un riepilogo che ha visto unità diverse (`celleUom`: MISTA, e il totale vuoto). Sta qui e non nella vista perché una vista si importa solo passando da `App`, e una funzione pura non deve farlo per essere collaudata. **`distendiGiacenze` è il muro del foglio**: 1.048.575 righe, contate su TUTTE le giacenze insieme e non su una — duecento righe da diecimila colli fanno due milioni di righe, ognuna innocente e il foglio morto lo stesso. Una riga che da sola sfonda il foglio non ne consuma il budget e torna `null`, e chi chiama ne scrive una che lo dice: quella riga è un numero sbagliato, non merce. Puro |
 | `types/entita.ts` · `contratto.ts` · `collezioni.ts` | 722 · 157 · 63 | Le entità · l'interfaccia dei due adapter · **le 21 collezioni, sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono. **2.8**: la ventunesima è `location_attrs`, e `RegolaStoccaggio` ha smesso di dichiarare `quando`/`allora` — una forma immaginata alla 1.4.4 e mai scritta a database, mentre la maschera scriveva i campi piatti dal primo giorno |
-| `styles/*.css` | 3.400 | **10 file**. `00-tailwind.css` è il tema — le utility, e i token dell'applicativo riletti da `@theme`: colore, scala tipografica, spaziatura a decimi di rem, raggi, ombre, soglie. Gli altri nove — token, base, componenti, layout, viste, grafici e report — **li importa lui**, dentro `@layer app`, e `main.js` importa solo lui. L'ordine fra i nove è la cascata di sempre |
+| `styles/*.css` | 4.234 | **10 file**. `00-tailwind.css` è il tema — le utility, e i token dell'applicativo riletti da `@theme`: colore, scala tipografica, spaziatura a decimi di rem, raggi, ombre, soglie. Gli altri nove — token, base, componenti, layout, viste, grafici e report — **li importa lui**, dentro `@layer app`, e `main.js` importa solo lui. L'ordine fra i nove è la cascata di sempre |
 | `ui/dialog.js` · `feedback.js` · `tabs.js` | 367 · 181 · 59 | Modali · toast e spinner · schede |
 | `main.js` · `index.html` | 46 · 200 | Avvio e gancio globale · scheletro del DOM e marchi SVG |
-| `ui/views/` | 10.520 | **Le venticinque viste**, più `vista.ts` (il tipo e i due aiuti al DOM) e `globale.d.ts`. Elenco e regole qui sotto |
+| `ui/views/` | 18.466 | **Le ventisette viste**, più `vista.ts` (il tipo e i due aiuti al DOM) e `globale.d.ts`. Elenco e regole qui sotto |
 
 ### Le viste — `src/ui/views/`
 
@@ -4082,7 +4304,7 @@ estrarre è spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `configDati.ts` | 975 | Dati, resilienza, i tre fogli Excel, reset. **2.1**: copia esterna, purga e «Salva ora» non ci sono più; il reset chiede il PIN dell'Admin |
 | `spedizioni.ts` | 1.080 | DDT: testata, carrello, documento pendente, evasione, stampa |
 | `compiti.ts` | 885 | Attività: coda, misure, registro, richiesta, i quattro gesti |
-| `percorso.ts` | 970 | Prelievo guidato: ODP, serpentina, corsia, chiusura, e **1.10** il trasferimento chiesto dall'ordine |
+| `percorso.ts` | 1.834 | Prelievo guidato: ODP, serpentina, corsia, chiusura, e **1.10** il trasferimento chiesto dall'ordine. **2.12 — IL GIRO E LA SOSTA**: piu' file `.xlsx` che si aggiungono invece di sostituirsi, la quantita' totale ricalibrabile per ordine, il **capofila** che intesta il conto, e l'ubicazione scansionata **una volta per vano** invece che una per tappa — `_routeSosta` raggruppa le tappe pendenti contigue nello stesso vano, e la chiave della scansione ha perso `seq` |
 | `quarantena.ts` | 755 | Blocco, rilascio, cartellino di non conformità |
 | `cruscotto.ts` | 900 | **2.1** — i tredici riquadri componibili, il catalogo delle sette scorciatoie e la scheda «Personalizza». Il contenuto dei riquadri è quello di sempre: a cambiare è chi decide l'ordine |
 | `smaltimento.ts` | 664 | Scarico in tre stadi, e i **mattoni del documento** che usano tutti |
@@ -4094,7 +4316,7 @@ estrarre è spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `configurazione.ts` | 437 | Le nove schede, gli interruttori, il DDT |
 | `mappa.ts` | 418 | Pianta, frontale, conformità e deroghe |
 | `documento.ts` | 410 | La correzione di un DDT pendente, su uno snapshot |
-| `rapportoPrelievo.ts` | 380 | Un rapporto, tre sorgenti |
+| `rapportoPrelievo.ts` | 579 | Un rapporto, tre sorgenti. **2.12**: la testata porta «Giro — ordini serviti», perche' un foglio che nomina un ordine solo su un giro di cinque ne nasconde quattro |
 | `configSiti.ts` | 375 | Siti e zone |
 | `configOperatori.ts` | 362 | Operatori, PIN, scadenza della sessione |
 | `campionamento.ts` | 359 | Campionamento GMP e il verbale |
@@ -4103,8 +4325,8 @@ estrarre è spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `destinatari.ts` | 226 | Rubrica DDT, e quando un dato cambiato vale per sempre |
 | `archivio.ts` | 197 | I cinque tipi di documento emesso |
 | `registro.ts` | 191 | Registro movimenti completo |
-| `wip.ts` | 461 | **2.3 — IL REPARTO, COLLO PER COLLO**: una riga per collo del vano, con gli ordini che se lo dividono e per quanto. Da qui si rende (e il reso trabocca), si dichiara consumato, e si gira il conto a un altro ordine senza muovere niente. Fino alla 2.2 era il conto di UN ordine, ed e' passato in `wipRegistro.ts` |
-| `wipRegistro.ts` | 402 | **2.3 — IL REGISTRO DEGLI ODP**: il conto di un ordine, la chiusura che trasforma il residuo in consumo, il rendiconto stampabile e l'archivio da sfogliare. Il rendiconto tiene separato il **ceduto** dal reso: merce passata a un altro conto non e' merce risalita a scaffale |
+| `wip.ts` | 735 | **IL CONTO DI PRODUZIONE**: il conto di un ordine, il reso, la chiusura che trasforma il residuo in consumo, il rendiconto stampabile e l'archivio. **2.12**: un ordine servito da un giro non ha movimenti suoi e la maschera dice **dove sta il suo conto** invece di rispondere «nessun movimento»; il capofila elenca chi sta servendo; e la chiusura scrive la **ripartizione del consumo** fra gli ordini, proporzionale a quel che ciascuno aveva chiesto. ~~**2.3 — IL REPARTO, COLLO PER COLLO**: una riga per collo del vano, con gli ordini che se lo dividono e per quanto. Da qui si rende (e il reso trabocca), si dichiara consumato, e si gira il conto a un altro ordine senza muovere niente. Fino alla 2.2 era il conto di UN ordine, ed e' passato in `wipRegistro.ts`~~ — **RITIRATO CON LA 2.3: quella vista non esiste in `main`** |
+| ~~`wipRegistro.ts`~~ | — | **NON ESISTE IN `main`: e' della 2.3 ritirata.** ~~**2.3 — IL REGISTRO DEGLI ODP**: il conto di un ordine, la chiusura che trasforma il residuo in consumo, il rendiconto stampabile e l'archivio da sfogliare. Il rendiconto tiene separato il **ceduto** dal reso: merce passata a un altro conto non e' merce risalita a scaffale~~ |
 | `udc.ts` | 322 | **1.12** — le unita' di carico: elenco, creazione, carico e scarico delle righe, spostamento intero, etichetta |
 | `parametri.ts` | 106 | Le quattro schede che sono un dato |
 | `vista.ts` | 36 | Il tipo `Vista`, e `$`/`$q` — `getElementById` col tipo `any` |
@@ -4160,7 +4382,11 @@ rottura — una collezione che non esiste, un campo non indicizzato, un `orderBy
 con dentro una `DELETE`, un `anyOf` da ottantamila valori). Senza
 `PATHFINDER_PG` le trentuno di PostgreSQL si dichiarano **saltate col motivo
 scritto**, invece di tacere) — **1.108 prove in 38 file.** `ambiente.js` è
-il preambolo comune. **Alla 2.9 sono 1.176 in 40 file.**
+il preambolo comune. **Alla 2.9 sono 1.176 in 40 file. Alla 2.12
+sono 1.218 in 41 file**, e il file nuovo è `giroOdp` (38): la ricalibrazione
+che non compone i fattori, i cinque ODP che diventano una riga da 25, la riga
+senza lotto che non si fonde, le quote la cui somma fa **esattamente** quello
+che è uscito, e il conto che dice dove sta quando non è suo.
 
 **LA BATTERIA A CONFRONTO HA GUADAGNATO IL SUO COSTO ALLA PRIMA CORSA.** Quattro
 difetti che SQLite non poteva mostrare: due terminali che entravano nella stessa

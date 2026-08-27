@@ -448,6 +448,9 @@ export interface TappaPrelievo {
       che la riga a video non è quella della prima conferma. */
   corrections?: number;
   correction_note?: string;
+  /** 2.12 — quanto ne vuole ciascun ordine del giro. Assente quando il giro
+      porta un ordine solo: vedi `Tappa` in `modules/pickRoute.ts`. */
+  richieste?: { odp_num: string; qty: number }[];
 }
 
 /* Una riga presa fuori percorso, o una nota lasciata su una tappa: portano
@@ -475,6 +478,26 @@ export interface SessionePrelievo {
   odp_article_desc?: string;
   odp_lot?: string;
   odp_qty?: string | number;
+  /** 2.12 — GLI ORDINI DEL GIRO, capofila in testa.
+
+      `odp_num` resta il CAPOFILA e non cambia significato: è l'ordine che
+      intesta il conto di produzione, ed è l'unico campo che il rendiconto, il
+      registro e lo storico leggevano fino alla 2.11. Un giro di un ordine
+      solo non scrive questo elenco, e allora tutto si comporta come prima. */
+  odps?: {
+    odp_num: string;
+    article_code?: string;
+    article_desc?: string;
+    lot?: string;
+    /** La quantità dell'ordine, come il foglio la dichiara. */
+    qty_planned?: string | number;
+    um?: string;
+    /** La quantità su cui l'ordine è stato ricalibrato, se lo è stato. */
+    qty_voluta?: number | null;
+    /** 1 = nessuna ricalibrazione. */
+    fattore?: number;
+    file_name?: string;
+  }[];
   operator?: string;
   offroute?: FuoriPercorso[];
   notes?: FuoriPercorso[];

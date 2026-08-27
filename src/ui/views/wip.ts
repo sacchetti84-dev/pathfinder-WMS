@@ -4,6 +4,7 @@ import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 import { consumo as consumoWip, daRendere, rendiconto, misureDelReso } from '../../modules/wip';
+import { quote as quoteGiro } from '../../modules/giroOdp';
 import { formattaQuantita } from '../../modules/misure';
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -49,6 +50,12 @@ export const VistaWip = {
        l'applicativo non aveva nessun posto in cui dirlo. Questo è quel
        posto. */
     const orfane = Store.righeWipSenzaOrdine();
+    /* 2.12 — GLI ORDINI SERVITI DA UN GIRO NON SONO CONTI APERTI, e in
+       quell'elenco non compaiono: movimenti loro non ne hanno. Senza questa
+       riga l'unico modo di trovarli sarebbe digitarne il numero — e chi non
+       sa che il giro esiste non sa nemmeno che c'e' un numero da digitare. */
+    const serviti = aperti.flatMap((o) =>
+      Store.ordiniServitiWip(o).map((x) => ({ odp: x, capofila: o })));
     if (!this._wipOrdine && aperti.length) this._wipOrdine = aperti[0];
 
     el.innerHTML = `<div>
@@ -71,6 +78,9 @@ export const VistaWip = {
         ${aperti.length ? `<div class="text-label-small text-sx-text-muted mt-2">
           Conti aperti: ${aperti.slice(0, 8).map((o) => `<button class="btn btn-sm" onclick="App._wipApri('${this._esc(o)}')">${this._esc(o)}</button>`).join(' ')}
         </div>` : '<div class="text-label-small text-sx-text-muted mt-2">Nessun conto aperto.</div>'}
+        ${serviti.length ? `<div class="text-label-small text-sx-text-muted mt-2">
+          🔗 Serviti da un giro: ${serviti.map((x) => `<button class="btn btn-sm" title="Il conto lo tiene ${this._esc(x.capofila)}" onclick="App._wipApri('${this._esc(x.odp)}')">${this._esc(x.odp)}</button>`).join(' ')}
+        </div>` : ''}
         ${archiviati.length ? `<div class="text-label-small text-sx-text-muted mt-2">
           🗄 Archiviati: ${archiviati.slice(0, 8).map((a) => `<button class="btn btn-sm" title="Chiuso${a.chiuso_il ? ' il ' + this._esc(this._fmtStamp(a.chiuso_il)) : ''}" onclick="App._wipApri('${this._esc(a.odp_num)}')">${this._esc(a.odp_num)}</button>`).join(' ')}${archiviati.length > 8 ? ` <span>e altri ${archiviati.length - 8}</span>` : ''}
         </div>` : ''}
@@ -101,9 +111,25 @@ export const VistaWip = {
     if (!odp) { box.innerHTML = ''; return; }
     const c = Store.contoWip(odp);
     if (!c.righe.length) {
-      box.innerHTML = `<div class="empty-state p-7.5"><p>Nessun movimento sul conto di ${this._esc(odp)}</p></div>`;
+      /* 2.12 — UN ORDINE PRELEVATO DENTRO UN GIRO NON HA MOVIMENTI SUOI: la
+         merce e' scesa sotto il capofila, e il suo numero sta scritto su
+         quelle righe. Rispondere «nessun movimento» sarebbe la risposta
+         sbagliata alla domanda giusta — di quest'ordine non risulta niente
+         mentre la merce e' in reparto da stamattina. */
+      const altrove = Store.contoTenutoDaWip(odp);
+      box.innerHTML = altrove
+        ? `<div class="mov-preview mov-preview-warn p-7.5">
+             <strong>🔗 Il conto di ${this._esc(odp)} lo tiene ${this._esc(altrove.capofila)}</strong><br>
+             Questo ordine e' stato prelevato in un giro insieme ad altri: la merce e' scesa
+             una volta sola, sotto il conto del capofila. La ripartizione fra gli ordini si
+             dichiara alla chiusura di quel conto.
+             <div class="mt-4"><button class="btn btn-primary" onclick="App._wipApri('${this._esc(altrove.capofila)}')">Apri il conto di ${this._esc(altrove.capofila)}</button></div>
+           </div>`
+        : `<div class="empty-state p-7.5"><p>Nessun movimento sul conto di ${this._esc(odp)}</p></div>`;
       return;
     }
+    /* Gli altri ordini che questo conto sta servendo. */
+    const serviti = Store.ordiniServitiWip(odp);
     const vano = Store.getAreaWip() || '—';
     const rendere = daRendere(c);
     /* 2.1 — UN ORDINE ARCHIVIATO SI LEGGE E SI STAMPA, E NON SI TOCCA.
@@ -124,7 +150,14 @@ export const VistaWip = {
       Entrato <strong>${c.entrato} Coll.</strong> · reso <strong>${c.tornato}</strong>${c.consumato ? ` · <strong class="text-sx-success">consumato ${c.consumato}</strong>` : ''} ·
       <strong class="text-sx-warning">ancora in lavorazione ${c.residuo}</strong>
       ${c.incoerente ? '<br><strong>⚠ Da qualche riga è tornato più di quanto sia entrato: il conto non sta in piedi.</strong>' : ''}
-    </div>`;
+    </div>
+    ${serviti.length ? `<div class="mov-preview mov-preview-warn mb-5">
+      <strong>🔗 Questo conto serve ${serviti.length + 1} ordini</strong> —
+      ${this._esc([odp, ...serviti].join(' · '))}.<br>
+      La merce e' scesa una volta sola, sotto <strong class="mono">${this._esc(odp)}</strong>.
+      Alla chiusura il consumo si ripartisce fra gli ordini, in proporzione a quanto
+      ciascuno aveva chiesto.
+    </div>` : ''}`;
 
     for (const r of c.righe) {
       const fuori = r.residuo > 0;
@@ -466,6 +499,32 @@ export const VistaWip = {
           : `ancora in lavorazione ${E(x.aperto)} coll.`}</td>
       </tr>`).join('');
 
+    /* 2.12 — LA RIPARTIZIONE FRA GLI ORDINI DEL GIRO.
+       Un rendiconto che nomina un ordine solo, su una merce scesa per
+       cinque, dichiara a nome di uno il consumo di tutti. Le quote sono
+       quelle scritte alla chiusura, e la loro somma per riga fa il consumo
+       della riga: se non ci sono, questo blocco non c'e' e il foglio resta
+       quello di sempre. */
+    const perOrdine = Store.consumoWipPerOrdine(odp);
+    const giro = Store.ordiniServitiWip(odp);
+    const bloccoGiro = perOrdine.length ? `
+      <h3 class="pr-h3">Ripartizione fra gli ordini del giro</h3>
+      <table class="pr-table">
+        <thead><tr><th>Ordine</th><th>Articolo</th><th>Lotto</th><th class="text-center">Consumo</th></tr></thead>
+        <tbody>${perOrdine.map((q) => `<tr>
+          <td class="mono">${E(q.odp_num)}</td>
+          <td class="mono">${E(q.article_code)}</td>
+          <td class="mono">${E(q.lot_code)}</td>
+          <td class="td-num"><b>${E(um(q.qty, q.uom))}</b></td>
+        </tr>`).join('')}</tbody>
+      </table>
+      <p class="text-body-small">La merce e' scesa dallo scaffale <b>una volta sola</b>, sotto
+      l'ordine ${E(odp)}. Le quote qui sopra ripartiscono il consumo dichiarato in proporzione a
+      quanto ciascun ordine aveva chiesto: la loro somma, riga per riga, e' il consumo della riga.</p>`
+      : (giro.length ? `<p class="text-body-small"><b>🔗 Giro di ${giro.length + 1} ordini</b> —
+        ${E([odp, ...giro].join(' · '))}. La ripartizione del consumo fra gli ordini si scrive
+        alla chiusura: finche' il conto e' aperto non c'e' consumo da ripartire.</p>` : '');
+
     const body = `
       <table class="pr-table">
         <thead>
@@ -496,7 +555,8 @@ export const VistaWip = {
       chili e uno a pezzi non fanno un totale.</p>
       ${r.chiuso
         ? '<p class="text-body-small">Ogni riga di questo ordine è stata dichiarata: il foglio è un <b>consuntivo</b>.</p>'
-        : '<p class="text-body-small"><b>⚠ Ordine ancora aperto.</b> Le righe segnate «ancora in lavorazione» portano merce che sta sul bancone: quel delta non è consumo finché non viene dichiarato.</p>'}`;
+        : '<p class="text-body-small"><b>⚠ Ordine ancora aperto.</b> Le righe segnate «ancora in lavorazione» portano merce che sta sul bancone: quel delta non è consumo finché non viene dichiarato.</p>'}
+      ${bloccoGiro}`;
 
     this._docPrint(this._docPageHTML({
       kind: 'RENDICONTO DI CONSUMO',
@@ -507,6 +567,7 @@ export const VistaWip = {
         ${this._docCell('Vano di lavorazione', Store.getAreaWip() || '')}
         ${this._docCell('Righe', String(r.righe.length))}
         ${this._docCell('Stato del conto', r.chiuso ? 'chiuso — consuntivo' : 'aperto — provvisorio')}
+        ${giro.length ? this._docCell('Giro — ordini serviti', [odp, ...giro].join(' · '), 'doc-cell--wide') : ''}
       </div>`,
       body,
       docId: `CONS-${odp}`,
@@ -536,6 +597,17 @@ export const VistaWip = {
      — «quanto ne è finito dentro» — e senza, a registro resta il conto dei
      colli e il peso sparisce. QUALI colli va chiesto: il vano è uno solo e
      le righe di più ordini ci convivono. Vedi `_wipScegliColli`. */
+  /* Come si ripartisce fra gli ordini del giro il consumo di UNA riga.
+     `null` quando la riga non e' di un giro, o quando non si sa in UM
+     quanto sia il consumo: ripartire i COLLI non si puo' — un collo e' di
+     uno solo, e le quote no. Vedi `quote` in `modules/giroOdp.ts`. */
+  _wipQuoteConsumo(odp: string, r): { odp_num: string; qty: number }[] | null {
+    const richieste = Store.richiesteWipDiRiga(odp, r.item_key);
+    if (richieste.length < 2) return null;
+    if (typeof r.residuo_uom !== 'number') return null;
+    return quoteGiro(richieste, r.residuo_uom, r.uom ?? null);
+  },
+
   async _wipDichiaraConsumata(odp: string, r): Promise<string | null> {
     const vano = Store.getAreaWip();
     try {
@@ -543,12 +615,28 @@ export const VistaWip = {
       const scelte = await this._wipScegliColli(nelVano, r.item_key, r.residuo,
         `Quali colli ha consumato ${odp} · ${r.article_code}#${r.lot_code}`);
       if (scelte === undefined) return `${r.article_code}#${r.lot_code}: scelta dei colli annullata`;
+      /* 2.12 — LA QUOTA PER ORDINE SI DICHIARA QUI, e non prima.
+
+         Quando la riga e' scesa in un giro, `giro_richieste` dice quanto ne
+         aveva chiesto ciascun ordine: e' un fatto del file di produzione,
+         scritto nel momento in cui la merce e' uscita dallo scaffale. Il
+         consumo si ripartisce in quella proporzione — e la somma delle quote
+         fa ESATTAMENTE il consumo, perche' l'ultima assorbe il resto
+         dell'arrotondamento.
+
+         Prima della chiusura questa quota non esisteva: il residuo di un
+         ordine aperto e' merce sul bancone, e ripartirla sarebbe stato
+         scrivere una previsione come un fatto. */
+      const quoteConsumo = this._wipQuoteConsumo(odp, r);
       await Store.esceDaWip(odp, {
         item_key: r.item_key, article_code: r.article_code, lot_code: r.lot_code,
         qty: r.residuo, qty_uom: r.residuo_uom, uom: r.uom,
+        giro_richieste: quoteConsumo,
       }, scelte, 'consumo');
       await this._logMov(MOV.PICK, r.article_code, '', r.lot_code, vano, null,
-        '', `Consumo di produzione — ordine ${odp}`, odp, r.residuo, -r.residuo, 0,
+        '', `Consumo di produzione — ordine ${odp}`
+          + (quoteConsumo ? ` · ripartito: ${quoteConsumo.map((q: { odp_num: string; qty: number }) => `${q.odp_num} ${formattaQuantita(q.qty, r.uom)}${r.uom ? ' ' + r.uom : ''}`).join(', ')}` : ''),
+        odp, r.residuo, -r.residuo, 0,
         typeof r.residuo_uom === 'number' ? -r.residuo_uom : null);
       return null;
     } catch (e) {

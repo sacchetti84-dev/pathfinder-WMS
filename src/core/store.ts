@@ -65,6 +65,8 @@ import type {
 } from '../modules/regoleBase';
 import { conto as contoWip, colliFuori as colliFuoriWip, archiviato as archiviatoWip,
          ordiniArchiviati as ordiniArchiviatiWip,
+         contoTenutoDa as contoTenutoDaWip, ordiniServiti as ordiniServitiWip,
+         richiesteDiRiga as richiesteDiRigaWip, consumoPerOrdine as consumoPerOrdineWip,
          righeSenzaOrdine as righeSenzaOrdineWip } from '../modules/wip';
 import { registroAttivita as registroAttivitaPuro } from '../modules/compiti';
 import {
@@ -1985,6 +1987,30 @@ const Store = {
       .map(([odp]) => odp);
   },
 
+  /** 2.12 — Chi tiene il conto di quest'ordine, quando non lo tiene lui.
+      `null` quando il conto è suo. Vedi `contoTenutoDa` in `modules/wip.ts`. */
+  contoTenutoDaWip(odpNum: string) {
+    return contoTenutoDaWip(this._cache.wip as any[], odpNum);
+  },
+
+  /** 2.12 — Gli altri ordini che questo conto ha servito. Vuoto quando il
+      giro era di un ordine solo. */
+  ordiniServitiWip(odpNum: string): string[] {
+    return ordiniServitiWip(this._cache.wip as any[], odpNum);
+  },
+
+  /** 2.12 — Quanto ne aveva chiesto ciascun ordine del giro su una riga.
+      Vedi `richiesteDiRiga` in `modules/wip.ts`. */
+  richiesteWipDiRiga(odpNum: string, itemKey: string) {
+    return richiesteDiRigaWip(this._cache.wip as any[], odpNum, itemKey);
+  },
+
+  /** 2.12 — Quanto ha consumato ciascun ordine del giro, riga per riga.
+      Vedi `consumoPerOrdine` in `modules/wip.ts`. */
+  consumoWipPerOrdine(odpNum: string) {
+    return consumoPerOrdineWip(this._cache.wip as any[], odpNum);
+  },
+
   /** Gli ordini archiviati, dal più recente: l'archivio da sfogliare.
       Vedi `ordiniArchiviati` in `modules/wip.ts`. */
   ordiniWipArchiviati(): { odp_num: string; chiuso_il: number | null }[] {
@@ -2007,6 +2033,10 @@ const Store = {
     item_key: string; article_code: string; article_description?: string;
     lot_code: string; expiry_date?: string; qty: number;
     qty_uom?: number | null; uom?: string | null; packs?: number[] | null;
+    /** 2.12 — gli ordini del giro e il percorso che lo ha fatto. Non cambiano
+        niente di quel che succede qui: viaggiano fino al movimento. */
+    giro_odps?: string[] | null; giro_id?: string | null;
+    giro_richieste?: { odp_num: string; qty: number }[] | null;
   }) {
     const dove = this.getAreaWip();
     if (!dove) throw new Error('Area WIP non configurata — si imposta in Configurazione → Funzioni');
@@ -2071,6 +2101,9 @@ const Store = {
     item_key: string; article_code: string; article_description?: string;
     lot_code: string; qty: number; qty_uom?: number | null; uom?: string | null;
     packs?: number[] | null;
+    /** 2.12 — come il consumo si ripartisce fra gli ordini del giro. Viaggia
+        fino al movimento e non entra in nessun saldo. */
+    giro_richieste?: { odp_num: string; qty: number }[] | null;
   }, scelte: Scelta[] | null = null, verso: 'out' | 'consumo' = 'out',
      umResa: number | null = null) {
     const dove = this.getAreaWip();
@@ -2205,6 +2238,17 @@ const Store = {
       /* Le misure dei colli mossi: senza, «rendi tre colli» su un vano che
          ne contiene dodici di sei ordini diversi non ha una risposta. */
       packs: Array.isArray(riga.packs) && riga.packs.length ? riga.packs : null,
+      /* 2.12 — GLI ALTRI ORDINI DEL GIRO. Non entrano in nessun saldo: sono
+         la risposta a «per chi era sceso quel sacco», e si scrivono quando
+         si sanno. `null` su un giro di un ordine solo — un elenco con dentro
+         il solo capofila direbbe che c'è un giro dove non c'è. */
+      giro_odps: Array.isArray(riga.giro_odps) && riga.giro_odps.length > 1 ? riga.giro_odps : null,
+      /* Quanto ne aveva chiesto ciascun ordine: un fatto del file di
+         produzione, non una quota di consumo. La quota si calcola da qui
+         alla chiusura — vedi `quote` in `modules/giroOdp.ts`. */
+      giro_richieste: Array.isArray(riga.giro_richieste) && riga.giro_richieste.length > 1
+        ? riga.giro_richieste : null,
+      giro_id: riga.giro_id ? String(riga.giro_id) : null,
       location_code: dove,
       user: this.getCurrentIdentity().initials,
       ts: Date.now(),

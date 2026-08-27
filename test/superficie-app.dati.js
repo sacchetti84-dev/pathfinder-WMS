@@ -145,6 +145,12 @@ export const SUPERFICIE = [
   '_routeSave', '_routeScan', '_routeScanChiave', '_routeScanValida',
   '_routeSiteOrderHTML', '_routeStage', '_routeStatoTrasf', '_routeTrasfBandaHTML',
   '_routeStart', '_routeStartTime', '_routeSwitchToAlternative', '_routeTailRowHTML',
+  /* 2.12 — il giro: piu' ordini in un percorso solo, la quantita'
+     ricalibrabile, e la sosta (l'ubicazione scansionata una volta sola). */
+  '_routeOrdini', '_routeCapofila', '_routeRicostruisci', '_routeSetCapofila',
+  '_routeTogliOrdine', '_routeQtaOrdine', '_routeOrdineCardHTML', '_routeRichiesteHTML',
+  '_routeSosta', '_routeSostaHTML', '_routeQuoteHTML', '_routeRiscansionaVano',
+  '_giroDellaSessione',
   '_saveCheckpoint', '_saveShipPending', '_saving', '_scanBlock', '_scanFb',
   '_scanKeydownFix', '_scannerLayoutFix', '_scegliColli', '_scheduleAutoBackup',
   '_scheduleResync', '_searchAll', '_searchDebounced',
@@ -238,6 +244,6 @@ export const SUPERFICIE = [
   '_wipRendi', '_wipChiudi', '_areaWipHTML', '_salvaAreaWip',
   /* 2.1 — il consumo dichiarato riga per riga, il rientro di un collo
      aperto e il rendiconto su carta. */
-  '_wipConsumaTutto', '_wipDichiaraConsumata', '_wipScelteConParte',
+  '_wipConsumaTutto', '_wipDichiaraConsumata', '_wipScelteConParte', '_wipQuoteConsumo',
   '_wipStampaRendiconto',
 ];
