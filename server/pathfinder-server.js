@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const os = require('os');
 const http = require('http');
+const crypto = require('crypto');   // 2.11 — il guardiano lo usa prima del PIN
 const https = require('https');
 const { apriDatabase } = require('./lib/db');
 const { NAMES } = require('./lib/schema');
@@ -51,7 +52,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.10';
+const VERSION = '2.11';
 
 /* ── 2.10 · SU QUALE INTERFACCIA SI ASCOLTA ───────────────────────────────
    Fino alla 2.9 `listen` non diceva su quale, e Node in quel caso le prende
@@ -335,6 +336,146 @@ const parseCriteria = (raw) => {
   catch { throw Object.assign(new Error('criterio non leggibile'), { status: 400 }); }
 };
 
+
+/* ══ 2.11 · LA SESSIONE, E PERCHE' IL PIN DA SOLO NON BASTAVA ═════════════
+   Fino alla 2.10 le rotte `/api` non chiedevano credenziali a nessuno: chi
+   raggiungeva la porta leggeva qualunque collezione, ne scriveva qualunque
+   record, e con una `DELETE` svuotava le giacenze. Il PIN non era un
+   controllo d'accesso — era una domanda che il client faceva a se stesso e a
+   cui obbediva da solo. Chi non usava il client non ci passava nemmeno
+   vicino, e la procedura di recupero PIN del §6 dell'INDEX — una `PATCH` su
+   `/api/c/operators` — funzionava per chiunque sulla rete: si leggeva
+   l'elenco, si sceglieva un Team Leader, si scriveva un'impronta nuova, si
+   entrava come lui.
+
+   ADESSO IL PIN EMETTE UNA SESSIONE, e senza sessione non si entra.
+
+   UN COOKIE, NON UN'INTESTAZIONE. Tre ragioni, e la prima da sola decide:
+   `EventSource` — il flusso che avvisa i terminali quando qualcun altro
+   scrive — NON sa mandare intestazioni, e l'unico modo di autenticarlo con
+   un token sarebbe metterlo nell'indirizzo, dove finisce nei log e nella
+   cronologia. Poi: `HttpOnly` tiene il valore fuori dalla portata di
+   JavaScript, quindi un XSS non se lo porta via. Infine non c'e' una riga da
+   cambiare in ogni chiamata del client — il browser lo allega da solo.
+   `SameSite=Strict` chiude il verso opposto: nessuna pagina di terzi puo'
+   far partire una richiesta che se lo porti dietro.
+
+   LE SESSIONI STANNO IN MEMORIA, e non e' pigrizia: e' il modo in cui un
+   token che NON SCADE A TEMPO — deciso da Andrea il 27/08, perche' un
+   operatore buttato fuori a meta' di un prelievo e' peggio del rischio che
+   copre — resta comunque corto. Il servizio si riavvia a ogni aggiornamento
+   e a ogni riaccensione della macchina, e li' tutte le sessioni cadono
+   insieme. Chi smonta preme «Blocca», e la sua se ne va subito.
+
+   LA FINESTRA DI PRIMO AVVIO. Su una macchina appena installata nessun
+   operatore ha un PIN, e senza una via d'ingresso il primo non si potrebbe
+   creare: il servizio allora accetta senza sessione, e lo dice all'avvio a
+   lettere chiare. Appena il primo PIN esiste la finestra si chiude da sola e
+   non si riapre. Si ricalcola SOLO quando qualcuno scrive sugli operatori,
+   non a ogni richiesta: sarebbe una lettura di database per ogni movimento
+   di magazzino.
+
+   QUEL CHE RESTA APERTO, e va detto qui perche' e' qui che si legge: senza
+   TLS il cookie viaggia in chiaro, come ci viaggiava il PIN. Chi ascolta la
+   rete lo prende e lo usa finche' il servizio non si riavvia. La sessione
+   chiude la porta a chi bussa; non protegge da chi ascolta il filo. */
+
+const sessioni = new Map();   // token -> { op_id, initials, creata, ultimoUso }
+
+const NOME_COOKIE = 'pathfinder_sessione';
+
+/* Il token di macchina serve a chi non ha un browser e non ha un PIN: il
+   backup serale, l'installer che verifica, gli script di migrazione. Lo
+   scrive l'installazione fra le variabili di macchina. */
+const TOKEN_MACCHINA = process.env.PATHFINDER_TOKEN || null;
+
+const leggiCookie = (req, nome) => {
+  const grezzo = req.headers.cookie;
+  if (!grezzo) return null;
+  for (const pezzo of grezzo.split(';')) {
+    const i = pezzo.indexOf('=');
+    if (i === -1) continue;
+    if (pezzo.slice(0, i).trim() === nome) return decodeURIComponent(pezzo.slice(i + 1).trim());
+  }
+  return null;
+};
+
+/* `Secure` SOLO quando c'e' davvero TLS: messo su HTTP il browser scarta il
+   cookie in silenzio, e l'applicativo non entrerebbe piu' su nessun
+   terminale — un modo perfetto per non capirci niente. */
+const scriviCookie = (res, token) => {
+  const parti = [`${NOME_COOKIE}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
+  if (TLS_CERT && TLS_KEY) parti.push('Secure');
+  res.set('Set-Cookie', parti.join('; '));
+};
+
+const cancellaCookie = (res) => {
+  res.set('Set-Cookie', `${NOME_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`);
+};
+
+/* `null` = non ancora chiesto. Si azzera quando si scrive sugli operatori:
+   e' l'unico gesto che puo' cambiare la risposta. */
+let _primoAvvio = null;
+
+const finestraDiPrimoAvvio = async () => {
+  if (_primoAvvio !== null) return _primoAvvio;
+  try {
+    const ops = await db.all('operators');
+    _primoAvvio = !ops.some((o) => o.pin_hash && o.pin_salt && o.active !== false);
+  } catch {
+    /* Se il database non risponde non si spalanca la porta: si dice di no, e
+       chi ha un guasto vero lo vede da un'altra parte. */
+    _primoAvvio = false;
+  }
+  return _primoAvvio;
+};
+
+const scordaPrimoAvvio = () => { _primoAvvio = null; };
+
+/* Le due che rispondono senza sessione, e ognuna ha il suo perche':
+   · `health`    — l'installer la interroga per dire se l'installazione e'
+                   riuscita, e succede prima che esista un PIN.
+   · `app-info`  — stessa ragione, ed e' la prima diagnosi di ogni guaio.
+   Sotto `app.use('/api', ...)` il percorso arriva SENZA `/api`. */
+const SENZA_SESSIONE = new Set(['/health', '/app-info']);
+
+const chiSei = (req) => {
+  if (TOKEN_MACCHINA) {
+    const t = req.get('X-Pathfinder-Token');
+    /* Confronto a tempo costante: e' una stringa che vale quanto una
+       password, e costa due righe. */
+    if (t && t.length === TOKEN_MACCHINA.length
+          && crypto.timingSafeEqual(Buffer.from(t), Buffer.from(TOKEN_MACCHINA))) {
+      return { macchina: true, initials: 'SERVIZIO' };
+    }
+  }
+  const token = leggiCookie(req, NOME_COOKIE);
+  if (!token) return null;
+  const s = sessioni.get(token);
+  if (!s) return null;
+  s.ultimoUso = Date.now();
+  return s;
+};
+
+app.use('/api', async (req, res, avanti) => {
+  try {
+    if (SENZA_SESSIONE.has(req.path) || req.path.startsWith('/auth/')) return avanti();
+
+    const chi = chiSei(req);
+    if (chi) { req.operatore = chi; return avanti(); }
+
+    if (await finestraDiPrimoAvvio()) { req.operatore = { primoAvvio: true }; return avanti(); }
+
+    /* 401 e non 403: la differenza non e' formale — il client la legge per
+       decidere se riaprire la maschera dell'identificazione invece di dire
+       che qualcosa non va. */
+    res.status(401).json({ error: 'Sessione non valida: identificarsi.', sessione: false });
+  } catch (err) {
+    console.error('[pathfinder] guardiano:', err.message);
+    res.status(500).json({ error: 'errore interno' });
+  }
+});
+
 app.get('/api/health', wrap(async (req, res) => {
   res.json({ ok: true, service: 'pathfinder', version: VERSION,
              collections: NAMES, ...(await db.stats()) });
@@ -373,6 +514,7 @@ app.get('/api/c/:col', wrap(async (req, res) =>
   res.json(nascondiPin(req.params.col, await db.all(req.params.col)))));
 
 app.post('/api/c/:col/bulk', wrap(async (req, res) => {
+  if (req.params.col === 'operators') scordaPrimoAvvio();
   const mode = req.query.mode === 'put' ? 'bulkPut' : 'bulkAdd';
   const records = req.body;
   if (!Array.isArray(records)) throw Object.assign(new Error('atteso un elenco di record'), { status: 400 });
@@ -380,23 +522,30 @@ app.post('/api/c/:col/bulk', wrap(async (req, res) => {
 }));
 
 app.post('/api/c/:col', wrap(async (req, res) => {
+  /* 2.11 — scrivere un operatore puo' chiudere la finestra di primo avvio:
+     la risposta tenuta da parte si butta, e la prossima richiesta la rifa'. */
+  if (req.params.col === 'operators') scordaPrimoAvvio();
   res.json({ key: await db.add(req.params.col, req.body, originOf(req)) });
 }));
 
 app.put('/api/c/:col/:key', wrap(async (req, res) => {
+  if (req.params.col === 'operators') scordaPrimoAvvio();
   const rec = { ...req.body };
   res.json({ key: await db.put(req.params.col, rec, originOf(req)) });
 }));
 
 app.patch('/api/c/:col/:key', wrap(async (req, res) => {
+  if (req.params.col === 'operators') scordaPrimoAvvio();
   res.json({ changed: await db.update(req.params.col, req.params.key, req.body, originOf(req)) });
 }));
 
 app.delete('/api/c/:col/:key', wrap(async (req, res) => {
+  if (req.params.col === 'operators') scordaPrimoAvvio();
   res.json({ deleted: await db.delete(req.params.col, req.params.key, originOf(req)) });
 }));
 
 app.delete('/api/c/:col', wrap(async (req, res) => {
+  if (req.params.col === 'operators') scordaPrimoAvvio();
   res.json({ deleted: await db.clear(req.params.col, originOf(req)) });
 }));
 
@@ -405,6 +554,7 @@ app.post('/api/deleteWhere/:col', wrap(async (req, res) => {
 }));
 
 app.post('/api/clear', wrap(async (req, res) => {
+  scordaPrimoAvvio();
   const cols = req.body?.collections;
   if (!Array.isArray(cols)) throw Object.assign(new Error('atteso { collections: [...] }'), { status: 400 });
   await db.clearMany(cols, originOf(req));
@@ -412,6 +562,11 @@ app.post('/api/clear', wrap(async (req, res) => {
 }));
 
 app.post('/api/tx', wrap(async (req, res) => {
+  /* 2.11 — una transazione tocca quel che vuole: la risposta tenuta da parte
+     si butta senza guardare. Costa una lettura la prossima volta; tenersela
+     per prudenza vorrebbe dire lasciare aperta una porta che dovrebbe essersi
+     chiusa. */
+  scordaPrimoAvvio();
   const { collections = [], ops = [] } = req.body || {};
   if (!Array.isArray(ops)) throw Object.assign(new Error('atteso { ops: [...] }'), { status: 400 });
   const results = [];
@@ -686,8 +841,6 @@ app.post('/api/op/commitPickStop', wrap(async (req, res) => {
   res.json(out);
 }));
 
-const crypto = require('crypto');
-
 /* ── 2.10 · UN PIN DI SEI CIFRE MERITA UN CONTO LENTO ─────────────────────
    SHA-256 e' fatto per essere veloce, ed e' il difetto: un milione di
    combinazioni — tutte quelle che sei cifre possono fare — cadono in meno di
@@ -753,6 +906,105 @@ const frenoSegna = (chiave, riuscito) => {
   t.fino = Date.now() + ATTESA_MS;
   tentativi.set(chiave, t);
 };
+
+
+/* ══ 2.11 · LA PORTA ══════════════════════════════════════════════════════ */
+
+/* CHI SONO, SE SONO QUALCUNO. E' la prima domanda che il client fa: da qui
+   decide se aprire la maschera dell'identificazione o andare a caricare. */
+app.get('/api/auth/stato', wrap(async (req, res) => {
+  const chi = chiSei(req);
+  res.json({
+    sessione: Boolean(chi),
+    operatore: chi && !chi.macchina ? { op_id: chi.op_id, initials: chi.initials } : null,
+    macchina: Boolean(chi?.macchina),
+    primoAvvio: await finestraDiPrimoAvvio(),
+  });
+}));
+
+/* L'ELENCO PER LA SCHERMATA DI IDENTIFICAZIONE, e nient'altro.
+   Questa risponde SENZA sessione, e allora dice il minimo che serve a
+   disegnare quella schermata: chi c'e', come si chiama, che carica ha, se un
+   PIN ce l'ha. Non passa da `/api/c/operators`, che adesso e' chiusa, e non
+   e' un rimpiazzo: da qui non escono le date, le note, ne' i campi che una
+   riga di operatore porta e che a quella maschera non servono. */
+app.get('/api/auth/operatori', wrap(async (req, res) => {
+  const ops = await db.all('operators');
+  res.json(ops
+    .filter((o) => o.active !== false)
+    .map((o) => ({
+      op_id: o.op_id,
+      initials: o.initials,
+      first_name: o.first_name || '',
+      last_name: o.last_name || '',
+      role: o.role || 'operator',
+      pin_set: Boolean(o.pin_hash && o.pin_salt),
+    })));
+}));
+
+/* IL PIN EMETTE LA SESSIONE. Il freno sui tentativi e' lo stesso di
+   `verifyPin` — cinque e poi un minuto di attesa — e vale per operatore. */
+app.post('/api/auth/login', wrap(async (req, res) => {
+  const { op_id, initials, pin } = req.body || {};
+  if (!pin || (!op_id && !initials))
+    throw Object.assign(new Error('servono il PIN e l\'operatore'), { status: 400 });
+
+  const chiave = String(op_id || initials).toUpperCase();
+  const attesa = frenoControlla(chiave);
+  if (attesa) {
+    return res.status(429).json({ ok: false, blocked: true, retryAfter: attesa,
+      error: `Troppi tentativi: riprovare fra ${attesa} secondi` });
+  }
+
+  let op = null;
+  if (op_id) op = await db.get('operators', op_id);
+  else {
+    const righe = await db.query('operators', { criteria: { field: 'initials', op: 'equals', value: String(initials).toUpperCase() } });
+    op = righe[0] || null;
+  }
+
+  if (!op || !op.pin_hash || !op.pin_salt || op.active === false) {
+    frenoSegna(chiave, false);
+    return res.status(401).json({ ok: false, error: 'Operatore o PIN non validi' });
+  }
+
+  const buono = equal(impronta(String(pin), op.pin_salt, op.pin_algo), op.pin_hash);
+  frenoSegna(chiave, buono);
+  if (!buono) return res.status(401).json({ ok: false, error: 'Operatore o PIN non validi' });
+
+  /* L'impronta vecchia si rifa' qui, come in `verifyPin`: e' l'unico istante
+     in cui il PIN esiste in chiaro dentro il servizio — 2.10. */
+  if (op.pin_algo !== 'scrypt') {
+    try {
+      const sale = crypto.randomBytes(16).toString('hex');
+      await db.update('operators', op.op_id, {
+        pin_salt: sale, pin_hash: hashPinScrypt(String(pin), sale),
+        pin_algo: 'scrypt', updated_at: Date.now(),
+      });
+    } catch (err) {
+      console.error('[pathfinder] impronta del PIN non rinnovata:', err.message);
+    }
+  }
+
+  /* 32 byte di casualita' vera. Non deriva dal PIN, dalla sigla o dall'ora:
+     un token che si puo' indovinare e' una porta che si puo' aprire. */
+  const token = crypto.randomBytes(32).toString('hex');
+  const adesso = Date.now();
+  sessioni.set(token, { op_id: op.op_id, initials: op.initials, creata: adesso, ultimoUso: adesso });
+  scriviCookie(res, token);
+
+  res.json({ ok: true, operatore: senzaPin(op) });
+}));
+
+/* CHI SMONTA CHIUDE LA SUA SESSIONE, e non aspetta il riavvio del servizio.
+   Risponde `ok` anche se non c'era niente da chiudere: «esci» e' un gesto
+   che non puo' fallire. */
+app.post('/api/auth/logout', wrap(async (req, res) => {
+  const token = leggiCookie(req, NOME_COOKIE);
+  if (token) sessioni.delete(token);
+  cancellaCookie(res);
+  res.json({ ok: true });
+}));
 
 app.post('/api/op/verifyPin', wrap(async (req, res) => {
   const { op_id, initials, pin } = req.body || {};
@@ -1105,8 +1357,20 @@ async function annuncia() {
      non chiedono credenziali, e finche' e' cosi' «da chi e' raggiungibile»
      e' l'unica difesa che c'e'. */
   console.log(`  ascolta su  ${HOST || 'tutte le interfacce'}`);
-  if (!HOST && lan.length)
-    console.log('  ATTENZIONE  le rotte /api rispondono a chiunque sulla rete: PATHFINDER_HOST le restringe');
+
+  /* 2.11 — CHI PUO' ENTRARE, detto all'avvio. Dalla 2.11 le rotte `/api`
+     vogliono una sessione, e le due righe che seguono sono l'unico posto in
+     cui si legge se quella regola e' davvero in vigore su questa macchina. */
+  if (await finestraDiPrimoAvvio()) {
+    console.log('  accesso     APERTO — nessun operatore ha un PIN, e il primo va pur creato');
+    console.log('              la finestra si chiude da sola appena il primo PIN esiste');
+  } else {
+    console.log(`  accesso     chiuso: serve una sessione${TOKEN_MACCHINA ? ' (token di macchina impostato)' : ''}`);
+    if (!TOKEN_MACCHINA)
+      console.log('              PATHFINDER_TOKEN non impostata: backup e installer non hanno chiave');
+  }
+  if (schema === 'http')
+    console.log('              senza TLS il cookie di sessione viaggia in chiaro, come il PIN');
   /* Un applicativo che non c'e' NON ferma il servizio: le rotte `/api`
      devono rispondere lo stesso, e i terminali gia' aperti continuano a
      lavorare. E' la stessa scelta del 13/08, quando il file servito fu

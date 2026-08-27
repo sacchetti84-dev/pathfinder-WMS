@@ -81,6 +81,34 @@ const Auth = {
     return this._equal(h, operator.pin_hash);
   },
 
+  /* ── 2.11 · ACCEDERE NON E' VERIFICARE, e la differenza conta ─────────
+     `verifyPin` risponde a «questo PIN e' quello di questa persona?», e la
+     si chiama anche a sessione aperta — per confermare un gesto che chiede
+     il PIN di un Admin, per esempio. Se emettesse una sessione, confermare
+     un reset col PIN dell'Admin scambierebbe l'operatore al lavoro.
+
+     `accedi` invece e' l'ingresso: il servizio verifica e posa il cookie.
+     Da file non c'e' nessun servizio e nessuna porta da attraversare — la
+     verifica avviene qui, come sempre. */
+  async accedi(operatore: Operatore, pin: string): Promise<boolean> {
+    if (!this._remoto()) return await this.verifyPin(operatore, pin);
+    try {
+      const r = await Persistence.accedi!({ op_id: operatore.op_id }, pin);
+      return r?.ok === true;
+    } catch (err) {
+      const e = err as ErroreTentativi;
+      if (e?.status === 429) { e.blocked = true; throw e; }
+      /* 401 vuol dire «PIN sbagliato», ed e' una risposta, non un guasto. */
+      if (e?.status === 401) return false;
+      throw err;
+    }
+  },
+
+  async esci(): Promise<void> {
+    if (!this._remoto()) return;
+    try { await Persistence.esci!(); } catch { /* uscire non puo' fallire */ }
+  },
+
   async buildPinFields(pin: string): Promise<CampiPin> {
     if (this._remoto()) return await Persistence.op!<CampiPin>('hashPin', { pin });
     const salt = this.newSalt();

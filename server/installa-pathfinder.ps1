@@ -677,8 +677,17 @@ if ($aggiornamento) {
     if ($saltoAPostgres -and -not $SenzaMigrazione) {
         Write-Host "   Chiedo al servizio una copia a caldo del database..." -ForegroundColor Yellow
         try {
+            # 2.11 — la chiave di macchina: `/api/backup` vuole una sessione,
+            # e qui non c'e' nessuno che digiti un PIN. Se manca si prova lo
+            # stesso: su una macchina senza operatori il servizio risponde.
+            $chiaveInst = $env:PATHFINDER_TOKEN
+            if (-not $chiaveInst) { $chiaveInst = [Environment]::GetEnvironmentVariable('PATHFINDER_TOKEN', 'Machine') }
+            $testeInst = @{}
+            if ($chiaveInst) { $testeInst['X-Pathfinder-Token'] = $chiaveInst }
+
             $r = Invoke-RestMethod "http://127.0.0.1:$Porta/api/backup" -Method Post `
-                 -ContentType 'application/json' -Body (@{ dir = $CartellaBackup } | ConvertTo-Json) -TimeoutSec 300
+                 -ContentType 'application/json' -Body (@{ dir = $CartellaBackup } | ConvertTo-Json) -TimeoutSec 300 `
+                 -Headers $testeInst
             if (-not $r.ok) { throw "il servizio ha risposto senza conferma" }
             $copiaCalda = $r.file
         } catch {

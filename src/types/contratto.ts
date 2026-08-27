@@ -138,6 +138,23 @@ export interface Persistenza extends Capacita {
   /** Operazione di dominio eseguita dal servizio. Solo se `supportsRemoteOps`. */
   op?<T>(nome: string, payload: unknown): Promise<T>;
 
+  /* ── 2.11 · LA PORTA, e la porta esiste solo dove c'è un servizio ─────
+     Da file il database sta nel browser e non c'è nessuno a cui chiedere il
+     permesso: questi quattro sono facoltativi come `op`, e per la stessa
+     ragione — descrivono qualcosa che solo l'adapter remoto sa fare. */
+
+  /** Chi sono per il servizio, e se la macchina è ancora al primo avvio. */
+  statoSessione?(): Promise<{ sessione: boolean; operatore: { op_id: string; initials: string } | null; primoAvvio: boolean }>;
+
+  /** L'elenco ridotto che disegna la schermata di identificazione. */
+  operatoriPerAccesso?(): Promise<any[]>;
+
+  /** Il PIN in cambio di una sessione. */
+  accedi?(chi: { op_id?: string; initials?: string }, pin: string): Promise<{ ok: boolean; operatore?: any }>;
+
+  /** Chiude la sessione sul servizio, senza aspettarne il riavvio. */
+  esci?(): Promise<void>;
+
   isBackupSupported(): boolean;
 
   /* IL BACKUP LOCALE È UN SERVIZIO DELL'ADAPTER, NON UN OBBLIGO.

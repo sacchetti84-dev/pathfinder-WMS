@@ -37,6 +37,8 @@ export const SUPERFICIE = [
   '_aggiornaRubrica', '_anteprimaColliIn', '_anteprimaUmIn', '_applyMovWindow',
   '_applySessionTimeout', '_arcFrom', '_arcRedraw', '_arcReset', '_arcText', '_arcTo',
   '_arcType', '_archiveRows', '_armSearchOutsideClose', '_artFilter', '_artSort',
+  /* 2.11 — la promessa che l'identificazione scioglie prima del carico. */
+  '_aspettaIdentificazione', '_attesaIdentificazione', '_identificato', '_sessioneRipresa',
   '_autoLookupArticle', '_avvisiArticolo', '_avvisiBanda', '_avvisiRigaStampa',
   '_blockedByReadOnly', '_bloccaCampoColli', '_buildPickReportHTML', '_buildRegistryTable', '_cambioLookup',
   '_cambioSelect', '_cambioSelectEnc', '_campBloccoPulizia', '_campCerca',

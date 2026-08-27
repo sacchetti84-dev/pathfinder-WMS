@@ -163,10 +163,36 @@ const Store = {
   get _artByCode() { return this._indici.artByCode; },  // Map<code → article>
   get _lotByKey()  { return this._indici.lotByKey; },   // Map<articolo#lotto → lotto>
 
-  async init() {
+  /* ── 2.11 · APRIRE E CARICARE SONO DUE GESTI ─────────────────────────
+     Fino alla 2.10 erano uno solo, e andava bene finche' il carico non
+     chiedeva il permesso a nessuno. Adesso `/api/load` vuole una sessione,
+     e la sessione nasce da una maschera che si disegna PRIMA: aprire
+     (sapere chi risponde) deve poter avvenire senza aver caricato niente.
+     `init` resta, ed e' la somma dei due — la usano il modo «da file» e i
+     collaudi, dove non c'e' nessuna porta in mezzo. */
+  async apri() {
     await Persistence.open();
+  },
+
+  async carica() {
     await this._loadCache();
     this._rebuildIndexes();
+  },
+
+  async init() {
+    await this.apri();
+    await this.carica();
+  },
+
+  /* GLI OPERATORI PRIMA DEL CARICO. La schermata di identificazione ha
+     bisogno di sapere chi c'e', e succede prima che ci sia una sessione:
+     l'elenco arriva ridotto — sigla, nome, carica, «ha un PIN» — e si posa
+     nella cache come se fosse quello vero, perche' per quella maschera lo
+     e'. Il carico completo lo sovrascrive un istante dopo. */
+  async caricaOperatoriPerAccesso() {
+    if (Persistence.kind !== 'remote' || !Persistence.operatoriPerAccesso) return;
+    const ops = await Persistence.operatoriPerAccesso();
+    this._cache.operators = ops as Operatore[];
   },
 
   async reloadCache() {

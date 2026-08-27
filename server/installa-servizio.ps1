@@ -259,6 +259,29 @@ Write-Host "  Backup        $CartellaBackup  (ogni sera alle $OraBackup)"
 [Environment]::SetEnvironmentVariable('PATHFINDER_APP',  $Applicativo,  'Machine')
 $env:PATHFINDER_APP  = $Applicativo
 
+# ── 2.11 · LA CHIAVE DI CHI NON HA UN BROWSER ──────────────────────────────
+#
+#  Dalla 2.11 le rotte `/api` vogliono una sessione, e la sessione nasce da un
+#  PIN digitato in una maschera. Il backup serale non ha una maschera, e
+#  l'installer che mette da parte il database prima di aggiornare nemmeno:
+#  passano da qui, con una chiave di macchina.
+#
+#  SI GENERA UNA VOLTA SOLA E NON SI RIGENERA. Cambiarla a ogni aggiornamento
+#  vorrebbe dire che il backup serale smette di funzionare la notte fra
+#  l'aggiornamento e il primo riavvio, e nessuno se ne accorge fino al giorno
+#  che il backup serve. Se c'è già, resta.
+$tokenServizio = [Environment]::GetEnvironmentVariable('PATHFINDER_TOKEN', 'Machine')
+if (-not $tokenServizio) {
+    $byte = New-Object byte[] 32
+    [Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($byte)
+    $tokenServizio = -join ($byte | ForEach-Object { $_.ToString('x2') })
+    [Environment]::SetEnvironmentVariable('PATHFINDER_TOKEN', $tokenServizio, 'Machine')
+    Write-Host "  Chiave        generata per backup e manutenzione" -ForegroundColor Green
+} else {
+    Write-Host "  Chiave        gia' presente, lasciata com'era"
+}
+$env:PATHFINDER_TOKEN = $tokenServizio
+
 # 1.7 — la cartella dell'applicativo. È l'ULTIMA volta che questa variabile
 # viene toccata: da qui in poi la giunzione `corrente` si ripunta, e la
 # variabile resta dov'è. Si imposta anche se la giunzione non esiste ancora —

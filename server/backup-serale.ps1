@@ -49,10 +49,25 @@ if (-not (Test-Path $Cartella)) {
 }
 
 # ── Il backup ───────────────────────────────────────────────────────
+#
+#  2.11 — LA CHIAVE. Dalla 2.11 `/api/backup` vuole una sessione, e una
+#  sessione nasce da un PIN digitato in una maschera: qui non c'è nessuno che
+#  digiti niente alle otto di sera. La chiave di macchina la scrive
+#  `installa-servizio.ps1` una volta sola, e sta fra le variabili di macchina
+#  come `PATHFINDER_PG`. Se manca, la richiesta parte lo stesso: su una
+#  macchina dove nessun operatore ha ancora un PIN il servizio risponde
+#  comunque, ed è meglio un backup che riesce di un backup che si rifiuta di
+#  provarci.
 try {
+    $intestazioni = @{}
+    $chiave = $env:PATHFINDER_TOKEN
+    if (-not $chiave) { $chiave = [Environment]::GetEnvironmentVariable('PATHFINDER_TOKEN', 'Machine') }
+    if ($chiave) { $intestazioni['X-Pathfinder-Token'] = $chiave }
+
     $corpo = @{ dir = $Cartella } | ConvertTo-Json
     $esito = Invoke-RestMethod -Uri "http://127.0.0.1:$Porta/api/backup" `
-        -Method Post -Body $corpo -ContentType 'application/json' -TimeoutSec 300
+        -Method Post -Body $corpo -ContentType 'application/json' -TimeoutSec 300 `
+        -Headers $intestazioni
 
     if (-not $esito.ok) { throw "il servizio ha risposto senza conferma" }
 

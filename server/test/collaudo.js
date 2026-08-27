@@ -96,6 +96,15 @@ if (SU_PG) {
   process.env.PATHFINDER_PG = '';
 }
 
+/* 2.11 — LA CHIAVE DI QUESTE PROVE, e si imposta PRIMA del `require`: il
+   servizio legge `PATHFINDER_TOKEN` una volta sola, all'avvio del processo,
+   e qui il processo e' questo. Dalla 2.11 le rotte `/api` vogliono una
+   sessione, e un collaudo non ha un browser dove posare un cookie: entra
+   dalla porta di servizio, quella che il backup serale e l'installer usano
+   sulla macchina vera. */
+const TOKEN = 'collaudo-' + crypto.randomBytes(16).toString('hex');
+process.env.PATHFINDER_TOKEN = TOKEN;
+
 /* 2.6 — `db` e' un getter: il servizio lo apre dentro `pronto`, e prima di
    quel momento vale `null`. Destrutturarlo qui darebbe null per sempre. */
 const servizio = require('../pathfinder-server.js');
@@ -109,10 +118,12 @@ const ok = (nome, cond, nota = '') => {
   else { fallite++; console.log(`  FALLISCE ${nome}${nota ? ' — ' + nota : ''}`); }
 };
 
-const call = async (metodo, url, corpo, cliente = 'T1') => {
+const call = async (metodo, url, corpo, cliente = 'T1', { senzaChiave = false } = {}) => {
+  const intestazioni = { 'Content-Type': 'application/json', 'X-Pathfinder-Client': cliente };
+  if (!senzaChiave) intestazioni['X-Pathfinder-Token'] = TOKEN;
   const r = await fetch(BASE + url, {
     method: metodo,
-    headers: { 'Content-Type': 'application/json', 'X-Pathfinder-Client': cliente },
+    headers: intestazioni,
     body: corpo === undefined ? undefined : JSON.stringify(corpo)
   });
   const testo = await r.text();
@@ -988,6 +999,84 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   });
   ok('un codice con dentro un apice viene rifiutato, non maiuscolato',
      codiceOstile.stato === 400, `stato ${codiceOstile.stato}`);
+
+
+  // ── 2.11 · La porta ───────────────────────────────────────────────
+  /* A questo punto del collaudo un operatore con PIN esiste gia' — la
+     finestra di primo avvio si e' chiusa da sola quando e' stato scritto.
+     Da qui in poi si prova quel che vede chi arriva senza chiave. */
+
+  const statoPorta = await call('GET', '/api/auth/stato', undefined, 'T1', { senzaChiave: true });
+  ok('la finestra di primo avvio si e chiusa da sola col primo PIN',
+     statoPorta.dati.primoAvvio === false, 'primoAvvio=' + statoPorta.dati.primoAvvio);
+
+  const chiuse = [
+    ['GET', '/api/load'], ['GET', '/api/c/inventory'], ['GET', '/api/c/operators'],
+    ['POST', '/api/c/articles'], ['DELETE', '/api/c/inventory'], ['POST', '/api/clear'],
+    ['POST', '/api/tx'], ['POST', '/api/backup'], ['POST', '/api/op/removeItem'],
+  ];
+  let apertaRimasta = '';
+  for (const [m, u] of chiuse) {
+    const r = await call(m, u, m === 'GET' ? undefined : {}, 'T1', { senzaChiave: true });
+    if (r.stato !== 401) apertaRimasta += ` ${m} ${u}=${r.stato}`;
+  }
+  ok('le nove rotte che contano rispondono 401 senza sessione',
+     apertaRimasta === '', apertaRimasta || 'tutte 401');
+
+  const salutePubblica = await call('GET', '/api/health', undefined, 'T1', { senzaChiave: true });
+  ok('health resta aperta: la interroga l installer prima che esista un PIN',
+     salutePubblica.stato === 200);
+  const infoPubblica = await call('GET', '/api/app-info', undefined, 'T1', { senzaChiave: true });
+  ok('e app-info pure, che e la prima diagnosi di ogni guaio', infoPubblica.stato === 200);
+
+  /* L'ELENCO PER IDENTIFICARSI risponde senza chiave — deve, o nessuno
+     potrebbe disegnare la maschera — e allora dice il minimo. */
+  const perAccesso = await call('GET', '/api/auth/operatori', undefined, 'T1', { senzaChiave: true });
+  const sicuro = (perAccesso.dati || []).find((o) => o.op_id === 'OP-SIC-1');
+  ok('l elenco per identificarsi risponde senza sessione',
+     perAccesso.stato === 200 && !!sicuro);
+  ok('e non porta l impronta, ne i campi che a quella maschera non servono',
+     sicuro && sicuro.pin_set === true && sicuro.pin_hash === undefined
+       && sicuro.pin_salt === undefined && sicuro.created_at === undefined,
+     sicuro ? Object.keys(sicuro).join(',') : '(non trovato)');
+
+  /* IL PIN EMETTE LA SESSIONE. Il cookie si legge dalla risposta e si
+     rimanda a mano: qui non c'e' un browser che lo faccia da solo. */
+  const rifiutato = await fetch(BASE + '/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initials: 'SIC1', pin: '000000' }),
+  });
+  ok('il PIN sbagliato non apre e non posa cookie',
+     rifiutato.status === 401 && !rifiutato.headers.get('set-cookie'),
+     'stato ' + rifiutato.status);
+
+  const entrata = await fetch(BASE + '/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initials: 'SIC1', pin: '482913' }),
+  });
+  const cookieSessione = (entrata.headers.get('set-cookie') || '').split(';')[0];
+  ok('il PIN giusto apre', entrata.status === 200);
+  ok('e il cookie e HttpOnly e SameSite=Strict',
+     /HttpOnly/i.test(entrata.headers.get('set-cookie') || '')
+       && /SameSite=Strict/i.test(entrata.headers.get('set-cookie') || ''));
+
+  const conCookie = await fetch(BASE + '/api/load', { headers: { Cookie: cookieSessione } });
+  ok('col cookie si carica', conCookie.status === 200, 'stato ' + conCookie.status);
+
+  const uscita = await fetch(BASE + '/api/auth/logout', {
+    method: 'POST', headers: { 'Content-Type': 'application/json', Cookie: cookieSessione },
+  });
+  ok('il logout risponde ok', uscita.status === 200);
+  const dopoUscita = await fetch(BASE + '/api/load', { headers: { Cookie: cookieSessione } });
+  ok('e il cookie di prima non vale piu', dopoUscita.status === 401, 'stato ' + dopoUscita.status);
+
+  /* IL TOKEN DI MACCHINA e' l'altra chiave, quella di chi non ha un browser:
+     il backup serale, l'installer che verifica, la migrazione. */
+  const tokenStorto = await fetch(BASE + '/api/load', {
+    headers: { 'X-Pathfinder-Token': 'x'.repeat(TOKEN.length) },
+  });
+  ok('un token di macchina sbagliato non apre', tokenStorto.status === 401,
+     'stato ' + tokenStorto.status);
 
   // ── Chiusura ──────────────────────────────────────────────────────
   console.log(`\n  ${passate} passate, ${fallite} fallite\n`);

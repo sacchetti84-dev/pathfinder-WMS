@@ -26,6 +26,12 @@ const RemotePersistence = {
   _tx: null as { collections: Collezione[], ops: ScritturaInAttesa[] } | null,  // buffer delle scritture dentro una transazione
   _online: true,
   _onOffline: null as ((err: unknown) => void) | null,   // callback verso App: il servizio non risponde
+  /* 2.11 — il servizio ha detto «non so chi sei». Non e' un guasto e non e'
+     un rifiuto di merito: e' la sessione che non c'e' piu' — il servizio e'
+     stato riavviato, o qualcuno ha premuto «Blocca» su un'altra scheda. Chi
+     ascolta riapre l'identificazione invece di mostrare un errore che
+     l'operatore non puo' risolvere. */
+  _onSenzaSessione: null as (() => void) | null,
   _onChange: null as ((ev: unknown) => void) | null,     // callback verso App: qualcun altro ha scritto
   _es: null as EventSource | null,                       // il flusso di eventi aperto
 
@@ -43,6 +49,11 @@ const RemotePersistence = {
       res = await fetch(this.base + path, {
         method,
         headers: { 'Content-Type': 'application/json', 'X-Pathfinder-Client': this.clientId },
+        /* 2.11 — IL COOKIE DI SESSIONE VIAGGIA QUI DENTRO, e questa riga lo
+           dice invece di lasciarlo al valore predefinito: su stessa origine
+           `same-origin` e' gia' il comportamento del browser, ma chi legge
+           deve sapere che c'e' una credenziale in ballo. */
+        credentials: 'same-origin',
         body: body === undefined ? undefined : JSON.stringify(body)
       });
     } catch (err) {
@@ -52,6 +63,10 @@ const RemotePersistence = {
     if (!this._online) this._goOnline();
 
     if (res.status === 404 && raw) return null;
+    /* 2.11 — la sessione non c'e' piu'. Si avvisa PRIMA di alzare, cosi' chi
+       ascolta riapre la maschera; l'errore sale lo stesso, perche' la
+       chiamata non ha fatto quel che doveva e chi l'aspettava deve saperlo. */
+    if (res.status === 401) this._onSenzaSessione?.();
     if (!res.ok) {
       let msg = `Errore ${res.status}`;
       try { const j = await res.json(); if (j?.error) msg = j.error; } catch {}
@@ -84,6 +99,28 @@ const RemotePersistence = {
     this.dbFile = salute.file;
     this._subscribe();
     return true;
+  },
+
+  /* ── 2.11 · La porta ─────────────────────────────────────────────────
+     Queste tre non passano dal guardiano — sono il modo di attraversarlo. */
+
+  /** Chi sono per il servizio, e se questa macchina e' ancora al primo avvio. */
+  async statoSessione(): Promise<{ sessione: boolean; operatore: { op_id: string; initials: string } | null; primoAvvio: boolean }> {
+    return await this._call('GET', '/api/auth/stato');
+  },
+
+  /** L'elenco minimo per disegnare la schermata di identificazione. */
+  async operatoriPerAccesso(): Promise<any[]> {
+    return await this._call('GET', '/api/auth/operatori');
+  },
+
+  /** Il PIN in cambio di una sessione. Il cookie lo posa il servizio. */
+  async accedi(chi: { op_id?: string; initials?: string }, pin: string): Promise<{ ok: boolean; operatore?: any }> {
+    return await this._call('POST', '/api/auth/login', { ...chi, pin });
+  },
+
+  async esci(): Promise<void> {
+    await this._call('POST', '/api/auth/logout', {});
   },
 
   async loadAll({ movLogFrom = null }: { movLogFrom?: Istante | null } = {}) {

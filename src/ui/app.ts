@@ -227,6 +227,23 @@ const App = monolite({
 
     remoto._onChange = (ev) => this._scheduleResync(ev as AvvisoCambio);
 
+    /* 2.11 — LA SESSIONE E' CADUTA MENTRE SI LAVORAVA. Succede per due
+       ragioni, e tutte e due sono normali: il servizio e' stato riavviato —
+       un aggiornamento, una riaccensione della macchina — oppure qualcuno ha
+       premuto «Blocca» su un'altra scheda di questo stesso terminale.
+
+       Non e' un guasto e non e' un errore che l'operatore possa risolvere
+       leggendolo: si riapre la maschera dell'identificazione, che e' l'unica
+       cosa che serve. `_gateOpen` fa da guardia — venti chiamate che
+       tornano 401 insieme non devono disegnare venti maschere. */
+    remoto._onSenzaSessione = () => {
+      if (this._gateOpen) return;
+      this.currentOperator = null;
+      this.currentOperatorRecord = null;
+      this._renderOperatorBadge();
+      this._openIdentityGate({ initial: true, reason: 'La sessione è scaduta: identificati di nuovo.' });
+    };
+
     this._svcBeat = setInterval(async () => {
       try { await remoto._call('GET', '/api/health'); } catch {}
     }, 20000);
@@ -313,9 +330,65 @@ const App = monolite({
     }
   },
 
+  /* ── 2.11 · L'ORDINE DELL'AVVIO SI E' ROVESCIATO ──────────────────────
+     Fino alla 2.10 l'applicativo caricava TUTTO e poi chiedeva chi fossi:
+     l'identificazione era l'ultima riga di `init`, e serviva a scrivere una
+     sigla sui movimenti — non ad aprire una porta, perche' la porta non
+     c'era. Dalla 2.11 `/api/load` vuole una sessione, e allora l'ordine
+     giusto e' l'unico possibile: si apre il collegamento, si chiede al
+     servizio chi siamo, e se non siamo nessuno **si aspetta davanti alla
+     maschera** prima di caricare una riga.
+
+     `_attesaIdentificazione` e' la promessa che quella maschera scioglie.
+     Non e' un giro di parole per far sembrare sincrono cio' che non lo e':
+     `_openIdentityGate` disegna e ritorna, e senza qualcosa che aspetti il
+     carico partirebbe un istante dopo, contro un servizio che risponde 401. */
+  _attesaIdentificazione: null as { promessa: Promise<void>; sciogli: () => void } | null,
+
+  /* L'operatore che il servizio dice essere gia' dentro: si riprende dopo il
+     carico, quando la sua scheda intera e' finalmente in cache. */
+  _sessioneRipresa: null as string | null,
+
+  _aspettaIdentificazione(): Promise<void> {
+    if (!this._attesaIdentificazione) {
+      let sciogli: () => void = () => {};
+      const promessa = new Promise<void>((ok) => { sciogli = ok; });
+      this._attesaIdentificazione = { promessa, sciogli };
+    }
+    return this._attesaIdentificazione.promessa;
+  },
+
+  _identificato() {
+    this._attesaIdentificazione?.sciogli();
+    this._attesaIdentificazione = null;
+  },
+
   async init() {
     try {
-      await Store.init();
+      await Store.apri();
+
+      /* CHI SIAMO, PRIMA DI CHIEDERE COSA C'E'. Solo col servizio: da file
+         non esiste una porta, e `statoSessione` non c'e' nemmeno. */
+      if (Persistence.kind === 'remote' && Persistence.statoSessione) {
+        const stato = await Persistence.statoSessione();
+        /* CHI RICARICA LA PAGINA NON RIDIGITA IL PIN. `currentOperator` vive
+           in memoria e un ricaricamento se lo porta via, ma la sessione sul
+           servizio no: e' li' che sta scritto chi siamo. Chiedere di nuovo
+           il PIN mentre il servizio risponde «sei PROV» sarebbe un attrito
+           inventato — e peggio, due versioni della stessa verita'. */
+        if (stato.sessione && stato.operatore) this._sessioneRipresa = stato.operatore.op_id;
+        if (!stato.sessione && !stato.primoAvvio) {
+          /* Gli operatori arrivano ridotti: bastano a disegnare la maschera,
+             e sono tutto quel che il servizio da' a chi non e' ancora
+             nessuno. */
+          await Store.caricaOperatoriPerAccesso();
+          nodo('bootScreen').style.display = 'none';
+          await this._openIdentityGate({ initial: true });
+          await this._aspettaIdentificazione();
+        }
+      }
+
+      await Store.carica();
     } catch (err) {
       nodo('bootScreen').innerHTML =
         `<div class="text-center p-20 text-sx-danger"><h2>Errore inizializzazione DB</h2><p class="mt-10">${this._esc((err as Error).message)}</p><p class="mt-10 text-body-small text-[#666]">Verifica che il browser supporti IndexedDB e abbia spazio sufficiente.</p></div>`;
@@ -386,7 +459,21 @@ const App = monolite({
 
     await this._migrateLegacyOperators();
     Session.init(() => this._onSessionExpired());
-    await this._openIdentityGate({ initial: true });
+    /* 2.11 — LA SESSIONE CHE C'ERA GIA' si riprende qui, e non prima: prima
+       del carico in cache c'e' solo l'elenco ridotto, e quel che serve e' la
+       scheda intera — nome, cognome, carica — perche' e' quella che va nel
+       badge e nel registro. */
+    if (this._sessioneRipresa && !this.currentOperator) {
+      const rec = Store.getOperator(this._sessioneRipresa);
+      if (rec) this._activateOperator(rec);
+      this._sessioneRipresa = null;
+    }
+
+    /* Col servizio l'identificazione e' gia' avvenuta prima del carico, e
+       riaprirla qui vorrebbe dire chiederla due volte. Resta per il modo
+       «da file», dove non c'e' nessuna porta e la maschera serve solo a
+       sapere chi scrive sui movimenti. */
+    if (!this.currentOperator) await this._openIdentityGate({ initial: true });
     setTimeout(() => this._checkPendingPickSession(), 400);
   },
 
@@ -563,8 +650,13 @@ const App = monolite({
     try {
       const fields = await Auth.buildPinFields(pin);
       const rec = await Store.addOperator({ first_name: first, last_name: last, initials: init, role: 'admin', ...fields });
+      /* 2.11 — e' il PIN che chiude la finestra di primo avvio: da questo
+         istante il servizio chiede una sessione, e chi ha appena creato
+         l'Admin deve averla. */
+      await Auth.accedi(rec, pin);
       this._activateOperator(rec);
       this._closeIdentityGate();
+      this._identificato();
       this.toast(`🛡 Admin ${rec.initials} creato — sei collegato`, 'success');
       if (this.currentView === 'config') this.renderConfig();
     } catch (e) {
@@ -631,7 +723,10 @@ const App = monolite({
 
     const pin = campo('loginPin')?.value || '';
     if (!/^\d{6}$/.test(pin)) return err('Digita il PIN a 6 cifre.');
-    if (!await Auth.verifyPin(op, pin)) {
+    /* 2.11 — `accedi`, non `verifyPin`: questo e' l'ingresso, e deve
+       lasciare una sessione dietro di se'. `verifyPin` resta per i gesti che
+       chiedono un PIN a sessione gia' aperta. */
+    if (!await Auth.accedi(op, pin)) {
       this._loginFails++;
       err('Nominativo o PIN non corretti.');   // messaggio generico: non si dice quale dei due
       const input = campo('loginPin');
@@ -646,6 +741,7 @@ const App = monolite({
     }
     this._loginFails = 0;
     this._afterLogin(op);
+    this._identificato();
   },
 
   /* Completamento della scheda importata dallo storico + primo PIN. */
@@ -687,7 +783,12 @@ const App = monolite({
     try {
       const fields = await Auth.buildPinFields(pin);
       const rec = await Store.updateOperator(opId, { first_name: first, last_name: last, ...fields });
+      /* 2.11 — SCRIVERE UN PIN PUO' CHIUDERE LA FINESTRA DI PRIMO AVVIO, e
+         chi l'ha appena scritto si troverebbe fuori dalla porta che ha
+         appena serrato: si entra subito, col PIN che si ha in mano. */
+      await Auth.accedi(rec, pin);
       this._afterLogin(rec);
+      this._identificato();
     } catch (e) {
       err((e as Error).message || 'Salvataggio non riuscito.');
     }
@@ -724,6 +825,10 @@ const App = monolite({
      Prima si salva — chi smonta non deve preoccuparsi di premere altro. */
   async logoutOperator() {
     await this._saveCheckpoint().catch(() => {});
+    /* 2.11 — «Blocca» chiude la sessione anche sul servizio: senza, il
+       terminale resterebbe una porta aperta finche' qualcuno non riavvia il
+       servizio, che e' l'unica altra cosa che le chiude. */
+    await Auth.esci();
     this.currentOperator = null;
     this.currentOperatorRecord = null;
     this._renderOperatorBadge();
