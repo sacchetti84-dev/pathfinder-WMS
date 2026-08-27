@@ -39,7 +39,7 @@ resta UNO**.
 | dove | `consegna\Pathfinder 2.12\`, e il codice nel ramo `main` |
 | pacchetto | app 4 file, **1,78 MB** — 475 kB sul filo, compressi · servizio, 12 voci |
 | impronta | `1c43313dbea398098fabe38f8d16ccbb8670547f35657017ebcab2d5a69af2d0` |
-| collaudi | **1.218 client** in 41 file · **127 servizio** |
+| collaudi | **1.221 client** in 42 file · **127 servizio** |
 | tipi | `npm run check` a 0 su client e servizio |
 | provata | **NON in corsia, e NON con un ODP vero** — vedi «quel che la 2.12 non ha provato» |
 
@@ -159,7 +159,7 @@ finito nel prodotto ci sono il reso e i colli interi.
 sessione si e' fermato al PIN — la 2.11 ha chiuso le rotte, e senza sessione
 non si entra. Quel che e' stato provato davvero:
 
-- **1.218 collaudi** in 41 file, `npm run check` pulito su client e servizio,
+- **1.221 collaudi** in 42 file, `npm run check` pulito su client e servizio,
   **127** sul servizio. `giroOdp` porta **38 prove** sue: la ricalibrazione
   che non compone i fattori, i cinque ODP che diventano una riga da 25, la
   riga senza lotto che non si fonde, le quote la cui somma fa **esattamente**
@@ -2628,7 +2628,7 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **68** | **IL GIRO DEI CINQUE ODP NON E' MAI GIRATO PER INTERO.** La 2.12 e' costruita e collaudata sui moduli puri — 1.218 prove — e provata in browser chiamando i metodi di `App` a mano, ma **nessun file `.xlsx` vero le e' passato dentro**: il banco di quella sessione si e' fermato al PIN. Non e' stata vista scrivere `giro_odps` su un movimento, ne' chiudere un conto ripartendo il consumo | **Va fatto girare al banco, su una copia del database, prima di installare.** Cinque ODP veri della stessa serie, tre cose da guardare: che le righe dello stesso lotto diventino **una** tappa; che l'ubicazione si chieda **una volta** per vano e che riscansionarla resti possibile; che alla chiusura la somma delle quote faccia esattamente il consumo dichiarato. E' la voce 51 vista una versione dopo |
+| **68** | **IL GIRO DEI CINQUE ODP NON E' MAI GIRATO PER INTERO.** La 2.12 e' costruita e collaudata sui moduli puri — 1.221 prove — e provata in browser chiamando i metodi di `App` a mano, ma **nessun file `.xlsx` vero le e' passato dentro**: il banco di quella sessione si e' fermato al PIN. Non e' stata vista scrivere `giro_odps` su un movimento, ne' chiudere un conto ripartendo il consumo | **Va fatto girare al banco, su una copia del database, prima di installare.** Cinque ODP veri della stessa serie, tre cose da guardare: che le righe dello stesso lotto diventino **una** tappa; che l'ubicazione si chieda **una volta** per vano e che riscansionarla resti possibile; che alla chiusura la somma delle quote faccia esattamente il consumo dichiarato. E' la voce 51 vista una versione dopo |
 | **67** | **LA QUOTA DI CONSUMO NON SI CORREGGE A MANO.** Alla chiusura di un giro la ripartizione fra gli ordini si scrive **proporzionale a quanto ciascuno aveva chiesto**, e l'operatore la vede sul rendiconto. Se la produzione ha consumato in proporzione diversa — ed e' il caso normale, non l'eccezione — oggi non c'e' dove dirlo | **La proporzione e' una proposta, non un fatto misurato**, e va scritto anche sul foglio. Serve una maschera che, riga per riga, lasci spostare quantita' da un ordine all'altro con il vincolo che la somma resti quella del consumo. Il dato per farlo c'e' gia': `giro_richieste` sul movimento di consumo |
 | **66** | **I PERMESSI PER RUOLO STANNO ANCORA NEL CLIENT.** La 2.11 ha chiuso l'accesso — senza sessione non si entra — ma è ancora il client a decidere se aprire la Configurazione o il reset dei dati: `comandaLaConfigurazione` gira nel browser. Chi si identifica come operatore semplice e poi chiama a mano la rotta del reset **non trova nessuno che glielo impedisca**. È la metà che la 2.11 ha lasciato indietro di proposito, per non raddoppiare la superficie da provare tutta in una volta | **Il token porta già il ruolo** — la sessione sa chi sei, e la sua scheda ce l'ha. Serve dichiarare quali rotte sono di comando (reset, `clearMany`, `deleteWhere`, la scrittura sugli operatori) e verificarlo sul servizio. Il lavoro è nelle rotte, non nel modello: quello c'è già |
 | **65** | **`xlsx` 0.18.5 PORTA DUE VULNERABILITÀ NOTE** — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — **e non c'è un fix su npm**: SheetJS pubblica le versioni corrette solo dal proprio sito. Il vettore è il file Excel che un operatore carica: ODP e anagrafica. Le dipendenze del servizio sono a **0 vulnerabilità** | La regola «`dexie` e `xlsx` non si aggiornano» esiste perché l'applicativo è collaudato con quelle versioni, ed è difendibile. **Va però ridecisa sapendo questo**, non per inerzia: o si passa alla versione di SheetJS e si riprova tutto quello che tocca Excel, o si scrive qui che si accetta il rischio e perché |
@@ -3296,6 +3296,39 @@ sola e precompilata. Su questo applicativo si verifica **leggendo lo stato**
 a occhio: ogni bottone qui dentro scrive nel magazzino di qualcuno.
 
 ### Consegna e ambiente
+
+**IL NUMERO DI VERSIONE STA IN TRE FILE, E LA 2.12 NE HA SPOSTATI DUE.**
+`package.json`, `const VERSIONE` in `vite.config.js`, `const VERSION` in
+`server/pathfinder-server.js`. Il terzo e' rimasto a `2.11`, e
+l'installazione della 2.12 e' fallita alla verifica finale: «l'applicativo e'
+2.12, il servizio dice un altro numero». **Il controllo ha funzionato** — e'
+esattamente il caso per cui esiste — ma il messaggio parla di riavvii, perche'
+quella e' la causa che si e' vista fin qui: il processo vecchio ancora in
+piedi. La causa vera era un `const` non toccato, e per scoprirla ci sono
+volute un'installazione intera e il servizio giu' i secondi del riavvio.
+
+**Adesso lo dice `npm test`:** `test/versioni.test.js` legge i tre sorgenti e
+confronta `<maggiore>.<minore>` — `package.json` ne porta tre (`2.12.0`), gli
+altri due, perche' una build definitiva si chiama cosi'. Non si fanno
+discendere da una sorgente unica apposta: sarebbe il servizio che importa la
+configurazione della build, e il servizio non deve sapere che una build
+esiste.
+
+**E il pacchetto va RICOSTRUITO dopo aver toccato quel numero.** L'impronta
+dell'applicativo non cambia — copre `index.html` e `assets/`, non il servizio
+— ma il pacchetto sul disco continua a portare il servizio vecchio finche'
+non si rifa' `npm run build`. Reinstallare senza ricostruire ripete lo stesso
+fallimento con lo stesso messaggio.
+
+**`consegna/` si lascia libera prima di ricostruire.** La build azzera quella
+cartella, e un `EPERM, Permission denied` su
+`consegna\Pathfinder <numero>` vuol dire che qualcuno la tiene: quasi sempre
+la finestra dell'installer rimasta aperta su «Premere un tasto per chiudere»,
+che ha quella cartella come directory di lavoro. Si chiude la finestra, non si
+forza la cancellazione: quella cartella e' anche un segnaposto OneDrive
+(reparse tag `0x9000e01a`), e insistere a mano e' il modo di litigare con la
+sincronizzazione.
+
 
 **`node_modules` che ESISTE non vuol dire che sia quello giusto — 2.7.**
 L'installer reinstallava le dipendenze solo quando la cartella mancava del
@@ -4383,7 +4416,7 @@ con dentro una `DELETE`, un `anyOf` da ottantamila valori). Senza
 `PATHFINDER_PG` le trentuno di PostgreSQL si dichiarano **saltate col motivo
 scritto**, invece di tacere) — **1.108 prove in 38 file.** `ambiente.js` è
 il preambolo comune. **Alla 2.9 sono 1.176 in 40 file. Alla 2.12
-sono 1.218 in 41 file**, e il file nuovo è `giroOdp` (38): la ricalibrazione
+sono 1.221 in 42 file**, e il file nuovo è `giroOdp` (38): la ricalibrazione
 che non compone i fattori, i cinque ODP che diventano una riga da 25, la riga
 senza lotto che non si fonde, le quote la cui somma fa **esattamente** quello
 che è uscito, e il conto che dice dove sta quando non è suo.
