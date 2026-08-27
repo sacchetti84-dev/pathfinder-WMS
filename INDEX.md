@@ -23,6 +23,143 @@ scrivono come fatti avvenuti, non come promesse.
 
 ---
 
+## LA 2.11 CHIUDE LA PORTA, ED E' LA VOCE 64
+
+**27/08/2026, sera.** Era il difetto piu' grosso che questo applicativo
+avesse: le rotte `/api` non chiedevano credenziali a nessuno. Chi raggiungeva
+la porta leggeva qualunque collezione, ne scriveva qualunque record, e con una
+`DELETE` svuotava le giacenze. **Il PIN non era un controllo d'accesso** — era
+una domanda che il client faceva a se stesso e a cui obbediva da solo, e chi
+non usava il client non ci passava nemmeno vicino.
+
+| | |
+|---|---|
+| dove | `consegna\Pathfinder 2.11\`, e il codice nel ramo `main` |
+| pacchetto | app 4 file, **1,76 MB** — 470 kB sul filo, compressi · servizio, 12 voci |
+| impronta | `4a8b5a6ce031f4dff7612b4b20e75cefc1796b36687b323ff496bd7a63c54a14` |
+| collaudi | **1.180 client** in 40 file · **127 servizio** · **8 migrazione** · **31 installazione** |
+| tipi | `npm run check` a 0 su client e servizio |
+| provata | al banco, in browser: il giro intero dell'identificazione, cinque casi |
+
+### L'ORDINE DELL'AVVIO SI E' ROVESCIATO, ed e' il cuore di questa versione
+
+Fino alla 2.10 l'applicativo **caricava tutto e poi chiedeva chi fossi**:
+l'identificazione era l'ultima riga di `init`, e serviva a scrivere una sigla
+sui movimenti — non ad aprire una porta, perche' la porta non c'era. Adesso
+`/api/load` vuole una sessione, e l'ordine giusto e' l'unico possibile: si
+apre il collegamento, si chiede al servizio chi siamo, e **se non siamo
+nessuno si aspetta davanti alla maschera** prima di caricare una riga.
+
+Misurato al banco, prima del PIN: in cache **3 operatori e nient'altro** —
+zero articoli, zero giacenze, zero movimenti. Dopo il PIN: 11.197 articoli,
+886 giacenze, 321 movimenti, 4 siti.
+
+`_aspettaIdentificazione` e' la promessa che quella maschera scioglie, e non e'
+un giro di parole per far sembrare sincrono cio' che non lo e': la maschera
+disegna e ritorna, e senza qualcosa che aspetti il carico partirebbe un
+istante dopo, contro un servizio che risponde 401.
+
+### Un cookie, e non un'intestazione
+
+Tre ragioni, e **la prima da sola decide**: `EventSource` — il flusso che
+avvisa i terminali quando qualcun altro scrive — non sa mandare intestazioni,
+e l'unico modo di autenticarlo con un token sarebbe metterlo nell'indirizzo,
+dove finisce nei log e nella cronologia. Poi `HttpOnly` tiene il valore fuori
+dalla portata di JavaScript, quindi un XSS non se lo porta via — **verificato
+al banco: `document.cookie` risponde vuoto**. Infine non c'e' una riga da
+cambiare in ogni chiamata: il browser lo allega da solo. `SameSite=Strict`
+chiude il verso opposto.
+
+**`Secure` solo quando c'e' davvero TLS.** Messo su HTTP il browser scarta il
+cookie in silenzio, e l'applicativo non entrerebbe piu' su nessun terminale:
+un modo perfetto per non capirci niente.
+
+### Il token non scade a tempo — deciso da Andrea, e come si tiene corto
+
+La scelta e' del 27/08 ed e' motivata: un operatore buttato fuori a meta' di un
+prelievo e' peggio del rischio che una scadenza copre. Tre cose lo tengono
+corto lo stesso:
+
+1. **Le sessioni stanno in memoria del servizio.** Il servizio si riavvia a
+   ogni aggiornamento e a ogni riaccensione della macchina, e li' cadono tutte
+   insieme.
+2. **«Blocca» chiude la sessione anche sul servizio**, e non aspetta niente.
+3. Il cookie muore con la scheda del browser.
+
+### La finestra di primo avvio, e come si richiude
+
+Su una macchina appena installata nessun operatore ha un PIN, e senza una via
+d'ingresso **il primo non si potrebbe creare**: il servizio allora accetta
+senza sessione, e lo dice all'avvio a lettere chiare — `accesso APERTO`.
+Appena il primo PIN esiste la finestra si chiude da sola e non si riapre.
+
+Si ricalcola **solo quando qualcuno scrive sugli operatori**, non a ogni
+richiesta: sarebbe una lettura di database per ogni movimento di magazzino.
+E chi scrive il primo PIN **entra subito col PIN che ha in mano** — senza,
+si troverebbe fuori dalla porta che ha appena serrato.
+
+### Chi ricarica la pagina non ridigita il PIN
+
+`currentOperator` vive in memoria e un ricaricamento se lo porta via, ma la
+sessione sul servizio no: e' li' che sta scritto chi siamo. Chiedere di nuovo
+il PIN mentre il servizio risponde «sei PROV» sarebbe un attrito inventato, e
+peggio: due versioni della stessa verita'. L'identita' si riprende **dopo il
+carico**, quando la scheda intera — nome, cognome, carica — e' in cache.
+
+### E quando la sessione cade mentre si lavora
+
+Succede per due ragioni, e sono tutte e due normali: il servizio e' stato
+riavviato, oppure qualcuno ha premuto «Blocca» su un'altra scheda dello stesso
+terminale. Non e' un guasto e non e' un errore che l'operatore possa risolvere
+leggendolo: **si riapre la maschera**, che e' l'unica cosa che serve.
+`_gateOpen` fa da guardia — venti chiamate che tornano 401 insieme non devono
+disegnare venti maschere.
+
+### Le due chiavi, e le due rotte che restano aperte
+
+**La chiave di macchina** — `PATHFINDER_TOKEN`, generata **una volta sola**
+dall'installazione e mai rigenerata — serve a chi non ha un browser e non ha un
+PIN: il backup serale, l'installer che mette da parte il database prima di
+aggiornare, gli script di migrazione, i collaudi. Rigenerarla a ogni
+aggiornamento vorrebbe dire che il backup serale smette di funzionare la notte
+fra l'aggiornamento e il primo riavvio, e **nessuno se ne accorge fino al
+giorno che il backup serve**.
+
+Restano aperte due rotte sole, e ognuna ha il suo perche':
+
+| rotta | perche' |
+|---|---|
+| `/api/health` | l'installer la interroga per dire se l'installazione e' riuscita, e succede **prima** che esista un PIN |
+| `/api/app-info` | stessa ragione, ed e' la prima diagnosi di ogni guaio |
+
+Piu' `/api/auth/*`, che e' la porta: chiuderla a chiave dall'esterno non
+avrebbe senso. `/api/auth/operatori` da' l'elenco per disegnare la schermata
+di identificazione, e **da' il minimo**: sigla, nome, carica, «ha un PIN». Non
+e' un rimpiazzo di `/api/c/operators` — da li' non escono le date, le note, ne'
+i campi che a quella maschera non servono.
+
+### `accedere` non e' `verificare`, e la differenza conta
+
+`verifyPin` risponde a «questo PIN e' quello di questa persona?», e la si
+chiama **anche a sessione aperta**, per confermare un gesto che chiede il PIN
+di un Admin. Se emettesse una sessione, confermare un reset col PIN
+dell'Admin **scambierebbe l'operatore al lavoro**. `accedi` invece e'
+l'ingresso, e lascia una sessione dietro di se'.
+
+### QUEL CHE LA 2.11 NON CHIUDE
+
+**I permessi per ruolo restano nel client.** Il token dice CHI sei, e senza
+token non si entra; ma e' ancora il client a decidere se aprire la
+Configurazione o il reset dei dati. Chi si autentica come operatore semplice e
+poi chiama a mano la rotta del reset non trova nessuno che glielo impedisca.
+E' una voce a parte, ed e' scritta nella coda.
+
+**Senza TLS il cookie viaggia in chiaro**, come ci viaggiava il PIN. Chi
+ascolta la rete lo prende e lo usa finche' il servizio non si riavvia. **La
+sessione chiude la porta a chi bussa; non protegge da chi ascolta il filo.**
+
+---
+
 ## LA 2.10 CHIUDE SEI FALLE, E NE LASCIA UNA APERTA CHE SI VEDE
 
 **Notte del 27/08/2026.** Nasce da una valutazione di sicurezza chiesta da
@@ -35,7 +172,7 @@ rotte `/api` che rispondono a chiunque raggiunga la porta.
 
 | | |
 |---|---|
-| dove | `consegna\Pathfinder 2.10\`, e il codice nel ramo `main` |
+| dove | `ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.10\` — scesa quando la 2.11 e' stata costruita |
 | pacchetto | app 4 file, **1,76 MB** — 469 kB sul filo, compressi · servizio, 12 voci |
 | impronta | `2a70b8e9fe2306eb4007e39289edd4b8db3b4a2ee2d09465c4898f10ac6dfbf6` |
 | collaudi | **1.180 client** in 40 file · **114 servizio** · **8 migrazione** · **31 installazione** |
@@ -2289,6 +2426,12 @@ Cinque stati, e vogliono dire cose diverse:
 | **standby** | riconosciuta e ferma per scelta. Non si tocca finché non lo si decide |
 | **da chiarire** | manca un fatto per poter decidere |
 
+### Chiuse il 27/08
+
+| # | Cosa | Dove sta scritto |
+|---|---|---|
+| ~~**64**~~ | ~~**LE ROTTE `/api` NON CHIEDONO CREDENZIALI A NESSUNO**~~ | **Chiusa dalla 2.11.** Il PIN emette una sessione, e senza sessione non si entra. La sezione in testa racconta come, e cosa non chiude — i permessi per ruolo, che sono la voce 66 |
+
 ### Chiuse il 26/08
 
 | # | Cosa | Prova |
@@ -2326,7 +2469,7 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **64** | **LE ROTTE `/api` NON CHIEDONO CREDENZIALI A NESSUNO, ed è il difetto più grosso che questo applicativo abbia.** Chi raggiunge la porta legge qualunque collezione, ne scrive qualunque record, e con una `DELETE` svuota le giacenze. Il PIN non è un controllo d'accesso: è una domanda che il client fa e a cui il client stesso obbedisce. La procedura di recupero PIN in §6 — `PATCH` su `/api/c/operators` — funziona per chiunque sulla rete: si legge l'elenco, si sceglie un Team Leader, si scrive un'impronta nuova, si entra come lui. La 2.10 ha chiuso tutto quello che si poteva chiudere senza toccare questo, e questo è rimasto | **Una sessione emessa dopo il PIN**, che è il modello a cui l'applicativo somiglia già: c'è l'identificazione, c'è `currentOperator`, c'è la scadenza della sessione. Tocca ogni chiamata del client e ogni rotta del servizio, e nessun collaudo di oggi la esercita: **è una versione sua, con un turno di banco suo.** Due strade scartate e perché: un segreto dentro il client non è un segreto — la pagina la scarica chiunque; un token sulle sole rotte distruttive romperebbe la Configurazione, che usa `deleteWhere` per cancellare una zona e `clearMany` per il reset |
+| **66** | **I PERMESSI PER RUOLO STANNO ANCORA NEL CLIENT.** La 2.11 ha chiuso l'accesso — senza sessione non si entra — ma è ancora il client a decidere se aprire la Configurazione o il reset dei dati: `comandaLaConfigurazione` gira nel browser. Chi si identifica come operatore semplice e poi chiama a mano la rotta del reset **non trova nessuno che glielo impedisca**. È la metà che la 2.11 ha lasciato indietro di proposito, per non raddoppiare la superficie da provare tutta in una volta | **Il token porta già il ruolo** — la sessione sa chi sei, e la sua scheda ce l'ha. Serve dichiarare quali rotte sono di comando (reset, `clearMany`, `deleteWhere`, la scrittura sugli operatori) e verificarlo sul servizio. Il lavoro è nelle rotte, non nel modello: quello c'è già |
 | **65** | **`xlsx` 0.18.5 PORTA DUE VULNERABILITÀ NOTE** — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — **e non c'è un fix su npm**: SheetJS pubblica le versioni corrette solo dal proprio sito. Il vettore è il file Excel che un operatore carica: ODP e anagrafica. Le dipendenze del servizio sono a **0 vulnerabilità** | La regola «`dexie` e `xlsx` non si aggiornano» esiste perché l'applicativo è collaudato con quelle versioni, ed è difendibile. **Va però ridecisa sapendo questo**, non per inerzia: o si passa alla versione di SheetJS e si riprova tutto quello che tocca Excel, o si scrive qui che si accetta il rischio e perché |
 | **61** | **IL CONTO WIP DIPENDE DA UN PARAMETRO FACOLTATIVO.** La riga `in` non registra le UM — `qty_uom` è `null` — e i chili si ricostruiscono dopo dalla confezione congelata del lotto, che `Store.contoWip` passa a `conto()` come ripiego. Ma quel parametro si può omettere, e allora lo stesso ordine perfettamente in pari risponde `residuo_uom: −25` e `incoerente: true`. Un residuo **negativo** su un ordine chiuso in pari: un numero plausibile e sbagliato, cioè la stessa forma del difetto di `#dlgOverlay`. Oggi il chiamante è uno solo e il ripiego lo passa | **Due strade, e la seconda è quella buona:** scrivere le UM sulla riga `in` quando si conoscono — la confezione è congelata già al posizionamento, quindi il dato c'è — oppure rendere `perCollo` obbligatorio, o far dichiarare `incoerente` con un motivo leggibile invece di un residuo negativo muto |
 | **62** | **IL BIP DI LETTURA E LA CONFERMA DI TAPPA SONO TUTTI E DUE ACUTI E SINUSOIDALI.** Misurati: `scan` è 1320 Hz, `ok` sale 1046 → 1568 Hz. Fra `ok` ed `error` non c'è confusione possibile — `error` scende 233 → 175 Hz in onda quadra — ma «ho letto il codice» e «tappa chiusa» possono somigliarsi col rumore del reparto e i tappi | **Serve una prova al banco, con il rumore vero**: se la confusione c'è, basta scendere il bip di lettura o accorciarne la coda, così l'unico suono che sale resta la conferma |
@@ -2626,7 +2769,7 @@ npm test         # vitest, 40 file, 1.180 prove
 ```
 
 ```bash
-node test/collaudo.js                    # 114 prove sul servizio, da server/
+node test/collaudo.js                    # 127 prove sul servizio, da server/
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server/
 node test/collaudo-installazione.js      # 31 prove sugli script di installazione, da server/
 ```
