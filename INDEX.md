@@ -38,9 +38,35 @@ rotte `/api` che rispondono a chiunque raggiunga la porta.
 | dove | `consegna\Pathfinder 2.10\`, e il codice nel ramo `main` |
 | pacchetto | app 4 file, **1,76 MB** — 469 kB sul filo, compressi · servizio, 12 voci |
 | impronta | `2a70b8e9fe2306eb4007e39289edd4b8db3b4a2ee2d09465c4898f10ac6dfbf6` |
-| collaudi | **1.180 client** in 40 file · **113 servizio** · **8 migrazione** · **29 installazione** |
+| collaudi | **1.180 client** in 40 file · **114 servizio** · **8 migrazione** · **29 installazione** |
 | tipi | `npm run check` a 0 su client e servizio |
 | provata | al banco, in browser: identificazione, elenco operatori, giro completo del PIN |
+| consegna verificata | **18 prove contro il servizio del pacchetto** · manifesto e file coincidono uno per uno · le 151 prove del pacchetto girano **da dentro il pacchetto** · `installa.ps1 -Prova` legge la macchina e non tocca niente |
+
+### La verifica della consegna ha trovato due cose, e una l'ha trovata per sbaglio
+
+**IL BACKUP SCRIVEVA NELLA RADICE DI `C:`.** Una prova scritta male ha
+inviato `\radice-a-caso` al posto del percorso di rete che voleva provare —
+l'escaping della riga di comando si era mangiato una barra — e il servizio ha
+risposto **200**, scrivendo 393 kB di database nella radice del disco. Il
+controllo dell'UNC non era scattato, e giustamente: quello non e' un percorso
+di rete. Ma `\qualcosa` **passa `path.isAbsolute`**: e' assoluto rispetto al
+disco della cartella di lavoro del processo, che e' esattamente il dato che
+nessuno sa — la stessa ambiguita' della terza regola, in un vestito che la
+prima stesura non aveva riconosciuto. Adesso si pretende la lettera del disco.
+La cartella creata durante la prova e' stata rimossa.
+
+**IL COLLAUDO DELL'INSTALLAZIONE NON GIRAVA DAL PACCHETTO.** Nel sorgente
+l'installer si chiama `installa-pathfinder.ps1` e sta accanto al servizio; nel
+pacchetto diventa `installa.ps1` e sale nella radice. Il collaudo viaggia nel
+pacchetto — ce lo mette la build — e cercava solo il nome del sorgente: **17
+prove su 29**, e le altre dodici morte su un `ENOENT` che parla di `copyfile`
+e sembra un guasto dell'installazione. Adesso guarda in tutti e due i posti, e
+se non lo trova **salta dicendo perche'** invece di rompersi.
+
+**Nessuna delle due si vedeva col pacchetto fermo.** Sono uscite accendendolo
+e parlandoci — e la seconda solo lanciando i collaudi da dentro il pacchetto,
+che e' quello che farebbe chi installa se qualcosa non tornasse.
 
 ### L'impronta del PIN non esce piu' dal servizio, e non e' piu' SHA-256
 
@@ -2239,7 +2265,7 @@ Cinque stati, e vogliono dire cose diverse:
 | ~~**44**~~ | ~~Il registro dei movimenti veniva svuotato dal recupero di un backup automatico~~ | **Causa trovata e registro ricostruito, 25/08.** La catena: `writeOPFSBackup` esce con `includeMovLog: false`, `componi` fa `delete data.mov_log`, e `importAll` in overwrite svuotava `mov_log` col `clearMany` e poi lo saltava perché il pacchetto non lo portava. **`_partial` era scritto in un punto solo e non lo leggeva nessuno.** Il registro ora porta **266 movimenti, dal 07/08 al 25/08**, continui: 245 recuperati da `pathfinder-2026-08-19.db` più i 21 che c'erano. Otto movimenti sugli articoli di prova `123` e `123456` sono rimasti fuori |
 | ~~**45**~~ | ~~Il ripristino deve smettere di cancellare il registro~~ | **Corretto nel sorgente il 25/08 — e NON È ANCORA IN SERVIZIO: vedi la voce 48.** `importAll` distingue ora fra **chiave assente** (il pacchetto non porta il registro, e il registro resta dov'è) ed **elenco vuoto** (`mov_log: []`, cioè movimenti non ce n'è: si svuota). Per le altre collezioni lo svuotamento in blocco resta com'era — sono stato, e devono combaciare con le giacenze che rientrano. E `_partial` adesso si vede prima di premere: la riga dei Movimenti dice «non inclusi nella copia — il registro attuale resta» invece di «0» |
 | ~~**46**~~ | ~~L'anagrafica operatori era stata sostituita in blocco~~ | **Sistemata il 25/08.** `ANDS`, `ANAD`, `BABB` ed `EFBR` sono rientrati come **operatori storici disattivati, senza PIN**: non possono operare, esistono perché il registro li nomina. Adesso ogni firma dei 266 movimenti ha un nome dietro — `ANDS` 143, `ANAD` 86, `ANSA` 21, `BABB` 6 — **tranne `DP`, che ne ha 10 e resta senza: voce 18**. `EFBR` non firma nessun movimento: è rientrato lo stesso, perché un'anagrafica che dimentica chi c'era è come il registro che si svuota |
-| ~~**41**~~ | ~~`C:\Pathfinderpp\precedente` portava la 2.3 ritirata~~ | **Sistemata il 25/08 sera.** `torna-indietro.ps1` legge il **numero di versione** da `precedente\manifest.json` e poi ripesca i file da `C:\Pathfinderpp\pathfinder-<numero>`: leggendo «2.3» sarebbe andato a prendere la versione che ha disfunzionato. Ora `precedente` porta la 2.2, impronta `08ce3f69…`, **confrontata file per file con `pathfinder-2.2`: nove file su nove identici**. La 2.3 non è persa — resta in `C:\Pathfinderpp\pathfinder-2.3` e in ARCHIVIO. `corrente`, il servizio e il database non sono stati toccati |
+| ~~**41**~~ | ~~`C:\Pathfinder\app\precedente` portava la 2.3 ritirata~~ | **Sistemata il 25/08 sera.** `torna-indietro.ps1` legge il **numero di versione** da `precedente\manifest.json` e poi ripesca i file da `C:\Pathfinder\app\pathfinder-<numero>`: leggendo «2.3» sarebbe andato a prendere la versione che ha disfunzionato. Ora `precedente` porta la 2.2, impronta `08ce3f69…`, **confrontata file per file con `pathfinder-2.2`: nove file su nove identici**. La 2.3 non è persa — resta in `C:\Pathfinder\app\pathfinder-2.3` e in ARCHIVIO. `corrente`, il servizio e il database non sono stati toccati |
 
 ### Da pianificare — sviluppo riconosciuto
 
@@ -2545,7 +2571,7 @@ npm test         # vitest, 40 file, 1.180 prove
 ```
 
 ```bash
-node test/collaudo.js                    # 113 prove sul servizio, da server/
+node test/collaudo.js                    # 114 prove sul servizio, da server/
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server/
 node test/collaudo-installazione.js      # 29 prove sugli script di installazione, da server/
 ```
