@@ -38,10 +38,10 @@ resta UNO**.
 |---|---|
 | dove | `consegna\Pathfinder 2.12\`, e il codice nel ramo `main` |
 | pacchetto | app 4 file, **1,78 MB** — 475 kB sul filo, compressi · servizio, 12 voci |
-| impronta | `1c43313dbea398098fabe38f8d16ccbb8670547f35657017ebcab2d5a69af2d0` |
-| collaudi | **1.221 client** in 42 file · **127 servizio** |
+| impronta | `3f6a5102f67c640db31e7c0c00237da3bb787ff7526cafdf3f41f675c62da215` — **la prima, `1c43313d…`, e' superata dalle tre correzioni del banco** |
+| collaudi | **1.222 client** in 42 file · **127 servizio** |
 | tipi | `npm run check` a 0 su client e servizio |
-| provata | **NON in corsia, e NON con un ODP vero** — vedi «quel che la 2.12 non ha provato» |
+| provata | **al banco, con ODP veri e il magazzino vero in copia** — il giro dei cinque ODP e la sosta girano per intero. NON in corsia |
 
 ### PERCHE' NON E' LA 2.3
 
@@ -153,6 +153,57 @@ giro**, ordine per articolo. Le quote si leggono dalle dichiarazioni di
 consumo e non dalle entrate: fra quel che era stato chiesto e quel che e'
 finito nel prodotto ci sono il reso e i colli interi.
 
+### IL BANCO, LA SERA DEL 27/08: TRE DIFETTI CHE LEGGERE NON MOSTRAVA
+
+**Banco 2.12 sulla porta 4199**, copia SQLite del magazzino vero — 886
+giacenze, 11.197 articoli — e **ODP generati dalle giacenze**, non inventati:
+`banco/genera-odp-2.12.cjs` scrive fogli nello stesso formato che il parser
+legge, chiedendo merce che sul banco c'e'. I due articoli usati sono gli unici
+due che dichiarano unita' **e** quantita' per collo: provare il giro su un
+articolo a soli colli avrebbe provato meta' funzione senza dirlo.
+
+**Il giro ha girato per intero.** Cinque ODP che chiedono 5+5+5+4+6 KG dello
+stesso lotto diventano **una tappa da 25 KG**; la merce scende una volta sola
+sotto il capofila; lo scaffale passa da 10 colli/200 KG a 9/175 e il collo
+aperto diventa 15; il movimento porta `giro_odps`, `giro_richieste` e
+`giro_id`; alla chiusura le quote fanno **esattamente** 25. La sosta: tre
+righe nello stesso vano, ubicazione confermata **una volta**, e alla seconda
+riga il campo ① sparisce e il fuoco va sull'articolo.
+
+**E sono usciti tre difetti, nessuno dei quali si vedeva leggendo.**
+
+**1. LA CHIUSURA DI UN GIRO NOMINAVA SOLO IL CAPOFILA.** La conferma diceva
+«viene dichiarato CONSUMATO dall'ordine ODP-1» su un conto che ne serviva
+altri quattro: su venticinque chili, venti erano di ordini che quella finestra
+non nominava. E la ripartizione si vedeva **dopo**, sul rendiconto — cioe'
+dopo aver dichiarato. **E' quella la finestra che conta**: chi dichiara deve
+vedere per chi sta dichiarando prima di premere. Adesso la conferma dice
+quanti ordini serve, elenca le quote riga per riga, avverte che da li' non si
+correggono, e il pulsante si chiama «Dichiara, ripartisci e archivia». Le
+righe che una quota non possono averla — senza UM non si ripartisce — lo
+dicono invece di tacere.
+
+**2. OGNI DOCUMENTO STAMPATO DICEVA «Pathfinder 2.9».** `VERSIONE_APP` in
+`core/pacchetto.ts` era fermo da tre versioni, e finisce sul piede di DDT,
+rendiconto, verbale, cartellino e rapporto di prelievo, piu' la testata di
+ogni export. Trovato leggendo il piede di un rendiconto vero. Il suo commento
+diceva «questo resta l'unico posto dove il numero e' scritto», e non era vero:
+i posti sono **quattro**. E' la stessa famiglia del `const VERSION` che aveva
+fatto fallire l'installazione poche ore prima — due su due trovati per caso,
+e ora `test/versioni.test.js` li legge tutti e quattro.
+
+**3. `_routeStart` NON APRIVA UN'APERTURA NUOVA.** La spunta dell'ubicazione
+portava ancora quella del percorso precedente. Non faceva danno per un motivo
+solo — `_routeScan.loc` tornava vuoto — ma da quando la chiave e' il VANO e
+non la tappa, e due percorsi possono cominciare dallo stesso scaffale, quella
+difesa reggeva **per caso**.
+
+**Cosa resta fuori dalla prova:** il magazzino vero in corsia, con un
+operatore e un terminale. Il banco e' una copia del database su un'altra
+porta, e l'ultima riga della sosta non e' stata confermata perche' la
+sessione e' caduta a meta' — nessun movimento parziale scritto, che e' il
+comportamento giusto.
+
 ### QUEL CHE LA 2.12 NON HA PROVATO, E VA GUARDATO IN FACCIA
 
 **Non e' stata esercitata con un ODP vero ne' in corsia.** Il banco di questa
@@ -170,10 +221,10 @@ non si entra. Quel che e' stato provato davvero:
   seconda riga dello stesso vano; non vale dopo una nuova apertura), le tre
   schede d'ordine con la banda del giro, e il ricalibro di un ordine su tre
   che porta la somma da 15 a 20 KG.
-- **Non provato**: il prelievo vero da un file `.xlsx`, l'entrata nel vano WIP
-  con `giro_odps` scritto, la chiusura che ripartisce, il rendiconto stampato.
-  **E' la voce 51 vista una versione dopo**: prima di installare, il giro dei
-  cinque ODP va fatto girare al banco su una copia del database — **voce 68**.
+- ~~**Non provato**: il prelievo vero da un file `.xlsx`, l'entrata nel vano
+  WIP con `giro_odps` scritto, la chiusura che ripartisce, il rendiconto
+  stampato.~~ **FATTO la sera del 27/08 — vedi la sezione qui sopra.** Restano
+  fuori la corsia vera e il terminale in mano a un operatore.
 
 **La quota di consumo non si corregge a mano.** Alla chiusura si scrive la
 ripartizione proporzionale a quel che ciascun ordine aveva chiesto, e
@@ -2628,7 +2679,7 @@ Cinque stati, e vogliono dire cose diverse:
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **68** | **IL GIRO DEI CINQUE ODP NON E' MAI GIRATO PER INTERO.** La 2.12 e' costruita e collaudata sui moduli puri — 1.221 prove — e provata in browser chiamando i metodi di `App` a mano, ma **nessun file `.xlsx` vero le e' passato dentro**: il banco di quella sessione si e' fermato al PIN. Non e' stata vista scrivere `giro_odps` su un movimento, ne' chiudere un conto ripartendo il consumo | **Va fatto girare al banco, su una copia del database, prima di installare.** Cinque ODP veri della stessa serie, tre cose da guardare: che le righe dello stesso lotto diventino **una** tappa; che l'ubicazione si chieda **una volta** per vano e che riscansionarla resti possibile; che alla chiusura la somma delle quote faccia esattamente il consumo dichiarato. E' la voce 51 vista una versione dopo |
+| ~~**68**~~ | ~~**IL GIRO DEI CINQUE ODP NON E' MAI GIRATO PER INTERO.** La 2.12 e' costruita e collaudata sui moduli puri — 1.221 prove — e provata in browser chiamando i metodi di `App` a mano, ma **nessun file `.xlsx` vero le e' passato dentro**: il banco di quella sessione si e' fermato al PIN. Non e' stata vista scrivere `giro_odps` su un movimento, ne' chiudere un conto ripartendo il consumo | **Va fatto girare al banco, su una copia del database, prima di installare.** Cinque ODP veri della stessa serie, tre cose da guardare: che le righe dello stesso lotto diventino **una** tappa; che l'ubicazione si chieda **una volta** per vano e che riscansionarla resti possibile; che alla chiusura la somma delle quote faccia esattamente il consumo dichiarato. E' la voce 51 vista una versione dopo~~ — **CHIUSA la sera del 27/08**: girato al banco su copia del database, con ODP generati dalle giacenze vere. Le tre cose da guardare erano tre, e tornano tutte: una tappa sola, l'ubicazione chiesta una volta, e le quote che sommano esattamente il consumo. Ha fatto uscire **tre difetti**, tutti corretti — sezione in testa |
 | **67** | **LA QUOTA DI CONSUMO NON SI CORREGGE A MANO.** Alla chiusura di un giro la ripartizione fra gli ordini si scrive **proporzionale a quanto ciascuno aveva chiesto**, e l'operatore la vede sul rendiconto. Se la produzione ha consumato in proporzione diversa — ed e' il caso normale, non l'eccezione — oggi non c'e' dove dirlo | **La proporzione e' una proposta, non un fatto misurato**, e va scritto anche sul foglio. Serve una maschera che, riga per riga, lasci spostare quantita' da un ordine all'altro con il vincolo che la somma resti quella del consumo. Il dato per farlo c'e' gia': `giro_richieste` sul movimento di consumo |
 | **66** | **I PERMESSI PER RUOLO STANNO ANCORA NEL CLIENT.** La 2.11 ha chiuso l'accesso — senza sessione non si entra — ma è ancora il client a decidere se aprire la Configurazione o il reset dei dati: `comandaLaConfigurazione` gira nel browser. Chi si identifica come operatore semplice e poi chiama a mano la rotta del reset **non trova nessuno che glielo impedisca**. È la metà che la 2.11 ha lasciato indietro di proposito, per non raddoppiare la superficie da provare tutta in una volta | **Il token porta già il ruolo** — la sessione sa chi sei, e la sua scheda ce l'ha. Serve dichiarare quali rotte sono di comando (reset, `clearMany`, `deleteWhere`, la scrittura sugli operatori) e verificarlo sul servizio. Il lavoro è nelle rotte, non nel modello: quello c'è già |
 | **65** | **`xlsx` 0.18.5 PORTA DUE VULNERABILITÀ NOTE** — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — **e non c'è un fix su npm**: SheetJS pubblica le versioni corrette solo dal proprio sito. Il vettore è il file Excel che un operatore carica: ODP e anagrafica. Le dipendenze del servizio sono a **0 vulnerabilità** | La regola «`dexie` e `xlsx` non si aggiornano» esiste perché l'applicativo è collaudato con quelle versioni, ed è difendibile. **Va però ridecisa sapendo questo**, non per inerzia: o si passa alla versione di SheetJS e si riprova tutto quello che tocca Excel, o si scrive qui che si accetta il rischio e perché |
@@ -3320,14 +3371,29 @@ dell'applicativo non cambia — copre `index.html` e `assets/`, non il servizio
 non si rifa' `npm run build`. Reinstallare senza ricostruire ripete lo stesso
 fallimento con lo stesso messaggio.
 
-**`consegna/` si lascia libera prima di ricostruire.** La build azzera quella
-cartella, e un `EPERM, Permission denied` su
-`consegna\Pathfinder <numero>` vuol dire che qualcuno la tiene: quasi sempre
-la finestra dell'installer rimasta aperta su «Premere un tasto per chiudere»,
-che ha quella cartella come directory di lavoro. Si chiude la finestra, non si
-forza la cancellazione: quella cartella e' anche un segnaposto OneDrive
-(reparse tag `0x9000e01a`), e insistere a mano e' il modo di litigare con la
-sincronizzazione.
+**~~`consegna/` si lascia libera prima di ricostruire.~~ ADESSO LA BUILD
+ASPETTA — 2.12.** Falliva con `EPERM, Permission denied` su
+`consegna\Pathfinder <numero>`, e il messaggio era uno stack di rollup che
+non nominava la causa. La cartella sta dentro **OneDrive**: la build ci scrive
+1,8 MB, la sincronizzazione parte subito, e la build DOPO la trova occupata
+mentre Vite prova a svuotarla — segnaposto OneDrive, reparse tag
+`0x9000e01a`, a volte con la sola lettura addosso.
+
+**Il blocco e' TRANSITORIO, ed e' il fatto che ha deciso la correzione:** la
+stessa cancellazione che fallisce riesce da sola qualche secondo dopo.
+Misurato due volte il 27/08. Quindi `emptyOutDir` di Vite e' spento e a
+svuotare e' `svuotaLaConsegna()` in `vite.config.js`, che riprova per **30
+secondi** togliendo la sola lettura a ogni giro. Se non passa, non e' piu' una
+sincronizzazione: e' qualcuno che tiene la cartella — quasi sempre la finestra
+dell'installer rimasta aperta su «Premere un tasto per chiudere» — e il
+messaggio lo dice.
+
+Provato in tutti e due i versi: con una finestra che tiene la cartella per 8
+secondi la build **aspetta e passa** (8,73s invece di 3,2, stessa impronta);
+con un blocco piu' lungo dell'attesa massima si ferma con la guida invece che
+con lo stack. **`consegna/` non si sposta fuori da OneDrive**: quel percorso e'
+scritto in §4, nel LEGGIMI del pacchetto e nella testa di chi installa. Si
+cambia il modo di svuotarla, non dove sta.
 
 
 **`node_modules` che ESISTE non vuol dire che sia quello giusto — 2.7.**
@@ -3578,6 +3644,29 @@ accetta e nessuna shell mangia.
   `server/lib/schema.js` si legge all'avvio. È successo con `recipients`.
 - **`better-sqlite3`** va tenuto a una versione con binario già compilato per il
   Node installato.
+
+**IL REPOSITORY TIENE TUTTO, TRANNE DUE SEGRETI — 27/08.** Fino a ieri il
+`.gitignore` teneva fuori 405 MB con ragioni difendibili una per una: le
+dipendenze «si ricostruiscono», la consegna «e' prodotta», l'archivio «pesa».
+Poi la build del 25/08 ha portato via il kit demo, che viveva dentro
+`consegna/` e non era mai entrato in git — voce 43, cercato su tutto il disco
+e non trovato. **«Si ricostruisce» vale finche' qualcuno lo ricostruisce**, e
+un file che sta su un disco solo prima o poi non c'e' piu'. Decisione di
+Andrea: dentro tutto — `node_modules`, `ARCHIVIO`, `banco`, `consegna`,
+4.211 file, ~250 MB.
+
+**Restano fuori due cose, e non per il peso.** I **50 file di database**
+(153 MB) portano `pin_hash` e `pin_salt` accanto a nome e cognome degli
+operatori veri: le impronte dei PIN di persone in carne e ossa non vanno a un
+servizio di terzi, e su un repository privato vale lo stesso — la visibilita'
+si cambia con un clic, un clone no. E **`.env.local`**, che porta utente e
+password di PostgreSQL. **Git non dimentica**: un file tolto dopo resta nella
+storia, e un segreto spinto una volta va considerato bruciato. Il `.gitignore`
+adesso e' di due voci e dice questo.
+
+**Conseguenza da sapere:** `consegna/` e' tracciata, quindi ogni build sporca
+`git status` con l'intero pacchetto ricostruito. E' il prezzo della decisione,
+non un difetto.
 
 ### Prove e collaudi
 

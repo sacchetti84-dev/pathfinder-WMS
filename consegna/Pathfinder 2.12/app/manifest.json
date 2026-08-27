@@ -1,7 +1,7 @@
 {
   "versione": "2.12",
-  "costruita": "2026-08-27T18:16:34.787Z",
-  "byte_totali": 1863734,
+  "costruita": "2026-08-27T21:46:04.361Z",
+  "byte_totali": 1864986,
   "file": [
     {
       "percorso": "assets/index-CgaeFon8.css",
@@ -9,9 +9,9 @@
       "sha256": "91c6ef9eaa9ab966bf6a2675c16506853d3d95b1603e7ebf46e7b279c49bfa7a"
     },
     {
-      "percorso": "assets/index-DSIV2528.js",
-      "byte": 1050226,
-      "sha256": "8a9d11a57737695c7a3b89ba29008db46770ae919eb3a751e88030c25c09b61e"
+      "percorso": "assets/index-CkkSpkvy.js",
+      "byte": 1051478,
+      "sha256": "82697b1ce413f6b1d65c37b1884d6d3a3eb3428d5d994a4eb14188c275346b78"
     },
     {
       "percorso": "assets/xlsx-WMlLLxdc.js",
@@ -21,8 +21,8 @@
     {
       "percorso": "index.html",
       "byte": 23605,
-      "sha256": "f4613dbb8634cbc67579af43e8eef6beb60bd0d3885b2a12b6b5cc704009366d"
+      "sha256": "cfc3d153524a4ddde676eedfd00ad374e1738ff5abb9ebb9c0d66681ba877c58"
     }
   ],
-  "impronta": "1c43313dbea398098fabe38f8d16ccbb8670547f35657017ebcab2d5a69af2d0"
+  "impronta": "3f6a5102f67c640db31e7c0c00237da3bb787ff7526cafdf3f41f675c62da215"
 }

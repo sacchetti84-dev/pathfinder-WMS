@@ -40,6 +40,115 @@ const DAL_SERVIZIO = [
   'LEGGIMI.md',
 ];
 
+/* ── 2.12 · SVUOTARE `consegna/` QUANDO ONEDRIVE LA TIENE ────────────────
+   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+   IL DIFETTO. `npm run build` moriva con
+
+       [vite:prepare-out-dir] EPERM, Permission denied:
+       \?\...\consegna\Pathfinder 2.12
+
+   e il messaggio non nominava la causa. Questa cartella sta dentro OneDrive:
+   la build ci scrive 1,8 MB, OneDrive comincia subito a sincronizzarla, e la
+   build DOPO la trova occupata mentre Vite prova a svuotarla. La cartella
+   diventa un segnaposto di OneDrive — punto di reparse `0x9000e01a`, e a
+   volte con l'attributo di sola lettura — e la cancellazione ricorsiva di
+   Node si rifiuta.
+
+   IL BLOCCO E' TRANSITORIO, ed e' il fatto che decide la correzione: la
+   stessa cancellazione che fallisce riesce da sola qualche secondo dopo,
+   quando la sincronizzazione ha finito. Misurato il 27/08, due volte.
+
+   QUINDI LA BUILD ASPETTA, invece di morire. Si svuota la cartella qui —
+   prima che Vite ci arrivi, `emptyOutDir` e' spento apposta — riprovando per
+   trenta secondi e togliendo la sola lettura a ogni giro. Se dopo trenta
+   secondi non passa, non e' piu' una sincronizzazione in corso: e' qualcuno
+   che tiene la cartella aperta, e il messaggio lo dice invece di lasciare uno
+   stack di rollup.
+
+   NON SI SPOSTA `consegna/` FUORI DA ONEDRIVE, ed e' una scelta: quel
+   percorso e' scritto in §4 dell'INDEX, nel LEGGIMI del pacchetto e nella
+   testa di chi installa. Si cambia il modo di svuotarla, non dove sta. */
+
+const ATTESA_MASSIMA_MS = 30_000;
+const RITENTA_OGNI_MS = 400;
+
+/* Un'attesa SINCRONA, perche' `buildStart` di Vite qui non e' asincrono e
+   renderlo tale cambierebbe l'ordine dei plugin. `Atomics.wait` su un buffer
+   che nessuno tocca e' il modo di fermarsi senza girare a vuoto. */
+function dormi(ms) {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
+/* Su Windows il bit di scrittura di `chmod` E' l'attributo di sola lettura.
+   Si toglie a tutto l'albero: basta un file dentro per fermare la
+   cancellazione della cartella che lo contiene. */
+function togliSolaLettura(dir) {
+  let voci;
+  try { voci = fs.readdirSync(dir, { withFileTypes: true }); }
+  catch { return; }
+  try { fs.chmodSync(dir, 0o777); } catch { /* niente da fare, si prova oltre */ }
+  for (const v of voci) {
+    const dentro = path.resolve(dir, v.name);
+    if (v.isDirectory()) togliSolaLettura(dentro);
+    else { try { fs.chmodSync(dentro, 0o666); } catch { /* idem */ } }
+  }
+}
+
+function svuotaConInsistenza(dir) {
+  if (!fs.existsSync(dir)) return;
+  const inizio = Date.now();
+  let avvisato = false;
+  let ultimo = null;
+  for (;;) {
+    try { fs.rmSync(dir, { recursive: true, force: true }); return; }
+    catch (err) {
+      ultimo = err;
+      /* Un errore che non e' «occupato» non si riprova: se il percorso e'
+         sbagliato o il disco e' pieno, aspettare trenta secondi non aiuta e
+         nasconde la causa vera. */
+      if (!['EPERM', 'EBUSY', 'EACCES', 'ENOTEMPTY'].includes(err.code)) throw err;
+      if (Date.now() - inizio >= ATTESA_MASSIMA_MS) break;
+      if (!avvisato) {
+        /* Le cause viste sono due, e si somigliano da qui dentro: OneDrive
+           che sincronizza, e una finestra rimasta aperta dentro la cartella.
+           Non si indovina quale sia: si dicono tutte e due. */
+        console.log([
+          '',
+          `  «${path.basename(dir)}» e' occupata: aspetto che si liberi (fino a ${ATTESA_MASSIMA_MS / 1000}s).`,
+          '  Di solito e\' OneDrive che la sta sincronizzando, o una finestra',
+          '  rimasta aperta dentro quella cartella.',
+        ].join('\n'));
+        avvisato = true;
+      }
+      togliSolaLettura(dir);
+      dormi(RITENTA_OGNI_MS);
+    }
+  }
+  /* Il messaggio si compone a righe invece che a `\n` incollati: una guida
+     che si legge di corsa, a build ferma, non va scritta su una riga sola. */
+  throw new Error([
+    `Non si riesce a svuotare «${dir}» dopo ${ATTESA_MASSIMA_MS / 1000} secondi (${ultimo?.code}).`,
+    "  Non e' piu' una sincronizzazione in corso: qualcuno tiene quella cartella.",
+    "  Di solito e' la finestra dell'installer rimasta aperta su «Premere un tasto",
+    '  per chiudere», che ha quella cartella come directory di lavoro. Si chiude',
+    '  la finestra e si rilancia la build. In alternativa, mettere OneDrive in',
+    '  pausa per il tempo della build.',
+  ].join('\n'));
+}
+
+/* Svuota la cartella di consegna PRIMA che ci arrivi Vite. `enforce: 'pre'` e
+   `buildStart` la mettono davanti a `vite:prepare-out-dir`, che con
+   `emptyOutDir: false` non ci prova nemmeno. */
+function svuotaLaConsegna() {
+  return {
+    name: 'pathfinder-svuota-la-consegna',
+    apply: 'build',
+    enforce: 'pre',
+    buildStart() { svuotaConInsistenza(path.resolve(CONSEGNA)); },
+  };
+}
+
 const sha256 = (buf) => crypto.createHash('sha256').update(buf).digest('hex');
 
 /* I file che COMPONGONO l'applicativo: l'indice e gli assets, nient'altro.
@@ -218,11 +327,20 @@ export default defineConfig({
     tailwindcss(),
     ...(UNICO ? [viteSingleFile()] : []),
     versioneInPagina(VERSIONE),
+    /* 2.12 — svuota `consegna/` aspettando OneDrive, al posto di
+       `emptyOutDir`. Vedi `svuotaConInsistenza`. */
+    svuotaLaConsegna(),
     cartellaDiConsegna(VERSIONE),
   ],
 
   build: {
     outDir: CONSEGNA,
+    /* 2.12 — LA SVUOTA IL PLUGIN, NON VITE. `vite:prepare-out-dir` cancella
+       e basta: su una cartella che OneDrive sta sincronizzando alza EPERM e
+       ferma la build con uno stack di rollup che non nomina la causa.
+       `svuotaLaConsegna()` fa la stessa cosa aspettando, e se non ce la fa
+       dice cosa guardare. */
+    emptyOutDir: false,
     /* I terminali di magazzino montano Chrome recenti, ma non c'è ragione di
        chiedere più di quello che il codice usa davvero. */
     target: 'es2020',
