@@ -38,7 +38,7 @@ rotte `/api` che rispondono a chiunque raggiunga la porta.
 | dove | `consegna\Pathfinder 2.10\`, e il codice nel ramo `main` |
 | pacchetto | app 4 file, **1,76 MB** — 469 kB sul filo, compressi · servizio, 12 voci |
 | impronta | `2a70b8e9fe2306eb4007e39289edd4b8db3b4a2ee2d09465c4898f10ac6dfbf6` |
-| collaudi | **1.180 client** in 40 file · **114 servizio** · **8 migrazione** · **29 installazione** |
+| collaudi | **1.180 client** in 40 file · **114 servizio** · **8 migrazione** · **31 installazione** |
 | tipi | `npm run check` a 0 su client e servizio |
 | provata | al banco, in browser: identificazione, elenco operatori, giro completo del PIN |
 | consegna verificata | **18 prove contro il servizio del pacchetto** · manifesto e file coincidono uno per uno · le 151 prove del pacchetto girano **da dentro il pacchetto** · `installa.ps1 -Prova` legge la macchina e non tocca niente |
@@ -172,6 +172,61 @@ non si fa in una versione che nessuno ha ancora installato — ma la scelta ha u
 nome: `PATHFINDER_HOST=127.0.0.1` su una macchina dove l'applicativo si usa solo
 in locale. E all'avvio il servizio adesso **dichiara a chi risponde**, che e'
 l'unica difesa che ha finche' non c'e' un accesso vero.
+
+### E POI LA 2.10 NON SI E' INSTALLATA, PERCHE' NESSUNO PROVAVA UNA MACCHINA VERGINE
+
+**27/08, sera.** Andrea ha rinominato `C:\Pathfinder` per provare
+un'installazione da zero, ed e' uscito un difetto che aveva **mesi**: sulla
+riga di comando l'installer si e' fermato al **passo 2 di 3** dicendo «il
+servizio risulta registrato ma non risponde» — due righe sotto un
+**SERVIZIO ATTIVO** scritto dal servizio stesso, con tanto di numero di
+revisione. Sulla 4173 non c'era niente perche' il passo 3, quello che
+installa l'applicativo, non e' mai partito.
+
+**L'errore vero era `Split-Path -Leaf $null`.** A quel punto
+`C:\Pathfinder\app\corrente` **non esiste ancora** — l'applicativo arriva al
+passo dopo — quindi `/api/app-info` risponde `punta_a`, `versione` e
+`impronta` a null, e lo dice con un `errore` scritto apposta. La verifica del
+servizio lo dava invece per scontato, e sbagliava due volte: la riga esplodeva
+sul valore nullo, e anche correggendo quella, il controllo del manifesto
+sotto avrebbe fatto `exit 1` su una condizione **normale a quel punto**,
+fermando l'installazione un passo prima di quello che l'avrebbe risolta.
+
+**PERCHE' NON SI VEDEVA DA MESI.** Ogni installazione era un
+**aggiornamento**, e li' `corrente` c'e' gia'. La prima installazione e'
+l'unico caso in cui il servizio esiste e l'applicativo no — ed e' il caso in
+cui si trova chi installa Pathfinder per la prima volta, cioe' l'unica
+persona che non ha modo di capire cosa sia andato storto.
+
+**IL MESSAGGIO ERA PEGGIO DEL DIFETTO.** Quel `catch` copre tutto il blocco
+di verifica e diceva sempre «il servizio non risponde», anche quando a
+rompersi era una riga di PowerShell dentro il blocco. Chi legge va a cercare
+un guasto in Utilita' di pianificazione, e il guasto e' nello script che sta
+leggendo. Adesso **il servizio viene richiesto un'altra volta**: se risponde,
+il messaggio dice che il guasto e' nello script, e stampa la riga.
+
+**Due difetti minori usciti dallo stesso giro.** La prova del backup cercava
+`pathfinder-*.db` e su PostgreSQL il backup e' un `.dump`: diceva «prova NON
+riuscita» a backup perfettamente riuscito. E la cartella dell'applicativo che
+non c'e' ancora adesso si annuncia — «arriva al passo dopo» — invece di
+sembrare un guasto.
+
+**Due prove nuove**, e leggono il SORGENTE invece di girare: far girare
+davvero l'installazione del servizio vuol dire registrare attivita'
+pianificate e aprire una porta sul firewall della macchina che sta
+collaudando. La prima non controlla che la guardia esista, ma che venga
+**prima** dell'uso: l'ordine era il difetto, il controllo sotto c'era gia' e
+non e' mai stato raggiunto.
+
+**UNA TRAPPOLA DELLA MACCHINA, NON DEL CODICE — `npm run build` e OneDrive.**
+Il progetto sta dentro `OneDrive\Desktop`, e la build **azzera** la cartella
+di consegna a ogni giro. Se OneDrive sta ancora caricando il pacchetto di
+prima, quella cartella e' aperta e `vite` muore con `EPERM, Permission
+denied` su `rmSync` — un errore che parla di permessi e sembra un guaio di
+ACL, per giunta subito dopo una versione che le ACL le tocca davvero. Non
+lo e': si aspetta e si rilancia. Il 27/08 si e' liberata dopo **55 secondi**.
+
+---
 
 ### QUEL CHE LA 2.10 NON HA FATTO, E VA GUARDATO IN FACCIA
 
@@ -2573,7 +2628,7 @@ npm test         # vitest, 40 file, 1.180 prove
 ```bash
 node test/collaudo.js                    # 114 prove sul servizio, da server/
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server/
-node test/collaudo-installazione.js      # 29 prove sugli script di installazione, da server/
+node test/collaudo-installazione.js      # 31 prove sugli script di installazione, da server/
 ```
 
 `SINGLE_FILE=1 npm run build` riproduce il file unico di prima: è la via d'uscita
@@ -3943,7 +3998,7 @@ nell'indice o costruito dentro una stringa trovi a chi rispondere. Non si tocca
 | `backup-serale.ps1` | — | Backup a caldo, attività pianificata delle 20:00 |
 | `migrazione/migra-sqlite-postgres.js` · `migrazione/audit.js` · `migrazione/audit-sqlite.js` · `migrazione/maiuscola-codici.cjs` · `migrazione/LEGGIMI.md` | — | **2.7 — si chiamava `azure/`, e adesso VIAGGIA NEL PACCHETTO.** Migra una COPIA del database e ricontrolla i conteggi tavolo per tavolo; prima di copiare gira l'audit e si ferma se ci sono valori che PostgreSQL rifiuta o grafie che collidono. `maiuscola-codici.cjs` è sceso qui **da `banco/`**, che nel pacchetto non c'è: finché stava lì, `migra-sqlite-postgres.js` non si poteva consegnare — su una macchina di magazzino `require('../../banco/...')` non risolve. `azure/schema-postgres.js` è stato **cancellato**: era il gemello di `lib/schema-postgres.js`, e non lo chiamava più nessuno dalla 2.6 |
 | `test/collaudo.js` · `test/collaudo-migrazione-1.4.js` | 520 · 158 | 81 prove sul servizio vero · 8 sul cambio di schema |
-| `test/collaudo-installazione.js` | — | **29 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte; e l'**installer a doppio clic** in `-Prova`, che è il modo di provarlo senza registrare attività pianificate su questa macchina |
+| `test/collaudo-installazione.js` | — | **31 prove sugli script di installazione**: esercita `installa-versione.ps1` e `torna-indietro.ps1` su una casa temporanea, con consegne finte che si distinguono per i byte; e l'**installer a doppio clic** in `-Prova`, che è il modo di provarlo senza registrare attività pianificate su questa macchina |
 
 ### Collaudi — `test/`
 
