@@ -343,6 +343,35 @@ try {
   ok('la password del superuser NON viene passata alla finestra elevata',
      bloccoElevazione.length > 0 && !/PasswordSuperuser/.test(bloccoElevazione));
 
+  /* ── 2.10 · LA PRIMA INSTALLAZIONE, CHE NESSUNO PROVAVA DA MESI ──────────
+     Il 27/08 una macchina vergine — `C:\Pathfinder` rinominato apposta — ha
+     fermato l'installer al passo 2 di 3 con «il servizio risulta registrato
+     ma non risponde», mentre il servizio aveva appena scritto SERVIZIO
+     ATTIVO. L'errore vero era `Split-Path -Leaf $null`: a quel punto
+     `C:\Pathfinder\app\corrente` NON esiste ancora — l'applicativo arriva al
+     passo 3 — e `/api/app-info` risponde `punta_a` a null, come deve.
+
+     Si guarda nel sorgente e non facendolo girare, perche' farlo girare
+     vuol dire registrare attivita' pianificate e aprire una porta sul
+     firewall della macchina che sta collaudando: e' la stessa ragione per
+     cui l'installer a doppio clic qui si esercita in `-Prova`.
+
+     NON SI PROVA CHE LA RIGA ESISTE, si prova che la guardia viene PRIMA:
+     e' l'ordine che era sbagliato, non la mancanza del controllo — sotto,
+     un `if (-not $info.versione)` c'era gia', e non e' mai stato raggiunto. */
+  const servizioPs1 = fs.readFileSync(path.join(SERVER, 'installa-servizio.ps1'), 'utf8');
+  const guardia = servizioPs1.indexOf('if (-not $info.punta_a)');
+  const usoDiPuntaA = servizioPs1.indexOf('Split-Path -Leaf $info.punta_a');
+  ok('la cartella dell applicativo che non c e ancora non ferma l installazione',
+     guardia !== -1 && usoDiPuntaA !== -1 && guardia < usoDiPuntaA,
+     guardia === -1 ? 'nessuna guardia su punta_a' : `guardia al carattere ${guardia}, uso al ${usoDiPuntaA}`);
+
+  /* L'estensione del backup la decide il database: `.db` con SQLite, `.dump`
+     con PostgreSQL. Il filtro ne conosceva uno solo, e su PostgreSQL diceva
+     «prova NON riuscita» a backup riuscito. */
+  ok('la prova del backup riconosce anche il dump di PostgreSQL',
+     /Extension -in '\.db', '\.dump'/.test(servizioPs1));
+
 } catch (err) {
   fallite++;
   console.log(`\n  ERRORE: ${err.message}\n${err.stdout || ''}${err.stderr || ''}`);

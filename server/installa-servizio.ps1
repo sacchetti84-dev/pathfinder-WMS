@@ -425,15 +425,41 @@ try {
     $info = Invoke-RestMethod -Uri "http://127.0.0.1:$Porta/api/app-info" -TimeoutSec 5
 
     if ($info.modo -eq 'cartella') {
-        Write-Host "  applicativo   $($info.versione)  ->  $(Split-Path -Leaf $info.punta_a)"
-        Write-Host "  impronta      $($info.impronta)"
-        if (-not $info.versione -or -not $info.impronta) {
-            Write-Host ""
-            Write-Host "  ATTENZIONE: la cartella servita non ha un manifesto leggibile." -ForegroundColor Red
-            Write-Host "  cartella: $($info.punta_a)"
-            Write-Host "  Il servizio risponde, ma non si puo' dire QUALE versione:"
-            Write-Host "  reinstallare la versione con .\installa-versione.ps1"
-            exit 1
+        # ── 2.10 · ALLA PRIMA INSTALLAZIONE L'APPLICATIVO NON C'E' ANCORA ────
+        #
+        #  Questo e' il passo 2 di 3, e l'applicativo arriva al 3. Su una
+        #  macchina vergine `C:\Pathfinder\app\corrente` non esiste, quindi
+        #  `/api/app-info` risponde `punta_a`, `versione` e `impronta` a null —
+        #  e lo dice, con un `errore` scritto apposta.
+        #
+        #  Le due righe qui sotto lo davano invece per scontato, e tutte e due
+        #  sbagliavano: `Split-Path -Leaf $null` alza «Impossibile associare
+        #  l'argomento al parametro 'Path' perche' e' null», che il `catch` in
+        #  fondo traduce in «il servizio risulta registrato ma non risponde» —
+        #  cioe' un messaggio che parla di un guasto che non c'e', mentre il
+        #  servizio ha appena scritto SERVIZIO ATTIVO due righe sopra. E anche
+        #  correggendo quella riga, il controllo del manifesto sotto avrebbe
+        #  fatto `exit 1` su una condizione NORMALE a questo punto, fermando
+        #  l'installazione un passo prima di quello che l'avrebbe risolta.
+        #
+        #  Non si vedeva da mesi perche' ogni installazione era un
+        #  AGGIORNAMENTO, e li' `corrente` c'e' gia'. E' uscito il 27/08,
+        #  rinominando `C:\Pathfinder` per provare un'installazione vergine.
+        if (-not $info.punta_a) {
+            Write-Host "  applicativo   arriva al passo dopo — la cartella non c'e' ancora" -ForegroundColor Yellow
+            Write-Host "                $CartellaApplicativo"
+        }
+        else {
+            Write-Host "  applicativo   $($info.versione)  ->  $(Split-Path -Leaf $info.punta_a)"
+            Write-Host "  impronta      $($info.impronta)"
+            if (-not $info.versione -or -not $info.impronta) {
+                Write-Host ""
+                Write-Host "  ATTENZIONE: la cartella servita non ha un manifesto leggibile." -ForegroundColor Red
+                Write-Host "  cartella: $($info.punta_a)"
+                Write-Host "  Il servizio risponde, ma non si puo' dire QUALE versione:"
+                Write-Host "  reinstallare la versione con .\installa-versione.ps1"
+                exit 1
+            }
         }
     }
     else {
@@ -451,7 +477,14 @@ try {
     if (Get-ScheduledTask -TaskName $NomeBackup -ErrorAction SilentlyContinue) {
         Start-ScheduledTask -TaskName $NomeBackup
         Start-Sleep -Seconds 5
-        $ultimo = Get-ChildItem $CartellaBackup -Filter 'pathfinder-*.db' -ErrorAction SilentlyContinue |
+        # 2.10 — L'ESTENSIONE LA DECIDE IL DATABASE, e questo filtro conosceva
+        # solo SQLite: su PostgreSQL il backup e' un `.dump` scritto da
+        # `pg_dump`, e cercando `pathfinder-*.db` la prova diceva «NON
+        # riuscita» su un backup perfettamente riuscito. E' la stessa regola
+        # gia' scritta nella rotta `/api/backup`: l'estensione la dice il
+        # driver, e chi guarda non deve sapere quale dei due c'e' dietro.
+        $ultimo = Get-ChildItem $CartellaBackup -Filter 'pathfinder-*' -ErrorAction SilentlyContinue |
+                  Where-Object { $_.Extension -in '.db', '.dump' } |
                   Sort-Object LastWriteTime -Descending | Select-Object -First 1
         if ($ultimo) {
             Write-Host "  backup        $($ultimo.Name)  ($([math]::Round($ultimo.Length/1MB,1)) MB) - prova riuscita" -ForegroundColor Green
@@ -468,9 +501,35 @@ try {
     Write-Host ""
     Write-Host "  Metti quell'indirizzo come pagina iniziale sui terminali." -ForegroundColor Cyan
 } catch {
-    Write-Host "  Il servizio risulta registrato ma non risponde." -ForegroundColor Red
-    Write-Host "  Controlla in Utilità di pianificazione -> '$NomeAttivita'."
+    # ── 2.10 · DUE GUASTI DIVERSI NON SI RACCONTANO ALLO STESSO MODO ────────
+    #
+    #  Questo `catch` copre tutto il blocco di verifica, e fino alla 2.10
+    #  diceva sempre «il servizio non risponde». Ma dentro quel blocco ci sono
+    #  anche righe di PowerShell che possono rompersi da sole — ed e'
+    #  successo: un `Split-Path` su un valore nullo ha fatto stampare «non
+    #  risponde» due righe sotto un SERVIZIO ATTIVO scritto dal servizio
+    #  stesso. Chi legge va a cercare un guasto che non c'e', in Utilita' di
+    #  pianificazione, e l'errore vero e' nello script che sta leggendo.
+    #
+    #  Si chiede al servizio un'altra volta: se risponde, il guasto e' qui.
+    $vivo = $false
+    try {
+        $null = Invoke-RestMethod -Uri "http://127.0.0.1:$Porta/api/health" -TimeoutSec 5
+        $vivo = $true
+    } catch { }
+
+    Write-Host ""
+    if ($vivo) {
+        Write-Host "  IL SERVIZIO RISPONDE: il guasto e' in questo script." -ForegroundColor Red
+        Write-Host "  La verifica dell'installazione si e' rotta, non l'installazione."
+    } else {
+        Write-Host "  Il servizio risulta registrato ma non risponde." -ForegroundColor Red
+        Write-Host "  Controlla in Utilità di pianificazione -> '$NomeAttivita'."
+    }
     Write-Host "  Errore: $($_.Exception.Message)"
+    if ($_.InvocationInfo) {
+        Write-Host "  Riga $($_.InvocationInfo.ScriptLineNumber): $($_.InvocationInfo.Line.Trim())"
+    }
     exit 1
 }
 Write-Host ""
