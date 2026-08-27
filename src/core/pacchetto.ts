@@ -26,9 +26,23 @@ export const FORMATO = 'warehouse-mapper-v1.5';
 
     Era rimasto a `1.7` per tutta la 1.8, ed era scritto in due posti: qui e
     nella copia esterna, che il proprio manifesto lo scriveva senza passare da
-    `Store`. La copia esterna è uscita con la 2.1, e questo resta l'unico
-    posto dove il numero è scritto. */
-export const VERSIONE_APP = '2.9';
+    `Store`. La copia esterna è uscita con la 2.1.
+
+    **E POI E' RIMASTO A `2.9` PER LA 2.10, LA 2.11 E MEZZA 2.12**, trovato al
+    banco il 27/08 leggendo il piede di un rendiconto stampato. Non e' una
+    riga di poco conto: questo numero finisce sul PIEDE DI OGNI DOCUMENTO —
+    DDT, rendiconto di consumo, verbale di campionamento, cartellino di non
+    conformita', rapporto di prelievo — e in testa a ogni export. Un
+    documento che si tiene sei anni e dichiara la versione sbagliata dice una
+    cosa falsa su come e' stato prodotto, e nessuno se ne accorge guardandolo.
+
+    LA RIGA QUI SOTTO NON E' L'UNICO POSTO DOVE IL NUMERO E' SCRITTO, e
+    scriverlo qui sopra non lo ha reso vero: gli altri tre sono
+    `package.json`, `const VERSIONE` in `vite.config.js` e `const VERSION` in
+    `server/pathfinder-server.js`. A tenerli allineati adesso c'e'
+    `test/versioni.test.js`, che li legge tutti e quattro e fallisce se uno
+    diverge. */
+export const VERSIONE_APP = '2.12';
 
 /* L'ELENCO DELLE COLLEZIONI DA ESPORTARE STA IN UN POSTO SOLO.
    Fino alla 1.4.0 era scritto a mano in tre — `exportAll`, `_countsOf`,

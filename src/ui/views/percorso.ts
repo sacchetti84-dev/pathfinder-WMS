@@ -703,7 +703,19 @@ export const VistaPercorso = {
     this._routeCapofila = '';
     this._routeStage = 'run';
     this._routeStartTime = Date.now();
-    this._routeScan = { loc: '', art: '', lot: '' };
+    /* 2.12 — UN PERCORSO NUOVO E' UN'APERTURA NUOVA.
+
+       Qui si azzerava `_routeScan` e basta, lasciando in piedi
+       `_routeApertura` e `_routeScanChiave` del percorso precedente. Non
+       faceva danno per un motivo solo: `_routeScan.loc` tornava vuoto, e la
+       spunta si controlla anche su quello. Ma da quando la chiave e' il VANO
+       e non la tappa — e i due percorsi possono cominciare dallo stesso
+       scaffale — quella difesa regge per caso, e una difesa che regge per
+       caso cade il giorno che qualcuno tocca la riga accanto.
+
+       Visto al banco il 27/08: la prima tappa del secondo percorso portava
+       ancora l'apertura del primo. */
+    this._routeNuovaApertura();
     this._formOrdine($('pickSubForm'));
     this.toast(`Percorso avviato · ${(session.stops || []).length} tappe${ordini.length > 1 ? ` · ${ordini.length} ordini` : ''}`, 'success');
     this.updateSyncIndicator();

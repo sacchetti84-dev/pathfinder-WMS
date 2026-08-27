@@ -691,17 +691,56 @@ export const VistaWip = {
     if (!c.righe.length) return this.toast(`Nessun movimento sul conto di ${odp}`, 'info');
     const k = consumoWip(c, true) || [];
 
+    /* 2.12 — SE IL CONTO E' DI UN GIRO, LA CONFERMA LO DICE E MOSTRA LE QUOTE.
+
+       Il testo diceva «viene dichiarato CONSUMATO dall'ordine ODP-1» anche
+       quando quel conto ne serviva altri quattro: su venticinque chili, venti
+       erano di ordini che la finestra non nominava. Ed e' QUESTA la finestra
+       che conta — la ripartizione la si scopriva dopo, sul rendiconto, cioe'
+       dopo aver dichiarato. Chi dichiara deve vedere per chi sta dichiarando
+       PRIMA di premere, non dopo. */
+    const serviti = Store.ordiniServitiWip(odp);
+    const quotePerRiga = k.map((r) => [r, this._wipQuoteConsumo(odp, r)]);
+    const conQuote = quotePerRiga.filter(([, q]) => q && q.length > 1);
+    /* Le righe di un giro che una quota non ce l'hanno: senza UM non si puo'
+       ripartire — un collo e' di uno solo, e le quote no. Va detto, perche'
+       su quelle righe il consumo resta tutto intestato al capofila. */
+    const senzaQuote = serviti.length ? quotePerRiga.filter(([, q]) => !q || q.length < 2) : [];
+
+    const dettaglio: [string, unknown][] = [];
+    for (const [r, q] of quotePerRiga) {
+      const quanto = `${r.residuo} Coll.${typeof r.residuo_uom === 'number' && r.uom ? ` · ${formattaQuantita(r.residuo_uom, r.uom)} ${r.uom}` : ''}`;
+      dettaglio.push([`${r.article_code}#${r.lot_code}`, quanto]);
+      if (q && q.length > 1) {
+        for (const x of q) {
+          dettaglio.push([`  ↳ ${x.odp_num}`, `${formattaQuantita(x.qty, r.uom)}${r.uom ? ' ' + r.uom : ''}`]);
+        }
+      } else if (serviti.length) {
+        dettaglio.push(['  ↳ non ripartibile', 'senza UM il consumo resta tutto sul capofila']);
+      }
+    }
+
     if (!await Dialog.confirm({
       title: k.length ? 'Chiudere e archiviare il conto?' : "Archiviare l'ordine?",
       message: (k.length
-        ? `Quello che è entrato e non è tornato viene dichiarato CONSUMATO dall'ordine ${odp}: esce dal vano di lavorazione e non torna più a magazzino. `
+        ? (serviti.length
+          ? `Questo conto serve ${serviti.length + 1} ordini — ${[odp, ...serviti].join(', ')}. `
+            + `Quello che è entrato e non è tornato viene dichiarato CONSUMATO e RIPARTITO fra loro, `
+            + `in proporzione a quanto ciascuno aveva chiesto${conQuote.length ? ' (le quote sono qui sotto)' : ''}: `
+            + `esce dal vano di lavorazione e non torna più a magazzino. `
+            + `Da qui in poi la ripartizione è scritta e non si corregge. `
+          : `Quello che è entrato e non è tornato viene dichiarato CONSUMATO dall'ordine ${odp}: esce dal vano di lavorazione e non torna più a magazzino. `)
         : `Sul conto di ${odp} non resta niente in lavorazione: tutto è già rientrato o è già stato dichiarato. `)
-        + "L'ordine viene ARCHIVIATO: non entrerà più merce nel suo conto e non ne uscirà, "
-        + 'nemmeno ricaricando lo stesso ordine dal file di produzione. Il rendiconto resta stampabile.',
-      details: k.length
-        ? Dialog.kv(k.map((r) => [`${r.article_code}#${r.lot_code}`, `${r.residuo} Coll.${typeof r.residuo_uom === 'number' && r.uom ? ` · ${formattaQuantita(r.residuo_uom, r.uom)} ${r.uom}` : ''}`]))
-        : undefined,
-      confirmLabel: k.length ? 'Dichiara consumato e archivia' : "Archivia l'ordine", danger: true,
+        + `L'ordine ${serviti.length ? 'capofila ' : ''}viene ARCHIVIATO: non entrerà più merce nel suo conto e non ne uscirà, `
+        + 'nemmeno ricaricando lo stesso ordine dal file di produzione. Il rendiconto resta stampabile.'
+        + (senzaQuote.length ? `
+
+⚠ ${senzaQuote.length} rig${senzaQuote.length === 1 ? 'a non è' : 'he non sono'} ripartibil${senzaQuote.length === 1 ? 'e' : 'i'}: senza unità di misura il consumo resta intestato tutto a ${odp}.` : ''),
+      details: dettaglio.length ? Dialog.kv(dettaglio) : undefined,
+      confirmLabel: k.length
+        ? (serviti.length ? 'Dichiara, ripartisci e archivia' : 'Dichiara consumato e archivia')
+        : "Archivia l'ordine",
+      danger: true,
     })) return;
 
     const falliti = [];
