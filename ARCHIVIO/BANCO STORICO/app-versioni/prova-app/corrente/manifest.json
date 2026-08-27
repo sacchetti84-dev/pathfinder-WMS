@@ -1,0 +1,28 @@
+{
+  "versione": "1.7",
+  "costruita": "2026-08-17T16:00:59.059Z",
+  "byte_totali": 1604959,
+  "file": [
+    {
+      "percorso": "assets/index-BenilC2G.js",
+      "byte": 833551,
+      "sha256": "787cf459870c0e664867009e9dacf76a00468aae407f2a12ff32b6a45a5becac"
+    },
+    {
+      "percorso": "assets/index-FPLicCJK.css",
+      "byte": 154686,
+      "sha256": "1996f13882cce2b2098f74b5e1dc717de3cc3076680bb777857bdf7833f91216"
+    },
+    {
+      "percorso": "assets/xlsx-WMlLLxdc.js",
+      "byte": 592924,
+      "sha256": "64b934775e71df3eed6d9590cb8e572001be60c5de92c891ae40d4a2d0c31eba"
+    },
+    {
+      "percorso": "index.html",
+      "byte": 23798,
+      "sha256": "81be33ea898284279b7c6c740df3cc4510486c9ce334eee2ed7814c9bb948da3"
+    }
+  ],
+  "impronta": "5df67f5cee5ff6554f7676b2bb313afe83286b4b3ac4d1c51942afea49f1a367"
+}

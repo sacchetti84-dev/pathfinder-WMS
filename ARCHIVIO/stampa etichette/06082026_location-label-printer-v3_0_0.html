@@ -1,0 +1,1729 @@
+<!DOCTYPE html>
+<!--
+╔══════════════════════════════════════════════════════════════════════╗
+║  LOCATION LABEL PRINTER v3.0.0                                      ║
+║  © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)           ║
+║  Uso interno — tutti i diritti riservati                            ║
+║  Data creazione: 24/04/2026 — Revisione: 05/08/2026                 ║
+║  ────────────────────────────────────────────────────────────────   ║
+║  Compatibile con: Warehouse Mapper (export JSON v1.5 / v2.4.0)      ║
+║  Etichetta: 100 mm (L) × 80 mm (H) — margine di sicurezza 10 mm     ║
+║  Output primario : CSV merge per OpenLabelMaker (stampa in serie)   ║
+║  Output alternat.: PDF 100×80 mm generato in locale (jsPDF)         ║
+║  Output legacy   : ZPL II (Zebra Designer / Browser Print)          ║
+║  ────────────────────────────────────────────────────────────────   ║
+║  NOTA: OpenLabelMaker non produce ZPL nativo — esporta in PDF e     ║
+║  importa i dati variabili da CSV (segnaposto {{colonna}}).          ║
+╚══════════════════════════════════════════════════════════════════════╝
+-->
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Location Label Printer v3.0.0 — © Andrea Sacchetti</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsbarcode/3.11.5/JsBarcode.all.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+/* © Andrea Sacchetti — Location Label Printer v3.0.0 — Dietopack S.r.l. */
+:root {
+  --sx-primary: #0a3d62;
+  --sx-primary-h: #0c4a78;
+  --sx-accent: #0984e3;
+  --sx-accent-soft: #e3f2fd;
+  --sx-success: #00a884;
+  --sx-success-soft: #e0f5ef;
+  --sx-warning: #d97706;
+  --sx-warning-soft: #fef3c7;
+  --sx-danger: #dc2626;
+  --sx-danger-soft: #fee2e2;
+  --sx-bg: #f5f6f8;
+  --sx-card: #ffffff;
+  --sx-border: #d1d9e0;
+  --sx-text: #1f2d3d;
+  --sx-text-sec: #4a5568;
+  --sx-text-m: #718096;
+  --r: 4px;
+  --sh: 0 2px 6px rgba(10,61,98,0.12);
+  --font: 'Segoe UI', Arial, sans-serif;
+  --mono: 'Consolas', 'Courier New', monospace;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:var(--font);background:var(--sx-bg);color:var(--sx-text);font-size:13px;line-height:1.4;}
+
+.app{display:grid;grid-template-rows:auto 1fr auto;height:100vh;}
+.app-header{background:var(--sx-primary);color:#fff;padding:0.5rem 1rem;display:flex;align-items:center;gap:0.8rem;flex-shrink:0;}
+.hdr-title{display:flex;align-items:center;gap:0.5rem;}
+.hdr-title h1{font-size:0.92rem;font-weight:600;}
+.ver{font-size:0.62rem;opacity:0.5;font-family:var(--mono);}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:0.4rem;}
+.hdr-badge{font-size:0.62rem;padding:0.2rem 0.5rem;border-radius:2px;background:rgba(255,255,255,0.15);color:#fff;font-family:var(--mono);}
+.app-footer{background:var(--sx-card);border-top:1px solid var(--sx-border);padding:0.25rem 1rem;font-size:0.6rem;color:var(--sx-text-m);display:flex;gap:0.8rem;flex-shrink:0;}
+
+.app-main{display:grid;grid-template-columns:350px 1fr;overflow:hidden;}
+.panel{overflow-y:auto;padding:0.6rem;display:flex;flex-direction:column;gap:0.5rem;}
+.panel-left{border-right:1px solid var(--sx-border);background:var(--sx-card);}
+.panel-right{background:var(--sx-bg);}
+
+.card{background:var(--sx-card);border:1px solid var(--sx-border);border-radius:var(--r);padding:0.6rem;}
+.card-hdr{font-size:0.68rem;font-weight:700;color:var(--sx-text-sec);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.45rem;}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;gap:0.3rem;padding:0.3rem 0.6rem;border:1px solid var(--sx-border);border-radius:var(--r);background:var(--sx-card);color:var(--sx-text);font-size:0.76rem;cursor:pointer;font-family:var(--font);transition:0.12s;white-space:nowrap;}
+.btn:hover:not(:disabled){background:var(--sx-bg);}
+.btn-primary{background:var(--sx-primary);color:#fff;border-color:var(--sx-primary);}
+.btn-primary:hover:not(:disabled){background:var(--sx-primary-h);}
+.btn-accent{background:var(--sx-accent);color:#fff;border-color:var(--sx-accent);}
+.btn-accent:hover:not(:disabled){filter:brightness(0.9);}
+.btn-success{background:var(--sx-success);color:#fff;border-color:var(--sx-success);}
+.btn-success:hover:not(:disabled){filter:brightness(0.9);}
+.btn-warning{background:var(--sx-warning);color:#fff;border-color:var(--sx-warning);}
+.btn-danger{background:var(--sx-danger);color:#fff;border-color:var(--sx-danger);}
+.btn-sm{padding:0.18rem 0.4rem;font-size:0.68rem;}
+.btn-xs{padding:0.1rem 0.26rem;font-size:0.6rem;}
+.btn:disabled{opacity:0.38;cursor:not-allowed;}
+
+/* Drop zone */
+.drop-zone{border:2px dashed var(--sx-border);border-radius:var(--r);padding:1rem;text-align:center;cursor:pointer;transition:0.15s;color:var(--sx-text-m);font-size:0.8rem;}
+.drop-zone:hover,.drop-zone.over{border-color:var(--sx-accent);background:var(--sx-accent-soft);color:var(--sx-accent);}
+.dz-icon{font-size:2rem;display:block;margin-bottom:0.25rem;}
+
+/* Settings */
+.settings-row{display:flex;align-items:flex-start;gap:0.5rem;flex-wrap:wrap;}
+.setting-group{display:flex;flex-direction:column;gap:0.2rem;}
+.setting-label{font-size:0.65rem;font-weight:600;color:var(--sx-text-sec);text-transform:uppercase;letter-spacing:0.04em;}
+select.sel,input.num{padding:0.25rem 0.4rem;border:1px solid var(--sx-border);border-radius:var(--r);font-size:0.76rem;background:var(--sx-card);color:var(--sx-text);font-family:var(--font);}
+input.num{width:64px;font-family:var(--mono);}
+input.txt{width:100%;padding:0.28rem 0.45rem;border:1px solid var(--sx-border);border-radius:var(--r);font-size:0.76rem;font-family:var(--font);}
+.chk{display:flex;align-items:center;gap:0.35rem;font-size:0.72rem;color:var(--sx-text-sec);cursor:pointer;padding:0.12rem 0;}
+.chk input{accent-color:var(--sx-accent);cursor:pointer;}
+.hint{font-size:0.63rem;color:var(--sx-text-m);line-height:1.45;}
+
+/* Counter bar */
+.cbar{display:flex;align-items:center;justify-content:space-between;gap:0.4rem;padding:0.4rem 0.55rem;background:var(--sx-accent-soft);border:1px solid #bee3f8;border-radius:var(--r);position:sticky;top:0;z-index:5;}
+.cbar-num{font-size:1.1rem;font-weight:700;color:var(--sx-accent);font-family:var(--mono);}
+.cbar-actions{display:flex;gap:0.25rem;flex-wrap:wrap;justify-content:flex-end;}
+
+/* Tree */
+.tree{display:flex;flex-direction:column;gap:0.28rem;}
+.tree-site{border:1px solid var(--sx-border);border-radius:var(--r);overflow:hidden;}
+.tree-site-hdr{display:flex;align-items:center;gap:0.35rem;padding:0.38rem 0.5rem;background:var(--sx-primary);color:#fff;cursor:pointer;user-select:none;font-size:0.76rem;font-weight:600;}
+.tree-site-hdr:hover{background:var(--sx-primary-h);}
+.tree-site-actions{margin-left:auto;display:flex;gap:0.18rem;}
+.tree-zone{border-top:1px solid var(--sx-border);}
+.tree-zone-hdr{display:flex;align-items:center;gap:0.3rem;padding:0.3rem 0.5rem 0.3rem 1rem;background:#f8f9fa;cursor:pointer;user-select:none;font-size:0.72rem;font-weight:600;}
+.tree-zone-hdr:hover{background:var(--sx-accent-soft);}
+.tree-zone-actions{margin-left:auto;display:flex;gap:0.15rem;}
+.tree-zone-body{max-height:170px;overflow-y:auto;padding:0.2rem 0.5rem 0.2rem 1.4rem;display:flex;flex-direction:column;gap:0.1rem;}
+.tree-loc{display:flex;align-items:center;gap:0.3rem;padding:0.06rem 0;font-size:0.67rem;color:var(--sx-text-sec);cursor:pointer;}
+.tree-loc:hover{color:var(--sx-accent);}
+.tree-loc input[type=checkbox]{cursor:pointer;accent-color:var(--sx-accent);flex-shrink:0;}
+.tree-loc.sel{color:var(--sx-accent);font-weight:600;}
+.tree-loc .loc-code{font-family:var(--mono);}
+.chev{transition:transform 0.15s;font-size:0.52rem;flex-shrink:0;}
+.chev.open{transform:rotate(90deg);}
+.tbadge{font-size:0.54rem;font-weight:700;padding:0.06rem 0.26rem;border-radius:2px;text-transform:uppercase;flex-shrink:0;}
+.tbadge-rack{background:#dbeafe;color:#1d4ed8;}
+.tbadge-floor{background:#dcfce7;color:#15803d;}
+.tbadge-bulk{background:#fef3c7;color:#b45309;}
+.sbadge{font-size:0.5rem;font-weight:700;padding:0.02rem 0.2rem;border-radius:2px;flex-shrink:0;}
+.sb-blocked{background:var(--sx-danger-soft);color:var(--sx-danger);}
+.sb-reserved{background:var(--sx-warning-soft);color:var(--sx-warning);}
+.sb-disabled{background:#e6e9ec;color:#6b7785;}
+
+/* Output area */
+.output-area{display:flex;flex-direction:column;gap:0.6rem;height:100%;}
+.output-tabs{display:flex;gap:0;border-bottom:1px solid var(--sx-border);flex-wrap:wrap;}
+.otab{padding:0.4rem 0.8rem;font-size:0.75rem;border:none;background:transparent;cursor:pointer;color:var(--sx-text-m);border-bottom:2px solid transparent;margin-bottom:-1px;font-family:var(--font);}
+.otab:hover{color:var(--sx-text);}
+.otab.active{color:var(--sx-accent);border-bottom-color:var(--sx-accent);font-weight:600;}
+.otab-content{display:none;flex:1;overflow:hidden;}
+.otab-content.active{display:flex;flex-direction:column;}
+
+/* Code panes */
+.pane-toolbar{display:flex;align-items:center;gap:0.4rem;padding:0.5rem 0.6rem;background:var(--sx-card);border:1px solid var(--sx-border);border-radius:var(--r) var(--r) 0 0;border-bottom:none;flex-shrink:0;flex-wrap:wrap;}
+.pane-meta{font-size:0.7rem;color:var(--sx-text-m);margin-right:auto;font-family:var(--mono);}
+pre.code-pane{font-family:var(--mono);font-size:0.62rem;line-height:1.55;background:#1a1a2e;color:#e0e6f0;padding:0.7rem;border-radius:0 0 var(--r) var(--r);overflow:auto;flex:1;border:1px solid var(--sx-border);white-space:pre;}
+pre.code-pane .zpl-cmd{color:#7fb3f5;}
+pre.code-pane .zpl-data{color:#a8edab;}
+pre.code-pane .zpl-comment{color:#6c8099;font-style:italic;}
+pre.code-pane .csv-hdr{color:#ffd479;font-weight:700;}
+
+/* Instructions */
+.instr-grid{display:grid;grid-template-columns:1fr 1fr;gap:0.6rem;}
+.instr-card{background:var(--sx-card);border:1px solid var(--sx-border);border-radius:var(--r);padding:0.65rem;}
+.instr-card h3{font-size:0.76rem;font-weight:700;margin-bottom:0.4rem;color:var(--sx-primary);}
+.instr-card ol,.instr-card ul{padding-left:1.1rem;font-size:0.73rem;color:var(--sx-text-sec);line-height:1.7;}
+.instr-card code{font-family:var(--mono);font-size:0.65rem;background:var(--sx-bg);padding:0.05rem 0.25rem;border-radius:2px;color:var(--sx-accent);}
+.instr-note{font-size:0.68rem;color:var(--sx-warning);background:var(--sx-warning-soft);border-radius:var(--r);padding:0.4rem 0.55rem;margin-top:0.3rem;}
+.instr-ok{font-size:0.68rem;color:#0b6b57;background:var(--sx-success-soft);border-radius:var(--r);padding:0.4rem 0.55rem;margin-top:0.3rem;}
+table.geo{width:100%;border-collapse:collapse;font-size:0.66rem;margin-top:0.35rem;}
+table.geo th,table.geo td{border:1px solid var(--sx-border);padding:0.18rem 0.32rem;text-align:left;}
+table.geo th{background:var(--sx-bg);font-weight:700;color:var(--sx-text-sec);text-transform:uppercase;font-size:0.6rem;letter-spacing:0.03em;}
+table.geo td.n{font-family:var(--mono);text-align:right;}
+
+/* Empty states */
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem;color:var(--sx-text-m);text-align:center;gap:0.5rem;flex:1;}
+.empty .ei{font-size:2.5rem;}
+
+/* Anteprima etichette — scala esatta 3.4 px/mm */
+.prev-scroll{overflow-y:auto;flex:1;padding:0.5rem 0.2rem;}
+.prev-grid{display:flex;flex-wrap:wrap;gap:0.8rem;padding:0.3rem;}
+.lp-card{position:relative;background:#fff;border:1px solid #bbb;border-radius:2px;box-shadow:0 1px 4px rgba(0,0,0,0.12);overflow:hidden;flex-shrink:0;}
+.lp-el{position:absolute;}
+.lp-guide{position:absolute;border:1px dashed #e05252;pointer-events:none;}
+.lp-txt{white-space:nowrap;overflow:hidden;font-family:Arial,Helvetica,sans-serif;color:#000;line-height:1;}
+.lp-rule{position:absolute;background:#333;}
+.lp-box{position:absolute;border:1px solid #555;border-radius:2px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-family:Arial,Helvetica,sans-serif;color:#000;overflow:hidden;}
+.lp-box small{color:#555;letter-spacing:0.04em;}
+.lp-cnv{position:absolute;image-rendering:crisp-edges;}
+
+/* Toast */
+.toast-cont{position:fixed;bottom:1rem;right:1rem;z-index:9999;display:flex;flex-direction:column;gap:0.3rem;}
+.toast{padding:0.4rem 0.75rem;border-radius:var(--r);font-size:0.76rem;color:#fff;box-shadow:var(--sh);animation:tin 0.2s ease;max-width:340px;}
+.ts{background:var(--sx-success);}
+.te{background:var(--sx-danger);}
+.ti{background:var(--sx-accent);}
+.tw{background:var(--sx-warning);}
+@keyframes tin{from{opacity:0;transform:translateY(5px);}to{opacity:1;transform:none;}}
+::-webkit-scrollbar{width:6px;height:6px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--sx-border);border-radius:3px;}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <!-- ══════════ HEADER ══════════ -->
+  <header class="app-header">
+    <div class="hdr-title">
+      <span style="font-size:1.2rem">🏷️</span>
+      <h1>Location Label Printer</h1>
+      <span class="ver">v3.0.0</span>
+    </div>
+    <span class="hdr-badge" id="hdrFormat">100 × 80 mm · margine 10 mm</span>
+    <span class="hdr-badge" id="hdrSource" style="display:none"></span>
+    <div class="hdr-right">
+      <button class="btn btn-sm" style="background:rgba(255,255,255,0.12);color:#fff;border-color:rgba(255,255,255,0.2)"
+        onclick="UI.triggerImport()">📂 Importa JSON Warehouse Mapper</button>
+    </div>
+    <input type="file" id="fileInput" accept=".json" style="display:none" onchange="App.importFile(this)">
+  </header>
+
+  <main class="app-main">
+
+    <!-- ══════════ SINISTRA: SELEZIONE ══════════ -->
+    <aside class="panel panel-left">
+
+      <div id="dropZone" class="drop-zone"
+           onclick="UI.triggerImport()"
+           ondragover="UI.onDragOver(event)" ondragleave="UI.onDragLeave(event)" ondrop="UI.onDrop(event)">
+        <span class="dz-icon">📦</span>
+        <strong>Importa JSON dal Warehouse Mapper</strong><br>
+        <span style="font-size:0.72rem;margin-top:0.25rem;display:block">Trascina qui o clicca per selezionare</span>
+        <span style="font-size:0.64rem;color:#aaa;margin-top:0.2rem;display:block">Formato: warehouse-mapper-v1.5</span>
+      </div>
+
+      <!-- Impostazioni etichetta -->
+      <section id="settingsCard" class="card" style="display:none">
+        <div class="card-hdr">⚙️ Etichetta</div>
+        <div class="settings-row">
+          <div class="setting-group">
+            <span class="setting-label">Formato</span>
+            <select class="sel" id="selFormat" disabled>
+              <option value="100x80" selected>100 × 80 mm</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">Margine (mm)</span>
+            <input class="num" type="number" id="inpMargin" value="10" min="3" max="20" step="1"
+                   onchange="App.onSettingsChange()">
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">Simbologia</span>
+            <select class="sel" id="selSymbology" onchange="App.onSettingsChange()">
+              <option value="CODE128" selected>Code 128</option>
+              <option value="CODE39">Code 39</option>
+            </select>
+          </div>
+          <div class="setting-group">
+            <span class="setting-label">Copie</span>
+            <select class="sel" id="selCopies" onchange="App.onSettingsChange()">
+              <option value="1" selected>1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+              <option value="4">4</option>
+              <option value="5">5</option>
+            </select>
+          </div>
+        </div>
+        <p class="hint" style="margin-top:0.4rem">
+          Area utile <b id="hintArea">80 × 60 mm</b> — il codice a barre occupa l'intera larghezza utile.
+          <span id="hintXdim"></span>
+        </p>
+      </section>
+
+      <!-- Filtri -->
+      <section id="filterCard" class="card" style="display:none">
+        <div class="card-hdr">🔎 Filtri ubicazioni</div>
+        <input class="txt" type="search" id="inpSearch" placeholder="Cerca codice ubicazione…"
+               oninput="App.onSearchInput(this.value)">
+        <label class="chk" style="margin-top:0.35rem">
+          <input type="checkbox" id="chkExDisabled" checked onchange="App.onFilterChange()">
+          Escludi ubicazioni disattivate
+        </label>
+        <label class="chk">
+          <input type="checkbox" id="chkExBlocked" onchange="App.onFilterChange()">
+          Escludi ubicazioni bloccate / riservate
+        </label>
+        <div id="filterStats" class="hint" style="margin-top:0.3rem"></div>
+        <div style="display:flex;gap:0.25rem;margin-top:0.4rem;flex-wrap:wrap">
+          <button class="btn btn-xs btn-accent" onclick="App.selectVisible()">✓ Seleziona visibili</button>
+          <button class="btn btn-xs" onclick="App.expandAll(true)">⊞ Espandi</button>
+          <button class="btn btn-xs" onclick="App.expandAll(false)">⊟ Comprimi</button>
+        </div>
+      </section>
+
+      <!-- Contatore -->
+      <div id="counterBar" class="cbar" style="display:none">
+        <div>
+          <div class="cbar-num" id="selCount">0</div>
+          <div style="font-size:0.68rem;color:var(--sx-text-sec)">ubicazioni selezionate</div>
+        </div>
+        <div class="cbar-actions">
+          <button class="btn btn-sm btn-success" id="btnGen" onclick="App.generate()" disabled>⚡ Genera output</button>
+          <button class="btn btn-sm btn-danger" onclick="App.clearSelection()">✕ Svuota</button>
+        </div>
+      </div>
+
+      <div id="treeContainer" class="tree" style="display:none"></div>
+
+    </aside>
+
+    <!-- ══════════ DESTRA: OUTPUT ══════════ -->
+    <section class="panel panel-right">
+      <div class="output-area">
+
+        <nav class="output-tabs">
+          <button class="otab active" id="tab-csv"  onclick="UI.switchTab('csv')">📊 CSV OpenLabelMaker</button>
+          <button class="otab" id="tab-prev" onclick="UI.switchTab('prev')">👁 Anteprima</button>
+          <button class="otab" id="tab-pdf"  onclick="UI.switchTab('pdf')">🖨️ PDF 100×80</button>
+          <button class="otab" id="tab-zpl"  onclick="UI.switchTab('zpl')">📄 ZPL (legacy)</button>
+          <button class="otab" id="tab-istr" onclick="UI.switchTab('istr')">📖 Guida</button>
+        </nav>
+
+        <!-- ── TAB CSV ── -->
+        <div class="otab-content active" id="tcontent-csv">
+          <div id="csvEmpty" class="empty">
+            <span class="ei">📊</span>
+            <strong>CSV non ancora generato</strong>
+            <span style="font-size:0.76rem">Importa il JSON, seleziona le ubicazioni<br>e premi <b>Genera output</b></span>
+          </div>
+          <div id="csvOutput" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+            <div class="pane-toolbar">
+              <span class="pane-meta" id="csvMeta"></span>
+              <label class="chk" style="margin:0">Separatore
+                <select class="sel" id="selSep" onchange="App.generate(true)" style="margin-left:0.3rem">
+                  <option value="," selected>, (virgola)</option>
+                  <option value=";">; (punto e virgola)</option>
+                </select>
+              </label>
+              <button class="btn btn-sm btn-accent" onclick="App.copyCsv()">📋 Copia</button>
+              <button class="btn btn-sm btn-primary" onclick="App.downloadCsv()">💾 Scarica .csv</button>
+            </div>
+            <pre class="code-pane" id="csvPre"></pre>
+          </div>
+        </div>
+
+        <!-- ── TAB ANTEPRIMA ── -->
+        <div class="otab-content" id="tcontent-prev">
+          <div id="prevEmpty" class="empty">
+            <span class="ei">👁</span>
+            <strong>Nessuna etichetta generata</strong>
+            <span style="font-size:0.76rem">Seleziona le ubicazioni e premi <b>Genera output</b>.</span>
+          </div>
+          <div id="prevOutput" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+            <div class="pane-toolbar" style="border-radius:var(--r) var(--r) 0 0;border-bottom:1px solid var(--sx-border);">
+              <span class="pane-meta" id="prevMeta"></span>
+              <label class="chk" style="margin:0">
+                <input type="checkbox" id="chkGuides" checked onchange="App.generate(true)"> Mostra margine 10 mm
+              </label>
+              <span style="font-size:0.65rem;color:var(--sx-text-m)">Scala 1 mm = 3,4 px</span>
+            </div>
+            <div class="prev-scroll"><div class="prev-grid" id="prevGrid"></div></div>
+          </div>
+        </div>
+
+        <!-- ── TAB PDF ── -->
+        <div class="otab-content" id="tcontent-pdf">
+          <div style="overflow-y:auto;flex:1;padding:0.2rem 0">
+            <div class="instr-grid">
+              <article class="instr-card" style="grid-column:1/-1">
+                <h3>🖨️ PDF nativo 100 × 80 mm (una etichetta per pagina)</h3>
+                <p style="font-size:0.73rem;color:var(--sx-text-sec);line-height:1.6">
+                  Genera in locale un PDF con pagina di dimensione esattamente pari all'etichetta, margine di sicurezza
+                  rispettato su tutti e quattro i lati. È l'alternativa diretta a OpenLabelMaker: si invia alla stampante
+                  termica in scala 100% (nessun adattamento alla pagina).
+                </p>
+                <div style="display:flex;gap:0.4rem;margin-top:0.6rem;flex-wrap:wrap;align-items:center">
+                  <button class="btn btn-primary" id="btnPdfAll" onclick="App.exportPdf(false)">💾 Genera PDF (selezione)</button>
+                  <button class="btn" id="btnPdfTest" onclick="App.exportPdf(true)">🧪 PDF di prova (1 etichetta)</button>
+                  <label class="chk" style="margin:0">
+                    <input type="checkbox" id="chkPdfGuides"> Stampa riquadro margine (solo test)
+                  </label>
+                  <span id="pdfProgress" class="hint"></span>
+                </div>
+                <div class="instr-note">
+                  ⚠ In stampa impostare <b>scala 100%</b> / «dimensione reale»: l'adattamento automatico alla pagina
+                  altera le dimensioni del codice a barre e la larghezza di modulo.
+                </div>
+              </article>
+
+              <article class="instr-card" style="grid-column:1/-1">
+                <h3>📐 Geometria elementi (coordinate in mm dal bordo alto-sinistro)</h3>
+                <div id="geoTable"></div>
+                <p class="hint" style="margin-top:0.4rem">
+                  Le stesse coordinate sono usate per anteprima, PDF e ZPL: sono la specifica da replicare nell'editor
+                  di OpenLabelMaker.
+                </p>
+              </article>
+            </div>
+          </div>
+        </div>
+
+        <!-- ── TAB ZPL ── -->
+        <div class="otab-content" id="tcontent-zpl">
+          <div id="zplEmpty" class="empty">
+            <span class="ei">⚡</span>
+            <strong>ZPL non ancora generato</strong>
+            <span style="font-size:0.76rem">Output legacy per Zebra Designer / Browser Print.<br>
+            Non serve per OpenLabelMaker (che esporta in PDF).</span>
+          </div>
+          <div id="zplOutput" style="display:none;flex-direction:column;flex:1;overflow:hidden;">
+            <div class="pane-toolbar">
+              <span class="pane-meta" id="zplMeta"></span>
+              <label class="chk" style="margin:0">DPI
+                <select class="sel" id="selDpi" onchange="App.generate(true)" style="margin-left:0.3rem">
+                  <option value="203" selected>203</option>
+                  <option value="300">300</option>
+                </select>
+              </label>
+              <button class="btn btn-sm btn-accent" onclick="App.copyZpl()">📋 Copia</button>
+              <button class="btn btn-sm btn-primary" onclick="App.downloadZpl()">💾 Scarica .zpl</button>
+            </div>
+            <pre class="code-pane" id="zplPre"></pre>
+          </div>
+        </div>
+
+        <!-- ── TAB GUIDA ── -->
+        <div class="otab-content" id="tcontent-istr">
+          <div style="overflow-y:auto;padding:0.2rem 0;flex:1">
+            <div class="instr-grid">
+
+              <article class="instr-card" style="grid-column:1/-1">
+                <h3>🌐 Flusso OpenLabelMaker — dalla selezione alla stampa</h3>
+                <ol>
+                  <li>Seleziona le ubicazioni → <b>Genera output</b> → <b>Scarica .csv</b></li>
+                  <li>Apri <code>openlabelmaker.com/editor/</code> e imposta il formato etichetta
+                      <b>personalizzato 100 × 80 mm</b> (stampante termica)</li>
+                  <li>Disegna l'etichetta <b>una sola volta</b> usando i segnaposto tra doppie graffe, con i nomi
+                      colonna del CSV: <code>{{loc_code}}</code>, <code>{{line_site}}</code>, <code>{{line_zone}}</code>,
+                      <code>{{pos_text}}</code>, <code>{{company}}</code>, <code>{{type_label}}</code></li>
+                  <li>Inserisci un elemento <b>codice a barre Code 128</b> e imposta il suo dato su
+                      <code>{{loc_code}}</code>: ogni etichetta riceve così un codice univoco</li>
+                  <li>Clicca <b>📊 Batch</b> → scheda <b>Carica</b> → trascina il CSV: le colonne vengono associate
+                      automaticamente ai segnaposto</li>
+                  <li>Controlla l'anteprima e la tabella dati, poi <b>Esporta → Scarica PDF</b> o <b>Stampa</b></li>
+                  <li>Salva il design come file <code>.olm.json</code>: la volta successiva si ricarica il modello e si
+                      importa solo il nuovo CSV con le stesse intestazioni</li>
+                </ol>
+                <div class="instr-ok">
+                  ✓ Tutta l'elaborazione di OpenLabelMaker avviene lato client nel browser: i dati del CSV non vengono
+                  caricati su server. Nessun account richiesto.
+                </div>
+                <div class="instr-note">
+                  ⚠ OpenLabelMaker <b>non genera ZPL nativo</b>: l'output è PDF. Per l'invio diretto di comandi ZPL alla
+                  Zebra usa il tab «ZPL (legacy)» di questo tool.
+                </div>
+              </article>
+
+              <article class="instr-card">
+                <h3>📊 Colonne del CSV generato</h3>
+                <table class="geo">
+                  <thead><tr><th>Colonna</th><th>Contenuto</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>loc_code</code></td><td>Codice ubicazione — dato del codice a barre + testo grande</td></tr>
+                    <tr><td><code>site_id</code> / <code>site_name</code></td><td>Sito</td></tr>
+                    <tr><td><code>zone_id</code> / <code>zone_name</code></td><td>Zona</td></tr>
+                    <tr><td><code>zone_type</code></td><td>RACK / FLOOR / BULK</td></tr>
+                    <tr><td><code>type_label</code></td><td>SCAFFALE / A TERRA / BULK</td></tr>
+                    <tr><td><code>aisle</code> <code>bay</code> <code>level</code></td><td>Corsia / campata / livello (solo RACK)</td></tr>
+                    <tr><td><code>row</code> <code>position</code></td><td>Fila / posizione (FLOOR, BULK)</td></tr>
+                    <tr><td><code>pos_text</code></td><td>Riga pronta: «Corsia 01 - Campata 07 - Livello B»</td></tr>
+                    <tr><td><code>line_site</code> / <code>line_zone</code></td><td>Righe pronte «Sito: …» / «Zona: …»</td></tr>
+                    <tr><td><code>company</code></td><td>Intestazione aziendale</td></tr>
+                    <tr><td><code>status</code></td><td>ok / blocked / reserved / disabled</td></tr>
+                  </tbody>
+                </table>
+                <p class="hint" style="margin-top:0.35rem">
+                  Le colonne non usate nel design vengono semplicemente ignorate dall'editor.
+                  Con «Copie» &gt; 1 le righe vengono ripetute: una riga = una etichetta.
+                </p>
+              </article>
+
+              <article class="instr-card">
+                <h3>✅ Verifiche prima della stampa in serie</h3>
+                <ul>
+                  <li>Stampa <b>una sola etichetta di prova</b> e passa il lettore: verifica lettura al primo colpo</li>
+                  <li>Misura con il righello: il codice a barre deve stare entro il margine impostato su ogni lato</li>
+                  <li>Scala di stampa <b>100%</b> — mai «adatta alla pagina»</li>
+                  <li>Larghezza di modulo (dimensione X) consigliata ≥ 0,25 mm: il valore calcolato è indicato nel
+                      pannello impostazioni</li>
+                  <li>Se stampi su Zebra, calibra il sensore gap sul supporto 100 × 80 mm</li>
+                </ul>
+                <div class="instr-note">
+                  ⚠ Le ubicazioni <b>disattivate</b> nel Warehouse Mapper sono escluse per impostazione predefinita:
+                  stampare etichette di ubicazioni non esistenti genera errori di stoccaggio.
+                </div>
+              </article>
+
+              <article class="instr-card" style="grid-column:1/-1">
+                <h3>ℹ️ Note tecniche e conformità</h3>
+                <ul>
+                  <li>Il file JSON non viene caricato in rete: viene letto localmente dal browser (FileReader)</li>
+                  <li>La generazione di CSV, PDF e ZPL è deterministica e avviene interamente in locale; l'applicazione
+                      non contiene componenti di intelligenza artificiale e non genera contenuti sintetici a runtime
+                      (Reg. UE 2024/1689, art. 50 non applicabile all'output)</li>
+                  <li>Nessun dato personale è trattato: i dati elaborati sono codici di ubicazione logistica
+                      (Reg. UE 2016/679)</li>
+                  <li>Librerie esterne da CDN: JsBarcode 3.11.5, jsPDF 2.5.1 — richiedono connessione al primo
+                      caricamento della pagina</li>
+                </ul>
+              </article>
+
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-footer">
+    <span>© Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)</span>
+    <span>Location Label Printer v3.0.0 — uso interno</span>
+    <span style="margin-left:auto" id="footStat"></span>
+  </footer>
+</div>
+
+<div class="toast-cont" id="toastCont" role="alert" aria-live="polite"></div>
+
+<script>
+// © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+// location-label-printer — v3.0.0
+'use strict';
+
+// ══════════════════════════════════════════════════════
+//  CONFIGURAZIONE
+// ══════════════════════════════════════════════════════
+const APP_VERSION = '3.0.0';
+const COMPANY     = 'DIETOPACK S.r.l. - Naturacare Group';
+
+/** Dimensioni fisiche etichetta (mm) */
+const LABEL = { widthMm: 100, heightMm: 80 };
+
+/** Scala anteprima a video */
+const PX_PER_MM = 3.4;
+
+/** Numero massimo di etichette renderizzate in anteprima (performance) */
+const PREVIEW_MAX = 24;
+
+/** Etichette leggibili per tipo zona */
+const TYPE_LABEL = { RACK: 'SCAFFALE', FLOOR: 'A TERRA', BULK: 'BULK' };
+
+/** Conversione punti tipografici → mm */
+const PT_TO_MM = 25.4 / 72;
+
+// ══════════════════════════════════════════════════════
+//  LAYOUT — sorgente unica per anteprima, PDF, ZPL e guida
+// ══════════════════════════════════════════════════════
+/**
+ * Calcola la geometria dell'etichetta in millimetri.
+ * Il layout di riferimento è definito su margine 10 mm (area utile 80 × 60 mm);
+ * con margini diversi tutte le quote verticali e i corpi carattere sono scalati
+ * proporzionalmente, così il contenuto resta sempre dentro l'area di sicurezza.
+ *
+ * @param {number} marginMm margine di sicurezza per lato (mm)
+ * @returns {object} geometria in mm
+ */
+function computeLayout(marginMm) {
+  const m  = Math.min(Math.max(Number(marginMm) || 10, 3), 20);
+  const cw = LABEL.widthMm  - 2 * m;   // larghezza utile
+  const ch = LABEL.heightMm - 2 * m;   // altezza utile
+  const s  = ch / 60;                  // fattore di scala verticale
+  const v  = off => +(m + off * s).toFixed(2);
+  const f  = pt  => +(pt * s).toFixed(2);
+
+  return {
+    marginMm: m,
+    contentX: m, contentY: m,
+    contentW: +cw.toFixed(2), contentH: +ch.toFixed(2),
+    header : { y: v(4),    fontPt: f(8.5) },
+    rule1  : { y: v(5.5),  thick: +(0.4 * s).toFixed(2) },
+    barcode: { x: m, y: v(7), w: +cw.toFixed(2), h: +(17 * s).toFixed(2) },
+    code   : { y: v(33),   fontPt: f(24) },
+    rule2  : { y: v(36),   thick: +(0.3 * s).toFixed(2) },
+    site   : { y: v(40),   fontPt: f(8) },
+    zone   : { y: v(44),   fontPt: f(8) },
+    posBox : { y: v(46.5), h: +(10 * s).toFixed(2), labelPt: f(6), valuePt: f(13), gap: +(2 * s).toFixed(2) },
+    footer : { y: v(59.5), fontPt: f(5.5) }
+  };
+}
+
+/**
+ * Stima il numero di moduli (barre elementari) del codice a barre.
+ * Serve per calcolare la dimensione X e la larghezza modulo in ZPL.
+ * CODE128: 11 moduli per simbolo (start + dati + checksum) + 13 dello stop.
+ * CODE39 : 16 unità strette per carattere (rapporto 3:1) + start/stop.
+ */
+function estimateModules(text, symbology) {
+  const n = String(text).length;
+  return symbology === 'CODE39' ? 16 * (n + 2) : 11 * (n + 2) + 13;
+}
+
+// ══════════════════════════════════════════════════════
+//  STATO
+// ══════════════════════════════════════════════════════
+const state = {
+  loaded:    false,
+  meta:      null,
+  locMap:    new Map(),   // code → loc
+  tree:      [],          // [{siteId, siteName, zones:[{zone, locs}]}]
+  selected:  new Set(),
+  expanded:  new Set(),
+  search:    '',
+  lastCsv:   null,
+  lastZpl:   null,
+  lastLocs:  [],
+  bcCache:   new Map()    // `${code}|${symbology}` → dataURL PNG
+};
+
+// ══════════════════════════════════════════════════════
+//  FUNZIONI CORE — generazione ubicazioni
+// ══════════════════════════════════════════════════════
+/**
+ * Genera i codici ubicazione di una zona, con la stessa regola del Warehouse Mapper:
+ *   RACK  → SITO-ZONA-CC-BB-L   FLOOR → SITO-ZONA-FF-PP   BULK → SITO-ZONA-PP
+ */
+function genLocations(siteId, zone) {
+  const locs = [];
+  const prefix = `${siteId}-${zone.id}`;
+
+  if (zone.type === 'RACK') {
+    for (let a = 1; a <= (zone.aisles || 1); a++) {
+      for (let b = 1; b <= (zone.bays_per_aisle || 1); b++) {
+        for (const lvl of (zone.levels || ['T'])) {
+          locs.push({
+            code:  `${prefix}-${String(a).padStart(2,'0')}-${String(b).padStart(2,'0')}-${lvl}`,
+            aisle: String(a).padStart(2,'0'),
+            bay:   String(b).padStart(2,'0'),
+            level: String(lvl)
+          });
+        }
+      }
+    }
+  } else if (zone.type === 'FLOOR') {
+    for (let r = 1; r <= (zone.rows || 1); r++) {
+      for (let p = 1; p <= (zone.positions_per_row || 1); p++) {
+        locs.push({
+          code:     `${prefix}-${String(r).padStart(2,'0')}-${String(p).padStart(2,'0')}`,
+          row:      String(r).padStart(2,'0'),
+          position: String(p).padStart(2,'0')
+        });
+      }
+    }
+  } else if (zone.type === 'BULK') {
+    for (let p = 1; p <= (zone.positions || 1); p++) {
+      locs.push({
+        code:     `${prefix}-${String(p).padStart(2,'0')}`,
+        position: String(p).padStart(2,'0')
+      });
+    }
+  }
+  return locs;
+}
+
+/** Parti posizione da mostrare nei riquadri dell'etichetta. */
+function posParts(loc) {
+  if (loc.zoneType === 'RACK')
+    return [{ l: 'CORSIA', v: loc.aisle }, { l: 'CAMPATA', v: loc.bay }, { l: 'LIVELLO', v: loc.level }];
+  if (loc.zoneType === 'FLOOR')
+    return [{ l: 'FILA', v: loc.row }, { l: 'POSIZIONE', v: loc.position }];
+  return [{ l: 'POSIZIONE', v: loc.position }];
+}
+
+/** Riga posizione in formato testo (ASCII) per il CSV. */
+const posText = loc => posParts(loc)
+  .map(p => `${p.l.charAt(0)}${p.l.slice(1).toLowerCase()} ${p.v}`)
+  .join(' - ');
+
+// ══════════════════════════════════════════════════════
+//  FUNZIONI CORE — CSV per OpenLabelMaker
+// ══════════════════════════════════════════════════════
+const CSV_COLUMNS = [
+  'loc_code','site_id','site_name','zone_id','zone_name','zone_type','type_label',
+  'aisle','bay','level','row','position','pos_text','line_site','line_zone','company','status'
+];
+
+/** Escape di una cella CSV secondo RFC 4180. */
+function csvCell(value, sep) {
+  const s = String(value ?? '').replace(/[\r\n]+/g, ' ').trim();
+  return (s.includes(sep) || s.includes('"')) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
+/**
+ * Costruisce il CSV di merge. Una riga = una etichetta (le copie duplicano le righe).
+ * Intestazioni semplici e senza caratteri speciali: diventano i segnaposto {{colonna}}.
+ */
+function buildCsv(locs, opts) {
+  const sep  = opts.separator || ',';
+  const rows = [CSV_COLUMNS.join(sep)];
+
+  for (const loc of locs) {
+    const cells = [
+      loc.code,
+      loc.siteId, loc.siteName,
+      loc.zoneId, loc.zoneName,
+      loc.zoneType, TYPE_LABEL[loc.zoneType] ?? loc.zoneType,
+      loc.aisle ?? '', loc.bay ?? '', loc.level ?? '',
+      loc.row ?? '', loc.position ?? '',
+      posText(loc),
+      `Sito: ${loc.siteId} - ${loc.siteName}`,
+      `Zona: ${loc.zoneId} - ${loc.zoneName}`,
+      COMPANY,
+      loc.status || 'ok'
+    ].map(c => csvCell(c, sep));
+
+    for (let c = 0; c < opts.copies; c++) rows.push(cells.join(sep));
+  }
+  return rows.join('\r\n');
+}
+
+// ══════════════════════════════════════════════════════
+//  FUNZIONI CORE — codice a barre (canvas riutilizzabile)
+// ══════════════════════════════════════════════════════
+/**
+ * Genera il codice a barre come PNG dataURL, con cache per codice+simbologia.
+ * Risoluzione ~250 dpi sulla larghezza finale di stampa.
+ */
+function barcodeDataUrl(code, symbology) {
+  const key = `${code}|${symbology}`;
+  if (state.bcCache.has(key)) return state.bcCache.get(key);
+
+  const canvas = document.createElement('canvas');
+  JsBarcode(canvas, code, {
+    format: symbology,
+    width: 4, height: 300,
+    displayValue: false, margin: 0,
+    background: '#ffffff', lineColor: '#000000'
+  });
+  const url = canvas.toDataURL('image/png');
+  state.bcCache.set(key, url);
+  return url;
+}
+
+// © Andrea Sacchetti — watermark mid-file — Dietopack S.r.l.
+
+// ══════════════════════════════════════════════════════
+//  FUNZIONI CORE — PDF 100 × 80 mm (jsPDF)
+// ══════════════════════════════════════════════════════
+/** Riduce il corpo carattere finché il testo entra nella larghezza disponibile. */
+function fitFont(doc, text, maxWmm, startPt, minPt = 4) {
+  let pt = startPt;
+  doc.setFontSize(pt);
+  while (doc.getTextWidth(String(text)) > maxWmm && pt > minPt) {
+    pt -= 0.5;
+    doc.setFontSize(pt);
+  }
+  return pt;
+}
+
+/** Disegna una singola etichetta sulla pagina corrente del PDF. */
+function drawLabelPdf(doc, loc, L, opts) {
+  const cx = LABEL.widthMm / 2;
+
+  // Riquadro area di sicurezza (solo per verifica dimensionale)
+  if (opts.guides) {
+    doc.setDrawColor(220, 90, 90);
+    doc.setLineWidth(0.2);
+    doc.rect(L.contentX, L.contentY, L.contentW, L.contentH);
+    doc.setDrawColor(0, 0, 0);
+  }
+
+  // Intestazione: azienda a sinistra, tipo zona a destra
+  doc.setFont('helvetica', 'bold');
+  fitFont(doc, COMPANY, L.contentW * 0.68, L.header.fontPt);
+  doc.text(COMPANY, L.contentX, L.header.y);
+  doc.setFontSize(L.header.fontPt);
+  doc.text(`[${TYPE_LABEL[loc.zoneType] ?? loc.zoneType}]`, LABEL.widthMm - L.contentX, L.header.y, { align: 'right' });
+
+  // Linea separatrice
+  doc.setLineWidth(L.rule1.thick);
+  doc.line(L.contentX, L.rule1.y, LABEL.widthMm - L.contentX, L.rule1.y);
+
+  // Codice a barre — occupa tutta la larghezza utile
+  doc.addImage(barcodeDataUrl(loc.code, opts.symbology), 'PNG',
+    L.barcode.x, L.barcode.y, L.barcode.w, L.barcode.h);
+
+  // Codice leggibile, centrato
+  doc.setFont('helvetica', 'bold');
+  fitFont(doc, loc.code, L.contentW, L.code.fontPt);
+  doc.text(loc.code, cx, L.code.y, { align: 'center' });
+
+  // Seconda linea separatrice
+  doc.setLineWidth(L.rule2.thick);
+  doc.line(L.contentX, L.rule2.y, LABEL.widthMm - L.contentX, L.rule2.y);
+
+  // Dettagli sito / zona
+  doc.setFont('helvetica', 'normal');
+  fitFont(doc, `Sito: ${loc.siteId} - ${loc.siteName}`, L.contentW, L.site.fontPt);
+  doc.text(`Sito: ${loc.siteId} - ${loc.siteName}`, L.contentX, L.site.y);
+  fitFont(doc, `Zona: ${loc.zoneId} - ${loc.zoneName}`, L.contentW, L.zone.fontPt);
+  doc.text(`Zona: ${loc.zoneId} - ${loc.zoneName}`, L.contentX, L.zone.y);
+
+  // Riquadri posizione
+  const parts = posParts(loc);
+  const boxW  = (L.contentW - L.posBox.gap * (parts.length - 1)) / parts.length;
+  parts.forEach((p, i) => {
+    const x = L.contentX + i * (boxW + L.posBox.gap);
+    doc.setLineWidth(0.25);
+    doc.roundedRect(x, L.posBox.y, boxW, L.posBox.h, 0.8, 0.8);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(L.posBox.labelPt);
+    doc.text(p.l, x + boxW / 2, L.posBox.y + L.posBox.h * 0.32, { align: 'center' });
+    doc.setFont('helvetica', 'bold');
+    fitFont(doc, p.v, boxW - 2, L.posBox.valuePt);
+    doc.text(String(p.v), x + boxW / 2, L.posBox.y + L.posBox.h * 0.85, { align: 'center' });
+  });
+
+  // Piè di pagina
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(L.footer.fontPt);
+  doc.text('(c) Andrea Sacchetti - Dietopack S.r.l. - uso interno',
+    LABEL.widthMm - L.contentX, L.footer.y, { align: 'right' });
+}
+
+/**
+ * Costruisce il PDF completo: una pagina 100 × 80 mm per etichetta (copie incluse).
+ * Cede il controllo al browser ogni 20 pagine per non bloccare la UI.
+ */
+async function buildPdf(locs, opts, onProgress) {
+  const jsPDFCtor = window.jspdf?.jsPDF;
+  if (typeof jsPDFCtor !== 'function')
+    throw new Error('jsPDF non disponibile — verifica la connessione al CDN');
+
+  const L = computeLayout(opts.marginMm);
+  const doc = new jsPDFCtor({
+    orientation: 'landscape', unit: 'mm',
+    format: [LABEL.widthMm, LABEL.heightMm], compress: true
+  });
+
+  let page = 0;
+  const total = locs.length * opts.copies;
+
+  for (const loc of locs) {
+    for (let c = 0; c < opts.copies; c++) {
+      if (page > 0) doc.addPage([LABEL.widthMm, LABEL.heightMm], 'landscape');
+      drawLabelPdf(doc, loc, L, opts);
+      page++;
+      if (page % 20 === 0) {
+        onProgress?.(page, total);
+        await new Promise(r => setTimeout(r, 0));
+      }
+    }
+  }
+  onProgress?.(total, total);
+  return doc;
+}
+
+// ══════════════════════════════════════════════════════
+//  FUNZIONI CORE — ZPL II (legacy Zebra)
+// ══════════════════════════════════════════════════════
+/** Genera l'intero file ZPL a partire dalla stessa geometria in mm. */
+function buildZpl(locs, opts) {
+  const dpi   = opts.dpi === 300 ? 300 : 203;
+  const dpmm  = dpi / 25.4;
+  const L     = computeLayout(opts.marginMm);
+
+  const d       = mm => Math.round(mm * dpmm);                       // mm → dots
+  const ptDots  = pt => Math.max(8, Math.round(pt * PT_TO_MM * dpmm)); // corpo carattere → dots
+  const topOf   = (baselineMm, pt) => d(baselineMm - pt * PT_TO_MM * 0.80); // baseline → bordo alto
+
+  const pw = d(LABEL.widthMm);
+  const ll = d(LABEL.heightMm);
+
+  const header = [
+    '; ════════════════════════════════════════════════════',
+    `; Location Label Printer v${APP_VERSION} — © Andrea Sacchetti`,
+    '; Dietopack S.r.l. (Naturacare Group) — uso interno',
+    `; Generato: ${new Date().toLocaleString('it-IT')}`,
+    `; Etichette: ${locs.length} × ${opts.copies} copie — DPI ${dpi}`,
+    `; Formato: ${LABEL.widthMm} × ${LABEL.heightMm} mm — margine ${L.marginMm} mm`,
+    '; ════════════════════════════════════════════════════',
+    ''
+  ].join('\n');
+
+  const blocks = locs.map(loc => {
+    const parts   = posParts(loc);
+    const modules = estimateModules(loc.code, opts.symbology);
+    const modDots = Math.min(10, Math.max(1, Math.floor(d(L.barcode.w) / modules)));
+    const barW    = modDots * modules;
+    const barX    = d(L.contentX) + Math.max(0, Math.round((d(L.contentW) - barW) / 2));
+    const barCmd  = opts.symbology === 'CODE39' ? '^B3N' : '^BCN';
+
+    const hdrPt   = ptDots(L.header.fontPt);
+    const codePt  = ptDots(L.code.fontPt);
+    const detPt   = ptDots(L.site.fontPt);
+    const boxW    = (d(L.contentW) - d(L.posBox.gap) * (parts.length - 1)) / parts.length;
+
+    const posCmds = parts.flatMap((p, i) => {
+      const x = d(L.contentX) + Math.round(i * (boxW + d(L.posBox.gap)));
+      const w = Math.round(boxW);
+      return [
+        `^FO${x},${d(L.posBox.y)}^GB${w},${d(L.posBox.h)},2^FS`,
+        `^FO${x},${d(L.posBox.y) + Math.round(d(L.posBox.h) * 0.14)}^FB${w},1,0,C^A0N,${ptDots(L.posBox.labelPt)},${ptDots(L.posBox.labelPt)}^FD${p.l}^FS`,
+        `^FO${x},${d(L.posBox.y) + Math.round(d(L.posBox.h) * 0.42)}^FB${w},1,0,C^A0N,${ptDots(L.posBox.valuePt)},${ptDots(L.posBox.valuePt)}^FD${p.v}^FS`
+      ];
+    });
+
+    return [
+      `; ── ${loc.code} ──────────────────────────────────`,
+      '^XA',
+      `^PW${pw}`, `^LL${ll}`, '^MMT', '^MNW', '^LH0,0', '^CI28',
+      `^FO${d(L.contentX)},${topOf(L.header.y, L.header.fontPt)}^A0N,${hdrPt},${hdrPt}^FD${COMPANY}^FS`,
+      `^FO${d(L.contentX)},${topOf(L.header.y, L.header.fontPt)}^FB${d(L.contentW)},1,0,R^A0N,${hdrPt},${hdrPt}^FD[${TYPE_LABEL[loc.zoneType] ?? loc.zoneType}]^FS`,
+      `^FO${d(L.contentX)},${d(L.rule1.y)}^GB${d(L.contentW)},3,3^FS`,
+      `^FO${barX},${d(L.barcode.y)}^BY${modDots},3.0,${d(L.barcode.h)}`,
+      `${barCmd},${d(L.barcode.h)},N,N,N`,
+      `^FD${loc.code}^FS`,
+      `^FO${d(L.contentX)},${topOf(L.code.y, L.code.fontPt)}^FB${d(L.contentW)},1,0,C^A0N,${codePt},${codePt}^FD${loc.code}^FS`,
+      `^FO${d(L.contentX)},${d(L.rule2.y)}^GB${d(L.contentW)},2,2^FS`,
+      `^FO${d(L.contentX)},${topOf(L.site.y, L.site.fontPt)}^A0N,${detPt},${detPt}^FDSito: ${loc.siteId} - ${loc.siteName}^FS`,
+      `^FO${d(L.contentX)},${topOf(L.zone.y, L.zone.fontPt)}^A0N,${detPt},${detPt}^FDZona: ${loc.zoneId} - ${loc.zoneName}^FS`,
+      ...posCmds,
+      `^FO${d(L.contentX)},${topOf(L.footer.y, L.footer.fontPt)}^FB${d(L.contentW)},1,0,R^A0N,${ptDots(L.footer.fontPt)},${ptDots(L.footer.fontPt)}^FD(c) Andrea Sacchetti - Dietopack S.r.l.^FS`,
+      `^PQ${opts.copies},0,1,Y`,
+      '^XZ',
+      ''
+    ].join('\n');
+  });
+
+  return header + blocks.join('\n');
+}
+
+// ══════════════════════════════════════════════════════
+//  APPLICAZIONE
+// ══════════════════════════════════════════════════════
+const App = {
+
+  // ── Import ────────────────────────────────────────
+  importFile(input) {
+    const file = input.files?.[0];
+    if (!file) return;
+    this.readJsonFile(file);
+    input.value = '';
+  },
+
+  readJsonFile(file) {
+    const reader = new FileReader();
+    reader.onload = e => {
+      try { this.loadData(JSON.parse(e.target.result), file.name); }
+      catch (err) { UI.toast(`Errore lettura JSON: ${err.message}`, 'e'); }
+    };
+    reader.onerror = () => UI.toast('Impossibile leggere il file', 'e');
+    reader.readAsText(file);
+  },
+
+  /** Carica il backup del Warehouse Mapper e costruisce l'albero ubicazioni. */
+  loadData(data, fileName = '') {
+    const fmt = String(data?._format ?? '');
+    if (!fmt.startsWith('warehouse-mapper-v')) {
+      UI.toast('Formato non riconosciuto: atteso un export del Warehouse Mapper', 'e');
+      return;
+    }
+    if (!fmt.startsWith('warehouse-mapper-v1.5'))
+      UI.toast(`Formato ${fmt} non testato — procedo comunque`, 'w');
+
+    const sites = (data.sites || []).filter(s => s.active !== false);
+    const zones = (data.zones || []).filter(z => z.active !== false);
+    if (!sites.length) { UI.toast('Nessun sito attivo nel file.', 'e'); return; }
+
+    // Reset stato
+    state.locMap.clear();
+    state.selected.clear();
+    state.expanded.clear();
+    state.bcCache.clear();
+    state.tree = [];
+    state.lastCsv = state.lastZpl = null;
+    state.lastLocs = [];
+
+    // Stato ubicazioni dal backup
+    const disabledSet = new Set((data.disabled || []).map(x => x.location_code));
+    const statusMap   = new Map((data.loc_status || []).map(x => [x.location_code, x.status]));
+
+    const zonesBySite = {};
+    for (const z of zones) (zonesBySite[z.site_id] ??= []).push(z);
+
+    let total = 0, nDisabled = 0, nBlocked = 0;
+    for (const site of sites) {
+      const treeZones = [];
+      for (const zone of (zonesBySite[site.id] || [])) {
+        const locs = genLocations(site.id, zone).map(l => {
+          const status = disabledSet.has(l.code) ? 'disabled' : (statusMap.get(l.code) || 'ok');
+          if (status === 'disabled') nDisabled++;
+          else if (status === 'blocked' || status === 'reserved') nBlocked++;
+          return {
+            ...l,
+            siteId: site.id, siteName: site.name,
+            zoneId: zone.id, zoneName: zone.name, zoneType: zone.type,
+            status
+          };
+        });
+        for (const l of locs) state.locMap.set(l.code, l);
+        treeZones.push({ zone, locs });
+        total += locs.length;
+      }
+      state.tree.push({ siteId: site.id, siteName: site.name, zones: treeZones });
+    }
+    if (state.tree.length === 1) state.expanded.add(state.tree[0].siteId);
+
+    state.loaded = true;
+    state.meta = {
+      fileName,
+      format:   fmt,
+      author:   data._author || '—',
+      exported: data._exported ? new Date(data._exported).toLocaleString('it-IT') : '—',
+      sites: sites.length, zones: zones.length, total, nDisabled, nBlocked
+    };
+
+    UI.showLoaded();
+    UI.renderTree();
+    UI.updateCounter();
+    UI.updateHints();
+    UI.toast(`✓ ${sites.length} siti · ${zones.length} zone · ${total} ubicazioni`, 's');
+  },
+
+  // ── Impostazioni e filtri ─────────────────────────
+  onSettingsChange() {
+    UI.updateHints();
+    if (state.lastLocs.length) this.generate(true);
+  },
+
+  onFilterChange() { UI.renderTree(); UI.updateHints(); },
+
+  onSearchInput: null, // assegnata in INIT (debounce)
+
+  /** Filtro di visibilità applicato all'albero. */
+  isVisible(loc) {
+    if (document.getElementById('chkExDisabled').checked && loc.status === 'disabled') return false;
+    if (document.getElementById('chkExBlocked').checked &&
+        (loc.status === 'blocked' || loc.status === 'reserved')) return false;
+    if (state.search && !loc.code.toLowerCase().includes(state.search)) return false;
+    return true;
+  },
+
+  visibleLocs() {
+    const out = [];
+    for (const site of state.tree)
+      for (const { locs } of site.zones)
+        for (const l of locs) if (this.isVisible(l)) out.push(l);
+    return out;
+  },
+
+  // ── Selezione ─────────────────────────────────────
+  toggleExpand(key) {
+    if (state.expanded.has(key)) state.expanded.delete(key);
+    else state.expanded.add(key);
+    UI.renderTree();
+  },
+
+  expandAll(open) {
+    state.expanded.clear();
+    if (open) {
+      for (const s of state.tree) {
+        state.expanded.add(s.siteId);
+        for (const z of s.zones) state.expanded.add(`${s.siteId}|${z.zone.id}`);
+      }
+    }
+    UI.renderTree();
+  },
+
+  toggleLoc(code) {
+    if (state.selected.has(code)) state.selected.delete(code);
+    else state.selected.add(code);
+    UI.updateCounter();
+    UI.renderTree();
+  },
+
+  selectZone(siteId, zoneId, add = true) {
+    const ze = state.tree.find(s => s.siteId === siteId)?.zones.find(z => z.zone.id === zoneId);
+    if (!ze) return;
+    let n = 0;
+    for (const l of ze.locs) {
+      if (add && !this.isVisible(l)) continue;
+      add ? state.selected.add(l.code) : state.selected.delete(l.code);
+      n++;
+    }
+    UI.updateCounter(); UI.renderTree();
+    UI.toast(add ? `✓ ${n} ubicazioni zona ${zoneId} aggiunte` : `Zona ${zoneId} deselezionata`, add ? 's' : 'i');
+  },
+
+  selectSite(siteId, add = true) {
+    const se = state.tree.find(s => s.siteId === siteId);
+    if (!se) return;
+    let n = 0;
+    for (const z of se.zones) for (const l of z.locs) {
+      if (add && !this.isVisible(l)) continue;
+      add ? state.selected.add(l.code) : state.selected.delete(l.code);
+      n++;
+    }
+    UI.updateCounter(); UI.renderTree();
+    UI.toast(add ? `✓ ${n} ubicazioni sito ${siteId} aggiunte` : `Sito ${siteId} deselezionato`, add ? 's' : 'i');
+  },
+
+  selectVisible() {
+    const vis = this.visibleLocs();
+    vis.forEach(l => state.selected.add(l.code));
+    UI.updateCounter(); UI.renderTree();
+    UI.toast(`✓ ${vis.length} ubicazioni visibili selezionate`, 's');
+  },
+
+  clearSelection() {
+    state.selected.clear();
+    state.lastCsv = state.lastZpl = null;
+    state.lastLocs = [];
+    UI.updateCounter(); UI.renderTree();
+    UI.resetOutputs();
+    UI.toast('Selezione svuotata', 'i');
+  },
+
+  // ── Opzioni correnti ──────────────────────────────
+  currentOptions() {
+    return {
+      marginMm:  Number(document.getElementById('inpMargin').value) || 10,
+      symbology: document.getElementById('selSymbology').value,
+      copies:    Number(document.getElementById('selCopies').value) || 1,
+      separator: document.getElementById('selSep')?.value || ',',
+      dpi:       Number(document.getElementById('selDpi')?.value) || 203,
+      guides:    document.getElementById('chkPdfGuides')?.checked === true
+    };
+  },
+
+  /** Ubicazioni selezionate, ordinate in modo naturale. */
+  selectedLocs() {
+    return [...state.selected]
+      .map(c => state.locMap.get(c))
+      .filter(Boolean)
+      .sort((a, b) => a.code.localeCompare(b.code, 'it', { numeric: true, sensitivity: 'base' }));
+  },
+
+  // ── Generazione output ────────────────────────────
+  generate(silent = false) {
+    const locs = this.selectedLocs();
+    if (!locs.length) {
+      if (!silent) UI.toast('Nessuna ubicazione selezionata', 'e');
+      return;
+    }
+
+    const opts = this.currentOptions();
+    state.lastLocs = locs;
+
+    try {
+      state.lastCsv = buildCsv(locs, opts);
+      state.lastZpl = buildZpl(locs, opts);
+    } catch (err) {
+      UI.toast(`Errore generazione: ${err.message}`, 'e');
+      return;
+    }
+
+    UI.renderCsv(state.lastCsv, locs.length, opts);
+    UI.renderZpl(state.lastZpl, locs.length, opts);
+    UI.renderPreview(locs, opts);
+    UI.renderGeoTable(computeLayout(opts.marginMm));
+    UI.updateHints();
+
+    if (!silent) {
+      UI.switchTab('csv');
+      UI.toast(`✓ ${locs.length * opts.copies} etichette pronte (CSV · PDF · ZPL)`, 's');
+    }
+  },
+
+  // ── Export CSV ────────────────────────────────────
+  copyCsv() {
+    if (!state.lastCsv) { UI.toast('Genera prima gli output', 'e'); return; }
+    navigator.clipboard.writeText(state.lastCsv)
+      .then(() => UI.toast('✓ CSV copiato negli appunti', 's'))
+      .catch(() => UI.toast('Copia non riuscita — usa «Scarica .csv»', 'e'));
+  },
+
+  downloadCsv() {
+    if (!state.lastCsv) { UI.toast('Genera prima gli output', 'e'); return; }
+    const n = state.lastLocs.length * this.currentOptions().copies;
+    UI.download(state.lastCsv, `ubicazioni-${n}etichette-${UI.today()}.csv`, 'text/csv;charset=utf-8');
+    UI.toast(`✓ CSV scaricato (${n} righe etichetta)`, 's');
+  },
+
+  // ── Export ZPL ────────────────────────────────────
+  copyZpl() {
+    if (!state.lastZpl) { UI.toast('Genera prima gli output', 'e'); return; }
+    navigator.clipboard.writeText(state.lastZpl)
+      .then(() => UI.toast('✓ ZPL copiato negli appunti', 's'))
+      .catch(() => UI.toast('Copia non riuscita — usa «Scarica .zpl»', 'e'));
+  },
+
+  downloadZpl() {
+    if (!state.lastZpl) { UI.toast('Genera prima gli output', 'e'); return; }
+    UI.download(state.lastZpl, `ubicazioni-${state.lastLocs.length}etichette-${UI.today()}.zpl`, 'text/plain;charset=utf-8');
+    UI.toast('✓ File .zpl scaricato', 's');
+  },
+
+  // ── Export PDF ────────────────────────────────────
+  async exportPdf(testOnly = false) {
+    const all = state.lastLocs.length ? state.lastLocs : this.selectedLocs();
+    if (!all.length) { UI.toast('Seleziona almeno una ubicazione', 'e'); return; }
+
+    const opts = this.currentOptions();
+    const locs = testOnly ? [all[0]] : all;
+    if (testOnly) opts.copies = 1;
+
+    const btns = [document.getElementById('btnPdfAll'), document.getElementById('btnPdfTest')];
+    btns.forEach(b => b.disabled = true);
+    const prog = document.getElementById('pdfProgress');
+
+    try {
+      const doc = await buildPdf(locs, opts, (done, tot) => {
+        prog.textContent = `Generazione ${done}/${tot} pagine…`;
+      });
+      const name = testOnly
+        ? `etichetta-prova-${locs[0].code}.pdf`
+        : `ubicazioni-${locs.length * opts.copies}etichette-${UI.today()}.pdf`;
+      doc.save(name);
+      prog.textContent = '';
+      UI.toast(`✓ PDF generato: ${locs.length * opts.copies} etichette 100×80 mm`, 's');
+    } catch (err) {
+      prog.textContent = '';
+      UI.toast(`Errore PDF: ${err.message}`, 'e');
+    } finally {
+      btns.forEach(b => b.disabled = false);
+    }
+  }
+};
+
+// ══════════════════════════════════════════════════════
+//  UI
+// ══════════════════════════════════════════════════════
+const UI = {
+
+  triggerImport() { document.getElementById('fileInput').click(); },
+
+  onDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('over'); },
+  onDragLeave()  { document.getElementById('dropZone').classList.remove('over'); },
+  onDrop(e) {
+    e.preventDefault();
+    document.getElementById('dropZone').classList.remove('over');
+    const file = e.dataTransfer.files?.[0];
+    if (file) App.readJsonFile(file);
+  },
+
+  today() { return new Date().toISOString().slice(0, 10); },
+
+  download(content, filename, mime) {
+    const url = URL.createObjectURL(new Blob([content], { type: mime }));
+    const a = document.createElement('a');
+    a.href = url; a.download = filename;
+    a.click();
+    URL.revokeObjectURL(url);
+  },
+
+  showLoaded() {
+    document.getElementById('dropZone').style.display      = 'none';
+    document.getElementById('settingsCard').style.display  = 'block';
+    document.getElementById('filterCard').style.display    = 'block';
+    document.getElementById('counterBar').style.display    = 'flex';
+    document.getElementById('treeContainer').style.display = 'flex';
+
+    const src = document.getElementById('hdrSource');
+    src.style.display = 'inline-block';
+    src.textContent = `backup ${state.meta.exported}`;
+    document.getElementById('footStat').textContent =
+      `${state.meta.sites} siti · ${state.meta.zones} zone · ${state.meta.total} ubicazioni · export di ${state.meta.author}`;
+  },
+
+  updateCounter() {
+    const n = state.selected.size;
+    document.getElementById('selCount').textContent = n;
+    document.getElementById('btnGen').disabled = n === 0;
+  },
+
+  /** Aggiorna area utile, dimensione X stimata e statistiche filtri. */
+  updateHints() {
+    const opts = App.currentOptions();
+    const L = computeLayout(opts.marginMm);
+    document.getElementById('hintArea').textContent = `${L.contentW} × ${L.contentH} mm`;
+    document.getElementById('hdrFormat').textContent =
+      `${LABEL.widthMm} × ${LABEL.heightMm} mm · margine ${L.marginMm} mm`;
+
+    // Dimensione X sul codice più lungo tra quelli selezionati (o caricati)
+    const pool = state.selected.size ? App.selectedLocs() : [...state.locMap.values()].slice(0, 500);
+    const el = document.getElementById('hintXdim');
+    el.textContent = '';
+    if (pool.length) {
+      const longest = pool.reduce((a, b) => (b.code.length > a.code.length ? b : a));
+      const xDim = L.contentW / estimateModules(longest.code, opts.symbology);
+      const ok = xDim >= 0.25;
+      const strong = document.createElement('b');
+      strong.style.color = ok ? 'var(--sx-success)' : 'var(--sx-danger)';
+      strong.textContent = `${xDim.toFixed(3).replace('.', ',')} mm`;
+      el.append(' Dimensione X ≈ ', strong,
+        ok ? '' : ' — sotto 0,25 mm: rischio di mancata lettura');
+    }
+
+    if (state.loaded) {
+      const vis = App.visibleLocs().length;
+      document.getElementById('filterStats').textContent =
+        `${vis} visibili su ${state.meta.total} · ${state.meta.nDisabled} disattivate · ${state.meta.nBlocked} bloccate/riservate`;
+    }
+  },
+
+  switchTab(id) {
+    document.querySelectorAll('.otab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.otab-content').forEach(c => c.classList.remove('active'));
+    document.getElementById(`tab-${id}`).classList.add('active');
+    document.getElementById(`tcontent-${id}`).classList.add('active');
+  },
+
+  resetOutputs() {
+    for (const k of ['csv', 'zpl', 'prev']) {
+      document.getElementById(`${k}Empty`).style.display  = 'flex';
+      document.getElementById(`${k}Output`).style.display = 'none';
+    }
+    document.getElementById('prevGrid').innerHTML = '';
+  },
+
+  // ── Render CSV ────────────────────────────────────
+  renderCsv(csv, count, opts) {
+    document.getElementById('csvEmpty').style.display  = 'none';
+    document.getElementById('csvOutput').style.display = 'flex';
+    document.getElementById('csvMeta').textContent =
+      `${count} ubicazioni × ${opts.copies} copie = ${count * opts.copies} righe · ${CSV_COLUMNS.length} colonne · ${(csv.length / 1024).toFixed(1)} KB`;
+
+    const lines = csv.split('\r\n');
+    const shown = lines.slice(0, 200);
+    const pre = document.getElementById('csvPre');
+    pre.textContent = '';
+    const frag = document.createDocumentFragment();
+    shown.forEach((line, i) => {
+      const span = document.createElement('span');
+      if (i === 0) span.className = 'csv-hdr';
+      span.textContent = line + '\n';
+      frag.appendChild(span);
+    });
+    if (lines.length > shown.length) {
+      const more = document.createElement('span');
+      more.className = 'zpl-comment';
+      more.textContent = `\n… altre ${lines.length - shown.length} righe (presenti nel file scaricato)`;
+      frag.appendChild(more);
+    }
+    pre.appendChild(frag);
+  },
+
+  // ── Render ZPL ────────────────────────────────────
+  renderZpl(zpl, count, opts) {
+    document.getElementById('zplEmpty').style.display  = 'none';
+    document.getElementById('zplOutput').style.display = 'flex';
+    document.getElementById('zplMeta').textContent =
+      `${count} etichette · DPI ${opts.dpi} · ${opts.copies} cop. · ${(zpl.length / 1024).toFixed(1)} KB`;
+
+    const pre = document.getElementById('zplPre');
+    pre.textContent = '';
+    const frag = document.createDocumentFragment();
+    for (const line of zpl.split('\n').slice(0, 400)) {
+      const span = document.createElement('span');
+      if (line.startsWith('; ')) span.className = 'zpl-comment';
+      else if (line.startsWith('^')) span.className = 'zpl-cmd';
+      span.textContent = line + '\n';
+      frag.appendChild(span);
+    }
+    pre.appendChild(frag);
+  },
+
+  // ── Render anteprima in scala ─────────────────────
+  renderPreview(locs, opts) {
+    document.getElementById('prevEmpty').style.display  = 'none';
+    document.getElementById('prevOutput').style.display = 'flex';
+
+    const L = computeLayout(opts.marginMm);
+    const shown = locs.slice(0, PREVIEW_MAX);
+    document.getElementById('prevMeta').textContent =
+      `${shown.length} di ${locs.length} etichette · ${LABEL.widthMm}×${LABEL.heightMm} mm · margine ${L.marginMm} mm`;
+
+    const guides = document.getElementById('chkGuides').checked;
+    const px = mm => `${(mm * PX_PER_MM).toFixed(1)}px`;
+    const ptRaw = pt => pt * PT_TO_MM * PX_PER_MM;
+    const ptPx = pt => `${ptRaw(pt).toFixed(1)}px`;
+    /**
+     * Riduce il corpo carattere in anteprima quando il testo eccede la larghezza
+     * disponibile, replicando il comportamento di fitFont() usato nel PDF.
+     */
+    const fitPx = (text, pt, maxMm, factor = 0.60) => {
+      const size = ptRaw(pt);
+      const est  = String(text).length * size * factor;
+      const max  = maxMm * PX_PER_MM;
+      return `${(est > max ? size * (max / est) : size).toFixed(1)}px`;
+    };
+
+    const grid = document.getElementById('prevGrid');
+    grid.innerHTML = '';
+    const frag = document.createDocumentFragment();
+    const canvases = [];
+
+    for (const loc of shown) {
+      const card = document.createElement('article');
+      card.className = 'lp-card';
+      card.style.width  = px(LABEL.widthMm);
+      card.style.height = px(LABEL.heightMm);
+
+      // Guide margine
+      if (guides) {
+        const g = document.createElement('div');
+        g.className = 'lp-guide';
+        g.style.left = px(L.contentX); g.style.top = px(L.contentY);
+        g.style.width = px(L.contentW); g.style.height = px(L.contentH);
+        card.appendChild(g);
+      }
+
+      // Intestazione azienda (sinistra) + tipo zona (destra)
+      card.appendChild(this._txt(COMPANY, {
+        left: px(L.contentX), width: px(L.contentW * 0.68),
+        top: px(L.header.y - L.header.fontPt * PT_TO_MM),
+        fontSize: fitPx(COMPANY, L.header.fontPt, L.contentW * 0.68, 0.55), fontWeight: '700'
+      }));
+      card.appendChild(this._txt(`[${TYPE_LABEL[loc.zoneType] ?? loc.zoneType}]`, {
+        left: px(L.contentX), width: px(L.contentW), textAlign: 'right',
+        top: px(L.header.y - L.header.fontPt * PT_TO_MM),
+        fontSize: ptPx(L.header.fontPt), fontWeight: '700'
+      }));
+
+      // Linee separatrici
+      card.appendChild(this._rule(px(L.contentX), px(L.rule1.y), px(L.contentW), '1.5px'));
+      card.appendChild(this._rule(px(L.contentX), px(L.rule2.y), px(L.contentW), '1px'));
+
+      // Codice a barre (canvas scalato via CSS)
+      const cnv = document.createElement('canvas');
+      cnv.className = 'lp-cnv';
+      cnv.style.left = px(L.barcode.x); cnv.style.top = px(L.barcode.y);
+      cnv.style.width = px(L.barcode.w); cnv.style.height = px(L.barcode.h);
+      card.appendChild(cnv);
+      canvases.push({ cnv, code: loc.code });
+
+      // Codice leggibile
+      card.appendChild(this._txt(loc.code, {
+        left: px(L.contentX), width: px(L.contentW), textAlign: 'center',
+        top: px(L.code.y - L.code.fontPt * PT_TO_MM * 0.98),
+        fontSize: fitPx(loc.code, L.code.fontPt, L.contentW, 0.62),
+        fontWeight: '700', letterSpacing: '0.02em'
+      }));
+
+      // Dettagli
+      const lineSite = `Sito: ${loc.siteId} - ${loc.siteName}`;
+      const lineZone = `Zona: ${loc.zoneId} - ${loc.zoneName}`;
+      card.appendChild(this._txt(lineSite, {
+        left: px(L.contentX), width: px(L.contentW),
+        top: px(L.site.y - L.site.fontPt * PT_TO_MM),
+        fontSize: fitPx(lineSite, L.site.fontPt, L.contentW, 0.55)
+      }));
+      card.appendChild(this._txt(lineZone, {
+        left: px(L.contentX), width: px(L.contentW),
+        top: px(L.zone.y - L.zone.fontPt * PT_TO_MM),
+        fontSize: fitPx(lineZone, L.zone.fontPt, L.contentW, 0.55)
+      }));
+
+      // Riquadri posizione
+      const parts = posParts(loc);
+      const boxW = (L.contentW - L.posBox.gap * (parts.length - 1)) / parts.length;
+      parts.forEach((p, i) => {
+        const box = document.createElement('div');
+        box.className = 'lp-box';
+        box.style.left = px(L.contentX + i * (boxW + L.posBox.gap));
+        box.style.top = px(L.posBox.y);
+        box.style.width = px(boxW);
+        box.style.height = px(L.posBox.h);
+        const lab = document.createElement('small');
+        lab.style.fontSize = ptPx(L.posBox.labelPt);
+        lab.textContent = p.l;
+        const val = document.createElement('strong');
+        val.style.fontSize = ptPx(L.posBox.valuePt);
+        val.textContent = p.v;
+        box.append(lab, val);
+        card.appendChild(box);
+      });
+
+      // Piè di pagina
+      card.appendChild(this._txt('(c) Andrea Sacchetti - Dietopack S.r.l. - uso interno', {
+        left: px(L.contentX), width: px(L.contentW), textAlign: 'right',
+        top: px(L.footer.y - L.footer.fontPt * PT_TO_MM), fontSize: ptPx(L.footer.fontPt), color: '#444'
+      }));
+
+      frag.appendChild(card);
+    }
+    grid.appendChild(frag);
+
+    // Disegno dei codici a barre dopo l'inserimento nel DOM
+    requestAnimationFrame(() => {
+      for (const { cnv, code } of canvases) {
+        try {
+          JsBarcode(cnv, code, {
+            format: opts.symbology, width: 3, height: 120,
+            displayValue: false, margin: 0, background: '#ffffff', lineColor: '#000000'
+          });
+        } catch {
+          cnv.replaceWith(this._txt('codice a barre non disponibile', {
+            left: '10px', top: '10px', fontSize: '8px', color: '#c00'
+          }));
+        }
+      }
+    });
+  },
+
+  /** Crea un elemento di testo posizionato in modo assoluto (senza innerHTML). */
+  _txt(text, styles) {
+    const el = document.createElement('div');
+    el.className = 'lp-el lp-txt';
+    Object.assign(el.style, styles);
+    el.textContent = text;
+    return el;
+  },
+
+  _rule(left, top, width, height) {
+    const el = document.createElement('div');
+    el.className = 'lp-rule';
+    Object.assign(el.style, { left, top, width, height });
+    return el;
+  },
+
+  // ── Tabella geometria (tab PDF) ───────────────────
+  renderGeoTable(L) {
+    const rows = [
+      ['Etichetta',            0, 0, LABEL.widthMm, LABEL.heightMm],
+      ['Area utile (margine)', L.contentX, L.contentY, L.contentW, L.contentH],
+      ['Codice a barre',       L.barcode.x, L.barcode.y, L.barcode.w, L.barcode.h],
+      ['Codice leggibile (baseline)', L.contentX, L.code.y, L.contentW, `${L.code.fontPt} pt`],
+      ['Riga Sito (baseline)', L.contentX, L.site.y, L.contentW, `${L.site.fontPt} pt`],
+      ['Riga Zona (baseline)', L.contentX, L.zone.y, L.contentW, `${L.zone.fontPt} pt`],
+      ['Riquadri posizione',   L.contentX, L.posBox.y, L.contentW, L.posBox.h],
+      ['Intestazione (baseline)', L.contentX, L.header.y, L.contentW, `${L.header.fontPt} pt`],
+      ['Piè di pagina (baseline)', L.contentX, L.footer.y, L.contentW, `${L.footer.fontPt} pt`]
+    ];
+
+    const table = document.createElement('table');
+    table.className = 'geo';
+    const thead = document.createElement('thead');
+    thead.innerHTML = '<tr><th>Elemento</th><th>X (mm)</th><th>Y (mm)</th><th>Larghezza (mm)</th><th>Altezza / corpo</th></tr>';
+    const tbody = document.createElement('tbody');
+    for (const [name, x, y, w, h] of rows) {
+      const tr = document.createElement('tr');
+      const td0 = document.createElement('td'); td0.textContent = name; tr.appendChild(td0);
+      for (const v of [x, y, w, h]) {
+        const td = document.createElement('td');
+        td.className = 'n';
+        td.textContent = typeof v === 'number' ? v.toFixed(1).replace('.', ',') : v;
+        tr.appendChild(td);
+      }
+      tbody.appendChild(tr);
+    }
+    table.append(thead, tbody);
+    const host = document.getElementById('geoTable');
+    host.innerHTML = '';
+    host.appendChild(table);
+  },
+
+  // ── Albero ubicazioni ─────────────────────────────
+  renderTree() {
+    const container = document.getElementById('treeContainer');
+    const frag = document.createDocumentFragment();
+
+    for (const siteEntry of state.tree) {
+      const { siteId, siteName, zones } = siteEntry;
+      const siteExp = state.expanded.has(siteId);
+
+      let totalSite = 0, selSite = 0;
+      for (const z of zones) for (const l of z.locs) {
+        if (!App.isVisible(l)) continue;
+        totalSite++;
+        if (state.selected.has(l.code)) selSite++;
+      }
+
+      const siteEl = document.createElement('section');
+      siteEl.className = 'tree-site';
+
+      const sHdr = document.createElement('div');
+      sHdr.className = 'tree-site-hdr';
+      sHdr.append(
+        this._chev(siteExp),
+        this._span(`🏢 ${siteId} — ${siteName}`),
+        this._span(`(${selSite}/${totalSite})`, 'font-size:0.6rem;opacity:0.65;margin-left:0.2rem')
+      );
+      const sActions = document.createElement('span');
+      sActions.className = 'tree-site-actions';
+      sActions.append(
+        this._btn('✓ Tutto', () => App.selectSite(siteId, true), 'btn btn-xs',
+          'background:rgba(255,255,255,0.15);color:#fff;border-color:rgba(255,255,255,0.25)'),
+        this._btn('✕', () => App.selectSite(siteId, false), 'btn btn-xs',
+          'background:rgba(255,255,255,0.08);color:#fff;border-color:rgba(255,255,255,0.18)')
+      );
+      sHdr.appendChild(sActions);
+      sHdr.addEventListener('click', () => App.toggleExpand(siteId));
+      siteEl.appendChild(sHdr);
+
+      const sBody = document.createElement('div');
+      if (!siteExp) sBody.style.display = 'none';
+
+      for (const { zone, locs } of zones) {
+        const zKey = `${siteId}|${zone.id}`;
+        const zExp = state.expanded.has(zKey);
+        const vis  = locs.filter(l => App.isVisible(l));
+        const selZ = vis.filter(l => state.selected.has(l.code)).length;
+
+        const zoneEl = document.createElement('div');
+        zoneEl.className = 'tree-zone';
+
+        const zHdr = document.createElement('div');
+        zHdr.className = 'tree-zone-hdr';
+        const tb = document.createElement('span');
+        tb.className = `tbadge tbadge-${String(zone.type).toLowerCase()}`;
+        tb.textContent = zone.type;
+        zHdr.append(
+          this._chev(zExp), tb,
+          this._span(`${zone.id} — ${zone.name}`),
+          this._span(`(${selZ}/${vis.length})`, 'font-size:0.58rem;color:var(--sx-text-m);margin-left:0.2rem')
+        );
+        const zActions = document.createElement('span');
+        zActions.className = 'tree-zone-actions';
+        zActions.append(
+          this._btn('✓ Tutti', () => App.selectZone(siteId, zone.id, true), 'btn btn-xs btn-accent'),
+          this._btn('✕', () => App.selectZone(siteId, zone.id, false), 'btn btn-xs')
+        );
+        zHdr.appendChild(zActions);
+        zHdr.addEventListener('click', () => App.toggleExpand(zKey));
+        zoneEl.appendChild(zHdr);
+
+        const zBody = document.createElement('div');
+        zBody.className = 'tree-zone-body';
+        if (!zExp) zBody.style.display = 'none';
+
+        const locFrag = document.createDocumentFragment();
+        for (const loc of vis) {
+          const isSel = state.selected.has(loc.code);
+          const label = document.createElement('label');
+          label.className = `tree-loc${isSel ? ' sel' : ''}`;
+
+          const cb = document.createElement('input');
+          cb.type = 'checkbox';
+          cb.checked = isSel;
+          cb.addEventListener('change', () => App.toggleLoc(loc.code));
+          label.appendChild(cb);
+
+          const sp = document.createElement('span');
+          sp.className = 'loc-code';
+          sp.textContent = loc.code;
+          label.appendChild(sp);
+
+          if (loc.status !== 'ok') {
+            const sb = document.createElement('span');
+            sb.className = `sbadge sb-${loc.status}`;
+            sb.textContent = { blocked: 'BLOC', reserved: 'RIS', disabled: 'OFF' }[loc.status] ?? loc.status;
+            label.appendChild(sb);
+          }
+          locFrag.appendChild(label);
+        }
+        zBody.appendChild(locFrag);
+        zoneEl.appendChild(zBody);
+        sBody.appendChild(zoneEl);
+      }
+      siteEl.appendChild(sBody);
+      frag.appendChild(siteEl);
+    }
+    container.innerHTML = '';
+    container.appendChild(frag);
+  },
+
+  _chev(open) {
+    const el = document.createElement('span');
+    el.className = `chev${open ? ' open' : ''}`;
+    el.textContent = '▶';
+    return el;
+  },
+
+  _span(text, css = '') {
+    const el = document.createElement('span');
+    if (css) el.style.cssText = css;
+    el.textContent = text;
+    return el;
+  },
+
+  _btn(text, onClick, cls = 'btn btn-xs', css = '') {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = cls;
+    if (css) b.style.cssText = css;
+    b.textContent = text;
+    b.addEventListener('click', e => { e.stopPropagation(); onClick(); });
+    return b;
+  },
+
+  toast(msg, type = 'i') {
+    const t = document.createElement('div');
+    t.className = `toast t${type}`;
+    t.textContent = msg;
+    document.getElementById('toastCont').appendChild(t);
+    setTimeout(() => t.remove(), 3600);
+  }
+};
+
+// ══════════════════════════════════════════════════════
+//  UTILS
+// ══════════════════════════════════════════════════════
+/** Ritarda l'esecuzione di fn finché non cessano le chiamate ravvicinate. */
+const debounce = (fn, ms = 250) => {
+  let timer;
+  return (...args) => {
+    clearTimeout(timer);
+    timer = setTimeout(() => fn(...args), ms);
+  };
+};
+
+// ══════════════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════════════
+document.addEventListener('DOMContentLoaded', () => {
+  App.onSearchInput = debounce(value => {
+    state.search = String(value || '').trim().toLowerCase();
+    UI.renderTree();
+    UI.updateHints();
+  }, 250);
+
+  UI.renderGeoTable(computeLayout(10));
+  UI.updateHints();
+
+  if (typeof JsBarcode !== 'function')
+    UI.toast('JsBarcode non caricato — anteprima e PDF non disponibili offline', 'w');
+  if (typeof window.jspdf?.jsPDF !== 'function')
+    UI.toast('jsPDF non caricato — export PDF non disponibile', 'w');
+
+  console.log(`Location Label Printer v${APP_VERSION} — © Andrea Sacchetti — Dietopack S.r.l.`);
+});
+
+// © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) — v3.0.0
+</script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+{
+  "_format": "warehouse-mapper-v1.5",
+  "_author": "Andrea Sacchetti",
+  "_exported": "2026-08-05T21:42:54.918Z",
+  "sites": [
+    {
+      "id": "MAG",
+      "name": "mag",
+      "type": "proprio",
+      "address": "viareggio",
+      "notes": "",
+      "active": true,
+      "created_at": 1778175493149,
+      "updated_at": 1778175493149,
+      "_id": 2
+    }
+  ],
+  "zones": [
+    {
+      "id": "ACC",
+      "name": "arrivi",
+      "type": "BULK",
+      "positions": 20,
+      "grid_cols": 5,
+      "site_id": "MAG",
+      "active": true,
+      "_id": 3
+    },
+    {
+      "id": "SCA",
+      "name": "scaffale",
+      "type": "RACK",
+      "aisles": 1,
+      "bays_per_aisle": 10,
+      "levels": [
+        "T",
+        "A",
+        "B",
+        "C",
+        "D"
+      ],
+      "mirror_frontal": true,
+      "site_id": "MAG",
+      "active": true,
+      "_id": 4
+    }
+  ],
+  "articles": [
+    {
+      "code": "123",
+      "description": "123",
+      "category": "MP",
+      "supplier": "",
+      "unit": "PZ",
+      "weight": 0,
+      "length": 0,
+      "width": 0,
+      "height": 0,
+      "min_stock": 0,
+      "max_stock": 0,
+      "notes": "",
+      "active": true,
+      "created": 1778175549910,
+      "_id": 5
+    },
+    {
+      "code": "123456",
+      "description": "roba bella",
+      "category": "MP",
+      "supplier": "",
+      "unit": "PZ",
+      "weight": 0,
+      "length": 0,
+      "width": 0,
+      "height": 0,
+      "min_stock": 0,
+      "max_stock": 0,
+      "notes": "",
+      "active": true,
+      "created": 1785881605871,
+      "_id": 6
+    }
+  ],
+  "inventory": [
+    {
+      "item_key": "123#456",
+      "article_code": "123",
+      "article_description": "123",
+      "lot_code": "456",
+      "expiry_date": "",
+      "location_code": "MAG-ACC-04",
+      "qty": 2,
+      "placed_at": 1785881513821,
+      "last_updated_at": 1785881513821,
+      "placed_by": "operator",
+      "notes": "",
+      "_id": 8
+    },
+    {
+      "item_key": "123456#qwert",
+      "article_code": "123456",
+      "article_description": "roba bella",
+      "lot_code": "qwert",
+      "expiry_date": "2026-03-12",
+      "location_code": "MAG-ACC-03",
+      "qty": 100,
+      "placed_at": 1785881605855,
+      "last_updated_at": 1785881605855,
+      "placed_by": "operator",
+      "notes": "",
+      "_id": 9
+    }
+  ],
+  "loc_status": [
+    {
+      "location_code": "MAG-SCA-01-07-B",
+      "status": "blocked",
+      "blocked_reason": "4848",
+      "updated_at": 1785882491208,
+      "_id": 5
+    }
+  ],
+  "disabled": [],
+  "mov_log": [
+    {
+      "ts": 1785882548862,
+      "type": "OUT",
+      "article_code": "123",
+      "article_description": "123",
+      "lot_code": "hjk",
+      "location_code": "MAG-SCA-01-07-B",
+      "dest_location": null,
+      "user": "DP",
+      "notes": "",
+      "doc_ref": "",
+      "qty_before": null,
+      "qty_delta": null,
+      "qty_after": null,
+      "_id": 21
+    },
+    {
+      "ts": 1785882535357,
+      "type": "IN",
+      "article_code": "123",
+      "article_description": "123",
+      "lot_code": "hjk",
+      "location_code": "MAG-SCA-01-07-B",
+      "dest_location": null,
+      "user": "DP",
+      "notes": "",
+      "doc_ref": "",
+      "qty_before": 0,
+      "qty_delta": 11,
+      "qty_after": 11,
+      "_id": 20
+    },
+    {
+      "ts": 1785881605873,
+      "type": "IN",
+      "article_code": "123456",
+      "article_description": "roba bella",
+      "lot_code": "qwert",
+      "location_code": "MAG-ACC-03",
+      "dest_location": null,
+      "user": "DP",
+      "notes": "",
+      "doc_ref": "",
+      "qty_before": 0,
+      "qty_delta": 100,
+      "qty_after": 100,
+      "_id": 19
+    },
+    {
+      "ts": 1785881513826,
+      "type": "IN",
+      "article_code": "123",
+      "article_description": "123",
+      "lot_code": "456",
+      "location_code": "MAG-ACC-04",
+      "dest_location": null,
+      "user": "DP",
+      "notes": "",
+      "doc_ref": "",
+      "qty_before": 0,
+      "qty_delta": 2,
+      "qty_after": 2,
+      "_id": 18
+    },
+    {
+      "ts": 1778175647927,
+      "type": "SHIP",
+      "article_code": "123",
+      "article_description": "123",
+      "lot_code": "123",
+      "location_code": "MAG-ACC-01",
+      "dest_location": null,
+      "user": "AS",
+      "notes": "SPEDIZIONE a abc (vettore: brt)",
+      "doc_ref": "456",
+      "qty_before": 1,
+      "qty_delta": -1,
+      "qty_after": 0,
+      "_id": 16
+    },
+    {
+      "ts": 1778175549913,
+      "type": "IN",
+      "article_code": "123",
+      "article_description": "123",
+      "lot_code": "123",
+      "location_code": "MAG-ACC-01",
+      "dest_location": null,
+      "user": "AS",
+      "notes": "",
+      "doc_ref": "",
+      "qty_before": 0,
+      "qty_delta": 1,
+      "qty_after": 1,
+      "_id": 17
+    }
+  ],
+  "quarantine": [],
+  "pending_outbound": [
+    {
+      "doc_id": "RES-ddt34-MSF68D16",
+      "kind": "RES",
+      "ddt_num": "ddt34",
+      "destination": "biotech",
+      "carrier": "brt",
+      "expected_pickup_date": "2026-12-12",
+      "operator": "AS",
+      "status": "evaded",
+      "created_at": 1785878975994,
+      "evaded_at": 1785878997276,
+      "cancelled_at": null,
+      "lines": [
+        {
+          "article_code": "789456",
+          "article_description": "roba bella",
+          "lot_code": "cvbnm",
+          "location_code": "MAG-ACC-15",
+          "item_key": "789456#cvbnm",
+          "expiry_date": "2026-08",
+          "qty": 2,
+          "qty_at_creation": 6,
+          "notes": "non conforme"
+        }
+      ]
+    },
+    {
+      "doc_id": "SHIP-456-MOVRU11T",
+      "kind": "SHIP",
+      "ddt_num": "456",
+      "destination": "abc",
+      "carrier": "brt",
+      "expected_pickup_date": "2026-05-14",
+      "operator": "AS",
+      "status": "evaded",
+      "created_at": 1778175588305,
+      "evaded_at": 1778175647928,
+      "cancelled_at": null,
+      "lines": [
+        {
+          "article_code": "123",
+          "article_description": "123",
+          "lot_code": "123",
+          "location_code": "MAG-ACC-01",
+          "item_key": "123#123",
+          "expiry_date": "",
+          "qty": 1,
+          "qty_at_creation": 1,
+          "notes": ""
+        }
+      ],
+      "updated_at": 1778175602836
+    }
+  ]
+}

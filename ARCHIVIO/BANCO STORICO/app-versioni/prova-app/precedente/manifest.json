@@ -1,0 +1,13 @@
+{
+    "impronta":  "3e98f1c86cd1b93ec73cd934c6506a6b90bcd2416197746fc8a53a9f55fcaf56",
+    "byte_totali":  1614368,
+    "file":  [
+                 {
+                     "byte":  1614368,
+                     "percorso":  "index.html",
+                     "sha256":  "4ed60615ced673b79a029f969023514b62e73f303956e593ebec3774ff7d6bb0"
+                 }
+             ],
+    "costruita":  "2026-08-17T20:01:36.366Z",
+    "versione":  "1.6.1"
+}

@@ -1,0 +1,21 @@
+
+> pathfinder@1.12.0 dev
+> vite
+
+
+  VITE v7.3.6  ready in 625 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: use --host to expose
+  ➜  press h + enter to show help
+03:05:02 [vite] (client) page reload src/ui/views/configurazione.ts
+03:06:32 [vite] (client) page reload src/modules/wip.ts
+03:06:56 [vite] (client) page reload src/core/store.ts
+03:07:16 [vite] (client) page reload src/ui/views/wip.ts
+03:07:16 [vite] (client) page reload src/ui/views/configurazione.ts
+03:09:21 [vite] (client) page reload src/modules/wip.ts
+03:10:07 [vite] (client) page reload src/core/store.ts
+03:10:07 [vite] (client) page reload src/ui/views/wip.ts
+03:12:03 [vite] vite.config.js changed, restarting server...
+03:12:03 [vite] (client) page reload src/core/pacchetto.ts
+03:12:04 [vite] server restarted.

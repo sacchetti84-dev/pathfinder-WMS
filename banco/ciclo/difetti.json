@@ -1,0 +1,90 @@
+[
+ {
+  "id": "D1",
+  "gravita": "dato",
+  "dove": "anagrafica articoli",
+  "cosa": "L'ODP2603889 chiede questi componenti in KG, l'anagrafica li dichiara altrimenti: 6001055=PZ. Il magazzino conta pezzi dove la produzione pesa chili, e nessuna delle due parti se ne accorge.",
+  "prova": "riga 6001055: 0,468 KG richiesti su un articolo dichiarato PZ",
+  "visto": "2026-08-24T22:44:01.470Z"
+ },
+ {
+  "id": "K3",
+  "gravita": "dato",
+  "dove": "registro movimenti / anagrafica operatori",
+  "cosa": "2 sigle firmano movimenti ma non stanno fra gli operatori: DP (14 mov.), AS (2 mov.). Fra tre anni quella firma non risponde a un nome — o è un operatore cancellato, o è una sigla digitata a mano.",
+  "prova": "operatori in anagrafica: EFBR, BABB, ANDS, ANAD",
+  "visto": "2026-08-24T22:43:41.756Z"
+ },
+ {
+  "id": "CF3",
+  "gravita": "dato",
+  "dove": "anagrafica articoli e Configurazione → Zone",
+  "cosa": "La verifica di conformità copre il 8% delle righe (18 su 237): sul resto non tace perché va bene, tace perché non ha con cosa confrontare. Chi guarda la mappa vede un verde che non significa niente. Si scioglie compilando gli attributi delle zone e degli articoli — §2, voce 5.",
+  "prova": "150 articoli senza attributi",
+  "visto": "2026-08-24T22:43:50.079Z"
+ },
+ {
+  "id": "CP1",
+  "gravita": "grave",
+  "dove": "core/store.ts:advanceTask",
+  "cosa": "Un compito a residuo si è chiuso con un parziale: 3 chiesti, 1 mosso, stato «done».",
+  "prova": "TA-MT7TOPUE-ULY6",
+  "visto": "2026-08-24T22:43:43.298Z"
+ },
+ {
+  "id": "P3",
+  "gravita": "grave",
+  "dove": "conto WIP",
+  "cosa": "ODP-DECIMO chiedeva 37.976 KG e nel conto ne sono entrati 75.952",
+  "prova": "scarto 37.976 KG",
+  "visto": "2026-08-24T22:44:05.991Z"
+ },
+ {
+  "id": "P4",
+  "gravita": "grave",
+  "dove": "area WIP",
+  "cosa": "Il conto degli ordini e la giacenza del vano WIP divergono: conto 1405.188 KG, vano 702.594 KG",
+  "prova": "vano MAG1-WIP-01",
+  "visto": "2026-08-24T22:44:05.996Z"
+ },
+ {
+  "id": "Q1",
+  "gravita": "grave",
+  "dove": "quadratura del ciclo",
+  "cosa": "Alla fine del ciclo 703.344 KG non si ritrovano da nessuna parte: né a scaffale, né consumati, né resi.",
+  "prova": "somma degli scarti per articolo, tolleranza 0,05 KG",
+  "visto": "2026-08-24T22:44:08.417Z"
+ },
+ {
+  "id": "QU1",
+  "gravita": "grave",
+  "dove": "quarantena",
+  "cosa": "Il blocco parziale non conserva il peso: 136 KG prima, 186 KG fra origine e cella.",
+  "prova": "6000242#QUAR-L1 da MAG1-RAKA-02-02-T",
+  "visto": "2026-08-24T22:43:11.781Z"
+ },
+ {
+  "id": "SP1",
+  "gravita": "grave",
+  "dove": "spostamento",
+  "cosa": "Nel passaggio da uno scaffale all'altro il peso è cambiato: 25 KG partiti, 75 arrivati.",
+  "prova": "6000242#SPO-L1 da MAG1-RAKA-02-04-A a MAG1-RAKA-02-01-T",
+  "visto": "2026-08-24T22:43:12.016Z"
+ },
+ {
+  "id": "SO5",
+  "gravita": "grave",
+  "dove": "storno di un posizionamento",
+  "cosa": "Lo storno non ha tolto i colli entrati ma altri: resta [20,20,20,20] = 80 KG invece di [20,20] = 40.",
+  "prova": "6000004#STO-L2 in MAG1-RAKA-03-01-A, entrati [15,7]",
+  "visto": "2026-08-24T22:42:47.193Z"
+ },
+ {
+  "id": "PA6",
+  "gravita": "grave",
+  "dove": "core/store.ts:importAll",
+  "cosa": "Reimportare il pacchetto appena composto cambia i numeri: movimenti: 112 → 0. È il gesto con cui si rimette in piedi una macchina, e deve lasciare le cose com'erano.",
+  "prova": "import in modo overwrite",
+  "visto": "2026-08-25T20:32:46.616Z"
+ }
+]

@@ -1,0 +1,26 @@
+{
+  "_format": "warehouse-mapper-vault-1",
+  "_app": "Pathfinder Warehouse Mapper",
+  "_appVersion": "1.0.0",
+  "aggiornato": "2026-08-08T14:00:51.504Z",
+  "stato_file": "wm-stato-2026-08-08.json",
+  "stato_sha256": "cc76fda9826f1568d6f5650b600c66639d1574c080cb30194b0b3b717a12a1d6",
+  "stato_counts": {
+    "sites": 7,
+    "zones": 24,
+    "articles": 11185,
+    "inventory": 185,
+    "loc_status": 0,
+    "disabled": 0,
+    "quarantine": 0,
+    "pending_outbound": 5,
+    "pick_archive": 0,
+    "disposal_archive": 3,
+    "operators": 1
+  },
+  "movimenti_totali": 9,
+  "movimenti_per_mese": {
+    "2026-08": 9
+  },
+  "mesi": 1
+}

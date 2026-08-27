@@ -1,0 +1,945 @@
+[
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\pathfinder-1.4.3.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BUILD\\17082026_pathfinder-1.4.3.html",
+    "archivedAt": "2026-08-17T00:33:55.5893006+02:00",
+    "checksum": {
+      "sha1": "B1F7D29E291F20048B433B7A045C635E749EA060",
+      "sha256": "BD07115158FBA115E15A57AE26D8FA03ABE62B74243AC483A11E90646FAD37D3"
+    },
+    "size": 1578603,
+    "tag": "build",
+    "note": "Archived by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\pathfinder-1.4.4.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BUILD\\17082026_pathfinder-1.4.4.html",
+    "archivedAt": "2026-08-17T00:33:55.5893006+02:00",
+    "checksum": {
+      "sha1": "C01527F15C495913EEE163CCD4A6FBC406824D4C",
+      "sha256": "3EC600ABF76F29FDEB5AF1B6BDE80F67E37743D44083DFFE0BBE161778F3009A"
+    },
+    "size": 1587378,
+    "tag": "build",
+    "note": "Archived by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\archive-manifest-draft.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\17082026_archive-manifest-draft.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "D3656984FB2B37A8D52CB2022A0D7EB1B9693B29",
+      "sha256": "1CC1FE8EE3B5D9CBBFDA25AB49FCF7CBC3C9F2D4FCDC9EEAECF8097B044B4CE3"
+    },
+    "size": 881,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\archive-manifest.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\17082026_archive-manifest.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "539B9902F6F149271BD0ED5508C2F5706FF45949",
+      "sha256": "EA27A30062D29A76D4269B8282692FE9D75B0B7664603E6E9D4852D537372F04"
+    },
+    "size": 1342,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.6 — © Andrea Sacchetti.pdf",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\13082026_Pathfinder 1.6 — © Andrea Sacchetti.pdf",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "8281A910CF51FEB2AFCA5F6A553E8D9D3F910739",
+      "sha256": "34105D11C30DFEE0B587E50DF2BDF520F45969684505B9991529A781B2670A3E"
+    },
+    "size": 119541,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\anagrafica-articoli-2026-08-08.xlsx",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\08082026_anagrafica-articoli-2026-08-08.xlsx",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "31DD3BB653EBDDCEE3EB55A56459C9B94F1CEC4C",
+      "sha256": "8FEE0D52A31D409A4419E23BA5EFF49CE04E5D581E2ADF6E72275DBA85E2E292"
+    },
+    "size": 4622097,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\anagrafica-articoli-2026-08-11_NUOVO FORMATO.xlsx",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\11082026_anagrafica-articoli-2026-08-11_NUOVO FORMATO.xlsx",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "8BD3327B2E42B998B611366E296A1534F0706F5C",
+      "sha256": "F98EE4066E200D10F32740BD47DC8F973BD663A261FBBC3ADBC16D3105D7325F"
+    },
+    "size": 827934,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\anagrafica-articoli-2026-08-13.xlsx",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\13082026_anagrafica-articoli-2026-08-13.xlsx",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "99C0106AF405B3E10B68D1D82B110E39BBF7C80A",
+      "sha256": "8A57ECB24BCADD80CAEFFDCFE232F7C41152149439EFFF282AE3F9B7C84EF6DE"
+    },
+    "size": 1001199,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\gluc.xlsx",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\07082026_gluc.xlsx",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "EFB7191D4FE28CB038F93A0269C87DA9E454EAD0",
+      "sha256": "1C152046A6A8B03F6EFCEBFFDD676F79D5F47E22FC928DAF92FF2660691659EF"
+    },
+    "size": 14481,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\HANDOFF-warehouse-mapper-v2_1_0.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\04082026_HANDOFF-warehouse-mapper-v2_1_0.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "E7675A3210B2BF02AAFE92F4B16844775A548D18",
+      "sha256": "D4B29349267513027CE5CF100E4E4B7668E6470029F8CC9F01E95DF8AF8BF936"
+    },
+    "size": 8700,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\HANDOFF-warehouse-mapper-v2_2_0.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\04082026_HANDOFF-warehouse-mapper-v2_2_0.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "876D26C09D6CC72CEF01373E2EFEBCB02990D362",
+      "sha256": "D564A2DCC52DE89F3197380052450A2BD8012B9DDFF8B27BAD522EFE045EAD34"
+    },
+    "size": 9676,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\registro-attivita-2026-08-13 (1).xlsx",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\13082026_registro-attivita-2026-08-13 (1).xlsx",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "B4037F6191758A28AEFA52C2EA2042C3790B2F1A",
+      "sha256": "D29EA966AFD68CA5793E89FBBF121593000AF54C8F845D22E3992FD0E4C8D510"
+    },
+    "size": 15332,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\REPORT DI PRELIEVO.pdf",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\13082026_REPORT DI PRELIEVO.pdf",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "098FE91E01682D74370F60557715DCD0EA9C036F",
+      "sha256": "98560DAC23BDBA8970DE20B02D4A129ADB14324AA07852A3F802F7C6705745BA"
+    },
+    "size": 140223,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\warehouse-mapper-2026-08-05.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\05082026_warehouse-mapper-2026-08-05.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "597D965FCE985705D20ABAFE5368DC6B9AE643B1",
+      "sha256": "6E32AEC08F5180B16B53AB0ED56C99333BD9DAB6345ED0C477EA64BED6ACCEE8"
+    },
+    "size": 6228,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\warehouse-mapper-2026-08-07.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\07082026_warehouse-mapper-2026-08-07.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "CA8BB084E42906B68BAE2BD9F9B1B4C9FEB71537",
+      "sha256": "3624AE9656D87086F34066526D0D848732145C2FB96F7C05D9A9648D3D318E8B"
+    },
+    "size": 4313291,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\warehouse-mapper-2026-08-14.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\14082026_warehouse-mapper-2026-08-14.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "62C55E4650397E0B53730AFB3E9DC360C59C5361",
+      "sha256": "317C572552C5A538AB0CC4F304AD93A4191EC88EC7F1BF50994685E88B4F47D4"
+    },
+    "size": 5549752,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\wm-manifest.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\08082026_wm-manifest.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "5F7BE0789D9D12E9DAD3557150F07D4067C3C93A",
+      "sha256": "52FC75C13EFC0F47787261DE26BCCD50C025CA3F70F906F0F609C8A35867A5DC"
+    },
+    "size": 630,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\wm-stato-2026-08-08.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\08082026_wm-stato-2026-08-08.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "C943888DDD05C8D04688209EBFB65B9302013A5B",
+      "sha256": "CC76FDA9826F1568D6F5650B600C66639D1574C080CB30194B0B3B717A12A1D6"
+    },
+    "size": 2850334,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\wm-test-v2.8.0.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\08082026_wm-test-v2.8.0.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "0D3255D3E07FE201276B4BE417273040EBB5D4B5",
+      "sha256": "1BBFC8333917311F53DEF340E541134BCC1E821AC2878EC59C1DCA3F544D4211"
+    },
+    "size": 21126,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\movimenti\\wm-mov-2026-08.jsonl",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\BACKUP E FILE DI TEST\\movimenti\\08082026_wm-mov-2026-08.jsonl",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "8C2B6179BDAE85E003066BD70EDF4014A3DF9E35",
+      "sha256": "D5325109CF74111E2D7516A4D74BD5F973A6B2C9D1139AC0FE1BF9BC4028859D"
+    },
+    "size": 3017,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\HANDOFF-pathfinder-1.0.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\12082026_HANDOFF-pathfinder-1.0.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "7116CD26746B26F57307F26A24E2C7477CC42B06",
+      "sha256": "95BA20E6178B5ED27A2C25CCB4B0E2D13FF5A055CA4E0C99CEC7429C835279DE"
+    },
+    "size": 14363,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\HANDOFF-pathfinder-1.2.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\12082026_HANDOFF-pathfinder-1.2.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "B5D8674309E6A882F670897A2E05148D41D35107",
+      "sha256": "0976F356037D1A28EE6173E719359F6CF7DF088E0B3C58175835D9E94E51AF95"
+    },
+    "size": 10540,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\HANDOFF-pathfinder-1.3.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\12082026_HANDOFF-pathfinder-1.3.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "F3DAEB2E6566723D33FAA357F26BF962B98533FA",
+      "sha256": "FC2FCCC5B200B80E4E24D0923E0753C8F209B719F9B3941CA0BC0725477D60B9"
+    },
+    "size": 16671,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\Pathfinder_Handoff_Infrastruttura_Azure_ERP_REDIS.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\09082026_Pathfinder_Handoff_Infrastruttura_Azure_ERP_REDIS.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "123CCFF26CD9599D88E3AE2928277F7DC998FC7D",
+      "sha256": "6B75AA6AEFD38E65138EEBD78B4E7F7CAB641CB637108DB3F61E621905CC8E1E"
+    },
+    "size": 5668,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\Pathfinder_Handoff_Valutazione_Tecnica_ES6 TYPESCRIPT.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\09082026_Pathfinder_Handoff_Valutazione_Tecnica_ES6 TYPESCRIPT.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "F13A129A53D7C9D7205279DDB4BA858F177DE28D",
+      "sha256": "04FAFB44DF5DAA4C0D34D79CB1D5FC59E17D9FDD6A975B62C4AE40BE028BE19D"
+    },
+    "size": 5898,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\PIANO-AZIONE-Pathfinder-2.0.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\12082026_PIANO-AZIONE-Pathfinder-2.0.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "33DD9B6309E15EEA2F0C3FC638538EA828AB92B9",
+      "sha256": "02715D027AD0FF144A61E9BE84EE69C710E81A67FBFE043DBD52B20753D5E8CF"
+    },
+    "size": 15549,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\PROMPT-workspace-multiagente.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\09082026_PROMPT-workspace-multiagente.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "262EB6714FEBD0935218812E737AF5BF839A6309",
+      "sha256": "5B0B2CB28651ADC54710C289F35C66B8FCCC6E9F2CB3F9806111C547DCCA7E71"
+    },
+    "size": 3553,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\commodore.svg",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\09082026_commodore.svg",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "15BAF7697CA0A7CF7900C8FFE07DB507DC6A92D1",
+      "sha256": "8E1835196451D6A063F4254BF8B1B69F6E170885C441069B97B0B121B3A5AFE5"
+    },
+    "size": 4252,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\gemini-svg.svg",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\09082026_gemini-svg.svg",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "15BAF7697CA0A7CF7900C8FFE07DB507DC6A92D1",
+      "sha256": "8E1835196451D6A063F4254BF8B1B69F6E170885C441069B97B0B121B3A5AFE5"
+    },
+    "size": 4252,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\Gemini_Generated_Image_ni3ieni3ieni3ien.png",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\07082026_Gemini_Generated_Image_ni3ieni3ieni3ien.png",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "6348D2773FD2EE115F11C9BFDCCBFE946D802A9C",
+      "sha256": "A20AB57C3C88DA5871085BEE4706CC191C34F8FEA2548E24D18F758D03EE8D4D"
+    },
+    "size": 970474,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\Immagine 2026-08-07 233849.png",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\07082026_Immagine 2026-08-07 233849.png",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "E3F070B554D452E2219DDE7FBBD5440B7A978697",
+      "sha256": "B4740F6E3F585989B3BBB96F1BF596D370C985236500CD25C1829104A00B18E8"
+    },
+    "size": 59752,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\Immagine 2026-08-08 151235.png",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\08082026_Immagine 2026-08-08 151235.png",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "82BD44A18843A5F8F95A3DBC77D98EC98F772681",
+      "sha256": "38A9BF8E3213154F82A092560F6B6A1529F7583B412428EDCD4DEFEEDF771416"
+    },
+    "size": 200852,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\logo pathfinder.png",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\07082026_logo pathfinder.png",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "5FFF7F63BD6FF6BABCA80CE461A2A5AD02718C0E",
+      "sha256": "AF102BC3F3D12F3E6F2916F13170EA8DDA235D236CAEC24FB745245122574455"
+    },
+    "size": 1536183,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\logo.svg",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\08082026_logo.svg",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "E72B5B71A0F20FEDE293483E3F9631274931B080",
+      "sha256": "825DBAFB7D8C47FB461B48FDE5BC14B3E30BF813DAAAB54B3B784E6739577464"
+    },
+    "size": 14526,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\pathfinder logo def.svg",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\09082026_pathfinder logo def.svg",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "21F825B67ACB8082D4825E773C9379B302AC8CE5",
+      "sha256": "B7D2CF1992D952B1DE819D5D576143C998344054F8A8A7A26ACE9A723764A684"
+    },
+    "size": 5610,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\vanguard.svg",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\LOGHI\\09082026_vanguard.svg",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "25018F9CC82D3270B30B29B44E89ABC2786FF783",
+      "sha256": "46D2C209B8F2491D8D51A2ED48F7DF06AFF97CED553FA92CB4505D3647B9CEBA"
+    },
+    "size": 5539,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\pathfinder-1.4.4.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\13082026_pathfinder-1.4.4.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "C01527F15C495913EEE163CCD4A6FBC406824D4C",
+      "sha256": "3EC600ABF76F29FDEB5AF1B6BDE80F67E37743D44083DFFE0BBE161778F3009A"
+    },
+    "size": 1587378,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\README.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\13082026_README.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "F841AF30A119B4AE3812D3EA32688B5C3B65297A",
+      "sha256": "848B38B3640307A3807CC993AD02A42E9D428DBF7213BB83EB457F0E29CACE8E"
+    },
+    "size": 23714,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\backup-serale.ps1",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\10082026_backup-serale.ps1",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "FEE152CD6D0A929CE3770FCF7E87119ECAE447AD",
+      "sha256": "C8C53B7086E80E1BD39DDFBF8DB86F8949131EDB53B56F03360179B078F42608"
+    },
+    "size": 3389,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\installa-servizio.ps1",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\11082026_installa-servizio.ps1",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "0BC91931EBE7BDF7209E488960EC75B785329DC7",
+      "sha256": "C612C04674B612CF798B0C0321557A6AB661C64677E32859239ED7C2375EBC32"
+    },
+    "size": 19072,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\LEGGIMI.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\08082026_LEGGIMI.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "DD284B6255C4FEB13D7E379D7D61177CFCAC21A9",
+      "sha256": "D0EB1D427E4DCCCF5CDC04862C4C87B386DFF27635276944695AF7DF40E8E829"
+    },
+    "size": 4111,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\package-lock.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\08082026_package-lock.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "41044D65EC0F6639C31071FC0B1170956C3DE0EA",
+      "sha256": "FD51F4304CCEB0F7F4FFFFD7BC0A7906ED67D2214FF6C76C6FE80D569F9AC94F"
+    },
+    "size": 30278,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\package.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\08082026_package.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "8111EEE964CE51192EFF4BF18F0510ECAA9AC86A",
+      "sha256": "4F1809FB72B67C5C3D6D4C4B3F8209B13B6DDF6899FF8686A887A7A44F87358F"
+    },
+    "size": 826,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\pathfinder-server.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\12082026_pathfinder-server.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "B90B280BD417AC1A6A74CE3BB9D04B899A2D9292",
+      "sha256": "DA6635D0BDBA86DCDE675184D50DB5D782AF5AD9F32DCB8C565721B7BDD8CD55"
+    },
+    "size": 19657,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\lib\\db.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\lib\\12082026_db.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "7DA9D1D9AB985BDCC671B17CBE42BA92FC273E66",
+      "sha256": "6E2002341D3923862FC4F2DA5DF07E5B27DA26CCD6AC506928D6173982BF7449"
+    },
+    "size": 13167,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\lib\\schema.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\lib\\12082026_schema.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "512157339505D862D7443850A5ED8B8B8EF096BD",
+      "sha256": "B2B8877034DE0F854B1215BE23E9E258900EEB78CD54B7CFF09EE117481F89E8"
+    },
+    "size": 6280,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\test\\collaudo-migrazione-1.4.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\test\\12082026_collaudo-migrazione-1.4.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "E9443CFE472DC820BC2473CCDFD176C36355A681",
+      "sha256": "D431B1A9B402BE811A0F90BA382639DCD32784E9514A02C10C334AF9436FF7D7"
+    },
+    "size": 5915,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\test\\collaudo.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\Pathfinder 1.4\\server\\test\\13082026_collaudo.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "FBBC37D9AE8388F813A8B192391FD470D0C19ED7",
+      "sha256": "CFF12269BBA4547FD585BB213D12D3E9BBF6305E44ABF8253452338BDAC5464A"
+    },
+    "size": 27265,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\stampa etichette\\guida_pratica_etichetta_logistica.pdf",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\stampa etichette\\07082026_guida_pratica_etichetta_logistica.pdf",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "F49DB5625F1E53723FF52D65BC91AC5FB2CCEFFD",
+      "sha256": "841BCFD5CF2464BC7507E804DE75435205B7F2A3E2D7130CF109207C0117A8B6"
+    },
+    "size": 942140,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\stampa etichette\\location-label-printer-v2.1.0.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\stampa etichette\\05082026_location-label-printer-v2.1.0.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "86A4905B10C288613F2FBEE5E05AB8BE7A952CEC",
+      "sha256": "5E67B73DDCE436CC989D74D6A591A8D854EE64AE161D95C745F72D14E2ADE1E2"
+    },
+    "size": 47109,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\stampa etichette\\location-label-printer-v3_0_0.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\stampa etichette\\06082026_location-label-printer-v3_0_0.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "8755DB8A828578ADFF3608BCBEEC4D17AB1E0660",
+      "sha256": "B034CE30FA7F7109C95A415193273715E7585074699939DCF0E0962E95A74053"
+    },
+    "size": 81607,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\stampa etichette\\ubicazioni-70etichette-2026-08-05.csv",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\stampa etichette\\06082026_ubicazioni-70etichette-2026-08-05.csv",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "02C488C5B2978097A66CEAA1A5795C4CC2AEAF6F",
+      "sha256": "0A235CF3F13C6D9BB8BB863D702ADA627AE3631A9D273FD222459FD533A837F3"
+    },
+    "size": 11493,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\INSTALLAZIONE-PATHFINDER-1.0.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\09082026_INSTALLAZIONE-PATHFINDER-1.0.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "3873D2AF6139DAFFCABA80B1DFCE335644567C8F",
+      "sha256": "9DD028A7BE01CF10EA4062D286CD57DA3C72EF70C30EEBF005FB313609958272"
+    },
+    "size": 13049,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\INSTALLAZIONE.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\07082026_INSTALLAZIONE.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "E768AC24623D7DCC21C6511992BF7489C0ED37EA",
+      "sha256": "9C5D73CD3309B6670EED5554432B1A211A2B0D13359B2BA8F06D6C1AC88E4FEC"
+    },
+    "size": 17946,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\pathfinder-1.1.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\09082026_pathfinder-1.1.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "278B35142FD1B7D4A2EF6CD51B869F227433622D",
+      "sha256": "F60C7D994E1C7EEC5E54616E9B41F09E43AB34C956FC4346556A518116FF430B"
+    },
+    "size": 1238280,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\pathfinder-1.2.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\11082026_pathfinder-1.2.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "C0D1BEF54FF61ED9B0B560FE0E4093747E77B766",
+      "sha256": "0EBDD1A953A9722D48C7FC11A4198F1A9127D4F0197F37BF9D6C976D27E4935D"
+    },
+    "size": 1486348,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\pathfinder-1.4.0.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\12082026_pathfinder-1.4.0.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "FD4CDCB449953C5668D9F703D5DD8099B3E28D42",
+      "sha256": "3C2CB9A05E2A1DE83942E05930F7A119D8B84178EB32652AC8700DD8D85E2BE6"
+    },
+    "size": 1493517,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\pathfinder-1.4.2.1.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\13082026_pathfinder-1.4.2.1.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "FF2B49F38A4A73CD01A94AE82921E9F7EB54E367",
+      "sha256": "43D4D3A9B58663A4DAE8EF6FDB32E570701E9C484BECF3568CB96E89AE9F9B8D"
+    },
+    "size": 1578609,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\pathfinder-1.4.2.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\12082026_pathfinder-1.4.2.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "7AB4A5A12406F76195ABB10CACDFEB1EAF3D8B95",
+      "sha256": "B6704384549DAD04BFCEAD3B2993F34E43132FB2AD717ED85F115EFA09551530"
+    },
+    "size": 1541133,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\warehouse-mapper-v2_8_0.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\08082026_warehouse-mapper-v2_8_0.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "02283A485BD62B089C540E21F7551A840B8E32FE",
+      "sha256": "BF0510E56CAAEFA916BB9B93CDCFDCE8E7A41EDE2579C7D49D0B749AA2904BBD"
+    },
+    "size": 1028275,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\pathfinder-1.2.html",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\12082026_pathfinder-1.2.html",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "B06E5083BC27E3EEFA2774AC8F7C2688D5667858",
+      "sha256": "83A52F2F95BF788438E4C0263258E3863FDEF99DF1AA34A21929091D4800EFBC"
+    },
+    "size": 1493515,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\README.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\11082026_README.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "2B06A8A5EF3E4712D95B0F9E1D0AEF694559955B",
+      "sha256": "3DC691C54B5740E35EF24892466D6D4BB7B49BC6EAA33E5E23373044DDE7350D"
+    },
+    "size": 23703,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\backup-serale.ps1",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\10082026_backup-serale.ps1",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "FEE152CD6D0A929CE3770FCF7E87119ECAE447AD",
+      "sha256": "C8C53B7086E80E1BD39DDFBF8DB86F8949131EDB53B56F03360179B078F42608"
+    },
+    "size": 3389,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\installa-servizio.ps1",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\11082026_installa-servizio.ps1",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "0BC91931EBE7BDF7209E488960EC75B785329DC7",
+      "sha256": "C612C04674B612CF798B0C0321557A6AB661C64677E32859239ED7C2375EBC32"
+    },
+    "size": 19072,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\LEGGIMI.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\08082026_LEGGIMI.md",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "DD284B6255C4FEB13D7E379D7D61177CFCAC21A9",
+      "sha256": "D0EB1D427E4DCCCF5CDC04862C4C87B386DFF27635276944695AF7DF40E8E829"
+    },
+    "size": 4111,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\package-lock.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\08082026_package-lock.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "41044D65EC0F6639C31071FC0B1170956C3DE0EA",
+      "sha256": "FD51F4304CCEB0F7F4FFFFD7BC0A7906ED67D2214FF6C76C6FE80D569F9AC94F"
+    },
+    "size": 30278,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\package.json",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\08082026_package.json",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "8111EEE964CE51192EFF4BF18F0510ECAA9AC86A",
+      "sha256": "4F1809FB72B67C5C3D6D4C4B3F8209B13B6DDF6899FF8686A887A7A44F87358F"
+    },
+    "size": 826,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\pathfinder-server.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\11082026_pathfinder-server.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "9FDA2EC98A8A2EB6BE6D8A950AA989C5CFA17CDE",
+      "sha256": "72E6EA9840D672BBD3B4C7344495779BD8B0F8DE98CAC9824C052F95A10F4ADE"
+    },
+    "size": 14981,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\lib\\db.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\lib\\12082026_db.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "7DA9D1D9AB985BDCC671B17CBE42BA92FC273E66",
+      "sha256": "6E2002341D3923862FC4F2DA5DF07E5B27DA26CCD6AC506928D6173982BF7449"
+    },
+    "size": 13167,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\lib\\schema.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\lib\\12082026_schema.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "512157339505D862D7443850A5ED8B8B8EF096BD",
+      "sha256": "B2B8877034DE0F854B1215BE23E9E258900EEB78CD54B7CFF09EE117481F89E8"
+    },
+    "size": 6280,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\test\\collaudo-migrazione-1.4.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\test\\12082026_collaudo-migrazione-1.4.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "E9443CFE472DC820BC2473CCDFD176C36355A681",
+      "sha256": "D431B1A9B402BE811A0F90BA382639DCD32784E9514A02C10C334AF9436FF7D7"
+    },
+    "size": 5915,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\test\\collaudo.js",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\VERSIONI PRECEDENTI\\Pathfinder 1.2\\server\\test\\12082026_collaudo.js",
+    "archivedAt": "2026-08-17T00:42:42.1050342+02:00",
+    "checksum": {
+      "sha1": "AC648D3C081B604072DAE350365F27CD0E5B55EC",
+      "sha256": "08433499922953B8A5A831E8CD5FE6EC4E1305C303AA8EAA6E06475836BD340C"
+    },
+    "size": 14184,
+    "tag": "archived",
+    "note": "Renamed to canonical form by automated housekeeping"
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\HANDOFF\\CLAUDE-INSTRUCTIONS.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\17082026_CLAUDE-INSTRUCTIONS.md",
+    "archivedAt": "2026-08-17T16:49:05.964Z",
+    "size": 10648,
+    "sha256": "1817938F6F28D7FCFB9956C581D7B72F3ECC00C721C9E37978FC37E72AD5BE95",
+    "sha1": "1CE2DE0F51480D48FD0C0DF1E57279BE905F6E14",
+    "tag": "handoff",
+    "note": "Superato il 17/08/2026: descriveva la migrazione a build multi-file come lavoro da fare, ed e stata fatta con la 1.7."
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\HANDOFF\\HANDOFF-pathfinder-1.4.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\17082026_HANDOFF-pathfinder-1.4.md",
+    "archivedAt": "2026-08-17T16:49:05.968Z",
+    "size": 112467,
+    "sha256": "3F22580236D2679B9F2533CCF7FECDE3D4B7AD4C56D87D749351AEE922729EE6",
+    "sha1": "B42EEE125A2D4D34C0AA678D832A7E7E14B287FF",
+    "tag": "handoff",
+    "note": "Assorbito in INDEX.md il 17/08/2026: stato, aperti, decisioni e trappole ancora vive stanno li. Resta la cronaca delle versioni 1.4.0-1.7."
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\HANDOFF\\NOTE.txt",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\17082026_NOTE.txt",
+    "archivedAt": "2026-08-17T16:49:05.971Z",
+    "size": 7026,
+    "sha256": "1606EF0E51418DA0955509F8CF83F349CEAEEEABF2EAF2A6D86808A57040915E",
+    "sha1": "9EF8A93CBDDCBE3959ABAF5FAB3D6BD280E738EF",
+    "tag": "handoff",
+    "note": "Assorbito in INDEX.md il 17/08/2026: le quattordici note sono diventate la coda di lavoro 1.8-1.11. Resta il testo originale di Andrea."
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\HANDOFF\\PIANO-1.4.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\17082026_PIANO-1.4.md",
+    "archivedAt": "2026-08-17T16:49:05.973Z",
+    "size": 59738,
+    "sha256": "4CD4D8CB4DB6A026D8AFAC0EE65328FEE5BEA31A57CDC56523974ABF2F6DE802",
+    "sha1": "D6FF68A8B766D2BA1E21821246B2BDB3908E1CFF",
+    "tag": "handoff",
+    "note": "Assorbito in INDEX.md il 17/08/2026: le cinque funzioni residue sono nella coda di lavoro (1.12-1.14), le decisioni vive fra le regole. Resta il disegno dei dati e il calendario originale."
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\HANDOFF\\PIANO-CONSEGNA-1.7.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\17082026_PIANO-CONSEGNA-1.7.md",
+    "archivedAt": "2026-08-17T16:49:05.975Z",
+    "size": 16222,
+    "sha256": "0DB7EE398DBB6871BE34C5BEBE20D5940DF119E979AC4917907B4068AE0791C9",
+    "sha1": "2C02DE0487B47645417A07681CE5AD563BC38CC6",
+    "tag": "handoff",
+    "note": "Assorbito in INDEX.md il 17/08/2026: il modello a cartella e le sue trappole sono nelle sezioni consegna e trappole. Resta il disegno per intero."
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\HANDOFF\\PROMPT-workspace-multiagente-1.4.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\17082026_PROMPT-workspace-multiagente-1.4.md",
+    "archivedAt": "2026-08-17T16:49:05.976Z",
+    "size": 11735,
+    "sha256": "A10D1F8ED540D6CAA76C2F4E678772F65F4AA13E14FA71BA55C975681DA3A364",
+    "sha1": "893329E92A737726B1A77D0B27E490BBC58A3B12",
+    "tag": "handoff",
+    "note": "Superato il 17/08/2026: descrive un workspace multi-agente mai costruito, e numera le versioni prima dello scalamento del 17/08."
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\HANDOFF\\README_FOR_CLAUDE.md",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\HANDOFF STORICI\\17082026_README_FOR_CLAUDE.md",
+    "archivedAt": "2026-08-17T16:49:05.978Z",
+    "size": 8260,
+    "sha256": "67C10268F9523A17C12D2F09AB5023253C61E0CFFC40BEFC38E8EBC60E842AB5",
+    "sha1": "5E3D42A57F56EC9E026E516F249ADE945747E4BF",
+    "tag": "handoff",
+    "note": "Superato il 17/08/2026: diceva di caricare INDEX piu handoff, e ora il file e uno solo. La policy di archiviazione e confluita in INDEX."
+  },
+  {
+    "originalPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\Pathfinder 1.6",
+    "newPath": "C:\\Users\\sacch\\OneDrive\\Desktop\\PROGETTI E CODING\\MAPPER\\ARCHIVIO\\17082026_Pathfinder 1.6",
+    "archivedAt": "2026-08-17T17:00:28.646Z",
+    "size": 31864727,
+    "files": 728,
+    "tag": "build",
+    "note": "Vecchia cartella di consegna (outDir fino al 17/08/2026). Conteneva anche una copia del servizio ferma alla 1.1 con il suo node_modules, che il 14/08 e' diventata per sbaglio la produzione: e' l'origine di due incidenti. Spostata perche' nessuno la punti piu'. Il servizio gira da MAPPER/server, verificato il 17/08."
+  }
+]

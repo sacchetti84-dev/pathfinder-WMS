@@ -1,0 +1,15 @@
+PATHFINDER 2.6 — archiviata il 26/08/2026
+
+Qui c'e' solo la meta' APPLICATIVO del pacchetto, presa dal deposito
+C:\Pathfinder\app\pathfinder-2.6 dopo l'installazione. La meta' SERVIZIO non
+c'e' perche' `npm run build` azzera `consegna/` a ogni giro, e la 2.7 e' stata
+costruita prima che la 2.6 fosse archiviata.
+
+NON E' PERSA: il servizio della 2.6 e' il commit 9796048 del repository
+sacchetti84-dev/pathfinder-WMS, ramo main. Per rifare il pacchetto identico:
+
+    git checkout 9796048
+    npm ci && npm run build
+
+L'impronta deve tornare d3865c53d94a8bff53441c7ee32c571aa45cb256406918a9f4a2e04860dca644
+su 1.800.084 byte in 4 file. Se non torna, non e' la 2.6.

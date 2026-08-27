@@ -1,0 +1,28 @@
+{
+  "versione": "2.9",
+  "costruita": "2026-08-26T23:14:58.703Z",
+  "byte_totali": 1840194,
+  "file": [
+    {
+      "percorso": "assets/index-DC0xu3PX.js",
+      "byte": 1029674,
+      "sha256": "cd52abf7080173b51da3194a24f2aefc16e2af72072d80e9afa93731c2e78279"
+    },
+    {
+      "percorso": "assets/index-nnAu6kVP.css",
+      "byte": 193994,
+      "sha256": "7f2ebe4f3f3c91d84a7bbf52fc42043e233b7c67a6c71b728987f72ac06901ea"
+    },
+    {
+      "percorso": "assets/xlsx-WMlLLxdc.js",
+      "byte": 592924,
+      "sha256": "64b934775e71df3eed6d9590cb8e572001be60c5de92c891ae40d4a2d0c31eba"
+    },
+    {
+      "percorso": "index.html",
+      "byte": 23602,
+      "sha256": "6a1ff1bdd0217bc1391fee321a43ccfc648aeebbe8d8901f6c814560df989386"
+    }
+  ],
+  "impronta": "b3b3b8daeca269bfcb4b1084157e61318729f015704443854988148693cc4e91"
+}

@@ -1,0 +1,62 @@
+{
+ "quando": "2026-08-19T09:48:58.881Z",
+ "stabile": true,
+ "passi": [
+  {
+   "nome": "① tipi — client e servizio",
+   "ok": true,
+   "nota": "tsc a zero su tutto il sorgente",
+   "ms": 1090
+  },
+  {
+   "nome": "② prove del servizio",
+   "ok": true,
+   "nota": "servizio, migrazione e installazione",
+   "ms": 10231
+  },
+  {
+   "nome": "③ prove del client",
+   "ok": true,
+   "nota": "716 prove verdi",
+   "ms": 5196
+  },
+  {
+   "nome": "④ ciclo carico → consumo",
+   "ok": true,
+   "nota": "47 passi del ciclo",
+   "ms": 17934
+  },
+  {
+   "nome": "⑤ verbale dei difetti",
+   "ok": true,
+   "nota": "nessun difetto grave · 3 da dato/anagrafica",
+   "ms": 0
+  }
+ ],
+ "difetti": [
+  {
+   "id": "D1",
+   "gravita": "dato",
+   "dove": "anagrafica articoli",
+   "cosa": "L'ODP2603889 chiede questi componenti in KG, l'anagrafica li dichiara altrimenti: 6001055=PZ. Il magazzino conta pezzi dove la produzione pesa chili, e nessuna delle due parti se ne accorge.",
+   "prova": "riga 6001055: 0,468 KG richiesti su un articolo dichiarato PZ",
+   "visto": "2026-08-19T09:48:44.001Z"
+  },
+  {
+   "id": "K3",
+   "gravita": "dato",
+   "dove": "registro movimenti / anagrafica operatori",
+   "cosa": "2 sigle firmano movimenti ma non stanno fra gli operatori: DP (14 mov.), AS (2 mov.). Fra tre anni quella firma non risponde a un nome — o è un operatore cancellato, o è una sigla digitata a mano.",
+   "prova": "operatori in anagrafica: EFBR, BABB, ANDS",
+   "visto": "2026-08-19T09:48:50.657Z"
+  },
+  {
+   "id": "CF3",
+   "gravita": "dato",
+   "dove": "anagrafica articoli e Configurazione → Zone",
+   "cosa": "La verifica di conformità copre il 5% delle righe (12 su 230): sul resto non tace perché va bene, tace perché non ha con cosa confrontare. Chi guarda la mappa vede un verde che non significa niente. Si scioglie compilando gli attributi delle zone e degli articoli — §2, voce 5.",
+   "prova": "153 articoli senza attributi",
+   "visto": "2026-08-19T09:48:57.389Z"
+  }
+ ]
+}

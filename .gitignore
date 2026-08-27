@@ -2,95 +2,46 @@
 # Pathfinder — cosa NON entra nel repository
 # © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
 # ─────────────────────────────────────────────────────────────────────────────
+#
+# DAL 27/08/2026 QUESTO ELENCO E' DI DUE VOCI, E NON DI DIECI.
+#
+# Fino a ieri teneva fuori le dipendenze, l'archivio, il banco, la cartella di
+# consegna e i monoliti delle versioni vecchie: 405 MB di roba, esclusa con
+# ragioni tutte difendibili una per una — «si ricostruisce», «e' prodotto»,
+# «pesa». Poi il 25/08 la build ha portato via il kit demo, che viveva dentro
+# `consegna/` e non era mai entrato in git: `Avvia Demo.bat`, tre `README-DEMO`
+# e tre `IT-TECH-SHEET`, cercati su tutto il disco e non trovati — voce 43.
+#
+# «Si ricostruisce» e' vero finche' qualcuno lo ricostruisce. Un file che sta
+# su un disco solo e' un file che prima o poi non c'e' piu', e la decisione di
+# Andrea e' che il repository li tenga tutti.
+#
+# RESTANO FUORI DUE COSE SOLE, e non perche' pesano: perche' sono SEGRETI.
+# Git non dimentica — un file tolto dopo resta nella storia — e un segreto
+# spinto una volta va considerato bruciato.
 
-# Dipendenze: si ricostruiscono con "npm install", non si versionano.
-node_modules/
-
-# Database e stato del servizio.
-# PERCHÉ: non è codice, contiene i dati operativi veri e le anagrafiche degli
-# operatori (vincolo GDPR §10 dell'HANDOFF 1.0). Il file -wal e il -shm sono
-# per giunta stato transitorio di SQLite: versionarli non ha alcun senso.
-server/data/
+# ── 1. I DATABASE ─────────────────────────────────────────────────────────
+# Cinquanta file, 153 MB, e non e' il peso il problema: dentro ci sono
+# `pin_hash` e `pin_salt` accanto a nome e cognome degli operatori veri. Le
+# impronte dei PIN di persone in carne e ossa non si mandano a un servizio di
+# terzi, e su un repository privato vale lo stesso: la visibilita' di un
+# repository si cambia con un clic, un clone no.
+# Il -wal e lo -shm sono per giunta stato transitorio di SQLite.
 *.db
 *.db-shm
 *.db-wal
 
-# L'ARCHIVIO INTERO STA FUORI DAL REPOSITORY — deciso il 25/08/2026.
-# PERCHE': e' memoria, non codice, e pesa 183 MB fra pacchetti costruiti, copie
-# del database di prova, monoliti .html delle versioni vecchie e documenti
-# storici. Tre ragioni per non versionarlo:
-#   1. i pacchetti si RICOSTRUISCONO dal commit — la build e' riproducibile bit
-#      per bit, provata il 25/08 ricostruendo la 2.2 a cinque giorni di distanza
-#      con la stessa impronta cifra per cifra. Un binario in git e' peso morto.
-#   2. le copie del database portano movimenti veri e sigle operatore (GDPR).
-#   3. il backup dell'archivio e' OneDrive, che sincronizza la cartella com'e'.
-# Il repository porta il codice; l'archivio porta la storia, e stanno in due
-# posti diversi apposta.
-ARCHIVIO/
-
-# La cartella di consegna e' PRODOTTA, non scritta: la build la possiede per
-# intero e la svuota a ogni giro. Dentro non ci va niente a mano, perche' al
-# primo "npm run build" sparirebbe. Si rigenera in tre secondi, ed e' il
-# motivo per cui non sta nel repository: cio' che la compone - il sorgente e
-# il README - c'e' gia'.
-# Dalla 1.7 si chiama "consegna/" e non porta piu' il numero di versione: il
-# numero glielo da' l'installazione, che la copia in C:\Pathfinder\app\. Una
-# riga fissa invece di un modello che inseguiva i numeri - e una cartella che
-# non somiglia a un artefatto rilasciato non viene puntata per sbaglio.
-consegna/
-Pathfinder 1.*/
-
-# Il banco di prova: copia del database vero (dati operativi e sigle operatore)
-# e cartelle-versione con le loro giunzioni. Si rifa' in due comandi, e una
-# giunzione in un repository non ha senso.
-#
-# Si esclude il CONTENUTO e non la cartella — `banco/` avrebbe impedito a git
-# di scendere dentro, e nessuna eccezione piu' sotto avrebbe funzionato: una
-# riga che non si puo' riaprire dall'interno.
-banco/*
-
-# ECCEZIONE — il ciclo 2.0 e' CODICE, e il codice si versiona. `banco/ciclo/`
-# sono le prove che esercitano il client vero contro una copia del magazzino:
-# senza, chi clona il repository non ha modo di rifare il collaudo della 2.0.
-!banco/ciclo/
-banco/ciclo/*
-!banco/ciclo/*.js
-!banco/ciclo/*.cjs
-!banco/ciclo/*.md
-
-# ...ma NON quello che porta il dato vero, che resta fuori come tutto il resto:
-#   ricetta.js   la formulazione completa di un prodotto e i lotti fornitore
-#   verbale.md   il referto di un giro: lotti, ubicazioni, sigle operatore
-#   difetti.json / esito.json  lo stesso, in forma di elenco
-# La ricetta si rifa' in un comando dall'ODP che sta in ARCHIVIO:
-#   node banco/ciclo/rifai-ricetta.cjs
-banco/ciclo/ricetta.js
-banco/ciclo/verbale.md
-banco/ciclo/difetti.json
-banco/ciclo/esito.json
-
-# ECCEZIONE — gli script di manutenzione del database sono CODICE.
-# Si passano una volta sola su una macchina, ma vanno riletti prima di
-# lanciarli e rifatti se il difetto si ripresenta: fuori dal repository
-# sarebbero un file che esiste su un disco solo. Non portano nessun dato —
-# leggono la produzione dalle rotte del servizio, e la produzione non sta
-# qui dentro.
-!banco/campo-fantasma.cjs
-# `maiuscola-codici.cjs` NON STA PIU' QUI: e' sceso in `server/migrazione/`
-# insieme alla migrazione, che lo chiama. Finche' stava in `banco/` la
-# migrazione non si poteva consegnare — il pacchetto non porta il banco, e
-# `require('../../banco/...')` su una macchina di magazzino non risolve.
-
-# Rumore di Windows e degli editor.
-Thumbs.db
-desktop.ini
-.vscode/
-*.log
-
-# ── Le stringhe di connessione non entrano nel repository — 2.6 ──────────
-# `.env.local` porta `PATHFINDER_PG`, cioe' utente e password del database.
-# Per il servizio vero la stringa sta in Azure Key Vault, non in un file e
-# non in uno script di installazione: qui c'e' solo quella del banco.
+# ── 2. LE STRINGHE DI CONNESSIONE ─────────────────────────────────────────
+# `.env.local` porta `PATHFINDER_PG`, cioe' utente e PASSWORD del database.
+# Per il servizio vero la stringa sta in Azure Key Vault, non in un file e non
+# in uno script di installazione. Chi ce la mette per sbaglio non ha finito
+# togliendola: quella password va cambiata.
 .env
 .env.local
 .env.*.local
+
+# ── Rumore di Windows e degli editor ──────────────────────────────────────
+# Non e' una scelta di merito: sono file che il sistema operativo rigenera e
+# che cambiano da soli a ogni apertura di cartella.
+Thumbs.db
+desktop.ini

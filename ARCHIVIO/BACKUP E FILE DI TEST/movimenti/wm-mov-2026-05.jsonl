@@ -1,0 +1,2 @@
+{"ts":1778175549913,"type":"IN","article_code":"123","article_description":"123","lot_code":"123","location_code":"MAG-ACC-01","dest_location":null,"user":"AS","notes":"","doc_ref":"","qty_before":0,"qty_delta":1,"qty_after":1,"_id":75}
+{"ts":1778175647927,"type":"SHIP","article_code":"123","article_description":"123","lot_code":"123","location_code":"MAG-ACC-01","dest_location":null,"user":"AS","notes":"SPEDIZIONE a abc (vettore: brt)","doc_ref":"456","qty_before":1,"qty_delta":-1,"qty_after":0,"_id":74}

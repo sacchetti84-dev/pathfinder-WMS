@@ -1,0 +1,28 @@
+{
+  "versione": "2.12",
+  "costruita": "2026-08-27T18:16:34.787Z",
+  "byte_totali": 1863734,
+  "file": [
+    {
+      "percorso": "assets/index-CgaeFon8.css",
+      "byte": 196979,
+      "sha256": "91c6ef9eaa9ab966bf6a2675c16506853d3d95b1603e7ebf46e7b279c49bfa7a"
+    },
+    {
+      "percorso": "assets/index-DSIV2528.js",
+      "byte": 1050226,
+      "sha256": "8a9d11a57737695c7a3b89ba29008db46770ae919eb3a751e88030c25c09b61e"
+    },
+    {
+      "percorso": "assets/xlsx-WMlLLxdc.js",
+      "byte": 592924,
+      "sha256": "64b934775e71df3eed6d9590cb8e572001be60c5de92c891ae40d4a2d0c31eba"
+    },
+    {
+      "percorso": "index.html",
+      "byte": 23605,
+      "sha256": "f4613dbb8634cbc67579af43e8eef6beb60bd0d3885b2a12b6b5cc704009366d"
+    }
+  ],
+  "impronta": "1c43313dbea398098fabe38f8d16ccbb8670547f35657017ebcab2d5a69af2d0"
+}

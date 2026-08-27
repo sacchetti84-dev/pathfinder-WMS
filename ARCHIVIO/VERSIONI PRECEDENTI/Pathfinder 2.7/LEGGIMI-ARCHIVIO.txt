@@ -1,0 +1,24 @@
+PATHFINDER 2.7 — archiviata il 26/08/2026
+
+Qui c'e' solo la meta' APPLICATIVO del pacchetto, presa dal deposito
+C:\Pathfinder\app\pathfinder-2.7 dopo l'installazione. La meta' SERVIZIO non
+c'e' perche' `npm run build` azzera `consegna/` a ogni giro, e la 2.8 e' stata
+costruita prima che la 2.7 fosse archiviata. E' successo anche alla 2.6, ed e'
+la seconda volta: chi costruisce una versione nuova archivia PRIMA quella che
+sta uscendo, o si ritrova a ricostruirla da un commit.
+
+NON E' PERSA: il servizio della 2.7 e' il commit c3cf4f6 del repository
+sacchetti84-dev/pathfinder-WMS, ramo main. Per rifare il pacchetto identico:
+
+    git checkout c3cf4f6
+    npm ci && npm run build
+
+L'impronta deve tornare 17cb722bf14e876c7a5301c9c4c6f4017dae7750da79530e405b046a298658d5
+su 1.800.084 byte in 4 file. Se non torna, non e' la 2.7.
+
+PERCHE' I FILE SONO GLI STESSI DELLA 2.6, e non e' un errore di copia. La 2.7
+non ha toccato una riga di client: e' il passaggio a PostgreSQL, che vive tutto
+nel servizio e nell'installatore. Le due cartelle `app/` hanno percio' gli
+stessi nomi di file e gli stessi 1.800.084 byte; a distinguerle e' `versione`
+dentro `manifest.json`, e l'impronta del pacchetto INTERO — che comprende il
+servizio — che infatti e' diversa.
