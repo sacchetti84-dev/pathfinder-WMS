@@ -900,6 +900,21 @@ const controllaCartellaBackup = (dir) => {
   if (!path.isAbsolute(grezzo))
     rifiuta('La cartella di backup deve essere un percorso assoluto.');
 
+  /* SU WINDOWS «ASSOLUTO» NON VUOL DIRE «SO SU CHE DISCO».
+     `\qualcosa` passa `path.isAbsolute` — e' assoluto rispetto alla RADICE
+     DEL DISCO CORRENTE, che e' quello della cartella di lavoro del processo:
+     un dato che nessuno sa e che cambia col modo in cui il servizio e' stato
+     lanciato. Trovato verificando la consegna della 2.10, e trovato per
+     sbaglio: una prova scritta male ha inviato `\altra-macchinacondivisione`
+     al posto del percorso di rete che voleva provare, il controllo di sopra
+     non e' scattato — giustamente, quello non e' UNC — e il servizio ha
+     scritto 393 kB di database nella RADICE DI `C:`.
+
+     E' la stessa ambiguita' della terza regola qui sopra, in un vestito che
+     la prima stesura non aveva riconosciuto: si pretende la lettera. */
+  if (path.sep === '\\' && !/^[A-Za-z]:[\\/]/.test(grezzo))
+    rifiuta('La cartella di backup deve dire su quale disco sta, per esempio C:\\Pathfinder\\backup.');
+
   const pieno = path.resolve(grezzo);
   for (const v of CARTELLE_DI_SISTEMA) {
     if (dentro(pieno, v)) rifiuta(`Un backup non si scrive dentro ${v}.`);

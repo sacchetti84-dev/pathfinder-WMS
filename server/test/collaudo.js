@@ -964,6 +964,16 @@ const call = async (metodo, url, corpo, cliente = 'T1') => {
   ok('e uno dentro le cartelle di Windows, dove il servizio scrive come SYSTEM',
      sistema.stato === 400, `stato ${sistema.stato}`);
 
+  /* TROVATA VERIFICANDO LA CONSEGNA DELLA 2.10, e trovata per sbaglio: una
+     prova scritta male ha inviato questa forma al posto del percorso di rete
+     che voleva provare, il controllo dell'UNC non e' scattato — giustamente,
+     quello non e' UNC — e il servizio ha scritto 393 kB di database nella
+     RADICE DI `C:`. `\qualcosa` passa `path.isAbsolute`: e' assoluto rispetto
+     al disco della cartella di lavoro, che nessuno sa quale sia. */
+  const senzaDisco = await call('POST', '/api/backup', { dir: '\\radice-a-caso' });
+  ok('e uno che non dice su quale disco sta', senzaDisco.stato === 400,
+     `stato ${senzaDisco.stato}`);
+
   // 5 · Le intestazioni
   const teste = await fetch(BASE + '/api/health');
   ok('ogni risposta porta le tre intestazioni di sicurezza',

@@ -24,6 +24,23 @@ const SERVER = path.resolve(__dirname, '..');
 const CASA = path.join(os.tmpdir(), `pathfinder-installa-${Date.now()}`);
 const CONSEGNE = path.join(CASA, '_consegne');
 
+/* ── 2.10 · L'INSTALLER SI CHIAMA IN DUE MODI, E STA IN DUE POSTI ─────────
+   Nel sorgente e' `server/installa-pathfinder.ps1`, accanto a questo file;
+   nel pacchetto diventa `installa.ps1` e sale nella radice, un livello sopra
+   `servizio/`. Questo collaudo viaggia nel pacchetto — ce lo mette la build —
+   e finche' ha cercato il solo nome del sorgente, lanciato da li' moriva con
+   un `ENOENT` su `copyfile`: dodici prove non eseguite, e un messaggio che
+   sembra un guasto dell'installazione invece di un collaudo che guarda nel
+   posto sbagliato. Trovato verificando la consegna della 2.10.
+
+   Si guarda in tutti e due i posti, e se non c'e' ne' l'uno ne' l'altro le
+   prove che lo esercitano si SALTANO DICENDO PERCHE' — la stessa regola
+   delle trentuno prove PostgreSQL quando manca il database. */
+const INSTALLER = [
+  path.join(SERVER, 'installa-pathfinder.ps1'),   // il sorgente
+  path.join(SERVER, '..', 'installa.ps1'),        // il pacchetto
+].find((p) => fs.existsSync(p)) || null;
+
 let passate = 0, fallite = 0;
 const ok = (nome, cond, nota = '') => {
   if (cond) { passate++; console.log(`  PASSA   ${nome}${nota ? ' — ' + nota : ''}`); }
@@ -147,6 +164,15 @@ try {
   ok('ne\' tocca quello che era in servizio', manifesto('corrente')?.versione === '2.1');
 
   // ── 8. L'INSTALLER A DOPPIO CLIC: le decisioni, senza toccare niente ─────
+  if (!INSTALLER) {
+    console.log('\n  SALTATE  le dodici prove dell\'installer a doppio clic:');
+    console.log('           non si trova ne\' `installa-pathfinder.ps1` accanto');
+    console.log('           al servizio, ne\' `installa.ps1` nella radice del');
+    console.log('           pacchetto. Le altre hanno girato.');
+    console.log(`\n  ${passate} passate, ${fallite} fallite\n`);
+    fs.rmSync(CASA, { recursive: true, force: true });
+    process.exit(fallite ? 1 : 0);
+  }
   /* `-Prova` dice cosa farebbe ed esce. Serve a due cose: provare le
      decisioni su una macchina in servizio, e avere qualcosa da esercitare qui
      — l'installazione vera registra attivita' pianificate e apre porte sul
@@ -156,7 +182,7 @@ try {
   fs.cpSync(consegna('3.0', 'pacchetto'), path.join(pacchetto, 'app'), { recursive: true });
   fs.mkdirSync(path.join(pacchetto, 'servizio'), { recursive: true });
   fs.writeFileSync(path.join(pacchetto, 'servizio', 'pathfinder-server.js'), '// finto');
-  fs.copyFileSync(path.join(SERVER, 'installa-pathfinder.ps1'), path.join(pacchetto, 'installa.ps1'));
+  fs.copyFileSync(INSTALLER, path.join(pacchetto, 'installa.ps1'));
   /* 2.7 — il pacchetto porta anche chi prepara il database, e l'installer
      lo pretende: senza, un'installazione su PostgreSQL si accorgerebbe che
      manca a meta' strada, a servizio gia' fermo. Qui e' quello VERO, non un
@@ -310,7 +336,7 @@ try {
      finestra elevata: la legge chiunque apra Gestione attivita'. Si guarda
      nel codice, perche' e' l'unico posto dove si puo' vedere prima che
      succeda. */
-  const sorgenteInstaller = fs.readFileSync(path.join(SERVER, 'installa-pathfinder.ps1'), 'utf8');
+  const sorgenteInstaller = fs.readFileSync(INSTALLER, 'utf8');
   const bloccoElevazione = sorgenteInstaller.slice(
     sorgenteInstaller.indexOf('$argomenti = @('),
     sorgenteInstaller.indexOf('Start-Process powershell -Verb RunAs'));
