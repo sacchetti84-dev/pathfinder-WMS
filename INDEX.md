@@ -7,11 +7,11 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **01/09/2026 notte** — **su questa macchina Pathfinder non c'è
-più.** Applicativo, servizio, deposito delle versioni e database sono stati
-rimossi per reinstallare da zero: voce **74**. La 2.13 è stata in servizio dal
-31/08 sera fino alla rimozione; la **2.14 è costruita e provata al banco**, e
-non è mai stata installata. La riscrittura compatta è del 28/08; la stesura
+Aggiornato: **01/09/2026 notte** — la macchina è stata **riportata a zero e
+reinstallata pulita**: la **2.14 è in servizio** su un database vuoto, e il
+primo Admin non esiste ancora. Voce **74**. Nel farlo è venuto fuori un difetto
+dell'installer che si era già mangiato una serata (voce **75**): corretto e
+provato. La riscrittura compatta è del 28/08; la stesura
 narrativa che l'ha preceduta resta nella storia git al commit `f4a9578`.
 
 **Cos'è Pathfinder.** Applicativo web per un magazzino alimentare in GMP.
@@ -60,10 +60,10 @@ L'installazione di questa macchina è **in prova sul PC di Andrea**: ciò che si
 rompe qui non ferma nessuno. Il database però porta dati veri, e per questo un
 collaudo si fa sempre su una **copia** — §5.
 
-> **Dal 01/09 `C:\Pathfinder\` non esiste**, e nemmeno il database: la macchina
-> è stata riportata a zero per reinstallare pulita — voce **74**. Il primo
-> comando del punto 2 non risponde, e le ricette di §5 che interrogano il
-> servizio vivo non hanno con chi parlare finché non si reinstalla.
+> **Il 01/09 `C:\Pathfinder\` è stata svuotata e rifatta da zero** — voce
+> **74**. Il servizio risponde di nuovo e le ricette di §5 funzionano, ma il
+> **database è vuoto**: quello che si legge dall'applicativo non è il
+> magazzino, è una casa nuova.
 
 ---
 
@@ -98,28 +98,39 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ---
 
-## 1. Stato, misurato il 01/09/2026
+## 1. Stato, misurato il 01/09/2026 sera
 
-### Niente è in servizio
+### In servizio
 
-**Il 01/09 questa macchina è stata riportata a zero** per reinstallare pulita —
-voce 74. Non c'è più niente da interrogare, e il primo comando di §0 punto 2
-non risponderà finché non si reinstalla:
+**La 2.14, su una macchina reinstallata da zero il 01/09** — voce 74. Misurato
+da `/api/app-info` e `/api/health` alle 22:40:
 
 | | |
 |---|---|
-| `C:\Pathfinder\` | **rimossa** — servizio, `app\corrente`, `app\precedente`, `data`, `backup` |
-| `C:\Pathfinder_block\` | **rimossa** — 1.079 file, 182,7 MB: il deposito di tutte le versioni da 1.8.2 in poi |
-| `C:\Users\sacch\pathfinder-WMS\` | rimossa |
-| variabili `PATHFINDER_*` | tutte e cinque tolte dalla macchina |
-| database | **`pathfinder`, `pathfinder_collaudo` e `pathfinder_prova` non esistono più**, e nemmeno il ruolo `pathfinder`. PostgreSQL 17 resta installato, con i soli `postgres`, `template0`, `template1` |
+| applicativo e servizio | **2.14** — `versione` e `service_version` dicono lo stesso numero |
+| impronta | `8a25574bb3fbc2303dcdb0c7edc9370c5ec2b0d11ab75e6e9c4c0431fe448ead` |
+| byte | **1.901.483** in **4 file**, `costruita 2026-08-31T19:07:52Z` |
+| dove | `C:\Pathfinder\app\corrente`, modo `cartella` |
+| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, **tutte a zero**, `revision 0` |
+| pagina | `http://192.168.178.22:4173/` → 200, 23.592 byte |
+| porta chiusa | **no, e per ora è giusto così** — vedi qui sotto |
 
-**Cosa c'era in servizio fino al 31/08 sera**, che resta scritto perché è la
-misura da cui si riparte: **2.13**, impronta
-`cbe7180250984a557208d0cda860e6b63e0b5772c49a209ae752ac4afc81eb64`, 1.882.735
-byte in 4 file, costruita `2026-08-31T17:13:09Z`, in `C:\Pathfinder\app\corrente`
-in modo `cartella`. `GET /api/c/meta` senza sessione rispondeva **401**: la
-porta chiusa della 2.11 ha retto in produzione fino all'ultimo giorno.
+> **IL SERVIZIO È NELLA FINESTRA DI PRIMO AVVIO, E LA PORTA È APERTA.**
+> `GET /api/c/meta` senza sessione risponde **200**, non 401. Non è la 2.11 che
+> ha ceduto: `finestraDiPrimoAvvio` guarda `operators`, non trova nessuno con
+> `pin_hash`, e tiene aperto — altrimenti nessuno potrebbe creare il primo
+> Admin. **Ma aperto è aperto**: finché quell'Admin non esiste, chiunque sia
+> sulla rete parla con le API senza sessione. **È il primo gesto da fare**,
+> prima di caricare qualunque dato.
+
+**Il magazzino non è dentro.** Zero articoli, zero giacenze, zero movimenti: i
+dati veri stanno solo nei dump salvati (voce 74), e se rientrano si decide.
+
+**Cosa c'era prima, e resta scritto perché è la misura da cui si è ripartiti:**
+**2.13**, impronta `cbe7180250984a557208d0cda860e6b63e0b5772c49a209ae752ac4afc81eb64`,
+1.882.735 byte in 4 file, costruita `2026-08-31T17:13:09Z`. `GET /api/c/meta`
+senza sessione rispondeva **401**: la porta chiusa della 2.11 ha retto in
+produzione fino all'ultimo giorno.
 
 > **LA 2.13 ERA STATA INSTALLATA E QUESTO DOCUMENTO NON LO SAPEVA.** La stesura
 > del 31/08 pomeriggio la dichiarava «costruita, non installata» e diceva in
@@ -196,11 +207,11 @@ Tutti rilanciati il **31/08 sera**, sul codice della 2.14:
 | client | **1.246 prove in 42 file, tutte verdi** — `npm test`. Erano 1.222: le ventiquattro nuove stanno in `wip.test.js` e coprono `inLavorazione`, `resi` e `motivoNonStornabile` |
 | tipi | `npm run check` **a 0** su client e servizio |
 | servizio | **139** |
-| migrazione · installazione | **8 · 31** |
+| migrazione · installazione | **8 · 33** — le due nuove guardano l'installer che si murava da solo, voce 75 |
 | gerarchia (`banco/gerarchia.cjs`) | **32** — le cariche provate sul servizio, con `fetch` e i cookie veri |
 | ciclo (`banco/ciclo/gira.cjs`) | **45 su 47, due rosse** — le **stesse due di prima** della 2.14, cioè due banchi rimasti indietro: voci **70** e **71** |
 
-### La 2.14 — costruita, non installata
+### La 2.14 — come è arrivata in servizio
 
 | | |
 |---|---|
@@ -211,11 +222,15 @@ Tutti rilanciati il **31/08 sera**, sul codice della 2.14:
 | prova a vuoto | `.\installa.ps1 -NonChiedere -Prova` **sulla macchina di allora, che aveva la 2.13 in servizio**: strada **aggiornamento**, radice `C:\Pathfinder`, PostgreSQL già pronto, **nessuna migrazione**, database non toccato |
 | provata al banco | **sì, dal pacchetto** — non solo dal sorgente: servizio sulla 4199 con `banco\app\corrente` a 2.14 e `banco\db\ui.db`, e la schermata nuova esercitata di lì |
 
-**Non è installata**, e adesso non lo sarà più per aggiornamento: la macchina è
-vuota (voce 74), quindi l'installer prenderà la strada di **prima
-installazione** e dovrà **creare il database da zero**. La prova a vuoto qui
-sopra non copre quel percorso: **va rifatta**. Installare resta un atto umano —
-§0 punto 4.
+**Installata il 01/09 sera**, e non per aggiornamento: sulla macchina rifatta
+l'installer ha preso la strada di **prima installazione**, quella che la prova a
+vuoto non aveva mai esercitato. **Si è rotta lì**, due volte, e la voce **75**
+racconta come. Il pacchetto è stato ricostruito il 01/09 con l'installer
+corretto: **stessa impronta** `8a25574b…` e stessi 1.901.483 byte — cambia solo
+`costruita`, che nel manifesto del pacchetto adesso dice `22:55:27` mentre la
+macchina, installata prima della ricostruzione, risponde `19:07:52`. **I byte
+dell'applicativo sono gli stessi**: l'impronta lo prova, ed è lei che conta.
+Installare resta un atto umano — §0 punto 4.
 
 ---
 
@@ -861,7 +876,7 @@ pagato**.
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **74** | 🔴 **LA MACCHINA È STATA RIPORTATA A ZERO, E VA REINSTALLATA.** Il 01/09, per decisione di Andrea, sono state rimosse `C:\Pathfinder\`, `C:\Pathfinder_block\` (1.079 file, 182,7 MB) e `C:\Users\sacch\pathfinder-WMS\`, tolte le cinque variabili `PATHFINDER_*`, cancellati i database `pathfinder`, `pathfinder_collaudo` e `pathfinder_prova` e il ruolo `pathfinder`. PostgreSQL 17 resta installato. **`Pathfinder_block` ha resistito a tre tentativi**: la cartella dava FullControl, ma su ogni singolo file `icacls`, `fsutil` e `[IO.File]::Open` rispondevano «Accesso negato» — non si riusciva nemmeno a **leggere** la ACL, e `rd /s /q` falliva file per file. Ha ceduto a `takeown /f … /r /d S` seguito da `icacls … /reset /t /c /q` da un PowerShell elevato: 1.302 file rimessi a posto, 0 falliti. **I dati sono salvi**: `Desktop\pathfinder-backup-storico\` porta i 36 file di `Pathfinder_block\backup` (109 MB, i `.db` giornalieri dal 10 al 26/08 e quattro `.dump`), e `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\` porta i sei dump dal 28 al 31/08, compreso `pathfinder-2026-08-31.dump` — 419.318 byte, i **45 movimenti** della voce 73 | **Reinstallare, e la strada non è più quella provata.** L'installer prenderà **prima installazione**, non aggiornamento: dovrà creare il database da zero, e la prova a vuoto della 2.14 (§1) copriva l'altro percorso — **va rifatta**. Poi si decide, e si scrive qui, **con quali dati riparte il magazzino**: database vuoto e ricarica dell'anagrafica, oppure `pg_restore` da uno dei dump salvati. Finché non si reinstalla, **le voci 69, 73 e 12 non si possono più misurare sul vivo**: esistono solo i dump |
+| **74** | 🔴 **LA MACCHINA È STATA RIPORTATA A ZERO, E VA REINSTALLATA.** Il 01/09, per decisione di Andrea, sono state rimosse `C:\Pathfinder\`, `C:\Pathfinder_block\` (1.079 file, 182,7 MB) e `C:\Users\sacch\pathfinder-WMS\`, tolte le cinque variabili `PATHFINDER_*`, cancellati i database `pathfinder`, `pathfinder_collaudo` e `pathfinder_prova` e il ruolo `pathfinder`. PostgreSQL 17 resta installato. **`Pathfinder_block` ha resistito a tre tentativi**: la cartella dava FullControl, ma su ogni singolo file `icacls`, `fsutil` e `[IO.File]::Open` rispondevano «Accesso negato» — non si riusciva nemmeno a **leggere** la ACL, e `rd /s /q` falliva file per file. Ha ceduto a `takeown /f … /r /d S` seguito da `icacls … /reset /t /c /q` da un PowerShell elevato: 1.302 file rimessi a posto, 0 falliti. **I dati sono salvi**: `Desktop\pathfinder-backup-storico\` porta i 36 file di `Pathfinder_block\backup` (109 MB, i `.db` giornalieri dal 10 al 26/08 e quattro `.dump`), e `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\` porta i sei dump dal 28 al 31/08, compreso `pathfinder-2026-08-31.dump` — 419.318 byte, i **45 movimenti** della voce 73 | **Reinstallata la sera del 01/09, e la strada nuova ha fatto uscire un difetto: voce 75.** Adesso in servizio c'è la **2.14** su un database **vuoto**. Restano due cose, in quest'ordine: **(1) creare il primo Admin**, perché finché non esiste il servizio tiene le API aperte a chiunque sia in rete (§1); **(2) decidere con quali dati riparte il magazzino** — vuoto con ricarica dell'anagrafica da Excel, oppure `pg_restore` da `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\pathfinder-2026-08-31.dump`, che riporta 11.197 articoli, 853 giacenze e i **45 movimenti**. Non è un comando solo: vuole il servizio fermo, il database rifatto e poi riacceso. Finché il magazzino non rientra, **le voci 69, 73 e 12 non si misurano sul vivo**: esistono solo i dump |
 | **73** | 🔴 **IL REGISTRO DEI MOVIMENTI È STATO AZZERATO LA SERA DEL 31/08, E `inventory` SOSTITUITA.** Misurato all'01:00 del 01/09 interrogando PostgreSQL direttamente: `mov_log` **0**, `lots` **0**, `wip` **0**, `udc` **0**, `inventory` **882**, `articles` 11.197, `_revision` **5**. Il backup serale delle **20:00 dello stesso giorno** ne portava **45 e 853**: i sei dump in `C:\Pathfinder\backup` dicono 39→39→39→44→45→45 movimenti e **853 giacenze fisse** dal 28 al 31/08. Quindi fra le 20:00 e mezzanotte qualcosa ha **svuotato il registro e rimpiazzato le giacenze** — non è un calo, è una sostituzione, e `articles` non è stata toccata. `_revision` a 5 dice che il contatore è ripartito quasi da zero | **La forma è quella della voce 45**: `importAll` con `mov_log: []` svuota il registro e lascia il resto — cioè un **ripristino da un file JSON** fatto dall'applicativo, o il reset dei dati. Da stabilire, in quest'ordine: chi ha ripristinato cosa fra le 20:00 e mezzanotte; se il file da cui è stato ripristinato esiste ancora; e **se quei 45 movimenti vadano riportati**, perché §8 li vuole tenuti sei anni. **L'unica copia sono i dump, ed è stata messa al sicuro**: `pathfinder-2026-08-31.dump` — 419.318 byte, i 45 movimenti — sta in `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\` insieme agli altri cinque. Il database vivo **non c'è più** (voce 74): da qui in poi si guarda solo lì dentro. Non l'ha fatto il banco della 2.14: quello girava su SQLite con `PATHFINDER_PG` vuota, e lo dichiarava a ogni avvio |
 | **72** | ⚠️ **UN DUMP DEL MAGAZZINO VERO STA NELLA STORIA DEL REPOSITORY, COI PIN DENTRO.** `banco/db/pathfinder-2026-08-27.dump` — 415.601 byte — è entrato col commit **`ecd2538`** del 27/08, che è **proprio quello che dice «tutto nel repository, tranne i due segreti»**. Verificato il 31/08 estraendone la sola tavola `operators` con `pg_restore --data-only --table=operators`: dentro ci sono **`pin_hash`, `pin_salt` e `first_name`** di persone vere. Il buco era nel `.gitignore`: la riga diceva `*.db`, e un dump di PostgreSQL si chiama `.dump`. **Il buco è chiuso il 31/08** — `*.dump`, `*.sql`, `*.sqlite`, `*.sqlite3`, `*.bak` sono fuori, il file è uscito dall'indice e resta su disco — **ma la storia no**: da `ecd2538` in poi quei byte ci sono, e un `git clone` se li porta | **Restano due decisioni, e sono di Andrea.** (1) **Riscrivere o no la storia.** Il commit è già spinto: `git filter-repo --path banco/db/pathfinder-2026-08-27.dump --invert-paths`, poi un push forzato, e **chiunque abbia una copia se la deve rifare da zero**. L'alternativa è scrivere qui che si accetta il rischio, e perché. (2) **Rinnovare i PIN** degli operatori che stanno in quel dump — vale in tutti e due i casi, perché §11 dice che un segreto spinto una volta è bruciato, e riscrivere la storia non disfa i cloni già fatti. Le impronte lì dentro sono **SHA-256, non scrypt** (la 2.10 riscrive in scrypt al primo accesso, e quel dump è del 27/08): su un PIN di sei cifre un milione di tentativi è un istante |
 |---|---|---|
@@ -928,6 +943,7 @@ hanno con cosa lavorare.
 
 | # | Cosa | Prova |
 |---|---|---|
+| ~~**75**~~ | **L'INSTALLER SI CHIUDEVA LA PORTA IN FACCIA DA SOLO, SU MACCHINA PULITA.** `Blinda-Radice` stringeva i permessi della radice con un `icacls` solo, `/inheritance:r` e `/T` nella stessa riga: quella coppia scende su ogni figlio e gli toglie gli ACE ereditati, mentre i tre `/grant` non arrivano fino in fondo. Restano file con l'**elenco vuoto**, e un elenco vuoto nega tutto — anche a un Amministratore, anche solo per leggere di chi è il file. Girava in fondo al passo del servizio, e il passo dopo doveva lanciare `installa-versione.ps1` **da quella cartella**: «Accesso al percorso negato», segnalato da PowerShell come comando non trovato. **E `icacls` usciva con zero**, quindi l'installer scriveva «Permessi applicati» in verde. Non si era mai visto perché ogni installazione era un aggiornamento, e la blindatura sta nel solo ramo di prima installazione — la stessa cecità della voce sulla 2.10 | **Corretta il 01/09 in `server\installa-pathfinder.ps1`**, non nel pacchetto (§7). Due gesti invece di uno: l'elenco si scrive **sulla sola radice**, poi si spinge in basso con `/reset` **sui figli**, che dà a ognuno l'elenco ereditato dal padre — `/reset` sulla radice no, la rimetterebbe a ereditare da `C:\`. In più la blindatura è stata **spostata dopo il passo dell'applicativo**, così è l'ultimo gesto che tocca il disco e la Verifica passa dopo; e una guardia prova ad **aprire davvero** un file — `Test-Path` diceva `True` anche sui file murati, ed è così che il difetto è passato. **Provato su un albero finto**: col vecchio comando `icacls` esce **0** e il file resta senza nessun ACE; col nuovo il file porta le tre righe `(I)`. **Due prove nuove** in `collaudo-installazione.js` (31 → **33**), e verificate rosse rimettendo ciascuno dei due difetti |
 | ~~**68**~~ | Il giro dei cinque ODP non era mai girato per intero | **27/08 sera**: girato al banco su copia del database con ODP generati dalle giacenze vere. Una tappa sola, l'ubicazione chiesta una volta, le quote che sommano esattamente il consumo. Ha fatto uscire **tre difetti**, tutti corretti — §3 |
 | ~~**66**~~ | I permessi per ruolo stavano nel client: una sessione qualunque e una riga di `curl` bastavano a scriversi `role: "admin"` addosso | **Chiusa dalla 2.13**, e provata dove la regola viene imposta: `banco/gerarchia.cjs`, **32 prove** con `fetch` e i cookie veri. Il Team Leader non si promuove nemmeno passando da una transazione o svuotando la collezione. **In servizio dal 31/08** |
 | ~~**64**~~ | Le rotte `/api` non chiedevano credenziali a nessuno | **Chiusa dalla 2.11**, e verificata in produzione il 28/08: `GET /api/c/meta` senza sessione risponde **401**. Resta la voce 66 |
@@ -977,8 +993,9 @@ node test/collaudo-installazione.js      # 31 prove sugli script di installazion
 **È l'unico posto dove si prova una versione prima di installarla**: copia a
 caldo del database, porta sua, cartelle sue. Sta in `MAPPER\banco\`.
 
-> **La prima riga qui sotto chiede il backup al servizio vivo, e dal 01/09 non
-> c'è** (voce 74). Finché la macchina è vuota il banco riparte da un file già
+> **La prima riga qui sotto chiede una copia al servizio vivo, e dal 01/09 quel
+> servizio ha un database vuoto**: la copia esce, ma dentro non c'è niente.
+> Finché il magazzino non rientra (voce 74) il banco riparte da un file già
 > salvato: `banco\db\ui.db`, oppure uno dei `.db` in
 > `Desktop\pathfinder-backup-storico\`. Da un `.dump` no — quello è PostgreSQL,
 > e il banco gira su SQLite.
@@ -1164,6 +1181,37 @@ una macchina già su PostgreSQL **viene rifiutato**: il gesto d'emergenza resta
 > prima (fermare un'attività che gira come SYSTEM la vuole), e l'applicativo
 > **resta giù i secondi del riavvio**. È la promessa della 1.7 che cade, ed è il
 > prezzo di avere un numero solo.
+
+> **`/inheritance:r` E `/T` NELLA STESSA RIGA SVUOTANO L'ELENCO DEI FIGLI — 01/09.**
+> Quella coppia scende su ogni file e gli toglie gli ACE ereditati, mentre i
+> `/grant` restano sull'oggetto nominato: si trovano file **senza nessun ACE**,
+> e un elenco vuoto nega tutto — a un Amministratore, a SYSTEM, e persino alla
+> lettura di chi sia il proprietario. **Chi stringe i permessi di un albero lo
+> fa in due gesti**: l'elenco sulla radice, poi `/reset` **sui figli** perché
+> ereditino. Voce 75, e prima ancora una cartella che non si cancellava più
+> (voce 74): la stessa riga, due serate.
+
+> **UNA COSA CHE ESCE CON ZERO NON È UNA COSA RIUSCITA.** `icacls` murava i
+> file e usciva `0`, e l'installer scriveva «Permessi applicati» in verde. Dove
+> il gesto si può guardare, si guarda il **risultato** e non il codice di
+> uscita: qui si prova ad **aprire** un file che deve restare leggibile —
+> `Test-Path` risponde `True` anche su un file murato, ed è così che il difetto
+> è passato.
+
+> **LA PROVA A VUOTO NON PROVA LA PRIMA INSTALLAZIONE.** Il 01/09
+> `installa.ps1 -Prova` ha detto «strada prima installazione» e non ha trovato
+> niente da segnalare; la corsa vera si è rotta due volte, sui permessi e su
+> una cartella rimasta da un tentativo interrotto. **`-Prova` legge, non
+> scrive**: dice quale strada prenderebbe, non che quella strada regga. Su una
+> macchina vergine la corsa vera va guardata riga per riga.
+
+> **UN'INSTALLAZIONE INTERROTTA LASCIA UNA CARTELLA CHE LA SUCCESSIVA NON
+> SOVRASCRIVE.** Il tentativo delle 00:25 si era fermato dopo il servizio,
+> lasciando `C:\Pathfinder\servizio` già blindato; il tentativo dopo è morto su
+> `Copy-Item : Accesso al percorso 'lib\db.js' negato`. **Prima di reinstallare
+> su un tentativo fallito si toglie la radice**, e per toglierla può servire
+> `takeown` — non è un caso raro, è il caso normale quando il passo dei
+> permessi è già passato.
 
 ### Installare a mano, e tornare indietro
 

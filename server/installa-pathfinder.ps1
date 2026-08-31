@@ -620,25 +620,74 @@ if ($modoDb -eq 'postgresql' -and (-not $aggiornamento -or $saltoAPostgres)) {
 #  possono essere governate altrove, e un magazzino che non si aggiorna per
 #  un criterio di gruppo e' un danno peggiore del permesso largo. Si dice, e
 #  si va avanti.
+# Aperto davvero, non «esiste»: `Test-Path` risponde di si' anche su un file
+# con l'elenco dei permessi vuoto, ed e' cosi' che il difetto e' passato.
+function Leggibile([string]$File) {
+    try {
+        $f = [IO.File]::Open($File, 'Open', 'Read', 'Read')
+        $f.Close()
+        return $true
+    } catch { return $false }
+}
+
+#  01/09 — DUE CHIAMATE, E NON UNA. Fino a stamattina qui c'era un `icacls`
+#  solo, con `/inheritance:r` e `/T` insieme: scende su OGNI figlio e gli
+#  toglie gli ACE ereditati, mentre i tre `/grant` non arrivano fino in fondo.
+#  Restano file con l'elenco VUOTO, e un elenco vuoto nega tutto — anche a un
+#  Amministratore, anche solo per leggere di chi e' il file.
+#
+#  E' costato due volte lo stesso giorno. Il passo dell'applicativo non
+#  riusciva piu' a lanciare `installa-versione.ps1` dalla cartella che il
+#  passo del servizio aveva appena blindato («Accesso al percorso negato»,
+#  segnalato come comando non trovato); e una radice blindata mesi prima era
+#  rimasta illeggibile al punto che non si cancellava piu' — voce 74, una
+#  serata per capirlo.
+#
+#  Adesso: l'elenco si scrive SULLA SOLA RADICE, poi si spinge in basso con
+#  `/reset` sui FIGLI, che da' a ognuno l'elenco ereditato dal padre. Stessa
+#  protezione, e i file restano leggibili. `/reset` sulla radice no: la
+#  rimetterebbe a ereditare da `C:\`, cioe' disferebbe la blindatura.
 function Blinda-Radice([string]$Percorso) {
     if (-not (Test-Path $Percorso)) { return }
+    $guardia = Join-Path $Percorso 'servizio\pathfinder-server.js'
     try {
-        # /inheritance:r stacca l'eredita' e SVUOTA l'elenco: le tre righe
-        # che seguono sono tutto quello che resta, e vanno date insieme.
         $esito = & icacls $Percorso /inheritance:r `
             /grant '*S-1-5-18:(OI)(CI)F' `
             /grant '*S-1-5-32-544:(OI)(CI)F' `
             /grant '*S-1-5-32-545:(OI)(CI)RX' `
-            /T /C 2>&1
-        if ($LASTEXITCODE -eq 0) {
-            Riga 'Permessi' 'scrittura riservata ad Amministratori e SYSTEM' 'Green'
-        } else {
+            /C 2>&1
+        if ($LASTEXITCODE -ne 0) {
             Riga 'Permessi' "non applicati: $($esito | Select-Object -Last 1)" 'Yellow'
+            return
         }
+        if (Get-ChildItem -LiteralPath $Percorso -Force -ErrorAction SilentlyContinue) {
+            $esito = & icacls (Join-Path $Percorso '*') /reset /T /C 2>&1
+        }
+
+        # SI GUARDA CHE SIA ANCORA APERIBILE, e non solo che icacls sia
+        # uscito con zero: il difetto di stamattina usciva con zero e diceva
+        # verde. Un file che il servizio deve leggere si prova a leggerlo.
+        if ((Test-Path $guardia) -and -not (Leggibile $guardia)) {
+            & icacls (Join-Path $Percorso '*') /reset /T /C 2>&1 | Out-Null
+            if (Leggibile $guardia) {
+                Riga 'Permessi' 'applicati al secondo tentativo' 'Yellow'
+            } else {
+                Write-Host ""
+                Write-Host "   I PERMESSI HANNO CHIUSO FUORI ANCHE GLI AMMINISTRATORI." -ForegroundColor Red
+                Write-Host "   Si riapre da un PowerShell come amministratore, in quest'ordine:"
+                Write-Host "     takeown /f `"$Percorso`" /r /d S"
+                Write-Host "     icacls `"$Percorso\*`" /reset /t /c /q"
+                Write-Host ""
+                Riga 'Permessi' 'NON applicati: la radice e'' illeggibile' 'Red'
+            }
+            return
+        }
+        Riga 'Permessi' 'scrittura riservata ad Amministratori e SYSTEM' 'Green'
     } catch {
         Riga 'Permessi' "non applicati: $($_.Exception.Message)" 'Yellow'
     }
 }
+
 
 # ── Prima installazione: il servizio nasce ─────────────────────────────────
 if (-not $aggiornamento) {
@@ -661,8 +710,6 @@ if (-not $aggiornamento) {
         -CartellaApplicativo (Join-Path $CasaApp 'corrente') `
         -PostgreSQL $stringaPg
     if ($LASTEXITCODE -ne 0 -and $null -ne $LASTEXITCODE) { Errore "L'installazione del servizio non e' andata a buon fine." }
-
-    Blinda-Radice $Radice
 }
 
 # ── L'applicativo, e il servizio che porta lo stesso numero ────────────────
@@ -758,6 +805,15 @@ if ($aggiornamento) {
 } else {
     & (Join-Path $CasaServizio 'installa-versione.ps1') -Da $App -Versione $Versione -Casa $CasaApp
 }
+
+# ── I permessi, PER ULTIMI ─────────────────────────────────────────────────
+# Stavano in fondo al passo del servizio, e il passo dopo lanciava uno script
+# che sta dentro la cartella appena blindata: il passo 2 si chiudeva la porta
+# in faccia al passo 3. Adesso l'ultimo gesto che tocca il disco e' questo,
+# `app\` compresa — che prima restava fuori perche' non esisteva ancora — e
+# la Verifica qui sotto passa DOPO, cosi' se la blindatura rompe qualcosa
+# l'installazione lo dice invece di finire in verde.
+if (-not $aggiornamento) { Blinda-Radice $Radice }
 
 # ── Verifica ───────────────────────────────────────────────────────────────
 # Due numeri, non piu' uno: l'impronta dell'applicativo e la versione del

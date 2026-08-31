@@ -372,6 +372,42 @@ try {
   ok('la prova del backup riconosce anche il dump di PostgreSQL',
      /Extension -in '\.db', '\.dump'/.test(servizioPs1));
 
+  /* 01/09 — I PERMESSI SI DANNO IN DUE GESTI, E PER ULTIMI.
+
+     `Blinda-Radice` chiudeva la radice con un solo `icacls`, `/inheritance:r`
+     e `/T` nella stessa riga: quella coppia scende su ogni figlio e gli
+     toglie gli ACE ereditati, mentre i tre `/grant` non arrivano fino in
+     fondo, e restano file con l'elenco VUOTO. Un elenco vuoto nega tutto,
+     anche a un Amministratore, anche solo per leggere di chi e' il file.
+
+     Su una macchina pulita e' costato l'installazione: il passo del servizio
+     blindava la cartella, e il passo dopo non riusciva piu' a lanciare
+     `installa-versione.ps1` che sta li' dentro — «Accesso al percorso
+     negato», segnalato come comando non trovato. E icacls usciva con ZERO,
+     quindi l'installer diceva verde.
+
+     Due prove, perche' i difetti erano due: la coppia nella stessa chiamata,
+     e l'ordine. La blindatura e' l'ultimo gesto che tocca il disco. */
+  const blindatura = sorgenteInstaller.slice(
+    sorgenteInstaller.indexOf('function Blinda-Radice'),
+    sorgenteInstaller.indexOf('function Leggibile') > sorgenteInstaller.indexOf('function Blinda-Radice')
+      ? sorgenteInstaller.indexOf('function Leggibile')
+      : sorgenteInstaller.indexOf('# \u2500\u2500 Prima installazione'));
+  const chiamate = blindatura.split('icacls').slice(1);
+  ok('nessun icacls chiude /inheritance:r e /T nella stessa chiamata',
+     chiamate.length > 0 && chiamate.every((c) => {
+       const riga = c.slice(0, c.indexOf('2>&1') === -1 ? c.length : c.indexOf('2>&1'));
+       return !(riga.includes('/inheritance:r') && /\s\/T\b/.test(riga));
+     }),
+     `chiamate a icacls esaminate: ${chiamate.length}`);
+
+  const installaVersione = sorgenteInstaller.lastIndexOf("'installa-versione.ps1'");
+  const blinda = sorgenteInstaller.lastIndexOf('Blinda-Radice $Radice');
+  ok('i permessi si stringono DOPO che l applicativo e installato',
+     installaVersione !== -1 && blinda !== -1 && installaVersione < blinda,
+     blinda === -1 ? 'Blinda-Radice non viene mai chiamata'
+                   : `installa-versione al carattere ${installaVersione}, blindatura al ${blinda}`);
+
 } catch (err) {
   fallite++;
   console.log(`\n  ERRORE: ${err.message}\n${err.stdout || ''}${err.stderr || ''}`);
