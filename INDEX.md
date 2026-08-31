@@ -7,9 +7,10 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **31/08/2026** — la 2.13 è costruita e provata al banco. La
-riscrittura compatta è del 28/08; la stesura narrativa che l'ha preceduta resta
-nella storia git al commit `f4a9578`.
+Aggiornato: **31/08/2026 sera** — la 2.13 è **in servizio** (il documento
+diceva ancora 2.12.1: sesta volta) e la **2.14 è costruita e provata al
+banco**. La riscrittura compatta è del 28/08; la stesura narrativa che l'ha
+preceduta resta nella storia git al commit `f4a9578`.
 
 **Cos'è Pathfinder.** Applicativo web per un magazzino alimentare in GMP.
 Node + Express su rete interna, porta **4173**, database **PostgreSQL 17** in
@@ -96,18 +97,20 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 | | |
 |---|---|
-| applicativo e servizio | **2.12.1** — `/api/app-info` dice `versione` e `service_version` **2.12.1**, i due numeri coincidono |
-| impronta | `4f2a9f0fbd208bccf5cb50018b0dda33c75fd896170b29234e415816f7b33540` |
-| byte | **1.864.994** in **4 file**, costruita `2026-08-28T16:51:23Z` |
+| applicativo e servizio | **2.13** — `/api/app-info` dice `versione` e `service_version` **2.13**, i due numeri coincidono |
+| impronta | `cbe7180250984a557208d0cda860e6b63e0b5772c49a209ae752ac4afc81eb64` |
+| byte | **1.882.735** in **4 file**, costruita `2026-08-31T17:13:09Z` |
 | dove | `C:\Pathfinder\app\corrente`, modo `cartella` (`PATHFINDER_APP_DIR`) |
-| via di ritorno | `C:\Pathfinder\app\precedente` → **2.12**, `9ef94996…`, costruita `2026-08-27T22:40:03Z` |
-| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, revisione **901** |
+| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni |
 | porta chiusa | `GET /api/c/meta` senza sessione risponde **401 «Sessione non valida»** — la 2.11 regge in produzione |
 
-> **LA 2.12.1 NON STAVA IN QUESTO DOCUMENTO.** La stesura del 28/08 dichiarava
-> in servizio la 2.12, e nel frattempo la macchina era già passata alla 2.12.1.
-> È la **quinta volta in una settimana** che la riga «in servizio» sbaglia, ed
-> è per questo che §0 punto 2 esiste: si chiede al servizio, sempre.
+> **LA 2.13 È STATA INSTALLATA E QUESTO DOCUMENTO NON LO SAPEVA.** La stesura
+> del 31/08 pomeriggio la dichiarava «costruita, non installata» e diceva in
+> servizio la 2.12.1; la sera `/api/app-info` rispondeva **2.13**, con
+> l'impronta del pacchetto. È la **sesta volta** che la riga «in servizio»
+> sbaglia, ed è per questo che §0 punto 2 esiste: si chiede al servizio,
+> sempre. **La via di ritorno non è stata riletta**: chi installa la 2.14
+> guardi `C:\Pathfinder\app\precedente` prima, non dopo.
 
 ### Il fix che viveva in un pacchetto solo
 
@@ -161,30 +164,29 @@ Vuote: `quarantine`, `pending_outbound`, `pick_session`, `disposal_archive`,
 
 ### Collaudi e tipi
 
-Tutti rilanciati il **31/08**, sul codice della 2.13:
+Tutti rilanciati il **31/08 sera**, sul codice della 2.14:
 
 | | |
 |---|---|
-| client | **1.222 prove in 42 file, tutte verdi** — `npm test` |
+| client | **1.246 prove in 42 file, tutte verdi** — `npm test`. Erano 1.222: le ventiquattro nuove stanno in `wip.test.js` e coprono `inLavorazione`, `resi` e `motivoNonStornabile` |
 | tipi | `npm run check` **a 0** su client e servizio |
-| servizio | **139** — erano 127, le dodici nuove coprono l'attesa dell'avvio di PostgreSQL |
+| servizio | **139** |
 | migrazione · installazione | **8 · 31** |
-| gerarchia (`banco/gerarchia.cjs`, nuovo) | **32** — le cariche provate sul servizio, con `fetch` e i cookie veri |
-| ciclo (`banco/ciclo/gira.cjs`) | **45 su 47, due rosse** — e sono **due banchi rimasti indietro**, non due difetti della 2.13: voci **70** e **71** |
+| gerarchia (`banco/gerarchia.cjs`) | **32** — le cariche provate sul servizio, con `fetch` e i cookie veri |
+| ciclo (`banco/ciclo/gira.cjs`) | **45 su 47, due rosse** — le **stesse due di prima** della 2.14, cioè due banchi rimasti indietro: voci **70** e **71** |
 
-### La 2.13 — costruita, non installata
+### La 2.14 — costruita, non installata
 
 | | |
 |---|---|
-| pacchetto | `consegna\Pathfinder 2.13\` |
-| impronta | `cbe7180250984a557208d0cda860e6b63e0b5772c49a209ae752ac4afc81eb64` |
-| byte | **1.882.735** in **4 file**, costruita `2026-08-31T17:13:09Z` |
-| riproducibile | **sì, verificata**: due build dello stesso albero hanno dato la stessa impronta |
+| pacchetto | `consegna\Pathfinder 2.14\` |
+| impronta | `8a25574bb3fbc2303dcdb0c7edc9370c5ec2b0d11ab75e6e9c4c0431fe448ead` |
+| byte | **1.901.483** in **4 file**, costruita `2026-08-31T19:07:52Z` |
+| riproducibile | **sì, verificata**: due build di fila dello stesso albero hanno dato la stessa impronta |
 | prova a vuoto | `.\installa.ps1 -NonChiedere -Prova` sulla macchina in servizio: strada **aggiornamento**, radice `C:\Pathfinder`, PostgreSQL già pronto, **nessuna migrazione**, database non toccato |
+| provata al banco | **sì, dal pacchetto** — non solo dal sorgente: servizio sulla 4199 con `banco\app\corrente` a 2.14 e `banco\db\ui.db`, e la schermata nuova esercitata di lì |
 
 **Non è installata.** Installare è un atto umano — §0 punto 4.
-
-Ultimo commit: `989c8ef` — «Scheda tecnica IT — REP-IT-001 rev01».
 
 ---
 
@@ -195,9 +197,17 @@ una di prova ne porta di più (`2.12.1`).
 
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.13** | **COSTRUITA, non installata** — 31/08 | `cbe71802…` | La gerarchia la impone **il servizio** (voce 66) · `rinnovaPin` · il **codice di ripristino** dell'Admin · il fix di avvio della 2.12.1 riportato nel sorgente e coperto da dodici prove |
-| **2.12.1** | **IN SERVIZIO dal 28/08 sera** | `4f2a9f0f…` | Il servizio **aspetta** PostgreSQL invece di arrendersi al primo no, e l'attività pianificata parte un minuto dopo l'accensione. Nata da una giornata di magazzino fermo |
-| **2.12** | **VIA DI RITORNO** (`app\precedente`) | `9ef94996…` | Il giro: più ODP in un percorso solo, conto di produzione **uno** · ricalibrazione della distinta · l'ubicazione si scansiona **una volta per vano** |
+| **2.14** | **COSTRUITA, non installata** — 31/08 sera | `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
+| **2.13** | **IN SERVIZIO dal 31/08** | `cbe71802…` | La gerarchia la impone **il servizio** (voce 66) · `rinnovaPin` · il **codice di ripristino** dell'Admin · il fix di avvio della 2.12.1 riportato nel sorgente e coperto da dodici prove |
+| **2.12.1** | archiviata | `4f2a9f0f…` | Il servizio **aspetta** PostgreSQL invece di arrendersi al primo no, e l'attività pianificata parte un minuto dopo l'accensione. Nata da una giornata di magazzino fermo |
+| **2.12** | archiviata | `9ef94996…` | Il giro: più ODP in un percorso solo, conto di produzione **uno** · ricalibrazione della distinta · l'ubicazione si scansiona **una volta per vano** |
+
+> **QUALE SIA LA VIA DI RITORNO NON SI SA, e non si scrive a indovinare.** Fino
+> al 31/08 questa riga diceva 2.12; poi la 2.13 è stata installata senza che il
+> documento lo registrasse, e `app\precedente` avrà preso quel che c'era prima.
+> **Si guarda prima di installare la 2.14**, non dopo:
+> `Get-Content C:\Pathfinder\app\precedente\manifest.json` e il confronto delle
+> impronte di §2.
 | **2.11** | archiviata | `4a8b5a6c…` | Il PIN emette una **sessione**; senza sessione le rotte `/api` non si aprono — voce 64 |
 | **2.10** | archiviata | `2a70b8e9…` | Sei falle di sicurezza chiuse: `pin_hash` fuori dalle risposte, scrypt, backup che non esce dalla macchina, codici che non spezzano un gestore, ACL sui file del servizio, intestazioni |
 | **2.9** | archiviata | `b3b3b8da…` | Lo stoccaggio smette di **rifiutare** e diventa assistente · matrice di incompatibilità tolta, pericolosità dentro le regole · `#dlgOverlay` |
@@ -229,6 +239,145 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.14 — la schermata WIP parte dalla merce, e un reso sbagliato si storna
+
+**Costruita il 31/08 sera, provata al banco dal pacchetto, non installata.**
+Impronta `8a25574b…`, 1.901.483 byte in 4 file.
+
+Nasce da una richiesta di Andrea del 31/08: aprire il banco della 2.13,
+provare al banco prelievo automatico e WIP, guardare la leggibilità dei campi
+e le proporzioni delle maschere, tagliare il testo didascalico, e rifare la
+struttura della schermata WIP — «non mi piace come vengono visualizzati
+adesso [gli ODP archiviati], alla lunga non è efficiente».
+
+**LA SCHERMATA WIP SI ENTRAVA PER NUMERO D'ORDINE, E LA DOMANDA È IL
+CONTRARIO.** Fino alla 2.13 in cima c'erano tre righe di pulsantini — i conti
+aperti, quelli serviti da un giro, gli archiviati — e ognuna si troncava a
+otto. Per vedere che cosa ci fosse nel vano bisognava aprire gli ordini uno
+per uno, e chi il numero non ce l'aveva in testa non arrivava alla merce. Col
+magazzino vero davanti, la prima riga di merce cominciava **sotto il settanta
+per cento dell'altezza dello schermo**: sopra c'erano quattro riquadri di
+prosa.
+
+Adesso il primo elenco è **quello che è fermo di là**: una riga per ogni
+coppia ORDINE × ARTICOLO#LOTTO che ha ancora qualcosa fuori, con articolo,
+descrizione, lotto, ordine, colli, quantità e da quando. Si ordina e si filtra
+come ogni altra tabella (§8, `modules/tabella.ts`), e i due gesti — ↩ rendi,
+🔥 consuma — stanno **sulla riga**. La regola è pura e sta in `inLavorazione`,
+`modules/wip.ts`.
+
+Sotto, un elenco compatto dei **conti aperti**: lì si chiude un ordine, si
+stampa il rendiconto, si corregge un reso. **Chiudere è un gesto sull'ordine,
+non sulla merce**, e sta dove sta l'ordine.
+
+**L'ARCHIVIO È USCITO DA QUI.** Gli ordini chiusi sono il quinto genere di
+**Archivio**, accanto a DDT, verbali, cartellini NC e report di prelievo:
+stessa tabella che si ordina, si filtra e si cerca per data, e il rendiconto
+si ristampa da lì. Un archivio che cresce ogni giorno e si sfoglia con gli
+occhi non è un archivio. Dalla WIP ci si arriva con un pulsante che apre
+Archivio già filtrato sul genere.
+
+**UN ORDINE A RESIDUO ZERO ERA INVISIBILE, ED È UN BUCO DEL FLUSSO.**
+`ordiniWipAperti` filtra su `residuo !== 0`: un ordine rientrato del tutto e
+non ancora archiviato spariva da ogni elenco e si poteva riprendere solo
+digitandone il numero — mentre restava vivo, e il file di produzione lo poteva
+ricaricare. Sul banco ce n'era uno (l'ordine `123`) e nessuno l'aveva mai
+notato. Adesso l'elenco dei conti aperti lo mostra con la sua etichetta,
+**«tutto rientrato — resta da chiudere»**, e il pulsante che lo chiude.
+
+**UN RESO SBAGLIATO SI STORNA, E NON SI CANCELLA.** Un reso finito nel vano
+sbagliato, o fatto su una riga per un'altra, fin qui non aveva una via
+d'uscita: la merce era a scaffale sotto una causale che diceva una cosa non
+vera, e il conto era calato di colli che in reparto c'erano ancora. Si usciva
+riposizionando a mano da Movimenta, e il conto restava storto lo stesso.
+
+La maschera **elenca i resi** dell'ordine — quando, che cosa, quanto, dove è
+andato, chi ha firmato — e su ognuno dice se si può stornare e perché no. Lo
+storno riprende la merce **da dove era andata e con gli stessi colli**, la
+riporta nel vano, e scrive un `in` che **nomina il reso che annulla**. Il reso
+resta dov'è: chi legge il conto fra sei mesi vede il gesto e il ripensamento,
+che è quello che è successo. Su un registro che si tiene sei anni cancellare è
+la sola cosa che non si può fare — §8, «nessuna cancellazione di record».
+
+Quattro cose che il codice ha dovuto imparare a scrivere, e che prima non
+scriveva:
+
+- **`reso_a`** — dove la merce è rientrata. Senza, lo storno doveva appaiare
+  due righe del registro per data e sperare.
+- **`reso_packs`** — **quali colli sono rientrati**, che non sono sempre
+  quelli usciti dal vano: due sacchi da 20 escono e ne risale uno aperto con
+  dentro 5, e a scaffale ci sono `[20, 5]` mentre il vano ne aveva persi
+  `[20, 20]`. Sulle righe scritte prima, quando quel che è uscito pesa quanto
+  quel che è rientrato i due elenchi sono lo stesso e si deducono; quando non
+  torna, **lo storno si rifiuta e dice perché** invece di indovinare.
+- **`reso_di`** — sul `consumo` che nasce insieme a un reso parziale, il nome
+  del reso che l'ha fatto.
+- **`storno_di`** — sul movimento di storno, il nome del reso che annulla.
+
+Nessuno dei quattro tocca lo schema: la collezione `wip` indicizza quattro
+colonne e il resto vive nel JSON. **Nessuna migrazione.**
+
+**IL VUOTO DI UNA CONFEZIONE APERTA NON SI STORNA, ed è una decisione.** Se
+un sacco è sceso pieno da 20 e ne è risalito uno con dentro 5, i 15 che
+mancano sono finiti nel prodotto: rimetterli nel vano scriverebbe a magazzino
+merce che non esiste. Lo storno riporta indietro **quello che è rientrato**, e
+la maschera e la conferma lo dicono tutte e due prima di premere.
+
+**Provato al banco, sui numeri, e non a vista.** Su una copia del magazzino
+(`banco\db\ui.db`, dal `pristino.db` del 19/08) con ODP generati dalle
+giacenze vere — `banco\genera-odp-wip.cjs`, nuovo, che i lotti li **legge dal
+database** invece di scriverli fissi come faceva quello della 2.12. Due strade
+esercitate capo a fondo:
+
+| | prima | dopo il reso | dopo lo storno |
+|---|---|---|---|
+| reso intero — vano | 8 coll. · 160 KG | 6 · 120 | **8 · 160** |
+| reso intero — scaffale | 55 · 1.100 | 57 · 1.140 | **55 · 1.100** |
+| reso parziale — vano | 1 coll. · 25 KG `[25]` | vuoto | **1 · 10 `[10]`** |
+| reso parziale — scaffale | 1 · 25 `[25]` | 2 · 35 `[25,10]` | **1 · 25 `[25]`** |
+
+Sul parziale il conto chiude a 25 − 10 − 15 + 10 = **10 KG**, che è quello che
+il vano ha davvero: i 15 restano a consumo, come devono.
+
+**QUATTRO COSE CHE SI VEDEVANO SOLO GUARDANDO.** Sono uscite dal banco, non
+dalla lettura:
+
+1. **Il campo «Quantità da produrre» era largo 45 px** — 21 utili, e ce ne
+   volevano 53 per leggere `380.25`. Scritto `w-28`, che con `--spacing` a un
+   decimo di rem fa **2,8rem**, non i 7rem della scala di serie di Tailwind:
+   è la trappola dei decimi (§8), e `w-28` era l'**unica** utility numerica di
+   larghezza in tutto lo strato delle viste. Sul terminale a 480 px il campo
+   scendeva a 31 px. Ora `w-[120px] shrink-0`.
+2. **La scheda WIP non si raggiungeva dal terminale.** `.prel-tabs` era un
+   flex senza `wrap` e senza scorrimento: a 480 px le quattro schede
+   chiedevano 531 px e la quarta — WIP — finiva oltre il bordo. **Una scheda
+   che non si vede è una funzione che non esiste.**
+3. **I due gesti finivano fuori schermo.** Con sette colonne la tabella nuova
+   sfondava i 480 px: per rendere un collo bisognava prima scorrere di lato,
+   che con un guanto e un lettore in mano non è un gesto. Sotto i 620 px
+   escono la data e la descrizione — il codice e il lotto identificano già la
+   riga — e tutto sta dentro: misurato, 396 px su 396.
+4. **Due parole uguali su due gesti diversi.** «Chiudi» dell'ordine stava due
+   centimetri sopra «✕ Chiudi» della schermata, e nella conferma dello storno
+   c'erano un «Annulla» che non fa niente e un «Annulla il reso» che muove
+   merce. Ora **«Chiudi e archivia»** e **«Storna il reso»**.
+
+**IL TESTO DIDASCALICO È STATO TAGLIATO DOVE SI RIPETEVA.** La maschera del
+reso è passata da sette righe di spiegazione a due e si è dimezzata in
+altezza; la testata della WIP da quattro riquadri a una riga; l'avviso delle
+righe orfane nasce chiuso; e sulla schermata del giro la frase «vuoto = quella
+dell'ordine» compare **sulla prima scheda e basta** — con cinque ordini
+caricati si ripeteva cinque volte, e cinque copie della stessa istruzione non
+insegnano cinque volte: si smette di leggerle tutte, compresa la prima.
+
+**Una maschera sopra un'altra adesso si vede che è sopra**: la scelta dei
+colli si apre dentro il reso, e col velo al 32% le due finestre erano
+ugualmente accese. Il velo della seconda è più fitto.
+
+**Cosa resta fuori dalla prova**: la corsia vera, con un operatore e un
+terminale in mano.
+
 
 ### 2.13 — chi autorizza lo decide il servizio, e l'Admin ha una via di fuga
 
@@ -689,7 +838,7 @@ pagato**.
 | **65** | **`xlsx` 0.18.5 PORTA DUE VULNERABILITÀ NOTE** — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — **e non c'è un fix su npm**: SheetJS pubblica le corrette solo dal proprio sito. Il vettore è il file Excel che un operatore carica. Le dipendenze del servizio sono a 0 vulnerabilità | La regola «`dexie` e `xlsx` non si aggiornano» è difendibile, ma **va ridecisa sapendo questo**: o si passa alla versione di SheetJS e si riprova tutto quel che tocca Excel, o si scrive qui che si accetta il rischio e perché |
 | **63** | **`areaWip` SUL BANCO È UN VANO DELLO SCAFFALE, NON UN'AREA.** Impostata il 27/08 su `MAG1-RAKA-04-01-T` per provare il conto di produzione. Funziona, ma sulla mappa non si distingue dallo stoccaggio | Sul magazzino vero la domanda è la **voce 15**. Sul banco, il giorno che serve una prova più fedele, si crea una zona `WIP` sua |
 | **62** | **IL BIP DI LETTURA E LA CONFERMA DI TAPPA SONO TUTTI E DUE ACUTI E SINUSOIDALI.** `scan` 1320 Hz, `ok` sale 1046 → 1568 Hz. Fra `ok` ed `error` non c'è confusione (`error` scende 233 → 175 in onda quadra), ma «ho letto» e «tappa chiusa» possono somigliarsi col rumore del reparto e i tappi | **Una prova al banco col rumore vero**: se la confusione c'è, si scende il bip di lettura o se ne accorcia la coda, così l'unico suono che sale resta la conferma |
-| **61** | **IL CONTO WIP DIPENDE DA UN PARAMETRO FACOLTATIVO.** La riga `in` non registra le UM (`qty_uom` è `null`) e i chili si ricostruiscono dalla confezione congelata, che `Store.contoWip` passa a `conto()` come ripiego. Omettendolo, lo stesso ordine in pari risponde `residuo_uom: −25`, `incoerente: true`: un numero **plausibile e sbagliato** | **Due strade, e la seconda è quella buona:** scrivere le UM sulla riga `in` quando si conoscono (la confezione è congelata già al posizionamento), oppure rendere `perCollo` obbligatorio o far dichiarare `incoerente` con un motivo leggibile invece di un residuo negativo muto |
+| **61** | **IL CONTO WIP DIPENDE DA UN PARAMETRO FACOLTATIVO.** La riga `in` non registra le UM (`qty_uom` è `null`) e i chili si ricostruiscono dalla confezione congelata, che `Store.contoWip` passa a `conto()` come ripiego. Omettendolo, lo stesso ordine in pari risponde `residuo_uom: −25`, `incoerente: true`: un numero **plausibile e sbagliato**. **Dalla 2.14 almeno SI VEDE**: la lista di quello che è in lavorazione tinge di rosso la riga col residuo negativo, che prima non compariva da nessuna parte | **Due strade, e la seconda è quella buona:** scrivere le UM sulla riga `in` quando si conoscono (la confezione è congelata già al posizionamento), oppure rendere `perCollo` obbligatorio o far dichiarare `incoerente` con un motivo leggibile invece di un residuo negativo muto |
 | **59** | **28 LOTTI IN DUE UBICAZIONI — 59 RIGHE SU 32 VANI.** Contati il 26/08 sulle 886 giacenze di allora. **Non li ha fatti la 2.8**: fino a quel giorno nessuno aveva modo di vederli. Finché durano, quella merce si conta due volte e il FEFO la ordina come due partite | **Ricomporli uno per uno, con la merce davanti.** L'elenco esce da Mappa → «Vedi elenco» → Esporta Excel, tipo `LOTTO_SPARSO`. Non è lavoro da agente: sono 28 decisioni su dove sta davvero la merce. **Da ricontare dopo la voce 69** |
 | **58** | **GLI ATTRIBUTI DEGLI ARTICOLI SONO VUOTI.** Misurato il 26/08: 644 articoli senza classe di temperatura, allergeni e pericolosità, e `verificabili` a **zero**. I quattro controlli nuovi della 2.8 **non possono scattare**. È la voce 5 vista dall'altro capo | **È di Andrea**, come la 5: Configurazione → Articoli → Export/Import Excel; il foglio «Valori ammessi» porta già gli elenchi buoni |
 | **52** | **82 ARTICOLI HANNO UN'UNITÀ CHE NON È UN'UNITÀ.** Dopo la traduzione `NR → PZ`: `SCA` 48, `CON` 18, `RT` 7, `CAS` 4, `M2` 2, `BAN` 1, più **due celle con testo libero** (`MIN EPA=105 MG/G` e simile). Scatola, confezione e cassa nominano un **contenitore**, e qui il contenitore è il collo | Si caricano **a soli colli** e la maschera lo dice. Va deciso sigla per sigla: `M2` chiede se serva una sesta unità, le due celle di testo sono errori di anagrafica (Andrea) |
@@ -746,7 +895,7 @@ hanno con cosa lavorare.
 | # | Cosa | Prova |
 |---|---|---|
 | ~~**68**~~ | Il giro dei cinque ODP non era mai girato per intero | **27/08 sera**: girato al banco su copia del database con ODP generati dalle giacenze vere. Una tappa sola, l'ubicazione chiesta una volta, le quote che sommano esattamente il consumo. Ha fatto uscire **tre difetti**, tutti corretti — §3 |
-| ~~**66**~~ | I permessi per ruolo stavano nel client: una sessione qualunque e una riga di `curl` bastavano a scriversi `role: "admin"` addosso | **Chiusa dalla 2.13**, e provata dove la regola viene imposta: `banco/gerarchia.cjs`, **32 prove** con `fetch` e i cookie veri. Il Team Leader non si promuove nemmeno passando da una transazione o svuotando la collezione. **Costruita, non ancora installata** |
+| ~~**66**~~ | I permessi per ruolo stavano nel client: una sessione qualunque e una riga di `curl` bastavano a scriversi `role: "admin"` addosso | **Chiusa dalla 2.13**, e provata dove la regola viene imposta: `banco/gerarchia.cjs`, **32 prove** con `fetch` e i cookie veri. Il Team Leader non si promuove nemmeno passando da una transazione o svuotando la collezione. **In servizio dal 31/08** |
 | ~~**64**~~ | Le rotte `/api` non chiedevano credenziali a nessuno | **Chiusa dalla 2.11**, e verificata in produzione il 28/08: `GET /api/c/meta` senza sessione risponde **401**. Resta la voce 66 |
 | ~~**56**~~ | L'installer non sapeva consegnare PostgreSQL | **26/08 sera**: `prepara-postgres.ps1` controlla il motore e prepara ruolo e database con `LC_COLLATE 'C'`, generando la password. `migrazione/` viaggia nel pacchetto. Le prove di installazione passano da 22 a 29 |
 | ~~**55**~~ | `pg` non era nel servizio installato | **Trovato prima di installare.** Ora l'installer guarda dipendenza per dipendenza come le dichiara `package.json`, nomina quale manca, e si ferma se dopo `npm install` ne manca ancora una |
@@ -778,7 +927,7 @@ hanno con cosa lavorare.
 npm run dev      # sviluppo, ricarica a caldo — ATTENZIONE: parla col servizio VERO
 npm run build    # produce "consegna/Pathfinder <ver>/" — il pacchetto da consegnare
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest — 1.222 prove in 42 file al 28/08
+npm test         # vitest — 1.246 prove in 42 file al 31/08
 ```
 
 ```bash
@@ -814,6 +963,45 @@ $env:PATHFINDER_DEV_API='http://127.0.0.1:4199'; npm run dev     # 5173, parla c
 ```
 
 Senza quella variabile `npm run dev` parla col servizio **vero** sulla 4173.
+**Dalla 2.14 c'è un modo che non si può sbagliare** — `node banco\dev-banco.mjs`
+impone la variabile prima di accendere vite e apre sulla **5199**: una finestra
+di sviluppo attaccata al magazzino vero non esiste più per costruzione.
+
+### Il banco della schermata WIP — 2.14
+
+Un banco suo, con dentro **merce in lavorazione** su cui provare la lista, il
+reso e lo storno. Tre pezzi, e si rifanno in quest'ordine:
+
+```powershell
+# 1 · il database: copia del pristino, con un Admin di cui si conosce il PIN
+Copy-Item banco\db\pristino.db banco\db\ui.db -Force
+# (l'operatore ANDS del pristino è stato portato ad admin con PIN 481516 —
+#  è una copia usa-e-getta, e quel PIN non esiste da nessun'altra parte)
+
+# 2 · gli ODP di prova, generati DA QUEL database
+node banco\genera-odp-wip.cjs          # esce in banco\odp-wip\
+
+# 3 · il servizio e il front end
+$env:PATHFINDER_PG=''; $env:PATHFINDER_PORT='4199'
+$env:PATHFINDER_DB="$PWD\banco\db\ui.db"
+$env:PATHFINDER_APP_DIR="$PWD\banco\app\corrente"
+node server\pathfinder-server.js
+node banco\dev-banco.mjs               # 5199, front end di sviluppo
+```
+
+**`genera-odp-wip.cjs` LEGGE I LOTTI DAL DATABASE, e non è un dettaglio.**
+Quello della 2.12 li scrive fissi — presi dal magazzino del 27/08 — e su un
+database diverso quelle righe non trovano niente: il percorso nasce vuoto, e
+la prova non prova niente. Questo cerca i lotti che dichiarano **unità e
+quantità per collo** (senza, la ripartizione del consumo non si calcola),
+preferisce i chili ai pezzi, e scrive cinque ODP per il giro, uno a due righe
+per il reso e uno per il ricalibro.
+
+`banco\banco-ui.js` sono gli attrezzi da iniettare nella pagina quando si
+prova a mano: `__audit()` misura i campi che non ci stanno, `__odp(...)` carica
+i file nella schermata, `__preleva(...)` fa un giro intero fino alla chiusura.
+**Modificarlo fa ricaricare la pagina** — vite guarda tutta la radice — quindi
+si finisce prima di accendere il banco.
 
 > **Il banco sulla 4199 va spento prima di `node test/collaudo.js`**: le prove
 > del servizio si aprono una porta loro, ed è la 4199. Con il banco acceso
@@ -1535,6 +1723,34 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 - **UN ORDINE SERVITO DA UN GIRO NON RISPONDE «NESSUN MOVIMENTO»**: dice dove sta
   il suo conto.
 
+### Il conto di produzione — 2.14
+
+- **LA SCHERMATA PARTE DALLA MERCE, NON DAL NUMERO.** Il primo elenco è quello
+  che è fermo nel vano: una riga per ORDINE × ARTICOLO#LOTTO, coi gesti sulla
+  riga. Chi entra in produzione non sa i numeri d'ordine a memoria, e una
+  schermata che glieli chiede per prima cosa gli chiede quello che è andato a
+  cercare.
+- **CHIUDERE È UN GESTO SULL'ORDINE**, e sta nell'elenco dei conti, non sulla
+  merce. **Un ordine a residuo zero non ancora archiviato compare lo stesso**:
+  non ha niente in lavorazione, ma è vivo e il file di produzione lo può
+  ricaricare finché nessuno lo chiude.
+- **UN RESIDUO NEGATIVO SI VEDE.** È il conto che non sta in piedi (voce 61), e
+  questa è l'unica schermata da cui lo si può notare: nasconderlo qui vuol dire
+  nasconderlo e basta.
+- **L'ARCHIVIO DEGLI ORDINI CHIUSI STA IN ARCHIVIO**, col resto dei documenti e
+  con la tabella che si ordina e si filtra. Un elenco che cresce ogni giorno
+  non si sfoglia a pulsantini.
+- **UN RESO SBAGLIATO SI STORNA, E IL RESO RESTA SCRITTO.** Lo storno è un `in`
+  che nomina il reso che annulla (`storno_di`); la merce si riprende **da dove
+  era andata** (`reso_a`) e **con i colli rientrati** (`reso_packs`), che dopo
+  una confezione aperta non sono quelli usciti dal vano.
+- **IL VUOTO DI UNA CONFEZIONE APERTA NON SI STORNA**: quella merce è finita
+  nel prodotto. Lo storno riporta indietro quello che è rientrato, e la
+  maschera lo dice prima di premere.
+- **QUANDO NON SI SA QUALI COLLI SIANO TORNATI, LO STORNO SI RIFIUTA E DICE
+  PERCHÉ.** Su un lotto che i colli li dichiara, «togline due» non è una
+  risposta — è la regola della 2.0, e vale anche qui.
+
 ### La scansione in corsia — 2.12
 
 - **L'UBICAZIONE SI VERIFICA UNA VOLTA PER VANO, NON UNA PER TAPPA.** La chiave
@@ -1650,8 +1866,7 @@ scrypt). Il rinnovo lo autorizza un Team Leader col proprio PIN, e **con un solo
 Team Leader il cerchio si chiude su sé stesso** — è successo il 13/08.
 
 **Le tre vie d'uscita, in ordine di preferenza.** Le prime due sono della 2.13,
-**costruita e non ancora installata**: finché in servizio c'è la 2.12.1, vale
-solo la terza.
+**in servizio dal 31/08**: valgono tutte e tre.
 
 1. **Un grado più alto lo rinnova, dall'applicativo.** Configurazione →
    Operatori, il bottone del rinnovo: chi autorizza digita il **proprio** PIN.
@@ -1705,7 +1920,7 @@ in Configurazione → Operatori.
 | `modules/udc.ts` | 162 | Il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perché **un'etichetta dura**. Puro |
 | `modules/stoccaggio.ts` | 613 | Dove si mette la merce: vincoli **duri**, poi punteggio. Le regole sono un dato di `storage_rules`; ogni proposta dice perché. **2.8**: pericolosità, portata, la casa del lotto in cima, la categoria come terzo bersaglio con **un solo livello**. Puro |
 | `modules/regoleBase.ts` | 448 | **2.8** — le due regole che NON si scrivono, più i tre motivi precompilati dello scavalco. Sta da solo perché quelle di `stoccaggio.ts` sono regole di **politica**, queste sono il modo in cui un magazzino resta leggibile. Puro |
-| `modules/wip.ts` | 700 | **Il conto di un ordine**: entrato, tornato, residuo; il consumo si dichiara **a ordine chiuso**. `colliFuori`, `archiviato`, `ordiniArchiviati`, `righeSenzaOrdine`. **2.12**: `giro_odps`, `giro_richieste`, `giro_id` sul movimento, e quattro letture — `contoTenutoDa`, `ordiniServiti`, `richiesteDiRiga`, `consumoPerOrdine` (che legge le quote scritte **alla chiusura**). Puro |
+| `modules/wip.ts` | 918 | **Il conto di un ordine**: entrato, tornato, residuo; il consumo si dichiara **a ordine chiuso**. `colliFuori`, `archiviato`, `ordiniArchiviati`, `righeSenzaOrdine`. **2.12**: `giro_odps`, `giro_richieste`, `giro_id` sul movimento, e quattro letture — `contoTenutoDa`, `ordiniServiti`, `richiesteDiRiga`, `consumoPerOrdine` (che legge le quote scritte **alla chiusura**). **2.14**: `inLavorazione` (una riga per ordine × articolo#lotto di quello che è fermo nel vano, senza sapere prima nessun numero), `resi` e `motivoNonStornabile`, più i quattro campi dello storno sul movimento. Puro |
 | `modules/giroOdp.ts` | 267 | **2.12 — il giro.** `ricalibra` (riparte sempre da `lines_originali`) e l'unione delle distinte, tenendo da parte **quanto ne vuole ciascun ordine**. `quote` ripartisce quel che è uscito e **l'ultima assorbe l'arrotondamento**. **Non decide niente sul conto di produzione.** Puro |
 | `modules/pickRoute.ts` | 353 | Percorso a serpentina, ordine dei siti, magazzino di casa, `riordina`. **2.12**: `buildGiro` — le distinte si sommano **prima**, in `giroOdp.ts`, e le `richieste` si riattaccano dopo **per chiave**, perché `build` decide ubicazione e alternative ed è già collaudata così |
 | `modules/odpParser.ts` | 286 | Lettura degli ODP da Excel |
@@ -1741,7 +1956,7 @@ spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `compiti.ts` | 885 | Attività: coda, misure, registro, richiesta, i quattro gesti |
 | `posiziona.ts` | 781 | Posizionamento, la dichiarazione dei colli, `_scegliColli` e `_ridichiaraColli` (condivisa con inventario e Conta) |
 | `quarantena.ts` | 755 | Blocco, rilascio, cartellino di non conformità |
-| `wip.ts` | 735 | **Il conto di produzione**: conto, reso, chiusura, rendiconto, archivio. **2.12**: un ordine servito da un giro dice **dove sta il suo conto**; il capofila elenca chi sta servendo; la chiusura scrive la ripartizione |
+| `wip.ts` | 1.066 | **Il conto di produzione**: conto, reso, chiusura, rendiconto. **2.12**: un ordine servito da un giro dice **dove sta il suo conto**; il capofila elenca chi sta servendo; la chiusura scrive la ripartizione. **2.14**: la schermata parte dalla **lista di quello che è fermo in lavorazione** (ordinabile e filtrabile), i conti aperti stanno in un elenco compatto, **l'archivio è uscito di qui** e un reso sbagliato **si storna** |
 | `smaltimento.ts` | 664 | Scarico in tre stadi, e i **mattoni del documento** che usano tutti |
 | `prelievo.ts` | 600 | Trasferimento e carrello di produzione |
 | `rapportoPrelievo.ts` | 579 | Un rapporto, tre sorgenti. **2.12**: la testata porta «Giro — ordini serviti» |
@@ -1750,7 +1965,7 @@ spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `mappa.ts` · `documento.ts` | 418 · 410 | Pianta, frontale, conformità e deroghe · la correzione di un DDT pendente su uno snapshot |
 | `campionamento.ts` · `movimenta.ts` | 359 · 354 | Campionamento GMP e verbale · il telaio dei moduli e il registro di sessione |
 | `udc.ts` | 322 | Le unità di carico: elenco, creazione, carico, spostamento, etichetta |
-| `ricerca.ts` · `destinatari.ts` · `archivio.ts` · `registro.ts` · `parametri.ts` | 227 · 226 · 197 · 191 · 106 | Ricerca in barra · rubrica DDT · i cinque tipi di documento · registro movimenti · le quattro schede che sono un dato |
+| `ricerca.ts` · `destinatari.ts` · `archivio.ts` · `registro.ts` · `parametri.ts` | 227 · 226 · **274** · 191 · 106 | Ricerca in barra · rubrica DDT · **i cinque generi di documento — dalla 2.14 anche gli ordini di produzione chiusi** · registro movimenti · le quattro schede che sono un dato |
 | `vista.ts` · `globale.d.ts` | 36 · 10 | Il tipo `Vista` e `$`/`$q` · `declare const App` |
 
 > **`wipRegistro.ts` non esiste in `main`**: era della 2.3 ritirata.
@@ -1781,12 +1996,16 @@ farlo tacere**: se suona, un metodo non è rientrato.
 
 ### Collaudi — `test/`
 
-**1.222 prove in 42 file** al 31/08. `ambiente.js` è il preambolo comune.
+**1.246 prove in 42 file** al 31/08 sera. `ambiente.js` è il preambolo comune.
 
-Fuori da `test/` stanno i due banchi, che non girano con `npm test`:
-**`banco/gerarchia.cjs`** (32, le cariche sul servizio — §5) e
+Fuori da `test/` stanno i due banchi automatici, che non girano con
+`npm test`: **`banco/gerarchia.cjs`** (32, le cariche sul servizio — §5) e
 **`banco/ciclo/gira.cjs`** (47, il ciclo dal carico al consumo su copia del
 magazzino vero; **45 verdi e due rosse**, voci 70 e 71).
+
+Il **banco della schermata WIP** (§5) non è automatico: è un magazzino di
+copia, degli ODP generati da lui e tre attrezzi da iniettare nella pagina.
+Serve a guardare, e quel che ne esce si scrive qui.
 
 Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 `conformita` · `cache` · `pacchetto` · `statistiche` · `compiti` · `misure` ·

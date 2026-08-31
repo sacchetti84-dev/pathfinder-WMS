@@ -7,7 +7,7 @@ import type { Colonna, Stato } from '../../modules/tabella';
 
    DDT, verbali, cartellini e rapporti non hanno niente in comune nel
    database: ce l'hanno in questa tabella, ed è questa riga qui. */
-type GenereArchivio = 'ddt' | 'disposal' | 'nc' | 'pick';
+type GenereArchivio = 'ddt' | 'disposal' | 'nc' | 'pick' | 'odp';
 
 type RigaArchivio = {
   kind: GenereArchivio;
@@ -30,7 +30,13 @@ export const VistaArchivio = {
     ddt:      { label: 'DDT di uscita',    icon: '🚚' },
     disposal: { label: 'Verbali smalt.',   icon: '🗑️' },
     nc:       { label: 'Cartelli NC',      icon: '🚫' },
-    pick:     { label: 'Report prelievo',  icon: '📋' }
+    pick:     { label: 'Report prelievo',  icon: '📋' },
+    /* 2.14 — GLI ORDINI DI PRODUZIONE CHIUSI. Stavano nella schermata WIP
+       come una riga di pulsantini troncata a otto: un archivio che cresce
+       ogni giorno e si sfoglia con gli occhi non è un archivio. Qui c'è la
+       tabella che si ordina, si filtra e si cerca per data, la stessa degli
+       altri quattro generi. */
+    odp:      { label: 'Ordini chiusi',    icon: '🏗' }
   },
 
   /* Le quattro sorgenti ridotte a una forma sola. Ogni riga sa da dove
@@ -94,6 +100,28 @@ export const VistaArchivio = {
         stato: { lbl: 'Chiuso', cls: 'badge-green' },
         search: `${p.doc_id} ${p.odp_num || ''} ${p.operator || ''} ${(p.rows || []).map((r) => r.article_code + ' ' + r.lot_code).join(' ')}`,
         print: `App._printPickArchive('${esc(p.doc_id)}')`
+      });
+    }
+
+    /* 2.14 — GLI ORDINI DI PRODUZIONE CHIUSI. Il rendiconto non è un
+       documento archiviato come gli altri quattro: si ricompone dai
+       movimenti del conto ogni volta che si chiede. Per questo la riga porta
+       il numero d'ordine e non un `doc_id` — non c'è nessun foglio messo da
+       parte, c'è un conto che è storia e si rilegge. */
+    for (const a of Store.ordiniWipArchiviati()) {
+      const c = Store.contoWip(a.odp_num);
+      const serviti = Store.ordiniServitiWip(a.odp_num);
+      rows.push({
+        kind: 'odp',
+        ts: a.chiuso_il || 0,
+        num: a.odp_num,
+        title: `Ordine ${a.odp_num}`,
+        sub: `${c.righe.length} rig${c.righe.length === 1 ? 'a' : 'he'} · consumato ${c.consumato} Coll. · reso ${c.tornato}`
+          + (serviti.length ? ` · 🔗 giro di ${serviti.length + 1}` : ''),
+        stato: { lbl: 'Chiuso', cls: 'badge-green' },
+        search: `${a.odp_num} ${serviti.join(' ')} `
+          + c.righe.map((r) => r.article_code + ' ' + r.lot_code).join(' '),
+        print: `App._wipStampaRendiconto('${esc(a.odp_num)}')`
       });
     }
 

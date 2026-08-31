@@ -513,7 +513,11 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
 .inv-row-extra { background: var(--sx-warning-soft); border-color: var(--sx-warning); }
 
 /* ════ Prelievo tabs, DDT e Carrello ════ */
-.prel-tabs { display: flex; border-bottom: 2px solid var(--sx-border); margin-bottom: 0.75rem; gap: 0; }
+/* LE SCHEDE VANNO A CAPO, E NON È UN VEZZO. Su un terminale da 4,3" le
+   quattro non ci stavano in riga: la quarta — WIP — finiva oltre il bordo
+   senza barra di scorrimento, e da lì il conto di produzione non si apriva
+   affatto. Una scheda che non si vede è una funzione che non esiste. */
+.prel-tabs { display: flex; flex-wrap: wrap; border-bottom: 2px solid var(--sx-border); margin-bottom: 0.75rem; gap: 0; }
 .prel-tab { background: transparent; border: none; padding: 0.5rem 0.85rem; font-size: var(--md-sys-typescale-body-small-size); cursor: pointer; color: var(--sx-text-secondary); font-family: var(--font); border-bottom: 2px solid transparent; margin-bottom: -2px; display: flex; align-items: center; gap: 0.35rem; font-weight: 500; }
 .prel-tab:hover { color: var(--sx-primary); }
 .prel-tab.active { color: var(--sx-primary); border-bottom-color: var(--sx-primary); font-weight: 700; }
@@ -1109,4 +1113,130 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
    cos'e' apre il vano. */
 @media (max-width: 480px) {
   .sx-table-nc .nc-desc { display: none; }
+}
+
+/* ══ 2.14 · LA SCHERMATA DEL CONTO DI PRODUZIONE ═══════════════════════
+   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+   Prima di questa versione la schermata si apriva con quattro riquadri di
+   prosa e tre righe di pulsantini, e la merce cominciava sotto il settanta
+   per cento dell'altezza. Qui la testa e' UNA riga: il vano, tre conti, e
+   la via per l'archivio. Il resto dello schermo e' la lista. */
+
+.wip-testa {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 1rem;
+  padding: 0.55rem 0.8rem; margin-bottom: 0.7rem;
+  background: var(--md-sys-color-surface-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+}
+.wip-testa > div:first-child { display: flex; align-items: baseline; gap: 0.4rem; }
+.wip-testa-lbl {
+  font-size: var(--md-sys-typescale-label-small-size);
+  letter-spacing: 0.05em; text-transform: uppercase;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.wip-testa-conti {
+  display: flex; flex-wrap: wrap; gap: 0.15rem 0.9rem; margin-left: auto;
+  font-size: var(--md-sys-typescale-body-small-size);
+  color: var(--md-sys-color-on-surface-variant);
+}
+
+/* La riga di ricerca: il filtro della lista a sinistra, e a destra il campo
+   che apre un ordine per numero — che serve a chi il numero ce l'ha sul
+   foglio in mano, e non a chi sta guardando lo scaffale. */
+.wip-cerca {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem;
+  margin-bottom: 0.7rem;
+}
+/* Le larghezze stanno QUI e non fra le utility: il layer `utilities` batte
+   `app`, e una `flex-1` sul campo vincerebbe su qualunque media query
+   scritta qui sotto. Vedi l'ordine dei layer in §8. */
+.wip-cerca > #wipCerca { flex: 1 1 220px; min-width: 150px; }
+.wip-cerca > #wipOrd { flex: 0 0 170px; }
+
+.wip-sezione {
+  margin: 0 0 0.45rem;
+  font-size: var(--md-sys-typescale-title-small-size);
+  font-weight: 700; color: var(--md-sys-color-on-surface-variant);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+
+/* L'AVVISO DELLE RIGHE ORFANE STA CHIUSO. E' una condizione che il vano
+   puo' riprendere ogni volta che qualcuno ci posiziona merce a mano, e
+   tenerla aperta a schermo vuol dire tre righe di prosa fra chi guarda e il
+   lavoro. Il titolo resta, e dice quante sono. */
+.wip-orfane-testa {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 0.6rem; width: 100%;
+  background: transparent; border: none; padding: 0; cursor: pointer;
+  font: inherit; color: inherit; text-align: left;
+}
+
+/* Un conto aperto: il numero, com'e' messo, e i tre gesti che lo
+   riguardano. Chiudere e' un gesto sull'ORDINE, non sulla merce. */
+.wip-ordine {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.8rem;
+  padding: 0.45rem 0.7rem;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.wip-ordine:last-child { border-bottom: none; }
+.wip-ordine--aperto {
+  background: var(--md-sys-color-surface-container);
+  border-left: 3px solid var(--md-sys-color-primary);
+  border-radius: var(--md-sys-shape-corner-small);
+}
+.wip-ordine-testa { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+.wip-ordine-gesti { display: flex; align-items: center; gap: 0.3rem; margin-left: auto; flex-wrap: wrap; }
+
+/* UN CONTO CHE NON STA IN PIEDI SI VEDE DA LONTANO: da qualche riga e'
+   tornato piu' di quanto sia entrato, ed e' l'unica schermata da cui lo si
+   puo' notare. Vedi la voce 61. */
+.sx-table tbody tr.wip-storta,
+.sx-table tbody tr.wip-storta:nth-child(even) {
+  background: var(--sx-danger-soft);
+}
+
+/* Sotto i 560 px i gesti dell'ordine vanno a capo interi invece di
+   stringersi: tre pulsanti da meno di quarantotto pixel su un terminale con
+   i guanti sono tre pulsanti che si sbagliano. */
+@media (max-width: 560px) {
+  .wip-ordine-gesti { margin-left: 0; width: 100%; }
+  .wip-testa-conti { margin-left: 0; }
+}
+
+/* Un reso nell'elenco di quelli che si possono annullare: a sinistra quel
+   che serve a riconoscerlo, a destra il gesto. Quello che non si annulla
+   resta in elenco — sapere che c'e' e perche' non si tocca vale piu' che
+   non vederlo — ma senza pulsante. */
+.wip-reso {
+  display: flex; align-items: flex-start; gap: 0.6rem; flex-wrap: wrap;
+  padding: 0.5rem 0.2rem;
+  border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+.wip-reso:last-child { border-bottom: none; }
+.wip-reso-che { flex: 1 1 240px; min-width: 0; }
+.wip-reso-gesto { display: flex; align-items: center; gap: 0.35rem; margin-left: auto; }
+.wip-reso--no { opacity: 0.7; }
+
+/* SUL TERMINALE I DUE GESTI DEVONO STARE NELLO SCHERMO. Con sette colonne
+   la tabella sfondava i 480 px del MC9400 e le due azioni finivano oltre il
+   bordo destro: per rendere un collo bisognava prima scorrere di lato, che
+   con un guanto e un lettore in mano non e' un gesto, e' un ostacolo.
+   Sotto i 620 px escono la data e la descrizione — il codice e il lotto
+   identificano gia' la riga — e le celle si stringono. */
+@media (max-width: 620px) {
+  .wip-lista .wip-col-data { display: none; }
+  .wip-lista .wip-desc { display: none; }
+  .wip-lista .sx-table th,
+  .wip-lista .sx-table td { padding-left: 0.3rem; padding-right: 0.3rem; }
+  .wip-lista .sx-table td .btn-sm { padding-left: 0.2rem; padding-right: 0.2rem; }
+}
+
+/* La riga di ricerca si impila: il filtro sopra, e sotto il campo che apre
+   un ordine per numero col suo pulsante. Su una riga sola i tre pezzi si
+   stringevano fino a mostrare mezza parola per ciascuno. */
+@media (max-width: 560px) {
+  .wip-cerca { flex-wrap: wrap; }
+  .wip-cerca > #wipCerca { flex: 1 0 100%; }
+  .wip-cerca > #wipOrd { flex: 1 1 auto; width: auto; }
 }

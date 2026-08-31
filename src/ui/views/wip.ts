@@ -3,9 +3,13 @@ import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
-import { consumo as consumoWip, daRendere, rendiconto, misureDelReso } from '../../modules/wip';
+import { consumo as consumoWip, daRendere, rendiconto, misureDelReso,
+         motivoNonStornabile } from '../../modules/wip';
+import type { RigaInLavorazione, Reso } from '../../modules/wip';
 import { quote as quoteGiro } from '../../modules/giroOdp';
 import { formattaQuantita } from '../../modules/misure';
+import { componi, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
+import type { Colonna, Stato } from '../../modules/tabella';
 
 /* ═══════════════════════════════════════════════════════════════════════
    1.14 — IL CONTO DI PRODUZIONE, LA MASCHERA
@@ -24,76 +28,247 @@ import { formattaQuantita } from '../../modules/misure';
    dentro quello che non è tornato, e la chiusura è un movimento come gli
    altri: la merce esce dal conto perché è finita nel prodotto.
 
+   ── 2.14 · LA SCHERMATA PARTE DALLA MERCE, NON DAL NUMERO ──────────────
+
+   Fino alla 2.13 qui si entrava per numero d'ordine: una riga di pulsantini
+   coi conti aperti, una con quelli serviti da un giro, una con gli
+   archiviati — che si allungava per sempre e si troncava a otto. Per vedere
+   che cosa ci fosse nel vano bisognava aprire gli ordini uno per uno, e chi
+   il numero non ce l'aveva in testa non arrivava alla merce.
+
+   Adesso il primo elenco è QUELLO CHE È FERMO DI LÀ: una riga per ogni
+   articolo#lotto di ogni ordine, ordinabile e filtrabile, coi due gesti
+   sulla riga. Gli ordini aperti restano in un elenco compatto sotto, che è
+   dove si chiude un conto — chiudere è un gesto sull'ordine, non sulla
+   merce. **L'archivio è uscito da qui**: gli ordini chiusi stanno in
+   Archivio insieme agli altri documenti, dove c'è una tabella che si
+   ordina, si filtra e si cerca per data.
+
    La regola sta in `modules/wip.ts`, pura e collaudata.
    ═══════════════════════════════════════════════════════════════════════ */
 
 export const VistaWip = {
   _wipOrdine: '',
+  /** Ordinamento e filtro della lista in lavorazione. Vedi `modules/tabella.ts`. */
+  _wipTabella: STATO_VUOTO as Stato,
+  /** Le righe che nessun ordine rivendica: un avviso, non il lavoro. Stanno
+      chiuse finché qualcuno non le apre. */
+  _wipOrfaneAperte: false,
+
+  _wipColonne(): Colonna<RigaInLavorazione>[] {
+    return [
+      { campo: 'article_code', titolo: 'Articolo' },
+      { campo: 'descrizione', titolo: 'Descrizione',
+        valore: (r) => Store.getArticle(r.article_code)?.description || '' },
+      { campo: 'lot_code', titolo: 'Lotto' },
+      { campo: 'odp_num', titolo: 'Ordine' },
+      { campo: 'residuo', titolo: 'Colli', tipo: 'numero', cercabile: false },
+      { campo: 'residuo_uom', titolo: 'Quantità', tipo: 'numero', cercabile: false },
+      { campo: 'dal', titolo: 'In lavorazione da', tipo: 'data', cercabile: false },
+      { campo: 'azioni', titolo: '', ordinabile: false, cercabile: false },
+    ];
+  },
+
+  _wipOrdina(campo) {
+    this._wipTabella = alClic(this._wipTabella, campo);
+    this._wipRidisegnaLista();
+  },
+
+  /* La casella di ricerca non si ridisegna: ridisegnare l'input mentre ci si
+     scrive dentro perde il fuoco e il punto del cursore, e chi digita se ne
+     accorge alla seconda lettera. Si ridisegna solo la tabella. */
+  _wipCerca(v) {
+    this._wipTabella = { ...this._wipTabella, cerca: String(v ?? '') };
+    this._wipRidisegnaLista();
+  },
+
+  _wipRidisegnaLista() {
+    const box = $('wipLista');
+    if (box) box.innerHTML = this._wipListaHTML();
+  },
+
+  /* Quanto è ancora fuori, in colli e — quando si sa — nella sua unità. */
+  _wipQta(colli: number, um: number | null | undefined, u: string | null | undefined) {
+    return `${colli} Coll.${(typeof um === 'number' && u) ? ` · ${formattaQuantita(um, u)} ${this._esc(u)}` : ''}`;
+  },
+
+  /* ── LA LISTA DI QUELLO CHE È FERMO IN LAVORAZIONE ────────────────────
+     Una riga per ordine × articolo#lotto: è l'unità su cui si agisce,
+     perché il vano è uno e a tenere distinti i conti è l'ordine. */
+  _wipListaHTML() {
+    const tutte: RigaInLavorazione[] = Store.righeInLavorazioneWip();
+    const colonne = this._wipColonne();
+    const righe = componi(tutte, colonne, this._wipTabella);
+
+    if (!tutte.length) {
+      return '<div class="empty-state p-7.5"><p>Nel vano di lavorazione non c’è niente di nessun ordine.</p></div>';
+    }
+
+    const th = (campo: string, titolo: string, classe = '') =>
+      `<th class="sx-th-ord ${classe}" onclick="App._wipOrdina('${campo}')" title="Ordina per ${titolo}">${titolo}${segno(this._wipTabella, campo)}</th>`;
+
+    const corpo = righe.map((r) => {
+      const desc = Store.getArticle(r.article_code)?.description || '';
+      /* UN RESIDUO NEGATIVO NON SI NASCONDE: è il conto che non sta in piedi
+         (voce 61), e questa è l'unica schermata da cui si vede. */
+      const storto = r.residuo < 0 || (r.residuo_uom ?? 0) < 0;
+      return `<tr class="${storto ? 'wip-storta' : ''}">
+        <td>
+          <div class="mono font-semibold">${this._esc(r.article_code)}</div>
+          ${desc ? `<div class="wip-desc truncate text-label-small text-sx-text-muted">${this._esc(desc)}</div>` : ''}
+        </td>
+        <td class="mono">${this._esc(r.lot_code)}</td>
+        <td>
+          <button class="btn btn-sm btn-ghost mono" title="Apri il conto di ${this._esc(r.odp_num)}"
+            onclick="App._wipApri('${this._esc(r.odp_num)}')">${this._esc(r.odp_num)}</button>
+          ${r.serviti.length ? `<span class="badge badge-muted" title="Questo conto serve anche ${this._esc(r.serviti.join(', '))}">🔗 ${r.serviti.length + 1}</span>` : ''}
+        </td>
+        <td class="td-num ${storto ? 'text-sx-danger font-bold' : ''}">${r.residuo}</td>
+        <td class="td-num">${(typeof r.residuo_uom === 'number' && r.uom)
+          ? `${formattaQuantita(r.residuo_uom, r.uom)} ${this._esc(r.uom)}` : '—'}</td>
+        <td class="wip-col-data mono whitespace-nowrap text-label-small">${r.dal ? this._esc(this._fmtStamp(r.dal)) : '—'}</td>
+        <td class="whitespace-nowrap">
+          <button class="inv-btn" title="Rendi a magazzino quello che avanza"
+            onclick="App._wipDaRiga('${this._esc(r.odp_num)}','${this._esc(r.item_key)}','reso')">↩</button>
+          <button class="inv-btn" title="Consumato del tutto: niente rientra, e questa riga si chiude"
+            onclick="App._wipDaRiga('${this._esc(r.odp_num)}','${this._esc(r.item_key)}','consumo')">🔥</button>
+        </td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="wip-lista overflow-x-auto">
+      <table class="sx-table">
+        <thead><tr>
+          ${th('article_code', 'Articolo')}
+          ${th('lot_code', 'Lotto', 'w-[120px]')}
+          ${th('odp_num', 'Ordine', 'w-[140px]')}
+          ${th('residuo', 'Colli', 'w-[70px]')}
+          ${th('residuo_uom', 'Quantità', 'w-[120px]')}
+          ${th('dal', 'Da', 'w-[130px] wip-col-data')}
+          <th class="w-[90px]"></th>
+        </tr></thead>
+        <tbody>${corpo}</tbody>
+      </table>
+    </div>
+    ${righe.length !== tutte.length
+      ? `<div class="text-label-small text-sx-text-muted mt-3">${righe.length} righe su ${tutte.length}.</div>` : ''}
+    ${!righe.length ? '<div class="ct-empty">Nessuna riga corrisponde alla ricerca.</div>' : ''}`;
+  },
+
+  /* Rendere o consumare una riga presi dalla lista: l'ordine si apre prima,
+     perché tutto il resto della maschera lavora su `_wipOrdine`. */
+  _wipDaRiga(odp, itemKey, gesto) {
+    this._wipOrdine = String(odp ?? '').trim().toUpperCase();
+    if (gesto === 'consumo') return this._wipConsumaTutto(itemKey);
+    return this._wipChiediReso(itemKey);
+  },
+
+  /* ── GLI ORDINI APERTI ────────────────────────────────────────────────
+     Chiudere è un gesto sull'ORDINE, non sulla merce: sta qui e non sulla
+     riga. Un ordine a residuo zero e non ancora archiviato compare lo
+     stesso — non ha niente in lavorazione, ma è ancora vivo e il file di
+     produzione lo può ricaricare finché nessuno lo chiude. */
+  _wipOrdiniHTML() {
+    const aperti: string[] = Store.ordiniWipAperti();
+    const daChiudere: string[] = [];
+    for (const m of Store.getWipMovimenti() as { odp_num?: string }[]) {
+      const o = String(m?.odp_num ?? '').trim().toUpperCase();
+      if (!o || aperti.includes(o) || daChiudere.includes(o)) continue;
+      if (!Store.ordineWipArchiviato(o)) daChiudere.push(o);
+    }
+    const tutti = [...aperti, ...daChiudere];
+    if (!tutti.length) return '<div class="ct-empty">Nessun conto aperto.</div>';
+
+    return tutti.map((odp) => {
+      const c = Store.contoWip(odp);
+      const serviti = Store.ordiniServitiWip(odp);
+      const vuoto = c.residuo === 0;
+      return `<div class="wip-ordine ${this._wipOrdine === odp ? 'wip-ordine--aperto' : ''}">
+        <div class="wip-ordine-testa">
+          <button class="btn btn-sm btn-ghost mono font-bold" onclick="App._wipApri('${this._esc(odp)}')">${this._esc(odp)}</button>
+          ${serviti.length ? `<span class="badge badge-muted" title="Serve anche ${this._esc(serviti.join(', '))}">🔗 giro di ${serviti.length + 1}</span>` : ''}
+          ${c.incoerente ? '<span class="badge badge-red" title="Da qualche riga è tornato più di quanto sia entrato">⚠ conto storto</span>' : ''}
+          ${vuoto ? '<span class="badge badge-green">tutto rientrato — resta da chiudere</span>' : ''}
+        </div>
+        <div class="wip-ordine-conto text-label-small text-sx-text-muted">
+          entrato ${c.entrato} · reso ${c.tornato}${c.consumato ? ` · consumato ${c.consumato}` : ''} ·
+          <strong class="${c.residuo ? 'text-sx-warning' : 'text-sx-success'}">in lavorazione ${c.residuo}</strong>
+        </div>
+        <div class="wip-ordine-gesti">
+          <!-- «Chiudi» da solo no: sotto c'è il pulsante che chiude la SCHERMATA,
+               e due Chiudi a due centimetri l'uno dall'altro sono uno che si
+               preme per sbaglio su un gesto che archivia un ordine. -->
+          <button class="btn btn-sm btn-primary" onclick="App._wipApri('${this._esc(odp)}');App._wipChiudi()">🏁 Chiudi e archivia</button>
+          <button class="btn btn-sm" onclick="App._wipApri('${this._esc(odp)}');App._wipCorreggiReso()">⟲ Correggi un reso</button>
+          <button class="btn btn-sm btn-ghost" onclick="App._wipApri('${this._esc(odp)}');App._wipStampaRendiconto()">🖨 Report</button>
+        </div>
+      </div>`;
+    }).join('');
+  },
 
   _formWip(el) {
     if (!el) return;
     const area = Store.getAreaWip();
-    const aperti = Store.ordiniWipAperti();
-    /* L'ARCHIVIO SI SFOGLIA, non si ricorda a memoria. Un ordine chiuso
-       sparisce dai conti aperti — è il suo mestiere — e fino alla 2.2
-       l'unico modo di rileggerlo era digitarne il numero. Il consuntivo di
-       una lavorazione si guarda mesi dopo, quando quel numero non ce
-       l'ha più in testa nessuno. Gli ultimi otto bastano a riprendere il
-       filo; per uno più vecchio resta il campo, che accetta qualunque
-       numero. */
-    const archiviati = Store.ordiniWipArchiviati();
-    /* MERCE FERMA NEL VANO CHE NESSUN ORDINE RIVENDICA. Il vano è uno solo
-       e a tenere distinti i conti è l'ordine su ogni movimento: una riga che
-       nessun movimento nomina non sta in nessun conto, e né la chiusura né
-       il reso — che lavorano per ordine — la vedono passare. Il 20/08 ce
-       n'erano sei e le ha trovate un guardiano leggendo il database, perché
-       l'applicativo non aveva nessun posto in cui dirlo. Questo è quel
-       posto. */
+    const righe: RigaInLavorazione[] = area ? Store.righeInLavorazioneWip() : [];
     const orfane = Store.righeWipSenzaOrdine();
-    /* 2.12 — GLI ORDINI SERVITI DA UN GIRO NON SONO CONTI APERTI, e in
-       quell'elenco non compaiono: movimenti loro non ne hanno. Senza questa
-       riga l'unico modo di trovarli sarebbe digitarne il numero — e chi non
-       sa che il giro esiste non sa nemmeno che c'e' un numero da digitare. */
-    const serviti = aperti.flatMap((o) =>
-      Store.ordiniServitiWip(o).map((x) => ({ odp: x, capofila: o })));
-    if (!this._wipOrdine && aperti.length) this._wipOrdine = aperti[0];
+    const colli = righe.reduce((s, r) => s + (r.residuo > 0 ? r.residuo : 0), 0);
+    const ordini = new Set(righe.map((r) => r.odp_num)).size;
 
     el.innerHTML = `<div>
-      <div class="wf-instructions">
-        <strong>Flusso:</strong> <span class="wf-step">① ORDINE</span> →
-        <span class="wf-step">② rendi</span> quello che avanza →
-        <span class="wf-step">③ CHIUDI</span>, e il residuo diventa consumo.
-      </div>
       ${area
-        ? `<div class="mov-preview mov-preview-ok mb-5">Area WIP: <strong class="mono">${this._esc(area)}</strong> — la merce in lavorazione sta lì, e a tenere distinti i conti è l'ordine su ogni riga.</div>`
-        : `<div class="mov-preview mov-preview-warn mb-5"><strong>Area WIP non configurata.</strong> Si imposta in Configurazione → Funzioni: senza, il prelievo di produzione non ha dove portare la merce.</div>`}
-      <div class="form-group mb-5">
-        <label>① Ordine di produzione</label>
-        <div class="flex gap-3">
-          <input class="input input-mono uppercase flex-1" id="wipOrd" placeholder="Numero ordine" maxlength="40"
-            value="${this._esc(this._wipOrdine)}"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();App._wipApri();}">
-          <button class="btn btn-sm btn-primary" onclick="App._wipApri()">Apri</button>
-        </div>
-        ${aperti.length ? `<div class="text-label-small text-sx-text-muted mt-2">
-          Conti aperti: ${aperti.slice(0, 8).map((o) => `<button class="btn btn-sm" onclick="App._wipApri('${this._esc(o)}')">${this._esc(o)}</button>`).join(' ')}
-        </div>` : '<div class="text-label-small text-sx-text-muted mt-2">Nessun conto aperto.</div>'}
-        ${serviti.length ? `<div class="text-label-small text-sx-text-muted mt-2">
-          🔗 Serviti da un giro: ${serviti.map((x) => `<button class="btn btn-sm" title="Il conto lo tiene ${this._esc(x.capofila)}" onclick="App._wipApri('${this._esc(x.odp)}')">${this._esc(x.odp)}</button>`).join(' ')}
-        </div>` : ''}
-        ${archiviati.length ? `<div class="text-label-small text-sx-text-muted mt-2">
-          🗄 Archiviati: ${archiviati.slice(0, 8).map((a) => `<button class="btn btn-sm" title="Chiuso${a.chiuso_il ? ' il ' + this._esc(this._fmtStamp(a.chiuso_il)) : ''}" onclick="App._wipApri('${this._esc(a.odp_num)}')">${this._esc(a.odp_num)}</button>`).join(' ')}${archiviati.length > 8 ? ` <span>e altri ${archiviati.length - 8}</span>` : ''}
-        </div>` : ''}
-      </div>
+        ? `<div class="wip-testa">
+             <div>
+               <span class="wip-testa-lbl">Vano di lavorazione</span>
+               <span class="mono font-bold">${this._esc(area)}</span>
+             </div>
+             <div class="wip-testa-conti">
+               <span><strong>${righe.length}</strong> righe</span>
+               <span><strong>${colli}</strong> Coll.</span>
+               <span><strong>${ordini}</strong> ordin${ordini === 1 ? 'e' : 'i'}</span>
+             </div>
+             <button class="btn btn-sm btn-ghost" title="Gli ordini chiusi stanno in Archivio, con gli altri documenti"
+               onclick="App._wipVaiAllArchivio()">🗄 Archivio ODP</button>
+           </div>`
+        : `<div class="mov-preview mov-preview-warn mb-5"><strong>Area WIP non configurata.</strong>
+             Si imposta in Configurazione → Funzioni: senza, il prelievo di produzione non ha dove portare la merce.</div>`}
+
       ${orfane.length ? `<div class="mov-preview mov-preview-warn mb-5">
-        <strong>⚠ ${orfane.length} rig${orfane.length === 1 ? 'a' : 'he'} nel vano senza ordine.</strong>
-        ${orfane.length === 1 ? 'Sta' : 'Stanno'} in <span class="mono">${this._esc(area)}</span> e nessun conto ${orfane.length === 1 ? 'la' : 'le'} rivendica: la chiusura e il reso lavorano per ordine, e non ${orfane.length === 1 ? 'la' : 'le'} vedono.
-        Si ${orfane.length === 1 ? 'muove' : 'muovono'} da <strong>Movimenta</strong>, o si ${orfane.length === 1 ? 'carica' : 'caricano'} su un ordine con un prelievo di produzione.
-        <div class="mt-2">${orfane.map((r) => `<span class="badge badge-muted mono mr-2">${this._esc(r.item_key)} · ${r.qty} Coll.</span>`).join('')}</div>
+        <button class="wip-orfane-testa" onclick="App._wipOrfaneAperte=!App._wipOrfaneAperte;App._formWip($('pickSubForm'))">
+          <strong>⚠ ${orfane.length} rig${orfane.length === 1 ? 'a' : 'he'} nel vano che nessun ordine rivendica</strong>
+          <span>${this._wipOrfaneAperte ? '▾' : '▸'}</span>
+        </button>
+        ${this._wipOrfaneAperte ? `<div class="mt-3 text-body-small">
+          Il reso e la chiusura lavorano per ordine e non ${orfane.length === 1 ? 'la' : 'le'} vedono.
+          Si ${orfane.length === 1 ? 'muove' : 'muovono'} da <strong>Movimenta</strong>, o si ${orfane.length === 1 ? 'carica' : 'caricano'} su un ordine con un prelievo di produzione.
+          <div class="mt-2">${orfane.map((r) => `<span class="badge badge-muted mono mr-2">${this._esc(r.item_key)} · ${r.qty} Coll.</span>`).join('')}</div>
+        </div>` : ''}
       </div>` : ''}
+
+      <div class="wip-cerca">
+        <input class="input" id="wipCerca" placeholder="Cerca articolo, descrizione, lotto o ordine…"
+          value="${this._esc(this._wipTabella.cerca)}" oninput="App._wipCerca(this.value)">
+        <input class="input input-mono uppercase" id="wipOrd" placeholder="Apri un ordine" maxlength="40"
+          value="${this._esc(this._wipOrdine)}"
+          onkeydown="if(event.key==='Enter'){event.preventDefault();App._wipApri();}">
+        <button class="btn btn-sm" onclick="App._wipApri()">Apri</button>
+      </div>
+
+      <div id="wipLista" class="mb-6">${area ? this._wipListaHTML() : ''}</div>
+
+      <h4 class="wip-sezione">Conti aperti</h4>
+      <div class="mb-6">${this._wipOrdiniHTML()}</div>
+
       <div id="wipConto"></div>
     </div>`;
     if (this._wipOrdine) this._wipRenderConto();
+  },
+
+  /* L'archivio degli ordini chiusi sta in Archivio, filtrato sul suo genere:
+     ci si arriva da qui senza doverlo cercare fra i DDT. */
+  _wipVaiAllArchivio() {
+    this._arcType = 'odp';
+    this._arcText = '';
+    this.switchView('archive');
   },
 
   _wipApri(ordine = null) {
@@ -103,6 +278,7 @@ export const VistaWip = {
     if (campo) campo.value = o;
     this._wipRenderConto();
   },
+
 
   _wipRenderConto() {
     const box = $('wipConto');
@@ -120,9 +296,8 @@ export const VistaWip = {
       box.innerHTML = altrove
         ? `<div class="mov-preview mov-preview-warn p-7.5">
              <strong>🔗 Il conto di ${this._esc(odp)} lo tiene ${this._esc(altrove.capofila)}</strong><br>
-             Questo ordine e' stato prelevato in un giro insieme ad altri: la merce e' scesa
-             una volta sola, sotto il conto del capofila. La ripartizione fra gli ordini si
-             dichiara alla chiusura di quel conto.
+             Prelevato in un giro con altri: la merce e' scesa una volta sola, sotto il
+             capofila, e la ripartizione si dichiara alla chiusura di quel conto.
              <div class="mt-4"><button class="btn btn-primary" onclick="App._wipApri('${this._esc(altrove.capofila)}')">Apri il conto di ${this._esc(altrove.capofila)}</button></div>
            </div>`
         : `<div class="empty-state p-7.5"><p>Nessun movimento sul conto di ${this._esc(odp)}</p></div>`;
@@ -152,11 +327,8 @@ export const VistaWip = {
       ${c.incoerente ? '<br><strong>⚠ Da qualche riga è tornato più di quanto sia entrato: il conto non sta in piedi.</strong>' : ''}
     </div>
     ${serviti.length ? `<div class="mov-preview mov-preview-warn mb-5">
-      <strong>🔗 Questo conto serve ${serviti.length + 1} ordini</strong> —
-      ${this._esc([odp, ...serviti].join(' · '))}.<br>
-      La merce e' scesa una volta sola, sotto <strong class="mono">${this._esc(odp)}</strong>.
-      Alla chiusura il consumo si ripartisce fra gli ordini, in proporzione a quanto
-      ciascuno aveva chiesto.
+      <strong>🔗 Serve ${serviti.length + 1} ordini</strong> — ${this._esc([odp, ...serviti].join(' · '))}.
+      Alla chiusura il consumo si ripartisce in proporzione a quanto ciascuno aveva chiesto.
     </div>` : ''}`;
 
     for (const r of c.righe) {
@@ -189,6 +361,122 @@ export const VistaWip = {
     box.innerHTML = html;
   },
 
+  /* ══ 2.14 · CORREGGERE UN RESO SBAGLIATO ══════════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+     Un reso finito nel vano sbagliato, o fatto su una riga per un'altra,
+     fin qui non aveva una via d'uscita: la merce era a scaffale sotto una
+     causale che diceva una cosa non vera, e il conto era calato di colli
+     che in reparto c'erano ancora. Si usciva riposizionando a mano da
+     Movimenta, e il conto di produzione restava storto lo stesso.
+
+     LA MASCHERA ELENCA I RESI, non chiede di descriverne uno: chi corregge
+     sta guardando una riga che esiste, e sceglierla è più sicuro che
+     ridigitarla. Accanto a ciascuno c'è quello che serve a riconoscerlo —
+     quando, che cosa, quanto, dove è andato e chi l'ha firmato — e il
+     motivo, quando quel reso non si può annullare.
+
+     La regola sta in `Store.stornaResoWip` e in `motivoNonStornabile`. */
+  _wipCorreggiReso() {
+    const odp = this._wipOrdine;
+    if (!odp) return this.toast('Apri prima un ordine', 'error');
+    if (Store.ordineWipArchiviato(odp)) {
+      return this.toast(`L'ordine ${odp} è chiuso e archiviato: sul suo conto non si scrive più`, 'error');
+    }
+    const elenco: Reso[] = Store.resiWip(odp);
+    if (!elenco.length) return this.toast(`Sul conto di ${odp} non risulta nessun reso`, 'info');
+
+    const righe = elenco.map((r) => {
+      const motivo = motivoNonStornabile(r);
+      const quanto = `${r.qty} Coll.`
+        + (typeof r.qty_uom === 'number' && r.uom ? ` · ${formattaQuantita(r.qty_uom, r.uom)} ${this._esc(r.uom)}` : '');
+      return `<div class="wip-reso ${motivo ? 'wip-reso--no' : ''}">
+        <div class="wip-reso-che">
+          <div><strong class="mono">${this._esc(r.article_code)}</strong>
+            <span class="text-body-small text-sx-text-secondary">lotto ${this._esc(r.lot_code)}</span></div>
+          <div class="text-label-small text-sx-text-muted">
+            ${r.ts ? this._esc(this._fmtStamp(r.ts)) : '—'} ·
+            <strong>${quanto}</strong> ·
+            ${r.dove ? `in <span class="mono">${this._esc(r.dove)}</span>` : '<em>ubicazione non registrata</em>'}
+            ${r.user ? ` · ${this._esc(r.user)}` : ''}
+          </div>
+          ${r.vuoto ? `<div class="text-label-small text-sx-warning">
+            Con una confezione aperta: ${typeof r.vuoto.qty_uom === 'number' && r.uom
+              ? `${formattaQuantita(r.vuoto.qty_uom, r.uom)} ${this._esc(r.uom)}` : 'una parte'}
+            ${'sono già a consumo e restano dichiarati — quella merce è finita nel prodotto.'}
+          </div>` : ''}
+          ${motivo ? `<div class="text-label-small text-sx-danger mt-1">${this._esc(motivo)}</div>` : ''}
+        </div>
+        ${motivo ? '' : `<div class="wip-reso-gesto">
+          ${r.dove ? '' : `<input class="input input-mono uppercase w-[150px]" id="stornoDove_${this._esc(r.wip_id)}"
+            placeholder="Da dove" maxlength="${Validate.MAX.LOC_CODE}" oninput="this.value=this.value.toUpperCase()">`}
+          <button class="btn btn-sm btn-warning" onclick="App._wipStorna('${this._esc(r.wip_id)}')">⟲ Storna</button>
+        </div>`}
+      </div>`;
+    }).join('');
+
+    this.showModal(
+      `⟲ Correggi un reso — ordine ${this._esc(odp)}`,
+      `<div class="mov-preview mb-5">
+        La merce torna nel vano di lavorazione e il conto risale. <strong>Il reso resta scritto</strong>:
+        accanto nasce il movimento che lo annulla, con la data e la firma di adesso.
+      </div>
+      ${righe}`,
+      '<button class="btn" onclick="App.closeModal()">Chiudi</button>'
+    );
+  },
+
+  async _wipStorna(wipId) {
+    if (!this._requireOperator('lo storno di un reso')) return;
+    const odp = this._wipOrdine;
+    const r = Store.resiWip(odp).find((x) => x.wip_id === wipId);
+    if (!r) return this.toast('Reso non trovato sul conto', 'error');
+    const motivo = motivoNonStornabile(r);
+    if (motivo) return this.toast(motivo, 'error');
+
+    /* Dove riprendere la merce: quello scritto sul reso, o quello che
+       l'operatore indica sulle righe vecchie che non lo portano. */
+    const scritto = $(`stornoDove_${wipId}`)?.value;
+    const da = Validate.clean(scritto ?? r.dove ?? '', true).replace(/'/g, '-');
+    if (!da) return this.toast('Indica da quale ubicazione riprendere la merce', 'error');
+    if (!Store.locationExists(da)) return this.toast(`Ubicazione ${da} inesistente`, 'error');
+
+    const quanto = `${r.qty} Coll.`
+      + (typeof r.qty_uom === 'number' && r.uom ? ` · ${formattaQuantita(r.qty_uom, r.uom)} ${r.uom}` : '');
+    if (!await Dialog.confirm({
+      title: 'Stornare questo reso?',
+      message: `${r.article_code}#${r.lot_code}: ${quanto} escono da ${da} e tornano nel vano di `
+        + `lavorazione, sul conto di ${odp}. Il reso resta scritto e accanto nasce il movimento che lo annulla.`
+        + (r.vuoto ? ' La parte già dichiarata a consumo NON torna indietro: quella merce è finita nel prodotto.' : ''),
+      /* «Annulla» è già il pulsante che NON fa niente: due Annulla su una
+         finestra che muove merce sono due modi di premere quello sbagliato. */
+      confirmLabel: '⟲ Storna il reso',
+      danger: true,
+    })) return;
+
+    let esito;
+    try {
+      esito = await Store.stornaResoWip(odp, wipId, da);
+    } catch (e) {
+      return this.toast((e as Error).message, 'error');
+    }
+    /* IL REGISTRO PORTA IL VERSO GIUSTO. I numeri sono quelli
+       dell'ubicazione da cui la merce esce, come li scrive ogni altro
+       trasferimento — qui il lato che cala è lo scaffale, non il vano. */
+    const u = esito.uscita as Record<string, any>;
+    await this._logMov(MOV.MOVE, r.article_code, '', r.lot_code, da, esito.vano,
+      '', `Storno del reso al conto di produzione ${odp}`, odp,
+      u?._qty_before ?? null, u?._qty_delta ?? null, u?._qty_after ?? null,
+      typeof u?._qty_uom_delta === 'number' ? u._qty_uom_delta : null);
+
+    this.closeModal();
+    this._formWip($('pickSubForm'));
+    this.updateSyncIndicator();
+    this._refreshSessionLog?.();
+    this.toast(`⟲ Reso annullato — ${esito.colli} Coll. tornati in ${esito.vano}`, 'success');
+  },
+
+
   _wipChiediReso(itemKey) {
     const c = Store.contoWip(this._wipOrdine);
     const r = c.righe.find((x) => x.item_key === itemKey);
@@ -202,9 +490,10 @@ export const VistaWip = {
     const senzaMisure = !(Store.colliDiRiga(
       Store.getItemsAtLocation(Store.getAreaWip()).find((x) => x.item_key === itemKey)) || []).length;
     this.showModal(
-      `↩ Rendi a magazzino — ${this._esc(r.article_code)}#${this._esc(r.lot_code)}`,
+      '↩ Rendi a magazzino',
       `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
-        Ordine <strong class="mono">${this._esc(this._wipOrdine)}</strong> ·
+        <strong class="mono">${this._esc(r.article_code)}</strong> lotto <span class="mono">${this._esc(r.lot_code)}</span> ·
+        ordine <strong class="mono">${this._esc(this._wipOrdine)}</strong> ·
         in lavorazione <strong>${r.residuo} Coll.</strong>
       </div>
       <div class="form-row mb-6">
@@ -213,18 +502,18 @@ export const VistaWip = {
           <input class="input input-mono text-center font-bold" id="wipQty" type="number" min="0" step="1" max="${r.residuo}" value="${r.residuo}">
         </div>
         <div class="form-group">
-          <label>E una confezione aperta, con dentro${r.uom ? ` (${this._esc(r.uom)})` : ''} — facoltativo</label>
-          <input class="input input-mono" id="wipParte" inputmode="decimal" autocomplete="off" placeholder="es. 5">
+          <label>Più una confezione aperta, con dentro${r.uom ? ` (${this._esc(r.uom)})` : ''}</label>
+          <input class="input input-mono" id="wipParte" inputmode="decimal" autocomplete="off" placeholder="facoltativo — es. 5">
         </div>
-        ${senzaMisure ? `<div class="form-group">
+        ${senzaMisure ? `<div class="form-group col-span-2">
           <label>Quanto contiene un collo intero${r.uom ? ` (${this._esc(r.uom)})` : ''}</label>
           <input class="input input-mono" id="wipPerCollo" inputmode="decimal" autocomplete="off" placeholder="es. 25">
-          <div class="text-label-small text-sx-text-muted mt-2">Questo lotto non dichiara le misure dei suoi colli: serve per sapere quale collo si apre. Vale per tutti i colli del lotto, e si scrive una volta sola.</div>
+          <div class="text-label-small text-sx-text-muted mt-2">Il lotto non dichiara le misure dei suoi colli: si scrive una volta sola e vale per tutti.</div>
         </div>` : ''}
-        <div class="form-group">
+        <div class="form-group col-span-2">
           <label>Ubicazione di rientro <span class="req">*</span></label>
           <div class="flex gap-3">
-            <input class="input input-mono uppercase flex-1" id="wipDove" placeholder="Scansiona o digita" maxlength="${Validate.MAX.LOC_CODE}"
+            <input class="input input-mono uppercase flex-1" id="wipDove" placeholder="Scansiona o digita l’ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
               oninput="this.value=this.value.toUpperCase();App._previewLoc('wipDove','wipDovePrev')">
             <button class="btn btn-sm" type="button" onclick="App._pickLoc('wipDove',null)" title="Sfoglia">📍</button>
           </div>
@@ -232,13 +521,8 @@ export const VistaWip = {
         </div>
       </div>
       <div class="mov-preview">
-        La merce esce dal vano dell'ordine e rientra a magazzino: il conto cala,
-        e quello che resta è ancora in lavorazione.<br>
-        <strong>Una confezione aperta rientra con dentro quel che resta.</strong>
-        Due sacchi da 20 scesi in lavorazione e uno che risale con dentro 5:
-        zero colli interi, 5 nel campo qui sopra. Quel sacco torna a scaffale
-        così com'è, e i 15 che mancano vanno a <strong>consumo</strong> subito —
-        dal vano quella confezione è uscita.
+        Il conto cala di quello che rientra. <strong>Una confezione aperta torna a scaffale
+        con dentro quel che resta</strong>, e la differenza va a consumo: dal vano è uscita.
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
        <button class="btn btn-primary" onclick="App._wipRendi('${this._esc(itemKey)}')">↩ Rendi</button>`
@@ -336,10 +620,14 @@ export const VistaWip = {
 
     let uscita: Record<string, any> | null = null;
     try {
+      /* 2.14 — DOVE RIENTRA E CON QUALI COLLI si scrive sul reso, perché è
+         da lì che lo storno riprende la merce. I colli rientrati si passano
+         solo quando divergono da quelli usciti — cioè quando una confezione
+         si è aperta: negli altri casi sono gli stessi, e `resi` li ritrova. */
       const tolti = await Store.esceDaWip(this._wipOrdine, {
         item_key: itemKey, article_code: r.article_code, lot_code: r.lot_code, qty,
         uom: r.uom,
-      }, scelte, 'out', umResa);
+      }, scelte, 'out', umResa, { dove, packs: packsRientro });
       uscita = tolti as Record<string, any>;
       /* La merce rientra com'è uscita: gli stessi colli, e le stesse UM. Un
          reso che rientra «a numero» rinascerebbe con la confezione
@@ -475,8 +763,12 @@ export const VistaWip = {
 
      La regola sta in `modules/wip.ts`, pura e collaudata: qui c'è la
      tabella e basta. */
-  _wipStampaRendiconto() {
-    const odp = this._wipOrdine;
+  /* 2.14 — SI RISTAMPA ANCHE DA FUORI. L'archivio degli ordini chiusi sta in
+     Archivio, e da lì il rendiconto si chiede per numero senza dover prima
+     aprire la maschera del conto. Senza argomento vale l'ordine aperto, che
+     è come lo chiamava la 2.1. */
+  _wipStampaRendiconto(ordine: string | null = null) {
+    const odp = String(ordine ?? this._wipOrdine ?? '').trim().toUpperCase();
     if (!odp) return this.toast('Apri prima un ordine', 'error');
     const r = rendiconto(Store.contoWip(odp));
     if (!r.righe.length) return this.toast(`Nessun movimento sul conto di ${odp}`, 'info');

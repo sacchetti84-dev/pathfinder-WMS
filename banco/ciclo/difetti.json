@@ -5,7 +5,7 @@
   "dove": "anagrafica articoli",
   "cosa": "L'ODP2603889 chiede questi componenti in KG, l'anagrafica li dichiara altrimenti: 6001055=PZ. Il magazzino conta pezzi dove la produzione pesa chili, e nessuna delle due parti se ne accorge.",
   "prova": "riga 6001055: 0,468 KG richiesti su un articolo dichiarato PZ",
-  "visto": "2026-08-31T17:13:57.403Z"
+  "visto": "2026-08-31T19:03:44.574Z"
  },
  {
   "id": "K3",
@@ -13,7 +13,7 @@
   "dove": "registro movimenti / anagrafica operatori",
   "cosa": "2 sigle firmano movimenti ma non stanno fra gli operatori: DP (14 mov.), AS (2 mov.). Fra tre anni quella firma non risponde a un nome — o è un operatore cancellato, o è una sigla digitata a mano.",
   "prova": "operatori in anagrafica: EFBR, BABB, ANDS",
-  "visto": "2026-08-31T17:14:04.247Z"
+  "visto": "2026-08-31T19:03:51.484Z"
  },
  {
   "id": "CF3",
@@ -21,15 +21,15 @@
   "dove": "anagrafica articoli e Configurazione → Zone",
   "cosa": "La verifica di conformità copre il 5% delle righe (12 su 230): sul resto non tace perché va bene, tace perché non ha con cosa confrontare. Chi guarda la mappa vede un verde che non significa niente. Si scioglie compilando gli attributi delle zone e degli articoli — §2, voce 5.",
   "prova": "153 articoli senza attributi",
-  "visto": "2026-08-31T17:14:08.281Z"
+  "visto": "2026-08-31T19:03:55.686Z"
  },
  {
   "id": "CP1",
   "gravita": "grave",
   "dove": "core/store.ts:advanceTask",
   "cosa": "Un compito a residuo si è chiuso con un parziale: 3 chiesti, 1 mosso, stato «done».",
-  "prova": "TA-MTHHZJTA-1JMD",
-  "visto": "2026-08-31T17:13:55.067Z"
+  "prova": "TA-MTHLWQAW-GQB9",
+  "visto": "2026-08-31T19:03:41.970Z"
  },
  {
   "id": "P3",
@@ -53,7 +53,7 @@
   "dove": "quadratura del ciclo",
   "cosa": "Alla fine del ciclo 0.75 KG non si ritrovano da nessuna parte: né a scaffale, né consumati, né resi.",
   "prova": "somma degli scarti per articolo, tolleranza 0,05 KG",
-  "visto": "2026-08-31T17:14:04.223Z"
+  "visto": "2026-08-31T19:03:51.460Z"
  },
  {
   "id": "QU1",

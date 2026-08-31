@@ -1,6 +1,6 @@
 # Ciclo 2.0 — dal carico al consumo, su copia del magazzino vero
 
-2026-08-31T17:13:57.017Z
+2026-08-31T19:03:44.108Z
 
 ## ⓪ Il banco
 
@@ -208,6 +208,32 @@ Verifica: **passa**
 | compiti | 29 | 29 |
 | movimenti | 112 | 112 |
 
+## Storno di un prelievo
+
+Prima: [25,25,6] = 56 KG
+Dopo aver preso 10 KG: [15,25,6] = 46 KG · usciti [10]
+Dopo lo storno: [25,6,25] = 56 KG
+
+
+### Chi scrive cosa nell azione di annullamento
+
+| Maschera | `qty` da | `qty_uom` | `packs` |
+|---|---|---|---|
+| posiziona.ts (op: remove) | l'elenco | sì | sì |
+| prelievo.ts — carrello di produzione | calo dello scaffale | sì | sì |
+| percorso.ts — tappa del prelievo guidato | l'elenco | sì | sì |
+| smaltimento.ts | l'elenco | sì | sì |
+
+## Storno di un posizionamento
+
+Riga dopo il secondo carico: [20,20,15,7] = 62 KG
+Dopo lo storno: [20,20] = 40 KG (attesi [20,20] = 40)
+
+
+### Il collo che non c è più
+
+Storno di [12,9] su una riga che porta [12]: **si ferma** — Il collo da 9 non è più su questa riga: lo storno non può ritrovarlo
+
 ## Giacenza per articolo (1.9)
 
 | Lotto | scadenza | vani | colli | UM |
@@ -241,32 +267,6 @@ Movimenti scritti in M03-STK-04-03-T: nessuno
 ### La riga che non c è più
 
 In M03-STK-04-03-T restano: 6000037#INV-A=2 coll. · 6000004#INV-B=3 coll.
-
-## Storno di un prelievo
-
-Prima: [25,25,6] = 56 KG
-Dopo aver preso 10 KG: [15,25,6] = 46 KG · usciti [10]
-Dopo lo storno: [25,6,25] = 56 KG
-
-
-### Chi scrive cosa nell azione di annullamento
-
-| Maschera | `qty` da | `qty_uom` | `packs` |
-|---|---|---|---|
-| posiziona.ts (op: remove) | l'elenco | sì | sì |
-| prelievo.ts — carrello di produzione | calo dello scaffale | sì | sì |
-| percorso.ts — tappa del prelievo guidato | l'elenco | sì | sì |
-| smaltimento.ts | l'elenco | sì | sì |
-
-## Storno di un posizionamento
-
-Riga dopo il secondo carico: [20,20,15,7] = 62 KG
-Dopo lo storno: [20,20] = 40 KG (attesi [20,20] = 40)
-
-
-### Il collo che non c è più
-
-Storno di [12,9] su una riga che porta [12]: **si ferma** — Il collo da 9 non è più su questa riga: lo storno non può ritrovarlo
 
 ## Conformità — le due metà del confronto
 
@@ -430,4 +430,4 @@ Col lotto imballato in misure diverse — che è il caso della miscela vera — 
 | inventario.ts | 9 | 24 |
 | spedizioni.ts | 3 | 10 |
 | udc.ts | 2 | 12 |
-| wip.ts | 1 | 10 |
+| wip.ts | 1 | 17 |

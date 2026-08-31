@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   conto, consumo, daRendere, attivo, ubicazioneDi, colliFuori,
   rendiconto, misureDelReso, archiviato, ordiniArchiviati, righeSenzaOrdine,
+  inLavorazione, resi, motivoNonStornabile,
 } from '../src/modules/wip';
 import { scelteDaMisure } from '../src/modules/colli';
 
@@ -821,5 +822,214 @@ describe('le UM che mancano si derivano dalla confezione', () => {
     expect(c.entrato).toBe(1);
     expect(c.righe[0].entrato_uom).toBe(25);
     expect(c.chiuso).toBe(true);
+  });
+});
+
+/* ══ 2.14 · QUELLO CHE È FERMO IN LAVORAZIONE, E I RESI CHE SI ANNULLANO ══ */
+
+/* Come `mov`, ma con le cose che allo storno servono: l'identificativo, la
+   data, e i tre campi che legano un reso al suo storno e al suo vuoto. */
+const riga = (odp, key, verso, qty, extra = {}) => ({
+  wip_id: extra.id ?? null,
+  odp_num: odp, item_key: key, verso, qty,
+  qty_uom: extra.uom ?? null, uom: extra.unita ?? null,
+  packs: extra.packs ?? null,
+  article_code: key.split('#')[0], lot_code: key.split('#')[1],
+  reso_a: extra.dove ?? null, storno_di: extra.storno ?? null,
+  reso_di: extra.vuotoDi ?? null, user: extra.chi ?? null,
+  ts: extra.ts ?? null,
+});
+
+describe('inLavorazione', () => {
+  it('una riga per ogni coppia ordine × articolo#lotto che ha qualcosa fuori', () => {
+    const f = inLavorazione([
+      riga('ODP-1', 'A#L1', 'in', 5, { ts: 10 }),
+      riga('ODP-2', 'A#L1', 'in', 3, { ts: 20 }),
+      riga('ODP-1', 'B#L2', 'in', 1, { ts: 30 }),
+    ]);
+    expect(f).toHaveLength(3);
+    expect(f.map((r) => r.odp_num + '/' + r.item_key).sort())
+      .toEqual(['ODP-1/A#L1', 'ODP-1/B#L2', 'ODP-2/A#L1']);
+  });
+
+  it('la stessa merce sotto due ordini resta DUE righe: si rende separatamente', () => {
+    const f = inLavorazione([
+      riga('ODP-1', 'A#L1', 'in', 5, { ts: 10 }),
+      riga('ODP-2', 'A#L1', 'in', 3, { ts: 20 }),
+    ]);
+    expect(f.filter((r) => r.item_key === 'A#L1')).toHaveLength(2);
+    expect(f.find((r) => r.odp_num === 'ODP-1').residuo).toBe(5);
+    expect(f.find((r) => r.odp_num === 'ODP-2').residuo).toBe(3);
+  });
+
+  it('una riga rientrata del tutto esce dall elenco', () => {
+    const f = inLavorazione([
+      riga('ODP-1', 'A#L1', 'in', 5, { ts: 10 }),
+      riga('ODP-1', 'A#L1', 'out', 5, { ts: 20 }),
+    ]);
+    expect(f).toEqual([]);
+  });
+
+  it('un ordine archiviato non compare, nemmeno con merce nel vano', () => {
+    const f = inLavorazione([
+      riga('ODP-1', 'A#L1', 'in', 5, { ts: 10 }),
+      { odp_num: 'ODP-1', verso: 'chiuso', ts: 20 },
+    ]);
+    expect(f).toEqual([]);
+  });
+
+  it('un residuo negativo SI VEDE: e il conto che non sta in piedi', () => {
+    const f = inLavorazione([
+      riga('ODP-1', 'A#L1', 'in', 2, { ts: 10 }),
+      riga('ODP-1', 'A#L1', 'out', 3, { ts: 20 }),
+    ]);
+    expect(f).toHaveLength(1);
+    expect(f[0].residuo).toBe(-1);
+  });
+
+  it('zero colli ma UM ancora fuori resta in elenco', () => {
+    const f = inLavorazione([
+      riga('ODP-1', 'A#L1', 'in', 1, { ts: 10, uom: 25, unita: 'KG' }),
+      riga('ODP-1', 'A#L1', 'out', 1, { ts: 20, uom: 5, unita: 'KG' }),
+    ]);
+    expect(f).toHaveLength(1);
+    expect(f[0]).toMatchObject({ residuo: 0, residuo_uom: 20 });
+  });
+
+  it('l ultima toccata sta in cima, e `dal` e il PRIMO ingresso', () => {
+    const f = inLavorazione([
+      riga('ODP-1', 'A#L1', 'in', 5, { ts: 100 }),
+      riga('ODP-1', 'A#L1', 'in', 5, { ts: 300 }),
+      riga('ODP-2', 'B#L2', 'in', 1, { ts: 200 }),
+    ]);
+    expect(f[0]).toMatchObject({ odp_num: 'ODP-1', dal: 100, ultimo: 300 });
+    expect(f[1].odp_num).toBe('ODP-2');
+  });
+
+  it('gli altri ordini del giro viaggiano sulla riga', () => {
+    const f = inLavorazione([
+      { ...riga('ODP-1', 'A#L1', 'in', 5, { ts: 10 }), giro_odps: ['ODP-1', 'ODP-2'] },
+    ]);
+    expect(f[0].serviti).toEqual(['ODP-2']);
+  });
+
+  it('le UM che mancano si derivano dalla confezione, come nel conto', () => {
+    const f = inLavorazione([riga('ODP-1', 'A#L1', 'in', 2, { ts: 10, unita: 'KG' })], () => 25);
+    expect(f[0].residuo_uom).toBe(50);
+  });
+
+  it('senza movimenti non inventa niente', () => {
+    expect(inLavorazione(null)).toEqual([]);
+    expect(inLavorazione([])).toEqual([]);
+  });
+});
+
+describe('resi', () => {
+  const base = [
+    riga('ODP-1', 'A#L1', 'in', 5, { id: 'W1', ts: 10 }),
+    riga('ODP-1', 'A#L1', 'out', 2, { id: 'W2', ts: 20, uom: 40, unita: 'KG', packs: [20, 20], dove: 'MAG1-A-01', chi: 'ANDS' }),
+    riga('ODP-2', 'A#L1', 'out', 9, { id: 'W9', ts: 30 }),
+  ];
+
+  it('elenca solo i resi di QUEST ordine', () => {
+    const r = resi(base, 'ODP-1');
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ wip_id: 'W2', qty: 2, qty_uom: 40, uom: 'KG', dove: 'MAG1-A-01', user: 'ANDS' });
+    expect(r[0].packs).toEqual([20, 20]);
+  });
+
+  it('dal piu recente', () => {
+    const r = resi([
+      ...base,
+      riga('ODP-1', 'B#L2', 'out', 1, { id: 'W3', ts: 99 }),
+    ], 'ODP-1');
+    expect(r.map((x) => x.wip_id)).toEqual(['W3', 'W2']);
+  });
+
+  it('il vuoto della confezione aperta si appaia per `reso_di`', () => {
+    const r = resi([
+      ...base,
+      riga('ODP-1', 'A#L1', 'consumo', 0, { id: 'W2b', ts: 21, uom: 15, vuotoDi: 'W2' }),
+    ], 'ODP-1');
+    expect(r[0].vuoto).toEqual({ wip_id: 'W2b', qty_uom: 15 });
+  });
+
+  it('uno storno gia scritto si vede sulla riga del reso', () => {
+    const r = resi([
+      ...base,
+      riga('ODP-1', 'A#L1', 'in', 2, { id: 'W4', ts: 40, storno: 'W2' }),
+    ], 'ODP-1');
+    expect(r[0].stornato_da).toBe('W4');
+  });
+
+  it('un ordine senza resi da un elenco vuoto', () => {
+    expect(resi(base, 'ODP-3')).toEqual([]);
+    expect(resi(null, 'ODP-1')).toEqual([]);
+  });
+
+  it('senza confezioni aperte, i colli rientrati sono quelli usciti', () => {
+    /* Due colli da 20 escono dal vano e ne rientrano 40 KG: nessuno e stato
+       aperto, e a scaffale ci sono gli stessi due. */
+    const r = resi([riga('ODP-1', 'A#L1', 'out', 2,
+      { id: 'W2', ts: 20, uom: 40, unita: 'KG', packs: [20, 20] })], 'ODP-1');
+    expect(r[0].packs_rientrati).toEqual([20, 20]);
+  });
+
+  it('con una confezione aperta i colli rientrati si leggono, non si deducono', () => {
+    const scritti = resi([riga('ODP-1', 'A#L1', 'out', 2,
+      { id: 'W2', ts: 20, uom: 25, unita: 'KG', packs: [20, 20] })], 'ODP-1');
+    /* 40 usciti, 25 rientrati: quali colli ci siano a scaffale la riga non
+       lo sa, e dedurlo sarebbe inventarlo. */
+    expect(scritti[0].packs_rientrati).toBeNull();
+
+    const con = resi([{
+      ...riga('ODP-1', 'A#L1', 'out', 2, { id: 'W2', ts: 20, uom: 25, unita: 'KG', packs: [20, 20] }),
+      reso_packs: [20, 5],
+    }], 'ODP-1');
+    expect(con[0].packs_rientrati).toEqual([20, 5]);
+  });
+
+  it('un lotto senza colli dichiarati non ne inventa', () => {
+    const r = resi([riga('ODP-1', 'A#L1', 'out', 3, { id: 'W2', ts: 20 })], 'ODP-1');
+    expect(r[0].packs).toBeNull();
+    expect(r[0].packs_rientrati).toBeNull();
+  });
+});
+
+describe('motivoNonStornabile', () => {
+  const pulito = {
+    wip_id: 'W2', odp_num: 'ODP-1', item_key: 'A#L1', article_code: 'A', lot_code: 'L1',
+    qty: 2, qty_uom: 40, uom: 'KG', packs: [20, 20], packs_rientrati: [20, 20],
+    dove: 'MAG1-A-01', ts: 20, user: 'ANDS', vuoto: null, stornato_da: null,
+  };
+
+  it('un reso pulito si storna', () => {
+    expect(motivoNonStornabile(pulito)).toBeNull();
+  });
+
+  it('un reso gia stornato non si storna due volte', () => {
+    expect(motivoNonStornabile({ ...pulito, stornato_da: 'W4' })).toMatch(/annullato/i);
+  });
+
+  it('una riga senza identificativo non si nomina, e quindi non si annulla', () => {
+    expect(motivoNonStornabile({ ...pulito, wip_id: '' })).toMatch(/identificativo/i);
+  });
+
+  it('un reso parziale vecchio, che non dice quali colli sono tornati, si rifiuta', () => {
+    /* Due colli da 20 usciti dal vano, ne sono rientrati 25: uno intero e
+       uno aperto. Quali siano a scaffale questa riga non lo sa. */
+    expect(motivoNonStornabile({ ...pulito, qty_uom: 25, packs_rientrati: null }))
+      .toMatch(/confezione aperta/i);
+  });
+
+  it('lo stesso reso parziale, coi colli rientrati scritti, si storna', () => {
+    expect(motivoNonStornabile({
+      ...pulito, qty_uom: 25, packs_rientrati: [20, 5],
+      vuoto: { wip_id: 'W2b', qty_uom: 15 },
+    })).toBeNull();
+  });
+
+  it('un lotto che i colli non li dichiara si storna a numero, come sempre', () => {
+    expect(motivoNonStornabile({ ...pulito, packs: null, packs_rientrati: null })).toBeNull();
   });
 });

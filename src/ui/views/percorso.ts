@@ -121,10 +121,8 @@ export const VistaPercorso = {
 
       <div class="kbd-hint mt-7">
         <span class="text-body-small text-sx-text-muted">
-          Sorgente accettata: solo il file <strong>.xlsx</strong> esportato da Sage X3.
-          Il PDF dello stesso ordine espone quantit&agrave; arrotondate ed &egrave; meno affidabile.
-          Pi&ugrave; ordini si caricano uno alla volta: le righe che chiedono lo stesso lotto
-          diventano <strong>una tappa sola</strong>.
+          Solo il file <strong>.xlsx</strong> di Sage X3 &mdash; il PDF arrotonda le quantit&agrave;.
+          Pi&ugrave; ordini si caricano uno alla volta.
         </span>
       </div>`;
     this.setPrimaryScanField(null);
@@ -276,7 +274,11 @@ export const VistaPercorso = {
      due gesti — farlo capofila, toglierlo. Con un ordine solo il capofila
      non si sceglie (è lui) e non si toglie (resterebbe il vuoto): quei due
      comandi nascono con il secondo file. */
-  _routeOrdineCardHTML(o: OrdineDelGiro, soli: boolean) {
+  /* `primo` accende l'unica riga di spiegazione della scheda. Con cinque
+     ordini caricati quella frase si ripeteva cinque volte, e cinque copie
+     della stessa istruzione non insegnano cinque volte: si smette di
+     leggerle tutte, compresa la prima. */
+  _routeOrdineCardHTML(o: OrdineDelGiro, soli: boolean, primo = true) {
     const h = o.header;
     const base = qtaPianificata(h);
     const capo = o.odp_num === this._routeCapofila;
@@ -292,14 +294,14 @@ export const VistaPercorso = {
         <div class="route-head-desc">${this._esc(h.article_desc)}</div>
         <div class="route-head-tools">
           <label class="text-label-small" for="${id}">Quantit&agrave; da produrre</label>
-          <input class="input input-mono w-28" id="${id}" inputmode="decimal"
+          <input class="input input-mono w-[120px] shrink-0" id="${id}" inputmode="decimal"
             placeholder="${this._esc(String(base ?? h.qty_planned ?? ''))}"
             value="${o.qty_voluta !== null ? this._esc(String(o.qty_voluta)) : ''}"
             ${base === null ? 'disabled title="Il foglio non porta una quantità numerica in testata"' : ''}
             onchange="App._routeQtaOrdine('${this._esc(o.odp_num)}', this.value)">
           <span class="text-label-small text-sx-text-muted">${this._esc(h.um || '')}</span>
           ${o.fattore !== 1 ? `<span class="badge badge-amber">distinta ricalibrata ×${this._esc(this._qtaOrdine(o.fattore, null))}</span>`
-            : '<span class="text-label-small text-sx-text-muted">vuoto = quella dell&rsquo;ordine</span>'}
+            : (primo ? '<span class="text-label-small text-sx-text-muted">vuoto = quella dell&rsquo;ordine</span>' : '')}
           ${soli ? '' : `
             ${capo ? '<span class="badge badge-green">capofila &mdash; tiene il conto</span>'
               : `<button class="btn btn-sm" onclick="App._routeSetCapofila('${this._esc(o.odp_num)}')">Fallo capofila</button>`}
@@ -388,16 +390,12 @@ export const VistaPercorso = {
       </div>` : '';
 
     return `
-      ${ordini.map((o) => this._routeOrdineCardHTML(o, soli)).join('')}
+      ${ordini.map((o, i) => this._routeOrdineCardHTML(o, soli, i === 0)).join('')}
 
       ${soli ? '' : `<div class="route-warn mb-5">
-        <strong>🔗 Giro di ${ordini.length} ordini</strong>
-        <div class="text-body-small mt-2">
-          Le righe che chiedono lo stesso articolo dallo stesso lotto sono diventate
-          <strong>una tappa sola</strong>, e la quantit&agrave; &egrave; la somma.
-          Il conto di produzione lo intesta <strong class="mono">${this._esc(this._routeCapofila)}</strong>:
-          gli altri ordini restano scritti sui movimenti, e la ripartizione si dichiara alla chiusura.
-        </div>
+        <strong>🔗 Giro di ${ordini.length} ordini</strong> &mdash; stesso articolo e stesso lotto fanno
+        <strong>una tappa sola</strong>. Il conto lo intesta <strong class="mono">${this._esc(this._routeCapofila)}</strong>,
+        e la ripartizione si dichiara alla chiusura.
       </div>`}
 
       ${sceltaCasaHTML}
@@ -1772,9 +1770,8 @@ export const VistaPercorso = {
         <strong>Percorso completato</strong>
         <div>${done.length} tappe prelevate su ${(s.stops || []).length} per l'ordine ${this._esc(s.odp_num)}.</div>
         ${(s.odps || []).length > 1 ? `<div class="text-body-small mt-2 opacity-85">
-          Giro di ${(s.odps || []).length} ordini — ${this._esc((this._giroDellaSessione(s) || []).join(' · '))}.
-          Il conto di produzione &egrave; intestato a <strong class="mono">${this._esc(s.odp_num)}</strong>:
-          la ripartizione fra gli ordini si dichiara alla chiusura del conto, in Registro ODP.
+          Giro di ${(s.odps || []).length} ordini &mdash; ${this._esc((this._giroDellaSessione(s) || []).join(' · '))}.
+          Il conto lo tiene <strong class="mono">${this._esc(s.odp_num)}</strong>; si ripartisce alla chiusura, in <strong>WIP</strong>.
         </div>` : ''}
       </div>
 

@@ -35,6 +35,9 @@
     parola sbagliata è comunque una bugia, e questa la leggerà chi cerca il
     consumo di un ordine fra sei mesi. */
 export interface MovimentoWip {
+  /** L'identificativo della riga. Serve a nominarla: uno storno deve poter
+      dire QUALE reso sta annullando, e «il reso delle 14:32» non è un nome. */
+  wip_id?: string;
   odp_num: string;
   item_key: string;
   article_code?: string;
@@ -79,6 +82,33 @@ export interface MovimentoWip {
   /** L'identificativo del percorso che ha scritto il movimento: lega fra
       loro le righe di un giro, anche quelle di ordini diversi. */
   giro_id?: string | null;
+  /* ══ 2.14 · LO STORNO DI UN RESO ══════════════════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+     UN RESO SBAGLIATO NON SI CANCELLA: SE NE SCRIVE L'OPPOSTO. Il reso
+     resta dov'è, con la sua data e la sua firma, e accanto nasce un `in`
+     che dice quale reso sta annullando. Chi legge il conto fra sei mesi
+     vede il gesto e il ripensamento, che è quello che è successo davvero;
+     cancellare la riga direbbe che non è successo niente, e su un registro
+     che si tiene sei anni è la sola cosa che non si può fare. */
+  /** Sul movimento di storno: il `wip_id` del reso che annulla. */
+  storno_di?: string | null;
+  /** Sul `consumo` che nasce insieme a un reso parziale — il vuoto della
+      confezione aperta: il `wip_id` di quel reso. Senza, stornando il reso
+      resterebbe scritto il consumo di merce che non è mai stata consumata,
+      e il conto chiuderebbe a un collo di distanza. */
+  reso_di?: string | null;
+  /** Sul reso: DOVE la merce è rientrata. Lo storno la deve riprendere da
+      lì, e cercarlo nel registro dei movimenti vuol dire appaiare due righe
+      per data e sperare — qui è il fatto, scritto nel momento in cui si sa. */
+  reso_a?: string | null;
+  /** Sul reso: QUALI COLLI sono rientrati davvero, che non sono sempre
+      quelli usciti dal vano. Due sacchi da 20 escono e ne risale uno aperto
+      con dentro 5: `packs` dice `[20, 20]` — il lato del vano — e a
+      scaffale ci sono `[20, 5]`. Lo storno riprende questi, non quelli. */
+  reso_packs?: number[] | null;
+  /** Chi ha firmato il movimento. */
+  user?: string | null;
   ts?: number;
 }
 
@@ -320,6 +350,194 @@ export function ordiniArchiviati(
   return [...visti.entries()]
     .map(([odp_num, chiuso_il]) => ({ odp_num, chiuso_il }))
     .sort((a, b) => (b.chiuso_il ?? 0) - (a.chiuso_il ?? 0));
+}
+
+/** Una riga ferma nel vano di lavorazione, col conto a cui appartiene. */
+export interface RigaInLavorazione extends ContoRiga {
+  odp_num: string;
+  /** Il primo ingresso di questa riga in questo conto. */
+  dal: number | null;
+  /** L'ultimo movimento che l'ha toccata, in un verso qualunque. */
+  ultimo: number | null;
+  /** Gli altri ordini che questo conto sta servendo. Vuoto fuori da un giro. */
+  serviti: string[];
+}
+
+/** ══ 2.14 · QUELLO CHE È FERMO IN LAVORAZIONE, TUTTO INSIEME ═══════════
+    © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+    `conto` risponde su UN ordine di cui si sa già il numero. Ma chi entra
+    in produzione la domanda ce l'ha al contrario: non «come sta ODP-7», che
+    presuppone di sapere che ODP-7 esiste, ma «che cosa c'è fermo di là».
+    Fino alla 2.13 quella domanda non aveva una funzione: la maschera
+    elencava i numeri d'ordine e per vedere la merce bisognava aprirli uno
+    per uno.
+
+    Esce una riga per ogni coppia ORDINE × ARTICOLO#LOTTO che ha ancora
+    qualcosa fuori — che è l'unità su cui si agisce, perché il vano è uno e
+    a tenere distinti i conti è l'ordine. La stessa merce sotto due ordini
+    diversi sono due righe, e devono esserlo: si rendono e si consumano
+    separatamente.
+
+    GLI ORDINI ARCHIVIATI NON CI SONO. Dal loro conto non esce più niente —
+    `esceDaWip` lo rifiuta — e un elenco di cose su cui non si può agire è
+    un elenco che si impara a saltare.
+
+    UN RESIDUO NEGATIVO CI STA. È il conto che non sta in piedi (voce 61), e
+    nasconderlo dalla sola schermata da cui lo si potrebbe vedere vorrebbe
+    dire tenerlo nascosto e basta. */
+export function inLavorazione(
+  movimenti: readonly MovimentoWip[] | null | undefined,
+  perCollo: PerCollo | null = null,
+): RigaInLavorazione[] {
+  if (!movimenti?.length) return [];
+  const ordini = new Set<string>();
+  for (const m of movimenti) {
+    const k = chiave(m?.odp_num);
+    if (k) ordini.add(k);
+  }
+
+  const fuori: RigaInLavorazione[] = [];
+  for (const odp of ordini) {
+    if (archiviato(movimenti, odp)) continue;
+    const c = conto(movimenti, odp, perCollo);
+    if (!c.righe.length) continue;
+    const serviti = ordiniServiti(movimenti, odp);
+    for (const r of c.righe) {
+      if (r.residuo === 0 && (r.residuo_uom ?? 0) === 0) continue;
+      let dal: number | null = null;
+      let ultimo: number | null = null;
+      for (const m of movimenti) {
+        if (!m || chiave(m.odp_num) !== odp || m.item_key !== r.item_key) continue;
+        const t = typeof m.ts === 'number' ? m.ts : null;
+        if (t === null) continue;
+        if (m.verso === 'in' && (dal === null || t < dal)) dal = t;
+        if (ultimo === null || t > ultimo) ultimo = t;
+      }
+      fuori.push({ ...r, odp_num: odp, dal, ultimo, serviti });
+    }
+  }
+
+  /* L'ultima toccata in cima: chi apre la schermata sta quasi sempre
+     tornando su quello che ha appena mosso. A parità si ordina per ordine e
+     poi per chiave, così due letture si confrontano a occhio. */
+  return fuori.sort((a, b) => (b.ultimo ?? 0) - (a.ultimo ?? 0)
+    || a.odp_num.localeCompare(b.odp_num)
+    || a.item_key.localeCompare(b.item_key));
+}
+
+/** Un reso già scritto, come lo si rilegge per poterlo annullare. */
+export interface Reso {
+  wip_id: string;
+  odp_num: string;
+  item_key: string;
+  article_code: string;
+  lot_code: string;
+  /** I colli usciti dal vano. */
+  qty: number;
+  /** Quanto è rientrato davvero a magazzino, quando si sa. */
+  qty_uom: number | null;
+  uom: string | null;
+  /** Le misure dei colli usciti DAL VANO. */
+  packs: number[] | null;
+  /** Le misure dei colli rientrati A SCAFFALE — quelli che lo storno deve
+      riprendere. Coincidono con `packs` finché non si apre una confezione.
+      `null` quando la riga non permette di saperlo. */
+  packs_rientrati: number[] | null;
+  /** Dove la merce è rientrata. `null` sulle righe scritte prima della 2.14. */
+  dove: string | null;
+  ts: number | null;
+  user: string | null;
+  /** Il consumo scritto nello stesso gesto — il vuoto della confezione
+      aperta. `null` quando il reso non ne ha lasciato.
+
+      NON SI STORNA INSIEME AL RESO, e non è una dimenticanza: quella merce
+      è finita nel prodotto davvero. Riportare nel vano un sacco pieno al
+      posto di uno mezzo vuoto sarebbe scrivere a magazzino merce che non
+      c'è. Lo storno riporta indietro quello che è rientrato, e il vuoto
+      resta dichiarato: la maschera lo dice prima di premere. */
+  vuoto: { wip_id: string; qty_uom: number | null } | null;
+  /** Il `wip_id` dello storno che l'ha già annullato, se c'è. */
+  stornato_da: string | null;
+}
+
+/** I RESI DI UN ORDINE, DAL PIÙ RECENTE — l'elenco da cui si sceglie quale
+    correggere. Porta con sé le due cose che servono a disfarlo: dove la
+    merce era rientrata, e se il gesto aveva lasciato anche un vuoto a
+    consumo. */
+export function resi(
+  movimenti: readonly MovimentoWip[] | null | undefined,
+  odpNum: string | null | undefined,
+): Reso[] {
+  const odp = chiave(odpNum);
+  if (!movimenti?.length || !odp) return [];
+  const miei = movimenti.filter((m) => m && chiave(m.odp_num) === odp);
+
+  const vuotoDi = new Map<string, MovimentoWip>();
+  const stornoDi = new Map<string, string>();
+  for (const m of miei) {
+    if (m.verso === 'consumo' && m.reso_di) vuotoDi.set(String(m.reso_di), m);
+    if (m.verso === 'in' && m.storno_di) stornoDi.set(String(m.storno_di), String(m.wip_id ?? ''));
+  }
+
+  const elenco: Reso[] = [];
+  for (const m of miei) {
+    if (m.verso !== 'out') continue;
+    const id = String(m.wip_id ?? '');
+    const v = id ? vuotoDi.get(id) ?? null : null;
+    const packs = Array.isArray(m.packs) && m.packs.length ? m.packs.slice() : null;
+    const um = typeof m.qty_uom === 'number' ? m.qty_uom : null;
+    /* QUALI COLLI SONO RIENTRATI. Dalla 2.14 la riga lo dice. Prima no, e
+       allora si deduce: se quel che è uscito dal vano pesa quanto quel che
+       è rientrato, nessuna confezione è stata aperta e i due elenchi sono
+       lo stesso. Se non torna, quali colli ci siano a scaffale è una cosa
+       che questa riga non sa, e dedurla sarebbe inventarla. */
+    const chiusi = packs ? packs.reduce((s, n) => s + (Number(n) || 0), 0) : 0;
+    const rientrati = Array.isArray(m.reso_packs) && m.reso_packs.length
+      ? m.reso_packs.slice()
+      : (packs && (um === null || Math.abs(chiusi - um) < 1e-9) ? packs.slice() : null);
+    elenco.push({
+      wip_id: id,
+      odp_num: odp,
+      item_key: m.item_key,
+      article_code: m.article_code || m.item_key.split('#')[0] || '',
+      lot_code: m.lot_code || m.item_key.split('#')[1] || '',
+      qty: Number(m.qty) || 0,
+      qty_uom: um,
+      uom: m.uom ?? null,
+      packs,
+      packs_rientrati: rientrati,
+      dove: m.reso_a ? String(m.reso_a) : null,
+      ts: typeof m.ts === 'number' ? m.ts : null,
+      user: m.user ?? null,
+      vuoto: v ? { wip_id: String(v.wip_id ?? ''), qty_uom: typeof v.qty_uom === 'number' ? v.qty_uom : null } : null,
+      stornato_da: id ? (stornoDi.get(id) ?? null) : null,
+    });
+  }
+  return elenco.sort((a, b) => (b.ts ?? 0) - (a.ts ?? 0));
+}
+
+/** PERCHÉ QUESTO RESO NON SI PUÒ ANNULLARE, o `null` se si può.
+
+    Non lancia: sono le risposte a una domanda, e una risposta che non sta
+    in piedi si dice a chi l'ha fatta. Chi chiama la mostra accanto alla
+    riga, invece di offrire un pulsante che poi rifiuta. */
+export function motivoNonStornabile(r: Reso | null | undefined): string | null {
+  if (!r) return 'Reso non trovato sul conto.';
+  if (r.stornato_da) return 'Questo reso è già stato annullato.';
+  if (!r.wip_id) {
+    return 'Questa riga non porta un identificativo: è stata scritta prima che lo storno esistesse. '
+      + 'La correzione si fa da Movimenta, spostando la merce a mano.';
+  }
+  /* QUALI COLLI RIPRENDERE. Su un lotto che i suoi colli li dichiara,
+     «togline due» non è una risposta — è la regola che vale in tutto
+     l'applicativo dalla 2.0. Se la riga non permette di sapere quali siano
+     rientrati, lo storno non si fa a indovinare. */
+  if (!r.packs_rientrati && r.packs?.length) {
+    return 'Questo reso ha riportato una confezione aperta, e la riga non dice con quali colli: '
+      + 'è stata scritta prima che venissero registrati. La correzione si fa da Movimenta.';
+  }
+  return null;
 }
 
 /** 2.12 — QUANTO AVEVANO CHIESTO GLI ORDINI DEL GIRO, su una riga di questo

@@ -255,4 +255,12 @@ export const SUPERFICIE = [
      aperto e il rendiconto su carta. */
   '_wipConsumaTutto', '_wipDichiaraConsumata', '_wipScelteConParte', '_wipQuoteConsumo',
   '_wipStampaRendiconto',
+  /* 2.14 — la schermata parte dalla merce e non dal numero: la lista di
+     quello che e' fermo in lavorazione, ordinabile e filtrabile, l'elenco
+     compatto dei conti aperti, e la via per l'archivio che e' uscito di qui. */
+  '_wipTabella', '_wipOrfaneAperte', '_wipColonne', '_wipOrdina', '_wipCerca',
+  '_wipRidisegnaLista', '_wipQta', '_wipListaHTML', '_wipDaRiga', '_wipOrdiniHTML',
+  '_wipVaiAllArchivio',
+  /* 2.14 — un reso sbagliato si annulla, e non si cancella. */
+  '_wipCorreggiReso', '_wipStorna',
 ];

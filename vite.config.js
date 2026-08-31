@@ -22,7 +22,7 @@ import zlib from 'node:zlib';
    `index.html` e sta in `consegna/`: una build a file singolo e' una cartella
    con dentro solo l'indice, e il servizio non deve sapere che e' diversa. */
 const CONSEGNA = 'consegna';
-const VERSIONE = '2.13';
+const VERSIONE = '2.14';
 const UNICO = process.env.SINGLE_FILE === '1';
 
 const DAL_SERVIZIO = [

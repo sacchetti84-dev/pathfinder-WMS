@@ -74,7 +74,7 @@ const CAMPI_TESTO: ReadonlySet<string> = new Set([
   /* RICERCHE — cercano anche nelle descrizioni, e una descrizione
      maiuscolata non si trova piu'. */
   'arcText', 'artFilterInput', 'cpQuery', 'ntArticle', 'opCerca',
-  'regCerca', 'regFilterText',
+  'regCerca', 'regFilterText', 'wipCerca',
   /* NOMI PROPRI E RAGIONI SOCIALI — due grafie non fanno due persone:
      l'identita' la fanno `op_id` e la partita IVA. */
   'artSupplier', 'eaSupplier', 'cpFirst', 'cpLast', 'editSiteName', 'ezName', 'opFirst', 'opLast',

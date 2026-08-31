@@ -842,3 +842,13 @@
    segnaposto non si vede, e se si vedesse direbbe che e' confermato il
    vuoto. */
 .input.campo-ok::placeholder { color: var(--sx-text-muted); font-weight: 400; }
+
+/* 2.14 — UNA MASCHERA SOPRA UN'ALTRA SI VEDE CHE È SOPRA. La scelta dei
+   colli si apre dentro il reso, e con lo stesso velo al 32% la finestra di
+   sotto restava chiara come quella di sopra: due riquadri accesi, e chi
+   guarda non sa quale risponde. Il velo della seconda è più fitto, e la
+   seconda sta sopra. */
+.modal-overlay ~ .modal-overlay {
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 2001;
+}

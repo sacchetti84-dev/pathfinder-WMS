@@ -67,7 +67,9 @@ import { conto as contoWip, colliFuori as colliFuoriWip, archiviato as archiviat
          ordiniArchiviati as ordiniArchiviatiWip,
          contoTenutoDa as contoTenutoDaWip, ordiniServiti as ordiniServitiWip,
          richiesteDiRiga as richiesteDiRigaWip, consumoPerOrdine as consumoPerOrdineWip,
-         righeSenzaOrdine as righeSenzaOrdineWip } from '../modules/wip';
+         righeSenzaOrdine as righeSenzaOrdineWip,
+         inLavorazione as inLavorazioneWip, resi as resiDiOrdineWip,
+         motivoNonStornabile } from '../modules/wip';
 import { registroAttivita as registroAttivitaPuro } from '../modules/compiti';
 import {
   perPersona as kpiPerPersona, perMovimento as kpiPerMovimento, perArticolo as kpiPerArticolo,
@@ -2109,6 +2111,86 @@ const Store = {
     return righeSenzaOrdineWip(this._cache.wip as any[], this.getItemsAtLocation(vano));
   },
 
+  /** 2.14 — QUELLO CHE È FERMO IN LAVORAZIONE, riga per riga, senza dover
+      prima sapere il numero di un ordine. Vedi `inLavorazione`. */
+  righeInLavorazioneWip() {
+    return inLavorazioneWip(this._cache.wip as any[],
+      (r) => this.getUomConfig(r.article_code, r.lot_code)?.per_collo ?? null);
+  },
+
+  /** 2.14 — I resi già scritti su un ordine, dal più recente. */
+  resiWip(odpNum: string) {
+    return resiDiOrdineWip(this._cache.wip as any[], odpNum);
+  },
+
+  /** ══ 2.14 · ANNULLARE UN RESO SBAGLIATO ═══════════════════════════════
+      © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+      Un reso finito nel vano sbagliato, o fatto su una riga per un'altra,
+      fin qui non aveva una via d'uscita: la merce era a scaffale sotto una
+      causale che diceva una cosa non vera, e il conto dell'ordine era calato
+      di colli che in reparto c'erano ancora.
+
+      NON SI CANCELLA NIENTE. Il reso resta scritto, con la sua data e la sua
+      firma, e accanto nasce un `in` che dice quale reso annulla: chi legge
+      il conto fra sei mesi vede il gesto e il ripensamento, che è quello che
+      è successo. Su un registro che si tiene sei anni cancellare è la sola
+      cosa che non si può fare.
+
+      LA MERCE TORNA DA DOVE ERA ANDATA, e con gli stessi colli: quelli
+      RIENTRATI, non quelli usciti dal vano — dopo una confezione aperta i
+      due elenchi non sono lo stesso. Se nel frattempo qualcuno l'ha mossa,
+      lo storno si ferma e lo dice invece di scrivere un saldo sopra uno
+      scaffale che non c'è più.
+
+      IL VUOTO DI UNA CONFEZIONE APERTA NON SI STORNA. Quella merce è finita
+      nel prodotto davvero: rimetterla nel vano scriverebbe a magazzino roba
+      che non esiste. */
+  async stornaResoWip(odpNum: string, wipId: string, daDove: string | null = null) {
+    const vano = this.getAreaWip();
+    if (!vano) throw new Error('Area WIP non configurata');
+    const odp = String(odpNum ?? '').trim().toUpperCase();
+    if (this.ordineWipArchiviato(odp)) {
+      throw new Error(`L'ordine ${odp} è chiuso e archiviato: sul suo conto non si scrive più niente`);
+    }
+    const reso = this.resiWip(odp).find((r) => r.wip_id === wipId);
+    const motivo = motivoNonStornabile(reso);
+    if (motivo) throw new Error(motivo);
+
+    const da = String(daDove ?? reso!.dove ?? '').trim().toUpperCase();
+    if (!da) {
+      throw new Error('Questo reso non dice dove la merce sia rientrata: indicare l’ubicazione da cui riprenderla');
+    }
+    const riga = (this._invByLoc.get(da) || []).find((i) => i.item_key === reso!.item_key);
+    if (!riga) throw new Error(`${reso!.item_key} non è più in ${da}: la merce è stata mossa dopo il reso`);
+
+    const misure = reso!.packs_rientrati;
+    const scelte = misure ? this.scelteDaColli(riga, misure) : null;
+    if (misure && !scelte) {
+      throw new Error(`I colli di questo reso non si ritrovano più in ${da}: sono stati mossi o aperti dopo`);
+    }
+
+    const tolti = await this.removeItem(da, reso!.item_key, scelte ? null : reso!.qty,
+      reso!.qty_uom ?? null, scelte);
+    if (!tolti) throw new Error(`${reso!.item_key} non è più in ${da}`);
+
+    const rimessi = misure ?? (tolti as any)._packs_out ?? null;
+    const colli = rimessi ? rimessi.length : Math.abs((tolti as any)._qty_delta ?? reso!.qty);
+    const um = typeof (tolti as any)._qty_uom_delta === 'number'
+      ? Math.abs((tolti as any)._qty_uom_delta) : (reso!.qty_uom ?? null);
+
+    const res = await this.addItem(vano, reso!.article_code, '', reso!.lot_code, '',
+      `Storno del reso — ordine ${odp}`, colli, um, rimessi, { regolaBase: false });
+    if (!res.ok) throw new Error(`Non è stato possibile riportare ${reso!.item_key} in ${vano}`);
+
+    await this._scriviWip(odp, {
+      item_key: reso!.item_key, article_code: reso!.article_code, lot_code: reso!.lot_code,
+      qty: colli, qty_uom: um, uom: reso!.uom, packs: rimessi, storno_di: reso!.wip_id,
+    }, 'in', vano);
+
+    return { uscita: tolti, colli, qty_uom: um, da, vano, reso: reso! };
+  },
+
   /** La merce entra in lavorazione: si posiziona nel vano WIP dell'ordine e
       il movimento resta scritto. Chi chiama l'ha già tolta dal suo vano —
       questa funzione non toglie niente, aggiunge. */
@@ -2188,7 +2270,11 @@ const Store = {
         fino al movimento e non entra in nessun saldo. */
     giro_richieste?: { odp_num: string; qty: number }[] | null;
   }, scelte: Scelta[] | null = null, verso: 'out' | 'consumo' = 'out',
-     umResa: number | null = null) {
+     umResa: number | null = null,
+     /** 2.14 — DOV'È RIENTRATA LA MERCE E CON QUALI COLLI. Non sono
+         proprietà della riga: sono del gesto, e servono allo storno per
+         sapere da dove riprenderla e cosa. */
+     rientro: { dove?: string | null; packs?: number[] | null } | null = null) {
     const dove = this.getAreaWip();
     if (!dove) throw new Error('Area WIP non configurata');
     if (this.ordineWipArchiviato(odpNum)) {
@@ -2267,12 +2353,18 @@ const Store = {
        non deve mai poter essere letto a metà. */
     if (verso === 'out' && typeof umResa === 'number' && uscitoUom !== null
         && umResa > 0 && umResa < uscitoUom) {
-      await this._scriviWip(odpNum, {
+      const reso = await this._scriviWip(odpNum, {
         ...riga, qty: usciti, qty_uom: umResa, packs: tolti._packs_out ?? misure ?? null,
+        reso_a: rientro?.dove ?? null, reso_packs: rientro?.packs ?? null,
       }, 'out', dove);
+      /* 2.14 — IL VUOTO PORTA IL NOME DEL RESO CHE L'HA FATTO. Sono un
+         gesto solo scritto in due righe, e chi ne annulla una deve trovare
+         l'altra: senza questo legame, stornando il reso resterebbe a
+         consumo merce che non è mai stata consumata. */
       await this._scriviWip(odpNum, {
         ...riga, qty: 0, packs: null,
         qty_uom: arrotondaUom(uscitoUom - umResa, decimaliUom(riga.uom ?? null)),
+        reso_di: reso.wip_id,
       }, 'consumo', dove);
       return tolti;
     }
@@ -2282,6 +2374,8 @@ const Store = {
       qty: usciti,
       qty_uom: uscitoUom,
       packs: tolti._packs_out ?? misure ?? null,
+      reso_a: rientro?.dove ?? null,
+      reso_packs: rientro?.packs ?? null,
     }, verso, dove);
     return tolti;
   },
@@ -2332,6 +2426,16 @@ const Store = {
       giro_richieste: Array.isArray(riga.giro_richieste) && riga.giro_richieste.length > 1
         ? riga.giro_richieste : null,
       giro_id: riga.giro_id ? String(riga.giro_id) : null,
+      /* 2.14 — I TRE CAMPI DELLO STORNO. Su un `in` di storno, quale reso
+         annulla; sul `consumo` che nasce da un reso parziale, di quale reso
+         è il vuoto; su un reso, dove la merce è rientrata. Sono fatti noti
+         nel momento in cui si scrive la riga: ricostruirli dopo vorrebbe
+         dire appaiare movimenti per data e sperare. */
+      storno_di: riga.storno_di ? String(riga.storno_di) : null,
+      reso_di: riga.reso_di ? String(riga.reso_di) : null,
+      reso_a: verso === 'out' && riga.reso_a ? String(riga.reso_a) : null,
+      reso_packs: verso === 'out' && Array.isArray(riga.reso_packs) && riga.reso_packs.length
+        ? riga.reso_packs : null,
       location_code: dove,
       user: this.getCurrentIdentity().initials,
       ts: Date.now(),
