@@ -10,8 +10,9 @@ Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
 Aggiornato: **01/09/2026 notte** — la macchina è stata **riportata a zero e
 reinstallata pulita**: la **2.14 è in servizio** su un database vuoto, e il
 primo Admin non esiste ancora. Voce **74**. Nel farlo è venuto fuori un difetto
-dell'installer che si era già mangiato una serata (voce **75**): corretto e
-provato. La riscrittura compatta è del 28/08; la stesura
+dell'installer che si era già mangiato una serata (voce **75**): corretto,
+provato, e insieme alla **disinstallazione completa** è diventato la **2.15**,
+costruita e non installata. La riscrittura compatta è del 28/08; la stesura
 narrativa che l'ha preceduta resta nella storia git al commit `f4a9578`.
 
 **Cos'è Pathfinder.** Applicativo web per un magazzino alimentare in GMP.
@@ -204,10 +205,10 @@ Tutti rilanciati il **31/08 sera**, sul codice della 2.14:
 
 | | |
 |---|---|
-| client | **1.246 prove in 42 file, tutte verdi** — `npm test`. Erano 1.222: le ventiquattro nuove stanno in `wip.test.js` e coprono `inLavorazione`, `resi` e `motivoNonStornabile` |
+| client | **1.211 prove in 42 file — 1.210 verdi e 1 saltata**, `npm test`. **La riga diceva 1.246, ed era sbagliata**: misurata il 01/09 su un albero in cui nessun file di prova era cambiato dal giorno in cui quel numero è stato scritto. Le ventiquattro nuove della 2.14 stanno in `wip.test.js` e coprono `inLavorazione`, `resi` e `motivoNonStornabile` |
 | tipi | `npm run check` **a 0** su client e servizio |
 | servizio | **139** |
-| migrazione · installazione | **8 · 43** — dieci nuove il 01/09: due sull'installer che si murava da solo (voce 75), otto sulla disinstallazione |
+| migrazione · installazione | **8 · 43** — dieci nuove il 01/09: due sull'installer che si murava da solo (voce 75), otto sulla disinstallazione (§3, 2.15) |
 | gerarchia (`banco/gerarchia.cjs`) | **32** — le cariche provate sul servizio, con `fetch` e i cookie veri |
 | ciclo (`banco/ciclo/gira.cjs`) | **45 su 47, due rosse** — le **stesse due di prima** della 2.14, cioè due banchi rimasti indietro: voci **70** e **71** |
 
@@ -222,15 +223,17 @@ Tutti rilanciati il **31/08 sera**, sul codice della 2.14:
 | prova a vuoto | `.\installa.ps1 -NonChiedere -Prova` **sulla macchina di allora, che aveva la 2.13 in servizio**: strada **aggiornamento**, radice `C:\Pathfinder`, PostgreSQL già pronto, **nessuna migrazione**, database non toccato |
 | provata al banco | **sì, dal pacchetto** — non solo dal sorgente: servizio sulla 4199 con `banco\app\corrente` a 2.14 e `banco\db\ui.db`, e la schermata nuova esercitata di lì |
 
-> **IL PACCHETTO 2.14 È STATO RITAGLIATO TRE VOLTE, E SI CHIAMA SEMPRE 2.14.**
-> Il 31/08 sera con l'installer vecchio, il 01/09 con la correzione della voce
-> 75, e ancora il 01/09 con la disinstallazione (§6). **L'applicativo non è
-> mai cambiato** — stessa impronta `8a25574b…`, stessi 1.901.483 byte — e
-> l'impronta è quella che identifica una versione (§2). **Ma l'installer sì**,
-> e l'impronta non lo copre: chi tiene in mano una cartella «Pathfinder 2.14»
-> non ha modo di sapere quale dei tre installer ci sia dentro. **Prima di
-> consegnare questo pacchetto a qualcuno il numero va mosso** — §7, «il numero
-> di versione sta in quattro posti».
+> **IL PACCHETTO 2.14 ERA STATO RITAGLIATO TRE VOLTE COL SOLITO NUMERO, e per
+> questo esiste la 2.15.** Il 31/08 sera con l'installer vecchio, il 01/09 con
+> la correzione della voce 75, e ancora il 01/09 con la disinstallazione.
+> L'applicativo non era mai cambiato — stessa impronta, stessi byte — **ma
+> l'installer sì, e l'impronta non lo copre**: chi tiene in mano una cartella
+> «Pathfinder 2.14» non ha modo di sapere quale dei tre ci sia dentro. Il
+> numero è stato mosso a **2.15** e la 2.14 è stata archiviata in
+> `ARCHIVIO\VERSIONI PRECEDENTI\` **nella forma che gira sulla macchina**.
+> **L'IMPRONTA IDENTIFICA L'APPLICATIVO, NON IL PACCHETTO**: due pacchetti con
+> la stessa impronta possono portare installer diversi, e l'unico modo di
+> tenerli distinti è il numero.
 
 **Installata il 01/09 sera**, e non per aggiornamento: sulla macchina rifatta
 l'installer ha preso la strada di **prima installazione**, quella che la prova a
@@ -242,6 +245,23 @@ macchina, installata prima della ricostruzione, risponde `19:07:52`. **I byte
 dell'applicativo sono gli stessi**: l'impronta lo prova, ed è lei che conta.
 Installare resta un atto umano — §0 punto 4.
 
+### La 2.15 — costruita, non installata
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.15\` |
+| impronta | `7b812c48ae9d1c878efd7e3e5114bed96fa3536c8ccb13d4107ab335fe4fd7eb` |
+| byte | **1.901.483** in **4 file**, `costruita 2026-08-31T23:34:17Z` |
+| riproducibile | **sì, verificata**: due build di fila dello stesso albero danno la stessa impronta |
+| cosa cambia | **niente nell'applicativo**: solo il numero e l'installer — §3 |
+| prova a vuoto | `installa.ps1 -NonChiedere -Prova` sulla macchina in servizio: strada **aggiornamento**, radice `C:\Pathfinder`, **nessuna migrazione**, database non toccato, riavvio del servizio sì |
+| disinstallazione | `installa.ps1 -Disinstalla -Prova` esercitata sulla stessa macchina: elenca cosa toglierebbe e **non tocca niente** — verificato dopo, servizio e variabili al loro posto |
+| collaudi dal pacchetto | `servizio\test\collaudo-installazione.js` girato **dentro** `consegna\Pathfinder 2.15\`: **43 su 43** |
+
+**La 2.14 è archiviata in `ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.14\` nella
+forma che gira sulla macchina** — impronta `8a25574b…` — prima che la build
+azzerasse `consegna\`.
+
 ---
 
 ## 2. Le versioni
@@ -251,7 +271,8 @@ una di prova ne porta di più (`2.12.1`).
 
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.14** | **COSTRUITA, mai installata** — 31/08 sera | `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
+| **2.15** | **COSTRUITA, non installata** — 01/09 notte | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
+| **2.14** | **IN SERVIZIO dal 01/09** | `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
 | **2.13** | **in servizio dal 31/08, rimossa il 01/09** — voce 74 | `cbe71802…` | La gerarchia la impone **il servizio** (voce 66) · `rinnovaPin` · il **codice di ripristino** dell'Admin · il fix di avvio della 2.12.1 riportato nel sorgente e coperto da dodici prove |
 | **2.12.1** | archiviata | `4f2a9f0f…` | Il servizio **aspetta** PostgreSQL invece di arrendersi al primo no, e l'attività pianificata parte un minuto dopo l'accensione. Nata da una giornata di magazzino fermo |
 | **2.12** | archiviata | `9ef94996…` | Il giro: più ODP in un percorso solo, conto di produzione **uno** · ricalibrazione della distinta · l'ubicazione si scansiona **una volta per vano** |
@@ -294,6 +315,105 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.15 — l'installer impara a togliersi, e smette di murarsi dentro
+
+**Costruita il 01/09 notte, non installata.** Impronta `7b812c48…`,
+1.901.483 byte in 4 file, riproducibile — due build di fila dello stesso
+albero danno la stessa impronta.
+
+**L'APPLICATIVO NON CAMBIA DI UNA RIGA.** Cambia solo il numero, e cambia
+l'installer. È la prima versione di questo progetto che nasce da una
+manutenzione della consegna e non da una richiesta di magazzino: la 2.14 è
+stata installata su una macchina rifatta da zero, e la prima installazione —
+quella strada che nessuno esercitava da mesi — si è rotta due volte.
+
+**L'INSTALLER SI CHIUDEVA LA PORTA IN FACCIA DA SOLO.** In fondo al passo del
+servizio stringeva i permessi della radice con un `icacls` solo,
+`/inheritance:r` e `/T` nella stessa riga: quella coppia scende su ogni figlio
+e gli toglie gli ACE ereditati, mentre i `/grant` restano sull'oggetto
+nominato. Restano file con l'**elenco vuoto**, e un elenco vuoto nega tutto —
+anche a un Amministratore, anche solo per leggere di chi è il file. Il passo
+dopo doveva lanciare `installa-versione.ps1` **da quella cartella**, e trovava
+«Accesso al percorso negato» che PowerShell segnala come comando non trovato.
+**E `icacls` usciva con zero**, quindi la riga a schermo diceva «Permessi
+applicati» in verde.
+
+La correzione è in tre pezzi, e nessuno dei tre è la stessa cosa:
+
+- **due gesti invece di uno** — l'elenco si scrive sulla sola radice, poi si
+  spinge in basso con `/reset` **sui figli**, che dà a ognuno l'elenco
+  ereditato dal padre. `/reset` sulla radice no: la rimetterebbe a ereditare da
+  `C:\`, cioè disferebbe la blindatura;
+- **la blindatura per ultima**, dopo l'applicativo. Così è l'ultimo gesto che
+  tocca il disco, copre anche `app\` — che prima restava fuori perché non
+  esisteva ancora — e la Verifica passa **dopo** di lei;
+- **una guardia che apre un file davvero.** `Test-Path` risponde `True` anche
+  su un file murato, ed è così che il difetto è passato per mesi.
+
+> **Era anche la spiegazione di `C:\Pathfinder_block`**, la cartella che il
+> 31/08 notte non si lasciava cancellare in nessun modo: stessa firma esatta —
+> cartella sana, file impenetrabili, ACL illeggibili. Non era OneDrive né un
+> antivirus. Era questa riga, a un'installazione di mesi prima. Voce 75.
+
+**E L'INSTALLER ADESSO SA ANCHE TOGLIERSI.** Fino alla 2.14 disinstallare era
+un elenco di gesti a mano — fermare l'attività, togliere la regola del
+firewall, cancellare cinque variabili, cancellare la cartella — e il 31/08 quel
+lavoro è costato una serata, con quarantacinque movimenti GMP salvati per un
+soffio perché qualcuno si è ricordato di copiarli prima.
+
+```powershell
+.\installa.ps1 -Disinstalla -Prova              # dice cosa toglierebbe
+.\installa.ps1 -Disinstalla                     # lo toglie
+.\installa.ps1 -Disinstalla -AncheIlDatabase    # e toglie anche il database
+```
+
+**L'ordine è quello del danno crescente, e non è un dettaglio.** Prima si
+**salva**: una copia fresca chiesta al servizio ancora acceso, poi tutta la
+cartella `backup\` portata **fuori dalla radice**, sul Desktop. Se il
+salvataggio non riesce, o riesce e non ci finisce dentro niente, **si ferma**.
+Poi cadono le attività pianificate, la regola del firewall, il database se
+qualcuno l'ha chiesto, le variabili, e per ultima la radice.
+
+**Il database non cade da solo**, e nemmeno con una spunta: vuole
+`-AncheIlDatabase`, e allora la parola da digitare non è più `DISINSTALLA` ma
+**il nome del database**. Lo toglie `prepara-postgres.ps1 -Rimuovi`, cioè lo
+script che quel database lo crea — ogni script disfa quello che fa — e cade
+**prima** della radice: una cartella tolta con un database vivo si rifà in
+dieci minuti, il contrario non si rifà affatto.
+
+**Tre istruzioni, tre chiamate**: si staccano le connessioni aperte, poi
+`DROP DATABASE`, poi `DROP ROLE`. `psql -c "a; b;"` avvolgerebbe tutto in una
+transazione, e `DROP DATABASE` dentro una transazione non si può fare — costato
+un giro il 01/09, a mano.
+
+**Una radice lasciata da un tentativo fallito adesso si riapre da sé.** Il
+01/09 un'installazione si era fermata a metà, e quella dopo è morta su
+`Copy-Item : Accesso al percorso 'lib\db.js' negato`: i permessi erano già
+stretti, e chi installa non ha modo di saperlo — vede solo un rifiuto su un
+file di cui non ha mai sentito parlare. Ora l'installer se ne accorge, riapre
+(`takeown` + `icacls /reset`) e lo dice. Cancellare no: quella è una decisione
+di chi disinstalla.
+
+**Un difetto l'ha trovato la prova a vuoto girando, non la lettura.**
+L'inventario della disinstallazione scriveva `attivita: nessuna` mentre il
+servizio girava: senza privilegi le attività di SYSTEM non si vedono, e
+l'inventario si fa prima di elevare — apposta, così chi legge sa cosa sta per
+succedere. Adesso quella riga dice che non è una misura, invece di mentire.
+
+**Le prove: 33 → 43.** Otto nuove sulla disinstallazione — che il database non
+cada senza chiederlo per nome, che si salvi prima di togliere, che il
+salvataggio non finisca dentro la cartella che sta per sparire, che un
+salvataggio vuoto fermi tutto. E **una vecchia allargata**: quella che verifica
+che la password del superuser non passi per la riga di comando guardava un solo
+blocco di elevazione e, arrivato il secondo, aveva smesso di guardare qualcosa
+**senza dirlo** — la fetta usciva vuota e il confronto passava per caso. Ora le
+raccoglie tutte e stampa quante ne ha esaminate.
+
+**Cosa resta fuori dalla prova**: la corsa vera della disinstallazione. Le due
+strade a vuoto sono state eseguite sulla macchina in servizio e non hanno
+toccato niente; quella che cancella la lancia una persona, una volta sola, e
+non c'è modo di provarla senza una macchina da perdere.
 
 ### 2.14 — la schermata WIP parte dalla merce, e un reso sbagliato si storna
 
