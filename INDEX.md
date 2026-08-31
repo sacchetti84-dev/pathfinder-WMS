@@ -207,7 +207,7 @@ Tutti rilanciati il **31/08 sera**, sul codice della 2.14:
 | client | **1.246 prove in 42 file, tutte verdi** — `npm test`. Erano 1.222: le ventiquattro nuove stanno in `wip.test.js` e coprono `inLavorazione`, `resi` e `motivoNonStornabile` |
 | tipi | `npm run check` **a 0** su client e servizio |
 | servizio | **139** |
-| migrazione · installazione | **8 · 33** — le due nuove guardano l'installer che si murava da solo, voce 75 |
+| migrazione · installazione | **8 · 43** — dieci nuove il 01/09: due sull'installer che si murava da solo (voce 75), otto sulla disinstallazione |
 | gerarchia (`banco/gerarchia.cjs`) | **32** — le cariche provate sul servizio, con `fetch` e i cookie veri |
 | ciclo (`banco/ciclo/gira.cjs`) | **45 su 47, due rosse** — le **stesse due di prima** della 2.14, cioè due banchi rimasti indietro: voci **70** e **71** |
 
@@ -221,6 +221,16 @@ Tutti rilanciati il **31/08 sera**, sul codice della 2.14:
 | riproducibile | **sì, verificata**: due build di fila dello stesso albero hanno dato la stessa impronta |
 | prova a vuoto | `.\installa.ps1 -NonChiedere -Prova` **sulla macchina di allora, che aveva la 2.13 in servizio**: strada **aggiornamento**, radice `C:\Pathfinder`, PostgreSQL già pronto, **nessuna migrazione**, database non toccato |
 | provata al banco | **sì, dal pacchetto** — non solo dal sorgente: servizio sulla 4199 con `banco\app\corrente` a 2.14 e `banco\db\ui.db`, e la schermata nuova esercitata di lì |
+
+> **IL PACCHETTO 2.14 È STATO RITAGLIATO TRE VOLTE, E SI CHIAMA SEMPRE 2.14.**
+> Il 31/08 sera con l'installer vecchio, il 01/09 con la correzione della voce
+> 75, e ancora il 01/09 con la disinstallazione (§6). **L'applicativo non è
+> mai cambiato** — stessa impronta `8a25574b…`, stessi 1.901.483 byte — e
+> l'impronta è quella che identifica una versione (§2). **Ma l'installer sì**,
+> e l'impronta non lo copre: chi tiene in mano una cartella «Pathfinder 2.14»
+> non ha modo di sapere quale dei tre installer ci sia dentro. **Prima di
+> consegnare questo pacchetto a qualcuno il numero va mosso** — §7, «il numero
+> di versione sta in quattro posti».
 
 **Installata il 01/09 sera**, e non per aggiornamento: sulla macchina rifatta
 l'installer ha preso la strada di **prima installazione**, quella che la prova a
@@ -1208,10 +1218,12 @@ una macchina già su PostgreSQL **viene rifiutato**: il gesto d'emergenza resta
 > **UN'INSTALLAZIONE INTERROTTA LASCIA UNA CARTELLA CHE LA SUCCESSIVA NON
 > SOVRASCRIVE.** Il tentativo delle 00:25 si era fermato dopo il servizio,
 > lasciando `C:\Pathfinder\servizio` già blindato; il tentativo dopo è morto su
-> `Copy-Item : Accesso al percorso 'lib\db.js' negato`. **Prima di reinstallare
-> su un tentativo fallito si toglie la radice**, e per toglierla può servire
-> `takeown` — non è un caso raro, è il caso normale quando il passo dei
-> permessi è già passato.
+> `Copy-Item : Accesso al percorso 'lib\db.js' negato`. **Dal 01/09 non tocca
+> più a chi installa**: l'installer si accorge dei resti murati e li riapre da
+> sé, dicendolo; e chi vuole ripartire davvero pulito ha
+> `.\installa.ps1 -Disinstalla` (§6). Resta scritta perché su ogni macchina
+> che non ha ancora questo installer il rifiuto parla di un file di cui chi
+> installa non ha mai sentito nominare.
 
 ### Installare a mano, e tornare indietro
 
@@ -1234,6 +1246,41 @@ vuol dire «installazione non riuscita». Lo script lo scrive a chi lo esegue.
 
 **Il database non si tocca mai**: la 1.2 rilegge il database della 1.4, e lo
 dimostrano le 8 prove di `collaudo-migrazione-1.4.js`.
+
+### Togliere Pathfinder da una macchina — dal 01/09
+
+```powershell
+.\installa.ps1 -Disinstalla -Prova              # dice cosa toglierebbe
+.\installa.ps1 -Disinstalla                     # lo toglie
+.\installa.ps1 -Disinstalla -AncheIlDatabase    # e toglie anche il database
+```
+
+Toglie le due **attività pianificate**, la **regola del firewall**, le
+**variabili di macchina** `PATHFINDER_*` e la **radice** con tutto quello che
+ci sta sotto. **PostgreSQL e Node restano**: non erano nostri.
+
+**Prima di togliere qualunque cosa, salva.** Chiede al servizio ancora acceso
+una copia fresca del database, poi porta tutta la cartella `backup\` **fuori
+dalla radice**, sul Desktop in `Pathfinder-disinstallato-<data-ora>\`. **Se il
+salvataggio non riesce, si ferma**: senza una copia non si cancella un
+magazzino — il 31/08 quarantacinque movimenti GMP si sono salvati perché
+qualcuno si è ricordato di copiarli a mano.
+
+**Il database non cade da solo**, e nemmeno con una spunta: vuole
+`-AncheIlDatabase`, e la conferma da digitare diventa **il nome del database**.
+La rimozione la fa `prepara-postgres.ps1 -Rimuovi`, cioè lo script che quel
+database lo crea — e cade **prima** della radice, perché una cartella tolta con
+un database vivo si rifà in dieci minuti e il contrario no.
+
+**Se la radice è murata la riapre** (`takeown` + `icacls /reset`): è il caso
+normale, non l'eccezione, perché i permessi se li è stretti da sola —
+voce 75.
+
+> **NON C'È UN DOPPIO CLIC PER DISINSTALLARE, e non è una dimenticanza.**
+> `Installa Pathfinder.bat` lancia l'installer senza argomenti: per togliere
+> bisogna aprire PowerShell e scriverlo. La conferma poi **si scrive** —
+> `DISINSTALLA`, o il nome del database — perché una spunta si preme per
+> sbaglio e una parola no.
 
 ---
 

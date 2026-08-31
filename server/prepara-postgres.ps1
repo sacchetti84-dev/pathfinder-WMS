@@ -61,6 +61,10 @@ param(
     [int]$MajorMinima = 14,
     # Guarda e non tocca: dice cosa c'e' e cosa mancherebbe, ed esce.
     [switch]$Prova,
+    # L'opposto di questo script: toglie il database e il ruolo che crea.
+    # NON si lancia a mano per sbaglio — lo chiama `installa.ps1 -Disinstalla
+    # -AncheIlDatabase`, che prima salva un dump e poi chiede conferma.
+    [switch]$Rimuovi,
     # Non chiede la password del superuser: serve al collaudo e a
     # un'installazione lanciata da un altro script.
     [switch]$NonChiedere,
@@ -387,6 +391,73 @@ if ($PasswordSuperuser) {
                  "   le connessioni locali, il tempo di rimetterla.")
     }
     RigaPg 'Superuser' "$Superuser  accesso riuscito" 'Green'
+}
+
+# ── L'opposto: si toglie quello che questo script mette ────────────────────
+#
+#  QUI SI CANCELLA UN MAGAZZINO, e per questo non decide niente: il dump l'ha
+#  gia' preso chi chiama, la conferma l'ha gia' data una persona, e qui si
+#  esegue e si dice cosa si e' fatto. Chi arriva senza password non passa.
+#
+#  L'ORDINE CONTA: prima si staccano le connessioni aperte, poi cade il
+#  database, poi il ruolo. Un ruolo non si toglie finche' possiede qualcosa,
+#  e un database non cade finche' qualcuno ci sta dentro — «is being accessed
+#  by other users», che a servizio appena fermato capita eccome.
+#
+#  E OGNI COMANDO VA DA SOLO. `psql -c "a; b; c;"` avvolge tutto in una
+#  transazione, e `DROP DATABASE` dentro una transazione non si puo' fare:
+#  «non e' possibile eseguire DROP DATABASE all'interno di un blocco di
+#  transazione». `EseguiPsql` passa da `-f`, che invece esegue una istruzione
+#  per volta in autocommit — ma le tre restano tre chiamate, non una.
+if ($Rimuovi) {
+    # SENZA PASSWORD NON SI GUARDA E NON SI TOCCA, ma le due cose finiscono
+    # diverse: la prova dice «non verificato» e va avanti, la rimozione vera
+    # si ferma. Una prova che pretende una password non la lancia nessuno.
+    $esisteDb = $null
+    $esisteRuolo = $null
+    if ($PasswordSuperuser) {
+        $esisteDb = [bool](EseguiPsql $pg $Superuser $PasswordSuperuser 'postgres' `
+                     "SELECT 1 FROM pg_database WHERE datname = $(CitaTesto $NomeDatabase)").testo
+        $esisteRuolo = [bool](EseguiPsql $pg $Superuser $PasswordSuperuser 'postgres' `
+                        "SELECT 1 FROM pg_roles WHERE rolname = $(CitaTesto $Ruolo)").testo
+    }
+
+    if ($Prova) {
+        Write-Host ""
+        RigaPg 'PROVA' 'nessuna modifica: ecco cosa toglierebbe' 'Cyan'
+        RigaPg 'database' "$NomeDatabase  $(if ($null -eq $esisteDb) { '(non verificato: manca la password)' } elseif ($esisteDb) { 'DA TOGLIERE' } else { 'non c''e''' })" $(if ($esisteDb) { 'Yellow' } else { 'Gray' })
+        RigaPg 'ruolo'    "$Ruolo  $(if ($null -eq $esisteRuolo) { '(non verificato: manca la password)' } elseif ($esisteRuolo) { 'DA TOGLIERE' } else { 'non c''e''' })" $(if ($esisteRuolo) { 'Yellow' } else { 'Gray' })
+        Write-Host ""
+        return [pscustomobject]@{ ok = $true; rimosso = $false; database = $NomeDatabase; ruolo = $Ruolo }
+    }
+
+    if (-not $PasswordSuperuser) {
+        GuaioPg ("Per togliere il database serve la password di «$Superuser», e non e' stata data.")
+    }
+
+    if ($esisteDb) {
+        $r = EseguiPsql $pg $Superuser $PasswordSuperuser 'postgres' (
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity " +
+            "WHERE datname = $(CitaTesto $NomeDatabase) AND pid <> pg_backend_pid()")
+        if (-not $r.ok) { GuaioPg "Non sono riuscito a staccare le connessioni: $($r.guaio)" }
+
+        $r = EseguiPsql $pg $Superuser $PasswordSuperuser 'postgres' "DROP DATABASE $(CitaNome $NomeDatabase)"
+        if (-not $r.ok) { GuaioPg "Il database non e' stato tolto: $($r.guaio)" }
+        RigaPg 'database' "$NomeDatabase  tolto" 'Yellow'
+    } else {
+        RigaPg 'database' "$NomeDatabase  non c'era" 'Gray'
+    }
+
+    if ($esisteRuolo) {
+        $r = EseguiPsql $pg $Superuser $PasswordSuperuser 'postgres' "DROP ROLE $(CitaNome $Ruolo)"
+        if (-not $r.ok) { GuaioPg "Il ruolo non e' stato tolto: $($r.guaio)" }
+        RigaPg 'ruolo' "$Ruolo  tolto" 'Yellow'
+    } else {
+        RigaPg 'ruolo' "$Ruolo  non c'era" 'Gray'
+    }
+
+    Write-Host ""
+    return [pscustomobject]@{ ok = $true; rimosso = $true; database = $NomeDatabase; ruolo = $Ruolo }
 }
 
 # ── La prova si ferma qui ──────────────────────────────────────────────────

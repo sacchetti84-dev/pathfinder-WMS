@@ -57,6 +57,23 @@
   Dice cosa farebbe — dove, quale versione, quale strada, quale database —
   ed esce. Guarda anche PostgreSQL, e su una macchina in servizio si puo'
   lanciare senza conseguenze.
+
+  PER TOGLIERE PATHFINDER DA QUESTA MACCHINA:  .\installa.ps1 -Disinstalla
+  Attivita' pianificate, regola del firewall, variabili di macchina e la
+  radice con tutto quello che ci sta sotto. IL DATABASE NON SI TOCCA, e
+  nemmeno PostgreSQL o Node: quelli non erano nostri.
+    .\installa.ps1 -Disinstalla -Prova              dice cosa toglierebbe
+    .\installa.ps1 -Disinstalla -AncheIlDatabase    toglie pure il database
+
+  E PRIMA DI TOGLIERE QUALUNQUE COSA, SI SALVA. Una copia fresca chiesta al
+  servizio ancora acceso e tutta la cartella dei backup portata FUORI dalla
+  radice, sul Desktop. Se il salvataggio non riesce non si va avanti: il
+  31/08/2026 quarantacinque movimenti di un magazzino GMP si sono salvati
+  per un soffio, perche' qualcuno si e' ricordato di copiarli a mano.
+
+  LA CONFERMA SI SCRIVE, non si preme: la parola DISINSTALLA, e se cade
+  anche il database il NOME del database. Non c'e' un doppio clic per
+  disinstallare, e non e' una dimenticanza.
 #>
 
 param(
@@ -96,7 +113,22 @@ param(
     [string]$PasswordSuperuser = '',
     # Passando da SQLite a PostgreSQL: non migrare i dati, partire vuoti. E'
     # il caso di una macchina nuova che ha un SQLite di prova dentro.
-    [switch]$SenzaMigrazione
+    [switch]$SenzaMigrazione,
+
+    # ── Disinstallazione ───────────────────────────────────────────────────
+    # Toglie Pathfinder da questa macchina: attivita' pianificate, regola del
+    # firewall, variabili di macchina e la radice con tutto quello che ci sta
+    # sotto. NON tocca il database, e NON tocca PostgreSQL o Node.
+    #
+    # Prima di togliere qualunque cosa SI SALVA: una copia fresca del
+    # database chiesta al servizio ancora acceso, e tutta la cartella dei
+    # backup portata fuori dalla radice. Il 31/08/2026 quarantacinque
+    # movimenti di un magazzino GMP si sono salvati per un soffio, e a mano.
+    [switch]$Disinstalla,
+    # Con -Disinstalla: toglie ANCHE il database e il ruolo su PostgreSQL.
+    # Separato apposta, e chiede di scrivere il nome del database per esteso:
+    # cancellare un registro che si tiene sei anni non e' una spunta.
+    [switch]$AncheIlDatabase
 )
 
 $ErrorActionPreference = 'Stop'
@@ -167,6 +199,41 @@ function ServizioRisponde {
         $r = Invoke-RestMethod "http://127.0.0.1:$Porta/api/health" -TimeoutSec 3
         return [bool]$r.ok
     } catch { return $false }
+}
+
+# Aperto davvero, non «esiste»: `Test-Path` risponde di si' anche su un file
+# con l'elenco dei permessi vuoto, ed e' cosi' che il difetto della voce 75 e'
+# passato per giorni.
+function Leggibile([string]$File) {
+    try {
+        $f = [IO.File]::Open($File, 'Open', 'Read', 'Read')
+        $f.Close()
+        return $true
+    } catch { return $false }
+}
+
+# ── RIAPRIRE UNA RADICE MURATA ─────────────────────────────────────────────
+#
+#  I permessi della radice tolgono la scrittura a chi non e' amministratore, e
+#  fin qui e' voluto. Ma un'installazione INTERROTTA lascia una radice gia'
+#  stretta e mezza vuota, e quella dopo muore copiandoci sopra: «Copy-Item :
+#  Accesso al percorso 'lib\db.js' negato». Peggio ancora con le radici
+#  blindate prima della correzione della voce 75, dove i file erano rimasti
+#  senza nessun ACE e non si lasciavano nemmeno leggere.
+#
+#  Si riapre in due gesti, e in quest'ordine: `takeown` prende la proprieta' —
+#  solo il proprietario puo' riscrivere l'elenco di un file che nega tutto —
+#  e `icacls /reset` rimette a ognuno l'elenco ereditato dal padre.
+function Sblocca-Radice([string]$Percorso) {
+    if (-not (Test-Path $Percorso)) { return $true }
+    & takeown /f $Percorso /r /d S 2>&1 | Out-Null
+    & icacls $Percorso /reset /T /C /Q 2>&1 | Out-Null
+    # Non basta che i comandi escano con zero: si prova ad aprire. E' la
+    # lezione della voce 75, dove icacls murava i file e usciva 0.
+    $campione = Get-ChildItem -LiteralPath $Percorso -Recurse -File -Force -ErrorAction SilentlyContinue |
+                Select-Object -First 1
+    if ($campione) { return (Leggibile $campione.FullName) }
+    return $true
 }
 
 # Una radice va scelta con la testa: dentro OneDrive un database aperto si
@@ -323,6 +390,237 @@ Titolo "PATHFINDER $Versione  —  installazione"
 $varApp = [Environment]::GetEnvironmentVariable('PATHFINDER_APP_DIR', 'Machine')
 $vivo = ServizioRisponde
 $aggiornamento = $vivo -and $varApp
+
+# Le variabili che questa installazione mette sulla macchina. L'elenco sta
+# qui e non sparso, perche' toglierne una in meno vuol dire lasciare una
+# macchina che al prossimo giro riparte su un database che non c'e' piu'.
+$VARIABILI = @('PATHFINDER_DB', 'PATHFINDER_PORT', 'PATHFINDER_APP',
+               'PATHFINDER_APP_DIR', 'PATHFINDER_PG', 'PATHFINDER_TOKEN',
+               'PATHFINDER_HOST', 'PATHFINDER_TLS_CERT', 'PATHFINDER_TLS_KEY')
+
+# ── DISINSTALLAZIONE COMPLETA ──────────────────────────────────────────────
+#
+#  L'opposto dell'installazione, e si ferma qui: non si installa e non si
+#  disinstalla nello stesso giro. Chi vuole ripartire pulito fa due corse.
+#
+#  L'ORDINE E' QUELLO DEL DANNO CRESCENTE, e non e' un dettaglio:
+#    1. si SALVA — copia fresca dal servizio ancora acceso, piu' tutta la
+#       cartella dei backup portata FUORI dalla radice;
+#    2. si spegne — le due attivita' pianificate;
+#    3. si tolgono le tracce che non contengono dati — firewall, variabili;
+#    4. il database, SOLO se qualcuno l'ha chiesto per nome;
+#    5. la radice, sbloccandola se e' murata.
+#  Se il salvataggio non riesce non si va avanti: senza una copia non si
+#  cancella un magazzino. E' la lezione del 31/08/2026, pagata a mano e di
+#  notte, con quarantacinque movimenti GMP salvati per un soffio.
+if ($Disinstalla) {
+    Titolo "PATHFINDER  —  disinstallazione"
+
+    # Dove sta: lo dice la macchina, non chi lancia. Chi passa -Radice la
+    # impone, e serve alle radici ORFANE — quelle di un'installazione
+    # interrotta, che sul disco ci sono ma nessuna variabile le nomina.
+    $rad = if ($Radice) { $Radice.TrimEnd('\') }
+           elseif ($varApp) { (Split-Path -Parent (Split-Path -Parent $varApp)).TrimEnd('\') }
+           elseif (Test-Path $RADICE_PREDEFINITA) { $RADICE_PREDEFINITA }
+           else { '' }
+
+    # SENZA PRIVILEGI LE ATTIVITA' DI SYSTEM NON SI VEDONO, e non vederle non
+    # vuol dire che non ci sono. L'inventario si fa prima di elevare — cosi'
+    # chi legge sa cosa sta per succedere — ma allora va detto che questa riga
+    # non e' una misura. Il 01/09 la prima stesura scriveva «nessuna» mentre
+    # il servizio girava, ed e' bastato guardare per accorgersene.
+    $vedoAttivita = Amministratore
+    $attivita = @()
+    if ($vedoAttivita) {
+        $attivita = @(@($NomeAttivita, 'Pathfinder - Backup serale') |
+                      Where-Object { Get-ScheduledTask -TaskName $_ -ErrorAction SilentlyContinue })
+    }
+    $regolaFw = "Pathfinder $Porta"
+    $fwCe = [bool](Get-NetFirewallRule -DisplayName $regolaFw -ErrorAction SilentlyContinue)
+    $varCe = @($VARIABILI | Where-Object { [Environment]::GetEnvironmentVariable($_, 'Machine') })
+    $pgOra = [Environment]::GetEnvironmentVariable('PATHFINDER_PG', 'Machine')
+
+    if ($vedoAttivita -and -not $rad -and -not $attivita -and -not $fwCe -and -not $varCe) {
+        Write-Host "   Su questa macchina non risulta niente da togliere." -ForegroundColor Green
+        Write-Host ""
+        if (-not $NonChiedere) { Write-Host "   Premere un tasto per chiudere."; [void]$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') }
+        exit 0
+    }
+
+    Riga 'servizio'  $(if ($vivo) { "acceso sulla porta $Porta" } else { 'non risponde' })
+    Riga 'radice'    $(if ($rad) { $rad } else { 'nessuna' })
+    if (-not $vedoAttivita) {
+        Riga 'attivita' 'non si vedono da qui: le elenca la finestra con i privilegi' 'Yellow'
+    } else {
+        Riga 'attivita' $(if ($attivita) { $attivita -join ', ' } else { 'nessuna' }) 'Green'
+    }
+    Riga 'firewall'  $(if ($fwCe) { $regolaFw } else { 'nessuna regola' })
+    Riga 'variabili' $(if ($varCe) { $varCe -join ', ' } else { 'nessuna' })
+    if ($AncheIlDatabase) {
+        Riga 'database' "$NomeDatabasePostgreSQL  SARA' CANCELLATO, col ruolo $RuoloPostgreSQL" 'Red'
+    } elseif ($pgOra) {
+        Riga 'database' 'resta dov''e'': serve -AncheIlDatabase per toglierlo' 'Green'
+    } else {
+        Riga 'database' 'nessuno dichiarato su questa macchina'
+    }
+    Write-Host ""
+
+    if ($Prova) {
+        Riga 'PROVA' 'nessuna modifica: ecco cosa toglierebbe' 'Cyan'
+        if ($AncheIlDatabase -and $pgOra) {
+            & $PreparaPg -Indirizzo $IndirizzoPostgreSQL -Porta $PortaPostgreSQL `
+                -NomeDatabase $NomeDatabasePostgreSQL -Ruolo $RuoloPostgreSQL `
+                -Rimuovi -Prova -NonChiedere | Out-Null
+        }
+        Write-Host ""
+        exit 0
+    }
+
+    # ── La conferma si SCRIVE ──────────────────────────────────────────────
+    # Una spunta si preme per sbaglio, una parola no. E se cade anche il
+    # database si scrive il NOME del database: e' l'ultima riga che qualcuno
+    # legge prima che un registro da sei anni sparisca.
+    if (-not $Elevato -and -not $NonChiedere) {
+        Write-Host "   Verranno tolti da questa macchina:" -ForegroundColor Yellow
+        Write-Host "     - le attivita' pianificate: avvio automatico e backup serale"
+        Write-Host "     - la regola «$regolaFw» dal firewall"
+        Write-Host "     - le variabili PATHFINDER_* di macchina"
+        if ($rad) { Write-Host "     - la cartella $rad e tutto quello che contiene" }
+        if ($AncheIlDatabase) {
+            Write-Host "     - IL DATABASE «$NomeDatabasePostgreSQL» E IL RUOLO «$RuoloPostgreSQL»" -ForegroundColor Red
+        }
+        Write-Host ""
+        Write-Host "   PostgreSQL e Node restano installati." -ForegroundColor Gray
+        Write-Host "   Prima di togliere qualunque cosa salvo i backup sul Desktop." -ForegroundColor Green
+        Write-Host ""
+        $parola = if ($AncheIlDatabase) { $NomeDatabasePostgreSQL } else { 'DISINSTALLA' }
+        $scritto = Read-Host "   Per procedere scrivere: $parola"
+        if ($scritto.Trim() -cne $parola) {
+            Write-Host ""
+            Write-Host "   Non ho toccato niente." -ForegroundColor Green
+            Write-Host ""
+            exit 0
+        }
+    }
+
+    # ── L'autorizzazione di Windows ────────────────────────────────────────
+    if (-not (Amministratore)) {
+        if ($NonChiedere) { Errore "Serve PowerShell come amministratore per disinstallare." }
+        $arg = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', "`"$($MyInvocation.MyCommand.Path)`"",
+                 '-Elevato', '-Disinstalla', '-Porta', "$Porta")
+        if ($rad) { $arg += @('-Radice', "`"$rad`"") }
+        if ($AncheIlDatabase) {
+            $arg += @('-AncheIlDatabase',
+                      '-IndirizzoPostgreSQL', "`"$IndirizzoPostgreSQL`"",
+                      '-PortaPostgreSQL', "$PortaPostgreSQL",
+                      '-NomeDatabasePostgreSQL', "`"$NomeDatabasePostgreSQL`"",
+                      '-RuoloPostgreSQL', "`"$RuoloPostgreSQL`"")
+        }
+        try { Start-Process powershell -Verb RunAs -ArgumentList $arg | Out-Null }
+        catch { Errore "Autorizzazione negata: senza non si puo' disinstallare." }
+        Write-Host "   La disinstallazione continua nell'altra finestra." -ForegroundColor Green
+        Write-Host ""
+        exit 0
+    }
+
+    # ── 1. SI SALVA, e se non riesce non si va avanti ──────────────────────
+    $salvataggio = Join-Path ([Environment]::GetFolderPath('Desktop')) `
+                             ("Pathfinder-disinstallato-" + (Get-Date -Format 'yyyy-MM-dd-HHmm'))
+    $daSalvare = if ($rad) { Join-Path $rad 'backup' } else { '' }
+
+    if ($vivo -and $daSalvare) {
+        # La copia fresca il servizio se la chiede DA SOLO, ed e' l'unica
+        # coerente: un file SQLite aperto ha un WAL accanto, e su PostgreSQL
+        # un pg_dump lo sa fare solo chi ha la password — che sta in una
+        # variabile di macchina, non qui.
+        try {
+            $chiave = [Environment]::GetEnvironmentVariable('PATHFINDER_TOKEN', 'Machine')
+            $teste = @{}
+            if ($chiave) { $teste['X-Pathfinder-Token'] = $chiave }
+            $r = Invoke-RestMethod "http://127.0.0.1:$Porta/api/backup" -Method Post `
+                 -ContentType 'application/json' -Body (@{ dir = $daSalvare } | ConvertTo-Json) `
+                 -TimeoutSec 300 -Headers $teste
+            if ($r.ok -and $r.file) { Riga 'copia fresca' (Split-Path -Leaf $r.file) 'Green' }
+        } catch {
+            Riga 'copia fresca' "non riuscita: $($_.Exception.Message)" 'Yellow'
+        }
+    }
+
+    if ($daSalvare -and (Test-Path $daSalvare)) {
+        if (-not (Sblocca-Radice $rad)) {
+            Errore ("La radice $rad non si lascia leggere, e senza leggerla non salvo niente.`n" +
+                    "   Da un PowerShell come amministratore:`n" +
+                    "     takeown /f `"$rad`" /r /d S`n" +
+                    "     icacls `"$rad`" /reset /t /c /q")
+        }
+        New-Item -ItemType Directory -Path $salvataggio -Force | Out-Null
+        Copy-Item (Join-Path $daSalvare '*') $salvataggio -Recurse -Force -ErrorAction Stop
+        $quanti = @(Get-ChildItem $salvataggio -Recurse -File).Count
+        if ($quanti -eq 0) {
+            Errore "Ho creato $salvataggio e non ci e' finito niente: non vado avanti."
+        }
+        Riga 'salvati' "$quanti file in $salvataggio" 'Green'
+    } else {
+        Riga 'salvati' 'niente da salvare: nessuna cartella backup' 'Yellow'
+    }
+
+    # ── 2. Le attivita' pianificate ────────────────────────────────────────
+    # Le toglie lo script che le registra, e si prende quello DEL PACCHETTO:
+    # la copia installata puo' stare in una radice murata (voce 75), e non e'
+    # il momento di scoprirlo.
+    # Qui si e' amministratori: quello che lo script trova e toglie lo dice
+    # lui, e le sue righe si lasciano passare invece di riassumerle a vuoto.
+    & (Join-Path $Servizio 'installa-servizio.ps1') -Disinstalla
+
+    # ── 3. Il firewall ─────────────────────────────────────────────────────
+    if ($fwCe) {
+        Remove-NetFirewallRule -DisplayName $regolaFw -ErrorAction SilentlyContinue
+        Riga 'firewall' "regola «$regolaFw» rimossa" 'Green'
+    }
+
+    # ── 4. Il database, PRIMA della radice ─────────────────────────────────
+    # Prima, perche' se qui va storto si e' ancora in tempo a non cancellare
+    # la cartella: una radice tolta con un database vivo si rifa' in dieci
+    # minuti, il contrario non si rifa' affatto.
+    if ($AncheIlDatabase) {
+        $esito = & $PreparaPg -Indirizzo $IndirizzoPostgreSQL -Porta $PortaPostgreSQL `
+                    -NomeDatabase $NomeDatabasePostgreSQL -Ruolo $RuoloPostgreSQL `
+                    -PasswordSuperuser $PasswordSuperuser -Rimuovi
+        if (-not $esito -or -not $esito.ok) {
+            Errore "Il database non e' stato tolto, e la cartella resta dov'e'."
+        }
+    }
+
+    # ── 5. Le variabili, e per ultima la radice ────────────────────────────
+    foreach ($v in $varCe) { [Environment]::SetEnvironmentVariable($v, $null, 'Machine') }
+    if ($varCe) { Riga 'variabili' "$($varCe.Count) rimosse" 'Green' }
+
+    if ($rad -and (Test-Path $rad)) {
+        if (-not (Sblocca-Radice $rad)) {
+            Errore ("La cartella $rad non si lascia aprire, e non la cancello alla cieca.`n" +
+                    "   Tutto il resto e' stato tolto, e i backup sono in $salvataggio.")
+        }
+        try {
+            Remove-Item -LiteralPath $rad -Recurse -Force -ErrorAction Stop
+            Riga 'radice' "$rad rimossa" 'Green'
+        } catch {
+            Errore ("La cartella $rad non si e' lasciata cancellare:`n" +
+                    "   $($_.Exception.Message)`n`n" +
+                    "   Di solito la tiene aperta un processo: chiudere le finestre`n" +
+                    "   e i programmi fermi su quella cartella, e rilanciare.")
+        }
+    }
+
+    Titolo "Pathfinder non e' piu' su questa macchina"
+    Riga 'restano' 'PostgreSQL e Node, che non erano nostri' 'Gray'
+    if (-not $AncheIlDatabase -and $pgOra) {
+        Riga 'database' "$NomeDatabasePostgreSQL su PostgreSQL, intatto" 'Green'
+    }
+    Riga 'backup' $(if (Test-Path $salvataggio) { $salvataggio } else { 'nessuno' }) 'Green'
+    Write-Host ""
+    if (-not $NonChiedere) { Write-Host "   Premere un tasto per chiudere."; [void]$Host.UI.RawUI.ReadKey('NoEcho,IncludeKeyDown') }
+    exit 0
+}
 
 $node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $node) {
@@ -620,16 +918,6 @@ if ($modoDb -eq 'postgresql' -and (-not $aggiornamento -or $saltoAPostgres)) {
 #  possono essere governate altrove, e un magazzino che non si aggiorna per
 #  un criterio di gruppo e' un danno peggiore del permesso largo. Si dice, e
 #  si va avanti.
-# Aperto davvero, non «esiste»: `Test-Path` risponde di si' anche su un file
-# con l'elenco dei permessi vuoto, ed e' cosi' che il difetto e' passato.
-function Leggibile([string]$File) {
-    try {
-        $f = [IO.File]::Open($File, 'Open', 'Read', 'Read')
-        $f.Close()
-        return $true
-    } catch { return $false }
-}
-
 #  01/09 — DUE CHIAMATE, E NON UNA. Fino a stamattina qui c'era un `icacls`
 #  solo, con `/inheritance:r` e `/T` insieme: scende su OGNI figlio e gli
 #  toglie gli ACE ereditati, mentre i tre `/grant` non arrivano fino in fondo.
@@ -696,6 +984,31 @@ if (-not $aggiornamento) {
     # Il servizio si copia FUORI dal pacchetto, e da li' viene registrato:
     # l'attivita' pianificata memorizza il percorso da cui viene lanciata, e
     # una chiavetta sfilata sarebbe un magazzino fermo al riavvio.
+    # UNA RADICE LASCIATA DA UN TENTATIVO FALLITO NON SI LASCIA SOVRASCRIVERE.
+    # Il 01/09/2026 un'installazione si era fermata dopo il servizio, e quella
+    # dopo e' morta qui: «Copy-Item : Accesso al percorso 'lib\db.js' negato».
+    # I permessi erano gia' stretti — a quel punto anche murati, voce 75 — e
+    # chi installa non ha modo di saperlo: vede solo un rifiuto su un file di
+    # cui non ha mai sentito parlare. Si riapre prima, e si dice che si e'
+    # fatto: cancellare no, quella e' una decisione di chi disinstalla.
+    if (Test-Path $CasaServizio) {
+        $campione = Join-Path $CasaServizio 'pathfinder-server.js'
+        if ((Test-Path $campione) -and -not (Leggibile $campione)) {
+            Riga 'Radice' 'resti di un tentativo precedente, e sono murati: li riapro' 'Yellow'
+            if (-not (Sblocca-Radice $Radice)) {
+                Errore ("In $Radice ci sono i resti di un'installazione interrotta che non`n" +
+                        "   si lasciano ne' leggere ne' sovrascrivere, e non ci riesco nemmeno`n" +
+                        "   da amministratore.`n`n" +
+                        "   Da un PowerShell come amministratore:`n" +
+                        "     takeown /f `"$Radice`" /r /d S`n" +
+                        "     icacls `"$Radice\*`" /reset /t /c /q`n`n" +
+                        "   Oppure, per ripartire davvero puliti:`n" +
+                        "     .\installa.ps1 -Disinstalla")
+            }
+            Riga 'Radice' 'riaperta' 'Green'
+        }
+    }
+
     New-Item -ItemType Directory -Path $CasaServizio -Force | Out-Null
     Copy-Item (Join-Path $Servizio '*') $CasaServizio -Recurse -Force
     Riga 'Copiato in' $CasaServizio 'Green'

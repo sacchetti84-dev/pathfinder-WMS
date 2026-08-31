@@ -337,11 +337,25 @@ try {
      nel codice, perche' e' l'unico posto dove si puo' vedere prima che
      succeda. */
   const sorgenteInstaller = fs.readFileSync(INSTALLER, 'utf8');
-  const bloccoElevazione = sorgenteInstaller.slice(
-    sorgenteInstaller.indexOf('$argomenti = @('),
-    sorgenteInstaller.indexOf('Start-Process powershell -Verb RunAs'));
-  ok('la password del superuser NON viene passata alla finestra elevata',
-     bloccoElevazione.length > 0 && !/PasswordSuperuser/.test(bloccoElevazione));
+  /* 2.15 — LE FINESTRE ELEVATE SONO DUE, non piu' una: installazione e
+     disinstallazione. Questa prova guardava il solo blocco dell'installazione
+     e, quando e' arrivata la seconda, ha smesso di guardare qualcosa senza
+     dirlo — la fetta usciva vuota e il confronto passava per caso. Adesso si
+     raccolgono TUTTE le liste di argomenti che finiscono in un RunAs, e si
+     controllano una per una: una prova che si allarga da sola quando il
+     codice si allarga. */
+  const bocconi = [];
+  let daQui = 0;
+  for (;;) {
+    const runas = sorgenteInstaller.indexOf('Start-Process powershell -Verb RunAs', daQui);
+    if (runas === -1) break;
+    const inizio = Math.max(sorgenteInstaller.lastIndexOf('= @(', runas), 0);
+    bocconi.push(sorgenteInstaller.slice(inizio, runas));
+    daQui = runas + 1;
+  }
+  ok('la password del superuser NON viene passata a nessuna finestra elevata',
+     bocconi.length >= 2 && bocconi.every((b) => b.length > 0 && !/PasswordSuperuser/.test(b)),
+     `finestre elevate esaminate: ${bocconi.length}`);
 
   /* ── 2.10 · LA PRIMA INSTALLAZIONE, CHE NESSUNO PROVAVA DA MESI ──────────
      Il 27/08 una macchina vergine — `C:\Pathfinder` rinominato apposta — ha
@@ -407,6 +421,73 @@ try {
      installaVersione !== -1 && blinda !== -1 && installaVersione < blinda,
      blinda === -1 ? 'Blinda-Radice non viene mai chiamata'
                    : `installa-versione al carattere ${installaVersione}, blindatura al ${blinda}`);
+
+  /* ── 2.15 · LA DISINSTALLAZIONE ────────────────────────────────────────
+     L'opposto dell'installazione, e per collaudarla vale la stessa regola:
+     la corsa vera toglie attivita' pianificate, regole del firewall e
+     variabili di macchina, e un collaudo che la esegue davvero non e' un
+     collaudo — e' una macchina in meno. Si esercita in `-Prova`, e il resto
+     si guarda nel sorgente.
+
+     LE TRE COSE CHE DEVONO REGGERE, e sono tre decisioni prima che tre righe:
+     il database non cade senza che qualcuno l'abbia chiesto per nome; prima
+     di togliere si salva; e quello che si salva sta FUORI dalla cartella che
+     si sta per cancellare. */
+  const dettoDis = prova(['-Disinstalla']);
+  ok('la prova della disinstallazione dice cosa toglierebbe',
+     /disinstallazione/i.test(dettoDis) && /PROVA/.test(dettoDis));
+
+  ok('e senza -AncheIlDatabase dichiara che il database resta',
+     /-AncheIlDatabase/.test(dettoDis));
+
+  /* Il gesto peggiore sta dietro a un interruttore suo, e l'interruttore da
+     solo non basta: la conferma si SCRIVE, ed e' il nome del database. Una
+     spunta si preme per sbaglio, una parola no. */
+  const rimuoveDb = sorgenteInstaller.indexOf('$PreparaPg -Indirizzo $IndirizzoPostgreSQL -Porta $PortaPostgreSQL');
+  const guardiaDb = sorgenteInstaller.indexOf('if ($AncheIlDatabase) {');
+  ok('il database non cade senza -AncheIlDatabase',
+     guardiaDb !== -1 && rimuoveDb !== -1 && guardiaDb < rimuoveDb);
+
+  ok('e la conferma da scrivere e il nome del database, non una spunta',
+     /\$parola = if \(\$AncheIlDatabase\) \{ \$NomeDatabasePostgreSQL \}/.test(sorgenteInstaller));
+
+  /* PRIMA SI SALVA, POI SI TOGLIE, e l'ordine e' il collaudo: il 31/08/2026
+     quarantacinque movimenti di un magazzino GMP sono sopravvissuti perche'
+     qualcuno si e' ricordato di copiarli a mano prima di cancellare. Qui non
+     si ricorda nessuno: lo fa l'installer, e se non gli riesce si ferma. */
+  const salva = sorgenteInstaller.indexOf('$salvataggio = Join-Path');
+  const togliRadice = sorgenteInstaller.indexOf('Remove-Item -LiteralPath $rad -Recurse -Force');
+  ok('si salva PRIMA di togliere la radice',
+     salva !== -1 && togliRadice !== -1 && salva < togliRadice,
+     `salvataggio al carattere ${salva}, rimozione al ${togliRadice}`);
+
+  ok('e il salvataggio non finisce dentro la cartella che sta per sparire',
+     /\$salvataggio = Join-Path \(\[Environment\]::GetFolderPath\('Desktop'\)\)/.test(sorgenteInstaller));
+
+  ok('un salvataggio vuoto ferma la disinstallazione',
+     /if \(\$quanti -eq 0\) \{[\s\S]{0,120}Errore/.test(sorgenteInstaller));
+
+  /* DROP DATABASE NON STA IN UNA TRANSAZIONE, e `psql -c "a; b;"` ce lo
+     mette: «non e' possibile eseguire DROP DATABASE all'interno di un blocco
+     di transazione». Costato un giro il 01/09/2026, a mano. Le tre istruzioni
+     restano tre chiamate separate. */
+  const sorgentePreparaPg = fs.readFileSync(path.join(SERVER, 'prepara-postgres.ps1'), 'utf8');
+  const dropUnito = /DROP DATABASE[^"']*;[^"']*DROP ROLE/.test(sorgentePreparaPg);
+  ok('DROP DATABASE e DROP ROLE non viaggiano nella stessa istruzione', !dropUnito);
+
+  ok('e prima di far cadere il database si staccano le connessioni',
+     sorgentePreparaPg.indexOf('pg_terminate_backend') !== -1 &&
+     sorgentePreparaPg.indexOf('pg_terminate_backend') < sorgentePreparaPg.indexOf('"DROP DATABASE $(CitaNome'));
+
+  /* Una radice lasciata da un tentativo fallito porta i permessi gia' stretti,
+     e la copia del servizio ci muore sopra con un «Accesso negato» su un file
+     di cui chi installa non ha mai sentito parlare. Si riapre prima. */
+  const sblocca = sorgenteInstaller.indexOf('Sblocca-Radice $Radice');
+  const copiaServizio = sorgenteInstaller.indexOf("Copy-Item (Join-Path $Servizio '*') $CasaServizio");
+  ok('i resti di un tentativo interrotto si riaprono prima di copiarci sopra',
+     sblocca !== -1 && copiaServizio !== -1 && sblocca < copiaServizio,
+     `sblocco al carattere ${sblocca}, copia al ${copiaServizio}`);
+
 
 } catch (err) {
   fallite++;
