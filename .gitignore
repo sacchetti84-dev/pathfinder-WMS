@@ -75,3 +75,17 @@ desktop.ini
 # significherebbe scrivere il segreto nel repository, che e' cio' che si sta
 # evitando.
 ?????-?????-?????-?????.txt
+
+# ── 4. E DI NUOVO PER NOME, NON PER ESTENSIONE — 01/09 ────────────────────
+# Il 01/09 in cartella c'erano due segreti che nessuna regola qui sopra
+# prendeva: `consegna\Pathfinder 2.14\variabile postgre.txt`, con dentro la
+# stringa di connessione, e `ARCHIVIO\Codice di ripristino - ADM1.pdf`, che e'
+# un codice di ripristino in PDF mentre la regola della 2.13 guarda i .txt di
+# venti caratteri. Nessuno dei due era entrato in git, e uno `git add -A` li
+# avrebbe presi tutti e due.
+# E' la lezione della voce 72 una seconda volta: UN SEGRETO NON SI RICONOSCE
+# DALL'ESTENSIONE, SI RICONOSCE DA COME SI CHIAMA. Chi salva un segreto in un
+# file gli da' quasi sempre un nome che lo dice.
+Codice di ripristino*
+*variabile postgre*
+*connection*string*
