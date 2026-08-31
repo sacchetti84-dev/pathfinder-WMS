@@ -30,6 +30,19 @@
 *.db
 *.db-shm
 *.db-wal
+# 31/08 — E QUESTA REGOLA AVEVA UN BUCO, PER QUATTRO GIORNI (voce 72). Sopra
+# c'e' scritto «i database»; qui sotto c'era scritto `*.db`, e un database
+# PostgreSQL non si chiama `.db`: si chiama `.dump` se esce da `pg_dump` nel
+# suo formato, `.sql` se esce in chiaro. `banco/db/pathfinder-2026-08-27.dump`
+# e' entrato nel repository dal commit che dichiarava di lasciare fuori i
+# segreti, con dentro `pin_hash`, `pin_salt` e i nomi.
+# UNA REGOLA SCRITTA IN PROSA E UN FILTRO SCRITTO PER ESTENSIONE NON SONO LA
+# STESSA REGOLA: chi aggiunge un formato di backup lo aggiunge anche qui.
+*.dump
+*.sql
+*.sqlite
+*.sqlite3
+*.bak
 
 # ── 2. LE STRINGHE DI CONNESSIONE ─────────────────────────────────────────
 # `.env.local` porta `PATHFINDER_PG`, cioe' utente e PASSWORD del database.
