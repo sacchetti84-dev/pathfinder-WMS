@@ -831,6 +831,8 @@ pagato**.
 
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **72** | ⚠️ **UN DUMP DEL MAGAZZINO VERO STA NEL REPOSITORY, COI PIN DENTRO.** `banco/db/pathfinder-2026-08-27.dump` — 415.601 byte — è tracciato dal commit **`ecd2538`** del 27/08, che è **proprio quello che dice «tutto nel repository, tranne i due segreti»**. Verificato il 31/08 estraendone la sola tavola `operators` con `pg_restore --data-only --table=operators`: dentro ci sono **`pin_hash`, `pin_salt` e `first_name`** di persone vere. Il buco è nel `.gitignore`: la riga è `*.db`, e un dump di PostgreSQL si chiama `.dump` | **Decide Andrea, e prima di ogni altra cosa: il repository è privato ma i PIN sono in chiaro nella storia**, e §11 dice che un segreto spinto una volta è bruciato. Tre gesti, in quest'ordine: (1) chiudere il buco — `*.dump` e `*.sql` nel `.gitignore`, e togliere il file dall'indice; (2) decidere se **riscrivere la storia** (il file è in un commit già spinto: `git filter-repo`, e chi ha una copia se la deve rifare) o accettare il rischio e scriverlo qui; (3) in ogni caso **rinnovare i PIN** degli operatori che stanno in quel dump, perché l'impronta è vecchia di quattro giorni e `scrypt` non la rende innocua se il PIN è di sei cifre |
+|---|---|---|
 | **71** | **IL BANCO DEL CICLO CHIEDE A UN TRASFERIMENTO DI RESTARE APERTO, E DALLA 2.1 NON RESTA.** `funzioni.test.js` crea un `TRANSFER` da 3 colli, ne muove 1 e si aspetta `in_progress`; il codice lo chiude, perché `chiudeAlGesto` include `TRANSFER` **per decisione di Andrea alla 2.1** — «le attività si devono chiudere nel momento in cui il trasferimento viene confermato, obbligatorio». Il difetto `CP1` che il banco scrive dal 27/08 **sta segnalando questa aspettativa vecchia**, non un difetto del magazzino. Poi il secondo `advanceTask` lancia sul serio e la prova diventa rossa | **Il banco va allineato alla decisione, non il codice.** Il residuo resta al solo Smaltimento: la prova a residuo si scrive su un `DISPOSAL`, e per il `TRANSFER` si prova la chiusura al gesto. Poi `CP1` esce da `difetti.json` |
 | **70** | **IL BANCO DEL PERCORSO LEGGE UN ODP CHE NON È PIÙ QUELLO DELLA SUA RICETTA.** `percorso.test.js` apre `ARCHIVIO\BACKUP E FILE DI TEST\07082026_gluc.xlsx` e si aspetta `ODP2603889`; il file — committato, datato 20/08 — porta `ODP2607777`, e il suo vicino `_2` porta `ODP2607877`. **Nessuno dei due è quello che `ricetta.js` dichiara di aver letto** | Il progetto ha già lo strumento: `banco/ciclo/rifai-ricetta.cjs` rigenera `ricetta.js` dal foglio. Ma rigenerare cambia le quantità attese di **tutto il ciclo**, non solo di questa prova: **quale ODP sia il riferimento lo decide Andrea**, e poi si rigenera |
 | **69** | **I CONTEGGI DEL DATABASE NON TORNANO CON QUELLI DEL 26/08.** Misurato il 31/08 su `/api/health`: **851 giacenze, 45 movimenti, 2 operatori**, contro 886 · 321 · 7 del 26/08. Il 28/08 dicevano 851 · 39 · 1, quindi **il magazzino ha ripreso a scrivere su questo database** e il calo è un fatto avvenuto fra il 27 e il 28, non una lettura sbagliata. `storage_rules`, `recipients` e `location_attrs` restano a zero, e `recipients` una riga ce l'aveva (voce 49) | **Prima di ogni altra cosa che tocchi i dati.** Tre domande in quest'ordine: il servizio parla col database che crediamo (`/api/health`, campo `file`); c'è stato un reset o un `clearMany` fra il 27 e il 28; e se sì, il `.dump` della sera prima è ancora in `C:\Pathfinder\backup\`. **Un registro movimenti che cala è la cosa che questo applicativo esiste per non fare** — §8, «nessuna cancellazione di record» |
@@ -2082,6 +2084,13 @@ accanto a nome e cognome di persone vere; **`.env.local`**, che porta utente e
 password di PostgreSQL; e dal 31/08 i **codici di ripristino** della 2.13, che
 si riconoscono dalla forma — venti caratteri in quattro gruppi da cinque.
 **Git non dimentica**: un segreto spinto una volta va considerato bruciato.
+
+> ⚠️ **E UNO CI È ENTRATO LO STESSO — voce 72.** La regola dice «i file di
+> database», il `.gitignore` dice `*.db`, e un dump di PostgreSQL si chiama
+> `.dump`: `banco/db/pathfinder-2026-08-27.dump` è tracciato dal commit
+> `ecd2538` — quello che dichiara di lasciare fuori i segreti — e dentro ha
+> `pin_hash`, `pin_salt` e i nomi. **Una regola scritta in prosa e un filtro
+> scritto per estensione non sono la stessa regola**, e questo è il prezzo.
 
 > ⚠️ **UNO DI QUEI CODICI STA IN `ARCHIVIO\` COME FILE DI TESTO**, col codice
 > nel nome e nel contenuto, scritto il 28/08. **Non è mai entrato in git** e da
