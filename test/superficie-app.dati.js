@@ -16,7 +16,13 @@
    sono usciti `_colliSelQta` e `_colliSelToggle`, sono entrati
    `_colliSelPreso`, `_colliSelParte`, `_colliSelParteDa` e
    `_colliSelOpzioniParte`.
-   2.9: la griglia di incompatibilita' e' uscita e con lei `_matriceHtml` e
+   2.13: sono entrati i cinque della via di fuga dai PIN persi —
+  `_renderRecoveryGate` e `_confirmRecovery` (il rientro con codice dalla
+  schermata di accesso), `_mostraCodiceRipristino` e
+  `_stampaCodiceRipristino` (il pannello che lo mostra una volta sola e il
+  foglio da mettere in cassaforte), `rigeneraCodiceRipristino` (un Admin ne
+  emette uno nuovo, e quello vecchio muore).
+  2.9: la griglia di incompatibilita' e' uscita e con lei `_matriceHtml` e
    `_toggleIncompatibilita`; sono entrati `_srCambiaBersaglio` (la
    pericolosita' come bersaglio di regola), `_scanErrore` e `_scanAvanti`
    (la scansione che segnala e non chiude), `_elencoNCAperto` e
@@ -53,7 +59,10 @@ export const SUPERFICIE = [
   '_colliSelParte', '_colliSelParteDa', '_colliSelPreso', '_colliSelPrev',
   '_colliSelRender', '_colliSelScelte', '_conf',
   '_confermaImportArticoli', '_configTab', '_confirmCompleteProfile',
-  '_confirmFirstLeader', '_confirmLogin', '_contaAnteprima', '_contaBack',
+  '_confirmFirstLeader', '_confirmLogin', '_confirmRecovery',
+  '_renderRecoveryGate', '_mostraCodiceRipristino', '_stampaCodiceRipristino',
+  'rigeneraCodiceRipristino',
+  '_contaAnteprima', '_contaBack',
   '_contaCheckArt', '_contaCheckLoc', '_contaCheckLot', '_contaRenderVerify',
   '_contaSelect', '_contaState', '_datalistUM', '_ddtTotaliUom', '_dateISOtoIT', '_dateITtoISO',
   '_dateMaskBlur', '_dateMaskInput', '_dispBack', '_dispCheckArt', '_dispCheckLoc',

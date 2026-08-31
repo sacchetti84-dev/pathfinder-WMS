@@ -5,6 +5,28 @@
 
 export const BASE = process.env.BANCO_API || 'http://127.0.0.1:4199';
 
+/* ── 2.13 · LA CHIAVE, ATTACCATA UNA VOLTA SOLA ───────────────────────
+   Dalla 2.11 il servizio vuole una sessione, e qui non c'è un browser che
+   tenga un cookie: il ciclo entra dalla porta di servizio, come il backup
+   serale. La chiave la genera `gira.cjs` a ogni giro e la passa di qui.
+
+   Si avvolge `fetch` invece di toccare `RemotePersistence`: il client che
+   il ciclo esercita dev'essere quello vero, riga per riga. Un adapter con
+   un ramo «se sono al banco» proverebbe un codice che in magazzino non
+   gira. Senza `BANCO_TOKEN` non si avvolge niente e tutto resta com'era. */
+const CHIAVE = process.env.BANCO_TOKEN || null;
+if (CHIAVE && !globalThis.__bancoFetch) {
+  const originale = globalThis.fetch;
+  globalThis.__bancoFetch = originale;
+  globalThis.fetch = (risorsa, opzioni = {}) => {
+    const url = typeof risorsa === 'string' ? risorsa : risorsa?.url || '';
+    if (!url.startsWith(BASE)) return originale(risorsa, opzioni);
+    const intestazioni = new Headers(opzioni.headers || {});
+    intestazioni.set('X-Pathfinder-Token', CHIAVE);
+    return originale(risorsa, { ...opzioni, headers: intestazioni });
+  };
+}
+
 let pronto = null;
 
 export async function banco() {

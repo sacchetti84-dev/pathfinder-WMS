@@ -571,6 +571,22 @@ export interface Operatore {
       servizio non arriva mai. */
   pin_algo?: 'scrypt';
   pin_set_at?: Istante | null;
+  /** 2.13 — LA VIA DI FUGA. Un codice di ripristino di venti caratteri
+      generato quando si nomina un Admin, mostrato UNA volta e mai piu'
+      rileggibile: sul disco resta la sua impronta, come per il PIN. Serve
+      a una cosa sola — rientrare quando il PIN dell'Admin e' perso e non
+      c'e' nessun altro Admin che possa rinnovarlo. Vale solo per il ruolo
+      `admin`: un Operatore o un Team Leader che perde il PIN ha gia' chi
+      glielo rinnova, e un secondo segreto sarebbe solo un secondo modo di
+      entrare. Come `pin_hash`, dal servizio non arriva mai: al suo posto
+      arriva `rec_set`. */
+  rec_hash?: string | null;
+  rec_salt?: string | null;
+  rec_algo?: 'scrypt';
+  rec_set_at?: Istante | null;
+  /** «Questo Admin ha una via di fuga configurata?» — la sola cosa che il
+      client chiede all'impronta. Lo scrive il servizio a ogni lettura. */
+  rec_set?: boolean;
   active?: boolean;
   created_at?: Istante;
   updated_at?: Istante;

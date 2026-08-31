@@ -129,6 +129,13 @@ interface DalleViste {
     qtyUomDelta?: number | null,
   ): Promise<void>;
 
+  /* 2.13 — vive in `configOperatori`, ma la chiamano anche il wizard del
+     primo Admin e la maschera del ripristino: la superficie condivisa è
+     questa, e un metodo che due file chiamano va dichiarato qui. */
+  _mostraCodiceRipristino(
+    op: Operatore | null | undefined, codice: string, opzioni?: { nuovo?: boolean },
+  ): void;
+
   _svcBeat: ReturnType<typeof setInterval> | undefined;
   _resyncPending: Set<string> | undefined;
   _resyncTimer: ReturnType<typeof setTimeout> | undefined;
@@ -649,7 +656,13 @@ const App = monolite({
     if (pin !== pin2) return err('I due PIN non coincidono.');
     try {
       const fields = await Auth.buildPinFields(pin);
-      const rec = await Store.addOperator({ first_name: first, last_name: last, initials: init, role: 'admin', ...fields });
+      /* 2.13 — IL PRIMO ADMIN NASCE CON LA VIA DI FUGA, e nasce con lei
+         perché è il caso peggiore di tutti: un magazzino appena installato
+         ha un Admin solo, e il suo PIN perso è la Configurazione murata
+         senza nessuno che possa riaprirla. */
+      const fuga = Auth.newRecoveryCode();
+      const campiFuga = await Auth.buildRecoveryFields(fuga);
+      const rec = await Store.addOperator({ first_name: first, last_name: last, initials: init, role: 'admin', ...fields, ...campiFuga });
       /* 2.11 — e' il PIN che chiude la finestra di primo avvio: da questo
          istante il servizio chiede una sessione, e chi ha appena creato
          l'Admin deve averla. */
@@ -659,6 +672,7 @@ const App = monolite({
       this._identificato();
       this.toast(`🛡 Admin ${rec.initials} creato — sei collegato`, 'success');
       if (this.currentView === 'config') this.renderConfig();
+      this._mostraCodiceRipristino(rec, fuga, { nuovo: true });
     } catch (e) {
       err((e as Error).message || 'Creazione non riuscita.');
     }
@@ -686,7 +700,9 @@ const App = monolite({
       </div>
       <div id="loginError" class="gate-error"></div>
       <div class="mt-5 text-label-small text-sx-text-muted">
-        PIN smarrito? Un <strong>Team Leader</strong> può rinnovarlo da Configurazione → Operatori.
+        PIN smarrito? Un <strong>Team Leader</strong> o un <strong>Admin</strong> può rinnovarlo
+        da Configurazione → Operatori.
+        <button class="btn btn-sm btn-ghost mt-3" onclick="App._renderRecoveryGate()">🗝 Ho un codice di ripristino</button>
       </div>`,
       `${initial || reason ? '' : '<button class="btn" onclick="App._closeIdentityGate()">Annulla</button>'}
        <button class="btn btn-primary" onclick="App._confirmLogin()">Accedi</button>`,
@@ -742,6 +758,121 @@ const App = monolite({
     this._loginFails = 0;
     this._afterLogin(op);
     this._identificato();
+  },
+
+  /* ══ 2.13 · LA VIA DI FUGA, DAL DI FUORI ═════════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Questa maschera si apre quando tutte le altre strade sono chiuse: il
+     PIN di un Admin è perso e non c'è un altro Admin che possa rinnovarlo.
+     È l'unico punto dell'applicativo in cui si riscrive un PIN senza che
+     nessuno lo autorizzi con il proprio — e per questo chiede un segreto
+     che vale più di un PIN, e lo consuma nell'usarlo.
+
+     NON È UN SECONDO INGRESSO. Non apre l'applicativo: apre la riscrittura
+     del PIN di quell'Admin, e finisce mostrando il codice che prende il
+     posto di quello appena speso. Chi esce di qui ha un PIN nuovo e la
+     cassaforte di nuovo piena. */
+  _renderRecoveryGate() {
+    /* Solo gli Admin, e solo quelli che una via di fuga ce l'hanno: gli
+       altri non hanno niente da spendere, e mostrarli sarebbe promettere
+       una porta che non si apre. */
+    const admin = Store.getOperators({ activeOnly: true })
+      .filter(o => o.role === 'admin' && Store.haCodiceRipristino(o));
+    if (!admin.length) {
+      this._gateShell(
+        '🗝 Codice di ripristino',
+        `<p class="text-body-small text-sx-text-secondary leading-[1.6]">
+          Nessun Admin di questa installazione ha un codice di ripristino registrato.
+          Il PIN si rinnova da <strong>Configurazione → Operatori</strong>, autorizzato
+          da chi sta un gradino sopra: un Team Leader per gli Operatori, un Admin per tutti.
+        </p>`,
+        '<button class="btn btn-primary" onclick="App._renderLoginModal({initial:true})">Indietro</button>'
+      );
+      return;
+    }
+    this._gateShell(
+      '🗝 Rientro con codice di ripristino',
+      `<p class="text-body-small text-sx-text-secondary leading-[1.6] mb-7">
+        Il codice è di ${Auth.RIPRISTINO_LUNGHEZZA} caratteri, come sul foglio in cassaforte.
+        Trattini e spazi si possono digitare o omettere.
+        <strong>Vale una volta sola:</strong> con il PIN nuovo verrà emesso un codice nuovo,
+        mostrato subito e mai più.
+      </p>
+      <div class="form-group mb-6">
+        <label>Admin <span class="req">*</span></label>
+        <select class="input select" id="recWho">
+          ${admin.map(o => `<option value="${o.op_id}">${this._esc(o.initials)} — ${this._esc([o.first_name, o.last_name].filter(Boolean).join(' ') || 'dati incompleti')}</option>`).join('')}
+        </select>
+      </div>
+      <div class="form-group mb-7">
+        <label>Codice di ripristino <span class="req">*</span></label>
+        <input class="input input-mono uppercase" id="recCode" autocomplete="off" spellcheck="false"
+          placeholder="XXXXX-XXXXX-XXXXX-XXXXX" maxlength="32"
+          oninput="this.value=this.value.toUpperCase()">
+      </div>
+      <div class="form-row mb-4">
+        <div class="form-group"><label>Nuovo PIN a 6 cifre <span class="req">*</span></label>
+          <input class="input input-mono" id="recPin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></div>
+        <div class="form-group"><label>Conferma nuovo PIN <span class="req">*</span></label>
+          <input class="input input-mono" id="recPin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._confirmRecovery()}"></div>
+      </div>
+      <div id="recError" class="gate-error"></div>`,
+      `<button class="btn" onclick="App._renderLoginModal({initial:true})">Indietro</button>
+       <button class="btn btn-primary" onclick="App._confirmRecovery()">Riscrivi il PIN e rientra</button>`
+    );
+    setTimeout(() => document.getElementById('recCode')?.focus(), 80);
+  },
+
+  async _confirmRecovery() {
+    const err = (m: string) => { const e = document.getElementById('recError'); if (e) e.textContent = m; };
+    const op = Store.getOperator(campo('recWho')?.value || '');
+    const codice = campo('recCode')?.value || '';
+    const pin = campo('recPin')?.value || '';
+    const pin2 = campo('recPin2')?.value || '';
+    if (!op) return err('Seleziona l’Admin da riaprire.');
+    const codErr = Auth.validateRecoveryCode(codice);
+    if (codErr) return err(codErr);
+    const pinErr = Auth.validatePin(pin);
+    if (pinErr) return err(pinErr);
+    if (pin !== pin2) return err('I due PIN non coincidono.');
+
+    try {
+      let nuovoCodice: string;
+      if (Persistence.kind === 'remote' && Persistence.recupera) {
+        /* Col servizio l'impronta non viaggia: il codice si manda là dove
+           l'impronta sta, e da lì torna la sessione insieme al codice
+           nuovo. È la stessa ragione per cui `verifyPin` vive sul
+           servizio, applicata a un segreto che vale di più. */
+        const r = await Persistence.recupera({ op_id: op.op_id, codice, nuovo_pin: pin });
+        if (!r?.ok) return err('Codice di ripristino non valido.');
+        nuovoCodice = r.nuovoCodice;
+      } else {
+        if (!await Auth.verifyRecoveryCode(op, codice)) return err('Codice di ripristino non valido.');
+        nuovoCodice = Auth.newRecoveryCode();
+        /* PIN nuovo e codice nuovo nella stessa scrittura: se passasse solo
+           il primo, l'Admin rientrerebbe senza più via di fuga e senza
+           saperlo. */
+        await Store.updateOperator(op.op_id, {
+          ...await Auth.buildPinFields(pin),
+          ...await Auth.buildRecoveryFields(nuovoCodice),
+        });
+      }
+      /* Da qui in poi è un accesso riuscito come un altro: la cache si
+         rilegge perché la maschera l'aveva caricata ridotta, e chi rientra
+         deve trovarsi il magazzino, non l'elenco degli operatori. */
+      await Store.carica();
+      const rec = Store.getOperator(op.op_id) || op;
+      this._afterLogin(rec);
+      this._identificato();
+      this._mostraCodiceRipristino(rec, nuovoCodice);
+    } catch (e) {
+      const stato = (e as { status?: number }).status;
+      if (stato === 401) return err('Codice di ripristino non valido.');
+      if (stato === 429) return err('Troppi tentativi: attendere un minuto.');
+      err((e as Error).message || 'Ripristino non riuscito.');
+    }
   },
 
   /* Completamento della scheda importata dallo storico + primo PIN. */

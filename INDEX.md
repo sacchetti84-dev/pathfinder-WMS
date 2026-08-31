@@ -7,8 +7,9 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **28/08/2026** — riscritto e compattato; la versione narrativa
-precedente resta nella storia git al commit `f4a9578`.
+Aggiornato: **31/08/2026** — la 2.13 è costruita e provata al banco. La
+riscrittura compatta è del 28/08; la stesura narrativa che l'ha preceduta resta
+nella storia git al commit `f4a9578`.
 
 **Cos'è Pathfinder.** Applicativo web per un magazzino alimentare in GMP.
 Node + Express su rete interna, porta **4173**, database **PostgreSQL 17** in
@@ -89,84 +90,101 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ---
 
-## 1. Stato, misurato il 28/08/2026
+## 1. Stato, misurato il 31/08/2026
 
 ### In servizio
 
 | | |
 |---|---|
-| applicativo e servizio | **2.12** — `/api/app-info` dice `versione` e `service_version` **2.12**, i due numeri coincidono |
-| impronta | `9ef94996d0c0e0a9edcb0a3dcd964a9302b386468028cc7470b28f8bb0a89e04` |
-| byte | **1.882.735** in **4 file**, costruita `2026-08-27T22:40:03Z` |
+| applicativo e servizio | **2.12.1** — `/api/app-info` dice `versione` e `service_version` **2.12.1**, i due numeri coincidono |
+| impronta | `4f2a9f0fbd208bccf5cb50018b0dda33c75fd896170b29234e415816f7b33540` |
+| byte | **1.864.994** in **4 file**, costruita `2026-08-28T16:51:23Z` |
 | dove | `C:\Pathfinder\app\corrente`, modo `cartella` (`PATHFINDER_APP_DIR`) |
-| via di ritorno | `C:\Pathfinder\app\precedente` → **2.11**, costruita `2026-08-27T17:12:11Z` |
-| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, revisione **851** |
+| via di ritorno | `C:\Pathfinder\app\precedente` → **2.12**, `9ef94996…`, costruita `2026-08-27T22:40:03Z` |
+| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, revisione **901** |
 | porta chiusa | `GET /api/c/meta` senza sessione risponde **401 «Sessione non valida»** — la 2.11 regge in produzione |
 
-Il pacchetto in `consegna\Pathfinder 2.12\` e la cartella `corrente` portano lo
-**stesso manifesto**, byte per byte: è la stessa build.
+> **LA 2.12.1 NON STAVA IN QUESTO DOCUMENTO.** La stesura del 28/08 dichiarava
+> in servizio la 2.12, e nel frattempo la macchina era già passata alla 2.12.1.
+> È la **quinta volta in una settimana** che la riga «in servizio» sbaglia, ed
+> è per questo che §0 punto 2 esiste: si chiede al servizio, sempre.
 
-> **Le impronte `1c43313d…` e `3f6a5102…` che le stesure precedenti davano per
-> la 2.12 sono superate.** Vale quella che risponde il servizio.
+### Il fix che viveva in un pacchetto solo
+
+Il **28/08 il magazzino è rimasto giù una giornata intera**. L'attività
+pianificata parte `AtStartup`, il servizio ha chiesto PostgreSQL **diciotto
+secondi** dopo l'accensione, il motore stava ancora facendo il recovery, e il
+servizio è uscito con 1 — come deve, «meglio fermo che vivo senza database».
+Poi non ci ha riprovato nessuno: il `-RestartCount` dell'Utilità di
+pianificazione ripesca le attività che **non riescono a partire**, non quelle
+il cui processo esce con un codice diverso da zero.
+
+La correzione è la **2.12.1**, e il 31/08 si è scoperto **dov'era scritta**:
+in `consegna\Pathfinder 2.12.1\servizio\` e in `C:\Pathfinder\servizio\`, cioè
+nel pacchetto e nella macchina. In `server\` **no**. Tocca due file —
+`lib\driver-postgres.js` (attesa dell'avvio, +68 righe) e
+`installa-servizio.ps1` (`$trigger.Delay = 'PT1M'`, cinque tentativi a due
+minuti) — e li ha trovati un confronto file per file fra i due alberi.
+
+**La 2.13 la riporta nel sorgente**, byte per byte, e le mette accanto le
+prove che non aveva: §3.
+
+> **È una trappola nuova, e sta in §7.** La build copia `server\` dentro il
+> pacchetto e **mai il contrario**. Un fix scritto nel pacchetto vive fino alla
+> build successiva, e poi sparisce senza che niente lo dica.
 
 ### I conteggi del database
 
-Misurati da `/api/health` il 28/08:
+Misurati da `/api/health` il 31/08:
 
 | collezione | righe | | collezione | righe |
 |---|---:|---|---|---:|
-| `articles` | 11.197 | | `lots` | 27 |
+| `articles` | 11.197 | | `lots` | 29 |
 | `inventory` | 851 | | `wip` | 6 |
 | `sites` | 4 | | `pick_archive` | 2 |
 | `zones` | 17 | | `meta` | 3 |
-| `mov_log` | **39** | | `operators` | **1** |
+| `mov_log` | **45** | | `operators` | **2** |
+| `loc_status` | 5 | | `disabled` | 1 |
+| `tasks` | 3 | | `udc` | **1** |
 
-Vuote: `loc_status`, `disabled`, `quarantine`, `pending_outbound`,
-`pick_session`, `disposal_archive`, `udc`, `tasks`, `storage_rules`,
-`recipients`, `location_attrs`.
+Vuote: `quarantine`, `pending_outbound`, `pick_session`, `disposal_archive`,
+`storage_rules`, `recipients`, `location_attrs`.
 
-> **DIVERGENZA GROSSA, ed è la voce 69.** Il 26/08 lo stesso database
-> dichiarava **886 giacenze, 321 movimenti, 7 operatori**; oggi dice **851, 39,
-> 1**. Un registro movimenti che cala non è un errore di lettura: o c'è stato
-> un reset fra il 27 e il 28, o il servizio parla con un database diverso da
-> quello di due giorni fa. **Va guardato prima di qualunque altra cosa che
-> tocchi i dati**, e finché non è chiarito nessun numero di magazzino scritto
-> qui sopra vale come «il magazzino».
+> **LA VOCE 69 RESTA APERTA, e adesso ha un fatto in più: il database vive.**
+> Dal 28/08 al 31/08 i movimenti sono saliti 39 → **45**, gli operatori 1 →
+> **2**, i lotti 27 → **29**, e la prima UDC della storia del progetto è nata
+> (`udc` 0 → **1**, che era la voce 12). Quindi il calo del 27-28/08 — 886
+> giacenze, 321 movimenti, 7 operatori scesi a 851, 39, 1 — **non è un
+> database sbagliato che si sta ancora leggendo**: è successo qualcosa in quei
+> due giorni, e dopo il magazzino ha ripreso a scrivere su questo. Resta da
+> guardare **prima di qualunque cosa che tocchi i dati**.
 
 ### Collaudi e tipi
 
+Tutti rilanciati il **31/08**, sul codice della 2.13:
+
 | | |
 |---|---|
-| client | **1.222 prove in 42 file, tutte verdi** — `npm test`, 28/08 |
-| tipi | `npm run check` **a 0** su client e servizio — 28/08 |
-| servizio · migrazione · installazione | **127 · 8 · 31** — dichiarati alla 2.12, **non rilanciati il 28/08** |
+| client | **1.222 prove in 42 file, tutte verdi** — `npm test` |
+| tipi | `npm run check` **a 0** su client e servizio |
+| servizio | **139** — erano 127, le dodici nuove coprono l'attesa dell'avvio di PostgreSQL |
+| migrazione · installazione | **8 · 31** |
+| gerarchia (`banco/gerarchia.cjs`, nuovo) | **32** — le cariche provate sul servizio, con `fetch` e i cookie veri |
+| ciclo (`banco/ciclo/gira.cjs`) | **45 su 47, due rosse** — e sono **due banchi rimasti indietro**, non due difetti della 2.13: voci **70** e **71** |
 
-### Lavoro non committato nell'albero
+### La 2.13 — costruita, non installata
 
-`git status` mostra **11 file sorgente modificati** e non committati. Tolto il
-rumore dei fine riga, sono **~995 righe vere**, ed è la **2.13 cominciata**:
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.13\` |
+| impronta | `cbe7180250984a557208d0cda860e6b63e0b5772c49a209ae752ac4afc81eb64` |
+| byte | **1.882.735** in **4 file**, costruita `2026-08-31T17:13:09Z` |
+| riproducibile | **sì, verificata**: due build dello stesso albero hanno dato la stessa impronta |
+| prova a vuoto | `.\installa.ps1 -NonChiedere -Prova` sulla macchina in servizio: strada **aggiornamento**, radice `C:\Pathfinder`, PostgreSQL già pronto, **nessuna migrazione**, database non toccato |
 
-- `POST /api/op/rinnovaPin` — il rinnovo del PIN passa dal servizio, perché è
-  il servizio a sapere chi autorizza;
-- `POST /api/auth/recupero` con un **codice di ripristino** di venti caratteri,
-  generato quando si nomina un Admin, mostrato una volta sola e tenuto come
-  impronta (`rec_hash`, `rec_salt`, `rec_algo: scrypt`, dal servizio esce solo
-  `rec_set`). Vale **solo per il ruolo `admin`**: chi è Operatore o Team Leader
-  ha già chi gli rinnova il PIN, e un secondo segreto sarebbe solo un secondo
-  modo di entrare.
+**Non è installata.** Installare è un atto umano — §0 punto 4.
 
-Tocca `auth.ts`, `configOperatori.ts`, `store.ts`, `remote.ts`, `entita.ts`,
-`contratto.ts`, `maiuscole.ts`, `app.ts`, `configurazione.ts`,
-`pathfinder-server.js`, `superficie-app.dati.js`. **Non è committato e non è
-costruito**: il pacchetto 2.12 non lo contiene.
-
-> **La metà del diff è rumore di fine riga** — `git diff --stat` dice 5.108
-> righe, `--ignore-cr-at-eol` ne dice 995. È di nuovo la trappola CRLF di §7:
-> qualcosa ha riscritto interi file cambiando i terminatori. Prima di
-> committare va rimessa a posto, o il commit seppellisce la 2.13 sotto
-> quattromila righe di niente.
-
-Ultimo commit: `f4a9578` — «La build aspetta OneDrive invece di morire».
+Ultimo commit: `989c8ef` — «Scheda tecnica IT — REP-IT-001 rev01».
 
 ---
 
@@ -177,9 +195,10 @@ una di prova ne porta di più (`2.12.1`).
 
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.13** | **COMINCIATA, non committata** | — | Rinnovo PIN dal servizio · codice di ripristino dell'Admin |
-| **2.12** | **IN SERVIZIO dal 27/08 sera** | `9ef94996…` | Il giro: più ODP in un percorso solo, conto di produzione **uno** · ricalibrazione della distinta · l'ubicazione si scansiona **una volta per vano** |
-| **2.11** | **VIA DI RITORNO** (`app\precedente`) | `4a8b5a6c…` | Il PIN emette una **sessione**; senza sessione le rotte `/api` non si aprono — voce 64 |
+| **2.13** | **COSTRUITA, non installata** — 31/08 | `cbe71802…` | La gerarchia la impone **il servizio** (voce 66) · `rinnovaPin` · il **codice di ripristino** dell'Admin · il fix di avvio della 2.12.1 riportato nel sorgente e coperto da dodici prove |
+| **2.12.1** | **IN SERVIZIO dal 28/08 sera** | `4f2a9f0f…` | Il servizio **aspetta** PostgreSQL invece di arrendersi al primo no, e l'attività pianificata parte un minuto dopo l'accensione. Nata da una giornata di magazzino fermo |
+| **2.12** | **VIA DI RITORNO** (`app\precedente`) | `9ef94996…` | Il giro: più ODP in un percorso solo, conto di produzione **uno** · ricalibrazione della distinta · l'ubicazione si scansiona **una volta per vano** |
+| **2.11** | archiviata | `4a8b5a6c…` | Il PIN emette una **sessione**; senza sessione le rotte `/api` non si aprono — voce 64 |
 | **2.10** | archiviata | `2a70b8e9…` | Sei falle di sicurezza chiuse: `pin_hash` fuori dalle risposte, scrypt, backup che non esce dalla macchina, codici che non spezzano un gestore, ACL sui file del servizio, intestazioni |
 | **2.9** | archiviata | `b3b3b8da…` | Lo stoccaggio smette di **rifiutare** e diventa assistente · matrice di incompatibilità tolta, pericolosità dentro le regole · `#dlgOverlay` |
 | **2.8** | archiviata | `21c3f4b9…` | Regole di stoccaggio che **decidono**: due regole base, categoria merceologica, pericolosità, `location_attrs` (ventunesima collezione) |
@@ -210,6 +229,95 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.13 — chi autorizza lo decide il servizio, e l'Admin ha una via di fuga
+
+**Costruita il 31/08, provata al banco, non installata.** Impronta
+`cbe71802…`, 1.882.735 byte in 4 file.
+
+**LA GERARCHIA SCENDE NEL SERVIZIO, ed è la voce 66.** Fino alla 2.12 le
+cariche vivevano nel client: la maschera chiedeva il PIN di un Team Leader e
+poi mandava una `PATCH` come tutte le altre. Chi non passava dalla maschera
+**non incontrava nessuna gerarchia** — bastava una sessione qualunque, cioè il
+PIN del più giovane degli operatori, e una riga di `curl`, per scriversi
+`role: "admin"` addosso. La 2.11 aveva chiuso la porta a chi non ha un PIN;
+la 2.13 chiude l'anagrafica a chi ne ha uno e non ha la carica.
+
+Tre eccezioni, e sono sempre le stesse tre: il **primo avvio** (il primo Admin
+va creato, e non c'è ancora nessuno che possa autorizzarlo), il **token di
+macchina** (backup, installer e migrazioni non hanno un PIN, hanno una
+chiave), e il **rinnovo del PIN**, che non passa di lì perché ha una rotta sua.
+
+**`POST /api/op/rinnovaPin` — il rinnovo passa dal servizio**, perché è il
+servizio a sapere chi autorizza. Un Team Leader sulla collezione `operators`
+non scrive niente: con una `PATCH` diretta non potrebbe rinnovare il PIN di
+nessuno. La rotta verifica il PIN di chi autorizza, verifica la gerarchia
+(l'Operatore lo rinnova un Team Leader, il Team Leader un Admin, l'Admin
+chiunque) e riscrive.
+
+**`POST /api/auth/recupero` — la via di fuga dell'Admin.** Un PIN smarrito si
+rinnova, e chi lo rinnova è un grado più alto. **Sopra l'Admin non c'è
+nessuno**, e con un solo Admin — che è ogni installazione appena nata — il suo
+PIN perso è la Configurazione murata per sempre: nessuno può nemmeno nominare
+un secondo Admin, perché si nomina da lì. È successo il 13/08.
+
+Il codice è **venti caratteri dall'alfabeto di Crockford** — le dieci cifre e
+ventidue lettere, senza I L O U — in quattro gruppi da cinque. Cento bit.
+L'alfabeto non è un vezzo tipografico: è un codice che qualcuno stampa, mette
+in cassaforte e sei mesi dopo ricopia a mano da un foglio, e uno zero letto
+come una O lì dentro è la via di fuga che non funziona. La lettura perdona
+spazi, minuscole, trattini mancanti, e riconduce I/L a `1` e O a `0`.
+
+Quattro cose che valgono più della descrizione:
+
+- **non è un secondo PIN**: non apre l'applicativo, apre soltanto la maschera
+  che riscrive il PIN di quell'Admin;
+- **si consuma nell'uso** — al posto suo ne nasce subito un altro, mostrato
+  una volta sola;
+- **sul disco non c'è mai il codice**, c'è la sua impronta (`rec_hash`,
+  `rec_salt`, `rec_algo: scrypt`); dal servizio esce solo `rec_set`, vero o
+  falso, che è l'unica cosa che la maschera chiede;
+- **vale solo per il ruolo `admin`**: chi è Operatore o Team Leader ha già chi
+  gli rinnova il PIN, e un secondo segreto sarebbe solo un secondo modo di
+  entrare.
+
+**IL FIX DI AVVIO DELLA 2.12.1 TORNA NEL SORGENTE.** Viveva in un pacchetto e
+in una macchina, non in `server\` — §1. La 2.13 lo riporta byte per byte e gli
+mette accanto **dodici prove che non aveva**, in `server/test/collaudo.js`:
+quali errori si aspettano e quali no, che la scala dell'attesa raddoppi e si
+fermi a otto secondi, che un database che sale al terzo colpo venga raggiunto,
+che scaduto il tempo il messaggio dica che è scaduto il tempo, e che una
+password sbagliata si scopra subito invece di far aspettare novanta secondi.
+Si provano **da ferme**, con un orologio finto e un sonno finto: accendere un
+PostgreSQL e spegnerlo a metà non è una prova, è una coincidenza.
+
+**Il banco che prova le cariche è nuovo: `banco/gerarchia.cjs`, 32 prove.**
+Una regola imposta sul servizio si prova sul servizio — con `fetch`, coi
+cookie veri, senza aprire un browser, su un database temporaneo alla porta
+4198. Fra le domande che pone: che il Team Leader non si promuova Admin
+nemmeno passando da una transazione o svuotando la collezione, che il codice
+di ripristino **non esca mai da una risposta HTTP**, che quello speso non
+valga più e quello emesso al posto suo apra a sua volta, e che dopo un reset
+del database il primo Admin si possa ricreare.
+
+Quell'ultima ha fatto uscire una correzione al guardiano: **il database si può
+svuotare anche alle spalle del servizio** — un `.db` sostituito a mano,
+`prepara-postgres.ps1`, un ripristino da backup — e in quel caso la risposta
+«c'è già un Admin» tenuta da parte restava «sì» per sempre. Il servizio
+rifiutava con un 401 anche l'unica richiesta che doveva passare, quella che
+crea il primo Admin, e sotto il wizard si leggeva «Sessione non valida:
+identificarsi» fino al riavvio del processo. Adesso, prima di dire di no, il
+servizio ricontrolla — al più una volta ogni cinque secondi, e solo sul
+cammino del rifiuto: chi lavora ha una sessione e non ci passa.
+
+### 2.12.1 — il servizio aspetta il database
+
+**In servizio dal 28/08 sera.** Impronta `4f2a9f0f…`, 1.864.994 byte.
+
+Una build di prova nata da un guasto, non da un piano: il racconto del guasto
+e di dove la correzione era finita sta in **§1**, le due difese
+dell'accensione in **§7**. Nel sorgente ci è entrata solo con la 2.13, e con
+lei le dodici prove che non aveva.
 
 ### 2.12 — il giro di prelievo, e il vano scansionato una volta
 
@@ -574,9 +682,10 @@ pagato**.
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **69** | **I CONTEGGI DEL DATABASE NON TORNANO CON QUELLI DEL 26/08.** Misurato il 28/08 su `/api/health`: **851 giacenze, 39 movimenti, 1 operatore**, contro 886 · 321 · 7 di due giorni prima. `storage_rules`, `recipients` e `location_attrs` sono a zero, e `recipients` una riga ce l'aveva (voce 49) | **Prima di ogni altra cosa che tocchi i dati.** Tre domande in quest'ordine: il servizio parla col database che crediamo (`/api/health`, campo `file`); c'è stato un reset o un `clearMany` fra il 27 e il 28; e se sì, il `.dump` della sera prima è ancora in `C:\Pathfinder\backup\`. **Un registro movimenti che cala è la cosa che questo applicativo esiste per non fare** — §8, «nessuna cancellazione di record» |
+| **71** | **IL BANCO DEL CICLO CHIEDE A UN TRASFERIMENTO DI RESTARE APERTO, E DALLA 2.1 NON RESTA.** `funzioni.test.js` crea un `TRANSFER` da 3 colli, ne muove 1 e si aspetta `in_progress`; il codice lo chiude, perché `chiudeAlGesto` include `TRANSFER` **per decisione di Andrea alla 2.1** — «le attività si devono chiudere nel momento in cui il trasferimento viene confermato, obbligatorio». Il difetto `CP1` che il banco scrive dal 27/08 **sta segnalando questa aspettativa vecchia**, non un difetto del magazzino. Poi il secondo `advanceTask` lancia sul serio e la prova diventa rossa | **Il banco va allineato alla decisione, non il codice.** Il residuo resta al solo Smaltimento: la prova a residuo si scrive su un `DISPOSAL`, e per il `TRANSFER` si prova la chiusura al gesto. Poi `CP1` esce da `difetti.json` |
+| **70** | **IL BANCO DEL PERCORSO LEGGE UN ODP CHE NON È PIÙ QUELLO DELLA SUA RICETTA.** `percorso.test.js` apre `ARCHIVIO\BACKUP E FILE DI TEST\07082026_gluc.xlsx` e si aspetta `ODP2603889`; il file — committato, datato 20/08 — porta `ODP2607777`, e il suo vicino `_2` porta `ODP2607877`. **Nessuno dei due è quello che `ricetta.js` dichiara di aver letto** | Il progetto ha già lo strumento: `banco/ciclo/rifai-ricetta.cjs` rigenera `ricetta.js` dal foglio. Ma rigenerare cambia le quantità attese di **tutto il ciclo**, non solo di questa prova: **quale ODP sia il riferimento lo decide Andrea**, e poi si rigenera |
+| **69** | **I CONTEGGI DEL DATABASE NON TORNANO CON QUELLI DEL 26/08.** Misurato il 31/08 su `/api/health`: **851 giacenze, 45 movimenti, 2 operatori**, contro 886 · 321 · 7 del 26/08. Il 28/08 dicevano 851 · 39 · 1, quindi **il magazzino ha ripreso a scrivere su questo database** e il calo è un fatto avvenuto fra il 27 e il 28, non una lettura sbagliata. `storage_rules`, `recipients` e `location_attrs` restano a zero, e `recipients` una riga ce l'aveva (voce 49) | **Prima di ogni altra cosa che tocchi i dati.** Tre domande in quest'ordine: il servizio parla col database che crediamo (`/api/health`, campo `file`); c'è stato un reset o un `clearMany` fra il 27 e il 28; e se sì, il `.dump` della sera prima è ancora in `C:\Pathfinder\backup\`. **Un registro movimenti che cala è la cosa che questo applicativo esiste per non fare** — §8, «nessuna cancellazione di record» |
 | **67** | **LA QUOTA DI CONSUMO NON SI CORREGGE A MANO.** Alla chiusura di un giro la ripartizione si scrive proporzionale a quanto ciascun ordine aveva chiesto. Se la produzione ha consumato in proporzione diversa — il caso normale, non l'eccezione — non c'è dove dirlo | **La proporzione è una proposta, non un fatto misurato**, e va scritto anche sul foglio. Serve una maschera che sposti quantità da un ordine all'altro col vincolo che la somma resti quella del consumo. Il dato c'è: `giro_richieste` sul movimento |
-| **66** | **I PERMESSI PER RUOLO STANNO ANCORA NEL CLIENT.** `comandaLaConfigurazione` gira nel browser: chi si identifica come operatore semplice e poi chiama a mano la rotta del reset non trova nessuno che glielo impedisca. È la metà che la 2.11 ha lasciato indietro di proposito | **Il token porta già il ruolo.** Serve dichiarare quali rotte sono di comando (reset, `clearMany`, `deleteWhere`, la scrittura sugli operatori) e verificarlo **sul servizio**. Il lavoro è nelle rotte, non nel modello |
 | **65** | **`xlsx` 0.18.5 PORTA DUE VULNERABILITÀ NOTE** — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — **e non c'è un fix su npm**: SheetJS pubblica le corrette solo dal proprio sito. Il vettore è il file Excel che un operatore carica. Le dipendenze del servizio sono a 0 vulnerabilità | La regola «`dexie` e `xlsx` non si aggiornano» è difendibile, ma **va ridecisa sapendo questo**: o si passa alla versione di SheetJS e si riprova tutto quel che tocca Excel, o si scrive qui che si accetta il rischio e perché |
 | **63** | **`areaWip` SUL BANCO È UN VANO DELLO SCAFFALE, NON UN'AREA.** Impostata il 27/08 su `MAG1-RAKA-04-01-T` per provare il conto di produzione. Funziona, ma sulla mappa non si distingue dallo stoccaggio | Sul magazzino vero la domanda è la **voce 15**. Sul banco, il giorno che serve una prova più fedele, si crea una zona `WIP` sua |
 | **62** | **IL BIP DI LETTURA E LA CONFERMA DI TAPPA SONO TUTTI E DUE ACUTI E SINUSOIDALI.** `scan` 1320 Hz, `ok` sale 1046 → 1568 Hz. Fra `ok` ed `error` non c'è confusione (`error` scende 233 → 175 in onda quadra), ma «ho letto» e «tappa chiusa» possono somigliarsi col rumore del reparto e i tappi | **Una prova al banco col rumore vero**: se la confusione c'è, si scende il bip di lettura o se ne accorcia la coda, così l'unico suono che sale resta la conferma |
@@ -637,6 +746,7 @@ hanno con cosa lavorare.
 | # | Cosa | Prova |
 |---|---|---|
 | ~~**68**~~ | Il giro dei cinque ODP non era mai girato per intero | **27/08 sera**: girato al banco su copia del database con ODP generati dalle giacenze vere. Una tappa sola, l'ubicazione chiesta una volta, le quote che sommano esattamente il consumo. Ha fatto uscire **tre difetti**, tutti corretti — §3 |
+| ~~**66**~~ | I permessi per ruolo stavano nel client: una sessione qualunque e una riga di `curl` bastavano a scriversi `role: "admin"` addosso | **Chiusa dalla 2.13**, e provata dove la regola viene imposta: `banco/gerarchia.cjs`, **32 prove** con `fetch` e i cookie veri. Il Team Leader non si promuove nemmeno passando da una transazione o svuotando la collezione. **Costruita, non ancora installata** |
 | ~~**64**~~ | Le rotte `/api` non chiedevano credenziali a nessuno | **Chiusa dalla 2.11**, e verificata in produzione il 28/08: `GET /api/c/meta` senza sessione risponde **401**. Resta la voce 66 |
 | ~~**56**~~ | L'installer non sapeva consegnare PostgreSQL | **26/08 sera**: `prepara-postgres.ps1` controlla il motore e prepara ruolo e database con `LC_COLLATE 'C'`, generando la password. `migrazione/` viaggia nel pacchetto. Le prove di installazione passano da 22 a 29 |
 | ~~**55**~~ | `pg` non era nel servizio installato | **Trovato prima di installare.** Ora l'installer guarda dipendenza per dipendenza come le dichiara `package.json`, nomina quale manca, e si ferma se dopo `npm install` ne manca ancora una |
@@ -710,6 +820,16 @@ Senza quella variabile `npm run dev` parla col servizio **vero** sulla 4173.
 > muoiono su `EADDRINUSE`.
 
 > **Il banco non va mai in `C:\Pathfinder\`.** Ci è finito una volta, il 17/08.
+
+**Le cariche hanno un banco loro, e non chiede niente a questo** — dalla 2.13:
+
+```powershell
+node banco\gerarchia.cjs      # 32 prove, database temporaneo, porta 4198
+```
+
+Accende un servizio suo su un database usa-e-getta, esercita le rotte con
+`fetch` e coi cookie veri, e si spegne. **Non tocca `banco\db`** e non
+vuole il banco del ciclo acceso: la porta è la 4198, non la 4199.
 
 ---
 
@@ -905,6 +1025,27 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 
 ### Il servizio e la macchina
 
+- **UN FIX SCRITTO NEL PACCHETTO MUORE ALLA BUILD SUCCESSIVA.** La correzione
+  della 2.12.1 — quella che tiene su il magazzino all'accensione — era scritta
+  in `consegna\Pathfinder 2.12.1\servizio\` e in `C:\Pathfinder\servizio\`,
+  e **non** in `server\`. La build copia `server\` dentro il pacchetto e mai
+  il contrario: la 2.13 costruita senza accorgersene avrebbe rispedito in
+  magazzino il difetto del 28/08, **coi collaudi tutti verdi e l'impronta in
+  regola** — l'impronta copre `app\`, non `servizio\`. Trovata il 31/08
+  confrontando i due alberi file per file, ed è il confronto da rifare ogni
+  volta che si è toccata una macchina in emergenza. **Quel che si corregge di
+  corsa si riporta nel sorgente prima di costruire.**
+- **L'AVVIO ALL'ACCENSIONE HA DUE DIFESE, E LA SECONDA NON È QUELLA CHE
+  SEMBRA.** Dalla 2.12.1 il servizio **aspetta** il database fino a novanta
+  secondi (`PATHFINDER_PG_ATTESA_AVVIO`, a `0` la spegne) invece di decidere
+  in duecento millisecondi, e l'attività pianificata parte un minuto dopo
+  l'accensione (`$trigger.Delay = 'PT1M'`). «Riavvia in caso di errore»
+  dell'Utilità di pianificazione **ripesca le attività che non riescono a
+  partire, non quelle il cui processo esce con un codice diverso da zero**:
+  resta perché copre il caso che copre — un processo ucciso, una macchina in
+  affanno — ma non è lei a garantire l'accensione. **La regola non si
+  rovescia**: senza database il servizio continua a non partire, smette solo
+  di deciderlo in fretta.
 - **L'attività pianificata registra il percorso DA CUI VIENE LANCIATA.** Il
   10/08 `installa-servizio.ps1` fu lanciato dalla cartella di lavoro, e per
   quindici giorni **il magazzino ha eseguito il file del repository**: chi
@@ -986,7 +1127,13 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   non sono uniformi**: `quarantena.ts` è LF, `spedizioni.ts` è misto, quasi
   tutto il resto è CRLF — uno script che cerca un blocco convertendo a CRLF non
   lo trova nei file LF, e «zero occorrenze» somiglia a «quel codice non c'è
-  più». **È successo di nuovo**: vedi lo stato dell'albero in §1.
+  più». **È successo di nuovo il 28/08, e il verso era l'opposto di quel che
+  il documento supponeva**: le blob di sei file erano **LF**, e qualcosa le
+  aveva riscritte tutte in **CRLF**, gonfiando il diff da 995 righe vere a
+  5.108. Raddrizzato il 31/08 togliendo i CR da quei sei e basta. **Il verso
+  non si indovina: si misura**, confrontando `git diff` con
+  `git diff --ignore-cr-at-eol` file per file. Vale anche per questo
+  documento, che è **LF** e va tenuto tale.
 - **Caricare file dall'interfaccia web di GitHub scrive un albero che non
   esiste.** Il 19/08 il remoto dichiarava build 1.8.4 **senza
   `src/modules/documenti.ts`**, che della 1.8.4 è il pezzo centrale. **Un
@@ -1502,14 +1649,34 @@ accesso riuscito; il modo «da file» resta SHA-256 perché il browser non ha
 scrypt). Il rinnovo lo autorizza un Team Leader col proprio PIN, e **con un solo
 Team Leader il cerchio si chiude su sé stesso** — è successo il 13/08.
 
-> ⚠️ **La vecchia procedura d'uscita — `POST /api/op/hashPin` seguito da una
-> `PATCH` su `/api/c/operators/<op_id>` — NON funziona più così com'è dalla
-> 2.11**: quelle rotte vogliono una sessione. E la 2.13 in lavorazione la
-> sostituisce con `POST /api/op/rinnovaPin` e con un **codice di ripristino**
-> dell'Admin (§1). **Finché la 2.13 non è costruita e installata, la via
-> d'uscita da scrivere qui non c'è**: si esce con la chiave di macchina
-> `PATHFINDER_TOKEN`, e la procedura va riprovata e riscritta prima di servire
-> davvero.
+**Le tre vie d'uscita, in ordine di preferenza.** Le prime due sono della 2.13,
+**costruita e non ancora installata**: finché in servizio c'è la 2.12.1, vale
+solo la terza.
+
+1. **Un grado più alto lo rinnova, dall'applicativo.** Configurazione →
+   Operatori, il bottone del rinnovo: chi autorizza digita il **proprio** PIN.
+   L'Operatore lo rinnova un Team Leader, il Team Leader un Admin, l'Admin
+   chiunque. Passa da `POST /api/op/rinnovaPin`, e la gerarchia la verifica
+   **il servizio**: dalla 2.13 non c'è modo di aggirarla dal browser.
+2. **Se il PIN perso è quello dell'unico Admin, il codice di ripristino.**
+   Dalla schermata di accesso, «🗝 Ho un codice di ripristino»: si sceglie
+   l'Admin, si digita il codice — venti caratteri, spazi e minuscole perdonati
+   — e si scrive il PIN nuovo. Il codice **si consuma**, e al suo posto ne
+   compare subito un altro, mostrato **una volta sola**: si stampa e si mette
+   dove stava quello di prima. Chi non ne ha uno lo genera da Configurazione →
+   Operatori, col bottone 🗝, e la colonna «Ripristino» dice per ogni Admin se
+   c'è o manca.
+3. **Se non c'è né l'una né l'altra: la chiave di macchina.**
+   `PATHFINDER_TOKEN` apre le rotte senza sessione — è la chiave del backup
+   serale e dell'installer, e sta sulla macchina del servizio. **È l'uscita di
+   servizio, non una procedura**: si usa da chi ha già accesso a quella
+   macchina, e la si richiude nominando un secondo Team Leader.
+
+> ⚠️ **La procedura che questo documento ha portato per settimane —
+> `POST /api/op/hashPin` seguito da una `PATCH` su
+> `/api/c/operators/<op_id>` — NON funziona più dalla 2.11**: quelle rotte
+> vogliono una sessione, e dalla 2.13 la `PATCH` sugli operatori vuole anche
+> la carica. Non si riprova: si usa una delle tre qui sopra.
 
 Due cose che restano vere in ogni caso: **l'`op_id` si rilegge, non si copia**
 (una `PATCH` su una chiave che non esiste **crea** un secondo operatore invece
@@ -1602,7 +1769,7 @@ farlo tacere**: se suona, un metodo non è rientrato.
 | `pathfinder-server.js` | ~380 | Express: rotte, SSE, sessione, TLS opzionale, la cartella dell'applicativo, avvio. Qui sta `const VERSION` |
 | `lib/db.js` | 78 | **La facciata**: legge `PATHFINDER_PG` (variabile di macchina, poi `.env.local`), sceglie il driver. Variabile **vuota** = «no, SQLite», e batte il file |
 | `lib/driver-base.js` | 318 | **TUTTA la logica del servizio dati, una volta sola per due database**: scritture, letture, filtri, transazioni, revisione e notifica, normalizzazione in maiuscolo. I driver portano solo i quattro gesti che un database sa fare. **`AsyncLocalStorage`, non un flag** |
-| `lib/driver-sqlite.js` · `lib/driver-postgres.js` | 121 · 199 | `better-sqlite3`, `_migra`, backup a file · `pg`, il pool, la connessione fissata alla transazione, il riallineamento delle sequenze, `int8` decodificato a numero |
+| `lib/driver-sqlite.js` · `lib/driver-postgres.js` | 121 · 267 | `better-sqlite3`, `_migra`, backup a file · `pg`, il pool, la connessione fissata alla transazione, il riallineamento delle sequenze, `int8` decodificato a numero, e dalla 2.12.1 **l'attesa dell'avvio**: `_attendiIlServer`, `siRiprova`, `attesaPrima` — esportate apposta per essere provate da ferme |
 | `lib/sql.js` | 259 | **TUTTO lo SQL, col dialetto come parametro.** `startsWith` è `substr(col,1,N) = ?` e **non** un `LIKE` |
 | `lib/schema.js` · `lib/schema-postgres.js` | 297 · 133 | Tabelle e indici in **due funzioni separate**, con la migrazione in mezzo, più **`MAIUSCOLE`** · il DDL PostgreSQL dalla **stessa** dichiarazione, con `COLLATE "C"` su ogni colonna di testo (senza, `ORDER BY location_code` rimescola le corsie) |
 | `installa-pathfinder.ps1` | — | **L'installer.** Nel pacchetto diventa `installa.ps1`. `-NonChiedere`, **`-Prova`**, `-Database`, `-SenzaMigrazione` |
@@ -1610,11 +1777,16 @@ farlo tacere**: se suona, un metodo non è rientrato.
 | `prepara-postgres.ps1` | — | Controlla PostgreSQL e prepara ruolo e database. **Il motore non lo installa e non lo scarica.** `-Prova` guarda e non tocca |
 | `installa-versione.ps1` · `torna-indietro.ps1` · `backup-serale.ps1` | — | Disinstalla-reinstalla e materializza · scambia `corrente` e `precedente` (**solo l'applicativo**) · backup a caldo delle 20:00 |
 | `migrazione/` | — | `migra-sqlite-postgres.js`, `audit.js`, `audit-sqlite.js`, `maiuscola-codici.cjs`, `LEGGIMI.md`. **Viaggia nel pacchetto dalla 2.7**: migra una COPIA e ricontrolla i conteggi tavolo per tavolo, e prima di copiare gira l'audit |
-| `test/collaudo.js` · `collaudo-migrazione-1.4.js` · `collaudo-installazione.js` | 520 · 158 · — | 127 prove sul servizio · 8 sul cambio di schema · 31 sugli script di installazione (incluso l'installer in `-Prova`) |
+| `test/collaudo.js` · `collaudo-migrazione-1.4.js` · `collaudo-installazione.js` | 586 · 158 · — | **139** prove sul servizio (le ultime dodici sull'attesa dell'avvio di PostgreSQL, con orologio e sonno finti) · 8 sul cambio di schema · 31 sugli script di installazione (incluso l'installer in `-Prova`) |
 
 ### Collaudi — `test/`
 
-**1.222 prove in 42 file** al 28/08. `ambiente.js` è il preambolo comune.
+**1.222 prove in 42 file** al 31/08. `ambiente.js` è il preambolo comune.
+
+Fuori da `test/` stanno i due banchi, che non girano con `npm test`:
+**`banco/gerarchia.cjs`** (32, le cariche sul servizio — §5) e
+**`banco/ciclo/gira.cjs`** (47, il ciclo dal carico al consumo su copia del
+magazzino vero; **45 verdi e due rosse**, voci 70 e 71).
 
 Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 `conformita` · `cache` · `pacchetto` · `statistiche` · `compiti` · `misure` ·
@@ -1682,14 +1854,22 @@ Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 | Cosa costerebbe davvero passare ad Azure | `server/azure/LEGGIMI.md` |
 | ~~Demo portatile su chiavetta~~ · ~~Sheet tecnico IT~~ | **NON ESISTONO PIÙ — voce 43**, e vanno riscritti |
 
-**Il repository tiene tutto, tranne due segreti — 27/08.** Decisione di Andrea:
+**Il repository tiene tutto, tranne i segreti — 27/08.** Decisione di Andrea:
 dentro `node_modules`, `ARCHIVIO`, `banco`, `consegna` — 4.211 file, ~250 MB.
 «Si ricostruisce» vale finché qualcuno lo ricostruisce, e un file che sta su un
-disco solo prima o poi non c'è più (voce 43). **Restano fuori due cose, e non
+disco solo prima o poi non c'è più (voce 43). **Restano fuori tre cose, e non
 per il peso**: i **file di database**, che portano `pin_hash` e `pin_salt`
-accanto a nome e cognome di persone vere, e **`.env.local`**, che porta utente e
-password di PostgreSQL. **Git non dimentica**: un segreto spinto una volta va
-considerato bruciato.
+accanto a nome e cognome di persone vere; **`.env.local`**, che porta utente e
+password di PostgreSQL; e dal 31/08 i **codici di ripristino** della 2.13, che
+si riconoscono dalla forma — venti caratteri in quattro gruppi da cinque.
+**Git non dimentica**: un segreto spinto una volta va considerato bruciato.
+
+> ⚠️ **UNO DI QUEI CODICI STA IN `ARCHIVIO\` COME FILE DI TESTO**, col codice
+> nel nome e nel contenuto, scritto il 28/08. **Non è mai entrato in git** e da
+> oggi `.gitignore` lo tiene fuori per forma, senza nominarlo — nominarlo lo
+> scriverebbe nel repository. **Va cancellato a mano**, e se era un codice vero
+> va rigenerato da Configurazione → Operatori: il vecchio smette di valere
+> nello stesso gesto.
 
 **Conseguenza da sapere:** `consegna/` è tracciata, quindi ogni build sporca
 `git status` con l'intero pacchetto ricostruito. È il prezzo della decisione,

@@ -5,31 +5,31 @@
   "dove": "anagrafica articoli",
   "cosa": "L'ODP2603889 chiede questi componenti in KG, l'anagrafica li dichiara altrimenti: 6001055=PZ. Il magazzino conta pezzi dove la produzione pesa chili, e nessuna delle due parti se ne accorge.",
   "prova": "riga 6001055: 0,468 KG richiesti su un articolo dichiarato PZ",
-  "visto": "2026-08-24T22:44:01.470Z"
+  "visto": "2026-08-31T17:13:57.403Z"
  },
  {
   "id": "K3",
   "gravita": "dato",
   "dove": "registro movimenti / anagrafica operatori",
   "cosa": "2 sigle firmano movimenti ma non stanno fra gli operatori: DP (14 mov.), AS (2 mov.). Fra tre anni quella firma non risponde a un nome — o è un operatore cancellato, o è una sigla digitata a mano.",
-  "prova": "operatori in anagrafica: EFBR, BABB, ANDS, ANAD",
-  "visto": "2026-08-24T22:43:41.756Z"
+  "prova": "operatori in anagrafica: EFBR, BABB, ANDS",
+  "visto": "2026-08-31T17:14:04.247Z"
  },
  {
   "id": "CF3",
   "gravita": "dato",
   "dove": "anagrafica articoli e Configurazione → Zone",
-  "cosa": "La verifica di conformità copre il 8% delle righe (18 su 237): sul resto non tace perché va bene, tace perché non ha con cosa confrontare. Chi guarda la mappa vede un verde che non significa niente. Si scioglie compilando gli attributi delle zone e degli articoli — §2, voce 5.",
-  "prova": "150 articoli senza attributi",
-  "visto": "2026-08-24T22:43:50.079Z"
+  "cosa": "La verifica di conformità copre il 5% delle righe (12 su 230): sul resto non tace perché va bene, tace perché non ha con cosa confrontare. Chi guarda la mappa vede un verde che non significa niente. Si scioglie compilando gli attributi delle zone e degli articoli — §2, voce 5.",
+  "prova": "153 articoli senza attributi",
+  "visto": "2026-08-31T17:14:08.281Z"
  },
  {
   "id": "CP1",
   "gravita": "grave",
   "dove": "core/store.ts:advanceTask",
   "cosa": "Un compito a residuo si è chiuso con un parziale: 3 chiesti, 1 mosso, stato «done».",
-  "prova": "TA-MT7TOPUE-ULY6",
-  "visto": "2026-08-24T22:43:43.298Z"
+  "prova": "TA-MTHHZJTA-1JMD",
+  "visto": "2026-08-31T17:13:55.067Z"
  },
  {
   "id": "P3",
@@ -51,9 +51,9 @@
   "id": "Q1",
   "gravita": "grave",
   "dove": "quadratura del ciclo",
-  "cosa": "Alla fine del ciclo 703.344 KG non si ritrovano da nessuna parte: né a scaffale, né consumati, né resi.",
+  "cosa": "Alla fine del ciclo 0.75 KG non si ritrovano da nessuna parte: né a scaffale, né consumati, né resi.",
   "prova": "somma degli scarti per articolo, tolleranza 0,05 KG",
-  "visto": "2026-08-24T22:44:08.417Z"
+  "visto": "2026-08-31T17:14:04.223Z"
  },
  {
   "id": "QU1",

@@ -1,6 +1,17 @@
 import { Persistence } from '../core/persistence/index';
 import type { Istante, Operatore } from '../types/entita.js';
 
+/* ── 2.13 · I campi della via di fuga ─────────────────────────────────
+   Stessa forma dei campi del PIN, e non e' una somiglianza casuale: e'
+   lo stesso meccanismo — un sale casuale, un'impronta, l'algoritmo che
+   l'ha fatta — applicato a un segreto diverso. */
+export interface CampiRipristino {
+  rec_salt: string;
+  rec_hash: string;
+  rec_algo?: 'scrypt';
+  rec_set_at: Istante;
+}
+
 export interface CampiPin {
   pin_salt: string;
   pin_hash: string;
@@ -113,6 +124,104 @@ const Auth = {
     if (this._remoto()) return await Persistence.op!<CampiPin>('hashPin', { pin });
     const salt = this.newSalt();
     return { pin_salt: salt, pin_hash: await this.hashPin(pin, salt), pin_set_at: Date.now() };
+  },
+
+  /* ══ 2.13 · IL CODICE DI RIPRISTINO ═══════════════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     PERCHE' ESISTE. Un PIN smarrito si rinnova, e chi lo rinnova e' un
+     grado piu' alto: l'Operatore ha il Team Leader, il Team Leader ha
+     l'Admin. Sopra l'Admin non c'e' nessuno. Con un solo Admin — che e'
+     ogni installazione appena nata — il suo PIN perso e' la Configurazione
+     murata per sempre, e con lei il reset, i siti, l'anagrafica: nessuno
+     puo' nemmeno nominare un secondo Admin, perche' si nomina da li'.
+     Questo codice e' l'unica porta che resta, e si apre una volta sola.
+
+     COM'E' FATTO. Venti caratteri dall'alfabeto di Crockford — le dieci
+     cifre e ventidue lettere, senza I L O U — divisi in quattro gruppi da
+     cinque. Cento bit: indovinarlo non e' un'ipotesi da fare. L'alfabeto
+     non e' vezzo tipografico: e' un codice che qualcuno stampa, mette in
+     cassaforte e sei mesi dopo ricopia a mano da un foglio. Uno zero letto
+     come una O li' dentro e' la via di fuga che non funziona, e allora la
+     lettura le riconduce entrambe alla stessa cifra.
+
+     NON E' UN SECONDO PIN. Non apre l'applicativo: apre soltanto la
+     maschera che riscrive il PIN di quell'Admin. Si consuma nell'uso — al
+     posto suo ne nasce subito un altro, mostrato una volta — e sul disco
+     non c'e' mai il codice, c'e' la sua impronta.                      */
+
+  /* Crockford base32. Niente I, L, O, U: le prime tre si confondono con 1
+     e 0 su carta, la quarta e' esclusa perche' senza di lei nessun codice
+     generato a caso puo' comporre una parola sgradevole. */
+  _RIPRISTINO_ALFABETO: '0123456789ABCDEFGHJKMNPQRSTVWXYZ',
+  RIPRISTINO_GRUPPI: 4,
+  RIPRISTINO_PER_GRUPPO: 5,
+
+  get RIPRISTINO_LUNGHEZZA(): number {
+    return this.RIPRISTINO_GRUPPI * this.RIPRISTINO_PER_GRUPPO;
+  },
+
+  /** Un codice nuovo, in gruppi separati dal trattino. */
+  newRecoveryCode(): string {
+    const alfabeto = this._RIPRISTINO_ALFABETO;
+    const totale = this.RIPRISTINO_LUNGHEZZA;
+    const scelte: string[] = [];
+    /* 256 non e' multiplo di 32 — lo e', ma la riga vale lo stesso il
+       giorno in cui l'alfabeto cambia: un byte fuori dalla soglia si
+       butta invece di piegarlo con un modulo che sbilancerebbe. */
+    const soglia = 256 - (256 % alfabeto.length);
+    while (scelte.length < totale) {
+      const bytes = new Uint8Array(totale);
+      crypto.getRandomValues(bytes);
+      for (const b of bytes) {
+        if (b >= soglia) continue;
+        scelte.push(alfabeto.charAt(b % alfabeto.length));
+        if (scelte.length === totale) break;
+      }
+    }
+    const gruppi: string[] = [];
+    for (let i = 0; i < totale; i += this.RIPRISTINO_PER_GRUPPO) {
+      gruppi.push(scelte.slice(i, i + this.RIPRISTINO_PER_GRUPPO).join(''));
+    }
+    return gruppi.join('-');
+  },
+
+  /** Quel che l'utente ha digitato, ricondotto alla forma canonica: senza
+      trattini ne' spazi, maiuscolo, con I/L letti come 1 e O come 0. */
+  normalizeRecoveryCode(valore: unknown): string {
+    return String(valore ?? '')
+      .toUpperCase()
+      .replace(/[\s-]+/g, '')
+      .replace(/[IL]/g, '1')
+      .replace(/O/g, '0');
+  },
+
+  /** `null` se il codice ha la forma giusta, altrimenti il motivo. */
+  validateRecoveryCode(valore: unknown): string | null {
+    const v = this.normalizeRecoveryCode(valore);
+    if (v.length !== this.RIPRISTINO_LUNGHEZZA) {
+      return `Il codice di ripristino ha ${this.RIPRISTINO_LUNGHEZZA} caratteri.`;
+    }
+    for (const c of v) if (!this._RIPRISTINO_ALFABETO.includes(c)) {
+      return `Carattere non ammesso nel codice: «${c}».`;
+    }
+    return null;
+  },
+
+  async buildRecoveryFields(codice: string): Promise<CampiRipristino> {
+    const v = this.normalizeRecoveryCode(codice);
+    if (this._remoto()) return await Persistence.op!<CampiRipristino>('hashRecovery', { codice: v });
+    const salt = this.newSalt();
+    return { rec_salt: salt, rec_hash: await this.hashPin(v, salt), rec_set_at: Date.now() };
+  },
+
+  /* Da file non c'e' nessun servizio: la verifica avviene qui, come per il
+     PIN. Col servizio non si passa da qui — ci passa `Persistence.recupera`,
+     che l'impronta la legge dal database e non la fa viaggiare. */
+  async verifyRecoveryCode(operatore: Operatore | null | undefined, codice: string): Promise<boolean> {
+    if (!operatore?.rec_hash || !operatore?.rec_salt) return false;
+    const h = await this.hashPin(this.normalizeRecoveryCode(codice), operatore.rec_salt);
+    return this._equal(h, operatore.rec_hash);
   }
 };
 

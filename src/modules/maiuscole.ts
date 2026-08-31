@@ -52,6 +52,9 @@ const CAMPI_CODICE: ReadonlySet<string> = new Set([
   'newSiteId', 'newZoneId', 'zfLevels', 'cfgAreaWip', 'cfgGS1', 'srPrefisso',
   /* Operatori */
   'opInitials', 'wizInitials',
+  /* 2.13 — il codice di ripristino: alfabeto di sole maiuscole e cifre,
+     e chi lo ricopia da un foglio non deve pensarci. */
+  'recCode',
   /* Destinatari */
   'rcVat', 'rcCf',
 ]);

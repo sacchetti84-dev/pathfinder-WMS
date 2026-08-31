@@ -25,7 +25,24 @@ export const VistaConfigurazione = {
   renderConfig() {
     const el = $('viewConfig');
     const io = this.currentOperatorRecord;
-    if (!Store.comandaLaConfigurazione(io)) {
+    const comanda = Store.comandaLaConfigurazione(io);
+
+    /* 2.13 — IL TEAM LEADER ENTRA DA UNA PORTA SOLA, e dentro c'è una
+       stanza sola. I PIN li rinnova lui: l'elenco degli operatori deve
+       poterlo vedere, o il mestiere per cui la carica esiste non si fa.
+       Tutto il resto — siti, articoli, regole, backup, reset — resta
+       dell'Admin, e qui non compare nemmeno come scheda spenta: una
+       linguetta che c'è e non si apre è una domanda in più a ogni turno. */
+    if (!comanda && Store.vedeGliOperatori(io)) {
+      el.innerHTML = `<div class="config-container">
+        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙ Configurazione</h1>
+        <div id="configContent"></div>
+      </div>`;
+      this._renderConfigOperators($('configContent'));
+      return;
+    }
+
+    if (!comanda) {
       el.innerHTML = `<div class="config-container">
         <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙ Configurazione</h1>
         <div class="config-card">

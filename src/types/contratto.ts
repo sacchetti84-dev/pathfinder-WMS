@@ -155,6 +155,30 @@ export interface Persistenza extends Capacita {
   /** Chiude la sessione sul servizio, senza aspettarne il riavvio. */
   esci?(): Promise<void>;
 
+  /* ── 2.13 · I due gesti che il servizio deve autorizzare da sé ───────
+     Il rinnovo di un PIN e il rientro con un codice di ripristino non
+     possono essere una scrittura come le altre: la prima va concessa a un
+     Team Leader — che sulla collezione `operators` non scrive niente — e
+     la seconda avviene quando nessuno ha una sessione, perché è proprio
+     quello il guaio da cui si esce. Da file non esistono: lì il database
+     sta nel browser e la verifica avviene nel browser. */
+
+  /** Il servizio verifica chi autorizza, la gerarchia, e riscrive il PIN. */
+  rinnovaPin?(richiesta: {
+    op_id: string;
+    autorizzatore_id: string;
+    pin_autorizzatore: string;
+    nuovo_pin: string;
+  }): Promise<{ ok: boolean }>;
+
+  /** La via di fuga: un codice consumato in cambio di un PIN nuovo, di una
+      sessione, e del codice che prende il posto di quello appena speso. */
+  recupera?(richiesta: {
+    op_id: string;
+    codice: string;
+    nuovo_pin: string;
+  }): Promise<{ ok: boolean; nuovoCodice: string; operatore?: any }>;
+
   isBackupSupported(): boolean;
 
   /* IL BACKUP LOCALE È UN SERVIZIO DELL'ADAPTER, NON UN OBBLIGO.

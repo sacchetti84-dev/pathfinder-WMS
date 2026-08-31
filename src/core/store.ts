@@ -294,6 +294,66 @@ const Store = {
     return op.role === 'leader' && this.getActiveAdmins().length === 0;
   },
 
+  /* ══ 2.13 · LE TRE CARICHE, SCRITTE UNA VOLTA SOLA ═══════════════════
+     Fino alla 2.12 la gerarchia c'era sulla carta e non nel codice: ogni
+     gesto dell'anagrafica chiedeva «un Team Leader», e un Team Leader che
+     apre l'anagrafica puo' nominarsi Admin. Non era un permesso mancante:
+     era la scalata di privilegi piu' corta che esista, tre clic.
+
+     Adesso le domande sono tre e stanno qui, perche' una regola letta in
+     due posti e' una regola che prima o poi diverge:
+
+     · `comandaGliOperatori` — chi CREA, chi cambia ruolo, chi disattiva.
+       L'Admin, e basta. Tiene l'eccezione del primo giorno per la stessa
+       ragione di `comandaLaConfigurazione`: finche' nessun Admin esiste,
+       nominarne uno dev'essere possibile.
+     · `vedeGliOperatori` — chi apre la scheda. Anche il Team Leader, che
+       i PIN li rinnova e quindi l'elenco deve vederlo.
+     · `puoRinnovareIlPin` — e qui sta il punto: un Team Leader NON tocca
+       il PIN di un Admin. Chi rinnova un PIN diventa quella persona al
+       prossimo accesso, e allora rinnovare il PIN dell'Admin sarebbe la
+       stessa scalata di prima per un'altra strada.                      */
+
+  comandaGliOperatori(op: Operatore | null | undefined): boolean {
+    return this.comandaLaConfigurazione(op);
+  },
+
+  vedeGliOperatori(op: Operatore | null | undefined): boolean {
+    if (!op || op.active === false) return false;
+    return op.role === 'admin' || op.role === 'leader';
+  },
+
+  /** Chi autorizza, su chi. `null`/assenti rispondono sempre di no. */
+  puoRinnovareIlPin(chi: Operatore | null | undefined,
+                    bersaglio: Operatore | null | undefined): boolean {
+    if (!chi || !bersaglio || chi.active === false) return false;
+    if (chi.role === 'admin') return true;
+    if (chi.role !== 'leader') return false;
+    /* Un Team Leader arriva fino al proprio grado, non oltre. */
+    return bersaglio.role !== 'admin';
+  },
+
+  /** Chi, in anagrafica, potrebbe autorizzare il rinnovo del PIN di
+      `bersaglio`: serve alla tendina della maschera, che non deve
+      mostrare nomi che poi la verifica rifiuta. */
+  autorizzatoriPerIlPin(bersaglio: Operatore | null | undefined) {
+    return this._cache.operators.filter(o =>
+      o.active !== false && this.haPin(o) && this.puoRinnovareIlPin(o, bersaglio));
+  },
+
+  /** 2.13 — «questo Admin ha una via di fuga?». Come `haPin`: col servizio
+      l'impronta non arriva e la risposta porta `rec_set`. */
+  haCodiceRipristino(o: Operatore | null | undefined): boolean {
+    if (!o) return false;
+    return o.rec_set ?? Boolean(o.rec_hash);
+  },
+
+  /** Gli Admin attivi rimasti senza via di fuga: e' l'elenco che l'avviso
+      in Configurazione legge, e resta pieno finche' qualcuno non agisce. */
+  getAdminSenzaRipristino() {
+    return this.getActiveAdmins().filter(o => !this.haCodiceRipristino(o));
+  },
+
   async addOperator(rec: Partial<Operatore> & { initials: string }): Promise<Operatore> {
     const initials = String(rec.initials ?? '').toUpperCase().trim();
     if (this.getOperatorByInitials(initials)) {
@@ -312,6 +372,13 @@ const Store = {
          riletta come SHA-256 e il PIN non entrerebbe piu'. */
       pin_algo:   rec.pin_algo,
       pin_set_at: rec.pin_hash ? now : null,
+      /* 2.13 — la via di fuga nasce col record se chi lo crea l'ha gia'
+         generata: passarla dopo con un `updateOperator` lascerebbe un
+         istante in cui l'Admin esiste e la sua via d'uscita no. */
+      rec_hash:   rec.rec_hash || null,
+      rec_salt:   rec.rec_salt || null,
+      rec_algo:   rec.rec_algo,
+      rec_set_at: rec.rec_hash ? now : null,
       active:     true,
       created_at: now,
       updated_at: now
@@ -320,6 +387,22 @@ const Store = {
     this._applyToCache('operators', 'put', record);
     await this._touchMeta();
     return record;
+  },
+
+  /** 2.13 — LA CACHE DOPO UN RINNOVO FATTO DAL SERVIZIO.
+
+      `rinnovaPin` scrive il PIN sul servizio e non passa da qui: la riga in
+      cache resta indietro di un campo — «un PIN adesso c'è» — e riallinearla
+      con `updateOperator` sarebbe una PATCH su `operators`, che al Team
+      Leader il guardiano dei ruoli rifiuta. Giustamente: non deve poter
+      scrivere quella collezione. Quindi si tocca la sola cache, e il
+      database resta quello che il servizio ha già scritto. */
+  segnaPinImpostato(opId: string) {
+    const cur = this.getOperator(opId);
+    if (!cur) return null;
+    const updated: Operatore = { ...cur, pin_set: true, pin_set_at: Date.now(), updated_at: Date.now() };
+    this._applyToCache('operators', 'put', updated);
+    return updated;
   },
 
   async updateOperator(opId: string, changes: Partial<Operatore>) {

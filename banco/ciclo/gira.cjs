@@ -13,6 +13,15 @@ const { copyFileSync, rmSync, existsSync } = require('node:fs');
 const path = require('node:path');
 
 const RADICE = path.resolve(__dirname, '..', '..');
+/* 2.13 — LA CHIAVE DEL BANCO, e perché serve.
+
+   Dalla 2.11 le rotte `/api` vogliono una sessione, e il ciclo non ha un
+   browser dove posarne il cookie: da quel giorno ogni prova moriva sul
+   primo `loadAll` con un 401, e i 44 casi risultavano «saltati» invece che
+   falliti — cioè il ciclo taceva. Entra dalla porta di servizio, la stessa
+   che usano il backup serale e l'installer sulla macchina vera; `banco.js`
+   la legge da qui e la attacca a ogni chiamata. */
+const CHIAVE = 'banco-' + require('node:crypto').randomBytes(16).toString('hex');
 const DB = path.join(RADICE, 'banco', 'db');
 const PRISTINO = path.join(DB, 'pristino.db');
 const CICLO = path.join(DB, 'ciclo.db');
@@ -58,7 +67,11 @@ function rifaiDatabase() {
   console.log('· accendo il banco sulla 4199');
   const servizio = spawn(process.execPath, [path.join(RADICE, 'server', 'pathfinder-server.js')], {
     cwd: RADICE, stdio: ['ignore', 'pipe', 'pipe'],
+    /* `PATHFINDER_PG` vuota: chi lancia il ciclo su una macchina con un
+       Postgres configurato lo eserciterebbe sul magazzino vero invece che
+       su `ciclo.db`, e il giro non sarebbe più riproducibile. */
     env: { ...process.env, PATHFINDER_PORT: String(PORTA), PATHFINDER_DB: CICLO,
+           PATHFINDER_PG: '', PATHFINDER_TOKEN: CHIAVE,
            PATHFINDER_APP_DIR: path.join(RADICE, 'consegna', 'Pathfinder 2.0', 'app') },
   });
   let log = '';
@@ -70,7 +83,10 @@ function rifaiDatabase() {
 
   const argomenti = ['vitest', 'run', '--root', '.', '--config', 'banco/ciclo/vitest.config.js'];
   if (solo) argomenti.push(solo);
-  const esito = spawnSync('npx', argomenti, { cwd: RADICE, stdio: 'inherit', shell: true });
+  const esito = spawnSync('npx', argomenti, {
+    cwd: RADICE, stdio: 'inherit', shell: true,
+    env: { ...process.env, BANCO_TOKEN: CHIAVE },
+  });
 
   servizio.kill();
   await spegniQuelCheCiSta();

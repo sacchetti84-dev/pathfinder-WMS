@@ -45,3 +45,20 @@
 # che cambiano da soli a ogni apertura di cartella.
 Thumbs.db
 desktop.ini
+
+# ── 3. I CODICI DI RIPRISTINO — dalla 2.13 ────────────────────────────────
+# Un Admin puo' aver generato un codice di ripristino: venti caratteri in
+# quattro gruppi da cinque, che riscrivono il suo PIN e riaprono la
+# Configurazione. E' un segreto come il PIN, e vale di piu': il PIN lo
+# rinnova un grado piu' alto, questo non lo autorizza nessuno.
+#
+# Il 28/08 uno di questi codici e' finito in ARCHIVIO come file di testo, col
+# codice nel nome E nel contenuto. Non e' mai entrato in git, e non ci deve
+# entrare: Git non dimentica, e un segreto spinto una volta va considerato
+# bruciato. Il file va cancellato a mano, e se quel codice era vero il codice
+# va rigenerato da Configurazione -> Operatori.
+#
+# LA REGOLA PRENDE LA FORMA, NON IL CODICE: scrivere qui il nome vero
+# significherebbe scrivere il segreto nel repository, che e' cio' che si sta
+# evitando.
+?????-?????-?????-?????.txt

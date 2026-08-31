@@ -123,6 +123,21 @@ const RemotePersistence = {
     await this._call('POST', '/api/auth/logout', {});
   },
 
+  /* 2.13 — il rinnovo passa dal servizio perche' e' il servizio a sapere
+     chi autorizza: un Team Leader sulla collezione `operators` non scrive
+     nulla, e con una PATCH diretta non potrebbe rinnovare niente. */
+  async rinnovaPin(richiesta: { op_id: string; autorizzatore_id: string;
+                                pin_autorizzatore: string; nuovo_pin: string }): Promise<{ ok: boolean }> {
+    return await this._call('POST', '/api/op/rinnovaPin', richiesta);
+  },
+
+  /* 2.13 — questa NON passa dal guardiano, ed e' il suo unico senso: la si
+     chiama quando la sessione non c'e' e non si puo' ottenere. */
+  async recupera(richiesta: { op_id: string; codice: string; nuovo_pin: string }):
+      Promise<{ ok: boolean; nuovoCodice: string; operatore?: any }> {
+    return await this._call('POST', '/api/auth/recupero', richiesta);
+  },
+
   async loadAll({ movLogFrom = null }: { movLogFrom?: Istante | null } = {}) {
     const qs = movLogFrom == null ? '' : `?movLogFrom=${encodeURIComponent(movLogFrom)}`;
     const d = await this._call('GET', '/api/load' + qs);
