@@ -7,9 +7,9 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **01/09/2026 sera — il punto zero**. In servizio resta la **2.15**;
-la **2.16 è costruita e provata, e NON è installata**: installarla è un gesto
-di Andrea. Il giro ha chiuso sei voci e ne ha aperte tre.
+Aggiornato: **02/09/2026** — **la 2.16 è in servizio su questa macchina**,
+installata da Andrea. §0 dice adesso quel che non diceva: **le macchine sono
+due**, e il magazzino vero gira ancora la **1.4** altrove.
 
 **Il dump coi PIN è uscito dalla storia di git** (voce 72): `git filter-repo`,
 push forzato, `main` riscritto. **Gli SHA di tutti i commit sono cambiati** —
@@ -45,6 +45,13 @@ porta la **1.4**.
 | versione | quella in lavorazione — §1 | **1.4** |
 | database | **prove sovrapposte**: caricamenti, reset, versioni che si accavallano | i dati veri |
 | chi installa | nessuno: si costruisce e si prova | **Andrea, a mano, a fine turno** |
+
+**Servita vuol dire installata — QUI.** Su questa macchina non c'è un gesto di
+«messa in produzione» separato: la versione che risponde a `/api/app-info` **è**
+quella installata, e si scrive così. Nessuna riga di questo documento deve dire
+«costruita, non installata» di una versione che ha servito. **In magazzino la
+regola è l'opposta** — lì installare resta un atto umano, a fine turno, con un
+backup fresco davanti, e lo decide Andrea.
 
 **Conseguenza da tenere ferma: i conteggi strani del database di QUESTA
 macchina non sono incidenti.** Registro a zero, giacenze che cambiano numero,
@@ -133,36 +140,32 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ---
 
-## 1. Stato, misurato il 01/09/2026 sera
-
-### La 2.16, costruita e provata — non installata
-| | |
-|---|---|
-| impronta | `111d58b543099bb23feb16ba9665bdcd16c2841ed2aef1d559a99c859883bce2` |
-| pacchetto | `consegna/Pathfinder 2.16/` — 4 file, 1,82 MB, 484 kB sul filo |
-| prove | **1.220** in 43 file (`npm test`, 1 saltata) · **141** sul servizio · **43** sull'installazione · **40** al banco della gerarchia · **47** al banco del ciclo. Tutte verdi |
-| tipi | `npm run check` — applicativo e servizio, zero errori |
-
-**Installarla è un gesto di Andrea**, e finché non lo fa questo documento dice
-che in servizio c'è la 2.15. §0 punto 2 vale come sempre: comanda
-`/api/app-info`, non questa riga.
+## 1. Stato, misurato il 02/09/2026
 
 ### In servizio
 
-**La 2.15, su una macchina reinstallata da zero il 01/09** — voce 74. Misurato
-da `/api/app-info` e `/api/health`:
+**La 2.16, installata da Andrea il 02/09** — su questa macchina, che è quella
+di **sviluppo** (§0): il magazzino vero non è stato toccato, e gira la 1.4
+altrove. Misurato da `/api/app-info` e `/api/health` a installazione finita:
+
 | | |
 |---|---|
-| applicativo e servizio | **2.15** — `versione` e `service_version` dicono lo stesso numero |
-| impronta | `7b812c48ae9d1c878efd7e3e5114bed96fa3536c8ccb13d4107ab335fe4fd7eb` |
-| byte | **1.901.483** in **4 file**, `costruita 2026-08-31T23:34:17Z` |
-| dove | `C:\Pathfinder\app\corrente`, modo `cartella` |
+| applicativo e servizio | **2.16** — `versione` e `service_version` dicono lo stesso numero |
+| impronta | `111d58b543099bb23feb16ba9665bdcd16c2841ed2aef1d559a99c859883bce2` |
+| byte | **1.903.224** in **4 file**, `costruita 2026-09-01T18:51:57Z` |
+| dove | `C:\Pathfinderpp\corrente`, modo `cartella` |
 | database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 318` |
-| pagina | `http://192.168.178.22:4173/` → 200, 23.592 byte |
+| bundle servito | `index-CnziQukI.js` · `index-BZKbPXaf.css` — **gli stessi del pacchetto** |
 | porta chiusa | **sì** — `GET /api/c/meta` senza sessione risponde **401** |
+| via di ritorno | `C:\Pathfinderpp\precedente` porta la **2.15** |
+| dati | invariati: 11.197 articoli, 882 giacenze, 4 siti, 17 zone, **1 operatore** |
 
-**L'impronta è quella del pacchetto costruito la notte del 01/09**: i byte che
-girano sono quelli provati, e i due numeri coincidono.
+**L'impronta è quella del pacchetto committato, e il bundle servito è quello
+del pacchetto**: i byte che girano sono quelli provati.
+
+**Cosa c'era prima:** la **2.15**, impronta `7b812c48…`, 1.901.483 byte in 4
+file, costruita `2026-08-31T23:34:17Z`. Sta in `app\precedente` ed è la via di
+ritorno intera.
 
 > **LA FINESTRA DI PRIMO AVVIO SI È CHIUSA, ED È LA COSA DA GUARDARE DOPO OGNI
 > INSTALLAZIONE PULITA.** Appena installata, con `operators` a zero, il
@@ -340,8 +343,8 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.16** | **costruita e provata il 01/09, NON installata** | `111d58b5…` | Il punto zero: **l'ultimo Admin non si toglie da solo** (murato nel servizio) · il registro dice **quanto** si è mosso e **chi** si è mosso, anche in blocco (voci 33, 34) · causale **`UDC`** · un difetto grave **ferma** il banco del ciclo (voce 50) · servito, l'indicatore smette di dire «Non salvato» · cinque icone che uscivano monocromatiche |
-| **2.15** | **IN SERVIZIO dal 01/09** | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
+| **2.16** | **IN SERVIZIO su questa macchina dal 02/09** | `111d58b5…` | Il punto zero: **l'ultimo Admin non si toglie da solo** (murato nel servizio) · il registro dice **quanto** si è mosso e **chi** si è mosso, anche in blocco (voci 33, 34) · causale **`UDC`** · un difetto grave **ferma** il banco del ciclo (voce 50) · servito, l'indicatore smette di dire «Non salvato» · cinque icone che uscivano monocromatiche |
+| **2.15** | in servizio dal 01/09 al 02/09 — è la **via di ritorno** | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
 | **2.14** | in servizio il 01/09 per poche ore, archiviata |  `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
 | **2.13** | **in servizio dal 31/08, rimossa il 01/09** — voce 74 | `cbe71802…` | La gerarchia la impone **il servizio** (voce 66) · `rinnovaPin` · il **codice di ripristino** dell'Admin · il fix di avvio della 2.12.1 riportato nel sorgente e coperto da dodici prove |
 | **2.12.1** | archiviata | `4f2a9f0f…` | Il servizio **aspetta** PostgreSQL invece di arrendersi al primo no, e l'attività pianificata parte un minuto dopo l'accensione. Nata da una giornata di magazzino fermo |
@@ -492,10 +495,14 @@ di quel che accompagnano. Lo tiene `test/emojiVestite.test.js`.
 a 141; `npm test` da 42 a 43 file.** Le due voci rosse del banco del ciclo sono
 chiuse — 70 e 71 — e le sue 47 prove sono tutte verdi.
 
+**Installata il 02/09.** Impronta `111d58b5…`, 1.903.224 byte in 4 file. Il
+bundle servito è quello del pacchetto, la porta risponde **401** senza sessione,
+e `app\precedente` porta la 2.15.
+
 ### 2.15 — l'installer impara a togliersi, e smette di murarsi dentro
 
-**Costruita il 01/09 notte, non installata.** Impronta `7b812c48…`,
-1.901.483 byte in 4 file, riproducibile — due build di fila dello stesso
+**Installata il 01/09 notte, in servizio fino al 02/09.** Impronta
+`7b812c48…`, 1.901.483 byte in 4 file, riproducibile — due build di fila dello stesso
 albero danno la stessa impronta.
 
 **L'APPLICATIVO NON CAMBIA DI UNA RIGA.** Cambia solo il numero, e cambia
@@ -593,8 +600,8 @@ non c'è modo di provarla senza una macchina da perdere.
 
 ### 2.14 — la schermata WIP parte dalla merce, e un reso sbagliato si storna
 
-**Costruita il 31/08 sera, provata al banco dal pacchetto, non installata.**
-Impronta `8a25574b…`, 1.901.483 byte in 4 file.
+**Installata il 01/09, in servizio per poche ore, poi archiviata.** Provata
+al banco dal pacchetto. Impronta `8a25574b…`, 1.901.483 byte in 4 file.
 
 Nasce da una richiesta di Andrea del 31/08: aprire il banco della 2.13,
 provare al banco prelievo automatico e WIP, guardare la leggibilità dei campi
@@ -731,8 +738,8 @@ terminale in mano.
 
 ### 2.13 — chi autorizza lo decide il servizio, e l'Admin ha una via di fuga
 
-**Costruita il 31/08, provata al banco, non installata.** Impronta
-`cbe71802…`, 1.882.735 byte in 4 file.
+**Installata il 31/08, in servizio fino al 01/09** — poi la macchina è stata
+riportata a zero (voce 74). Impronta `cbe71802…`, 1.882.735 byte in 4 file.
 
 **LA GERARCHIA SCENDE NEL SERVIZIO, ed è la voce 66.** Fino alla 2.12 le
 cariche vivevano nel client: la maschera chiedeva il PIN di un Team Leader e
