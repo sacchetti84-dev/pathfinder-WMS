@@ -113,6 +113,22 @@ function rifaiDatabase() {
 
   const gravi = leggiDifetti().filter((d) => d.gravita === 'grave' && d.visto >= inizio);
   if (gravi.length) {
+    /* 2.16 — IL VERBALE DI UNA CORSA ROSSA SI TIENE DA PARTE.
+       `apriVerbale` tronca il file a ogni corsa, quindi la prova di un difetto
+       viveva fino alla corsa dopo. E' cosi' che `Q1` — 0,75 KG che non si
+       ritrovavano, il 01/09 — e' diventato irrintracciabile: due minuti dopo
+       il verbale che lo spiegava non c'era piu', e in dodici corse non si e'
+       piu' presentato. Un banco che cancella le proprie prove trova i difetti
+       una volta sola. */
+    const quando = new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const tenuto = path.join(__dirname, `verbale-GRAVE-${quando}.md`);
+    try {
+      require('node:fs').copyFileSync(path.join(__dirname, 'verbale.md'), tenuto);
+      console.error(`
+  verbale tenuto da parte: ${path.basename(tenuto)}`);
+    } catch (e) {
+      console.error('  non sono riuscito a tenere il verbale:', e.message);
+    }
     console.error('');
     console.error(`  ${gravi.length} DIFETTO${gravi.length > 1 ? 'I' : ''} GRAVE${gravi.length > 1 ? 'I' : ''} in questa corsa:`);
     for (const d of gravi) console.error(`  · ${d.id} — ${d.dove}: ${d.cosa}`);

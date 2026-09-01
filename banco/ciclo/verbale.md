@@ -1,6 +1,6 @@
 # Ciclo 2.0 — dal carico al consumo, su copia del magazzino vero
 
-2026-09-01T18:52:26.414Z
+2026-09-01T22:19:01.422Z
 
 ## ⓪ Il banco
 
@@ -145,7 +145,7 @@ Copertura anagrafica sotto la merce che si muove: senza unità **0** · senza qu
 | 7000924 | 4 | 4 | 12 | 290 KG | 15 | 4 | 13 gg | — |
 | 3502551 | 6 | 5 | 183 | 94200 PZ | 7 | 1 | 19 gg | — |
 | 6000242 | 1 | 1 | 12 | — | 6 | 5 | 13 gg | — |
-| 123 | 1 | 1 | 2 | — | 5 | 1 | 27 gg | — |
+| 123 | 1 | 1 | 2 | — | 5 | 1 | 28 gg | — |
 | 6000002 | 1 | 1 | 4 | — | 3 | 3 | 25 gg | — |
 | 6000004 | 1 | 1 | 3 | — | 3 | 3 | 25 gg | — |
 | 6000006 | 1 | 1 | 8 | — | 3 | 3 | 25 gg | — |
@@ -188,7 +188,7 @@ Riga dopo la rettifica: 4 colli · 80 KG · [24,25,25,6]
 
 ## DDT — prenotazione ed evasione
 
-Documento `RES-PROVA20-MTJ0YBCY` registrato · giacenza 59 KG (invariata) · fisici 3 coll., disponibili 2
+Documento `RES-PROVA20-MTJ8BZEP` registrato · giacenza 59 KG (invariata) · fisici 3 coll., disponibili 2
 Alla evasione i colli si ritrovano per misura: [{"indice":0}]
 Evaso: 59 → 34 KG (usciti 25)
 
@@ -202,7 +202,7 @@ Smaltiti 28 KG su 53: resta 25 KG in 2 coll. [22,3]
 
 ## Attività
 
-`TA-MTJ0YBJ1-86ZZ` · stato in_progress · preso da ANDS · avviato sì
+`TA-MTJ8BZKE-56ZN` · stato in_progress · preso da ANDS · avviato sì
 Dopo un movimento da 1 collo su 3 chiesti: stato done, mossi 1
 Smaltimento, 1 collo su 3: stato in_progress, mossi 1
 Dopo i 2 rimanenti: stato done
@@ -279,7 +279,7 @@ Ordine dei magazzini: M03 → MAG → MAG1 · siti distinti 3
 ## Il trasferimento chiesto dall ordine (1.10)
 
 Da `MAG-ACC-01` (mag) a `M03-TRA-01` · payload: `{"article_code":"6000242","lot_code":"260926","qty_uom":6.085,"uom":"KG","from":"MAG-ACC-01","to":"M03-TRA-01","odp_num":"ODP2607777"}`
-Compito `TA-MTJ0YCRB-E3H9` in coda, stato requested
+Compito `TA-MTJ8C0TJ-HH1R` in coda, stato requested
 La tappa si sposta: `MAG-ACC-01` → `M03-TRA-01` · resta un prelievo: sì
 
 ### La memoria delle richieste
