@@ -242,7 +242,7 @@ caricato **un backup in merge, per fare delle prove**. Misurato da
 > **IL REGISTRO MOVIMENTI È VUOTO, E NON PER SBAGLIO: nel backup non c'era.**
 > Lo dice Andrea, ed è coerente con quello che si misura. **I 45 movimenti del
 > magazzino vero esistono in un posto solo**, il dump del 31/08 sul Desktop
-> (voce 73). §8 li vuole tenuti sei anni: finché stanno su un disco solo, sono
+> (voce 73). §8 non li fa cancellare mai: finché stanno su un disco solo, sono
 > un file che prima o poi non c'è più.
 
 > **882 GIACENZE E LA COLLEZIONE `lots` A ZERO.** Andrea dice che i lotti ci
@@ -349,7 +349,8 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.16** | **IN SERVIZIO su questa macchina dal 02/09** | `111d58b5…` | Il punto zero: **l'ultimo Admin non si toglie da solo** (murato nel servizio) · il registro dice **quanto** si è mosso e **chi** si è mosso, anche in blocco (voci 33, 34) · causale **`UDC`** · un difetto grave **ferma** il banco del ciclo (voce 50) · servito, l'indicatore smette di dire «Non salvato» · cinque icone che uscivano monocromatiche |
+| **2.17** | **costruita il 02/09 — NON ancora servita** | `b6b24d70…` | Il limite di ritenzione esce dal codice: `LOG_RETENTION_DAYS` non cancellava niente e sei anni non li chiedeva nessuna norma. Le tre etichette dicono adesso quel che il sistema fa |
+| **2.16** | in servizio su questa macchina dal 02/09 | `111d58b5…` | Il punto zero: **l'ultimo Admin non si toglie da solo** (murato nel servizio) · il registro dice **quanto** si è mosso e **chi** si è mosso, anche in blocco (voci 33, 34) · causale **`UDC`** · un difetto grave **ferma** il banco del ciclo (voce 50) · servito, l'indicatore smette di dire «Non salvato» · cinque icone che uscivano monocromatiche |
 | **2.15** | in servizio dal 01/09 al 02/09 — è la **via di ritorno** | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
 | **2.14** | in servizio il 01/09 per poche ore, archiviata |  `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
 | **2.13** | **in servizio dal 31/08, rimossa il 01/09** — voce 74 | `cbe71802…` | La gerarchia la impone **il servizio** (voce 66) · `rinnovaPin` · il **codice di ripristino** dell'Admin · il fix di avvio della 2.12.1 riportato nel sorgente e coperto da dodici prove |
@@ -400,6 +401,45 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.17 — il limite di ritenzione non c'era
+
+**`LOG_RETENTION_DAYS = 2192` È USCITO DAL CODICE.** Sei anni esatti, in una
+costante, e **non cancellavano niente**: la purga è uscita con la 2.1 (§8), e da
+allora quel numero finiva in **tre etichette a video** — il badge della scheda
+Dati, il paragrafo sotto, e la testata del registro movimenti.
+
+Il paragrafo si contraddiceva dentro sé stesso, in quattro righe: «**Nessun
+record viene mai cancellato**, né automaticamente né a mano. Il registro
+movimenti è conservato per **2192 giorni (6 anni)**…». Chi legge non sa quale
+delle due credere, e la risposta era la prima. **L'etichetta sottodichiarava il
+sistema**: chi le avesse creduto, a sette anni dal fatto, avrebbe cercato un
+movimento convinto che non ci fosse più — e invece c'è.
+
+**E sei anni non li chiede nessuna norma.** Cercate il 02/09:
+
+| Regime | Quanto | Su cosa |
+|---|---|---|
+| GMP medicinali (EudraLex Vol. 4, cap. 4) | scadenza del lotto **+ 1 anno**, o **5 anni** dalla certificazione del QP — il maggiore | documentazione di lotto |
+| Legge alimentare (Reg. 178/2002 art. 18) | **nessun minimo**. La guida della Commissione raccomanda **5 anni**; shelf-life > 5 anni → *+ 6 mesi*; deperibili con TMC < 3 mesi → **6 mesi** | rintracciabilità |
+| **Art. 2220 c.c.** | **10 anni** dall'ultima registrazione | scritture, fatture, lettere — **e i DDT**, che Pathfinder emette |
+| GMP Annex 11 | quanto il record che documenta | audit trail |
+
+Sei stava **in mezzo fra 5 e 10, senza fonte**. Il regime primario qui è quello
+alimentare, ma l'applicativo archivia DDT: il numero che governerebbe davvero è
+**10**, non 6. **Per quanto si tenga il registro lo dice la SOP** — e a quel
+punto è una politica di backup e di database, non una costante compilata dentro
+un pacchetto.
+
+Adesso le etichette dicono quel che il codice fa: «**nessuna cancellazione**» e
+«**non ha una scadenza dentro l'applicativo**». Tolti anche due import morti —
+`LOG_RETENTION_DAYS` in `app.ts` e `LOG_RETENTION_MS` in `configDati.ts` — che
+nessuno usava.
+
+**Non è stato toccato `documenti/IT-TECH-SHEET.md`**, che in due punti dice
+ancora «tenuta a sei anni»: è un documento controllato, REP-IT-001 **rev01**, e
+cambiarne il contenuto senza alzare la revisione è a sua volta un difetto di
+gestione documentale. Sta nella **voce 82**.
 
 ### 2.16 — il punto zero
 
@@ -661,7 +701,7 @@ andato, chi ha firmato — e su ognuno dice se si può stornare e perché no. Lo
 storno riprende la merce **da dove era andata e con gli stessi colli**, la
 riporta nel vano, e scrive un `in` che **nomina il reso che annulla**. Il reso
 resta dov'è: chi legge il conto fra sei mesi vede il gesto e il ripensamento,
-che è quello che è successo. Su un registro che si tiene sei anni cancellare è
+che è quello che è successo. Su un registro che non si cancella mai, cancellare è
 la sola cosa che non si può fare — §8, «nessuna cancellazione di record».
 
 Quattro cose che il codice ha dovuto imparare a scrivere, e che prima non
@@ -1204,7 +1244,7 @@ scelta e non per dimenticanza (§8).
 | **52** | **82 ARTICOLI HANNO UN'UNITÀ CHE NON È UN'UNITÀ.** Dopo la traduzione `NR → PZ`: `SCA` 48, `CON` 18, `RT` 7, `CAS` 4, `M2` 2, `BAN` 1, più **due celle con testo libero** (`MIN EPA=105 MG/G` e simile). Scatola, confezione e cassa nominano un **contenitore**, e qui il contenitore è il collo | Si caricano **a soli colli** e la maschera lo dice. Va deciso sigla per sigla: `M2` chiede se serva una sesta unità, le due celle di testo sono errori di anagrafica (Andrea) |
 | **51** | **DUE FUNZIONI MAI ESERCITATE DA CAPO A FONDO, E SONO IN SERVIZIO DALLA 2.5.** La **rettifica di una tappa già prelevata** e il **salta tappa**: verificate per tipi, logica e resa a video, mai fatte girare. La rettifica scrive un `REPOS` e chiama `esceDaWip` — tocca giacenza **e** conto di produzione | **Al banco, su una copia del database, con un ODP di prova.** Due cose da guardare: che il `REPOS` rimetta le **misure giuste** e non colli di misura comoda; e che `esceDaWip` non rifiuti la riga quando l'ordine ha in lavorazione colli di misure diverse (lancia apposta in quel caso, e va visto succedere) |
 | **43** | **IL KIT DEMO NON ESISTE PIÙ — MA LO SHEET TECNICO SÌ.** `Avvia Demo.bat` e i tre `README-DEMO` vivevano dentro `consegna/`, che la build azzera: non li produce `vite.config.js`, non sono mai entrati in git, cercati su tutto il disco il 25/08 senza trovarne traccia. **La parte sullo `IT-TECH-SHEET` era sbagliata**: è stato riscritto il 28/08 e sta in `documenti/IT-TECH-SHEET.md` — 532 righe, **REP-IT-001 rev01**, scritto per il team IT che deve autorizzare l'installazione, con architettura, porte, account, dati trattati, sicurezza, limiti noti e cosa si chiede all'IT. Fuori da `consegna/`, quindi la build non lo tocca | **Resta da riscrivere il solo kit demo**, e stavolta fuori da `consegna/` o dentro l'elenco dei file del plugin di build. **Lo sheet tecnico è in italiano** e il team IT chiede l'inglese: è la voce 82 |
-| **82** | 🔴 **LO SHEET TECNICO PER IL TEAM IT È IN ITALIANO, E IL TEAM IT CHIEDE L'INGLESE.** `documenti/IT-TECH-SHEET.md`, **REP-IT-001 rev01** del 28/08, 532 righe in 14 capitoli. **È il documento che il team leggerà davvero** — più del README: risponde alle domande che l'IT fa per prime, e il capitolo 12 è letteralmente «che cosa si chiede al team IT». I README della repository sono passati all'inglese il 02/09; questo no, e non per dimenticanza | **È un documento controllato, con un codice e una revisione**: tradurlo non è un'operazione di testo, è decidere se nasce una **rev02 bilingue** o un `IT-TECH-SHEET.en.md` che vive accanto. Lo decide Andrea. Da rileggere comunque prima di tradurre: la scheda è del 28/08 e da allora sono entrate la 2.13, la 2.14, la 2.15 e la 2.16 — cambiano il capitolo 8 (sicurezza: gerarchia sul servizio, codice di ripristino, ultimo Admin) e il 10 (limiti noti) |
+| **82** | 🔴 **LO SHEET TECNICO PER IL TEAM IT È IN ITALIANO, E IL TEAM IT CHIEDE L'INGLESE.** `documenti/IT-TECH-SHEET.md`, **REP-IT-001 rev01** del 28/08, 532 righe in 14 capitoli. **È il documento che il team leggerà davvero** — più del README: risponde alle domande che l'IT fa per prime, e il capitolo 12 è letteralmente «che cosa si chiede al team IT». I README della repository sono passati all'inglese il 02/09; questo no, e non per dimenticanza | **È un documento controllato, con un codice e una revisione**: tradurlo non è un'operazione di testo, è decidere se nasce una **rev02 bilingue** o un `IT-TECH-SHEET.en.md` che vive accanto. Lo decide Andrea. Da rileggere comunque prima di tradurre: la scheda è del 28/08 e da allora sono entrate la 2.13, la 2.14, la 2.15 e la 2.16 — cambiano il capitolo 8 (sicurezza: gerarchia sul servizio, codice di ripristino, ultimo Admin), il 10 (limiti noti) e **due righe sulla ritenzione** — la scheda dice «tenuta a sei anni» e «conservata sei anni», e dalla 2.17 non è più vero: il registro non ha scadenza nell'applicativo, e il numero lo decide la SOP |
 | **42** | **LA NUOVA REGOLA DEL CAMPIONAMENTO VA NEL CODICE.** Andrea, 25/08: articolo **con** UM configurata → si scala la UM richiesta e i colli non calano; articolo **senza** UM → il campione **non modifica la giacenza**. Oggi la rotta rifiuta il collo intero con «un campione lascia sempre un residuo» | Cambia una regola di §8 e il **significato di `SAMPLE`**: si scrive lì prima che nel codice, e il CQ deve saperlo. Il logbook della qualità si tiene sei anni |
 | **22** | **IL DIFETTO SEGNALATO DEL MOTORE DI STOCCAGGIO NON È ANCORA RIPRODOTTO.** «L'ubicazione non soddisfa i criteri anche quando la regola è definita correttamente»: resta una frase senza un caso. La 2.8 rende più facile riprodurlo, perché ogni esclusione porta il suo `motivo` in chiaro | **Serve il caso vero**: la regola esatta come è scritta, il vano che rifiuta, il messaggio a video. Senza quei tre non si sa nemmeno se sia ancora vivo |
 | **19** | **`6001055` MANGANESE SOLFATO: l'ODP lo chiede in KG, l'anagrafica lo dichiara PZ.** ⚠️ **Contraddizione aperta dal 26/08**: la 2.4 dichiara di averla chiusa, questa coda la tiene aperta, e nessuno ha verificato quale delle due righe sia sbagliata | **Prima si stabilisce se è chiusa**, guardando il foglio ODP e l'anagrafica. Poi: se l'unità si perde in lettura è il parser, se il dato è storto all'origine è l'anagrafica — due difetti diversi |
@@ -2151,7 +2191,7 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   *La regola di prima, che il codice applica ancora:* «un campione lascia sempre
   un residuo — svuotare un collo non è campionare: la rotta si rifiuta, col
   motivo». **Chi tocca `sampleItem` legga prima la voce 42**: cambia il
-  significato di `SAMPLE`, e il logbook della qualità si tiene sei anni.
+  significato di `SAMPLE`, e il logbook della qualità non si cancella.
 
 ### Il giro di prelievo — 2.12
 
@@ -2256,8 +2296,18 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   `#21305A`. I documenti di stampa restano in `pt` e `mm`.
 - **Niente dipendenze nuove** senza motivo forte, e **`dexie` e `xlsx` non si
   aggiornano** — ma per `xlsx` la regola va ridecisa: **voce 65**.
-- **GMP**: ogni movimento porta la sigla dell'operatore identificato, tenuta a
-  sei anni (300-500 movimenti al giorno). **GDPR**: nome, cognome e iniziali,
+- **GMP**: ogni movimento porta la sigla dell'operatore identificato, e **non
+  si cancella mai** — non a mano, non col tempo. **Dalla 2.17 non c'è più un
+  numero di ritenzione nel codice** (era `LOG_RETENTION_DAYS = 2192`, sei anni
+  esatti): non cancellava niente e finiva in tre etichette, una delle quali
+  diceva «conservazione 6 anni» due righe sotto «nessun record viene mai
+  cancellato». **Sei anni non li chiedeva nessuna norma**: la guida della
+  Commissione sull'art. 18 del Reg. 178/2002 raccomanda **5 anni** per la
+  rintracciabilità, l'**art. 2220 c.c.** ne vuole **10** per fatture e documenti
+  commerciali — e Pathfinder emette DDT — e l'**Annex 11** lega l'audit trail al
+  record che documenta. Per quanto si tenga il registro lo dice **la SOP**, e a
+  quel punto è politica di backup e di database. Il volume resta quello:
+  300-500 movimenti al giorno. **GDPR**: nome, cognome e iniziali,
   nessuna telemetria, nessuna richiesta verso l'esterno. **Il PIN non esiste a
   database: esiste la sua impronta.**
 - **Una maschera che chiede l'identità in fondo la chiede troppo tardi**: la

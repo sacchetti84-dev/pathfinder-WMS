@@ -410,9 +410,19 @@ a PIN hash — a rule written in prose and a filter written by file extension ar
 not the same rule, and that lesson was learned twice.
 
 **GMP traceability:** every movement carries the initials of the identified
-operator. **Retention:** six years. **No record is ever deleted** — the purge
+operator. **No record is ever deleted** — not by hand and not by age. The purge
 was removed in release 2.1, because a way to erase the register, however
-protected, is a way somebody eventually takes.
+protected, is a way somebody eventually takes, and release 2.17 removed the
+retention constant that remained: it deleted nothing, and it printed a label
+claiming six years two lines below "no record is ever deleted".
+
+**How long the register is kept is not decided by this software.** Six years
+matched no rule: the Commission's guidance on Article 18 of Regulation
+178/2002 recommends five years for traceability, Article 2220 of the Italian
+Civil Code requires ten for invoices and commercial documents — and Pathfinder
+issues delivery notes — and Annex 11 ties the audit trail to the record it
+documents. The period belongs in the SOP, and from there it is a backup and
+database policy.
 
 **Personal data:** first name, surname, initials and a salted PIN hash. No
 telemetry, no request outside the local network.

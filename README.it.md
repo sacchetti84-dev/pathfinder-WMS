@@ -671,6 +671,6 @@ Group). Uso interno aziendale. Nessuna licenza d'uso, copia o distribuzione
 è concessa a terzi.
 
 **Tracciabilità GMP:** ogni movimento porta la sigla dell'operatore
-identificato. **Ritenzione:** sei anni. **GDPR:** nessun dato personale oltre
+identificato, e **nessun record viene mai cancellato** — dalla 2.17 non c'è più nemmeno un numero di ritenzione nel codice, perché non cancellava niente e i sei anni non li chiedeva nessuna norma (vedi `README.md`). **GDPR:** nessun dato personale oltre
 nome, cognome e iniziali degli operatori; nessuna telemetria; nessuna
 richiesta di rete verso l'esterno.

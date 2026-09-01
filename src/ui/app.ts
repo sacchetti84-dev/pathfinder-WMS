@@ -1,4 +1,4 @@
-import { LOG_RETENTION_DAYS, MOV, MOV_LABELS } from '../core/costanti';
+import { MOV, MOV_LABELS } from '../core/costanti';
 import { debounce, _h } from '../core/utils';
 import { Persistence } from '../core/persistence/index';
 import type { RemotePersistence } from '../core/persistence/index';

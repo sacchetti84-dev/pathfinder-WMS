@@ -1,6 +1,6 @@
 import { type Vista, $ } from './vista';
 import { caricaExcel } from '../../modules/excel';
-import { LOG_RETENTION_DAYS, LOG_RETENTION_MS, MOV, MOV_LABELS } from '../../core/costanti';
+import { MOV, MOV_LABELS } from '../../core/costanti';
 import { Persistence } from '../../core/persistence/index';
 import { Store } from '../../core/store';
 import type { Movimento, Articolo, Sito } from '../../types/entita';
@@ -93,7 +93,7 @@ export const VistaConfigDati = {
             : (meta.unsavedChanges ? '<span class="badge badge-amber">Sì</span>' : '<span class="badge badge-green">No</span>')}</td></tr>
           <tr><td class="text-sx-text-secondary">Item a magazzino</td><td class="mono">${invCount}</td></tr>
           <tr><td class="text-sx-text-secondary">Articoli in anagrafica</td><td class="mono">${Store.getArticles().length}</td></tr>
-          <tr><td class="text-sx-text-secondary">Movimenti in archivio</td><td class="mono">${Store.getMovLogTotal().toLocaleString('it-IT')} <span class="badge badge-green">conservazione ${Math.round(LOG_RETENTION_DAYS/365)} anni</span></td></tr>
+          <tr><td class="text-sx-text-secondary">Movimenti in archivio</td><td class="mono">${Store.getMovLogTotal().toLocaleString('it-IT')} <span class="badge badge-green">nessuna cancellazione</span></td></tr>
           <tr><td class="text-sx-text-secondary">di cui in memoria</td><td class="mono">${Store.getMovLogWindowInfo().inMemory.toLocaleString('it-IT')} <span class="badge badge-muted">finestra ${Store.getMovLogWindowDays() || '∞'} gg</span></td></tr>
           <tr><td class="text-sx-text-secondary">Quarantene attive</td><td class="mono">${Store.getActiveQuarantine().length}</td></tr>
           <tr><td class="text-sx-text-secondary">${spazioLbl}</td><td class="mono">${usageStr}</td></tr>
@@ -117,8 +117,12 @@ export const VistaConfigDati = {
         <div class="font-bold text-body-small text-sx-success mb-3">🔒 Conservazione dei record</div>
         <p class="text-body-small text-sx-text-secondary leading-[1.5]">
           <strong>Nessun record viene mai cancellato, né automaticamente né a mano.</strong>
-          Il registro movimenti è conservato per <strong>${LOG_RETENTION_DAYS} giorni (${Math.round(LOG_RETENTION_DAYS/365)} anni)</strong>
-          ed è la firma GMP di chi ha mosso la merce; i record di <strong>non conformità</strong> non sono eliminabili in nessun caso.
+          Il registro movimenti <strong>non ha una scadenza dentro l'applicativo</strong>:
+          non esiste una funzione che elimini un movimento, e non ne esiste una che
+          li elimini col tempo. È la firma GMP di chi ha mosso la merce, e per quanto
+          vada tenuto lo dice la procedura aziendale — qui è una politica di backup e
+          di database, non un numero scritto nel programma.
+          I record di <strong>non conformità</strong> non sono eliminabili in nessun caso.
           Per portare via i dati si usa <strong>Salva backup</strong> qui sopra, che non toglie niente da dove sta.
         </p>
       </div>

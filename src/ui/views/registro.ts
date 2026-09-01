@@ -1,5 +1,5 @@
 import { type Vista, $ } from './vista';
-import { LOG_RETENTION_DAYS, MOV, MOV_LABELS } from '../../core/costanti';
+import { MOV, MOV_LABELS } from '../../core/costanti';
 import { debounce, _h } from '../../core/utils';
 import { Store } from '../../core/store';
 import type { Movimento } from '../../types/entita';
@@ -25,7 +25,7 @@ export const VistaRegistro = {
       <div class="flex items-center justify-between mb-7.5 flex-wrap gap-5">
         <div>
           <h1 class="text-title-large text-sx-primary font-bold">📋 Registro Movimentazioni</h1>
-          <p class="text-body-small text-sx-text-muted">${info.total.toLocaleString('it-IT')} movimentazioni in archivio · conservazione ${Math.round(LOG_RETENTION_DAYS/365)} anni</p>
+          <p class="text-body-small text-sx-text-muted">${info.total.toLocaleString('it-IT')} movimentazioni in archivio · nessuna viene mai cancellata</p>
         </div>
         <div class="flex gap-4 items-center flex-wrap">
           <button class="btn btn-sm btn-accent" onclick="App.exportMovLogExcel()">📊 Excel Movimenti</button>

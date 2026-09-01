@@ -6,8 +6,21 @@ const DB_NAME = 'WarehouseMapperDB';
 /* v2.0.1 [C6] — rimossa la costante DB_VERSION: era ferma a 2 mentre la versione
    effettiva dello schema è 3 (vedi catena db.version() sotto). Era morta e fuorviante. */
 
-const LOG_RETENTION_DAYS = 2192;
-const LOG_RETENTION_MS = LOG_RETENTION_DAYS * 24 * 60 * 60 * 1000;
+/* 2.17 — IL LIMITE DI RITENZIONE NON C'E' PIU', E NON C'E' MAI STATO.
+   Qui stavano `LOG_RETENTION_DAYS = 2192` e il suo millisecondo. Sei anni
+   esatti, e non li chiedeva nessuna norma: la guida della Commissione sull'art.
+   18 del Reg. 178/2002 raccomanda 5 anni per la rintracciabilita', l'art. 2220
+   c.c. ne vuole 10 per fatture e documenti commerciali (i DDT), e l'Annex 11
+   lega l'audit trail al record che documenta. Sei stava in mezzo, senza fonte.
+
+   E soprattutto NON CANCELLAVA NIENTE: la purga e' uscita con la 2.1 (§8), e
+   quella costante finiva in tre etichette a video. Una diceva «conservazione 6
+   anni» due righe sotto «nessun record viene mai cancellato»: chi legge non sa
+   quale delle due credere, e la risposta era la seconda.
+
+   Il registro non ha una scadenza dentro l'applicativo. Per quanto si tenga lo
+   decide la SOP, e a quel punto e' una politica di backup e di database, non un
+   numero compilato dentro un pacchetto. */
 
 /* Tipi movimento: stringhe brevi per risparmio spazio su IDB */
 const MOV = Object.freeze({
@@ -48,4 +61,4 @@ const MOV_LABELS = {
   PINRESET: 'Rinnovo PIN operatore'   // v2.7.0 [G6]
 } satisfies Record<TipoMovimento, string>;
 
-export { DB_NAME, LOG_RETENTION_DAYS, LOG_RETENTION_MS, MOV, MOV_LABELS };
+export { DB_NAME, MOV, MOV_LABELS };

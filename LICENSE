@@ -22,8 +22,9 @@ over this software. The dependency set is pinned in `package-lock.json`;
 REGULATED CONTEXT
 Pathfinder records warehouse operations for a food-grade facility operating
 under GMP. Movement records carry the initials of the identified operator and
-are retained for six years. Altering, deleting or back-dating those records
-defeats the purpose this software exists for.
+are never deleted by the software — neither by hand nor by age. How long they
+are kept is a matter for the operator's own procedures. Altering, deleting or
+back-dating those records defeats the purpose this software exists for.
 
 PERSONAL DATA
 The application stores, of each operator, no more than first name, surname,
