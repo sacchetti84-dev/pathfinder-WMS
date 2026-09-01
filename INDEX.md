@@ -8,11 +8,12 @@ memoria, non istruzioni.
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
 Aggiornato: **01/09/2026 notte** — la macchina è stata **riportata a zero e
-reinstallata pulita**: la **2.14 è in servizio** su un database vuoto, e il
-primo Admin non esiste ancora. Voce **74**. Nel farlo è venuto fuori un difetto
-dell'installer che si era già mangiato una serata (voce **75**): corretto,
-provato, e insieme alla **disinstallazione completa** è diventato la **2.15**,
-costruita e non installata. La riscrittura compatta è del 28/08; la stesura
+reinstallata pulita**, e in servizio c'è la **2.15**. Voce **74**. Nel farlo è
+venuto fuori un difetto dell'installer che si era già mangiato una serata (voce
+**75**): corretto, provato, e insieme alla **disinstallazione completa** è
+diventato appunto la 2.15. Il primo Admin c'è e **la porta è tornata chiusa**;
+il database porta un backup caricato **in merge per fare prove**, e il
+**registro movimenti è vuoto**. La riscrittura compatta è del 28/08; la stesura
 narrativa che l'ha preceduta resta nella storia git al commit `f4a9578`.
 
 **Cos'è Pathfinder.** Applicativo web per un magazzino alimentare in GMP.
@@ -103,29 +104,30 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ### In servizio
 
-**La 2.14, su una macchina reinstallata da zero il 01/09** — voce 74. Misurato
-da `/api/app-info` e `/api/health` alle 22:40:
+**La 2.15, su una macchina reinstallata da zero il 01/09** — voce 74. Misurato
+da `/api/app-info` e `/api/health`:
 
 | | |
 |---|---|
-| applicativo e servizio | **2.14** — `versione` e `service_version` dicono lo stesso numero |
-| impronta | `8a25574bb3fbc2303dcdb0c7edc9370c5ec2b0d11ab75e6e9c4c0431fe448ead` |
-| byte | **1.901.483** in **4 file**, `costruita 2026-08-31T19:07:52Z` |
+| applicativo e servizio | **2.15** — `versione` e `service_version` dicono lo stesso numero |
+| impronta | `7b812c48ae9d1c878efd7e3e5114bed96fa3536c8ccb13d4107ab335fe4fd7eb` |
+| byte | **1.901.483** in **4 file**, `costruita 2026-08-31T23:34:17Z` |
 | dove | `C:\Pathfinder\app\corrente`, modo `cartella` |
-| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, **tutte a zero**, `revision 0` |
+| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 318` |
 | pagina | `http://192.168.178.22:4173/` → 200, 23.592 byte |
-| porta chiusa | **no, e per ora è giusto così** — vedi qui sotto |
+| porta chiusa | **sì** — `GET /api/c/meta` senza sessione risponde **401** |
 
-> **IL SERVIZIO È NELLA FINESTRA DI PRIMO AVVIO, E LA PORTA È APERTA.**
-> `GET /api/c/meta` senza sessione risponde **200**, non 401. Non è la 2.11 che
-> ha ceduto: `finestraDiPrimoAvvio` guarda `operators`, non trova nessuno con
-> `pin_hash`, e tiene aperto — altrimenti nessuno potrebbe creare il primo
-> Admin. **Ma aperto è aperto**: finché quell'Admin non esiste, chiunque sia
-> sulla rete parla con le API senza sessione. **È il primo gesto da fare**,
-> prima di caricare qualunque dato.
+**L'impronta è quella del pacchetto costruito la notte del 01/09**: i byte che
+girano sono quelli provati, e i due numeri coincidono.
 
-**Il magazzino non è dentro.** Zero articoli, zero giacenze, zero movimenti: i
-dati veri stanno solo nei dump salvati (voce 74), e se rientrano si decide.
+> **LA FINESTRA DI PRIMO AVVIO SI È CHIUSA, ED È LA COSA DA GUARDARE DOPO OGNI
+> INSTALLAZIONE PULITA.** Appena installata, con `operators` a zero, il
+> servizio rispondeva **200** a `/api/c/meta` senza sessione: non è la 2.11 che
+> cede, è `finestraDiPrimoAvvio` che tiene aperto perché qualcuno possa creare
+> il primo Admin. **Ma aperto è aperto**, e per qualche ora chiunque fosse
+> sulla rete ha potuto parlare con le API. Creato l'Admin, la porta si è
+> richiusa da sola. **Su una macchina nuova il primo Admin è il primo gesto**,
+> prima di qualunque dato.
 
 **Cosa c'era prima, e resta scritto perché è la misura da cui si è ripartiti:**
 **2.13**, impronta `cbe7180250984a557208d0cda860e6b63e0b5772c49a209ae752ac4afc81eb64`,
@@ -171,11 +173,38 @@ prove che non aveva: §3.
 > pacchetto e **mai il contrario**. Un fix scritto nel pacchetto vive fino alla
 > build successiva, e poi sparisce senza che niente lo dica.
 
-### I conteggi del database — l'ultima misura prima della rimozione
+### I conteggi del database — 01/09, dopo il caricamento di prova
 
-**Questo database non esiste più** (voce 74): i numeri qui sotto sono storia, e
-i dati sopravvivono solo nei dump salvati sul Desktop. Misurati da
-`/api/health` il 31/08:
+Il database è nato vuoto con l'installazione pulita, e poi Andrea ci ha
+caricato **un backup in merge, per fare delle prove**. Misurato da
+`/api/health`:
+
+| collezione | righe | | collezione | righe |
+|---|---:|---|---|---:|
+| `articles` | 11.197 | | `mov_log` | **0** |
+| `inventory` | **882** | | `lots` | **0** |
+| `zones` | 17 | | `udc` | 0 |
+| `sites` | 4 | | `wip` | 0 |
+| `operators` | **1** | | `revision` | **318** |
+
+> **IL REGISTRO MOVIMENTI È VUOTO, E NON PER SBAGLIO: nel backup non c'era.**
+> Lo dice Andrea, ed è coerente con quello che si misura. **I 45 movimenti del
+> magazzino vero esistono in un posto solo**, il dump del 31/08 sul Desktop
+> (voce 73). §8 li vuole tenuti sei anni: finché stanno su un disco solo, sono
+> un file che prima o poi non c'è più.
+
+> **882 GIACENZE E LA COLLEZIONE `lots` A ZERO.** Andrea dice che i lotti ci
+> sono, e ha ragione su quello che intende: il **codice** di lotto viaggia
+> sulla riga di giacenza, dentro `item_key`. Ma la collezione `lots` è un'altra
+> cosa — porta `expiry_date` e la **confezione congelata** (`uom`,
+> `uom_per_collo`) — e quella è vuota. **Senza `lots` non c'è la scadenza**, e
+> senza scadenza il FEFO non ordina niente; senza confezione congelata il conto
+> di produzione ricade sul ripiego della voce 61. **Da guardare prima di
+> giudicare una prova fatta su questi dati**, perché non è il magazzino vero:
+> è un magazzino senza date.
+
+**L'ultima misura prima della cancellazione**, tenuta perché è il termine di
+paragone. Da `/api/health` il 31/08:
 
 | collezione | righe | | collezione | righe |
 |---|---:|---|---|---:|
@@ -245,10 +274,11 @@ macchina, installata prima della ricostruzione, risponde `19:07:52`. **I byte
 dell'applicativo sono gli stessi**: l'impronta lo prova, ed è lei che conta.
 Installare resta un atto umano — §0 punto 4.
 
-### La 2.15 — costruita, non installata
+### La 2.15 — come è arrivata in servizio
 
 | | |
 |---|---|
+| installata | **01/09**, e verificata dal servizio: `/api/app-info` risponde 2.15 con questa impronta |
 | pacchetto | `consegna\Pathfinder 2.15\` |
 | impronta | `7b812c48ae9d1c878efd7e3e5114bed96fa3536c8ccb13d4107ab335fe4fd7eb` |
 | byte | **1.901.483** in **4 file**, `costruita 2026-08-31T23:34:17Z` |
@@ -271,8 +301,8 @@ una di prova ne porta di più (`2.12.1`).
 
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.15** | **COSTRUITA, non installata** — 01/09 notte | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
-| **2.14** | **IN SERVIZIO dal 01/09** | `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
+| **2.15** | **IN SERVIZIO dal 01/09** | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
+| **2.14** | in servizio il 01/09 per poche ore, archiviata |  `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
 | **2.13** | **in servizio dal 31/08, rimossa il 01/09** — voce 74 | `cbe71802…` | La gerarchia la impone **il servizio** (voce 66) · `rinnovaPin` · il **codice di ripristino** dell'Admin · il fix di avvio della 2.12.1 riportato nel sorgente e coperto da dodici prove |
 | **2.12.1** | archiviata | `4f2a9f0f…` | Il servizio **aspetta** PostgreSQL invece di arrendersi al primo no, e l'attività pianificata parte un minuto dopo l'accensione. Nata da una giornata di magazzino fermo |
 | **2.12** | archiviata | `9ef94996…` | Il giro: più ODP in un percorso solo, conto di produzione **uno** · ricalibrazione della distinta · l'ubicazione si scansiona **una volta per vano** |
@@ -1006,8 +1036,8 @@ pagato**.
 
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **74** | 🔴 **LA MACCHINA È STATA RIPORTATA A ZERO, E VA REINSTALLATA.** Il 01/09, per decisione di Andrea, sono state rimosse `C:\Pathfinder\`, `C:\Pathfinder_block\` (1.079 file, 182,7 MB) e `C:\Users\sacch\pathfinder-WMS\`, tolte le cinque variabili `PATHFINDER_*`, cancellati i database `pathfinder`, `pathfinder_collaudo` e `pathfinder_prova` e il ruolo `pathfinder`. PostgreSQL 17 resta installato. **`Pathfinder_block` ha resistito a tre tentativi**: la cartella dava FullControl, ma su ogni singolo file `icacls`, `fsutil` e `[IO.File]::Open` rispondevano «Accesso negato» — non si riusciva nemmeno a **leggere** la ACL, e `rd /s /q` falliva file per file. Ha ceduto a `takeown /f … /r /d S` seguito da `icacls … /reset /t /c /q` da un PowerShell elevato: 1.302 file rimessi a posto, 0 falliti. **I dati sono salvi**: `Desktop\pathfinder-backup-storico\` porta i 36 file di `Pathfinder_block\backup` (109 MB, i `.db` giornalieri dal 10 al 26/08 e quattro `.dump`), e `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\` porta i sei dump dal 28 al 31/08, compreso `pathfinder-2026-08-31.dump` — 419.318 byte, i **45 movimenti** della voce 73 | **Reinstallata la sera del 01/09, e la strada nuova ha fatto uscire un difetto: voce 75.** Adesso in servizio c'è la **2.14** su un database **vuoto**. Restano due cose, in quest'ordine: **(1) creare il primo Admin**, perché finché non esiste il servizio tiene le API aperte a chiunque sia in rete (§1); **(2) decidere con quali dati riparte il magazzino** — vuoto con ricarica dell'anagrafica da Excel, oppure `pg_restore` da `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\pathfinder-2026-08-31.dump`, che riporta 11.197 articoli, 853 giacenze e i **45 movimenti**. Non è un comando solo: vuole il servizio fermo, il database rifatto e poi riacceso. Finché il magazzino non rientra, **le voci 69, 73 e 12 non si misurano sul vivo**: esistono solo i dump |
-| **73** | 🔴 **IL REGISTRO DEI MOVIMENTI È STATO AZZERATO LA SERA DEL 31/08, E `inventory` SOSTITUITA.** Misurato all'01:00 del 01/09 interrogando PostgreSQL direttamente: `mov_log` **0**, `lots` **0**, `wip` **0**, `udc` **0**, `inventory` **882**, `articles` 11.197, `_revision` **5**. Il backup serale delle **20:00 dello stesso giorno** ne portava **45 e 853**: i sei dump in `C:\Pathfinder\backup` dicono 39→39→39→44→45→45 movimenti e **853 giacenze fisse** dal 28 al 31/08. Quindi fra le 20:00 e mezzanotte qualcosa ha **svuotato il registro e rimpiazzato le giacenze** — non è un calo, è una sostituzione, e `articles` non è stata toccata. `_revision` a 5 dice che il contatore è ripartito quasi da zero | **La forma è quella della voce 45**: `importAll` con `mov_log: []` svuota il registro e lascia il resto — cioè un **ripristino da un file JSON** fatto dall'applicativo, o il reset dei dati. Da stabilire, in quest'ordine: chi ha ripristinato cosa fra le 20:00 e mezzanotte; se il file da cui è stato ripristinato esiste ancora; e **se quei 45 movimenti vadano riportati**, perché §8 li vuole tenuti sei anni. **L'unica copia sono i dump, ed è stata messa al sicuro**: `pathfinder-2026-08-31.dump` — 419.318 byte, i 45 movimenti — sta in `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\` insieme agli altri cinque. Il database vivo **non c'è più** (voce 74): da qui in poi si guarda solo lì dentro. Non l'ha fatto il banco della 2.14: quello girava su SQLite con `PATHFINDER_PG` vuota, e lo dichiarava a ogni avvio |
+| **74** | 🔴 **LA MACCHINA È STATA RIPORTATA A ZERO, E VA REINSTALLATA.** Il 01/09, per decisione di Andrea, sono state rimosse `C:\Pathfinder\`, `C:\Pathfinder_block\` (1.079 file, 182,7 MB) e `C:\Users\sacch\pathfinder-WMS\`, tolte le cinque variabili `PATHFINDER_*`, cancellati i database `pathfinder`, `pathfinder_collaudo` e `pathfinder_prova` e il ruolo `pathfinder`. PostgreSQL 17 resta installato. **`Pathfinder_block` ha resistito a tre tentativi**: la cartella dava FullControl, ma su ogni singolo file `icacls`, `fsutil` e `[IO.File]::Open` rispondevano «Accesso negato» — non si riusciva nemmeno a **leggere** la ACL, e `rd /s /q` falliva file per file. Ha ceduto a `takeown /f … /r /d S` seguito da `icacls … /reset /t /c /q` da un PowerShell elevato: 1.302 file rimessi a posto, 0 falliti. **I dati sono salvi**: `Desktop\pathfinder-backup-storico\` porta i 36 file di `Pathfinder_block\backup` (109 MB, i `.db` giornalieri dal 10 al 26/08 e quattro `.dump`), e `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\` porta i sei dump dal 28 al 31/08, compreso `pathfinder-2026-08-31.dump` — 419.318 byte, i **45 movimenti** della voce 73 | **FATTA la sera del 01/09**, e la strada nuova ha fatto uscire un difetto (voce 75) che è diventato la **2.15**, adesso in servizio. Il **primo Admin è stato creato** e la porta si è richiusa. Sul database Andrea ha caricato **un backup in merge, per fare delle prove**: 11.197 articoli, 882 giacenze, `lots` e `mov_log` a zero. **Resta una decisione sola, e non è più urgente ma non è chiusa**: con quali dati riparte il magazzino vero. Il `pg_restore` da `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\pathfinder-2026-08-31.dump` riporterebbe 853 giacenze **e i 45 movimenti**; vuole il servizio fermo, il database rifatto e poi riacceso, e **cancella quello che c'è adesso** — cioè le prove in corso |
+| **73** | 🔴 **IL REGISTRO DEI MOVIMENTI È STATO AZZERATO LA SERA DEL 31/08, E `inventory` SOSTITUITA.** Misurato all'01:00 del 01/09 interrogando PostgreSQL direttamente: `mov_log` **0**, `lots` **0**, `wip` **0**, `udc` **0**, `inventory` **882**, `articles` 11.197, `_revision` **5**. Il backup serale delle **20:00 dello stesso giorno** ne portava **45 e 853**: i sei dump in `C:\Pathfinder\backup` dicono 39→39→39→44→45→45 movimenti e **853 giacenze fisse** dal 28 al 31/08. Quindi fra le 20:00 e mezzanotte qualcosa ha **svuotato il registro e rimpiazzato le giacenze** — non è un calo, è una sostituzione, e `articles` non è stata toccata. `_revision` a 5 dice che il contatore è ripartito quasi da zero | **01/09 — E LA STESSA FORMA È STATA RIPRODOTTA A MANO, PER CASO.** Caricando un backup **in merge** per fare delle prove sul database nuovo, i conteggi sono usciti **identici uno per uno** a quelli misurati all'01:00 su quello vecchio: `articles` 11.197, `inventory` **882**, `mov_log` **0**, `lots` **0**, `udc` 0. Non è una coincidenza di numeri tondi: sono gli stessi numeri. **Quindi la sera del 31/08 non è successo niente di misterioso — è stato un caricamento come questo.** Resta una cosa sola da stabilire, ed è quella che chiude la voce: **un merge non svuota un registro che c'era**. Se il file caricato porta `mov_log: []` — la chiave presente e la lista vuota — allora sì, e la voce 45 lo dice già; se la chiave non c'è affatto, il registro dovrebbe restare, e allora manca ancora un pezzo. **Si guarda dentro il file di backup**, e la voce si chiude in un modo o nell'altro. **La forma è quella della voce 45**: `importAll` con `mov_log: []` svuota il registro e lascia il resto — cioè un **ripristino da un file JSON** fatto dall'applicativo, o il reset dei dati. Da stabilire, in quest'ordine: chi ha ripristinato cosa fra le 20:00 e mezzanotte; se il file da cui è stato ripristinato esiste ancora; e **se quei 45 movimenti vadano riportati**, perché §8 li vuole tenuti sei anni. **L'unica copia sono i dump, ed è stata messa al sicuro**: `pathfinder-2026-08-31.dump` — 419.318 byte, i 45 movimenti — sta in `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\` insieme agli altri cinque. Il database vivo **non c'è più** (voce 74): da qui in poi si guarda solo lì dentro. Non l'ha fatto il banco della 2.14: quello girava su SQLite con `PATHFINDER_PG` vuota, e lo dichiarava a ogni avvio |
 | **72** | ⚠️ **UN DUMP DEL MAGAZZINO VERO STA NELLA STORIA DEL REPOSITORY, COI PIN DENTRO.** `banco/db/pathfinder-2026-08-27.dump` — 415.601 byte — è entrato col commit **`ecd2538`** del 27/08, che è **proprio quello che dice «tutto nel repository, tranne i due segreti»**. Verificato il 31/08 estraendone la sola tavola `operators` con `pg_restore --data-only --table=operators`: dentro ci sono **`pin_hash`, `pin_salt` e `first_name`** di persone vere. Il buco era nel `.gitignore`: la riga diceva `*.db`, e un dump di PostgreSQL si chiama `.dump`. **Il buco è chiuso il 31/08** — `*.dump`, `*.sql`, `*.sqlite`, `*.sqlite3`, `*.bak` sono fuori, il file è uscito dall'indice e resta su disco — **ma la storia no**: da `ecd2538` in poi quei byte ci sono, e un `git clone` se li porta | **Restano due decisioni, e sono di Andrea.** (1) **Riscrivere o no la storia.** Il commit è già spinto: `git filter-repo --path banco/db/pathfinder-2026-08-27.dump --invert-paths`, poi un push forzato, e **chiunque abbia una copia se la deve rifare da zero**. L'alternativa è scrivere qui che si accetta il rischio, e perché. (2) **Rinnovare i PIN** degli operatori che stanno in quel dump — vale in tutti e due i casi, perché §11 dice che un segreto spinto una volta è bruciato, e riscrivere la storia non disfa i cloni già fatti. Le impronte lì dentro sono **SHA-256, non scrypt** (la 2.10 riscrive in scrypt al primo accesso, e quel dump è del 27/08): su un PIN di sei cifre un milione di tentativi è un istante |
 |---|---|---|
 | **71** | **IL BANCO DEL CICLO CHIEDE A UN TRASFERIMENTO DI RESTARE APERTO, E DALLA 2.1 NON RESTA.** `funzioni.test.js` crea un `TRANSFER` da 3 colli, ne muove 1 e si aspetta `in_progress`; il codice lo chiude, perché `chiudeAlGesto` include `TRANSFER` **per decisione di Andrea alla 2.1** — «le attività si devono chiudere nel momento in cui il trasferimento viene confermato, obbligatorio». Il difetto `CP1` che il banco scrive dal 27/08 **sta segnalando questa aspettativa vecchia**, non un difetto del magazzino. Poi il secondo `advanceTask` lancia sul serio e la prova diventa rossa | **Il banco va allineato alla decisione, non il codice.** Il residuo resta al solo Smaltimento: la prova a residuo si scrive su un `DISPOSAL`, e per il `TRANSFER` si prova la chiusura al gesto. Poi `CP1` esce da `difetti.json` |
