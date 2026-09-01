@@ -4,6 +4,8 @@
 # ─────────────────────────────────────────────────────────────────────────────
 #
 # DAL 27/08/2026 QUESTO ELENCO E' DI DUE VOCI, E NON DI DIECI.
+# DAL 02/09/2026 SONO TRE: le dipendenze e il prodotto della build sono
+# rientrati qui dentro. Il perche' sta in fondo, alla voce 5.
 #
 # Fino a ieri teneva fuori le dipendenze, l'archivio, il banco, la cartella di
 # consegna e i monoliti delle versioni vecchie: 405 MB di roba, esclusa con
@@ -89,3 +91,30 @@ desktop.ini
 Codice di ripristino*
 *variabile postgre*
 *connection*string*
+
+# ── 5. LE DIPENDENZE E IL PRODOTTO DELLA BUILD — 02/09 ────────────────────
+# LA DECISIONE DEL 27/08 E' STATA CAMBIATA, e non perche' fosse sbagliata.
+# Diceva: «si ricostruisce» vale finche' qualcuno lo ricostruisce, e un file
+# che sta su un disco solo prima o poi non c'e' piu'. E' vero, e infatti il
+# kit demo (voce 43) e' sparito proprio cosi'.
+#
+# Cambia il motivo per cui il repository esiste. Va a un'analisi esterna, e
+# di 4.539 file tracciati 2.865 erano dipendenze e 37 il pacchetto costruito:
+# il 94% di quel che un revisore scaricava non era codice di questo progetto.
+# Un repository in cui il codice e' il 6% non si legge, e nessuna prassi di
+# costruzione lo accetta.
+#
+# LA RAGIONE DEL 27/08 RESTA ONORATA, DA DUE PARTI:
+# · `package-lock.json` E' TRACCIATO, ed e' lui la garanzia vera: `npm ci`
+#   rimette le stesse identiche versioni, non «versioni compatibili».
+# · una copia integrale sta fuori da git, in
+#   `Desktop\Pathfinder-archivio-2026-09-01\dipendenze-2.16\`
+#   (`node_modules-2.16.zip` 2.865 file, `consegna-2.16.zip` 37 file), col
+#   suo LEGGIMI. E' la cintura oltre alle bretelle, per il giorno che npm non
+#   risponde.
+#
+# `consegna/` esce anche per un secondo motivo, che era scritto in §11 come
+# prezzo da pagare: ogni build sporcava `git status` con l'intero pacchetto
+# ricostruito. Adesso non piu'.
+node_modules/
+consegna/

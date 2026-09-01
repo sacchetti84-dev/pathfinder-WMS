@@ -1,5 +1,8 @@
 # PostgreSQL — dalla 2.6 è un driver in servizio, non un ramo parallelo
 
+> Originale italiano. La versione inglese, per chi legge la repository, è
+> [`README.md`](README.md).
+
 Fino alla 2.5 questa cartella era un ramo che non chiamava nessuno: schema e
 migrazione preparati il **19/08/2026** perché la decisione si potesse prendere
 con i numeri davanti. **La decisione è stata presa il 26/08/2026**, e la 2.6

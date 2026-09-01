@@ -1,4 +1,9 @@
-# Pathfinder — servizio dati
+# Pathfinder — servizio dati (originale italiano)
+
+> **Documento fermo alla 2.5.** Descrive SQLite come unico database e
+> `installa-servizio.ps1` come installer. La versione corrente è
+> [`README.md`](README.md), in inglese, scritta sulla 2.16. Questo resta
+> perché porta il *perché*, che l'inglese riassume.
 
 Il database non vive più dentro il browser. Vive sulla macchina, in un file, e
 un servizio Node lo serve ai terminali di magazzino.

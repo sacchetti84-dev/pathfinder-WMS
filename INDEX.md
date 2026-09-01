@@ -85,6 +85,12 @@ il resto serve a qualcosa.
    prepara i comandi.
 5. **Codice scarno**: pochi commenti e sul **perché**, mai sul cosa. La
    narrativa sta qui, non nei file.
+5-bis. **Le lingue sono due, e non si mescolano.** Questo INDEX, i commenti nel
+   codice e `LEGGIMI-pacchetto.txt` (che va in mano a chi installa in
+   magazzino) restano **in italiano**. I README della repository sono **in
+   inglese**, perché li legge il team IT. Un documento tradotto porta in testa
+   il rimando all'altro e, se è fermo, lo dichiara: **due copie che divergono
+   in silenzio sono peggio di una copia sola**.
 6. **Non si segnalano ritardi di programma.** Il giudizio sull'andamento lo dà
    Andrea.
 
@@ -1152,9 +1158,9 @@ resta lì e non rientra da solo**: il file SQLite è fermo alla sera del 26/08.
 Per un rientro ordinato si migra al contrario, e quello script non c'è.
 
 **Il database sta sulla stessa macchina del servizio.** Non è Azure: il
-magazzino si ferma quando si ferma questo PC. Il primo punto di
-`server/azure/LEGGIMI.md` — «niente lavoro senza linea» — **non è ancora stato
-pagato**.
+magazzino si ferma quando si ferma quel PC. È la stessa cosa che la voce 26
+diceva del ramo Azure, e resta vera qui — **niente lavoro senza linea**, per
+scelta e non per dimenticanza (§8).
 
 ### Prima della 2.6 — la cronaca in breve
 | Quando | Cosa |
@@ -1222,7 +1228,6 @@ hanno con cosa lavorare.
 |---|---|
 | **8** | **Nome DNS interno e certificato** dalla CA aziendale. Il codice è pronto: due variabili e HTTPS si accende. **È anche l'unica risposta al mezzo difetto che la 2.11 lascia aperto** |
 | **24** | **Se le etichette escono dal cancello.** Quel che si stampa è **Code128, non GS1-128**: manca FNC1 e l'identificativo `(00)`. Il giorno che un cliente deve leggere un SSCC, `modules/code128.ts` va **esteso, non aggirato** |
-| **26** | **Se Azure si accende.** Il ramo `server/azure/` è pronto e non lo chiama nessuno. I quattro punti che decidono stanno in `server/azure/LEGGIMI.md`, e il primo è che il magazzino si fermerebbe quando cade la linea |
 
 ### Da chiarire — manca un fatto
 | # | Cosa | Cosa manca |
@@ -1235,6 +1240,7 @@ hanno con cosa lavorare.
 | **17** | **La capienza dei vani non si dichiara, e non è un buco.** I vani non hanno un limite: la verifica la fanno **a vista gli operatori**. Il vincolo nel motore resta e non esclude mai per pieno. (Dalla 2.8 capienza e **portata in chili** si possono comunque scrivere sulla singola cella con `location_attrs`: è uno scavalco puntuale, non una dichiarazione di massa) |
 | **25** | **La vista 3D della mappa: valutata, e no.** Le ubicazioni non hanno coordinate — `core/geometria.ts` le genera da corsie, campate e livelli — quindi sarebbe la stessa griglia con la prospettiva in più: costo alto, informazione zero. La **vista frontale con «Specchia»** copre quel che serviva |
 | **65** | **`xlsx` 0.18.5 RESTA, E IL RISCHIO È SCRITTO.** Due vulnerabilità note — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — e su npm non c'è un fix: SheetJS pubblica le corrette solo dal proprio sito. **Deciso da Andrea il 01/09: si accetta.** Il vettore è il file Excel che un operatore carica, e quell'operatore è **identificato, sulla rete interna, con un foglio che ha generato lui**: non è un file che arriva da fuori. Passare alla versione del sito vorrebbe dire riprovare tutto quel che tocca Excel — ODP, anagrafica, export — per chiudere una porta che dà su un corridoio interno. **Si riapre il giorno che un foglio arriva da fuori** |
+| **26** | **Il ramo Azure non è «pronto e non lo chiama nessuno»: È DIVENTATO IL DRIVER.** La voce diceva che `server/azure/` stava lì in attesa di una decisione. **La decisione è stata presa il 26/08 e la cartella non esiste dal commit `ffcf1e8`**: `schema-postgres.js` è andato in `server/lib/`, `audit.js`, `audit-sqlite.js` e `migra-sqlite-postgres.js` in `server/migrazione/`, e da lì viaggiano dentro il pacchetto. Quel che era un ramo parallelo è **il PostgreSQL che gira adesso**. Resta vera una cosa sola di quella voce, e vale per il database di oggi come per Azure: **il magazzino si ferma quando si ferma la macchina del servizio**, e §8 lo dichiara — niente lavoro offline, per scelta |
 | **35** | **La 2.1 andò in servizio da un pacchetto che nessun documento nominava.** Terza volta in quattro giorni. Non è una riga da correggere: è il motivo per cui esiste §0 punto 2 |
 
 ### Chiuse — con la prova
@@ -2491,8 +2497,7 @@ Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
   quantità, l'entrata nel vano WIP passa dal registro, i quattro posti del numero
   di versione, e il `return` muto di `#dlgOverlay` che non lasciava nessuna
   traccia osservabile.
-- `schemaPostgres` è l'unica prova del ramo Azure che gira a ogni `npm test`, e
-  serve a una cosa: che lo schema descriva le stesse ventuno collezioni che il
+- `schemaPostgres` gira a ogni `npm test` e serve a una cosa: che lo schema descriva le stesse ventuno collezioni che il
   servizio usa **oggi**.
 
 ---
@@ -2530,20 +2535,44 @@ Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 ## 11. Dove sta il resto
 | Serve | Dove |
 |---|---|
-| Installare il servizio da zero, diagnosticare, backup | [README.md](README.md) |
+| Installare il servizio da zero, diagnosticare, backup | **[README.md](README.md) — in inglese, scritto sulla 2.16.** L'italiano è [README.it.md](README.it.md) ed è **fermo prima della 2.7** |
+| Com'è fatto il servizio dati | [server/README.md](server/README.md) (inglese) · [server/LEGGIMI.md](server/LEGGIMI.md) (italiano, fermo alla 2.5) |
+| Una riga per versione, dalla 1.4 alla 2.16 | [CHANGELOG.md](CHANGELOG.md) — in inglese |
+| Che licenza ha | [LICENSE](LICENSE) — proprietaria, nessun diritto concesso a terzi |
 | Versioni precedenti, loghi, etichette, file di prova, banco storico | `ARCHIVIO/` — e **non si cancella niente**: un archivio svuotato funziona una volta sola |
 | Il ramo git della 2.3 ritirata | `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/2.3-reparto-e-giro-conto.bundle` — storia completa, recupero provato |
 | La storia: handoff e piani fino al 17/08/2026 | `ARCHIVIO/HANDOFF STORICI/` — **memoria, non istruzioni** |
 | Cosa è stato archiviato e quando | `ARCHIVIO/archive-manifest.json` |
 | Come si disegna un'interfaccia da magazzino | `.claude/skills/erp-wms-frontend/SKILL.md`. **Se diverge da §8, vince §8** |
-| Cosa costerebbe davvero passare ad Azure | `server/azure/LEGGIMI.md` |
+| Il driver PostgreSQL e la migrazione | `server/migrazione/README.md` (inglese) e `LEGGIMI.md` (italiano). **`server/azure/` non esiste dal 26/08**: è diventato quello — voce 26 |
 | ~~Demo portatile su chiavetta~~ · ~~Sheet tecnico IT~~ | **NON ESISTONO PIÙ — voce 43**, e vanno riscritti |
 
 **Il repository tiene tutto, tranne i segreti — 27/08.** Decisione di Andrea:
 dentro `node_modules`, `ARCHIVIO`, `banco`, `consegna` — 4.211 file, ~250 MB.
 «Si ricostruisce» vale finché qualcuno lo ricostruisce, e un file che sta su un
-disco solo prima o poi non c'è più (voce 43). **Restano fuori tre cose, e non
-per il peso**: i **file di database**, che portano `pin_hash` e `pin_salt`
+disco solo prima o poi non c'è più (voce 43).
+
+> ⚠️ **CAMBIATA IL 02/09, e non perché fosse sbagliata.** Cambia il motivo per
+> cui il repository esiste: va a un'analisi del team IT. Di **4.539 file
+> tracciati, 2.865 erano dipendenze** (`node_modules/` più `server/node_modules/`),
+> **716 erano dipendenze di versioni archiviate** dentro `ARCHIVIO/`, e 37 il
+> pacchetto costruito. **Il codice di questo progetto era il 6%.** Un
+> repository in cui il codice è il 6% non si legge, e nessuna prassi di
+> costruzione lo accetta. Adesso i file tracciati sono **921**.
+>
+> **La ragione del 27/08 resta onorata da due parti.** `package-lock.json` è
+> tracciato, ed è lui la garanzia vera — `npm ci` rimette le stesse identiche
+> versioni, non «versioni compatibili». E una copia integrale sta fuori da git
+> in `Desktop\Pathfinder-archivio-2026-09-01\dipendenze-2.16\`:
+> `node_modules-2.16.zip` (2.865 file, 42 MB) e `consegna-2.16.zip` (37 file),
+> col suo LEGGIMI. **I file restano tutti su disco**: è cambiato il
+> tracciamento, non l'archivio.
+>
+> **Conseguenza buona:** `consegna/` non è più tracciata, quindi **una build
+> non sporca più `git status`** — il prezzo che §11 dichiarava di pagare non si
+> paga più.
+
+**Restano fuori tre cose, e non per il peso**: i **file di database**, che portano `pin_hash` e `pin_salt`
 accanto a nome e cognome di persone vere; **`.env.local`**, che porta utente e
 password di PostgreSQL; e dal 31/08 i **codici di ripristino** della 2.13, che
 si riconoscono dalla forma — venti caratteri in quattro gruppi da cinque.
@@ -2565,9 +2594,18 @@ si riconoscono dalla forma — venti caratteri in quattro gruppi da cinque.
 > va rigenerato da Configurazione → Operatori: il vecchio smette di valere
 > nello stesso gesto.
 
-**Conseguenza da sapere:** `consegna/` è tracciata, quindi ogni build sporca
-`git status` con l'intero pacchetto ricostruito. È il prezzo della decisione,
-non un difetto.
+**E dal 02/09 i documenti sono in due lingue.** `README.md` è **in inglese** e
+scritto sulla 2.16, perché è quel che il team IT legge per primo; l'italiano
+resta in `README.it.md`, **dichiarato fermo** — i suoi capitoli da 1 a 8 sono
+precedenti alla 2.7 e descrivono ancora SQLite come unico database e
+`installa-servizio.ps1` come installer. Stessa forma per il servizio
+(`server/README.md` inglese, `server/LEGGIMI.md` italiano fermo alla 2.5) e per
+la migrazione. **`server/LEGGIMI-pacchetto.txt` resta in italiano**: viaggia
+dentro il pacchetto e lo legge chi installa in magazzino.
+
+**Questo INDEX resta in italiano e resta il documento autorevole.** Non si
+traduce: due copie di 2.500 righe divergono, e la seconda che diverge è quella
+che qualcuno legge per sbaglio.
 
 ---
 

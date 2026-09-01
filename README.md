@@ -1,665 +1,498 @@
 # Pathfinder
 
-**Gestione magazzino — Dietopack S.r.l. (Naturacare Group)**
-© Andrea Sacchetti · Uso interno · Tutti i diritti riservati
+**Warehouse management — Dietopack S.r.l. (Naturacare Group)**
+© Andrea Sacchetti · Internal use · All rights reserved
 
-Applicativo web per la mappatura delle ubicazioni, i movimenti di magazzino,
-il prelievo guidato da ordine di produzione, la quarantena e i documenti di
-trasporto. Gira su un PC in rete locale; i terminali lo aprono con un browser
-e non installano niente.
+A web application for a food-grade warehouse operating under GMP: location
+mapping, stock movements, production-order picking, quarantine, and outbound
+documents. It runs on one machine on the local network; terminals open it in a
+browser and install nothing.
 
-> Per chi deve **lavorarci sopra** — o riprendere il progetto in una
-> conversazione nuova — il punto di partenza è [INDEX.md](INDEX.md): mappa dei
-> file, comandi, aperti e trappole in due pagine. Questo README serve a chi
-> deve installarlo, aggiornarlo o rimetterlo in piedi.
-
----
-
-## Indice
-
-1. [Che cos'è, in una pagina](#1-che-cosè-in-una-pagina)
-2. [Requisiti](#2-requisiti)
-3. [Installazione su una macchina di prova](#3-installazione-su-una-macchina-di-prova)
-4. [Installazione sul PC di magazzino](#4-installazione-sul-pc-di-magazzino)
-5. [Trasloco su macchina virtuale](#5-trasloco-su-macchina-virtuale)
-6. [Configurazione](#6-configurazione)
-7. [Backup e ripristino](#7-backup-e-ripristino)
-8. [Aggiornare a una versione nuova](#8-aggiornare-a-una-versione-nuova) · [Togliere Pathfinder](#togliere-pathfinder-da-questa-macchina)
-9. [Quando qualcosa non va](#9-quando-qualcosa-non-va)
-10. [Sviluppo](#10-sviluppo)
-11. [Decisioni da conoscere prima di metterci le mani](#11-decisioni-da-conoscere-prima-di-metterci-le-mani)
+> **Italian original:** [`README.it.md`](README.it.md). This English document is
+> the current one; the Italian one is kept because it carries reasoning this
+> summary does not, and because parts of it predate release 2.7 — see
+> [Documentation status](#documentation-status).
+>
+> **The full project record is [`INDEX.md`](INDEX.md)**, in Italian: state,
+> rules, traps already paid for, the work queue and the code map. It is the
+> single working document of the project. This README is for whoever installs,
+> reviews or takes over the system.
 
 ---
 
-## 1. Che cos'è, in una pagina
+## Contents
 
-Due pezzi, e nient'altro.
+1. [What it is](#1-what-it-is)
+2. [Two machines](#2-two-machines)
+3. [Requirements](#3-requirements)
+4. [Getting started (reviewers)](#4-getting-started-reviewers)
+5. [Repository layout](#5-repository-layout)
+6. [Installing the service](#6-installing-the-service)
+7. [Configuration](#7-configuration)
+8. [Backup and restore](#8-backup-and-restore)
+9. [Upgrading and rolling back](#9-upgrading-and-rolling-back)
+10. [Uninstalling](#10-uninstalling)
+11. [Tests](#11-tests)
+12. [Security model](#12-security-model)
+13. [Design decisions worth knowing](#13-design-decisions-worth-knowing)
+14. [Known issues](#14-known-issues)
+15. [Documentation status](#documentation-status)
+16. [Licence](#licence)
 
-| Pezzo | Cos'è | Dove sta |
+---
+
+## 1. What it is
+
+Two pieces, and nothing else.
+
+| Piece | What it is | Where it runs |
 |---|---|---|
-| **Il servizio dati** | Node + Express + SQLite. Custodisce i dati e serve l'applicativo | Una macchina in LAN |
-| **L'applicativo** | Un file HTML solo. Interfaccia, logica, documenti di stampa | Servito dal servizio ai terminali |
+| **The data service** | Node + Express. Holds the data and serves the application | One machine on the LAN |
+| **The application** | A folder of static assets. Interface, logic, printable documents | Served to the terminals by the service |
 
 ```
-   Terminale ─┐
-   Terminale ─┼── HTTP ──> [ servizio dati ] ──> pathfinder.db (SQLite)
-   Terminale ─┘   :4173         Node             + backup serale
+   Terminal ─┐
+   Terminal ─┼── HTTP ──> [ data service ] ──> PostgreSQL 17
+   Terminal ─┘   :4173         Node            + nightly backup
 ```
 
-**L'applicativo sceglie da solo dove vivono i dati, in base a come è stato aperto.**
+**One database, several terminals, and the server is the referee.** No offline
+queue: if the service does not answer, the application stops and says so, full
+screen. An operator who keeps scanning against a dead service is throwing the
+shift away.
 
-| Aperto come | Dati |
+The database is chosen by one environment variable:
+
+| `PATHFINDER_PG` | Database |
 |---|---|
-| `http://…` servito dal servizio | Database sulla macchina, condiviso fra tutti i terminali |
-| doppio clic sul file (`file://`) | IndexedDB del browser, solo su quel PC |
+| set to a connection string | **PostgreSQL** — the production configuration |
+| absent | SQLite, single file — used by the benches |
+| set but **empty** | SQLite, declared explicitly; overrides `.env.local` |
 
-Il secondo caso serve a consultare e ristampare quando il servizio è fermo,
-**non** a lavorare: vedi §11.
+The same service logic runs over both. The SQL dialect is a parameter, not a
+branch: see `server/lib/sql.js` and `server/lib/driver-base.js`.
 
 ---
 
-## 2. Requisiti
+## 2. Two machines
 
-### Servizio
+This distinction governs how everything else reads.
+
+| | **Development machine** | **Warehouse machine** |
+|---|---|---|
+| Purpose | Building and testing, up to the beta | Running the shop floor |
+| Release | The one under development — 2.16 at the time of writing | **1.4** |
+| Database | Overlapping trials: imports, resets, versions installed over one another | The real data |
+| Installing | Served means installed; there is no separate ceremony | A human act, end of shift, with a fresh backup |
+
+**Odd counts in the development machine's database are not incidents.** An
+empty movement register or stock figures that change between one day and the
+next are what happens to a bench where backups are loaded and versions are
+installed one over another. A defect in the *code* is still a defect wherever
+it is seen; the benches tell the two apart, not the live database.
+
+The 1.4 release in the warehouse is a single HTML file with data in IndexedDB
+via Dexie. Its export format is `warehouse-mapper-v1.5` — the same format this
+release still reads, which is the migration path. It is proven by
+`banco/migrazione/dalla-1.4.cjs`.
+
+---
+
+## 3. Requirements
+
+### Service
 
 | | |
 |---|---|
-| Sistema | Windows 10/11 o Windows Server. Gira anche su Linux, ma l'installazione automatica è in PowerShell |
-| Node.js | **20 o superiore** (LTS). Collaudato su 24 |
-| RAM | 512 MB per il servizio. Il database sta su disco, non in memoria |
-| Disco | Vedi sotto |
-| Rete | Una porta TCP, di norma la **4173**, aperta verso la LAN aziendale |
-| Privilegi | Amministratore **solo per l'installazione**. Poi gira come SYSTEM |
+| OS | Windows 10/11 or Windows Server. It runs on Linux, but the installer is PowerShell |
+| Node.js | **20 or later** (LTS). Tested on 24 |
+| Database | **PostgreSQL 17**, local. The installer prepares role and database; it does not install or download the engine |
+| RAM | 512 MB for the service |
+| Network | One TCP port, normally **4173**, open to the company LAN |
+| Privileges | Administrator **for installation only**. It then runs as SYSTEM |
 
-**Spazio disco.** Un database con l'anagrafica completa (~11.000 articoli) e le
-giacenze occupa circa **5 MB**. Il registro movimenti è ciò che cresce: a
-300-500 movimenti al giorno e sei anni di ritenzione sono 650.000-1.100.000
-record, cioè indicativamente **300-500 MB**. Con i backup giornalieri
-conservati per un anno, si sta sotto i **10 GB**. Non è un vincolo stretto:
-è un ordine di grandezza per non trovarsi il disco pieno al quarto anno.
+**Disk.** The article master (~11,000 rows) plus stock is about 5 MB. The
+movement register is what grows: at 300–500 movements a day and a six-year
+retention that is 650,000–1,100,000 records, on the order of **300–500 MB**.
+With daily backups kept for a year, under **10 GB**.
 
-### Terminali
+### Terminals
 
 | | |
 |---|---|
-| Browser | Chrome o Edge recenti. Nessuna installazione, nessuna estensione |
-| Schermo | Da 1280×720 in su. Sotto i 768 px di larghezza l'interfaccia passa alle schede mobili |
-| Scanner | Lettori a emulazione tastiera. L'applicativo corregge da sé il layout US→IT (v1.9.1) |
-| Stampanti | Stampa dal browser. Per le etichette, stampante di etichette configurata come predefinita |
+| Browser | Recent Chrome or Edge. No install, no extension |
+| Screen | 1280×720 and up. Below 768 px wide the interface switches to mobile cards |
+| Scanner | Keyboard-emulation readers. The application corrects the US→IT layout itself |
+| Printers | Printing goes through the browser. For labels, a label printer set as default |
 
-Nessun dato viene installato sul terminale, e nessuna richiesta esce dalla
-rete aziendale.
-
----
-
-## 3. Installazione su una macchina di prova
-
-Serve a provare senza toccare il magazzino. **Il punto è uno solo: usare un
-database usa-e-getta.** Un collaudo che scrive nel database di lavoro è già
-costato un blocco d'accesso.
-
-```powershell
-cd "<cartella>\server"
-npm install --omit=dev
-```
-
-Poi si avvia a mano, su una porta diversa da quella del magazzino:
-
-```powershell
-$env:PATHFINDER_PORT = '4174'
-$env:PATHFINDER_DB   = "$env:TEMP\prova.db"
-$env:PATHFINDER_APP  = '..\pathfinder-1.4.3.html'
-node pathfinder-server.js
-```
-
-L'applicativo è su `http://localhost:4174/`. Per fermarlo: `Ctrl+C`.
-
-> `PATHFINDER_APP` serve perché avviando **a mano** nessuno dice al servizio
-> quale file servire, e lui ripiega su un nome scritto nel codice. Se sbaglia
-> file lo dichiara all'avvio — `ATTENZIONE l'applicativo NON esiste` — invece
-> di lasciarlo scoprire al primo terminale, che vedrebbe una pagina bianca.
-> Passando da `installa-servizio.ps1` (§4) questo non serve: la variabile la
-> imposta lui.
+Nothing is installed on the terminal, and no request leaves the company
+network.
 
 ---
 
-## 4. Installazione sul PC di magazzino
+## 4. Getting started (reviewers)
 
-**Serve solo la cartella `consegna`** — quella prodotta da
-`npm run build` (§10). Dentro c'è tutto: l'applicativo, il servizio,
-l'installazione, il backup e queste istruzioni. Il resto del progetto sulla
-macchina di magazzino non serve.
-
-1. Copia la cartella sulla macchina. **Sceglila corta**: `C:\Pathfinder\servizio`
-   va bene, una decina di sottocartelle dentro Desktop no. Windows si ferma a
-   260 caratteri di percorso e l'installazione delle dipendenze, che scende in
-   profondità dentro `node_modules`, è la prima a sbatterci.
-2. Da **PowerShell come amministratore** (tasto destro → *Esegui come
-   amministratore*; nella barra del titolo deve comparire «Amministratore:»):
-
-```powershell
-cd "C:\Pathfinder\servizio\consegna\server"
-.\installa-servizio.ps1
+```bash
+npm ci                 # exact dependency set from package-lock.json
+npm run check          # TypeScript, application and service, must be clean
+npm test               # 1,222 checks in 44 files
+npm run build          # produces consegna/Pathfinder <version>/
 ```
 
-Lo script fa sette cose e le dichiara mentre le fa:
+`npm run dev` starts Vite and talks to the real service unless
+`PATHFINDER_DEV_API` says otherwise.
 
-1. controlla Node e installa le dipendenze se mancano;
-2. **cerca l'applicativo** accanto a sé e lo dichiara in `PATHFINDER_APP`. Se
-   ne trova più di uno non sceglie: si ferma e li elenca — quale versione
-   vedano i terminali non è una cosa da indovinare;
-3. rifiuta di partire se il database indicato sta dentro OneDrive (§11);
-4. rifiuta di far nascere un database vuoto se ne esiste uno nel percorso storico;
-5. apre la porta sul firewall per rete aziendale e privata;
-6. registra **due attività pianificate** — il servizio e il backup serale;
-7. verifica che il servizio abbia aperto **davvero** il database atteso e stia
-   servendo **davvero** l'applicativo atteso, e prova subito il backup.
+To run the service against a throw-away database, without touching anything:
 
-Alla fine stampa l'indirizzo da mettere come pagina iniziale sui terminali.
-
-> **Le dipendenze del servizio arrivano da internet, una volta sola.** Sono
-> `express` e `better-sqlite3`, ~30 MB, e non stanno nella cartella di
-> consegna di proposito: `better-sqlite3` porta un pezzo compilato, e quello
-> giusto lo sceglie `npm` sulla macchina dove gira. Se il PC di magazzino non
-> ha linea, si esegue `npm install --omit=dev` altrove e si copia la cartella
-> `node_modules` prodotta — **da una macchina con lo stesso Windows e la
-> stessa versione maggiore di Node**.
-
-### Con percorsi diversi da quelli predefiniti
-
-```powershell
-.\installa-servizio.ps1 -Database 'D:\Pathfinder\data\pathfinder.db' -Porta 4173 -OraBackup '21:30'
+```bash
+PATHFINDER_PORT=4174 PATHFINDER_DB=/tmp/prova.db PATHFINDER_PG= \
+  node server/pathfinder-server.js
 ```
 
-### Con più di un applicativo nella cartella
+`PATHFINDER_PG` **empty** is deliberate: on a machine with PostgreSQL
+configured it stops the trial from running against the real database.
 
-Succede in fase di rilascio, quando la versione nuova e la vecchia convivono.
-Si dice quale servire:
+---
 
-```powershell
-.\installa-servizio.ps1 -Applicativo '..\pathfinder-1.4.3.html'
+## 5. Repository layout
+
+```
+src/           the application — TypeScript, no framework
+  core/        store, cache, persistence adapters, schema
+  modules/     pure logic: units, packages, storage rules, WIP, routes, register
+  ui/          the shell and the views
+  types/       entities, the adapter contract, the 21 collections
+server/        the data service — Node + Express, two database drivers
+  lib/         all service logic once, for both databases; all SQL in one file
+  migrazione/  SQLite → PostgreSQL migration and its audit
+  test/        service checks, schema migration, installation scripts
+test/          1,222 checks that run without a service
+banco/         benches that need a running service (not part of `npm test`)
+  gerarchia    roles, enforced where they are enforced: on the service
+  ciclo/       a whole cycle from goods-in to consumption
+  migrazione/  the jump from the 1.4 release to this one
+ARCHIVIO/      project memory: previous releases, bundles, test files
+INDEX.md       the single working document — Italian
 ```
 
-Reinstallando su una macchina già in servizio, se `PATHFINDER_APP` è già
-impostata **non viene cambiata**: chi reinstalla sta sistemando il servizio,
-non rilasciando una versione.
+**Not tracked:** `node_modules/` and `consegna/` (build output). Both are
+reproducible — `npm ci` for the first, `npm run build` for the second — and a
+full copy of the 2.16 dependency set is archived outside git. Until 2 September
+2026 they *were* tracked, on the principle that "it can be rebuilt" only holds
+while somebody rebuilds it; they were removed when the repository was opened to
+external review, because 94% of what a reviewer downloaded was not this
+project's code.
 
-### Per togliere il servizio
+---
+
+## 6. Installing the service
+
+**Only the `consegna` folder is needed** — the one produced by `npm run build`.
+It contains the application, the service, the installer, the backup script and
+its own instructions.
+
+1. Copy the folder to the machine. **Choose a short path**: `C:\Pathfinder\`
+   is fine, ten levels under Desktop is not — Windows stops at 260 characters
+   and dependency installation is the first thing to hit it.
+2. From **PowerShell as administrator**, run `Installa Pathfinder.bat`, or:
 
 ```powershell
-.\installa-servizio.ps1 -Disinstalla
+.\installa.ps1
+.\installa.ps1 -Prova          # says what it would do, touches nothing
 ```
 
-Il database **non** viene toccato.
+The installer checks Node and the dependencies one by one as `package.json`
+declares them, names the missing one and stops; checks PostgreSQL and prepares
+role and database; refuses a database path inside OneDrive; opens the firewall
+port; registers **two scheduled tasks** — the service and the nightly backup;
+and then verifies that the service really opened the expected database and is
+really serving the expected application.
 
-### Le due attività registrate
+### The two scheduled tasks
 
-| Nome | Quando parte | Come gira |
+| Name | Starts | How it runs |
 |---|---|---|
-| `Pathfinder - Servizio dati` | All'accensione della macchina | SYSTEM, riparte da sola se cade |
-| `Pathfinder - Backup serale` | Ogni giorno all'ora scelta (20:00) | SYSTEM, recupera se la macchina era spenta |
+| `Pathfinder - Servizio dati` | At machine boot | SYSTEM, restarts itself if it falls |
+| `Pathfinder - Backup serale` | Daily at the chosen hour (20:00) | SYSTEM, catches up if the machine was off |
 
-Girano come SYSTEM, quindi da una finestra **non** elevata risultano
-invisibili: `Get-ScheduledTask` le omette in silenzio e `schtasks` risponde
-«Accesso negato». Per vederle serve una finestra da amministratore:
+They run as SYSTEM, so from a non-elevated window they are invisible:
+`Get-ScheduledTask` omits them silently. An administrator window is required to
+see them.
 
-```powershell
-Get-ScheduledTask -TaskName "Pathfinder*" | Select-Object TaskName, State
-```
+### The first Admin is the first act
 
----
-
-## 5. Trasloco su macchina virtuale
-
-Il servizio non ha niente cablato: si sposta copiando due cose.
-
-1. **Copia** la cartella `consegna` sulla macchina nuova (§4). Non
-   serve altro: dentro c'è applicativo, servizio e installazione.
-2. **Copia il database a caldo**, chiedendolo al servizio vecchio — mai con
-   `Copy-Item` (§7 spiega perché):
-
-   ```powershell
-   Invoke-RestMethod -Uri http://127.0.0.1:4173/api/backup -Method Post `
-     -Body (@{dir='\\nuova-macchina\c$\Pathfinder\data'} | ConvertTo-Json) `
-     -ContentType 'application/json'
-   ```
-
-   Poi rinomina il file prodotto in `pathfinder.db`.
-3. **Installa** il servizio sulla macchina nuova (§4).
-4. **Sposta il nome**, non l'indirizzo: se i terminali puntano a un nome DNS
-   interno — `https://pathfinder.azienda.local` — il trasloco è un record DNS
-   da cambiare. Se puntano a un indirizzo IP, sono dieci terminali da
-   riconfigurare a mano.
-
-> **Chiedere all'IT il nome DNS prima di distribuire l'indirizzo ai terminali.**
-> È la misura singola che rende questo capitolo di cinque minuti invece che
-> di mezza giornata.
+On a clean install, with no operators, the service answers **200** on `/api/c/*`
+without a session. That is not the door failing: it is the first-run window,
+open so that somebody can create the first Admin — which is the only way to
+reach Configuration. **Open is open**, so on a new machine the first Admin is
+created before any data. The window closes by itself the moment the first PIN
+exists.
 
 ---
 
-## 6. Configurazione
+## 7. Configuration
 
-Il servizio non ha file di configurazione: legge **variabili d'ambiente**.
-Lo script di installazione le scrive a livello di macchina, così le eredita
-anche quando gira come SYSTEM.
+The service has no configuration file: it reads **environment variables**,
+written at machine level by the installer so that they are inherited when it
+runs as SYSTEM. They are read **at process start** — changing one without a
+restart has no effect.
 
-| Variabile | Predefinito | A cosa serve |
-|---|---|---|
-| `PATHFINDER_DB` | `C:\Pathfinder\data\pathfinder.db` | Il database. **Mai dentro una cartella sincronizzata** |
-| `PATHFINDER_PORT` | `4173` | La porta di ascolto |
-| `PATHFINDER_APP_DIR` | **1.7** — la imposta `installa-servizio.ps1` (§4) a `C:\Pathfinder\app\corrente`, e **da lì non si tocca più**: le versioni si scambiano ripuntando la giunzione. Se la cartella non ha `index.html` e `manifest.json`, il servizio **lo dichiara all'avvio e resta vivo** | La cartella dell'applicativo |
-| `PATHFINDER_APP_PREV` | il fratello `precedente` della cartella qui sopra. Si imposta solo per tenerlo altrove | Da dove arrivano gli assets della versione appena lasciata |
-| `PATHFINDER_APP` | il ripiego a file singolo, usato solo se `PATHFINDER_APP_DIR` non c'è. Il vecchio ripiego a `pathfinder-1.1.html` **è stato tolto**: era un file che in radice non esisteva da mesi | Il file dell'applicativo da servire |
-| `PATHFINDER_TLS_CERT` | — | Certificato in formato PEM. Se c'è, il servizio parla `https` |
-| `PATHFINDER_TLS_KEY` | — | Chiave privata. Deve essere **leggibile da SYSTEM** |
-
-Per leggerle o cambiarle a mano:
-
-```powershell
-[Environment]::GetEnvironmentVariable('PATHFINDER_DB','Machine')
-[Environment]::SetEnvironmentVariable('PATHFINDER_DB','D:\Pathfinder\data\pathfinder.db','Machine')
-```
-
-Vengono lette **all'avvio del processo**, non al volo: dopo averle cambiate,
-il servizio va riavviato.
+| Variable | Meaning |
+|---|---|
+| `PATHFINDER_PORT` | Listening port. Default `4173` |
+| `PATHFINDER_HOST` | Which interface to listen on. Default: all |
+| **`PATHFINDER_PG`** | **Which database.** See [§1](#1-what-it-is). Never stored in the repository |
+| `PATHFINDER_DB` | The SQLite file, when running on SQLite |
+| **`PATHFINDER_APP_DIR`** | `C:\Pathfinder\app\corrente`. **Set once**: releases are swapped by replacing that folder's contents |
+| `PATHFINDER_APP_PREV` | Its `precedente` sibling — where the previous release's assets are served from |
+| `PATHFINDER_PG_POOL` · `_IDLE` · `_TIMEOUT` | Connections (10) · ms before closing an idle one (30,000) · wait to obtain one (10,000). `_IDLE` is deliberately below the server's own threshold: the pool must close first |
+| `PATHFINDER_PG_CA` | The company CA file. It is a **file**, not a switch that disables verification |
+| `PATHFINDER_PG_COLLAUDO` | Connection string for the test database. Never falls back to `PATHFINDER_PG`, and the database name must end in `_collaudo` |
+| `PATHFINDER_TOKEN` | The machine key, generated once at install: backup, installer, migration, benches |
+| `PATHFINDER_BACKUP_ROOTS` | Restricts where backups may be written |
+| `PATHFINDER_TLS_CERT` / `_KEY` | Absent → HTTP. **One without the other and the service does not start** |
 
 ### HTTPS
 
-Senza certificato il servizio parte in chiaro e lo dichiara all'avvio
-(`ATTENZIONE senza certificato il PIN viaggia in chiaro`). Con **entrambe**
-le variabili impostate parla `https`.
+Without a certificate the service starts in the clear and says so at startup.
+With **both** variables it speaks HTTPS. With only one it refuses to start:
+falling back silently to plaintext would be the worst of the three outcomes —
+everything would work and everyone would believe the PINs were encrypted.
 
-Se ne è impostata **una sola**, il servizio **non parte**. È voluto: un
-ripiego silenzioso in chiaro sarebbe la peggiore delle tre possibilità —
-tutto funzionerebbe e tutti crederebbero che i PIN viaggino cifrati.
+### Company details
 
-### Dati aziendali
-
-Non stanno nel codice: si scrivono in **Configurazione → DDT e Documenti**.
-Senza ragione sociale, indirizzo, comune e **partita IVA** i documenti escono
-con l'avviso «documento non conforme».
+Not in the code: **Configuration → DDT and Documents**. Without company name,
+address, town and **VAT number**, documents come out marked "not compliant".
 
 ---
 
-## 7. Backup e ripristino
+## 8. Backup and restore
 
-### Come si fa
+A scheduled task asks the service for a copy every evening and writes it to
+`C:\Pathfinder\backup`, recording the outcome in `backup.log`.
 
-Ogni sera l'attività pianificata chiede al servizio una copia e la scrive in
-`C:\Pathfinder\backup`, annotando l'esito in `backup.log`.
-
-A mano, quando serve:
+By hand:
 
 ```powershell
 Invoke-RestMethod -Uri http://127.0.0.1:4173/api/backup -Method Post `
   -Body (@{dir='C:\Pathfinder\backup'} | ConvertTo-Json) -ContentType 'application/json'
 ```
 
-> **Non copiare il file con `Copy-Item` mentre il servizio gira.** Il database
-> è aperto e ha un WAL accanto: una copia fatta così sembra buona e non lo è,
-> perché le scritture ancora nel WAL non ci sono. Nessuno se ne accorge finché
-> non serve il backup. L'endpoint passa dall'API di backup di SQLite, che di
-> una copia coerente si fa carico.
+> **Never copy the database file while the service is running.** On SQLite it
+> is open and has a WAL beside it: a copy made that way looks fine and is not,
+> because the writes still in the WAL are missing. Nobody notices until the
+> backup is needed. The endpoint goes through the database's own backup API,
+> which takes responsibility for a consistent copy. On PostgreSQL the password
+> is never passed on the command line — it goes through `PGPASSWORD`, in the
+> child process only.
 
-### Niente viene cancellato da solo
+**Nothing is ever removed on its own.** Rotation of old backups exists but must
+be asked for: `.\backup-serale.ps1 -GiorniDiConservazione 365`. With the
+default (`0`) nothing is ever deleted. Same rule as the records themselves.
 
-La rotazione dei backup vecchi esiste ma va **chiesta**:
-
-```powershell
-.\backup-serale.ps1 -GiorniDiConservazione 365
-```
-
-Con il valore predefinito (`0`) non viene rimosso nulla, mai. Stessa regola
-dei record: la purge del registro è solo manuale, con export preventivo.
-
-### Verificare che un backup sia buono
-
-Un backup non provato non è un backup. Si apre in sola lettura e si contano
-le righe:
-
-```powershell
-$env:PATHFINDER_PORT = '4199'
-$env:PATHFINDER_DB   = 'C:\Pathfinder\backup\pathfinder-2026-08-10.db'
-node pathfinder-server.js
-```
-
-Poi, da un'altra finestra:
-
-```powershell
-Invoke-RestMethod http://127.0.0.1:4199/api/health | Select-Object file, revision, counts
-```
-
-### Ripristino
-
-1. Ferma il servizio (da amministratore):
-   `Stop-ScheduledTask -TaskName 'Pathfinder - Servizio dati'`
-2. Rinomina il database corrente invece di sovrascriverlo — è l'unica copia
-   di ciò che è successo dopo il backup.
-3. Copia il backup al posto suo, con il nome `pathfinder.db`.
-4. Riavvia: `Start-ScheduledTask -TaskName 'Pathfinder - Servizio dati'`
-5. Controlla `revision` e i conteggi con `/api/health`.
+**A backup that has not been tried is not a backup.** Open it read-only on
+another port and count the rows through `/api/health`.
 
 ---
 
-## 8. Aggiornare a una versione nuova
+## 9. Upgrading and rolling back
 
-> **DALLA 1.7 QUESTA PROCEDURA È DUE COMANDI, e nessuno dei due vuole
-> l'amministratore.** Una versione non è più un file ma una **cartella**, che
-> vive in `C:\Pathfinder\app\`; `PATHFINDER_APP_DIR` punta alla giunzione
-> `corrente` e non cambia mai più. Aggiornare e tornare indietro sono un
-> ripuntamento, e il servizio **non va riavviato**: risolve la giunzione a ogni
-> richiesta.
->
-> ```powershell
-> cd "…\MAPPER"
-> npm run build
-> .\server\installa-versione.ps1 -Da .\consegna -Versione 1.8
-> Invoke-RestMethod http://127.0.0.1:4173/api/app-info   # versione e impronta
-> ```
->
-> E il ritorno indietro:
->
-> ```powershell
-> .\server\torna-indietro.ps1
-> ```
->
-> **`consegna\` NON è la cartella che il servizio serve**: è `outDir`, e
-> `npm run build` la azzera a ogni giro. Da lì si installa. Puntarci la
-> produzione è l'errore trovato il 17/08, che era in piedi da tre giorni.
->
-> Il riavvio del servizio resta necessario per una cosa sola: una modifica ai
-> file di `server\`, che Node carica all'avvio.
->
-> Quello che segue è la procedura del modo a file singolo, che resta valida
-> finché `PATHFINDER_APP_DIR` non è impostata.
-
-1. **Backup prima.** Sempre, anche per una modifica piccola (§7).
-2. Copia il file nuovo dell'applicativo nella cartella `MAPPER`, prendendolo
-   da `consegna\` (§10). In radice ci sta **il file che il servizio
-   serve**, ed è la ragione per cui non lo si punta direttamente dentro la
-   cartella di consegna: quella la build la riscrive, e un rilascio deve
-   essere un gesto, non un effetto collaterale di `npm run build`.
-3. Punta `PATHFINDER_APP` al file nuovo, se il nome è cambiato.
-4. **Riavvia il servizio.** Node carica il codice all'avvio: dopo una
-   modifica ai file di `server/`, senza riavvio continua a rispondere col
-   codice vecchio.
-   ```powershell
-   Stop-ScheduledTask  -TaskName 'Pathfinder - Servizio dati'
-   Start-ScheduledTask -TaskName 'Pathfinder - Servizio dati'
-   ```
-5. Verifica che i terminali vedano davvero la versione nuova:
-   ```powershell
-   Invoke-RestMethod http://127.0.0.1:4173/api/app-info
-   ```
-   Se `mtime` non è quello del file appena copiato, il servizio sta servendo
-   un'altra cartella.
-
-L'applicativo è servito con `no-cache`, quindi il browser chiede sempre se
-la copia che ha è ancora buona: non serve svuotare la cache sui terminali.
-
-### Togliere Pathfinder da questa macchina
-
-Dal pacchetto, in una finestra da amministratore:
+A release is a **folder**, not a file. `PATHFINDER_APP_DIR` points at
+`corrente` and never changes again; upgrading and rolling back are a swap of
+that folder's contents, and the service does **not** need restarting for an
+application change.
 
 ```powershell
-.\installa.ps1 -Disinstalla -Prova            # dice cosa toglierebbe, non tocca niente
-.\installa.ps1 -Disinstalla                   # toglie servizio, attività, variabili e cartelle
-.\installa.ps1 -Disinstalla -AncheIlDatabase  # toglie anche il database e il ruolo su PostgreSQL
+npm run build
+.\server\installa-versione.ps1 -Da .\consegna -Versione 2.16
+Invoke-RestMethod http://127.0.0.1:4173/api/app-info   # version and fingerprint
 ```
 
-> **Il database non se ne va da solo.** Senza `-AncheIlDatabase` restano il
-> database e il ruolo su PostgreSQL: è voluto, perché disinstallare
-> l'applicativo e buttare sei anni di registro non sono lo stesso gesto.
-> **PostgreSQL non viene disinstallato in nessun caso.**
+Rolling back:
 
-Installazione e disinstallazione **non si fanno nella stessa corsa**: chi
-vuole ripartire pulito fa due corse.
+```powershell
+.\server\torna-indietro.ps1
+```
+
+**`consegna\` is not the folder the service serves**: it is the build output,
+and `npm run build` empties it every time. You install *from* there. Pointing
+production at it was a defect found on 17 August 2026 that had been live for
+three days.
+
+A restart is still required for one thing only: a change to files under
+`server\`, which Node loads at startup.
+
+> **Ask the service, not the document.** The version that answers
+> `/api/app-info` is the one that is installed. On six separate occasions this
+> project's documentation stated a version that was not the one running.
 
 ---
 
-## 9. Quando qualcosa non va
+## 10. Uninstalling
 
-### L'applicativo si blocca a schermo intero
-
-È il comportamento previsto quando il servizio non risponde. Non è un
-guasto dell'interfaccia: è il servizio che non c'è.
+From the package, in an administrator window:
 
 ```powershell
-Invoke-RestMethod http://127.0.0.1:4173/api/health
-Get-NetTCPConnection -LocalPort 4173 -State Listen
+.\installa.ps1 -Disinstalla -Prova            # says what it would remove
+.\installa.ps1 -Disinstalla                   # service, tasks, variables, folders
+.\installa.ps1 -Disinstalla -AncheIlDatabase  # also the database and the PostgreSQL role
 ```
 
-Se non risponde, da amministratore:
-`Start-ScheduledTask -TaskName 'Pathfinder - Servizio dati'`
-
-### «Sola lettura — Lavora da qui»
-
-Due schede aperte sullo stesso applicativo: la seconda passa in sola lettura.
-Non è un guasto, è la guardia contro due finestre che scrivono insieme.
-Si preme **«Lavora da qui»**, oppure si tiene aperta una scheda sola.
-
-### Un terminale non si collega
-
-Nell'ordine: firewall, indirizzo, rete.
-
-```powershell
-Test-NetConnection -ComputerName 192.168.1.50 -Port 4173
-```
-
-### Il servizio non si ferma da riga di comando
-
-«Accesso negato» significa che gira come SYSTEM. Serve una finestra da
-amministratore. Per collaudare una modifica senza fermarlo, si avvia una
-**seconda istanza** su un'altra porta e con un database usa-e-getta (§3).
-
-### Sembra che l'aggiornamento non abbia avuto effetto
-
-Quasi sempre è il servizio non riavviato (§8). Il secondo sospetto è
-`PATHFINDER_APP` che punta a un altro file: lo dice `/api/app-info`.
-
-### Ho perso il PIN, e non c'è nessuno che possa rinnovarmelo
-
-Il PIN **non è recuperabile**: sul disco resta la sua impronta, non il
-numero. Le vie d'uscita sono tre, in ordine di preferenza.
-
-1. **Un grado più alto lo rinnova, dall'applicativo.** Configurazione →
-   Operatori, il bottone del rinnovo: chi autorizza digita il **proprio**
-   PIN. L'Operatore lo rinnova un Team Leader, il Team Leader un Admin,
-   l'Admin chiunque.
-2. **Se il PIN perso è quello dell'unico Admin: il codice di ripristino.**
-   Dalla schermata di accesso, «🗝 Ho un codice di ripristino»: si sceglie
-   l'Admin, si digita il codice — venti caratteri, spazi e minuscole
-   perdonati — e si scrive il PIN nuovo. Il codice **si consuma**, e al suo
-   posto ne compare subito un altro, mostrato **una volta sola**: si stampa
-   e si mette dove stava quello di prima. Chi non ne ha uno lo genera da
-   Configurazione → Operatori, col bottone 🗝.
-3. **Se non c'è né l'una né l'altra: la chiave di macchina.**
-   `PATHFINDER_TOKEN` apre le rotte senza sessione, e sta sulla macchina del
-   servizio. **È l'uscita di servizio, non una procedura.**
-
-La causa si toglie con **un secondo Team Leader** — un minuto in
-Configurazione → Operatori — e con un codice di ripristino stampato.
-
-### Il backup di stanotte non c'è
-
-```powershell
-Get-Content C:\Pathfinder\backup\backup.log -Tail 10
-```
-
-Il registro riporta ogni esecuzione con esito. Se manca la riga, l'attività
-non è partita: da amministratore, `Get-ScheduledTaskInfo -TaskName 'Pathfinder - Backup serale'`.
+> **The database does not go on its own.** Without `-AncheIlDatabase` the
+> database and role survive: uninstalling the application and throwing away six
+> years of register are not the same act. **PostgreSQL itself is never
+> uninstalled.** Installing and uninstalling are not done in the same run.
 
 ---
 
-## 10. Sviluppo
+## 11. Tests
 
-Il sorgente è modulare; ciò che si distribuisce è un file solo. Sono due
-momenti diversi, non due scelte in conflitto.
-
-```
-src/  35 file  ──build──>  Pathfinder 1.4/  (la cartella che si copia)
-```
-
-### Dove sta cosa
-
-Aprendo `MAPPER` si vedono tre cose diverse, e non vanno confuse.
-
-| | Cos'è | Chi la tocca |
+| Suite | Checks | Command |
 |---|---|---|
-| **`consegna/`** | **La consegna, completa.** L'applicativo — dalla 1.7 un indice piu' `assets/` con un manifesto, non piu' un file solo — il servizio dati, l'installazione, il backup e queste istruzioni. Si copia su una macchina nuova e si installa da lì, **senza il resto del progetto** | Nessuno a mano: la **produce** `npm run build` e la **svuota** a ogni giro |
-| `src/` `test/` `index.html` e i file di configurazione | Il cantiere | Chi sviluppa |
-| `server/` | Il servizio dati, in funzione | Si installa una volta (§4), poi ci pensa Windows |
-| `ARCHIVIO/` | Versioni precedenti, file di prova, marchi, stampa etichette | Nessuno, di norma |
-| `INDEX.md` | **L'unico documento del progetto**: stato, regole, trappole e coda di lavoro. Dal 17/08/2026 assorbe tutto ciò che stava in `HANDOFF/` | Si legge prima di metterci le mani |
+| Application | **1,222** in 44 files | `npm test` |
+| Types | application and service | `npm run check` |
+| Service | **141** | `node server/test/collaudo.js` |
+| Installation scripts | **43** | `node server/test/collaudo-installazione.js` |
+| Schema migration | **8** | `node server/test/collaudo-migrazione-1.4.js` |
+| Roles, on the service | **40** | `node banco/gerarchia.cjs` |
+| Full cycle | **47** | `node banco/ciclo/gira.cjs` |
+| Jump from release 1.4 | **14** | `node banco/migrazione/dalla-1.4.cjs` |
 
-> **Nella cartella di consegna non si scrive a mano.** È interamente prodotta
-> dalla build, che la azzera ogni volta: un file lasciato lì sparisce al primo
-> `npm run build`. Per lo stesso motivo non sta nel repository — ciò che la
-> compone, il sorgente e il README, c'è già.
+The last three need a service; they start and stop their own, on their own
+port, against a throw-away database. They are not part of `npm test` for that
+reason.
 
-> **`server/` non si sposta.** L'attività pianificata registrata da
-> `installa-servizio.ps1` contiene il percorso *assoluto* di
-> `pathfinder-server.js`: spostare la cartella non dà errore subito, dà un
-> magazzino fermo al riavvio successivo. Se un giorno va spostata, si rilancia
-> l'installazione dalla posizione nuova (§4).
+Two conventions worth knowing. **The service checks run the same suite against
+both databases**; without `PATHFINDER_PG_COLLAUDO` the PostgreSQL half declares
+itself skipped, with the reason, rather than staying silent. And **some checks
+read the source rather than executing it** — they pin rules a DOM is not
+present to verify, such as "every goods movement reason writes its quantities"
+or "the version number is the same in all four places".
 
-### Comandi
+The cycle bench exits non-zero when a `grave` defect is raised during that run,
+and keeps its report aside so the next run cannot overwrite the evidence.
 
-| Comando | Cosa fa |
+---
+
+## 12. Security model
+
+**Three roles: `operator`, `leader`, `admin`.** Admin subsumes leader: wherever
+a leader passes, so does an admin. Only an Admin opens Configuration and the
+data reset, and the reset asks for their PIN.
+
+**The hierarchy is enforced by the service, not the client.** Until release
+2.12 it lived in the browser, so any session plus one line of `curl` was enough
+to write `role: "admin"` onto yourself. Release 2.13 moved it to the service;
+release 2.16 added the rule that had been left behind — **the last active Admin
+cannot demote, deactivate or delete themselves**, because from that state there
+is no way back in.
+
+**PINs are not recoverable by construction**: only a salted hash is stored,
+`scrypt` since release 2.10. There are three ways out, in order of preference:
+
+1. **A higher rank renews it from the application.** The authoriser types their
+   own PIN. An Operator is renewed by a Team Leader, a Team Leader by an Admin,
+   an Admin by another Admin.
+2. **A recovery code**, when the lost PIN is the only Admin's. Twenty
+   characters; it is consumed on use and a new one is issued immediately,
+   shown once.
+3. **The machine key** (`PATHFINDER_TOKEN`), which opens the routes without a
+   session. It is the service exit, not a procedure: it is used by whoever
+   already has access to that machine.
+
+The cause is removed by naming **a second Team Leader** — one minute in
+Configuration → Operators.
+
+**What never enters the repository:** database files (they carry `pin_hash` and
+`pin_salt` beside real people's names), `.env.local` (PostgreSQL credentials),
+and recovery codes. `test/segretiFuori.test.js` fails if a tracked file carries
+a PIN hash — a rule written in prose and a filter written by file extension are
+not the same rule, and that lesson was learned twice.
+
+**GMP traceability:** every movement carries the initials of the identified
+operator. **Retention:** six years. **No record is ever deleted** — the purge
+was removed in release 2.1, because a way to erase the register, however
+protected, is a way somebody eventually takes.
+
+**Personal data:** first name, surname, initials and a salted PIN hash. No
+telemetry, no request outside the local network.
+
+---
+
+## 13. Design decisions worth knowing
+
+These were made and tested in the field. They can be changed, knowing what is
+being reopened.
+
+**No offline work.** If the service does not answer, the application stops and
+says so, full screen. No queues to reconcile, no data that diverges.
+
+**A scheduled task, not a native Windows service.** Node does not talk to the
+service manager, and a third-party wrapper binary is the file the antivirus
+blocks at seven in the morning on a warehouse PC.
+
+**The database is never in a synchronised folder.** OneDrive synchronising an
+open SQLite file, with its WAL, is a known way to corrupt it. The installer
+refuses a path containing `OneDrive`.
+
+**PIN verification happens on the service.** Browsers grant `crypto.subtle`
+only in a secure context, and a terminal on `http://192.168.x.x` is not one.
+
+**Documents in JSON with materialised columns.** Only the fields searched on
+are indexed; the rest lives in a `data` column. Normalising everything would
+restore the chain IndexedDB did not have: a new field means an `ALTER TABLE`
+and a service outage.
+
+**Codes are stored uppercase, normalised by the service** on every write from
+wherever it comes. A code in two spellings is not a display problem — it is a
+second entity being born.
+
+**The last Admin cannot remove themselves**, enforced by the service. With two
+Admins the act goes through. Wiping all data is still allowed: nobody is left
+holding a PIN, and the first-run window reopens by itself.
+
+**Print documents stay in `pt` and `mm`.** The on-screen design system is for
+screens; paper has no rem.
+
+---
+
+## 14. Known issues
+
+The authoritative list is section 4 of [`INDEX.md`](INDEX.md), in Italian, with
+one numbered entry each and the evidence beside it. Numbers are never reused.
+The ones a reviewer should know about:
+
+| # | Issue |
 |---|---|
-| `npm install` | Dipendenze del client |
-| `npm run dev` | Sviluppo con ricarica automatica su `localhost:5173` |
-| `npm run build` | Rifà `consegna/`: l'applicativo, il manifesto e una copia di queste istruzioni. **Non è la cartella che il servizio serve** |
-| `npm run check` | Controllo dei tipi, client **e** servizio |
-| `npm test` | Collaudi automatici (serpentina, FEFO, geometria, parser ODP) — ~1 secondo |
-| `cd server && npm test` | 30 prove sul servizio, con database usa-e-getta |
-
-In sviluppo il rimando alle API va puntato su un'istanza **di prova**:
-
-```powershell
-$env:PATHFINDER_DEV_API = 'http://127.0.0.1:4174'
-npm run dev
-```
-
-### Struttura
-
-```
-MAPPER/
-├─ consegna/             ← PRODOTTA dalla build, si INSTALLA (non si serve da qui)
-│  ├─ index.html            l'applicativo, piu' assets/ e manifest.json
-│  ├─ README.md             queste istruzioni
-│  └─ server/               il servizio, l'installazione, il backup
-│                           (senza node_modules: le installa lo script)
-├─ index.html            l'ingresso: testata, marchi, scheletro della pagina
-├─ src/
-│  ├─ main.js            avvio, stili, rete globale sugli errori
-│  ├─ types/     .ts     i contratti, condivisi col servizio
-│  ├─ core/      .ts     costanti · schema · persistence/ · store · cache · …
-│  ├─ modules/   .ts     auth · odpParser · pickRoute · session · vault · …
-│  ├─ ui/        .js     app · dialog · feedback · tabs
-│  └─ styles/            i 5 fogli, nell'ordine della cascata
-├─ test/                 geometria · serpentina · FEFO · parser ODP
-├─ server/               NON SI SPOSTA (vedi sopra)
-│  ├─ pathfinder-server.js  gli endpoint
-│  ├─ installa-servizio.ps1 · backup-serale.ps1
-│  ├─ lib/{db,schema}.js    SQLite e lo schema
-│  └─ test/collaudo.js      30 prove
-├─ INDEX.md              stato, regole, trappole, coda di lavoro — l'unico documento
-└─ ARCHIVIO/
-   ├─ HANDOFF STORICI/        i passaggi di consegne e i piani, fino al 17/08/2026
-   ├─ VERSIONI PRECEDENTI/    1.1 e 2.8.0, intatte
-   ├─ BACKUP E FILE DI TEST/  export veri: fuori dal repository
-   ├─ LOGHI/                  i marchi, materiale sorgente
-   └─ stampa etichette/       il tool per le etichette d'ubicazione
-```
-
-**Perché due estensioni.** La conversione a TypeScript va avanti un file per
-volta, e un file che è passato non torna indietro: `checkJs` resta spento sul
-client, quindi il controllo è severo su ciò che è già `.ts` e assente sul
-resto. Accenderlo tutto insieme su 15.000 righe scritte prima che i tipi
-esistessero produce un elenco di segnalazioni che nessuno legge, e la prima
-cosa che si fa per farlo tacere è spegnerlo.
-
-Restano in JavaScript `core/store.js` e la cartella `ui/`: sono i due pezzi
-grossi, e vengono per ultimi perché sono quelli che tutto il resto usa. Dove
-un modulo `.ts` deve parlare con Store c'è un **ponte** dichiarato in cima al
-file — `pickRoute.ts` e `vault.ts` ne hanno uno — che elenca i metodi usati e
-la loro forma. Sono righe destinate a sparire il giorno in cui Store diventa
-`.ts`, e nel frattempo dicono a colpo d'occhio quanto quel modulo dipende dal
-magazzino.
-
-### Le tre famiglie di endpoint
-
-- **`/api/c/…`** — operazioni generiche. Non sanno niente di magazzino.
-- **`/api/tx`** — lotto di scritture tutto-o-niente.
-- **`/api/op/…`** — operazioni che leggono, decidono e riscrivono nello stesso
-  respiro. **Devono stare sul server**: fra il momento in cui un terminale
-  legge «ci sono 40 colli» e quello in cui scrive «adesso sono 35», un altro
-  può averne presi 10.
-
-### Convenzioni
-
-1. **I commenti spiegano il perché, mai il cosa.** Cosa faceva prima, cosa fa
-   ora, e la ragione.
-2. Nessun `font-size` fuori dai token MD3.
-3. Niente dipendenze nuove senza motivo forte.
-4. Nessuna cancellazione automatica di record.
-5. Un documento si **rilegge**, non si ricostruisce: le ristampe partono
-   dallo snapshot archiviato.
-6. **Italiano** in tutto ciò che si legge, commenti compresi.
+| **65** | `xlsx` 0.18.5 carries two known high-severity vulnerabilities (prototype pollution, ReDoS) with no fix on npm. **Accepted, in writing**: the vector is a spreadsheet uploaded by an identified operator on the internal network, from a file they generated themselves. To be reopened the day a spreadsheet arrives from outside |
+| **78** | After the git history was rewritten to remove a dump containing PIN hashes, the old commits remain reachable by SHA until GitHub garbage-collects. The repository is private. Those PINs are to be renewed when the operators concerned return to the database |
+| **79** | The jump from the warehouse's 1.4 release is proven on an archived export (14 checks) but has not been run against a live export from the warehouse machine |
+| **76** | A cycle-balance defect (0.75 kg unaccounted for) was raised once and has not reproduced in twelve runs |
+| **5 · 58** | Zone and article attributes are largely unfilled, so the compliance check has nothing to compare against on most rows. Data entry, not code |
 
 ---
 
-## 11. Decisioni da conoscere prima di metterci le mani
+## Documentation status
 
-Sono scelte prese e verificate sul campo. Cambiarle si può, ma sapendo cosa
-si sta riaprendo.
+`INDEX.md` is current and authoritative. It is in Italian, and it is the single
+working document of the project.
 
-**Niente lavoro offline.** Se il servizio non risponde, l'applicativo si
-ferma e lo dice, a schermo intero. Niente code da risincronizzare, nessun
-dato che diverge. Un operatore che continua a scansionare col servizio morto
-sta buttando via il turno.
+`README.it.md` — the Italian original of this file — is **partly stale**:
+sections 1 to 8 predate release 2.7 and still describe SQLite as the only
+database, the application as a single HTML file, and `installa-servizio.ps1` as
+the installer. The English document you are reading was written against release
+2.16 and does not carry that material forward. The Italian is kept because it
+holds reasoning that has not been transferred, and because it is the author's
+working copy.
 
-**Un solo database condiviso.** Più terminali, un arbitro solo: il server.
-
-**Attività pianificata, non servizio Windows nativo.** Node non dialoga col
-gestore dei servizi, e servirebbe un binario di terze parti: su un PC di
-magazzino è il file che l'antivirus blocca alle sette di mattina.
-
-**Il database non sta in una cartella sincronizzata.** OneDrive che
-sincronizza uno SQLite aperto, con il suo WAL, è un modo noto di corromperlo.
-L'installazione si rifiuta di procedere se il percorso contiene `OneDrive`.
-
-**Il PIN si verifica sul servizio.** I browser concedono `crypto.subtle` solo
-in contesto sicuro, e un terminale su `http://192.168.x.x` non lo è: lì quella
-funzione non esiste. Il calcolo sta sul servizio, dove il contesto è sempre
-sicuro. Formato dell'impronta identico, quindi i PIN già impostati restano
-validi.
-
-**Documento in JSON con colonne materializzate.** Si indicizzano solo i campi
-su cui si cerca; il resto vive nella colonna `data`. Normalizzare tutto
-rimetterebbe la catena che IndexedDB non aveva: ogni campo nuovo un
-`ALTER TABLE` e un fermo del servizio.
-
-**L'ultimo Admin non si retrocede, non si disattiva e non si cancella.** Lo
-impone il **servizio**, non la maschera: senza Admin la Configurazione non si
-apre e il codice di ripristino non vale — si resterebbe con la sola chiave di
-macchina. Con due Admin il gesto passa. Il reset dei dati resta permesso:
-svuota tutto, nessuno resta con un PIN, e la finestra del primo avvio si
-riapre da sé.
-
-**I documenti di stampa restano in `pt` e `mm`.** MD3 è un sistema per lo
-schermo; la carta non ha un rem.
+Code comments are in Italian, deliberately: they carry the *why*, and the
+project's rule is that the narrative lives in `INDEX.md` and in those comments
+rather than in separate documentation.
 
 ---
 
-## Licenza
+## Licence
 
-Software proprietario. © Andrea Sacchetti — Dietopack S.r.l. (Naturacare
-Group). Uso interno aziendale. Nessuna licenza d'uso, copia o distribuzione
-è concessa a terzi.
-
-**Tracciabilità GMP:** ogni movimento porta la sigla dell'operatore
-identificato. **Ritenzione:** sei anni. **GDPR:** nessun dato personale oltre
-nome, cognome e iniziali degli operatori; nessuna telemetria; nessuna
-richiesta di rete verso l'esterno.
+Proprietary software. See [`LICENSE`](LICENSE). © Andrea Sacchetti — Dietopack
+S.r.l. (Naturacare Group). Internal company use. No licence to use, copy or
+distribute is granted to third parties.
