@@ -7,8 +7,11 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **02/09/2026** — **la 2.16 è in servizio su questa macchina**,
-installata da Andrea. §0 dice adesso quel che non diceva: **le macchine sono
+Aggiornato: **02/09/2026 sera** — **la 2.17 è in servizio su questa macchina**,
+installata da Andrea. Porta via il limite di ritenzione, che non cancellava
+niente e dichiarava un numero che nessuna norma chiede. Nella stessa giornata
+la repository è passata da **4.539 file tracciati a 926** ed è andata in
+inglese per il team IT. §0 dice adesso quel che non diceva: **le macchine sono
 due**, e il magazzino vero gira ancora la **1.4** altrove.
 
 **Il dump coi PIN è uscito dalla storia di git** (voce 72): `git filter-repo`,
@@ -150,27 +153,27 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ### In servizio
 
-**La 2.16, installata da Andrea il 02/09** — su questa macchina, che è quella
+**La 2.17, installata da Andrea il 02/09** — su questa macchina, che è quella
 di **sviluppo** (§0): il magazzino vero non è stato toccato, e gira la 1.4
 altrove. Misurato da `/api/app-info` e `/api/health` a installazione finita:
 
 | | |
 |---|---|
-| applicativo e servizio | **2.16** — `versione` e `service_version` dicono lo stesso numero |
-| impronta | `111d58b543099bb23feb16ba9665bdcd16c2841ed2aef1d559a99c859883bce2` |
-| byte | **1.903.224** in **4 file**, `costruita 2026-09-01T18:51:57Z` |
+| applicativo e servizio | **2.17** — `versione` e `service_version` dicono lo stesso numero |
+| impronta | `b6b24d7091d70e52cbe3cd02cd520363fff5e38de6002c5b51c8e76cda74d731` |
+| byte | **1.903.362** in **4 file**, `costruita 2026-09-01T23:35:12Z` |
 | dove | `C:\Pathfinderpp\corrente`, modo `cartella` |
-| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 318` |
-| bundle servito | `index-CnziQukI.js` · `index-BZKbPXaf.css` — **gli stessi del pacchetto** |
+| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 333` |
+| bundle servito | `index-mqdW0HMD.js` · `index-BZKbPXaf.css` — **gli stessi del pacchetto** |
 | porta chiusa | **sì** — `GET /api/c/meta` senza sessione risponde **401** |
-| via di ritorno | `C:\Pathfinderpp\precedente` porta la **2.15** |
+| via di ritorno | `C:\Pathfinderpp\precedente` porta la **2.16** |
 | dati | invariati: 11.197 articoli, 882 giacenze, 4 siti, 17 zone, **1 operatore** |
 
 **L'impronta è quella del pacchetto committato, e il bundle servito è quello
 del pacchetto**: i byte che girano sono quelli provati.
 
-**Cosa c'era prima:** la **2.15**, impronta `7b812c48…`, 1.901.483 byte in 4
-file, costruita `2026-08-31T23:34:17Z`. Sta in `app\precedente` ed è la via di
+**Cosa c'era prima:** la **2.16**, impronta `111d58b5…`, 1.903.224 byte in 4
+file, costruita `2026-09-01T18:51:57Z`. Sta in `app\precedente` ed è la via di
 ritorno intera.
 
 > **LA FINESTRA DI PRIMO AVVIO SI È CHIUSA, ED È LA COSA DA GUARDARE DOPO OGNI
@@ -349,8 +352,8 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.17** | **costruita il 02/09 — NON ancora servita** | `b6b24d70…` | Il limite di ritenzione esce dal codice: `LOG_RETENTION_DAYS` non cancellava niente e sei anni non li chiedeva nessuna norma. Le tre etichette dicono adesso quel che il sistema fa |
-| **2.16** | in servizio su questa macchina dal 02/09 | `111d58b5…` | Il punto zero: **l'ultimo Admin non si toglie da solo** (murato nel servizio) · il registro dice **quanto** si è mosso e **chi** si è mosso, anche in blocco (voci 33, 34) · causale **`UDC`** · un difetto grave **ferma** il banco del ciclo (voce 50) · servito, l'indicatore smette di dire «Non salvato» · cinque icone che uscivano monocromatiche |
+| **2.17** | **IN SERVIZIO su questa macchina dal 02/09** | `b6b24d70…` | Il limite di ritenzione esce dal codice: `LOG_RETENTION_DAYS` non cancellava niente e sei anni non li chiedeva nessuna norma. Le tre etichette dicono adesso quel che il sistema fa |
+| **2.16** | in servizio il 02/09 — è la **via di ritorno** | `111d58b5…` | Il punto zero: **l'ultimo Admin non si toglie da solo** (murato nel servizio) · il registro dice **quanto** si è mosso e **chi** si è mosso, anche in blocco (voci 33, 34) · causale **`UDC`** · un difetto grave **ferma** il banco del ciclo (voce 50) · servito, l'indicatore smette di dire «Non salvato» · cinque icone che uscivano monocromatiche |
 | **2.15** | in servizio dal 01/09 al 02/09 — è la **via di ritorno** | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
 | **2.14** | in servizio il 01/09 per poche ore, archiviata |  `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
 | **2.13** | **in servizio dal 31/08, rimossa il 01/09** — voce 74 | `cbe71802…` | La gerarchia la impone **il servizio** (voce 66) · `rinnovaPin` · il **codice di ripristino** dell'Admin · il fix di avvio della 2.12.1 riportato nel sorgente e coperto da dodici prove |
@@ -440,6 +443,10 @@ nessuno usava.
 ancora «tenuta a sei anni»: è un documento controllato, REP-IT-001 **rev01**, e
 cambiarne il contenuto senza alzare la revisione è a sua volta un difetto di
 gestione documentale. Sta nella **voce 82**.
+
+**Installata il 02/09.** Impronta `b6b24d70…`, 1.903.362 byte in 4 file. Il
+bundle servito è quello del pacchetto, la porta risponde **401** senza sessione,
+e `app\precedente` porta la 2.16.
 
 ### 2.16 — il punto zero
 
