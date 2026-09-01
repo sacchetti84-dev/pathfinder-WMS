@@ -271,7 +271,7 @@ export const VistaDocumento = {
     });
     const usable = enriched.filter(it => it._availableQty > 0);
     if (!usable.length) {
-      info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠️ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`;
       details.classList.add('hidden');
       return;
     }

@@ -7,14 +7,18 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **01/09/2026 notte** — la macchina è stata **riportata a zero e
-reinstallata pulita**, e in servizio c'è la **2.15**. Voce **74**. Nel farlo è
-venuto fuori un difetto dell'installer che si era già mangiato una serata (voce
-**75**): corretto, provato, e insieme alla **disinstallazione completa** è
-diventato appunto la 2.15. Il primo Admin c'è e **la porta è tornata chiusa**;
-il database porta un backup caricato **in merge per fare prove**, e il
-**registro movimenti è vuoto**. La riscrittura compatta è del 28/08; la stesura
-narrativa che l'ha preceduta resta nella storia git al commit `f4a9578`.
+Aggiornato: **01/09/2026 sera — il punto zero**. In servizio resta la **2.15**;
+la **2.16 è costruita e provata, e NON è installata**: installarla è un gesto
+di Andrea. Il giro ha chiuso sei voci e ne ha aperte tre.
+
+**Il dump coi PIN è uscito dalla storia di git** (voce 72): `git filter-repo`,
+push forzato, `main` riscritto. **Gli SHA di tutti i commit sono cambiati** —
+la storia narrativa del 28/08 sta ora a `d78ca62` (era `f4a9578`), il commit
+che portò dentro il dump è `194eae5` (era `ecd2538`). **Un vicolo cieco è stato
+murato**: l'ultimo Admin poteva togliersi la carica da solo e da lì non si
+rientrava. Il registro dei movimenti ha smesso di dire numeri che si
+contraddicono (voci 33 e 34), e i due banchi rossi sono verdi (voci 70, 71).
+Un difetto grave adesso **tinge di rosso la corsa** del ciclo (voce 50).
 
 **Cos'è Pathfinder.** Applicativo web per un magazzino alimentare in GMP.
 Node + Express su rete interna, porta **4173**, database **PostgreSQL 17** in
@@ -47,7 +51,6 @@ le date si scrivono come fatti avvenuti, mai come promesse.
    Andrea.
 
 ### Le due cartelle, e non si confondono
-
 | | Cos'è | Chi ci scrive |
 |---|---|---|
 | `…\Desktop\PROGETTI E CODING\MAPPER\` | **La cartella di lavoro**: sorgenti, collaudi, build, banco, questo documento | chiunque lavori al progetto |
@@ -73,7 +76,6 @@ collaudo si fa sempre su una **copia** — §5.
 
 Questo documento ha sbagliato più volte proprio sui fatti che sembravano
 scontati. Prima di affermare una di queste cose, **si misura**:
-
 | Affermazione | Comando che la stabilisce |
 |---|---|
 | quale versione è in servizio, con quale impronta | `Invoke-RestMethod http://127.0.0.1:4173/api/app-info` |
@@ -102,11 +104,22 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ## 1. Stato, misurato il 01/09/2026 sera
 
+### La 2.16, costruita e provata — non installata
+| | |
+|---|---|
+| impronta | `111d58b543099bb23feb16ba9665bdcd16c2841ed2aef1d559a99c859883bce2` |
+| pacchetto | `consegna/Pathfinder 2.16/` — 4 file, 1,82 MB, 484 kB sul filo |
+| prove | **1.220** in 43 file (`npm test`, 1 saltata) · **141** sul servizio · **43** sull'installazione · **40** al banco della gerarchia · **47** al banco del ciclo. Tutte verdi |
+| tipi | `npm run check` — applicativo e servizio, zero errori |
+
+**Installarla è un gesto di Andrea**, e finché non lo fa questo documento dice
+che in servizio c'è la 2.15. §0 punto 2 vale come sempre: comanda
+`/api/app-info`, non questa riga.
+
 ### In servizio
 
 **La 2.15, su una macchina reinstallata da zero il 01/09** — voce 74. Misurato
 da `/api/app-info` e `/api/health`:
-
 | | |
 |---|---|
 | applicativo e servizio | **2.15** — `versione` e `service_version` dicono lo stesso numero |
@@ -178,7 +191,6 @@ prove che non aveva: §3.
 Il database è nato vuoto con l'installazione pulita, e poi Andrea ci ha
 caricato **un backup in merge, per fare delle prove**. Misurato da
 `/api/health`:
-
 | collezione | righe | | collezione | righe |
 |---|---:|---|---|---:|
 | `articles` | 11.197 | | `mov_log` | **0** |
@@ -205,7 +217,6 @@ caricato **un backup in merge, per fare delle prove**. Misurato da
 
 **L'ultima misura prima della cancellazione**, tenuta perché è il termine di
 paragone. Da `/api/health` il 31/08:
-
 | collezione | righe | | collezione | righe |
 |---|---:|---|---|---:|
 | `articles` | 11.197 | | `lots` | 29 |
@@ -230,19 +241,17 @@ Vuote: `quarantine`, `pending_outbound`, `pick_session`, `disposal_archive`,
 
 ### Collaudi e tipi
 
-Tutti rilanciati il **31/08 sera**, sul codice della 2.14:
-
+Tutti rilanciati il **01/09 sera**, sul codice della 2.16, e **tutti verdi**:
 | | |
 |---|---|
-| client | **1.211 prove in 42 file — 1.210 verdi e 1 saltata**, `npm test`. **La riga diceva 1.246, ed era sbagliata**: misurata il 01/09 su un albero in cui nessun file di prova era cambiato dal giorno in cui quel numero è stato scritto. Le ventiquattro nuove della 2.14 stanno in `wip.test.js` e coprono `inLavorazione`, `resi` e `motivoNonStornabile` |
+| client | **1.220 prove in 43 file — 1.219 verdi e 1 saltata**, `npm test`. Il file nuovo è `emojiVestite.test.js`; le altre nuove stanno in `registro-completo.test.js` (4 → **13**) |
 | tipi | `npm run check` **a 0** su client e servizio |
-| servizio | **139** |
-| migrazione · installazione | **8 · 43** — dieci nuove il 01/09: due sull'installer che si murava da solo (voce 75), otto sulla disinstallazione (§3, 2.15) |
-| gerarchia (`banco/gerarchia.cjs`) | **32** — le cariche provate sul servizio, con `fetch` e i cookie veri |
-| ciclo (`banco/ciclo/gira.cjs`) | **45 su 47, due rosse** — le **stesse due di prima** della 2.14, cioè due banchi rimasti indietro: voci **70** e **71** |
+| servizio | **141** — due nuove sulle righe che una unità di carico scrive quando si sposta (voce 34) |
+| migrazione · installazione | **8 · 43** |
+| gerarchia (`banco/gerarchia.cjs`) | **40** — otto nuove sull'ultimo Admin, e verificate rosse rimettendo il difetto: senza la guardia ne cadono **undici**, e dalla prima `PATCH` in poi risponde 403 anche la ricreazione del primo Admin |
+| ciclo (`banco/ciclo/gira.cjs`) | **47 su 47** — voci 70 e 71 chiuse. Dalla 2.16 **esce 1** se in quella corsa è stato alzato un difetto `grave` |
 
 ### La 2.14 — come è arrivata in servizio
-
 | | |
 |---|---|
 | pacchetto | `consegna\Pathfinder 2.14\` |
@@ -275,7 +284,6 @@ dell'applicativo sono gli stessi**: l'impronta lo prova, ed è lei che conta.
 Installare resta un atto umano — §0 punto 4.
 
 ### La 2.15 — come è arrivata in servizio
-
 | | |
 |---|---|
 | installata | **01/09**, e verificata dal servizio: `/api/app-info` risponde 2.15 con questa impronta |
@@ -298,14 +306,20 @@ azzerasse `consegna\`.
 
 Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
-
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
+| **2.16** | **costruita e provata il 01/09, NON installata** | `111d58b5…` | Il punto zero: **l'ultimo Admin non si toglie da solo** (murato nel servizio) · il registro dice **quanto** si è mosso e **chi** si è mosso, anche in blocco (voci 33, 34) · causale **`UDC`** · un difetto grave **ferma** il banco del ciclo (voce 50) · servito, l'indicatore smette di dire «Non salvato» · cinque icone che uscivano monocromatiche |
 | **2.15** | **IN SERVIZIO dal 01/09** | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
 | **2.14** | in servizio il 01/09 per poche ore, archiviata |  `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
 | **2.13** | **in servizio dal 31/08, rimossa il 01/09** — voce 74 | `cbe71802…` | La gerarchia la impone **il servizio** (voce 66) · `rinnovaPin` · il **codice di ripristino** dell'Admin · il fix di avvio della 2.12.1 riportato nel sorgente e coperto da dodici prove |
 | **2.12.1** | archiviata | `4f2a9f0f…` | Il servizio **aspetta** PostgreSQL invece di arrendersi al primo no, e l'attività pianificata parte un minuto dopo l'accensione. Nata da una giornata di magazzino fermo |
 | **2.12** | archiviata | `9ef94996…` | Il giro: più ODP in un percorso solo, conto di produzione **uno** · ricalibrazione della distinta · l'ubicazione si scansiona **una volta per vano** |
+
+> ⚠️ **GLI SHA DI QUESTA TABELLA SONO CAMBIATI IL 01/09.** La riscrittura
+> della storia (voce 72) ha rifatto tutti e 296 i commit di `main`. Le
+> **impronte dei pacchetti** no: quelle sono i byte consegnati e non le tocca
+> nessuno. **Chi avesse un clone se lo deve rifare da zero.** Il bundle della
+> 2.3 in `ARCHIVIO/` non è toccato: quel ramo non è mai stato in `main`.
 
 > **QUALE FOSSE LA VIA DI RITORNO NON SI SAPRÀ PIÙ.** Fino al 31/08 questa riga
 > diceva 2.12; poi la 2.13 è stata installata senza che il documento lo
@@ -322,8 +336,8 @@ una di prova ne porta di più (`2.12.1`).
 | **2.6** | archiviata | `d3865c53…` | Il servizio parla **due database** · codici in maiuscolo · interfaccia del servizio dati asincrona. Tornare a lei vuol dire tornare a SQLite: conosce `PATHFINDER_PG` ma non sa farci il backup |
 | **2.5** | archiviata | `8ed505b9…` | Unità di misura al carico su 11.115 articoli · prelievo da ordine. Si porta dietro la **voce 51** |
 | **2.4** | archiviata | `99fc56ba…` | Voce 45 (un ripristino non cancella più il registro) e voce 19 (l'unità dichiarata dal parser ODP — **da verificare**, §4). **Salta il numero 2.3 apposta** |
-| **2.2** | archiviata | `08ce3f69…` | Cinque difetti chiusi (voci 14, 29, 30) · commit `495f38c` |
-| ~~**2.3**~~ | **RITIRATA — ha disfunzionato, ripristino d'emergenza alla 2.2** | `367d977e…` | Divideva **il collo** fra più ordini. Pacchetto e ramo git (bundle, commit `d717098`) in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/`. **Non si installa e non si riprende così com'è** |
+| **2.2** | archiviata | `08ce3f69…` | Cinque difetti chiusi (voci 14, 29, 30) · commit `90ef798` (era `495f38c`: la storia è stata riscritta — voce 72) |
+| ~~**2.3**~~ | **RITIRATA — ha disfunzionato, ripristino d'emergenza alla 2.2** | `367d977e…` | Divideva **il collo** fra più ordini. Pacchetto e ramo git (bundle, commit `d717098` — **il bundle non è stato riscritto**: quel ramo non è mai stato in `main`) in `ARCHIVIO/VERSIONI PRECEDENTI/Pathfinder 2.3 (NON FUNZIONALE - ritirata 25-08)/`. **Non si installa e non si riprende così com'è** |
 | ~~**1.8 → 2.1**~~ | archiviate dentro la 2.2 | — | 1.8 UOM · 1.9 viste giacenza · 1.10 trasferimenti dall'ODP · 1.11 terminale · 1.12 UDC · 1.13 motore di stoccaggio · 1.14 conto di produzione · 2.0 (interruttori tolti, KPI, otto difetti) · 2.1 (Code128, Admin, cruscotto, tabelle, UDC in mappa) |
 
 **Dove stanno i byte:** `consegna\Pathfinder <ver>\` tiene **solo l'ultima
@@ -345,6 +359,106 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.16 — il punto zero
+
+**L'ULTIMO ADMIN NON SI TOGLIE DA SOLO, E ADESSO LO DICE IL SERVIZIO.** §8 lo
+scriveva dalla 2.13, ma la regola viveva soltanto in `configOperatori.ts`: il
+servizio chiedeva «sei Admin?» e nient'altro, quindi una `PATCH` mandata da un
+Admin che si retrocede passava. È **la stessa falla della voce 66**, un piano
+più in là. **Non è un fastidio, è un vicolo cieco**: senza Admin la
+Configurazione non si apre, il codice di ripristino pretende `role === 'admin'`
+e la finestra del primo avvio guarda i PIN, non le cariche — resterebbe la sola
+chiave di macchina. **Visto succedere**: rimettendo il difetto, il banco alza
+undici prove rosse e dalla prima `PATCH` in poi ogni cosa risponde 403,
+compresa la ricreazione del primo Admin.
+
+*Come si controlla.* Non si indovina la forma della richiesta: **si simula**.
+Le mutazioni sull'anagrafica — `POST`, `PUT`, `PATCH`, `DELETE`, `bulk`,
+`clear`, `deleteWhere`, ogni operazione dentro una `/tx` — si riducono a
+quattro verbi, si applicano a una copia dell'anagrafica e si guarda com'è
+rimasta. **Il reset dei dati resta permesso**, e deve: svuota tutto, nessuno
+resta con un PIN, e la finestra del primo avvio si riapre da sé. La chiave di
+macchina passa, perché §8 la dichiara uscita di servizio. Otto prove nuove al
+banco della gerarchia (32 → **40**).
+
+**IL REGISTRO NON DICE PIÙ NUMERI CHE SI CONTRADDICONO — voce 33.** Due domande
+diverse, che erano diventate la stessa e sbagliata.
+
+1. **Quanto è cambiata la riga.** `qty_delta` poteva contraddire i propri
+   estremi: un `PICK` scriveva `null` fra `before 10` e `after 9`. Adesso, se i
+   due estremi ci sono, la variazione è **la loro differenza**, calcolata al
+   punto di scrittura: l'aritmetica batte il chiamante. `null` resta il «non si
+   sa» dei movimenti storici e vale solo se manca un estremo.
+2. **Quanti colli hanno cambiato posto.** *Non è la stessa cosa*, ed è il pezzo
+   che mancava. Un trasferimento di riga intera lascia la quantità dov'era e
+   cambia il vano: la variazione è **0** e i colli mossi sono **tutti**. Chi
+   leggeva `Math.abs(qty_delta)` — KPI, cruscotto, registro attività —
+   **contava zero**. Misurato sul dump del 31/08: **22 trasferimenti veri**,
+   fino a 26 colli l'uno, valevano zero nei conti.
+
+Le due regole stanno in **`src/modules/registro.ts`**, modulo puro nuovo, con
+tredici prove in `registro-completo.test.js`.
+
+**LA MERCE SI NOMINA ANCHE QUANDO SI MUOVE IN BLOCCO — voce 34.** La voce
+chiedeva chi scrivesse `EDIT` e `MOVE` con articolo e lotto vuoti. **Risposta
+trovata nel dump del 31/08**, che ne porta due con la nota in chiaro: «Unità di
+carico creata: UDC-000001» e «Unità di carico UDC-000001 — 0 righe · trascinata
+sulla mappa». Sono **operazioni sull'unità di carico scritte nel registro della
+merce**, e hanno la forma esatta della voce 34 — un `EDIT` e un `MOVE` sullo
+stesso vano nello stesso minuto.
+
+Due conseguenze, e la seconda è quella che conta.
+
+- Il contenitore ha adesso **una causale sua, `UDC`**: nasce, si sposta e si
+  chiude senza fingersi merce. `MOV_LABELS` la chiama «Unità di carico», e
+  `registro-completo.test.js` la mette fra quelle che non muovono merce.
+- **Lo spostamento di un'unità scriveva UNA riga sola, e non nominava niente.**
+  N partite cambiavano vano e il registro non diceva quali: non è un'etichetta
+  storta, è **la firma GMP che manca**. Adesso il servizio scrive **una riga per
+  ogni partita** — articolo, lotto, da dove a dove, quanti colli, chi ha
+  firmato — dentro la stessa transazione, dove le righe si conoscono davvero.
+  Lo stesso da file, dove non c'è un servizio a cui chiederlo. Due prove nuove
+  nel collaudo del servizio (139 → **141**).
+
+E la firma di quella riga è **una persona**: prima ripiegava su `SERVIZIO`,
+adesso ripiega sulla sessione e `SERVIZIO` resta alla sola chiave di macchina.
+
+**UN DIFETTO GRAVE TINGE DI ROSSO LA CORSA — voce 50.** `difetto()` scriveva la
+riga nel verbale e la prova risultava passata. **Visto di nuovo il 01/09**: il
+banco del ciclo ha alzato `Q1` — «0,75 KG non si ritrovano da nessuna parte» —
+e vitest ha detto «47 passed». Adesso `gira.cjs` esce **1**.
+
+*Quali severità fermano la corsa: solo `grave`.* `dato` no, e non è pigrizia:
+dice che l'anagrafica è incompleta, non che il codice sbaglia, e finché le voci
+5 e 58 sono aperte tingerebbe di rosso ogni giro per sempre. **Si guarda l'ora,
+non l'elenco**: `difetti.json` non si svuota mai e le righe vecchie sono
+memoria, quindi rossa la fanno solo quelle della corsa in corso.
+
+**SERVITO, «NON SALVATO» ERA UNA BUGIA ROSSA.** `_touchMeta` alza
+`unsavedChanges` a ogni mutazione, e **da quando il salvataggio a mano non c'è
+più (2.1) nessuno lo riabbassa**: su una macchina servita l'indicatore in barra
+restava rosso per sempre e diceva a chi lavora che la merce appena scansionata
+poteva perdersi. Non è vero — la riga è in PostgreSQL prima che la chiamata
+torni. Servito dice adesso **«In linea»**, e la Dashboard **«Ultima
+scrittura»** invece di «Ultimo salvataggio». Da file non cambia niente, perché
+lì il checkpoint esiste davvero.
+
+**CINQUE ICONE USCIVANO MONOCROMATICHE.** `✏️ ⚠️ ⚙️ ℹ️ ♻️` hanno presentazione
+**testuale** di serie: scritti nudi il browser li disegna come glifi di testo.
+La matita di «Modifica» usciva larga 14px contro i 19,2 della forma a icona, e
+**su schermo si leggeva come un trattino** — un pulsante che non dice più cosa
+fa. L'avviso usciva come un triangolo grigio invece del segnale giallo, e in
+GMP un avviso che non si legge come avviso è un avviso che non c'è. **101
+selettori `U+FE0F`** aggiunti in 27 file, misurato in pagina.
+
+**Le frecce restano nude, e non è una dimenticanza**: `↔ ▶ ↩` marcano il tipo
+di riga dentro tabelle dense, e da icone diventerebbero colorate e più pesanti
+di quel che accompagnano. Lo tiene `test/emojiVestite.test.js`.
+
+**Il banco della gerarchia va da 32 a 40 prove; il collaudo del servizio da 139
+a 141; `npm test` da 42 a 43 file.** Le due voci rosse del banco del ciclo sono
+chiuse — 70 e 71 — e le sue 47 prove sono tutte verdi.
 
 ### 2.15 — l'installer impara a togliersi, e smette di murarsi dentro
 
@@ -534,7 +648,6 @@ la maschera e la conferma lo dicono tutte e due prima di premere.
 giacenze vere — `banco\genera-odp-wip.cjs`, nuovo, che i lotti li **legge dal
 database** invece di scriverli fissi come faceva quello della 2.12. Due strade
 esercitate capo a fondo:
-
 | | prima | dopo il reso | dopo lo storno |
 |---|---|---|---|
 | reso intero — vano | 8 coll. · 160 KG | 6 · 120 | **8 · 160** |
@@ -645,7 +758,7 @@ password sbagliata si scopra subito invece di far aspettare novanta secondi.
 Si provano **da ferme**, con un orologio finto e un sonno finto: accendere un
 PostgreSQL e spegnerlo a metà non è una prova, è una coincidenza.
 
-**Il banco che prova le cariche è nuovo: `banco/gerarchia.cjs`, 32 prove.**
+**Il banco che prova le cariche è nuovo: `banco/gerarchia.cjs`, 32 prove** (**40** dalla 2.16).
 Una regola imposta sul servizio si prova sul servizio — con `fetch`, coi
 cookie veri, senza aprire un browser, su un database temporaneo alla porta
 4198. Fra le domande che pone: che il Team Leader non si promuova Admin
@@ -1005,7 +1118,6 @@ magazzino si ferma quando si ferma questo PC. Il primo punto di
 pagato**.
 
 ### Prima della 2.6 — la cronaca in breve
-
 | Quando | Cosa |
 |---|---|
 | **2.5** (26/08) | Le UM al carico: su 11.197 articoli, **2** funzionavano, 4.036 avevano la maschera nascosta, 7.159 un'unità non riconosciuta. Quattro cause: la maschera si nascondeva da sola (il cancello è diventato l'**unità**, non `pieces_per_pack`); un lotto congelato senza per-collo restava rotto per sempre (`??` che non ripiegava mai — ora ripiega **a lettura e a unità uguale**); **`NR` di SAGE X3 non era un dato mancante ma una codifica non tradotta**, 7.077 articoli su 11.197; tre difetti intermittenti della maschera. Più il prelievo da ordine in sette interventi: il compito che **viaggia con la tappa** (`transfer_task`), la disponibilità riletta a ogni render, la pausa scorporata dai tempi, la rettifica di una tappa già prelevata (`REPOS`, **solo in meno**), i colli proposti dai più piccoli (`pieni` per eccesso, `spaiati` per difetto, e gli spaiati non sfondano mai l'ordine), le UM sul report, le sovrapposizioni misurate a 375/482 px e in stampa |
@@ -1023,7 +1135,6 @@ pagato**.
 ## 4. La coda di lavoro
 
 **I numeri non si riusano e non si rinumerano.** Cinque stati:
-
 | stato | vuol dire |
 |---|---|
 | **da pianificare** | lavoro di sviluppo riconosciuto: prima l'analisi, poi la correzione, poi il consolidamento |
@@ -1033,18 +1144,14 @@ pagato**.
 | **fatto** | chiusa, con la prova accanto |
 
 ### Aperte — da pianificare
-
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **78** | ⚠️ **I VECCHI COMMIT RESTANO RAGGIUNGIBILI SU GITHUB PER SHA.** La storia è stata riscritta e `main` spinto a forza (voce 72): il dump non sta più in nessun ramo, `GET /contents/…?ref=main` risponde **404**, e il ramo `claude/annotazioni-modifiche-ecq4c5` con la sua PR #1 **diverge da prima** del commit incriminato, quindi non lo porta. **Ma il vecchio commit risponde ancora**: `GET /commits/ecd25381…` restituisce il suo SHA. È il comportamento normale di GitHub — gli oggetti sfollati restano finché non passa il garbage collector — e il repository è **privato**, quindi li vede solo chi vi ha accesso | **Due gesti, e sono di Andrea.** (1) Chiedere a **GitHub Support** di ripulire gli oggetti sfollati e le cache: è l'unico modo di togliere quei byte dal server. (2) **Rinnovare i PIN** degli operatori che stanno in quel dump quando rientreranno a database: le impronte lì dentro sono **SHA-256**, e su sei cifre un milione di tentativi è un istante. Oggi non urge — a database c'è **un operatore solo**, `ADM1`, nato dopo |
+| **77** | ⚠️ **UN FILE CHIAMATO «variabile postgre.txt» STA SUL DESKTOP, 843 byte.** In `Desktop\Pathfinder-archivio-2026-09-01\`, accanto ai dump. Non è stato aperto e non è in git; il nome dice che porta la stringa di connessione di PostgreSQL, cioè **utente e password** — la cosa che §11 tiene fuori dal repository insieme ai file di database | Va guardato e, se è quello, **spostato dove stanno i segreti** o cancellato dopo aver messo la stringa dove serve. Un segreto in chiaro sul Desktop, dentro OneDrive, è un segreto sincronizzato altrove |
+| **76** | **`Q1` — 0,75 KG CHE NON SI RITROVANO, E COMPARE A INTERMITTENZA.** Il banco del ciclo l'ha alzato il 01/09 alle 20:23 («né a scaffale, né consumati, né resi», tolleranza 0,05 KG) e **non l'ha più riprodotto in tre corse successive**, a parità di codice e con `pristino.db` rifatto ogni volta. Da quella corsa il banco **esce 1** quando succede (voce 50), quindi non passerà più inosservato | **Farlo girare finché non torna**, e quando torna leggere `banco/ciclo/verbale.md` di quella corsa: è la quadratura per articolo che dice dove si perdono. Un ciclo che non quadra a intermittenza è peggio di uno che non quadra sempre |
 | **74** | 🔴 **LA MACCHINA È STATA RIPORTATA A ZERO, E VA REINSTALLATA.** Il 01/09, per decisione di Andrea, sono state rimosse `C:\Pathfinder\`, `C:\Pathfinder_block\` (1.079 file, 182,7 MB) e `C:\Users\sacch\pathfinder-WMS\`, tolte le cinque variabili `PATHFINDER_*`, cancellati i database `pathfinder`, `pathfinder_collaudo` e `pathfinder_prova` e il ruolo `pathfinder`. PostgreSQL 17 resta installato. **`Pathfinder_block` ha resistito a tre tentativi**: la cartella dava FullControl, ma su ogni singolo file `icacls`, `fsutil` e `[IO.File]::Open` rispondevano «Accesso negato» — non si riusciva nemmeno a **leggere** la ACL, e `rd /s /q` falliva file per file. Ha ceduto a `takeown /f … /r /d S` seguito da `icacls … /reset /t /c /q` da un PowerShell elevato: 1.302 file rimessi a posto, 0 falliti. **I dati sono salvi**: `Desktop\pathfinder-backup-storico\` porta i 36 file di `Pathfinder_block\backup` (109 MB, i `.db` giornalieri dal 10 al 26/08 e quattro `.dump`), e `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\` porta i sei dump dal 28 al 31/08, compreso `pathfinder-2026-08-31.dump` — 419.318 byte, i **45 movimenti** della voce 73 | **FATTA la sera del 01/09**, e la strada nuova ha fatto uscire un difetto (voce 75) che è diventato la **2.15**, adesso in servizio. Il **primo Admin è stato creato** e la porta si è richiusa. Sul database Andrea ha caricato **un backup in merge, per fare delle prove**: 11.197 articoli, 882 giacenze, `lots` e `mov_log` a zero. **Resta una decisione sola, e non è più urgente ma non è chiusa**: con quali dati riparte il magazzino vero. Il `pg_restore` da `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\pathfinder-2026-08-31.dump` riporterebbe 853 giacenze **e i 45 movimenti**; vuole il servizio fermo, il database rifatto e poi riacceso, e **cancella quello che c'è adesso** — cioè le prove in corso |
 | **73** | 🔴 **IL REGISTRO DEI MOVIMENTI È STATO AZZERATO LA SERA DEL 31/08, E `inventory` SOSTITUITA.** Misurato all'01:00 del 01/09 interrogando PostgreSQL direttamente: `mov_log` **0**, `lots` **0**, `wip` **0**, `udc` **0**, `inventory` **882**, `articles` 11.197, `_revision` **5**. Il backup serale delle **20:00 dello stesso giorno** ne portava **45 e 853**: i sei dump in `C:\Pathfinder\backup` dicono 39→39→39→44→45→45 movimenti e **853 giacenze fisse** dal 28 al 31/08. Quindi fra le 20:00 e mezzanotte qualcosa ha **svuotato il registro e rimpiazzato le giacenze** — non è un calo, è una sostituzione, e `articles` non è stata toccata. `_revision` a 5 dice che il contatore è ripartito quasi da zero | **01/09 — E LA STESSA FORMA È STATA RIPRODOTTA A MANO, PER CASO.** Caricando un backup **in merge** per fare delle prove sul database nuovo, i conteggi sono usciti **identici uno per uno** a quelli misurati all'01:00 su quello vecchio: `articles` 11.197, `inventory` **882**, `mov_log` **0**, `lots` **0**, `udc` 0. Non è una coincidenza di numeri tondi: sono gli stessi numeri. **Quindi la sera del 31/08 non è successo niente di misterioso — è stato un caricamento come questo.** Resta una cosa sola da stabilire, ed è quella che chiude la voce: **un merge non svuota un registro che c'era**. Se il file caricato porta `mov_log: []` — la chiave presente e la lista vuota — allora sì, e la voce 45 lo dice già; se la chiave non c'è affatto, il registro dovrebbe restare, e allora manca ancora un pezzo. **Si guarda dentro il file di backup**, e la voce si chiude in un modo o nell'altro. **La forma è quella della voce 45**: `importAll` con `mov_log: []` svuota il registro e lascia il resto — cioè un **ripristino da un file JSON** fatto dall'applicativo, o il reset dei dati. Da stabilire, in quest'ordine: chi ha ripristinato cosa fra le 20:00 e mezzanotte; se il file da cui è stato ripristinato esiste ancora; e **se quei 45 movimenti vadano riportati**, perché §8 li vuole tenuti sei anni. **L'unica copia sono i dump, ed è stata messa al sicuro**: `pathfinder-2026-08-31.dump` — 419.318 byte, i 45 movimenti — sta in `Desktop\Pathfinder-archivio-2026-09-01\backup-2.14\` insieme agli altri cinque. Il database vivo **non c'è più** (voce 74): da qui in poi si guarda solo lì dentro. Non l'ha fatto il banco della 2.14: quello girava su SQLite con `PATHFINDER_PG` vuota, e lo dichiarava a ogni avvio |
-| **72** | ⚠️ **UN DUMP DEL MAGAZZINO VERO STA NELLA STORIA DEL REPOSITORY, COI PIN DENTRO.** `banco/db/pathfinder-2026-08-27.dump` — 415.601 byte — è entrato col commit **`ecd2538`** del 27/08, che è **proprio quello che dice «tutto nel repository, tranne i due segreti»**. Verificato il 31/08 estraendone la sola tavola `operators` con `pg_restore --data-only --table=operators`: dentro ci sono **`pin_hash`, `pin_salt` e `first_name`** di persone vere. Il buco era nel `.gitignore`: la riga diceva `*.db`, e un dump di PostgreSQL si chiama `.dump`. **Il buco è chiuso il 31/08** — `*.dump`, `*.sql`, `*.sqlite`, `*.sqlite3`, `*.bak` sono fuori, il file è uscito dall'indice e resta su disco — **ma la storia no**: da `ecd2538` in poi quei byte ci sono, e un `git clone` se li porta | **Restano due decisioni, e sono di Andrea.** (1) **Riscrivere o no la storia.** Il commit è già spinto: `git filter-repo --path banco/db/pathfinder-2026-08-27.dump --invert-paths`, poi un push forzato, e **chiunque abbia una copia se la deve rifare da zero**. L'alternativa è scrivere qui che si accetta il rischio, e perché. (2) **Rinnovare i PIN** degli operatori che stanno in quel dump — vale in tutti e due i casi, perché §11 dice che un segreto spinto una volta è bruciato, e riscrivere la storia non disfa i cloni già fatti. Le impronte lì dentro sono **SHA-256, non scrypt** (la 2.10 riscrive in scrypt al primo accesso, e quel dump è del 27/08): su un PIN di sei cifre un milione di tentativi è un istante |
-|---|---|---|
-| **71** | **IL BANCO DEL CICLO CHIEDE A UN TRASFERIMENTO DI RESTARE APERTO, E DALLA 2.1 NON RESTA.** `funzioni.test.js` crea un `TRANSFER` da 3 colli, ne muove 1 e si aspetta `in_progress`; il codice lo chiude, perché `chiudeAlGesto` include `TRANSFER` **per decisione di Andrea alla 2.1** — «le attività si devono chiudere nel momento in cui il trasferimento viene confermato, obbligatorio». Il difetto `CP1` che il banco scrive dal 27/08 **sta segnalando questa aspettativa vecchia**, non un difetto del magazzino. Poi il secondo `advanceTask` lancia sul serio e la prova diventa rossa | **Il banco va allineato alla decisione, non il codice.** Il residuo resta al solo Smaltimento: la prova a residuo si scrive su un `DISPOSAL`, e per il `TRANSFER` si prova la chiusura al gesto. Poi `CP1` esce da `difetti.json` |
-| **70** | **IL BANCO DEL PERCORSO LEGGE UN ODP CHE NON È PIÙ QUELLO DELLA SUA RICETTA.** `percorso.test.js` apre `ARCHIVIO\BACKUP E FILE DI TEST\07082026_gluc.xlsx` e si aspetta `ODP2603889`; il file — committato, datato 20/08 — porta `ODP2607777`, e il suo vicino `_2` porta `ODP2607877`. **Nessuno dei due è quello che `ricetta.js` dichiara di aver letto** | Il progetto ha già lo strumento: `banco/ciclo/rifai-ricetta.cjs` rigenera `ricetta.js` dal foglio. Ma rigenerare cambia le quantità attese di **tutto il ciclo**, non solo di questa prova: **quale ODP sia il riferimento lo decide Andrea**, e poi si rigenera |
-| **69** | **I CONTEGGI DEL DATABASE NON TORNANO CON QUELLI DEL 26/08.** Misurato il 31/08 su `/api/health`: **851 giacenze, 45 movimenti, 2 operatori**, contro 886 · 321 · 7 del 26/08. Il 28/08 dicevano 851 · 39 · 1, quindi **il magazzino ha ripreso a scrivere su questo database** e il calo è un fatto avvenuto fra il 27 e il 28, non una lettura sbagliata. `storage_rules`, `recipients` e `location_attrs` restano a zero, e `recipients` una riga ce l'aveva (voce 49) | **Prima di ogni altra cosa che tocchi i dati.** Tre domande in quest'ordine: il servizio parla col database che crediamo (`/api/health`, campo `file`); c'è stato un reset o un `clearMany` fra il 27 e il 28; e se sì, il `.dump` della sera prima è ancora in `C:\Pathfinder\backup\`. **Un registro movimenti che cala è la cosa che questo applicativo esiste per non fare** — §8, «nessuna cancellazione di record» |
 | **67** | **LA QUOTA DI CONSUMO NON SI CORREGGE A MANO.** Alla chiusura di un giro la ripartizione si scrive proporzionale a quanto ciascun ordine aveva chiesto. Se la produzione ha consumato in proporzione diversa — il caso normale, non l'eccezione — non c'è dove dirlo | **La proporzione è una proposta, non un fatto misurato**, e va scritto anche sul foglio. Serve una maschera che sposti quantità da un ordine all'altro col vincolo che la somma resti quella del consumo. Il dato c'è: `giro_richieste` sul movimento |
-| **65** | **`xlsx` 0.18.5 PORTA DUE VULNERABILITÀ NOTE** — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — **e non c'è un fix su npm**: SheetJS pubblica le corrette solo dal proprio sito. Il vettore è il file Excel che un operatore carica. Le dipendenze del servizio sono a 0 vulnerabilità | La regola «`dexie` e `xlsx` non si aggiornano» è difendibile, ma **va ridecisa sapendo questo**: o si passa alla versione di SheetJS e si riprova tutto quel che tocca Excel, o si scrive qui che si accetta il rischio e perché |
 | **63** | **`areaWip` SUL BANCO È UN VANO DELLO SCAFFALE, NON UN'AREA.** Impostata il 27/08 su `MAG1-RAKA-04-01-T` per provare il conto di produzione. Funziona, ma sulla mappa non si distingue dallo stoccaggio | Sul magazzino vero la domanda è la **voce 15**. Sul banco, il giorno che serve una prova più fedele, si crea una zona `WIP` sua |
 | **62** | **IL BIP DI LETTURA E LA CONFERMA DI TAPPA SONO TUTTI E DUE ACUTI E SINUSOIDALI.** `scan` 1320 Hz, `ok` sale 1046 → 1568 Hz. Fra `ok` ed `error` non c'è confusione (`error` scende 233 → 175 in onda quadra), ma «ho letto» e «tappa chiusa» possono somigliarsi col rumore del reparto e i tappi | **Una prova al banco col rumore vero**: se la confusione c'è, si scende il bip di lettura o se ne accorcia la coda, così l'unico suono che sale resta la conferma |
 | **61** | **IL CONTO WIP DIPENDE DA UN PARAMETRO FACOLTATIVO.** La riga `in` non registra le UM (`qty_uom` è `null`) e i chili si ricostruiscono dalla confezione congelata, che `Store.contoWip` passa a `conto()` come ripiego. Omettendolo, lo stesso ordine in pari risponde `residuo_uom: −25`, `incoerente: true`: un numero **plausibile e sbagliato**. **Dalla 2.14 almeno SI VEDE**: la lista di quello che è in lavorazione tinge di rosso la riga col residuo negativo, che prima non compariva da nessuna parte | **Due strade, e la seconda è quella buona:** scrivere le UM sulla riga `in` quando si conoscono (la confezione è congelata già al posizionamento), oppure rendere `perCollo` obbligatorio o far dichiarare `incoerente` con un motivo leggibile invece di un residuo negativo muto |
@@ -1052,21 +1159,17 @@ pagato**.
 | **58** | **GLI ATTRIBUTI DEGLI ARTICOLI SONO VUOTI.** Misurato il 26/08: 644 articoli senza classe di temperatura, allergeni e pericolosità, e `verificabili` a **zero**. I quattro controlli nuovi della 2.8 **non possono scattare**. È la voce 5 vista dall'altro capo | **È di Andrea**, come la 5: Configurazione → Articoli → Export/Import Excel; il foglio «Valori ammessi» porta già gli elenchi buoni |
 | **52** | **82 ARTICOLI HANNO UN'UNITÀ CHE NON È UN'UNITÀ.** Dopo la traduzione `NR → PZ`: `SCA` 48, `CON` 18, `RT` 7, `CAS` 4, `M2` 2, `BAN` 1, più **due celle con testo libero** (`MIN EPA=105 MG/G` e simile). Scatola, confezione e cassa nominano un **contenitore**, e qui il contenitore è il collo | Si caricano **a soli colli** e la maschera lo dice. Va deciso sigla per sigla: `M2` chiede se serva una sesta unità, le due celle di testo sono errori di anagrafica (Andrea) |
 | **51** | **DUE FUNZIONI MAI ESERCITATE DA CAPO A FONDO, E SONO IN SERVIZIO DALLA 2.5.** La **rettifica di una tappa già prelevata** e il **salta tappa**: verificate per tipi, logica e resa a video, mai fatte girare. La rettifica scrive un `REPOS` e chiama `esceDaWip` — tocca giacenza **e** conto di produzione | **Al banco, su una copia del database, con un ODP di prova.** Due cose da guardare: che il `REPOS` rimetta le **misure giuste** e non colli di misura comoda; e che `esceDaWip` non rifiuti la riga quando l'ordine ha in lavorazione colli di misure diverse (lancia apposta in quel caso, e va visto succedere) |
-| **50** | **UN DIFETTO «GRAVE» DEL CICLO NON FA FALLIRE NIENTE.** `difetto()` in `banco/ciclo/verbale.js` scrive la riga nel verbale e la prova risulta **passata**: il 25/08, rimettendo apposta il difetto della voce 45, il banco ha alzato PA6 (grave) con `movimenti 112 → 0` e vitest ha detto «3 passed» | Un difetto grave deve tingere di rosso la corsa: il verbale lo apre chi sospetta già qualcosa. Va deciso **quali severità fermano la corsa** |
 | **43** | **IL KIT DEMO NON ESISTE PIÙ.** `Avvia Demo.bat`, i tre `README-DEMO` e i tre `IT-TECH-SHEET` vivevano dentro `consegna/`, che la build azzera. Non li produce `vite.config.js`, non sono mai entrati in git, cercati su tutto il disco il 25/08: nessuna traccia | Vanno **riscritti**, e stavolta fuori da `consegna/` o dentro la lista dei file del plugin di build |
 | **42** | **LA NUOVA REGOLA DEL CAMPIONAMENTO VA NEL CODICE.** Andrea, 25/08: articolo **con** UM configurata → si scala la UM richiesta e i colli non calano; articolo **senza** UM → il campione **non modifica la giacenza**. Oggi la rotta rifiuta il collo intero con «un campione lascia sempre un residuo» | Cambia una regola di §8 e il **significato di `SAMPLE`**: si scrive lì prima che nel codice, e il CQ deve saperlo. Il logbook della qualità si tiene sei anni |
-| **33** | **IL REGISTRO NON DICE QUANTO, ed è il codice che scrive, non il dato.** Tre forme riproducibili: un `MOVE` di riga intera scrive `qty_delta: 0` (registra la variazione della riga d'origine, non la quantità mossa); un `PICK` di consumo scrive `qty_delta: null` con `before 10` e `after 9`; un `SAMPLE` scrive `qty_delta: 0` **e** `qty_uom_delta: null`. **`qty_before` e `qty_after` ci sono sempre**: nessun dato è perduto | **Non c'è niente da pulire: c'è da correggere chi scrive.** È un cambio di formato di un registro che si tiene sei anni: si decide prima in §8, poi si scrive. Le righe già scritte si raddrizzano da `qty_before`/`qty_after`. Si guarda insieme alla voce 34 |
 | **22** | **IL DIFETTO SEGNALATO DEL MOTORE DI STOCCAGGIO NON È ANCORA RIPRODOTTO.** «L'ubicazione non soddisfa i criteri anche quando la regola è definita correttamente»: resta una frase senza un caso. La 2.8 rende più facile riprodurlo, perché ogni esclusione porta il suo `motivo` in chiaro | **Serve il caso vero**: la regola esatta come è scritta, il vano che rifiuta, il messaggio a video. Senza quei tre non si sa nemmeno se sia ancora vivo |
 | **19** | **`6001055` MANGANESE SOLFATO: l'ODP lo chiede in KG, l'anagrafica lo dichiara PZ.** ⚠️ **Contraddizione aperta dal 26/08**: la 2.4 dichiara di averla chiusa, questa coda la tiene aperta, e nessuno ha verificato quale delle due righe sia sbagliata | **Prima si stabilisce se è chiusa**, guardando il foglio ODP e l'anagrafica. Poi: se l'unità si perde in lettura è il parser, se il dato è storto all'origine è l'anagrafica — due difetti diversi |
 | **15** | **L'AREA WIP VA CONSOLIDATA.** È **un'ubicazione mappata**, non un prefisso, e `Store` la legge da `meta.areaWip`. Il 25/08 il servizio vivo diceva **`MAG1-WIP-01`**, mentre il documento diceva `M06-COM-01`: sono tutte e due ubicazioni vere, `M06` è il magazzino Rinaldi «IN COSTRUZIONE» e `MAG1` porta tutta la giacenza. Il valore è cambiato dopo il 19/08 e nessuno l'ha scritto | **Quale dei due vani sia quello giusto, prima di ogni altra cosa.** Il conto di produzione ci ha già lavorato dentro. Dal 2.11 il valore si legge dall'applicativo, non con `curl` |
-| **12** | **LE UNITÀ DI CARICO SONO ATTIVE E NON NE ESISTE NESSUNA.** Creazione, carico, spostamento, chiusura automatica ed etichetta funzionano al banco; in `udc` a database ci sono **zero righe** | La prima domanda è **perché a funzione attiva non ne sia nata nemmeno una** |
 | **5** | **CARATTERIZZARE LE ZONE** in Configurazione → Zone: classe di conservazione, zona allergeni, zona pericolosi, refrigerata. Finché non è fatto **la mappa resta muta**: la verifica confronta due metà e una manca. Misurato il 19/08: la conformità copriva il **6% delle righe** (12 su 194), una zona su quattordici portava la classe | **Pianificare verifica e correzione**: prima si misura quante zone e quante righe sono scoperte, poi si decide se il buco è nel dato o nel codice che lo legge |
 
 ### Sono di Andrea — dati e configurazione
 
 Un agente non ci mette mano. Stanno qui perché senza di loro certe funzioni non
 hanno con cosa lavorare.
-
 | # | Cosa |
 |---|---|
 | **3** | **Un secondo Team Leader.** `ANSA` era l'unico con un PIN. **Da sapere:** `DP` (Daniele Pedrazzi) risultava **attivo e senza PIN**, e senza PIN non si firma niente: o gli si dà un PIN o lo si disattiva come i quattro storici. **Da rileggere dopo la voce 69**, che ha lasciato un operatore solo a database |
@@ -1077,7 +1180,6 @@ hanno con cosa lavorare.
 | **60** | **`ADMI` è un operatore admin nato per sbaglio sul collaudo** (26/08, maschera aperta precompilata `admin`/`admin`, PIN riempito dal gestore password). È attivo, ha ruolo admin, e **il PIN non lo conosce nessuno**. Sta sul servizio di collaudo (4199). Andrea: «lascialo, ci penso io» |
 
 ### Standby — ferme per scelta
-
 | # | Cosa |
 |---|---|
 | **8** | **Nome DNS interno e certificato** dalla CA aziendale. Il codice è pronto: due variabili e HTTPS si accende. **È anche l'unica risposta al mezzo difetto che la 2.11 lascia aperto** |
@@ -1085,25 +1187,29 @@ hanno con cosa lavorare.
 | **26** | **Se Azure si accende.** Il ramo `server/azure/` è pronto e non lo chiama nessuno. I quattro punti che decidono stanno in `server/azure/LEGGIMI.md`, e il primo è che il magazzino si fermerebbe quando cade la linea |
 
 ### Da chiarire — manca un fatto
-
 | # | Cosa | Cosa manca |
 |---|---|---|
-| **34** | **UNDICI MOVIMENTI SENZA MERCE, ed è una famiglia.** `EDIT` e `MOVE` con `article_code` e `lot_code` vuoti, dal 19/08, firmati `ANDS` (9) e `ANAD` (2), su sette ubicazioni diverse. La forma è sempre la stessa: un `EDIT` seguito da un `MOVE` sulla stessa ubicazione nello stesso minuto | Sembrano operazioni **sull'ubicazione** scritte nel registro della merce. Va guardato chi le scrive: se è così, o cambiano causale o escono dal registro dei movimenti. Insieme alla voce 33 |
 | **1-bis** | **Chi ha cancellato `C:\Pathfinder\app\pathfinder-1.6.1`** il 17/08 alle 19:14. La cartella è stata ricostruita e la via di ritorno è di nuovo intera, ma la causa non si conosce | Se non è stato un gesto di Andrea in un'altra finestra, qualcosa cancella dentro la directory di installazione |
 
 ### Decise, e non si riaprono
-
 | # | Cosa |
 |---|---|
 | **17** | **La capienza dei vani non si dichiara, e non è un buco.** I vani non hanno un limite: la verifica la fanno **a vista gli operatori**. Il vincolo nel motore resta e non esclude mai per pieno. (Dalla 2.8 capienza e **portata in chili** si possono comunque scrivere sulla singola cella con `location_attrs`: è uno scavalco puntuale, non una dichiarazione di massa) |
 | **25** | **La vista 3D della mappa: valutata, e no.** Le ubicazioni non hanno coordinate — `core/geometria.ts` le genera da corsie, campate e livelli — quindi sarebbe la stessa griglia con la prospettiva in più: costo alto, informazione zero. La **vista frontale con «Specchia»** copre quel che serviva |
+| **65** | **`xlsx` 0.18.5 RESTA, E IL RISCHIO È SCRITTO.** Due vulnerabilità note — prototype pollution (GHSA-4r6h-8v6p-xvw6) e ReDoS, gravità alta — e su npm non c'è un fix: SheetJS pubblica le corrette solo dal proprio sito. **Deciso da Andrea il 01/09: si accetta.** Il vettore è il file Excel che un operatore carica, e quell'operatore è **identificato, sulla rete interna, con un foglio che ha generato lui**: non è un file che arriva da fuori. Passare alla versione del sito vorrebbe dire riprovare tutto quel che tocca Excel — ODP, anagrafica, export — per chiudere una porta che dà su un corridoio interno. **Si riapre il giorno che un foglio arriva da fuori** |
 | **35** | **La 2.1 andò in servizio da un pacchetto che nessun documento nominava.** Terza volta in quattro giorni. Non è una riga da correggere: è il motivo per cui esiste §0 punto 2 |
 
 ### Chiuse — con la prova
-
 | # | Cosa | Prova |
 |---|---|---|
 | ~~**75**~~ | **L'INSTALLER SI CHIUDEVA LA PORTA IN FACCIA DA SOLO, SU MACCHINA PULITA.** `Blinda-Radice` stringeva i permessi della radice con un `icacls` solo, `/inheritance:r` e `/T` nella stessa riga: quella coppia scende su ogni figlio e gli toglie gli ACE ereditati, mentre i tre `/grant` non arrivano fino in fondo. Restano file con l'**elenco vuoto**, e un elenco vuoto nega tutto — anche a un Amministratore, anche solo per leggere di chi è il file. Girava in fondo al passo del servizio, e il passo dopo doveva lanciare `installa-versione.ps1` **da quella cartella**: «Accesso al percorso negato», segnalato da PowerShell come comando non trovato. **E `icacls` usciva con zero**, quindi l'installer scriveva «Permessi applicati» in verde. Non si era mai visto perché ogni installazione era un aggiornamento, e la blindatura sta nel solo ramo di prima installazione — la stessa cecità della voce sulla 2.10 | **Corretta il 01/09 in `server\installa-pathfinder.ps1`**, non nel pacchetto (§7). Due gesti invece di uno: l'elenco si scrive **sulla sola radice**, poi si spinge in basso con `/reset` **sui figli**, che dà a ognuno l'elenco ereditato dal padre — `/reset` sulla radice no, la rimetterebbe a ereditare da `C:\`. In più la blindatura è stata **spostata dopo il passo dell'applicativo**, così è l'ultimo gesto che tocca il disco e la Verifica passa dopo; e una guardia prova ad **aprire davvero** un file — `Test-Path` diceva `True` anche sui file murati, ed è così che il difetto è passato. **Provato su un albero finto**: col vecchio comando `icacls` esce **0** e il file resta senza nessun ACE; col nuovo il file porta le tre righe `(I)`. **Due prove nuove** in `collaudo-installazione.js` (31 → **33**), e verificate rosse rimettendo ciascuno dei due difetti |
+| ~~**72**~~ | Un dump del magazzino vero, coi PIN dentro, stava nella storia del repository | **01/09 — LA STORIA È STATA RISCRITTA.** Backup completo prima (`pathfinder-pre-riscrittura-2026-09-01.bundle`, 71,6 MB, «complete history» verificata), poi `git filter-repo --path banco/db/pathfinder-2026-08-27.dump --invert-paths` su 296 commit e **push forzato** su `main`. Verificato dopo: `rev-list --objects --all` non nomina più quel blob, e `GET /contents/…?ref=main` risponde **404**. **Il ramo `claude/…` e la PR #1 non lo portavano**: divergono da prima del commit. Il file resta su disco, e `.gitignore` lo tiene fuori. **Restano due code, e sono la voce 78**: i vecchi commit rispondono ancora per SHA finché GitHub non fa pulizia, e i PIN di quel dump vanno rinnovati quando quegli operatori rientrano |
+| ~~**71**~~ | Il banco del ciclo chiedeva a un `TRANSFER` di restare aperto | **Allineato il banco, non il codice**: `chiudeAlGesto` comprende `TRANSFER` per decisione di Andrea alla 2.1. Il residuo si prova dove vive davvero — su un `DISPOSAL`, tre colli esauriti in due volte. `CP1` è uscito da `difetti.json` |
+| ~~**70**~~ | Il banco del percorso leggeva un ODP che non era quello della sua ricetta | **Rigenerata da `07082026_gluc.xlsx`**, come deciso da Andrea: `ODP2603889` → **`ODP2607777`**, 15 componenti, 380,25 KG, e la testata del foglio dichiara lo stesso totale. È lo stesso ODP che firma i movimenti veri del dump del 31/08. Il banco del ciclo: **47 verdi, zero rosse** |
+| ~~**50**~~ | Un difetto «grave» del ciclo non faceva fallire niente | **Chiusa dalla 2.16 — §3.** Solo `grave` ferma la corsa, `dato` no, e si guarda l'ora e non l'elenco. **Provata dal vivo**: la corsa che aveva alzato `Q1` diceva «47 passed», adesso esce 1 |
+| ~~**34**~~ | Undici movimenti senza merce, ed era una famiglia | **Chiusa dalla 2.16 — §3.** Il dump del 31/08 ne porta due con la nota in chiaro: sono le operazioni sull'**unità di carico** scritte nel registro della merce. Adesso hanno la causale `UDC`, e lo spostamento di un'unità scrive **una riga per ogni partita** invece di una riga che non nomina niente |
+| ~~**33**~~ | Il registro non diceva quanto, ed era il codice a scrivere | **Chiusa dalla 2.16 — §3**, e in due pezzi: `qty_delta` non contraddice più i suoi estremi, e `quantitaMossa` risponde alla domanda che nessuno faceva — quanti colli hanno cambiato posto. Tredici prove in `registro-completo.test.js`. **Le righe già scritte non si toccano**: si leggono con la funzione nuova |
+| ~~**12**~~ | Le unità di carico erano attive e non ne esisteva nessuna | **01/09 — ne era nata una, e i suoi movimenti lo dicono.** Il dump del 31/08 porta «Unità di carico creata: UDC-000001» e il suo spostamento sulla mappa. La collezione `udc` era vuota perché è stata **sostituita**, non perché la funzione non produca niente: è la voce 73, vista da un'altra parte |
 | ~~**68**~~ | Il giro dei cinque ODP non era mai girato per intero | **27/08 sera**: girato al banco su copia del database con ODP generati dalle giacenze vere. Una tappa sola, l'ubicazione chiesta una volta, le quote che sommano esattamente il consumo. Ha fatto uscire **tre difetti**, tutti corretti — §3 |
 | ~~**66**~~ | I permessi per ruolo stavano nel client: una sessione qualunque e una riga di `curl` bastavano a scriversi `role: "admin"` addosso | **Chiusa dalla 2.13**, e provata dove la regola viene imposta: `banco/gerarchia.cjs`, **32 prove** con `fetch` e i cookie veri. Il Team Leader non si promuove nemmeno passando da una transazione o svuotando la collezione. **In servizio dal 31/08** |
 | ~~**64**~~ | Le rotte `/api` non chiedevano credenziali a nessuno | **Chiusa dalla 2.11**, e verificata in produzione il 28/08: `GET /api/c/meta` senza sessione risponde **401**. Resta la voce 66 |
@@ -1241,7 +1347,6 @@ vuole il banco del ciclo acceso: la porta è la 4198, non la 4199.
 ## 6. Come si consegna
 
 **Costruire non è consegnare, e consegnare non è servire.**
-
 | Luogo | Chi ci **scrive** | Chi ci **legge** |
 |---|---|---|
 | `consegna\Pathfinder <ver>\` — il **pacchetto** | `npm run build`, che azzera `consegna\` a ogni giro | chi installa, a doppio clic — **mai il servizio** |
@@ -1872,6 +1977,22 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   (`'empty'`, `'pallet'`, `'operator'`, `'open'`, `'in'`) e la prosa.
   `test/maiuscole.test.js` non lascia passare un campo che nessuno ha
   classificato, e ha una guardia perché il PIN non ci finisca dentro.
+- **IL REGISTRO NON DICE NUMERI CHE SI CONTRADDICONO — 2.16.** Due domande, e
+  non sono la stessa. **Quanto è cambiata la riga**: se `qty_before` e
+  `qty_after` ci sono tutti e due, `qty_delta` è la loro differenza, calcolata
+  al punto di scrittura — l'aritmetica batte il chiamante, e `null` resta il
+  «non si sa» dei movimenti storici. **Quanti colli hanno cambiato posto**: un
+  trasferimento di riga intera lascia la quantità dov'era e cambia il vano,
+  quindi variazione **0** e colli mossi **tutti**. Chi legge il registro usa
+  `quantitaMossa`, non `Math.abs(qty_delta)`. Le due regole stanno in
+  **`modules/registro.ts`**, in un posto solo. **Le righe già scritte non si
+  toccano**: si rileggono.
+- **UN'UNITÀ DI CARICO CHE SI SPOSTA SCRIVE UNA RIGA PER OGNI PARTITA CHE
+  PORTA — 2.16.** Il contenitore ha la causale **`UDC`**, che non muove merce e
+  sta accanto a `EDIT`, `PURGE` e `PINRESET`. La merce scrive le sue righe:
+  articolo, lotto, da dove a dove, quanti colli, chi ha firmato — dentro la
+  stessa transazione. Una riga sola che non nomina niente non è la firma di chi
+  ha mosso la merce.
 - **`_format` del pacchetto di export non segue la versione dell'applicativo**:
   descrive la forma del file (`warehouse-mapper-v1.5`). A muoversi è
   `_appVersion`.
@@ -2120,6 +2241,18 @@ Ognuna è costata almeno una volta. Non sono opinioni.
      Raggi e ombre vanno **per numero** — `rounded-2`, `shadow-3`.
 
   **Non si migra la stampa**: le tre `@media print` restano CSS come sono.
+- **SERVITO, NON SI «SALVA»: SI SCRIVE — 2.16.** `_touchMeta` alza
+  `unsavedChanges` a ogni mutazione e dalla 2.1 nessuno lo riabbassa, quindi su
+  una macchina servita l'indicatore restava rosso per sempre. Servito dice **«In
+  linea»** e la Dashboard **«Ultima scrittura»**; il servizio che non risponde
+  ha già la sua schermata. Da file non cambia niente. La domanda si fa a
+  `Store.eServito()`.
+- **LE ICONE A PRESENTAZIONE TESTUALE SI VESTONO COL SELETTORE — 2.16.**
+  `✏️ ⚠️ ⚙️ ℹ️ ♻️` scritti nudi escono come glifi di testo: la matita di
+  «Modifica» si leggeva come un trattino, l'avviso come un triangolo grigio.
+  Vogliono `U+FE0F`, e lo tiene `test/emojiVestite.test.js`. **Le frecce
+  restano nude** — `↔ ▶ ↩` marcano righe dentro tabelle dense, e da icone
+  peserebbero più di quel che accompagnano.
 - **`App` è più grande del file che lo dichiara**: metà dei suoi metodi arriva
   dalle viste, che rientrano con `Object.assign` in coda ad `app.ts`. Il ponte è
   `DalleViste`; `monolite()` a runtime non fa niente e serve a dare quel tipo a
@@ -2140,7 +2273,16 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 - **L'eccezione del primo giorno è dichiarata e si spegne da sola**: finché
   nessun Admin esiste comandano i Team Leader, o l'installazione murerebbe la
   Configurazione, che è l'unico posto da cui si nomina un Admin.
-- **L'ultimo Admin non si retrocede e non si disattiva.**
+- **L'ultimo Admin non si retrocede, non si disattiva e non si cancella, e
+  dalla 2.16 lo impone IL SERVIZIO.** Fino alla 2.15 la regola viveva solo in
+  `configOperatori.ts`: una `PATCH` mandata da un Admin che si retrocede
+  passava, e da lì non si rientrava più — la Configurazione vuole un Admin, il
+  codice di ripristino pretende `role === 'admin'`, e la finestra del primo
+  avvio guarda i PIN e non le cariche. Il servizio **simula** la scrittura su
+  una copia dell'anagrafica e guarda com'è rimasta, quindi la regola vale anche
+  dentro una `/tx`. **Con due Admin il gesto passa**, e il reset dei dati resta
+  permesso: svuota tutto, nessuno resta con un PIN, e la finestra si riapre.
+  Otto prove in `banco/gerarchia.cjs`.
 
 ### Il PIN smarrito — come si esce
 
@@ -2188,7 +2330,6 @@ in Configurazione → Operatori.
 ## 9. Mappa del codice
 
 ### Client — `src/`
-
 | File | Righe | Ruolo |
 |---|---:|---|
 | `ui/app.ts` | 1.328 | **Quel che non è una vista**: avvio e riallineamento, identità e sessione, il telaio (`switchView`, sidebar, `showModal`, `toast`, scorciatoie), l'annulla, le utilità comuni (`_esc`, `_requireOperator`, `_pickLoc`). In coda, il rientro delle viste |
@@ -2199,6 +2340,7 @@ in Configurazione → Operatori.
 | `core/schema.ts` · `utils.ts` · `costanti.ts` | 173 · 46 · 44 | Schema IndexedDB · `debounce` e `_h` · causali e ritenzione |
 | `modules/compiti.ts` | 555 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. `registroAttivita` unisce i compiti ai campionamenti che nessun compito rivendica. Puro |
 | `modules/misure.ts` · `colli.ts` | 319 · 578 | Le cinque unità e la suddivisione per collo · l'elenco dei colli: uscite come le capisce il servizio, ritrovamento per misura, `scelteDaTaglie`, `riempiFabbisogno`, `rettifica`. Puri |
+| `modules/registro.ts` | 46 | **2.16 — le due domande che si fanno a una riga del registro**: quanto è cambiata (`quantoSiEMosso`) e quanti colli hanno cambiato posto (`quantitaMossa`). Stanno insieme perché confonderle è il difetto della voce 33. Puro |
 | `modules/documenti.ts` | 39 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto. Puro |
 | `modules/giacenzaArticolo.ts` | 175 | La giacenza di un articolo per lotto, FEFO, e la coda di conte nell'ordine dello scaffale. **Le UM non si calcolano qui**: arrivano risolte da `Store.righeLette`. Puro |
 | `modules/trasferimentiOdp.ts` · `dispositivo.ts` | 142 · 74 | Le tappe in un altro magazzino e il compito che ne nasce · su che cosa sta girando (decide **la larghezza**, non il sistema operativo). Puri |
@@ -2230,7 +2372,6 @@ si istanzia: `App` resta un oggetto solo, perché l'indice e i gestori costruiti
 dentro le stringhe lo chiamano **per nome**. In coda ad `app.ts` un ciclo le
 rimette dentro, e **esplode se un metodo è rimasto anche di qua** — estrarre è
 spostare, e un doppione verrebbe sovrascritto in silenzio.
-
 | File | Righe | Cosa disegna |
 |---|---:|---|
 | `percorso.ts` | 1.834 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano |
@@ -2263,7 +2404,6 @@ una stringa trovi a chi rispondere. **Non si tocca `superficie-app.dati.js` per
 farlo tacere**: se suona, un metodo non è rientrato.
 
 ### Servizio — `server/`
-
 | File | Righe | Ruolo |
 |---|---:|---|
 | `pathfinder-server.js` | ~380 | Express: rotte, SSE, sessione, TLS opzionale, la cartella dell'applicativo, avvio. Qui sta `const VERSION` |
@@ -2281,12 +2421,13 @@ farlo tacere**: se suona, un metodo non è rientrato.
 
 ### Collaudi — `test/`
 
-**1.246 prove in 42 file** al 31/08 sera. `ambiente.js` è il preambolo comune.
+**1.220 prove in 43 file** al 01/09 sera (una saltata). Fuori da `npm test`:
+**141** sul servizio, **43** sull'installazione. `ambiente.js` è il preambolo comune.
 
 Fuori da `test/` stanno i due banchi automatici, che non girano con
-`npm test`: **`banco/gerarchia.cjs`** (32, le cariche sul servizio — §5) e
-**`banco/ciclo/gira.cjs`** (47, il ciclo dal carico al consumo su copia del
-magazzino vero; **45 verdi e due rosse**, voci 70 e 71).
+`npm test`: **`banco/gerarchia.cjs`** (**40**, le cariche sul servizio — §5) e
+**`banco/ciclo/gira.cjs`** (**47, tutte verdi** dal 01/09 — voci 70 e 71 chiuse;
+dalla 2.16 **esce 1 se in quella corsa è stato alzato un difetto `grave`**).
 
 Il **banco della schermata WIP** (§5) non è automatico: è un magazzino di
 copia, degli ODP generati da lui e tre attrezzi da iniettare nella pagina.
@@ -2314,7 +2455,6 @@ Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 ---
 
 ## 10. API e variabili
-
 | Famiglia | Rotte |
 |---|---|
 | **Applicativo** | `/` e `/app` → l'indice, **`no-cache`** · `/assets/:file` → gli assets, **`immutable` un anno**, col ripiego su `precedente` |
@@ -2323,7 +2463,6 @@ Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 | **Operazioni composte** | `/api/tx` · `/api/op/removeItem` · `/api/op/commitPickStop` · `/api/op/sampleItem` · `/api/op/moveUdc` · `/api/op/verifyPin` · `/api/op/hashPin`. `moveUdc` sposta l'unità e tutte le sue righe **in una transazione**, e rifiuta se nel vano d'arrivo la stessa chiave sta già fuori dall'unità |
 | **Servizio** | `/api/load` · `/api/clear` · `/api/deleteWhere/:col` · `/api/backup` · `/api/events` (SSE) |
 | **Colli** | `packs_out` è un elenco di `{da, quantita}` — la misura del collo e quanto ne esce; un numero solo significa «quel collo, intero». `packs_before` è il seme, come `qty_uom_before`. Con l'elenco, `qty` diventa facoltativo |
-
 | Variabile di macchina | Valore |
 |---|---|
 | `PATHFINDER_PORT` | `4173` |
@@ -2346,7 +2485,6 @@ Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 ---
 
 ## 11. Dove sta il resto
-
 | Serve | Dove |
 |---|---|
 | Installare il servizio da zero, diagnosticare, backup | [README.md](README.md) |
@@ -2368,12 +2506,14 @@ password di PostgreSQL; e dal 31/08 i **codici di ripristino** della 2.13, che
 si riconoscono dalla forma — venti caratteri in quattro gruppi da cinque.
 **Git non dimentica**: un segreto spinto una volta va considerato bruciato.
 
-> ⚠️ **E UNO CI È ENTRATO LO STESSO — voce 72.** La regola dice «i file di
-> database», il `.gitignore` dice `*.db`, e un dump di PostgreSQL si chiama
-> `.dump`: `banco/db/pathfinder-2026-08-27.dump` è tracciato dal commit
-> `ecd2538` — quello che dichiara di lasciare fuori i segreti — e dentro ha
+> ⚠️ **E UNO CI ERA ENTRATO LO STESSO — voce 72, chiusa il 01/09.** La regola
+> diceva «i file di database», il `.gitignore` diceva `*.db`, e un dump di
+> PostgreSQL si chiama `.dump`: `banco/db/pathfinder-2026-08-27.dump` è entrato
+> col commit che dichiarava di lasciare fuori i segreti, e dentro aveva
 > `pin_hash`, `pin_salt` e i nomi. **Una regola scritta in prosa e un filtro
-> scritto per estensione non sono la stessa regola**, e questo è il prezzo.
+> scritto per estensione non sono la stessa regola**, e questo è stato il
+> prezzo: `filter-repo`, push forzato, **tutti gli SHA cambiati**. Quel che non
+> si disfà sta nella **voce 78**.
 
 > ⚠️ **UNO DI QUEI CODICI STA IN `ARCHIVIO\` COME FILE DI TESTO**, col codice
 > nel nome e nel contenuto, scritto il 28/08. **Non è mai entrato in git** e da

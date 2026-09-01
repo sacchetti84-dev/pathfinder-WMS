@@ -532,7 +532,7 @@ export const VistaPosiziona = {
       prev.textContent = `Escono ${esito.usciti.length} coll. · ${formattaQuantita(esito.uom, s.uom)} ${s.uom}${coda} — restano ${descriviElenco(esito.rimasti, s.uom)}`;
     } catch (err) {
       prev.style.color = 'var(--sx-warning)';
-      prev.textContent = '⚠ ' + ((err as Error).message || 'scelta non valida');
+      prev.textContent = '⚠️ ' + ((err as Error).message || 'scelta non valida');
     }
   },
 
@@ -703,7 +703,7 @@ export const VistaPosiziona = {
         : 'Vano vuoto: la riga sparisce dalla giacenza';
     } catch (err) {
       prev.style.color = 'var(--sx-warning)';
-      prev.textContent = '⚠ ' + ((err as Error).message || 'dichiarazione non valida');
+      prev.textContent = '⚠️ ' + ((err as Error).message || 'dichiarazione non valida');
     }
   },
 
@@ -786,7 +786,7 @@ export const VistaPosiziona = {
       /* Vedi `giacenze.ts`: senza descrizione il campo resta vuoto. */
       if (descEl) descEl.value = art.description ?? '';
     } else {
-      info.innerHTML = `<span class="text-sx-warning">⚠ Nuovo articolo — compilare descrizione (obbligatoria)</span>`;
+      info.innerHTML = `<span class="text-sx-warning">⚠️ Nuovo articolo — compilare descrizione (obbligatoria)</span>`;
       if (descEl) descEl.value = '';
       // espandi details per forzare compilazione
       $('mInDetails')?.setAttribute('open', '');
@@ -928,7 +928,7 @@ export const VistaPosiziona = {
         </div>`
       : verdetto.esito === 'estensione'
         ? `<div class="mov-preview mov-preview-warn mb-5">
-            <strong>⚠ Il lotto si estende su un secondo vano.</strong>
+            <strong>⚠️ Il lotto si estende su un secondo vano.</strong>
             ${this._esc(verdetto.messaggio)}<br>
             Finché dura, la mappa lo segnala come lotto sparso.
           </div>`
@@ -1168,7 +1168,7 @@ export const VistaPosiziona = {
     const elapsed = ScanGuard.check(signature);
     if (elapsed !== null) {
       const proceed = await Dialog.confirm({
-        title: '⚠ Scansione ripetuta',
+        title: '⚠️ Scansione ripetuta',
         message: `La stessa riga è già stata posizionata ${Math.round(elapsed / 1000)} secondi fa. Confermare solo se si tratta di colli realmente diversi: in caso contrario la giacenza verrebbe raddoppiata.`,
         details: Dialog.kv([
           ['Articolo', art], ['Lotto', lot], ['Ubicazione', loc], ['Colli da aggiungere', qty]

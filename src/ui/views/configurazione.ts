@@ -35,7 +35,7 @@ export const VistaConfigurazione = {
        linguetta che c'è e non si apre è una domanda in più a ogni turno. */
     if (!comanda && Store.vedeGliOperatori(io)) {
       el.innerHTML = `<div class="config-container">
-        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙ Configurazione</h1>
+        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙️ Configurazione</h1>
         <div id="configContent"></div>
       </div>`;
       this._renderConfigOperators($('configContent'));
@@ -44,7 +44,7 @@ export const VistaConfigurazione = {
 
     if (!comanda) {
       el.innerHTML = `<div class="config-container">
-        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙ Configurazione</h1>
+        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙️ Configurazione</h1>
         <div class="config-card">
           <h3>🛡 Riservata all'Admin</h3>
           <p class="text-body-small text-sx-text-secondary leading-[1.6] mt-4">
@@ -59,7 +59,7 @@ export const VistaConfigurazione = {
       return;
     }
     el.innerHTML = `<div class="config-container">
-      <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙ Configurazione</h1>
+      <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙️ Configurazione</h1>
       <div class="config-tabs">
         <button class="config-tab ${this._configTab === 'sites' ? 'active' : ''}" onclick="App._configTab='sites';App.renderConfig()">Siti e Zone</button>
         <button class="config-tab ${this._configTab === 'articles' ? 'active' : ''}" onclick="App._configTab='articles';App.renderConfig()">Anagrafica Articoli</button>
@@ -474,7 +474,7 @@ export const VistaConfigurazione = {
 
     el.innerHTML = `
       ${gaps.length ? `<div class="mov-preview mov-preview-err mb-7">
-        ⚠ <strong>Il mittente è incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.<br>
+        ⚠️ <strong>Il mittente è incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.<br>
         <span class="text-body-small">Finché questi campi restano vuoti i DDT si stampano, ma escono con l'avviso che il documento non è conforme.</span>
       </div>` : `<div class="mov-preview mov-preview-ok mb-7">
         ✓ <strong>Mittente configurato</strong> — i DDT possono essere emessi.

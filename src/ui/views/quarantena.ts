@@ -189,7 +189,7 @@ export const VistaQuarantena = {
             </div>`}
 
         ${riservati > 0 ? `<div class="mov-preview mov-preview-warn mb-5">
-          <strong>⚠ ${riservati} Coll. sono impegnati su un DDT pendente.</strong>
+          <strong>⚠️ ${riservati} Coll. sono impegnati su un DDT pendente.</strong>
           Bloccandoli, quel documento non sarà più evadibile e andrà corretto.
         </div>` : ''}
 
@@ -575,7 +575,7 @@ export const VistaQuarantena = {
             <div class="text-body-small text-sx-text-secondary">Lotto: <strong>${this._esc(qRec.lot_code)}</strong> · Da: <strong>${this._esc(qRec.blocked_location)}</strong></div>
           </div>
           <div class="bg-sx-warning-soft border border-sx-warning rounded-[var(--radius)] py-5 px-6.5 mb-8.5 text-body-small text-sx-warning">
-            ⚠ <strong>Obbligatorio:</strong> un item conforme non può stazionare in un'ubicazione bloccata o di non conformità. Scansiona l'ubicazione di destinazione idonea.
+            ⚠️ <strong>Obbligatorio:</strong> un item conforme non può stazionare in un'ubicazione bloccata o di non conformità. Scansiona l'ubicazione di destinazione idonea.
           </div>
           <div class="form-group">
             <label>Scansiona Ubicazione di Destinazione <span class="req">*</span></label>
@@ -711,7 +711,7 @@ export const VistaQuarantena = {
     if (moved) {
       this.toast(`✓ ${rec.article_code}#${rec.lot_code} rilasciato e spostato in ${dest}`, 'success');
     } else {
-      this.toast(`✓ ${rec.article_code}#${rec.lot_code} rilasciato${moveErr ? ` — ⚠ ${moveErr}` : ''}`, moveErr ? 'warning' : 'success');
+      this.toast(`✓ ${rec.article_code}#${rec.lot_code} rilasciato${moveErr ? ` — ⚠️ ${moveErr}` : ''}`, moveErr ? 'warning' : 'success');
     }
     this._formQuarantena($('movFormArea'));
     this._refreshSessionLog();

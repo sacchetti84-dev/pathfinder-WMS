@@ -18,6 +18,7 @@
    8. un codice sbagliato non apre                      401
    9. quello giusto apre UNA volta, e ne emette un altro
   10. dopo un reset del database il primo Admin si ricrea
+  11. l'ultimo Admin non si retrocede, non si disattiva, non si cancella
 
    `node banco/gerarchia.cjs` — database temporaneo, porta 4198, non tocca
    niente di quel che sta in `banco/db`. */
@@ -246,6 +247,53 @@ const scheda = (id, iniziali, ruolo) => ({
         { op_id: 'OP-ADMIN', codice: nuovo, nuovo_pin: '135790' }, barattolo());
     }
     ok('e quello emesso al posto suo apre a sua volta', ultimo.stato === 200, `stato ${ultimo.stato}`);
+
+    /* ── 11 · L'ULTIMO ADMIN NON SI TOGLIE DA SOLO — 2.16 ─────────────
+       La 2.13 chiude l'anagrafica a chi non ha la carica. Restava aperta la
+       porta che un Admin puo' aprire DA DENTRO: togliersi la carica, o
+       disattivarsi, quando e' l'unico. Da li' non si torna — la
+       Configurazione vuole un Admin e il codice di ripristino pure — e
+       resterebbe la sola chiave di macchina.
+
+       Le tre forme si provano tutte e tre, perche' e' lo STATO a essere
+       vietato, non il verbo. */
+    const siRetrocede = await chiama('PATCH', '/api/c/operators/OP-ADMIN', { role: 'operator' }, admin);
+    ok('l\'unico Admin NON si retrocede', siRetrocede.stato === 409,
+       `stato ${siRetrocede.stato}${siRetrocede.stato === 200 ? ' — VICOLO CIECO' : ''}`);
+
+    const siSpegne = await chiama('PATCH', '/api/c/operators/OP-ADMIN', { active: false }, admin);
+    ok('e non si disattiva', siSpegne.stato === 409,
+       `stato ${siSpegne.stato}${siSpegne.stato === 200 ? ' — VICOLO CIECO' : ''}`);
+
+    const siCancella = await chiama('DELETE', '/api/c/operators/OP-ADMIN', undefined, admin);
+    ok('e non si cancella', siCancella.stato === 409,
+       `stato ${siCancella.stato}${siCancella.stato === 200 ? ' — VICOLO CIECO' : ''}`);
+
+    const conTx = await chiama('POST', '/api/tx', {
+      collections: ['operators'],
+      ops: [{ op: 'update', collection: 'operators', key: 'OP-ADMIN', changes: { role: 'leader' } }],
+    }, admin);
+    ok('nemmeno passando da una transazione', conTx.stato === 409, `stato ${conTx.stato}`);
+
+    const intatto = await chiama('GET', '/api/c/operators/OP-ADMIN', undefined, admin);
+    ok('dopo quattro tentativi l\'Admin e\' ancora Admin e ancora attivo',
+       intatto.dati?.role === 'admin' && intatto.dati?.active !== false,
+       `role ${intatto.dati?.role} · active ${String(intatto.dati?.active)}`);
+
+    /* E LA REGOLA NON E' UN MURO: con due Admin la porta si apre. Se questa
+       fallisse, la 2.16 avrebbe scambiato un vicolo cieco con un altro. */
+    const secondo = await chiama('PATCH', '/api/c/operators/OP-LEADER', { role: 'admin' }, admin);
+    ok('nominato un secondo Admin...', secondo.stato === 200, `stato ${secondo.stato}`);
+
+    const adessoSi = await chiama('PATCH', '/api/c/operators/OP-ADMIN', { role: 'operator' }, admin);
+    ok('...il primo si retrocede davvero', adessoSi.stato === 200,
+       `stato ${adessoSi.stato}${adessoSi.stato === 409 ? ' — LA REGOLA E\' DIVENTATA UN MURO' : ''}`);
+
+    /* Si rimette la scena com'era: la prova 10 riparte da OP-ADMIN Admin. */
+    await chiama('PATCH', '/api/c/operators/OP-ADMIN', { role: 'admin' }, leader);
+    await chiama('PATCH', '/api/c/operators/OP-LEADER', { role: 'leader' }, admin);
+    const rimessa = await chiama('GET', '/api/c/operators/OP-ADMIN', undefined, admin);
+    ok('e la scena si rimette com\'era', rimessa.dati?.role === 'admin', 'role = ' + rimessa.dati?.role);
 
     /* ── 10 · IL RESET, E LA PORTA CHE DEVE RIAPRIRSI ─────────────────
        L'Admin resetta il database: il reset porta via anche gli operatori,

@@ -117,7 +117,7 @@ export const VistaMappa = {
 
     const alte = righe.filter((n: NonConformita) => n.gravita === 'alta').length;
     return `<div class="conf-bar ${alte ? 'conf-bar--alta' : 'conf-bar--media'}">
-      <span>⚠ <strong>${righe.length}</strong> ${righe.length === 1 ? 'giacenza fuori posto' : 'giacenze fuori posto'} in questa zona${alte ? ` — <strong>${alte}</strong> ${alte === 1 ? 'grave' : 'gravi'}` : ''}</span>
+      <span>⚠️ <strong>${righe.length}</strong> ${righe.length === 1 ? 'giacenza fuori posto' : 'giacenze fuori posto'} in questa zona${alte ? ` — <strong>${alte}</strong> ${alte === 1 ? 'grave' : 'gravi'}` : ''}</span>
       <button class="btn btn-sm" onclick="App.mostraNonConformita()">Vedi elenco</button>
       ${nastroDeroghe}
       ${senzaAttributi ? `<span class="conf-bar-nota">${senzaAttributi} articoli non ancora classificati, non verificati</span>` : ''}
@@ -181,7 +181,7 @@ export const VistaMappa = {
         : null;
       return `
       <tr class="${n.gravita === 'alta' ? 'conf-riga-alta' : ''}">
-        <td class="text-center">${n.gravita === 'alta' ? '⛔' : '⚠'}</td>
+        <td class="text-center">${n.gravita === 'alta' ? '⛔' : '⚠️'}</td>
         <td><button class="conf-vai mono" onclick="App.closeModal();App.goToLocation('${this._esc(n.location_code)}')">${this._esc(n.location_code)}</button></td>
         <td>
           <div class="mono font-bold nc-una-riga">${this._esc(n.article_code)}</div>
@@ -411,7 +411,7 @@ export const VistaMappa = {
     if (!nc) return { cls: '', title: '', badge: '' };
     return {
       cls: nc.gravita === 'alta' ? ' conf-ko' : ' conf-warn',
-      title: ` · ⚠ ${nc.n} fuori posto`,
+      title: ` · ⚠️ ${nc.n} fuori posto`,
       badge: '<span class="conf-mark">!</span>',
     };
   },
@@ -522,7 +522,7 @@ export const VistaMappa = {
 
     try {
       const esito = await Store.moveUdc(id, code, {
-        type: MOV.MOVE, article_code: '', article_description: '', lot_code: '',
+        type: MOV.UDC, article_code: '', article_description: '', lot_code: '',
         location_code: da, dest_location: code,
         user: Store.getCurrentIdentity().initials, ts: Date.now(),
         notes: `Unità di carico ${id} — ${righe.length} righe · trascinata sulla mappa`,

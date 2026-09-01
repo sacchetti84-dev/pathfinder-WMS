@@ -1,4 +1,4 @@
-/* LA RICETTA VERA — ODP2603889.
+/* LA RICETTA VERA — ODP2607777.
 
    GENERATO — non si scrive a mano: `node banco/ciclo/rifai-ricetta.cjs`.
    Sorgente: 07082026_gluc.xlsx
@@ -15,7 +15,7 @@
    Questo file NON sta nel repository: la formulazione di un prodotto e i
    lotti fornitore sono dato, non codice. Vedi `.gitignore`. */
 
-export const ODP_ORIGINE = "ODP2603889";
+export const ODP_ORIGINE = "ODP2607777";
 export const QUANTITA_ORDINE = 380.25;
 export const UOM = 'KG';
 
@@ -43,7 +43,7 @@ export const RICETTA = [
     situazione vera di un magazzino, e quella in cui un saldo sbagliato si
     nasconde meglio. */
 export const ORDINI = [
-  { odp: "ODP2603889", fattore: 1,    nota: 'la miscela vera' },
+  { odp: "ODP2607777", fattore: 1,    nota: 'la miscela vera' },
   { odp: 'ODP-META',  fattore: 0.5,  nota: 'mezza miscela' },
   { odp: 'ODP-QUARTO', fattore: 0.25, nota: 'un quarto — dove gli arrotondamenti mordono' },
   { odp: 'ODP-DECIMO', fattore: 0.1,  nota: 'un decimo — il componente più piccolo scende a pochi grammi' },

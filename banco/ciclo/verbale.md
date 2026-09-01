@@ -1,10 +1,10 @@
 # Ciclo 2.0 — dal carico al consumo, su copia del magazzino vero
 
-2026-08-31T19:03:44.108Z
+2026-09-01T18:52:26.414Z
 
 ## ⓪ Il banco
 
-Giacenza **219** righe · movimenti **112** · articoli **11181** · zone **19**
+Giacenza **194** righe · movimenti **112** · articoli **11181** · zone **19**
 Area WIP: `M06-COM-01`
 
 > **DIFETTO D1** (dato) — `anagrafica articoli`
@@ -38,7 +38,7 @@ Componenti con unità discorde: **1**/15 · senza `pieces_per_pack`: **15**/15
 
 | Ordine | righe | chiesto KG | entrato KG | scarto | colli |
 |---|---:|---:|---:|---:|---:|
-| ODP2603889 | 14 | 379.782 | 379.782 | 0 | 25 |
+| ODP2607777 | 14 | 379.782 | 379.782 | 0 | 25 |
 | ODP-META | 14 | 189.89 | 189.89 | 0 | 18 |
 | ODP-QUARTO | 14 | 94.946 | 94.946 | 0 | 17 |
 | ODP-DECIMO | 14 | 37.976 | 37.976 | 0 | 20 |
@@ -66,7 +66,7 @@ Rifiuto: **6000149#261177 in M06-COM-01 dichiara i suoi colli: per toglierne 1 b
 
 | Ordine | righe chiuse | entrato | reso | consumato | resta | entrato KG | consumato KG |
 |---|---:|---:|---:|---:|---:|---:|---:|
-| ODP2603889 | 14 | 25 | 0 | 25 | 0 | 379.782 | 379.782 |
+| ODP2607777 | 14 | 25 | 0 | 25 | 0 | 379.782 | 379.782 |
 | ODP-META | 14 | 18 | 2 | 16 | 0 | 189.89 | 139.89 |
 | ODP-QUARTO | 14 | 17 | 0 | 17 | 0 | 94.946 | 94.946 |
 | ODP-DECIMO | 14 | 20 | 0 | 20 | 0 | 37.976 | 37.976 |
@@ -89,23 +89,18 @@ Nel vano `M06-COM-01` restano **0** righe del ciclo
 | 6000002 | 1.407 | 0 | 1.407 | 0 | 0 |
 | 6000049 | 0.581 | 0 | 0.581 | 0 | 0 |
 | 6000401 | 0.469 | 0 | 0.469 | 0 | 0 |
-| 6000286 | 0.45 | 0.486 | 0.45 | 0 | -0.486 |
-| 6001335 | 0.2 | 0.216 | 0.2 | 0 | -0.216 |
-| 6001182 | 0.044 | 0.048 | 0.044 | 0 | -0.048 |
+| 6000286 | 0.45 | 0 | 0.45 | 0 | 0 |
+| 6001335 | 0.2 | 0 | 0.2 | 0 | 0 |
+| 6001182 | 0.044 | 0 | 0.044 | 0 | 0 |
 
-**Scarto assoluto complessivo: 0.75 KG**
-
-
-> **DIFETTO Q1** (grave) — `quadratura del ciclo`
-> Alla fine del ciclo 0.75 KG non si ritrovano da nessuna parte: né a scaffale, né consumati, né resi.
-> Prova: somma degli scarti per articolo, tolleranza 0,05 KG
+**Scarto assoluto complessivo: 0 KG**
 
 
 ## ⑥ KPI — le persone
 
 | Sigla | mov. | colli | UM mosse | giorni attivi | mov./giorno | compiti presi/chiusi/annull. | esec. min (mediana) | attesa min |
 |---|---:|---:|---|---:|---:|---|---:|---:|
-| ANDS | 90 | 575 | 2856 KG · 100800 PZ | 4 | 22.5 | 20/17/5 | 0.9 | 0.1 |
+| ANDS | 90 | 845 | 2856 KG · 100800 PZ | 4 | 22.5 | 19/16/5 | 0.9 | 0.1 |
 | DP | 14 | 136 | — | 2 | 7 | 0/0/0 | — | — |
 | BABB | 6 | 49 | 100.1 KG | 1 | 6 | 6/2/0 | 1.2 | 0.4 |
 | AS | 2 | 2 | — | 1 | 2 | 0/0/0 | — | — |
@@ -120,7 +115,7 @@ Sigle in anagrafica: EFBR, BABB, ANDS · **orfane: 2**
 
 ## ⑥ KPI — i movimenti
 
-Totale **112** · colli mossi **762** · UM: **2956.1 KG** · **100800 PZ**
+Totale **112** · colli mossi **1032** · UM: **2956.1 KG** · **100800 PZ**
 Rettifiche **6** (5.4%) · senza firma **0** · senza quantità **12** (storici)
 
 | Causale | quanti | | Sito | quanti |
@@ -139,24 +134,24 @@ Rettifiche **6** (5.4%) · senza firma **0** · senza quantità **12** (storici)
 
 ## ⑥ KPI — gli articoli
 
-Articoli a giacenza **155** · righe ferme da oltre 90 giorni **152** · scadute **6** · in scadenza a 30 giorni **1**
+Articoli a giacenza **153** · righe ferme da oltre 90 giorni **152** · scadute **6** · in scadenza a 30 giorni **0**
 
-Copertura anagrafica sotto la merce che si muove: senza unità **0** · senza quantità per collo **153** · senza allergeni **154** · senza classe di conservazione **153**
+Copertura anagrafica sotto la merce che si muove: senza unità **0** · senza quantità per collo **151** · senza allergeni **152** · senza classe di conservazione **151**
 
 | Articolo | righe | vani | colli | UM | mov. | uscite | fermo da | prima scad. |
 |---|---:|---:|---:|---|---:|---:|---:|---|
-| 6000366 | 5 | 5 | 61 | — | 26 | 9 | 12 gg | 2026-07-28 |
-| 6000366B | 8 | 8 | 293 | 3851 KG | 17 | 8 | 12 gg | — |
-| 7000924 | 4 | 4 | 12 | 290 KG | 15 | 4 | 12 gg | — |
-| 3502551 | 6 | 5 | 183 | 94200 PZ | 7 | 1 | 18 gg | — |
-| 6000242 | 12 | 11 | 30 | 290.618 KG | 6 | 5 | 0 gg | 2026-09-01 |
-| 123 | 1 | 1 | 2 | — | 5 | 1 | 26 gg | — |
-| 6000002 | 2 | 2 | 5 | 1.522 KG | 3 | 3 | 0 gg | — |
-| 6000004 | 2 | 2 | 5 | 40.56 KG | 3 | 3 | 0 gg | — |
-| 6000006 | 2 | 2 | 9 | 6.084 KG | 3 | 3 | 0 gg | — |
-| 6000149 | 3 | 3 | 68 | 101.4 KG | 3 | 3 | 0 gg | — |
-| 6000296 | 5 | 5 | 17 | 88.842 KG | 3 | 3 | 0 gg | — |
-| 6001335 | 2 | 2 | 2 | 0.216 KG | 3 | 3 | 0 gg | — |
+| 6000366 | 5 | 5 | 61 | — | 26 | 9 | 13 gg | 2026-07-28 |
+| 6000366B | 8 | 8 | 293 | 3851 KG | 17 | 8 | 13 gg | — |
+| 7000924 | 4 | 4 | 12 | 290 KG | 15 | 4 | 13 gg | — |
+| 3502551 | 6 | 5 | 183 | 94200 PZ | 7 | 1 | 19 gg | — |
+| 6000242 | 1 | 1 | 12 | — | 6 | 5 | 13 gg | — |
+| 123 | 1 | 1 | 2 | — | 5 | 1 | 27 gg | — |
+| 6000002 | 1 | 1 | 4 | — | 3 | 3 | 25 gg | — |
+| 6000004 | 1 | 1 | 3 | — | 3 | 3 | 25 gg | — |
+| 6000006 | 1 | 1 | 8 | — | 3 | 3 | 25 gg | — |
+| 6000149 | 2 | 2 | 63 | — | 3 | 3 | 25 gg | — |
+| 6000296 | 4 | 4 | 13 | — | 3 | 3 | 25 gg | — |
+| 6001335 | 1 | 1 | 1 | — | 3 | 3 | 25 gg | — |
 
 ### Quello che il dato di oggi non regge
 
@@ -168,9 +163,135 @@ Copertura anagrafica sotto la merce che si muove: senza unità **0** · senza qu
 | Saturazione di un vano | la capienza non è dichiarata da nessuna parte — il motore di stoccaggio ha il vincolo e non lo usa mai. | `capacity` sulla zona (§2, voce 17) |
 | Costo di una riga di giacenza | nessun valore economico entra in Pathfinder, ed è deliberato: il valore sta in Sage. | niente — si chiede a Sage |
 
+## Unità di carico
+
+`UDC-000002` · MAG1-RAKA-02-01-T → MAG1-RAKA-02-01-A · 58 KG prima, 58 KG dopo · colli [25,25,8]
+Svuotata prelevando l'ultima riga: stato `empty` · ancora fra le aperte: no
+
+Codici interni consecutivi: `UDC-000003` → `UDC-000004`
+Con prefisso GS1 `0712345`: `007123450000000057` (18 cifre)
+Somma pesata: 70 — chiude a multiplo di dieci
+
+## Quarantena
+
+Origine 62 → 37 KG · cella di blocco 25 KG · somma 62
+
+## Campionamento
+
+Prelevati 0,05 KG dal collo da 10: colli 2 → 2 · UM 35 → 34.95 · elenco [25,9.95]
+Tentativo di svuotare un collo intero: **rifiutato** — Un campione lascia sempre un residuo: per prendere tutto il collo da 25 KG serve un prelievo
+
+## Conta mirata
+
+Da [25,25,25] a [25,24,25,6] · uscite [[object Object]] · entrate [6]
+Riga dopo la rettifica: 4 colli · 80 KG · [24,25,25,6]
+
+## DDT — prenotazione ed evasione
+
+Documento `RES-PROVA20-MTJ0YBCY` registrato · giacenza 59 KG (invariata) · fisici 3 coll., disponibili 2
+Alla evasione i colli si ritrovano per misura: [{"indice":0}]
+Evaso: 59 → 34 KG (usciti 25)
+
+## Spostamento
+
+25 KG spostati: a destinazione 25 KG, colli [25]
+
+## Smaltimento
+
+Smaltiti 28 KG su 53: resta 25 KG in 2 coll. [22,3]
+
+## Attività
+
+`TA-MTJ0YBJ1-86ZZ` · stato in_progress · preso da ANDS · avviato sì
+Dopo un movimento da 1 collo su 3 chiesti: stato done, mossi 1
+Smaltimento, 1 collo su 3: stato in_progress, mossi 1
+Dopo i 2 rimanenti: stato done
+Riavvio di un compito chiuso: **rifiutato**
+Annullamento senza motivo: **rifiutato**
+
+## Motore di stoccaggio
+
+Valutate **274** ubicazioni in **4 ms** · proposte 250 · escluse 24
+Prima proposta: `MAG1-RAKA-02-02-A` — Questo lotto sta già qui: portalo qui e la giacenza resta una riga sola
+Primo escluso: `MAG-ACC-15` — stato
+
+## FEFO
+
+Primo in FEFO per 6000242: lotto **FEFO-PRESTO** con scadenza 2026-09-01
+
+## Il percorso — lettura dell ODP
+
+Ordine `ODP2607777` · articolo 4060854/01 lotto 26A621
+Righe lette: **15** · avvisi: nessuno
+
+| Articolo | letto KG | atteso KG | lotto letto | lotto atteso |
+|---|---:|---:|---|---|
+| 6001418 | 194.992 | 194.992 | 261571 | 261571 |
+| 6000149 | 50.7 | 50.7 | 261177 | 261177 |
+| 6000886 | 48.419 | 48.419 | 260545 | 260545 |
+| 6000296 | 44.42 | 44.421 | 262185 | 262185 |
+| 6000004 | 20.28 | 20.28 | 261887 | 261887 |
+| 6000037 | 10.14 | 10.14 | 261867 | 261867 |
+| 6000242 | 6.085 | 6.084 | 260926 | 260926 |
+| 6000006 | 3.04 | 3.042 | 261794 | 261794 |
+| 6000002 | 0.765 | 0.761 | 262191 | 262191 |
+| 6001055 | 0.47 | 0.468 | 261357 | 261357 |
+| 6000049 | 0.315 | 0.314 | 260594 | 260594 |
+| 6000401 | 0.25 | 0.254 | 262198 | 262198 |
+| 6000286 | 0.245 | 0.243 | 260322 | 260322 |
+| 6001335 | 0.11 | 0.108 | 261534 | 261534 |
+| 6001182 | 0.025 | 0.024 | 233234 | 233234 |
+
+Somma delle quindici righe: **380.256 KG** — l'ordine dichiara **380.25**
+
+
+## Il percorso — costruzione
+
+Tappe **15** · fuori percorso 0 · note 0
+Tappe per sito: M03=13 · MAG=1 · MAG1=1
+**Casa: `M03`** · tappe in un altro magazzino: **2**
+
+Prima tappa: `M03-CAT-03` (sito M03)
+
+### L ordine delle tappe
+
+| # | sito | ubicazione | articolo | KG |
+|---:|---|---|---|---:|
+| 1 | M03 | M03-CAT-03 | 6000006 | 3.04 |
+| 2 | M03 | M03-STK-02-05-T | 6000401 | 0.25 |
+| 3 | M03 | M03-STK-02-04-T | 6000002 | 0.765 |
+| 4 | M03 | M03-STK-02-04-A | 6001055 | 0.47 |
+| 5 | M03 | M03-STK-02-04-B | 6000049 | 0.315 |
+| 6 | M03 | M03-STK-02-03-B | 6000149 | 50.7 |
+| 7 | M03 | M03-STK-02-02-T | 6000296 | 44.42 |
+| 8 | M03 | M03-STK-02-02-A | 6000004 | 20.28 |
+| 9 | M03 | M03-STK-02-02-B | 6000037 | 10.14 |
+| 10 | M03 | M03-STK-02-01-T | 6001418 | 194.992 |
+| 11 | M03 | M03-STK-02-01-B | 6000886 | 48.419 |
+| 12 | M03 | M03-STK-03-02-T | 6001335 | 0.11 |
+| 13 | M03 | M03-SPD-01 | 6000286 | 0.245 |
+| 14 | MAG | MAG-ACC-01 | 6000242 | 6.085 |
+| 15 | MAG1 | MAG1-RAKA-01-01-C | 6001182 | 0.025 |
+
+Ordine dei magazzini: M03 → MAG → MAG1 · siti distinti 3
+
+
+## Il trasferimento chiesto dall ordine (1.10)
+
+Da `MAG-ACC-01` (mag) a `M03-TRA-01` · payload: `{"article_code":"6000242","lot_code":"260926","qty_uom":6.085,"uom":"KG","from":"MAG-ACC-01","to":"M03-TRA-01","odp_num":"ODP2607777"}`
+Compito `TA-MTJ0YCRB-E3H9` in coda, stato requested
+La tappa si sposta: `MAG-ACC-01` → `M03-TRA-01` · resta un prelievo: sì
+
+### La memoria delle richieste
+
+Ordine di visita rovesciato: 2 tappe erano state spostate, 2 sono tornate dov'erano
+
+> La memoria delle richieste NON sta in `pickRoute`: la tiene la vista. Questa prova misura il rischio, non lo corregge.
+
+
 ## Il pacchetto
 
-`_format` **warehouse-mapper-v1.5** · `_appVersion` **2.13** · collezioni previste 19
+`_format` **warehouse-mapper-v1.5** · `_appVersion` **2.16** · collezioni previste 19
 Verifica: **passa**
 
 | Collezione | nel pacchetto | in cache |
@@ -180,7 +301,7 @@ Verifica: **passa**
 | articles | 11181 | 11181 |
 | inventory | 221 | 221 |
 | operators | 3 | 3 |
-| tasks | 29 | 29 |
+| tasks | 31 | 31 |
 | wip | 116 | 116 |
 | udc | 5 | 5 |
 | storage_rules | 1 | 1 |
@@ -205,34 +326,8 @@ Verifica: **passa**
 | um | 99431.014 | 99431.014 |
 | articoli | 11181 | 11181 |
 | operatori | 3 | 3 |
-| compiti | 29 | 29 |
-| movimenti | 112 | 112 |
-
-## Storno di un prelievo
-
-Prima: [25,25,6] = 56 KG
-Dopo aver preso 10 KG: [15,25,6] = 46 KG · usciti [10]
-Dopo lo storno: [25,6,25] = 56 KG
-
-
-### Chi scrive cosa nell azione di annullamento
-
-| Maschera | `qty` da | `qty_uom` | `packs` |
-|---|---|---|---|
-| posiziona.ts (op: remove) | l'elenco | sì | sì |
-| prelievo.ts — carrello di produzione | calo dello scaffale | sì | sì |
-| percorso.ts — tappa del prelievo guidato | l'elenco | sì | sì |
-| smaltimento.ts | l'elenco | sì | sì |
-
-## Storno di un posizionamento
-
-Riga dopo il secondo carico: [20,20,15,7] = 62 KG
-Dopo lo storno: [20,20] = 40 KG (attesi [20,20] = 40)
-
-
-### Il collo che non c è più
-
-Storno di [12,9] su una riga che porta [12]: **si ferma** — Il collo da 9 non è più su questa riga: lo storno non può ritrovarlo
+| compiti | 31 | 31 |
+| movimenti | 113 | 113 |
 
 ## Giacenza per articolo (1.9)
 
@@ -267,6 +362,32 @@ Movimenti scritti in M03-STK-04-03-T: nessuno
 ### La riga che non c è più
 
 In M03-STK-04-03-T restano: 6000037#INV-A=2 coll. · 6000004#INV-B=3 coll.
+
+## Storno di un prelievo
+
+Prima: [25,25,6] = 56 KG
+Dopo aver preso 10 KG: [15,25,6] = 46 KG · usciti [10]
+Dopo lo storno: [25,6,25] = 56 KG
+
+
+### Chi scrive cosa nell azione di annullamento
+
+| Maschera | `qty` da | `qty_uom` | `packs` |
+|---|---|---|---|
+| posiziona.ts (op: remove) | l'elenco | sì | sì |
+| prelievo.ts — carrello di produzione | calo dello scaffale | sì | sì |
+| percorso.ts — tappa del prelievo guidato | l'elenco | sì | sì |
+| smaltimento.ts | l'elenco | sì | sì |
+
+## Storno di un posizionamento
+
+Riga dopo il secondo carico: [20,20,15,7] = 62 KG
+Dopo lo storno: [20,20] = 40 KG (attesi [20,20] = 40)
+
+
+### Il collo che non c è più
+
+Storno di [12,9] su una riga che porta [12]: **si ferma** — Il collo da 9 non è più su questa riga: lo storno non può ritrovarlo
 
 ## Conformità — le due metà del confronto
 

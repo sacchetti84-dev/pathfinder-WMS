@@ -619,7 +619,7 @@ export const VistaCompiti = {
     const righe = Store.findItemLocations(q)
       .filter(it => (Store.getAvailableQty(it.location_code, it.item_key) || 0) > 0);
     if (!righe.length) {
-      box.innerHTML = `<div class="text-label-small text-sx-warning">⚠ Nessuna giacenza disponibile per «${this._esc(q)}»</div>`;
+      box.innerHTML = `<div class="text-label-small text-sx-warning">⚠️ Nessuna giacenza disponibile per «${this._esc(q)}»</div>`;
       return;
     }
     const ordinate = Store.sortByFEFO(righe).slice(0, 12);

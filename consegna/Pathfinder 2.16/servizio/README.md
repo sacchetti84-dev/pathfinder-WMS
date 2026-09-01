@@ -24,7 +24,7 @@ e non installano niente.
 5. [Trasloco su macchina virtuale](#5-trasloco-su-macchina-virtuale)
 6. [Configurazione](#6-configurazione)
 7. [Backup e ripristino](#7-backup-e-ripristino)
-8. [Aggiornare a una versione nuova](#8-aggiornare-a-una-versione-nuova)
+8. [Aggiornare a una versione nuova](#8-aggiornare-a-una-versione-nuova) · [Togliere Pathfinder](#togliere-pathfinder-da-questa-macchina)
 9. [Quando qualcosa non va](#9-quando-qualcosa-non-va)
 10. [Sviluppo](#10-sviluppo)
 11. [Decisioni da conoscere prima di metterci le mani](#11-decisioni-da-conoscere-prima-di-metterci-le-mani)
@@ -397,6 +397,24 @@ Invoke-RestMethod http://127.0.0.1:4199/api/health | Select-Object file, revisio
 L'applicativo è servito con `no-cache`, quindi il browser chiede sempre se
 la copia che ha è ancora buona: non serve svuotare la cache sui terminali.
 
+### Togliere Pathfinder da questa macchina
+
+Dal pacchetto, in una finestra da amministratore:
+
+```powershell
+.\installa.ps1 -Disinstalla -Prova            # dice cosa toglierebbe, non tocca niente
+.\installa.ps1 -Disinstalla                   # toglie servizio, attività, variabili e cartelle
+.\installa.ps1 -Disinstalla -AncheIlDatabase  # toglie anche il database e il ruolo su PostgreSQL
+```
+
+> **Il database non se ne va da solo.** Senza `-AncheIlDatabase` restano il
+> database e il ruolo su PostgreSQL: è voluto, perché disinstallare
+> l'applicativo e buttare sei anni di registro non sono lo stesso gesto.
+> **PostgreSQL non viene disinstallato in nessun caso.**
+
+Installazione e disinstallazione **non si fanno nella stessa corsa**: chi
+vuole ripartire pulito fa due corse.
+
 ---
 
 ## 9. Quando qualcosa non va
@@ -438,6 +456,29 @@ amministratore. Per collaudare una modifica senza fermarlo, si avvia una
 
 Quasi sempre è il servizio non riavviato (§8). Il secondo sospetto è
 `PATHFINDER_APP` che punta a un altro file: lo dice `/api/app-info`.
+
+### Ho perso il PIN, e non c'è nessuno che possa rinnovarmelo
+
+Il PIN **non è recuperabile**: sul disco resta la sua impronta, non il
+numero. Le vie d'uscita sono tre, in ordine di preferenza.
+
+1. **Un grado più alto lo rinnova, dall'applicativo.** Configurazione →
+   Operatori, il bottone del rinnovo: chi autorizza digita il **proprio**
+   PIN. L'Operatore lo rinnova un Team Leader, il Team Leader un Admin,
+   l'Admin chiunque.
+2. **Se il PIN perso è quello dell'unico Admin: il codice di ripristino.**
+   Dalla schermata di accesso, «🗝 Ho un codice di ripristino»: si sceglie
+   l'Admin, si digita il codice — venti caratteri, spazi e minuscole
+   perdonati — e si scrive il PIN nuovo. Il codice **si consuma**, e al suo
+   posto ne compare subito un altro, mostrato **una volta sola**: si stampa
+   e si mette dove stava quello di prima. Chi non ne ha uno lo genera da
+   Configurazione → Operatori, col bottone 🗝.
+3. **Se non c'è né l'una né l'altra: la chiave di macchina.**
+   `PATHFINDER_TOKEN` apre le rotte senza sessione, e sta sulla macchina del
+   servizio. **È l'uscita di servizio, non una procedura.**
+
+La causa si toglie con **un secondo Team Leader** — un minuto in
+Configurazione → Operatori — e con un codice di ripristino stampato.
 
 ### Il backup di stanotte non c'è
 
@@ -599,6 +640,13 @@ validi.
 su cui si cerca; il resto vive nella colonna `data`. Normalizzare tutto
 rimetterebbe la catena che IndexedDB non aveva: ogni campo nuovo un
 `ALTER TABLE` e un fermo del servizio.
+
+**L'ultimo Admin non si retrocede, non si disattiva e non si cancella.** Lo
+impone il **servizio**, non la maschera: senza Admin la Configurazione non si
+apre e il codice di ripristino non vale — si resterebbe con la sola chiave di
+macchina. Con due Admin il gesto passa. Il reset dei dati resta permesso:
+svuota tutto, nessuno resta con un PIN, e la finestra del primo avvio si
+riapre da sé.
 
 **I documenti di stampa restano in `pt` e `mm`.** MD3 è un sistema per lo
 schermo; la carta non ha un rem.

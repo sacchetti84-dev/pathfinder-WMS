@@ -171,7 +171,9 @@ export const VistaUdc = {
     } catch (e) {
       return this.toast((e as Error).message, 'error');
     }
-    await this._logMov(MOV.EDIT, '', '', '', loc, null, '', `Unità di carico creata: ${rec.udc_id}`);
+    /* 2.16 — voce 34: causale sua. Un contenitore che nasce non e' la
+       modifica dei dati di un articolo che non c'e'. */
+    await this._logMov(MOV.UDC, '', '', '', loc, null, '', `Unità di carico creata: ${rec.udc_id}`);
     this.closeModal();
     this._udcSel = rec.udc_id;
     this._formUdc($('movFormArea'));
@@ -264,7 +266,7 @@ export const VistaUdc = {
     let esito = null;
     try {
       esito = await Store.moveUdc(id, dest, {
-        type: MOV.MOVE, article_code: '', article_description: '', lot_code: '',
+        type: MOV.UDC, article_code: '', article_description: '', lot_code: '',
         location_code: da, dest_location: dest,
         user: Store.getCurrentIdentity().initials, ts: Date.now(),
         notes: `Unità di carico ${id} — ${Store.righeDiUdc(id).length} righe`,

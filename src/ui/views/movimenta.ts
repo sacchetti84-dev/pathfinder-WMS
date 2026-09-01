@@ -157,7 +157,7 @@ export const VistaMovimenta = {
     }
     const spazio = Persistence.diskFull;
     Dialog.confirm({
-      title: '⚠ MOVIMENTO NON REGISTRATO A REGISTRO',
+      title: '⚠️ MOVIMENTO NON REGISTRATO A REGISTRO',
       message: (spazio
         ? 'Lo spazio di archiviazione è esaurito. '
         : 'La scrittura nel database non è riuscita. ') +
@@ -171,7 +171,7 @@ export const VistaMovimenta = {
         ['Ubicazione', entry.dest_location ? `${entry.location_code} → ${entry.dest_location}` : (entry.location_code || '—')],
         ['Operatore', entry.user || '—']
       ]),
-      confirmLabel: 'Ho annotato', danger: true, icon: '⚠'
+      confirmLabel: 'Ho annotato', danger: true, icon: '⚠️'
     });
     this._renderRecoveryBanner();
   },
@@ -236,7 +236,7 @@ export const VistaMovimenta = {
       else localStorage.removeItem(this._MOVQUEUE_KEY);
     } catch {}
     if (scritti) this.toast(`✓ ${scritti} movimento/i in attesa recuperato/i e scritto/i a registro`, 'success');
-    if (rimasti.length) this.toast(`⚠ ${rimasti.length} movimento/i non ancora recuperabile/i — liberare spazio`, 'error');
+    if (rimasti.length) this.toast(`⚠️ ${rimasti.length} movimento/i non ancora recuperabile/i — liberare spazio`, 'error');
     this._renderRecoveryBanner();
   },
 
@@ -252,7 +252,7 @@ export const VistaMovimenta = {
       el.className = 'recovery-banner';
       document.body.appendChild(el);
     }
-    el.innerHTML = `<span>⚠ <strong>${n}</strong> movimento/i eseguito/i ma NON ancora scritto/i a registro.</span>
+    el.innerHTML = `<span>⚠️ <strong>${n}</strong> movimento/i eseguito/i ma NON ancora scritto/i a registro.</span>
       <button class="btn btn-sm btn-warning" onclick="App._flushRecoveryQueue()">Riprova ora</button>
       <button class="btn btn-sm" onclick="App._showRecoveryQueue()">Vedi elenco</button>`;
   },
@@ -269,7 +269,7 @@ export const VistaMovimenta = {
       <td>${this._esc(e.user || '—')}</td>
     </tr>`).join('');
     this.showModal(
-      `⚠ Movimenti in attesa di registrazione (${coda.length})`,
+      `⚠️ Movimenti in attesa di registrazione (${coda.length})`,
       `<p class="text-body-small text-sx-text-secondary mb-6">
         Queste operazioni <strong>sono state eseguite sulla giacenza</strong> ma non è stato possibile scriverle
         nel registro movimenti. Restano in coda e vengono ritentate a ogni avvio e a ogni click su “Riprova”.

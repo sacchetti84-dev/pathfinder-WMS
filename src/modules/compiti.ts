@@ -11,6 +11,7 @@
    `test/compiti.test.js`. */
 
 import type { Compito, Istante } from '../types/entita.js';
+import { quantitaMossa } from './registro.js';
 
 /* ── Le tabelle ─────────────────────────────────────────────────────── */
 
@@ -594,6 +595,10 @@ export interface MovimentoLetto {
   user?: string;
   notes?: string;
   qty_delta?: number | null;
+  /* 2.16 — voce 33: senza questi due, un trasferimento di riga intera
+     risultava «0 fatto». La quantita' mossa si legge da tutti e tre. */
+  qty_before?: number | null;
+  dest_location?: string | null;
 }
 
 /** Una riga del registro: o un compito, o un movimento che compito non è
@@ -649,7 +654,8 @@ export function registroAttivita(
         location_code: m.location_code,
       },
       note: m.notes || '',
-      qty_done: Math.abs(Number(m.qty_delta) || 0),
+      /* 2.16 — voce 33: un trasferimento di riga intera faceva «0 fatto». */
+      qty_done: quantitaMossa(m) ?? 0,
       mov_ids: typeof m._id === 'number' ? [m._id] : [],
       origine: 'movimento',
     });

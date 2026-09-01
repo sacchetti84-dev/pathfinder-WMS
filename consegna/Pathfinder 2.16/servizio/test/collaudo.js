@@ -896,7 +896,23 @@ const call = async (metodo, url, corpo, cliente = 'T1', { senzaChiave = false } 
       movement: { type: 'MOVE', article_code: 'MP-9', location_code: 'DP-U-09', dest_location: 'DP-U-10', user: 'ANDS' } });
   const registro = (await call('GET', '/api/c/mov_log')).dati.filter(m => m.dest_location === 'DP-U-10');
   ok('il movimento entra a registro dentro la stessa transazione',
-     conMov.stato === 200 && registro.length === 1, `${registro.length} righe a registro`);
+     conMov.stato === 200 && registro.length > 0, `${registro.length} righe a registro`);
+
+  /* 2.16 — voce 34 · LA MERCE SI NOMINA, ANCHE IN BLOCCO.
+     Fino alla 2.15 qui c'era UNA riga sola, e non nominava ne' articolo ne'
+     lotto: due partite cambiavano vano e il registro non diceva quali. La
+     riga del contenitore resta, ma adesso e' accompagnata. */
+  const merce = registro.filter(m => m.article_code && m.lot_code);
+  const righeUdc = (await call('GET', '/api/c/inventory')).dati
+    .filter(r => r.udc_id === 'UDC-000001');
+  ok('e ogni partita che si e mossa col pallet ha la sua riga',
+     merce.length === righeUdc.length && righeUdc.length > 0,
+     `${merce.length} righe di merce su ${righeUdc.length} partite`);
+
+  ok('ognuna dice da dove a dove, quanti colli e chi ha firmato',
+     merce.every(m => m.location_code === 'DP-U-09' && m.dest_location === 'DP-U-10'
+                   && typeof m.qty_before === 'number' && m.user === 'ANDS'),
+     merce.map(m => `${m.article_code}#${m.lot_code}:${m.qty_before}`).join(' · ') || '(nessuna)');
 
   const info = await call('GET', '/api/app-info');
   ok('app-info dice modo, versione e impronta del manifesto',

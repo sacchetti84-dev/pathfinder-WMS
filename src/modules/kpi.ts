@@ -31,6 +31,7 @@
    escono numeri. Collaudato da fermo in `test/kpi.test.js`. */
 
 import type { Movimento, Compito, Giacenza, Articolo, Istante } from '../types/entita.js';
+import { quantitaMossa } from './registro.js';
 
 const GIORNO_MS = 86_400_000;
 
@@ -142,7 +143,10 @@ export function perPersona(
     const r = riga(sigla);
     r.movimenti++;
     r.perCausale[m.type] = (r.perCausale[m.type] || 0) + 1;
-    if (typeof m.qty_delta === 'number') r.colli += Math.abs(m.qty_delta);
+    /* 2.16 — voce 33: non `Math.abs(qty_delta)`. Un trasferimento di riga
+       intera ha variazione zero e muove tutti i colli che porta. */
+    const mossi = quantitaMossa(m);
+    if (mossi !== null) r.colli += mossi;
     if (typeof m.qty_uom_delta === 'number' && m.uom) {
       r.uom[m.uom] = arrotonda((r.uom[m.uom] || 0) + Math.abs(m.qty_uom_delta));
     }
@@ -233,8 +237,9 @@ export function perMovimento(
     out.perCausale[m.type] = (out.perCausale[m.type] || 0) + 1;
     if (String(m.type).startsWith('FIX')) out.rettifiche++;
     if (!String(m.user ?? '').trim()) out.senzaFirma++;
-    if (typeof m.qty_delta !== 'number') out.senzaQuantita++;
-    else out.colli += Math.abs(m.qty_delta);
+    const quanti = quantitaMossa(m);
+    if (quanti === null) out.senzaQuantita++;
+    else out.colli += quanti;
     if (typeof m.qty_uom_delta === 'number' && m.uom) {
       out.uom[m.uom] = arrotonda((out.uom[m.uom] || 0) + Math.abs(m.qty_uom_delta));
     }

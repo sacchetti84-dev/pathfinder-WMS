@@ -33,7 +33,7 @@ export const VistaDestinatari = {
           <td class="mono">${this._esc(r.vat || r.fiscal_code || '')}</td>
           <td class="td-center">${(r.destinations || []).length}</td>
           <td class="td-center whitespace-nowrap">
-            <button class="btn btn-sm" onclick="App.showEditRecipientModal('${this._esc(r.rcp_id)}')">✏</button>
+            <button class="btn btn-sm" onclick="App.showEditRecipientModal('${this._esc(r.rcp_id)}')">✏️</button>
             <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteRecipient('${this._esc(r.rcp_id)}')">🗑</button>
           </td></tr>`;
       }).join('')
@@ -46,7 +46,7 @@ export const VistaDestinatari = {
         Due DDT parlano dello stesso destinatario quando coincide la <strong>partita IVA</strong>.
       </div>
       ${senzaPiva ? `<div class="mov-preview mov-preview-warn mb-6">
-        ⚠ <strong>${senzaPiva}</strong> ${senzaPiva === 1 ? 'destinatario è' : 'destinatari sono'} senza partita IVA: ${senzaPiva === 1 ? 'viene riconosciuto' : 'vengono riconosciuti'} dalla ragione sociale,
+        ⚠️ <strong>${senzaPiva}</strong> ${senzaPiva === 1 ? 'destinatario è' : 'destinatari sono'} senza partita IVA: ${senzaPiva === 1 ? 'viene riconosciuto' : 'vengono riconosciuti'} dalla ragione sociale,
         e due grafie diverse ${senzaPiva === 1 ? 'ne farebbero' : 'ne farebbero'} due record.
       </div>` : ''}
       <div class="form-group mb-5 max-w-[340px]">

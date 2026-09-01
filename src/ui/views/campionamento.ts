@@ -75,7 +75,7 @@ export const VistaCampionamento = {
     if (q.length < 2) { box.innerHTML = ''; return; }
     const righe = Store.findItemLocations(q).filter(it => (it.qty || 0) > 0);
     if (!righe.length) {
-      box.innerHTML = `<div class="text-label-small text-sx-warning">⚠ Nessuna giacenza per «${this._esc(q)}»</div>`;
+      box.innerHTML = `<div class="text-label-small text-sx-warning">⚠️ Nessuna giacenza per «${this._esc(q)}»</div>`;
       return;
     }
     /* FEFO come ovunque: il campione si prende dal lotto che scade prima,
@@ -142,7 +142,7 @@ export const VistaCampionamento = {
           per prendere tutto il collo serve un prelievo.</div>
       </div>` : ''}`
       : `<div class="mov-preview mov-preview-warn mb-5">
-          ⚠ <strong>${this._esc(it.article_code)} non ha una quantità per collo</strong>:
+          ⚠️ <strong>${this._esc(it.article_code)} non ha una quantità per collo</strong>:
           il prelievo si registra a registro, ma nessuna quantità cala.
           Si scioglie da sé compilando <span class="mono">Pezzi_Per_Collo</span> in anagrafica.
         </div>`}
@@ -176,7 +176,7 @@ export const VistaCampionamento = {
       <input type="hidden" id="cpCleanAuto" value="${auto ? '1' : '0'}">
       ${auto ? `
       <div class="mov-preview mov-preview-warn mb-5">
-        <strong>⚠ ${this._esc(it.article_code)} porta allergeni: ${this._esc(nomi)}</strong><br>
+        <strong>⚠️ ${this._esc(it.article_code)} porta allergeni: ${this._esc(nomi)}</strong><br>
         <span class="text-body-small">
           Pulire la zona di prelievo a campionamento terminato. La pulizia è
           <strong>obbligatoria</strong> e viene registrata da sé nel registro attività.</span>

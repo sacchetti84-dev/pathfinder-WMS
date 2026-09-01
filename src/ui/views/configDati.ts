@@ -87,8 +87,10 @@ export const VistaConfigDati = {
       <h3>Stato Database</h3>
       <table class="sx-table mb-7.5">
         <tbody>
-          <tr><td class="w-[40%] text-sx-text-secondary">Ultimo salvataggio</td><td class="mono">${meta.lastModified ? new Date(meta.lastModified).toLocaleString('it-IT') : 'Mai'}</td></tr>
-          <tr><td class="text-sx-text-secondary">Modifiche non salvate</td><td>${meta.unsavedChanges ? '<span class="badge badge-amber">Sì</span>' : '<span class="badge badge-green">No</span>'}</td></tr>
+          <tr><td class="w-[40%] text-sx-text-secondary">${Store.eServito() ? 'Ultima scrittura' : 'Ultimo salvataggio'}</td><td class="mono">${meta.lastModified ? new Date(meta.lastModified).toLocaleString('it-IT') : 'Mai'}</td></tr>
+          <tr><td class="text-sx-text-secondary">Modifiche non salvate</td><td>${Store.eServito()
+            ? '<span class="badge badge-green">No — servito, ogni gesto è già scritto</span>'
+            : (meta.unsavedChanges ? '<span class="badge badge-amber">Sì</span>' : '<span class="badge badge-green">No</span>')}</td></tr>
           <tr><td class="text-sx-text-secondary">Item a magazzino</td><td class="mono">${invCount}</td></tr>
           <tr><td class="text-sx-text-secondary">Articoli in anagrafica</td><td class="mono">${Store.getArticles().length}</td></tr>
           <tr><td class="text-sx-text-secondary">Movimenti in archivio</td><td class="mono">${Store.getMovLogTotal().toLocaleString('it-IT')} <span class="badge badge-green">conservazione ${Math.round(LOG_RETENTION_DAYS/365)} anni</span></td></tr>
@@ -100,7 +102,7 @@ export const VistaConfigDati = {
       </table>
       <div class="flex gap-4 flex-wrap">
         <button class="btn btn-primary" onclick="App.exportData()" title="Scrive un file JSON con tutto il magazzino: giacenze, registro, quarantene, documenti, operatori e impostazioni">💾 Salva backup (JSON)</button>
-        <button class="btn btn-accent" onclick="App.importData()" title="Rimette in questo database il contenuto di un backup JSON">♻ Recupera da backup (JSON)</button>
+        <button class="btn btn-accent" onclick="App.importData()" title="Rimette in questo database il contenuto di un backup JSON">♻️ Recupera da backup (JSON)</button>
         <button class="btn btn-warning" onclick="App.exportMovLogExcel()">📊 Esporta Registro Movimenti (Excel)</button>
         <button class="btn btn-warning" onclick="App.exportGiacenzeExcel()" title="Esporta tutte le giacenze raggruppate per Site/Zona/Ubicazione">📦 Esporta Giacenze per Area (Excel)</button>
         <button class="btn btn-danger ml-auto" onclick="App.confirmResetData()">🗑 Reset completo DB</button>
@@ -212,7 +214,7 @@ export const VistaConfigDati = {
     const titolo = livello === 'ok'
       ? '🛡 Il database vive nel servizio dati'
       : livello === 'warn'
-        ? '⚠ Il database vive dentro questo browser'
+        ? '⚠️ Il database vive dentro questo browser'
         : '⛔ Database dentro il browser, senza archiviazione persistente';
 
     host.innerHTML = `<div class="config-card" style="border-left:4px solid ${bordo};margin-bottom:0.75rem">
@@ -362,7 +364,7 @@ export const VistaConfigDati = {
           .map(d => `  • ${d.collection}: ${d.memoria} in memoria, ${d.disco} nel database`)
           .join('\n');
         await Dialog.confirm({
-          title: '⚠ Disallineamento rilevato e corretto',
+          title: '⚠️ Disallineamento rilevato e corretto',
           message: 'Il controllo ha trovato una differenza fra i dati in memoria e quelli scritti nel database. ' +
                    'La memoria è stata riallineata al database, che è la copia che sopravvive al riavvio.\n\n' +
                    elenco + '\n\nSe la differenza riguarda giacenze o movimenti, verificare l’ultima operazione eseguita.',
@@ -389,7 +391,7 @@ export const VistaConfigDati = {
       const check = Store.verifyExportPackage(data);
       if (!check.ok) {
         const proceed = await Dialog.confirm({
-          title: '⚠ Il file presenta anomalie',
+          title: '⚠️ Il file presenta anomalie',
           message: 'La verifica preliminare ha segnalato quanto segue:\n\n' +
                    check.problemi.map(p => '  • ' + p).join('\n') +
                    '\n\nProseguire solo se si è certi della provenienza del file.',
@@ -417,7 +419,7 @@ export const VistaConfigDati = {
          zero movimenti, e allora il registro si svuota davvero. */
       const senzaRegistro = !Array.isArray(data.mov_log);
       const notaRegistro = senzaRegistro
-        ? ' — ⚠ senza registro movimenti: quello di adesso resta dov’è'
+        ? ' — ⚠️ senza registro movimenti: quello di adesso resta dov’è'
         : '';
 
       let mode = null;
@@ -689,7 +691,7 @@ export const VistaConfigDati = {
             e.siteName, e.zoneName, e.location_code, e.article_code, e.article_description, e.lot_code,
             `${e.qty} ?`, '', '',
             e.expiry_date, e.placed_at_str, e.last_updated_str, e.placed_by,
-            `⚠ ${e.qty} coll. su una riga sola: non ci stanno in un foglio Excel, `
+            `⚠️ ${e.qty} coll. su una riga sola: non ci stanno in un foglio Excel, `
               + 'e la riga non è stata distesa per collo. Da verificare con una Conta'
               + (e.notes ? ` — ${e.notes}` : ''),
           ]];
@@ -959,7 +961,7 @@ export const VistaConfigDati = {
 
     /* Niente da scrivere e solo problemi: non e' una conferma, e' un referto. */
     if (!letto.righe.length) {
-      await Dialog.alert({ title: 'Nessuna riga importabile', icon: '⚠', details: wrap });
+      await Dialog.alert({ title: 'Nessuna riga importabile', icon: '⚠️', details: wrap });
       return false;
     }
 

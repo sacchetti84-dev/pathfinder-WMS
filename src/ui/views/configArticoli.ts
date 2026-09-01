@@ -105,7 +105,7 @@ export const VistaConfigArticoli = {
           _h('button', {
             class: 'btn btn-sm',
             onclick: () => this.showEditArticleModal(code)
-          }, ['✏']),
+          }, ['✏️']),
           ' ',
           _h('button', {
             class: 'btn btn-sm btn-danger',
@@ -222,7 +222,7 @@ export const VistaConfigArticoli = {
       out.push({ tipo: 'temp', icona: '🌡', et: 'Conservazione', testo: etichettaClasse(a.temp_class) });
     }
     if (a.allergens?.length) {
-      out.push({ tipo: 'all', icona: '⚠', et: 'Allergeni', testo: a.allergens.map(c => this._etAllergene(c)).join(', ') });
+      out.push({ tipo: 'all', icona: '⚠️', et: 'Allergeni', testo: a.allergens.map(c => this._etAllergene(c)).join(', ') });
     }
     if (a.certifications?.length) {
       out.push({ tipo: 'cert', icona: '✓', et: 'Certificazioni', testo: a.certifications.map(etichettaCertificazione).join(', ') });
@@ -316,7 +316,7 @@ export const VistaConfigArticoli = {
       if (elenco) {
         const v = verificaElenco(item.qty, item.qty_uom, elenco, cfg.uom);
         const scarto = v && !v.ok
-          ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono all'elenco: ne risulterebbero ${v.colliAttesi}">⚠ ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
+          ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono all'elenco: ne risulterebbero ${v.colliAttesi}">⚠️ ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
           : '';
         return `<div class="item-meta">⚖ ${this._esc(descriviElenco(elenco, cfg.uom))}${scarto}</div>`;
       }
@@ -330,7 +330,7 @@ export const VistaConfigArticoli = {
        precisamente il modo di scriverne uno sbagliato ma plausibile. */
     const v = Store.verificaUom(item);
     const avviso = v && !v.ok
-      ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono alle UM: ne risulterebbero ${v.colliAttesi}">⚠ ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
+      ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono alle UM: ne risulterebbero ${v.colliAttesi}">⚠️ ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
       : '';
     const incompleto = s.incompleto
       ? ' <span class="badge badge-muted" title="L\'ultimo collo non è pieno">collo incompleto</span>'

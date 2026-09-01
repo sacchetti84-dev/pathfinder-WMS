@@ -36,7 +36,7 @@ export const VistaParametri = {
     { chiave: 'unita', titolo: 'Unità di misura', icona: '⚖',
       nota: 'Le cinque che il motore sa dividere sono fisse. Ciò che si aggiunge qui compare fra i suggerimenti dell\'anagrafica, ma resta «non gestita»: il motore non la divide.',
       elenco: 'getUnitaAmmesse' },
-    { chiave: 'allergeni', titolo: 'Allergeni', icona: '⚠',
+    { chiave: 'allergeni', titolo: 'Allergeni', icona: '⚠️',
       nota: 'I 14 dell\'Allegato II del Reg. UE 1169/2011 sono una norma e non si tolgono. Le voci aziendali — il lattosio, che non è il latte — si aggiungono accanto.',
       elenco: 'getAllergeniAmmessi' },
     { chiave: 'conservazione', titolo: 'Modalità di conservazione', icona: '🌡',

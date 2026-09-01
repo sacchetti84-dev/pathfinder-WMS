@@ -29,6 +29,12 @@ const PORTA = 4199;
 
 const attesa = (ms) => new Promise((r) => setTimeout(r, ms));
 
+const DIFETTI = path.join(__dirname, 'difetti.json');
+function leggiDifetti() {
+  try { return JSON.parse(require('node:fs').readFileSync(DIFETTI, 'utf8')); }
+  catch { return []; }
+}
+
 async function vivo() {
   try {
     const r = await fetch(`http://127.0.0.1:${PORTA}/api/health`);
@@ -81,6 +87,20 @@ function rifaiDatabase() {
   for (let i = 0; i < 60 && !(await vivo()); i++) await attesa(250);
   if (!await vivo()) { console.error('il banco non si è acceso:\n' + log); process.exit(2); }
 
+  /* 2.16 — voce 50 · UN DIFETTO GRAVE TINGE DI ROSSO LA CORSA.
+     `difetto()` scriveva la riga nel verbale e la prova risultava passata: il
+     25/08, rimettendo apposta il difetto della voce 45, il banco ha alzato PA6
+     (grave) con «movimenti 112 → 0» e vitest ha detto «3 passed». Il verbale
+     lo apre chi sospetta gia' qualcosa, e un banco che tace non serve.
+
+     QUALI SEVERITA' FERMANO LA CORSA: solo `grave`. `dato` no — dice che
+     l'anagrafica e' incompleta, non che il codice sbaglia, e finche' le voci
+     5 e 58 sono aperte tingerebbe di rosso ogni giro per sempre.
+
+     Si guarda l'ora, non l'elenco: `difetti.json` non si svuota mai, e le
+     righe vecchie sono memoria. Rossa la fanno solo quelle di QUESTA corsa. */
+  const inizio = new Date().toISOString();
+
   const argomenti = ['vitest', 'run', '--root', '.', '--config', 'banco/ciclo/vitest.config.js'];
   if (solo) argomenti.push(solo);
   const esito = spawnSync('npx', argomenti, {
@@ -90,5 +110,15 @@ function rifaiDatabase() {
 
   servizio.kill();
   await spegniQuelCheCiSta();
+
+  const gravi = leggiDifetti().filter((d) => d.gravita === 'grave' && d.visto >= inizio);
+  if (gravi.length) {
+    console.error('');
+    console.error(`  ${gravi.length} DIFETTO${gravi.length > 1 ? 'I' : ''} GRAVE${gravi.length > 1 ? 'I' : ''} in questa corsa:`);
+    for (const d of gravi) console.error(`  · ${d.id} — ${d.dove}: ${d.cosa}`);
+    console.error('  Il verbale sta in banco/ciclo/verbale.md');
+    console.error('');
+    process.exit(1);
+  }
   process.exit(esito.status ?? 1);
 })();

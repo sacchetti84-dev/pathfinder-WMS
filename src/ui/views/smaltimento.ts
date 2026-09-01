@@ -434,13 +434,13 @@ export const VistaSmaltimento = {
     if (!Store.isFEFOItem(item)) {
       const fefo = Store.getFEFOItemForArticle(item.article_code);
       if (fefo && fefo.expiry_date && (!item.expiry_date || item.expiry_date > fefo.expiry_date)) {
-        const msg = `⚠ NON-FEFO\n\nStai per smaltire ${item.article_code}#${item.lot_code}` +
+        const msg = `⚠️ NON-FEFO\n\nStai per smaltire ${item.article_code}#${item.lot_code}` +
           (item.expiry_date ? ` (scad. ${item.expiry_date})` : '') +
           `\n\nIl lotto FEFO consigliato è: ${fefo.lot_code}` +
           (fefo.expiry_date ? ` (scad. ${fefo.expiry_date})` : '') +
           ` in ${fefo.location_code}\n\nProcedere comunque?`;
         if (!await Dialog.confirm({
-          title: '⚠ Smaltimento NON conforme a FEFO',
+          title: '⚠️ Smaltimento NON conforme a FEFO',
           message: msg,
           confirmLabel: 'Smaltisci comunque questo lotto',
           cancelLabel: 'Annulla',
@@ -690,7 +690,7 @@ export const VistaSmaltimento = {
     const gaps = this._docSenderGaps();
     if (!gaps.length) return '';
     return `<div class="doc-warn">
-      <b>⚠ Documento non conforme — anagrafica del mittente incompleta</b>
+      <b>⚠️ Documento non conforme — anagrafica del mittente incompleta</b>
       Mancano: ${this._esc(gaps.join(', '))}. Compilare in Configurazione → DDT e Documenti e ristampare.
     </div>`;
   },

@@ -111,7 +111,7 @@ const Dialog = {
   },
 
   /* Costruisce e apre il dialogo. Ritorna una Promise risolta alla chiusura. */
-  _open<T extends Esito>({ icon = 'ℹ', title, bodyNode, actions, danger = false, kind = 'confirm',
+  _open<T extends Esito>({ icon = 'ℹ️', title, bodyNode, actions, danger = false, kind = 'confirm',
           guardMs = null, focusTarget = null }: Apertura): Promise<T | null> {
     const overlay = this._overlay();
     if (this.isOpen) this._finish(null);   // un dialogo per volta
@@ -300,7 +300,7 @@ const Dialog = {
     danger?: boolean; icon?: string | null; guardMs?: number | null; focusTarget?: string | null;
   }): Promise<boolean | null> {
     return this._open<boolean>({
-      icon: icon || (danger ? '⚠' : '❓'),
+      icon: icon || (danger ? '⚠️' : '❓'),
       title,
       bodyNode: this._mkBody(message, details),
       danger,
@@ -314,7 +314,7 @@ const Dialog = {
     });
   },
 
-  alert({ title, message = '', details = null, icon = 'ℹ', okLabel = 'Ho capito' }: {
+  alert({ title, message = '', details = null, icon = 'ℹ️', okLabel = 'Ho capito' }: {
     title: string; message?: string; details?: Node | null; icon?: string; okLabel?: string;
   }): Promise<boolean | null> {
     return this._open<boolean>({

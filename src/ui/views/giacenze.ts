@@ -218,7 +218,7 @@ export const VistaGiacenze = {
     return `<div class="detail-field">
       <span class="df-label">In giacenza</span>
       <span class="df-value"><strong class="text-sx-accent">${r.colli} Coll.</strong> · <strong>${um}</strong>${
-        r.senzaUnita ? ` <span class="badge badge-amber" title="${r.senzaUnita} righe non hanno unità di misura: il totale in UM non le comprende">⚠ ${r.senzaUnita} senza UM</span>` : ''
+        r.senzaUnita ? ` <span class="badge badge-amber" title="${r.senzaUnita} righe non hanno unità di misura: il totale in UM non le comprende">⚠️ ${r.senzaUnita} senza UM</span>` : ''
       }</span>
     </div>`;
   },
@@ -477,7 +477,7 @@ export const VistaGiacenze = {
       </div>
 
       <div class="bg-sx-warning-soft border border-sx-warning rounded-[var(--radius)] py-4.5 px-6 mb-8.5 text-body-small text-sx-warning">
-        ⚠ Modificare <strong>Codice Articolo</strong> o <strong>Lotto</strong> cambia l'identificativo dell'item e viene registrato nel log.
+        ⚠️ Modificare <strong>Codice Articolo</strong> o <strong>Lotto</strong> cambia l'identificativo dell'item e viene registrato nel log.
       </div>
 
       <div class="form-row mb-6">
@@ -517,7 +517,7 @@ export const VistaGiacenze = {
       </div>
 
       <div class="hidden bg-sx-danger-soft border border-sx-danger rounded-[var(--radius)] py-4.5 px-6 mt-5 text-body-small text-sx-danger" id="editItemKeyWarn">
-        ⚠ <strong>Cambio identificativo:</strong> il codice articolo o il lotto sono stati modificati. L'operazione ricreerà l'item con il nuovo ID e verrà tracciata nel log movimenti.
+        ⚠️ <strong>Cambio identificativo:</strong> il codice articolo o il lotto sono stati modificati. L'operazione ricreerà l'item con il nuovo ID e verrà tracciata nel log movimenti.
       </div>`,
 
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
@@ -548,7 +548,7 @@ export const VistaGiacenze = {
          scrive come si scrive un'assenza. */
       if (descEl && !descEl.value.trim()) descEl.value = art.description ?? '';
     } else if (code) {
-      info.innerHTML = `<span class="text-sx-warning">⚠ Codice non in anagrafica — verrà aggiunto automaticamente al salvataggio</span>`;
+      info.innerHTML = `<span class="text-sx-warning">⚠️ Codice non in anagrafica — verrà aggiunto automaticamente al salvataggio</span>`;
     } else {
       info.innerHTML = '';
     }

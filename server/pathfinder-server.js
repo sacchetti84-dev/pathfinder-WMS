@@ -52,7 +52,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.15';
+const VERSION = '2.16';
 
 /* ── 2.10 · SU QUALE INTERFACCIA SI ASCOLTA ───────────────────────────────
    Fino alla 2.9 `listen` non diceva su quale, e Node in quel caso le prende
@@ -551,6 +551,101 @@ const eAdmin = async (chi) => {
   } catch { return false; }
 };
 
+/* ══ 2.16 · L'ULTIMO ADMIN NON SI TOGLIE DA SOLO ══════════════════════════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   La 2.13 ha portato la gerarchia dal client al servizio, ma UNA regola di
+   §8 era rimasta indietro: «l'ultimo Admin non si retrocede e non si
+   disattiva» viveva soltanto in `configOperatori.ts`. Il servizio lasciava
+   passare la PATCH che toglie la carica all'unico Admin — chi la manda E'
+   un Admin, e il guardiano dei ruoli chiede solo quello.
+
+   E' un vicolo cieco, non un fastidio: senza Admin la Configurazione non si
+   apre, e il codice di ripristino pretende `role === 'admin'`. La finestra
+   del primo avvio nemmeno si riapre, perche' guarda i PIN e non le cariche.
+   Resterebbe la sola chiave di macchina.
+
+   COME SI CONTROLLA. Non si indovina la forma della richiesta: si SIMULA.
+   Le mutazioni si traducono in una forma sola, si applicano a una copia
+   dell'anagrafica, e si guarda com'e' rimasta. Cosi' la regola vale anche
+   dentro una transazione che tocca tre operatori in fila.
+
+   COSA RESTA PERMESSO, e deve restarlo:
+   · il reset dei dati, che svuota TUTTO — nessuno resta con un PIN, e la
+     finestra del primo avvio si riapre da se';
+   · la chiave di macchina, che e' l'uscita di servizio dichiarata in §8.  */
+
+const _attivo = (o) => Boolean(o) && o.active !== false;
+const _haPin = (o) => Boolean(o && o.pin_hash && o.pin_salt);
+
+/* Le mutazioni sull'anagrafica, ridotte a quattro verbi: svuota, delete,
+   update, put. `put` SOSTITUISCE, come fa il driver. */
+const mutazioniOperatori = async (req) => {
+  const p = req.path, b = req.body, m = req.method;
+  const per = async (criteria) =>
+    (await db.query('operators', { criteria })).map((o) => ({ op: 'delete', key: o.op_id }));
+
+  if (p === '/c/operators/bulk') return (Array.isArray(b) ? b : []).map((r) => ({ op: 'put', record: r }));
+  if (p === '/c/operators') {
+    if (m === 'POST') return [{ op: 'put', record: b }];
+    if (m === 'DELETE') return [{ op: 'svuota' }];
+    return [];
+  }
+  if (p.startsWith('/c/operators/')) {
+    const key = decodeURIComponent(p.slice('/c/operators/'.length));
+    if (m === 'PUT') return [{ op: 'put', record: b }];
+    if (m === 'PATCH') return [{ op: 'update', key, changes: b }];
+    if (m === 'DELETE') return [{ op: 'delete', key }];
+    return [];
+  }
+  if (p === '/deleteWhere/operators') return per(b);
+  if (p === '/clear') return [{ op: 'svuota' }];
+  if (p === '/tx') {
+    const fuori = [];
+    for (const o of (Array.isArray(b?.ops) ? b.ops : [])) {
+      const suGliOperatori = o?.collection === 'operators';
+      const nellElenco = Array.isArray(o?.collections) && o.collections.includes('operators');
+      if (!suGliOperatori && !nellElenco) continue;
+      switch (o.op) {
+        case 'add': case 'put': fuori.push({ op: 'put', record: o.record }); break;
+        case 'update':          fuori.push({ op: 'update', key: o.key, changes: o.changes }); break;
+        case 'delete':          fuori.push({ op: 'delete', key: o.key }); break;
+        case 'bulkAdd': case 'bulkPut':
+          for (const r of (o.records || [])) fuori.push({ op: 'put', record: r });
+          break;
+        case 'clear': case 'clearMany': fuori.push({ op: 'svuota' }); break;
+        case 'deleteWhere':      fuori.push(...await per(o.criteria)); break;
+        default: break;
+      }
+    }
+    return fuori;
+  }
+  return [];
+};
+
+const restaUnAdmin = async (req) => {
+  const mutazioni = await mutazioniOperatori(req);
+  if (!mutazioni.length) return true;
+
+  let mappa = new Map((await db.all('operators')).map((o) => [o.op_id, { ...o }]));
+  for (const mu of mutazioni) {
+    if (mu.op === 'svuota') { mappa = new Map(); continue; }
+    if (mu.op === 'delete') { mappa.delete(mu.key); continue; }
+    if (mu.op === 'update') {
+      const prima = mappa.get(mu.key);
+      if (prima) mappa.set(mu.key, { ...prima, ...mu.changes });
+      continue;
+    }
+    if (mu.op === 'put' && mu.record?.op_id) mappa.set(mu.record.op_id, { ...mu.record });
+  }
+
+  const dopo = [...mappa.values()];
+  if (dopo.some((o) => _attivo(o) && o.role === 'admin')) return true;
+  /* Nessun Admin. Si passa lo stesso soltanto se non resta nessuno che possa
+     entrare: allora la finestra del primo avvio si riapre da se'. */
+  return !dopo.some((o) => _attivo(o) && _haPin(o));
+};
+
 /* `wrap` non serve qui: prende due argomenti e lascerebbe cadere `avanti`,
    che e' il solo modo che questa ha di dire «passa». */
 app.use('/api', async (req, res, avanti) => {
@@ -572,7 +667,16 @@ app.use('/api', async (req, res, avanti) => {
        un PIN, l'anagrafica e' scrivibile. Appena il primo esiste, la
        finestra si chiude da sola come ha sempre fatto. */
     if (await finestraDiPrimoAvvio()) return avanti();
-    if (await eAdmin(chi)) return avanti();
+    if (await eAdmin(chi)) {
+      if (await restaUnAdmin(req)) return avanti();
+      /* 409 e non 403: la carica c'e'. E' lo STATO che la scrittura
+         lascerebbe dietro a non essere ammesso. */
+      return res.status(409).json({
+        error: 'L’ultimo Admin attivo non si retrocede, non si disattiva e non si cancella: '
+             + 'nominane un altro prima, o resterebbe soltanto la chiave di macchina.',
+        ultimoAdmin: true,
+      });
+    }
     /* 403 e non 401: la sessione c'e' ed e' buona. Manca la carica, e il
        client non deve riaprire la maschera dell'identificazione. */
     res.status(403).json({
@@ -893,6 +997,41 @@ app.post('/api/op/moveUdc', wrap(async (req, res) => {
     udc.location_code = to;
     udc.updated_at = ora;
     await db.put('udc', udc);
+
+    /* 2.16 — voce 34 · LA MERCE SI NOMINA ANCHE QUANDO SI MUOVE IN BLOCCO.
+       Fino alla 2.15 lo spostamento di un'unita' scriveva UNA riga sola, e
+       quella riga non nominava ne' articolo ne' lotto: N partite cambiavano
+       vano e il registro non diceva quali. Non e' un'etichetta storta, e' la
+       firma GMP che manca — §8, il registro si tiene sei anni per dire chi ha
+       mosso cosa.
+
+       Le righe si scrivono QUI, dentro la transazione, perche' qui si sanno
+       davvero: il client manda la riga del contenitore (causale `UDC`), il
+       servizio aggiunge quelle della merce. `qty_before` e `qty_after` sono
+       uguali di proposito — la quantita' non cambia, cambia il vano. */
+    /* La firma e' una persona. `SERVIZIO` resta solo per la chiave di
+       macchina, che una sigla non ce l'ha — voce 18, le firme orfane. */
+    const firma = movement?.user || req.operatore?.initials || 'SERVIZIO';
+    for (const r of righe) {
+      const quanti = Number.isFinite(Number(r.qty)) ? Number(r.qty) : null;
+      await db.add('mov_log', {
+        ts: ora,
+        type: 'MOVE',
+        article_code: r.article_code || '',
+        article_description: r.article_description || '',
+        lot_code: r.lot_code || '',
+        location_code: da,
+        dest_location: to,
+        user: firma,
+        notes: `Spostata con l'unita' di carico ${udc_id}`,
+        doc_ref: '',
+        qty_before: quanti,
+        qty_delta: 0,
+        qty_after: quanti,
+        qty_uom_delta: null,
+        ...(r.uom ? { uom: r.uom } : {}),
+      });
+    }
 
     if (movement) await db.add('mov_log', { ...movement, ts: movement.ts || ora });
     return { ok: true, udc_id, from: da, to, righe: righe.length };

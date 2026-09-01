@@ -370,7 +370,7 @@ export const VistaPercorso = {
        che indicano un dato mancante, non differenze di arrotondamento. */
     const warnHTML = p.warnings.length ? `
       <div class="route-warn">
-        <strong>⚠ ${p.warnings.length} avviso/i sui dati dell'ordine</strong>
+        <strong>⚠️ ${p.warnings.length} avviso/i sui dati dell'ordine</strong>
         <ul class="mt-4 mr-0 mb-0 ml-10 p-0">
           ${(p.warnings || []).map((w) => `<li class="mb-2.5">${this._esc(w)}</li>`).join('')}
         </ul>
@@ -378,7 +378,7 @@ export const VistaPercorso = {
 
     const notesHTML = p.notes.length ? `
       <div class="route-note-box">
-        <strong>ℹ ${p.notes.length} segnalazione/i — merce esistente ma non prelevabile</strong>
+        <strong>ℹ️ ${p.notes.length} segnalazione/i — merce esistente ma non prelevabile</strong>
         <div class="text-body-small mt-3 opacity-85">
           Non entra nel percorso. &Egrave; solo un'informazione per l'operatore.
         </div>
@@ -1196,7 +1196,7 @@ export const VistaPercorso = {
     return `<button type="button" class="route-list-row route-list-row--btn ${cls}"
       title="Correggi i colli prelevati su questa tappa"
       onclick="App._routeRettifica(${Number(st.seq)})">${dentro}
-      <span class="route-list-edit">✏</span>
+      <span class="route-list-edit">✏️</span>
     </button>`;
   },
 
@@ -1248,7 +1248,7 @@ export const VistaPercorso = {
       title: 'Motivo della rettifica',
       message: 'Il testo va nelle note del movimento e compare sul report di prelievo.',
       placeholder: 'Es. collo di troppo, ordine cambiato, errore di conta…',
-      minLen: 5, confirmLabel: 'Rettifica', icon: '✏',
+      minLen: 5, confirmLabel: 'Rettifica', icon: '✏️',
     });
     if (!nota) return;
 
@@ -1484,7 +1484,7 @@ export const VistaPercorso = {
       title: 'Motivazione dello sblocco',
       message: 'Il testo viene registrato nelle note del movimento e compare sul documento.',
       placeholder: 'Es. etichetta danneggiata, verificato su Sage con CQ…',
-      minLen: 8, confirmLabel: 'Sblocca', danger: true, icon: '⚠'
+      minLen: 8, confirmLabel: 'Sblocca', danger: true, icon: '⚠️'
     });
     if (!note) { el?.focus(); return; }
     const ok = await onForce(note);
@@ -1785,7 +1785,7 @@ export const VistaPercorso = {
       </div>` : '<div class="pick-cart-empty">Nessuna riga rimasta in sospeso.</div>'}
 
       ${s.notes?.length ? `<div class="route-note-box">
-        <strong>ℹ ${s.notes.length} segnalazione/i — merce esistente ma non prelevabile</strong>
+        <strong>ℹ️ ${s.notes.length} segnalazione/i — merce esistente ma non prelevabile</strong>
         ${(s.notes || []).map((n) => `<div class="route-note-row">
           <span class="badge badge-${n.reason === 'quarantine' ? 'red' : 'amber'}">${this._esc((PickRoute.REASON_LABELS as Record<string, string>)[n.reason || ''] || n.reason)}</span>
           <span class="mono">${this._esc(n.article_code)}#${this._esc(n.lot_code)}</span>

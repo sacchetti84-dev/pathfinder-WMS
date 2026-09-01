@@ -187,7 +187,7 @@ export const VistaWip = {
         <div class="wip-ordine-testa">
           <button class="btn btn-sm btn-ghost mono font-bold" onclick="App._wipApri('${this._esc(odp)}')">${this._esc(odp)}</button>
           ${serviti.length ? `<span class="badge badge-muted" title="Serve anche ${this._esc(serviti.join(', '))}">🔗 giro di ${serviti.length + 1}</span>` : ''}
-          ${c.incoerente ? '<span class="badge badge-red" title="Da qualche riga è tornato più di quanto sia entrato">⚠ conto storto</span>' : ''}
+          ${c.incoerente ? '<span class="badge badge-red" title="Da qualche riga è tornato più di quanto sia entrato">⚠️ conto storto</span>' : ''}
           ${vuoto ? '<span class="badge badge-green">tutto rientrato — resta da chiudere</span>' : ''}
         </div>
         <div class="wip-ordine-conto text-label-small text-sx-text-muted">
@@ -234,7 +234,7 @@ export const VistaWip = {
 
       ${orfane.length ? `<div class="mov-preview mov-preview-warn mb-5">
         <button class="wip-orfane-testa" onclick="App._wipOrfaneAperte=!App._wipOrfaneAperte;App._formWip($('pickSubForm'))">
-          <strong>⚠ ${orfane.length} rig${orfane.length === 1 ? 'a' : 'he'} nel vano che nessun ordine rivendica</strong>
+          <strong>⚠️ ${orfane.length} rig${orfane.length === 1 ? 'a' : 'he'} nel vano che nessun ordine rivendica</strong>
           <span>${this._wipOrfaneAperte ? '▾' : '▸'}</span>
         </button>
         ${this._wipOrfaneAperte ? `<div class="mt-3 text-body-small">
@@ -324,7 +324,7 @@ export const VistaWip = {
       <strong class="mono">${this._esc(odp)}</strong> — vano <span class="mono">${this._esc(vano)}</span><br>
       Entrato <strong>${c.entrato} Coll.</strong> · reso <strong>${c.tornato}</strong>${c.consumato ? ` · <strong class="text-sx-success">consumato ${c.consumato}</strong>` : ''} ·
       <strong class="text-sx-warning">ancora in lavorazione ${c.residuo}</strong>
-      ${c.incoerente ? '<br><strong>⚠ Da qualche riga è tornato più di quanto sia entrato: il conto non sta in piedi.</strong>' : ''}
+      ${c.incoerente ? '<br><strong>⚠️ Da qualche riga è tornato più di quanto sia entrato: il conto non sta in piedi.</strong>' : ''}
     </div>
     ${serviti.length ? `<div class="mov-preview mov-preview-warn mb-5">
       <strong>🔗 Serve ${serviti.length + 1} ordini</strong> — ${this._esc([odp, ...serviti].join(' · '))}.
@@ -847,7 +847,7 @@ export const VistaWip = {
       chili e uno a pezzi non fanno un totale.</p>
       ${r.chiuso
         ? '<p class="text-body-small">Ogni riga di questo ordine è stata dichiarata: il foglio è un <b>consuntivo</b>.</p>'
-        : '<p class="text-body-small"><b>⚠ Ordine ancora aperto.</b> Le righe segnate «ancora in lavorazione» portano merce che sta sul bancone: quel delta non è consumo finché non viene dichiarato.</p>'}
+        : '<p class="text-body-small"><b>⚠️ Ordine ancora aperto.</b> Le righe segnate «ancora in lavorazione» portano merce che sta sul bancone: quel delta non è consumo finché non viene dichiarato.</p>'}
       ${bloccoGiro}`;
 
     this._docPrint(this._docPageHTML({
@@ -1027,7 +1027,7 @@ export const VistaWip = {
         + 'nemmeno ricaricando lo stesso ordine dal file di produzione. Il rendiconto resta stampabile.'
         + (senzaQuote.length ? `
 
-⚠ ${senzaQuote.length} rig${senzaQuote.length === 1 ? 'a non è' : 'he non sono'} ripartibil${senzaQuote.length === 1 ? 'e' : 'i'}: senza unità di misura il consumo resta intestato tutto a ${odp}.` : ''),
+⚠️ ${senzaQuote.length} rig${senzaQuote.length === 1 ? 'a non è' : 'he non sono'} ripartibil${senzaQuote.length === 1 ? 'e' : 'i'}: senza unità di misura il consumo resta intestato tutto a ${odp}.` : ''),
       details: dettaglio.length ? Dialog.kv(dettaglio) : undefined,
       confirmLabel: k.length
         ? (serviti.length ? 'Dichiara, ripartisci e archivia' : 'Dichiara consumato e archivia')

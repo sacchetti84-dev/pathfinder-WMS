@@ -22,7 +22,7 @@ export const VistaConfigSiti = {
         <td>${zones.length}</td>
         <td>${stats.total}</td>
         <td class="whitespace-nowrap">
-          <button class="btn btn-sm" onclick="App.showEditSiteModal('${site.id}')" title="Modifica">✏</button>
+          <button class="btn btn-sm" onclick="App.showEditSiteModal('${site.id}')" title="Modifica">✏️</button>
           <button class="btn btn-sm" onclick="App.showAddZoneModal('${site.id}')" title="Aggiungi zona">+ Zona</button>
           <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteSite('${site.id}')" title="Elimina">🗑</button>
         </td>
@@ -36,7 +36,7 @@ export const VistaConfigSiti = {
           <td class="mono text-body-small text-sx-text-muted">${dim}</td>
           <td colspan="2">${Store.getZoneStats(site.id, zone.id).total}</td>
           <td class="whitespace-nowrap">
-            <button class="btn btn-sm" onclick="App.showEditZoneModal('${site.id}','${zone.id}')">✏</button>
+            <button class="btn btn-sm" onclick="App.showEditZoneModal('${site.id}','${zone.id}')">✏️</button>
             <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteZone('${site.id}','${zone.id}')">🗑</button>
           </td>
         </tr>`;
@@ -324,7 +324,7 @@ export const VistaConfigSiti = {
     this.showModal(`Modifica Zona — ${zoneId} (${zone.type})`, `
       <div class="form-group mb-6"><label>Nome <span class="req">*</span></label>
         <input class="input" id="ezName" value="${this._esc(zone.name)}" maxlength="${Validate.MAX.ZONE_NAME}"></div>
-      <p class="text-body-small text-sx-warning mb-5">⚠ Modificare le dimensioni può generare ubicazioni orfane per item già posizionati oltre la nuova griglia.</p>
+      <p class="text-body-small text-sx-warning mb-5">⚠️ Modificare le dimensioni può generare ubicazioni orfane per item già posizionati oltre la nuova griglia.</p>
       ${configFields}
       ${this._campiDestinazioneZona(zone)}
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>

@@ -19,7 +19,9 @@ import { test, expect } from 'vitest';
 import fs from 'node:fs';
 import path from 'node:path';
 
-const SENZA_MERCE = new Set(['MOV.EDIT', 'MOV.PURGE', 'MOV.PINRESET']);
+/* 2.16 — `MOV.UDC` entra qui: il contenitore non e' merce. Nasce, si sposta
+   e si chiude, e la merce che porta scrive le proprie righe — voce 34. */
+const SENZA_MERCE = new Set(['MOV.EDIT', 'MOV.PURGE', 'MOV.PINRESET', 'MOV.UDC']);
 /* type, art, desc, lot, loc, dest, user, note, docRef, before, delta, after, UM.
    2.2 — le UM sono la tredicesima: un trasferimento a peso che dice i colli e
    non i chili racconta meta' movimento. Dove non ce ne sono si passa `null`
@@ -102,4 +104,60 @@ test('la merce che entra nel vano WIP passa dal registro', () => {
     const dopo = src.slice(i, i + 2000);
     expect(dopo, `${f}: l'entrata nel vano non va a registro`).toContain('MOV.IN');
   }
+});
+
+/* ── 2.16 · voce 33 — E NON HA NEMMENO RIGHE CHE MENTONO ──────────────────
+   Una riga muta dice «e' successo qualcosa». Una riga che si contraddice e'
+   peggio: dice un numero, e il numero e' sbagliato. Tre forme riproducibili
+   stavano nel registro vero — un `MOVE` di riga intera con `qty_delta: 0`,
+   un `PICK` con `null` fra before 10 e after 9, un `SAMPLE` con 0. Adesso il
+   punto di scrittura ricalcola, e questa prova gira la funzione. */
+import { quantoSiEMosso, quantitaMossa } from '../src/modules/registro.ts';
+
+test('con i due estremi la variazione e\' la loro differenza', () => {
+  expect(quantoSiEMosso({ qty_before: 10, qty_after: 9, qty_delta: null })).toBe(-1);
+  expect(quantoSiEMosso({ qty_before: 10, qty_after: 0,  qty_delta: 0 })).toBe(-10);
+  expect(quantoSiEMosso({ qty_before: 0,  qty_after: 6,  qty_delta: null })).toBe(6);
+});
+
+test('e l\'aritmetica batte il numero passato dal chiamante', () => {
+  expect(quantoSiEMosso({ qty_before: 4, qty_after: 1, qty_delta: 99 })).toBe(-3);
+});
+
+test('una riga che non muove niente resta a zero, e zero e\' un fatto', () => {
+  expect(quantoSiEMosso({ qty_before: 7, qty_after: 7, qty_delta: 0 })).toBe(0);
+});
+
+test('senza uno dei due estremi resta quel che ha dichiarato il chiamante', () => {
+  expect(quantoSiEMosso({ qty_before: 10, qty_after: null, qty_delta: -1 })).toBe(-1);
+  expect(quantoSiEMosso({ qty_before: null, qty_after: 9, qty_delta: -1 })).toBe(-1);
+});
+
+test('e senza estremi e senza dichiarazione resta null — il movimento storico', () => {
+  expect(quantoSiEMosso({})).toBe(null);
+  expect(quantoSiEMosso({ qty_before: null, qty_after: null, qty_delta: null })).toBe(null);
+});
+
+/* ── 2.16 · voce 33 — E QUANTI COLLI HANNO CAMBIATO POSTO ─────────────────
+   Non e' la stessa domanda. Sul dump del 31/08, 22 trasferimenti veri
+   portavano `qty_delta: 0` con before e after uguali: la riga intera cambia
+   vano e la quantita' resta quella. Chi leggeva `Math.abs(qty_delta)` — KPI,
+   cruscotto, registro attivita' — contava zero colli mossi. */
+test('un trasferimento di riga intera muove tutti i colli che porta', () => {
+  expect(quantitaMossa({ qty_delta: 0, qty_before: 26, dest_location: 'MAG1-RAKA-03-02-B' })).toBe(26);
+  expect(quantitaMossa({ qty_delta: 0, qty_before: 2,  dest_location: 'MAG1-RAKA-02-04-C' })).toBe(2);
+});
+
+test('un trasferimento parziale muove quel che dice la variazione', () => {
+  expect(quantitaMossa({ qty_delta: -1, qty_before: 1, dest_location: 'MAG1-RAKA-01-01-A' })).toBe(1);
+  expect(quantitaMossa({ qty_delta: -4, qty_before: 10, dest_location: 'X' })).toBe(4);
+});
+
+test('senza destinazione lo zero resta zero, e non diventa la riga intera', () => {
+  expect(quantitaMossa({ qty_delta: 0, qty_before: 7, dest_location: null })).toBe(0);
+});
+
+test('e una riga che non dice la variazione non dice nemmeno quanto — null, non zero', () => {
+  expect(quantitaMossa({ qty_delta: null, qty_before: 5, dest_location: 'X' })).toBe(null);
+  expect(quantitaMossa({ qty_delta: 0, qty_before: null, dest_location: 'X' })).toBe(0);
 });

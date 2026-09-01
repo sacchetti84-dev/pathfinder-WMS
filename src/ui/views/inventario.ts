@@ -419,7 +419,7 @@ export const VistaInventario = {
     const { loc, items, extras } = this._invState as StatoInventario;
     const unchecked = items.filter((i) => !i.checked);
     if (unchecked.length > 0) {
-      const msg = `⚠ ${unchecked.length} item non verificati.\n\nOK = considera quantità di sistema CORRETTE (nessuna azione)\nAnnulla = torna alla verifica`;
+      const msg = `⚠️ ${unchecked.length} item non verificati.\n\nOK = considera quantità di sistema CORRETTE (nessuna azione)\nAnnulla = torna alla verifica`;
       if (!await Dialog.confirm({
         title: 'Item non verificati',
         message: msg,
@@ -742,7 +742,7 @@ export const VistaInventario = {
     }
     const segno = delta > 0 ? '+' : '';
     box.innerHTML = `<div class="mov-preview mov-preview-warn mb-5">
-      <strong>⚠ Non torna: ${segno}${delta} Coll.</strong>
+      <strong>⚠️ Non torna: ${segno}${delta} Coll.</strong>
       A sistema ${d.qty_system}, contati ${contati}. Confermando, la giacenza viene rettificata a <strong>${contati}</strong> e il movimento resta a registro con la tua sigla.
     </div>`;
   },
@@ -1046,7 +1046,7 @@ export const VistaInventario = {
       <strong class="mono">${this._esc(st.code)}</strong> ${this._esc(st.desc || '')}<br>
       <strong>${r.colli} Coll.</strong>${uom ? ` · <strong>${uom}</strong>` : ''} —
       ${r.lotti.length} lott${r.lotti.length === 1 ? 'o' : 'i'} su ${r.ubicazioni} ubicazion${r.ubicazioni === 1 ? 'e' : 'i'}
-      ${r.senzaUnita ? `<br><span class="text-sx-warning">⚠ ${r.senzaUnita} righe senza unità: il totale in UM non racconta tutta la giacenza</span>` : ''}
+      ${r.senzaUnita ? `<br><span class="text-sx-warning">⚠️ ${r.senzaUnita} righe senza unità: il totale in UM non racconta tutta la giacenza</span>` : ''}
     </div>`;
 
     for (const g of r.lotti) {
@@ -1179,7 +1179,7 @@ export const VistaInventario = {
           <td class="td-num"></td>
         </tr></tfoot>
       </table>
-      ${r.senzaUnita ? `<p class="text-body-small">⚠ ${r.senzaUnita} righe senza unità di misura: il totale in quantità non copre tutta la giacenza.</p>` : ''}`;
+      ${r.senzaUnita ? `<p class="text-body-small">⚠️ ${r.senzaUnita} righe senza unità di misura: il totale in quantità non copre tutta la giacenza.</p>` : ''}`;
 
     this._docPrint(this._docPageHTML({
       kind: 'RIEPILOGO DI GIACENZA',

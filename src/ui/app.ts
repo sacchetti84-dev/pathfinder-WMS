@@ -1039,7 +1039,7 @@ const App = monolite({
       <td class="mono">${(b.size / 1024).toFixed(0)} KB</td>
       <td>${b.lastModified
               ? new Date(b.lastModified).toLocaleString('it-IT') : '—'}</td>
-      <td><button class="btn btn-sm btn-accent" onclick="App.restoreOPFSBackup('${this._esc(b.name)}')">♻ Ripristina</button></td>
+      <td><button class="btn btn-sm btn-accent" onclick="App.restoreOPFSBackup('${this._esc(b.name)}')">♻️ Ripristina</button></td>
     </tr>`).join('');
     this.showModal(
       `🗂 Copie locali disponibili (${list.length})`,
@@ -1073,7 +1073,7 @@ const App = monolite({
         title: 'Ripristinare questa copia locale?',
         message: (check.ok ? '' : 'Verifica: ' + check.problemi.join(' · ') + '\n\n') +
           'I dati attualmente presenti verranno sostituiti. Verrà prima scaricato un export dello stato attuale.' +
-          (senzaRegistro ? '\n\n⚠ Questa copia NON contiene il registro movimenti. Il registro di adesso resta dov\u2019è: non viene né sostituito né cancellato.' : ''),
+          (senzaRegistro ? '\n\n⚠️ Questa copia NON contiene il registro movimenti. Il registro di adesso resta dov\u2019è: non viene né sostituito né cancellato.' : ''),
         details: Dialog.kv([
           ['File', filename],
           ['Movimenti', senzaRegistro ? 'non inclusi nella copia — il registro attuale resta' : Number(c.mov_log || 0).toLocaleString('it-IT')],
@@ -1087,7 +1087,7 @@ const App = monolite({
       this.renderSidebar();
       this.renderConfig();
       this.updateSyncIndicator();
-      this.toast(`♻ Ripristino da ${filename} completato`, 'success');
+      this.toast(`♻️ Ripristino da ${filename} completato`, 'success');
     } catch (err) {
       console.error('[WM] ripristino OPFS:', err);
       this.toast(`Ripristino non riuscito: ${(err as Error).message}`, 'error');
@@ -1119,7 +1119,7 @@ const App = monolite({
   async _checkStorageQuota() {
     const est = await Store.estimateUsage();
     if (est && est.pct != null && est.pct > 80) {
-      this.toast(`⚠ Spazio DB al ${est.pct.toFixed(0)}% — considera un export e cleanup`, 'warning');
+      this.toast(`⚠️ Spazio DB al ${est.pct.toFixed(0)}% — considera un export e cleanup`, 'warning');
     }
   },
 
@@ -1462,7 +1462,7 @@ const App = monolite({
             </div>
             <div class="text-label-small text-sx-text-muted mt-2">La merce si posiziona nel vano dell'unità e le resta sopra: spostando l'unità, si sposta anche lei.</div>
           </div>`
-        : `<div class="mov-preview mov-preview-err">⚠ <span class="mono">${this._esc(code)}</span> non ha un'ubicazione: posizionala prima, o scegli un vano</div>`;
+        : `<div class="mov-preview mov-preview-err">⚠️ <span class="mono">${this._esc(code)}</span> non ha un'ubicazione: posizionala prima, o scegli un vano</div>`;
       return;
     }
 
@@ -1478,7 +1478,7 @@ const App = monolite({
         </div>
       </div>`;
     } else if (code.length >= 5) {
-      el.innerHTML = `<div class="mov-preview mov-preview-err">⚠ "${this._esc(code)}" non trovata</div>`;
+      el.innerHTML = `<div class="mov-preview mov-preview-err">⚠️ "${this._esc(code)}" non trovata</div>`;
     } else { el.innerHTML = ''; }
   },
 
@@ -1609,6 +1609,19 @@ const App = monolite({
       ? new Date(meta.lastModified).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit' })
       : 'mai';
     dot.classList.remove('saving');
+    /* 2.16 — SERVITO, «NON SALVATO» E' UNA BUGIA ROSSA.
+       `_touchMeta` alza `unsavedChanges` a ogni mutazione, e da quando il
+       salvataggio a mano non c'e' piu' (2.1) nessuno lo riabbassa: su una
+       macchina servita l'indicatore restava rosso per sempre, e diceva a chi
+       lavora che la merce appena scansionata poteva perdersi. Non e' vero —
+       la riga e' in PostgreSQL prima che la chiamata torni. Il servizio che
+       non risponde ha gia' la sua schermata, `_showServiceDown`. */
+    if (Store.eServito()) {
+      dot.classList.remove('unsaved');
+      text.textContent = 'In linea';
+      if (btn) btn.title = `Ogni gesto è scritto sul database del servizio — ultima scrittura: ${when}.`;
+      return;
+    }
     if (meta.unsavedChanges) {
       dot.classList.add('unsaved');
       text.textContent = 'Non salvato';

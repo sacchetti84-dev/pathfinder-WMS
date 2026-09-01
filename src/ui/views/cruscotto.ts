@@ -1,5 +1,6 @@
 import { type Vista, $ } from './vista';
 import { MOV, MOV_LABELS } from '../../core/costanti';
+import { quantitaMossa } from '../../modules/registro';
 import { Store } from '../../core/store';
 import type { Sito } from '../../types/entita';
 import { pickupAlertStatus } from '../../modules/pickupAlert';
@@ -71,7 +72,10 @@ export const VistaCruscotto = {
       <div class="flex justify-between items-center mb-10 flex-wrap gap-5">
         <div>
           <h1 class="dash-h1">Dashboard Operativa</h1>
-          <p class="dash-sub">Ultimo salvataggio: ${meta.lastModified ? new Date(meta.lastModified).toLocaleString('it-IT') : 'Mai'}</p>
+          <!-- 2.16 — servito non si «salva»: si scrive, e la data e' quella
+               dell'ultima scrittura. La parola vecchia diceva a chi lavora
+               che fra un salvataggio e l'altro qualcosa poteva perdersi. -->
+          <p class="dash-sub">${Store.eServito() ? 'Ultima scrittura' : 'Ultimo salvataggio'}: ${meta.lastModified ? new Date(meta.lastModified).toLocaleString('it-IT') : 'Mai'}</p>
         </div>
         <div class="flex gap-4 flex-wrap">
           <!-- v2.7.0 [G3] — "Salva ora" ed "Export JSON" sono usciti di qui:
@@ -410,7 +414,7 @@ export const VistaCruscotto = {
       return `<div class="card">${head}<div class="dl-empty">Nessun movimento registrato. Le operazioni compaiono qui appena eseguite.</div></div>`;
     }
     const rows = log.map(m => {
-      const qty = m.qty_delta != null ? Math.abs(m.qty_delta) : null;
+      const qty = quantitaMossa(m);
       const dest = m.dest_location ? ` → <span class="mono">${this._esc(m.dest_location)}</span>` : '';
       const ref = m.doc_ref ? ` · rif. ${this._esc(m.doc_ref)}` : '';
       return `<div class="dl-row" title="${this._esc((MOV_LABELS[m.type] || m.type) + ' — ' + (m.article_description || m.article_code))}">
@@ -437,7 +441,7 @@ export const VistaCruscotto = {
       let g = map.get(ref);
       if (!g) { g = { ref, rows: 0, colli: 0, first: m.ts, last: m.ts, users: new Set(), articles: new Set() }; map.set(ref, g); }
       g.rows++;
-      g.colli += m.qty_delta != null ? Math.abs(m.qty_delta) : 1;
+      g.colli += quantitaMossa(m) ?? 1;
       g.first = Math.min(g.first, m.ts);
       g.last = Math.max(g.last, m.ts);
       if (m.user) g.users.add(m.user);
@@ -859,7 +863,7 @@ export const VistaCruscotto = {
     else if (none > 0 && ok === 0) cls = '';
     // Composizione sub-label sintetica
     const subParts = [];
-    if (overdue > 0) subParts.push(`<span class="text-sx-danger font-bold">⚠ ${overdue} scaduti</span>`);
+    if (overdue > 0) subParts.push(`<span class="text-sx-danger font-bold">⚠️ ${overdue} scaduti</span>`);
     if (today > 0) subParts.push(`<span class="text-sx-danger font-bold">${today} oggi</span>`);
     if (tomorrow > 0) subParts.push(`<span class="text-sx-warning font-semibold">${tomorrow} domani</span>`);
     if (soon > 0) subParts.push(`<span class="text-sx-warning">${soon} a breve</span>`);
@@ -900,7 +904,7 @@ export const VistaCruscotto = {
         <div class="flex justify-between items-center gap-5 flex-wrap">
           <span class="text-[var(--dash-fs-body)]"><strong>DDT ${this._esc(doc.ddt_num)}</strong>
             <span class="text-sx-text-muted">· ${kindLabel} · ${this._esc(doc.destination)}</span>
-            <span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3">⚠ ${integrity.issues.length}</span>
+            <span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3">⚠️ ${integrity.issues.length}</span>
           </span>
           <button class="btn btn-sm" onclick="App._gotoPendingDoc('${this._esc(doc.doc_id)}','${this._esc(doc.kind)}')" title="Vai al DDT">→ Apri</button>
         </div>
@@ -908,7 +912,7 @@ export const VistaCruscotto = {
       </div>`;
     }).join('');
     return `<section class="card mb-6 border-l-[3px] border-l-sx-danger">
-      <div class="card-title text-sx-danger">⚠ DDT non allineati alla giacenza (${broken.length})</div>
+      <div class="card-title text-sx-danger">⚠️ DDT non allineati alla giacenza (${broken.length})</div>
       <div class="text-[var(--dash-fs-meta)] text-sx-text-secondary pt-0 px-5.5 pb-4">
         Documenti registrati le cui righe non trovano più riscontro in magazzino: la merce è stata spostata,
         prelevata o rettificata dopo la registrazione. Vanno modificati o annullati prima dell'evasione.

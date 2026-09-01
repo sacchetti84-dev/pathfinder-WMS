@@ -311,20 +311,46 @@ describe('LE ALTRE FUNZIONI', () => {
     riga(`\`${t.task_id}\` · stato ${dopo.status} · preso da ${dopo.assigned_to} · avviato ${dopo.started_at ? 'sì' : 'no'}`);
     expect(dopo.status).toBe('in_progress');
 
-    /* I parziali lasciano il residuo: 3 chiesti, 1 mosso, restano 2. */
+    /* 2.16 — voce 71 · IL BANCO SEGUIVA UN'ASPETTATIVA VECCHIA.
+       Fino a qui la prova chiedeva a un `TRANSFER` di restare aperto dopo un
+       parziale. Non lo fa dalla 2.1, e per decisione di Andrea: «le attività
+       si devono chiudere nel momento in cui il trasferimento viene
+       confermato, obbligatorio» — `chiudeAlGesto` comprende `TRANSFER`. Il
+       difetto `CP1` che il banco scriveva dal 27/08 segnalava l'aspettativa,
+       non il magazzino. Si allinea il banco, non il codice.
+
+       Il residuo resta una regola vera, e si prova dove vale davvero: sullo
+       Smaltimento, qui sotto. */
     await Store.advanceTask(t.task_id, 1);
     dopo = Store.getTask(t.task_id);
     riga(`Dopo un movimento da 1 collo su 3 chiesti: stato ${dopo.status}, mossi ${dopo.qty_done}`);
-    if (dopo.status !== 'in_progress') {
-      difetto('CP1', 'grave', 'core/store.ts:advanceTask',
-        `Un compito a residuo si è chiuso con un parziale: 3 chiesti, 1 mosso, stato «${dopo.status}».`, t.task_id);
-    }
-    await Store.advanceTask(t.task_id, 2);
-    dopo = Store.getTask(t.task_id);
-    riga(`Dopo i 2 rimanenti: stato ${dopo.status}`);
     if (dopo.status !== 'done') {
+      difetto('CP1', 'grave', 'core/store.ts:advanceTask',
+        `Un trasferimento si chiude al gesto dalla 2.1: confermato 1 collo su 3, atteso «done», letto «${dopo.status}».`, t.task_id);
+    }
+
+    /* IL RESIDUO, DOVE VIVE: lo Smaltimento non si chiude al gesto, e tre
+       colli chiesti si esauriscono in due volte. */
+    const smalt = await Store.createTask({
+      type: 'DISPOSAL', priority: 2,
+      payload: { location_code: VANI.smalt, item_key: `${ART}#SMA-L1`, qty: 3 },
+      note: 'residuo 2.16',
+    });
+    await Store.assignTask(smalt.task_id, 'ANDS');
+    await Store.startTask(smalt.task_id, 'ANDS');
+    await Store.advanceTask(smalt.task_id, 1);
+    let res = Store.getTask(smalt.task_id);
+    riga(`Smaltimento, 1 collo su 3: stato ${res.status}, mossi ${res.qty_done}`);
+    if (res.status !== 'in_progress') {
       difetto('CP2', 'grave', 'core/store.ts:advanceTask',
-        `Mossi tutti i colli chiesti, il compito non si è chiuso da solo: stato «${dopo.status}».`, t.task_id);
+        `Un compito a residuo si è chiuso con un parziale: 3 chiesti, 1 mosso, stato «${res.status}».`, smalt.task_id);
+    }
+    await Store.advanceTask(smalt.task_id, 2);
+    res = Store.getTask(smalt.task_id);
+    riga(`Dopo i 2 rimanenti: stato ${res.status}`);
+    if (res.status !== 'done') {
+      difetto('CP2b', 'grave', 'core/store.ts:advanceTask',
+        `Esaurito il residuo, il compito non si è chiuso da solo: stato «${res.status}».`, smalt.task_id);
     }
 
     /* Da uno stato chiuso non esce nessuna transizione. */

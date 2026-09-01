@@ -86,7 +86,7 @@ export const VistaConfigOperatori = {
         <td>${inactive ? '<span class="badge badge-red">disattivato</span>' : '<span class="badge badge-green">attivo</span>'}</td>
         <td class="whitespace-nowrap">
           ${comanda
-            ? `<button class="btn btn-sm" onclick="App.showEditOperatorModal('${o.op_id}')" title="Modifica dati e ruolo">✏</button>`
+            ? `<button class="btn btn-sm" onclick="App.showEditOperatorModal('${o.op_id}')" title="Modifica dati e ruolo">✏️</button>`
             : ''}
           ${rinnovabile
             ? `<button class="btn btn-sm btn-warning" onclick="App.showRenewPinModal('${o.op_id}')" title="Rinnova il PIN">🔑</button>`
@@ -283,7 +283,7 @@ export const VistaConfigOperatori = {
     const op = Store.getOperator(opId);
     if (!op) return this.toast('Operatore non trovato', 'error');
     this.showModal(
-      `✏ Modifica operatore — ${this._esc(op.initials)}`,
+      `✏️ Modifica operatore — ${this._esc(op.initials)}`,
       `<div class="form-row mb-6">
         <div class="form-group"><label>Nome <span class="req">*</span></label><input class="input" id="opFirst" maxlength="40" value="${this._esc(op.first_name || '')}" autofocus></div>
         <div class="form-group"><label>Cognome <span class="req">*</span></label><input class="input" id="opLast" maxlength="40" value="${this._esc(op.last_name || '')}"></div>
@@ -293,7 +293,7 @@ export const VistaConfigOperatori = {
           <label>Iniziali <span class="req">*</span></label>
           <input class="input input-mono uppercase" id="opInitials" maxlength="4" value="${this._esc(op.initials)}" oninput="this.value=this.value.toUpperCase()">
           <div class="text-label-small text-sx-warning mt-2">
-            ⚠ Cambiandole, i movimenti già registrati continueranno a riportare le vecchie
+            ⚠️ Cambiandole, i movimenti già registrati continueranno a riportare le vecchie
           </div>
         </div>
         <div class="form-group">

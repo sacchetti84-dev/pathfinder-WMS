@@ -89,7 +89,7 @@ export const VistaSpedizioni = {
       </div>
 
       ${gaps.length ? `<div class="mov-preview mov-preview-err mb-6">
-        ⚠ <strong>Mittente incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.
+        ⚠️ <strong>Mittente incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.
         I DDT si stampano lo stesso, ma con l'avviso che il documento non è conforme.
         <button class="btn btn-sm ml-4" onclick="App._configTab='docs';App.switchView('config')">Configura ora</button>
       </div>` : ''}
@@ -444,12 +444,12 @@ export const VistaSpedizioni = {
     const integrity = Store.checkPendingDocIntegrity(doc);
     const warnings = integrity.issues.length;
     const issueByLine = new Map(integrity.issues.map(x => [x.lineIndex, x]));
-    const warnBadge = warnings > 0 ? `<span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3" title="${warnings} riga/e non allineata/e alla giacenza attuale">⚠ ${warnings}</span>` : '';
+    const warnBadge = warnings > 0 ? `<span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3" title="${warnings} riga/e non allineata/e alla giacenza attuale">⚠️ ${warnings}</span>` : '';
     const linesHtml = doc.lines.map((l, i) => {
       const issue = issueByLine.get(i);
       const rowStyle = issue ? 'background:var(--sx-danger-soft);' : '';
       const issueHtml = issue
-        ? `<div class="text-label-small text-sx-danger pt-1.5 pr-0 pb-2.5 pl-10">⚠ ${this._esc(issue.message)}</div>`
+        ? `<div class="text-label-small text-sx-danger pt-1.5 pr-0 pb-2.5 pl-10">⚠️ ${this._esc(issue.message)}</div>`
         : '';
       return `<div style="${rowStyle}font-size: var(--md-sys-typescale-label-small-size);padding:0.2rem 0;border-bottom:1px dashed var(--sx-border)">
       <div class="flex justify-between gap-4">
@@ -477,7 +477,7 @@ export const VistaSpedizioni = {
         ${alert.level !== 'none' ? `<div style="background:${alert.bg};color:${alert.color};font-weight:700;font-size: var(--md-sys-typescale-body-small-size);padding:0.35rem 0.55rem;border-radius:var(--radius);margin-bottom:0.4rem;border:1px solid ${alert.color}">${this._esc(alert.label)}</div>` : `<div class="bg-sx-card-alt text-sx-text-muted text-label-small py-3 px-5 rounded-[var(--radius)] mb-4 [border:1px_dashed_var(--sx-border-strong)]">📅 Ritiro non datato — nessun alert su questo DDT</div>`}
         <div class="mb-5">${linesHtml}</div>
         ${warnings > 0 ? `<div class="bg-sx-danger-soft text-sx-danger text-label-small py-4 px-5.5 rounded-[var(--radius)] mb-4 border border-sx-danger">
-          <strong>⚠ ${warnings} riga/e NON ALLINEATA/E alla giacenza attuale.</strong><br>
+          <strong>⚠️ ${warnings} riga/e NON ALLINEATA/E alla giacenza attuale.</strong><br>
           Il documento non è evadibile così com'è: usare <strong>📝 Modifica</strong> per riallinearlo, oppure <strong>✕</strong> per annullarlo e rifarlo.
         </div>` : ''}
         <div class="flex gap-4 flex-wrap">
@@ -505,7 +505,7 @@ export const VistaSpedizioni = {
     const matched = allItems.filter(it => it.lot_code === lot);
     if (!matched.length) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Item ${this._esc(art)}#${this._esc(lot)} non trovato in magazzino</div>`; details.classList.add('hidden'); return; }
     const notQuar = matched.filter(it => !Store.isItemQuarantined(it.item_key, it.location_code));
-    if (!notQuar.length) { info.innerHTML = `<div class="text-body-small text-sx-purple mt-2">⚠ L'item ${this._esc(art)}#${this._esc(lot)} è in quarantena in tutte le ubicazioni in cui si trova</div>`; details.classList.add('hidden'); return; }
+    if (!notQuar.length) { info.innerHTML = `<div class="text-body-small text-sx-purple mt-2">⚠️ L'item ${this._esc(art)}#${this._esc(lot)} è in quarantena in tutte le ubicazioni in cui si trova</div>`; details.classList.add('hidden'); return; }
     const inCartByKey: Record<string, number> = {};
     for (const c of this._shipCart) {
       const k = `${c.location_code}#${c.item_key}`;
@@ -519,7 +519,7 @@ export const VistaSpedizioni = {
       return { ...it, _totalQty: totalQty, _pendingQty: pendingQty, _availableQty: availableQty };
     });
     const usable = enriched.filter(it => it._availableQty > 0);
-    if (!usable.length) { info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`; details.classList.add('hidden'); return; }
+    if (!usable.length) { info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠️ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`; details.classList.add('hidden'); return; }
     if (usable.length === 1) { this._shipSelectItem(usable[0]); return; }
     let html = '<div class="max-h-[200px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Item presente in più ubicazioni — seleziona da quale prelevare:</div>';
     for (const it of usable) {
@@ -549,7 +549,7 @@ export const VistaSpedizioni = {
       .reduce((s: number, c: VoceCarrelloDDT) => s + c.qty, 0);
     const availableQty = Math.max(0, totalQty - pendingQty - cartQty);
     if (availableQty <= 0) {
-      $('pShipInfo').innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠ Giacenza tutta impegnata</div>`;
+      $('pShipInfo').innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠️ Giacenza tutta impegnata</div>`;
       return;
     }
     this._shipState = { item: full, availableQty, totalQty, pendingQty };
@@ -800,7 +800,7 @@ export const VistaSpedizioni = {
       d.status !== 'cancelled' &&
       String(d.ddt_num || '').trim().toUpperCase() === this._shipDdtNum.trim().toUpperCase());
     if (dupe && !await Dialog.confirm({
-      title: '⚠ Numero DDT già usato',
+      title: '⚠️ Numero DDT già usato',
       message: 'Esiste già un documento con questo numero. Procedere solo se la ripetizione è voluta.',
       details: Dialog.kv([
         ['N° DDT', this._shipDdtNum],
@@ -845,10 +845,10 @@ export const VistaSpedizioni = {
     let dateWarn = '';
     if (this._shipExpectedDate) {
       const status = pickupAlertStatus({ expected_pickup_date: this._shipExpectedDate });
-      if (status.level === 'overdue') dateWarn = `\n⚠ Data ritiro nel passato (${status.label})`;
-      else if (status.level === 'today') dateWarn = `\n⚠ Data ritiro è OGGI`;
+      if (status.level === 'overdue') dateWarn = `\n⚠️ Data ritiro nel passato (${status.label})`;
+      else if (status.level === 'today') dateWarn = `\n⚠️ Data ritiro è OGGI`;
     } else {
-      dateWarn = '\n⚠ Data ritiro non specificata (nessun alert sarà attivo)';
+      dateWarn = '\n⚠️ Data ritiro non specificata (nessun alert sarà attivo)';
     }
 
     if (!await Dialog.confirm({

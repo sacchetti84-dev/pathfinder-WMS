@@ -365,7 +365,7 @@ export const VistaRapportoPrelievo = {
       <td class="td-num">${r.seq != null ? E(r.seq) : '<span class="text-[#999]">—</span>'}</td>
       <td class="td-code">${E(r.article_code || '—')}</td>
       <td>${E(r.article_description || '—')}${this._avvisiRigaStampa(r.article_code)}${
-        r.corrections ? `<div class="pr-corr">✏ rettificata ${r.corrections === 1 ? 'una volta' : r.corrections + ' volte'}${r.correction_note ? ' — ' + E(r.correction_note) : ''}</div>` : ''}</td>
+        r.corrections ? `<div class="pr-corr">✏️ rettificata ${r.corrections === 1 ? 'una volta' : r.corrections + ' volte'}${r.correction_note ? ' — ' + E(r.correction_note) : ''}</div>` : ''}</td>
       <td class="td-lot">${E(r.lot_code || '—')}</td>
       <td class="td-loc">${E(r.location_code || '—')}</td>
       <td class="td-num">${kgCell(r.kg_required, r.um)}</td>
@@ -488,7 +488,7 @@ export const VistaRapportoPrelievo = {
         <tbody>${rowsHTML || '<tr class="pr-empty-row"><td colspan="9">Nessuna riga prelevata</td></tr>'}</tbody>
       </table>
       ${rettificate ? `<div class="pr-sec-note pr-sec-note--block">
-        ✏ ${rettificate} rig${rettificate === 1 ? 'a è stata rettificata' : 'he sono state rettificate'} dopo il prelievo:
+        ✏️ ${rettificate} rig${rettificate === 1 ? 'a è stata rettificata' : 'he sono state rettificate'} dopo il prelievo:
         i colli tornati a scaffale hanno un movimento di riposizionamento a registro, e la riga qui sopra
         porta la quantità che è rimasta fuori.
       </div>` : ''}

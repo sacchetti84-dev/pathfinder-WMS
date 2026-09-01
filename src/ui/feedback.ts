@@ -132,8 +132,8 @@ const Feedback = {
     const map = {
       ok:    { cls: 'fb-ok',   ico: '✓' },
       error: { cls: 'fb-err',  ico: '✕' },
-      warn:  { cls: 'fb-warn', ico: '⚠' },
-      info:  { cls: 'fb-info', ico: 'ℹ' }
+      warn:  { cls: 'fb-warn', ico: '⚠️' },
+      info:  { cls: 'fb-info', ico: 'ℹ️' }
     };
     const cfg = map[kind] || map.info;
     const dur = ms || this.DURATIONS[kind] || this.DURATIONS.info;

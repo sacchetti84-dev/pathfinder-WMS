@@ -14,6 +14,10 @@ export type MOV =
   | 'QUAR' | 'QREL'
   | 'EDIT' | 'RET' | 'SHIP'
   | 'SAMPLE'
+  /* 2.16 — voce 34: il contenitore non e' merce. Nasce, si sposta e si
+     chiude, e prima queste tre cose si scrivevano come `EDIT` e `MOVE` con
+     articolo e lotto vuoti — righe mute in mezzo al registro della merce. */
+  | 'UDC'
   | 'PURGE' | 'PINRESET';
 
 /* ── Criteri di ricerca ──────────────────────────────────────────── */
@@ -68,7 +72,7 @@ export interface CaricamentoIniziale {
   inventory: Giacenza[];
   locStatus: StatoUbicazione[];
   disabled: UbicazioneDisattivata[];
-  /** Una FINESTRA del registro, non il registro: vedi `MOVLOG_WINDOW_DAYS`. */
+  /** Una FINESTRA del registro, non il registro: vedi `Store.getMovLogWindowDays`. */
   movLog: Movimento[];
   /** Quanti ce ne sono davvero a database, finestra o non finestra. */
   movLogTotal: number;

@@ -178,7 +178,7 @@ export const VistaPrelievo = {
       const elenco = impactedDocs
         .map(d => `  • ${d.kind === 'SHIP' ? 'Spedizione' : 'Reso'} DDT ${d.ddt_num} → ${d.destination}`)
         .join('\n');
-      const msg = `⚠ MERCE IMPEGNATA SU DDT PENDENTI\n\n` +
+      const msg = `⚠️ MERCE IMPEGNATA SU DDT PENDENTI\n\n` +
         `${item.article_code} lotto ${item.lot_code} risulta impegnato sui seguenti documenti:\n${elenco}\n\n` +
         `Spostando la merce in ${dest} le righe di questi DDT continueranno a indicare ` +
         `${item.location_code} e verranno segnalate come NON ALLINEATE.\n\n` +
@@ -228,7 +228,7 @@ export const VistaPrelievo = {
     const mergeMsg = res.mode === 'incremented' ? ` (sommato: saldo ${res.qty_after} Coll. in ${dest})` : '';
     this.toast(`✓ ${item.article_code}#${item.lot_code}: ${item.location_code} → ${dest} · ${nMossi} Coll.${mergeMsg}`, 'success');
     if (impactedDocs.length) {
-      this.toast(`⚠ ${impactedDocs.length} DDT pendente/i ora disallineato/i — verificare in Movimenta`, 'warning');
+      this.toast(`⚠️ ${impactedDocs.length} DDT pendente/i ora disallineato/i — verificare in Movimenta`, 'warning');
     }
     this.updateSyncIndicator();
     this._refreshSessionLog();
@@ -347,7 +347,7 @@ export const VistaPrelievo = {
         allForLot.every(it => Store.getAvailableQty(it.location_code, it.item_key) === 0);
       if (allReserved) {
         info.innerHTML = `<div class="text-body-small text-sx-orange mt-2">
-          ⚠ ${this._esc(art)}#${this._esc(lot)} è <strong>interamente impegnato su DDT pendenti</strong> — non prelevabile.<br>
+          ⚠️ ${this._esc(art)}#${this._esc(lot)} è <strong>interamente impegnato su DDT pendenti</strong> — non prelevabile.<br>
           <span class="text-label-small text-sx-text-muted">Modificare o annullare il DDT in Movimenta → Resi / Spedizioni.</span>
         </div>`;
         return;
@@ -387,7 +387,7 @@ export const VistaPrelievo = {
     if (!Store.isFEFOItem(item)) {
       const fefo = Store.getFEFOItemForArticle(item.article_code);
       if (fefo && fefo.expiry_date && (!item.expiry_date || item.expiry_date > fefo.expiry_date)) {
-        const msg = `⚠ NON-FEFO\n\nStai per prelevare ${item.article_code}#${item.lot_code}` +
+        const msg = `⚠️ NON-FEFO\n\nStai per prelevare ${item.article_code}#${item.lot_code}` +
           (item.expiry_date ? ` (scad. ${item.expiry_date})` : ' (senza scadenza)') +
           `\n\nIl lotto FEFO consigliato è: ${fefo.lot_code}` +
           (fefo.expiry_date ? ` (scad. ${fefo.expiry_date})` : '') +
@@ -411,7 +411,7 @@ export const VistaPrelievo = {
       this.toast(`${item.article_code}#${item.lot_code}: nessun collo disponibile (fisici ${qtyPhys}, impegnati su DDT ${qtyReserved})`, 'error');
       return;
     }
-    const reservedInfo = qtyReserved > 0 ? `\n⚠ ${qtyReserved} Coll. impegnati su DDT pendenti (non prelevabili)` : '';
+    const reservedInfo = qtyReserved > 0 ? `\n⚠️ ${qtyReserved} Coll. impegnati su DDT pendenti (non prelevabili)` : '';
     const qtyInput = await Dialog.qty({
       title: 'Colli da prelevare',
       message: reservedInfo ? reservedInfo.trim() : 'Impostare il numero di colli da portare in produzione.',

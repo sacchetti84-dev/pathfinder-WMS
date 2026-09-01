@@ -1,4 +1,5 @@
 import { MOV } from './costanti';
+import { quantoSiEMosso } from '../modules/registro';
 import type { MOV as MovTipo, Criterio } from '../types/contratto';
 import { Persistence } from './persistence/index';
 import { COLLEZIONI, type Collezione } from '../types/collezioni';
@@ -434,8 +435,8 @@ const Store = {
   },
 
   async _loadCache() {
-    /* v2.8.0 [H2] — Si carica una FINESTRA del registro, non il registro.
-       Vedi MOVLOG_WINDOW_DAYS per il perche' e per il come. */
+    /* v2.8.0 [H2] — Si carica una FINESTRA del registro, non il registro:
+       `MOVLOG_WINDOW_DEFAULT` giorni, e la manopola sta in `getMovLogWindowDays`. */
     const { sites, zones, articles, inventory, locStatus: locStat, disabled,
             movLog, movLogTotal, quarantine, pendingOut, meta: metaRows,
             pickSession: pickSessions, pickArchive, disposalArchive, operators,
@@ -580,6 +581,12 @@ const Store = {
       { key: 'unsavedChanges', value: unsaved }
     ]);
   },
+
+  /* 2.16 — SERVITO O DA FILE, e non e' un dettaglio di trasporto.
+     Servito, ogni gesto e' gia' scritto sul database quando la chiamata
+     torna: «non salvato» non e' una cosa che possa essere vera. Da file
+     invece il checkpoint esiste davvero, e l'indicatore ha un senso. */
+  eServito() { return Boolean(Persistence.supportsRemoteOps); },
 
   async markSaved() {
     this._applyToCache('meta', 'put', { key: 'unsavedChanges', value: false });
@@ -1718,7 +1725,12 @@ const Store = {
       doc_ref: entry.doc_ref || '',
       // v1.7.0 — tracciamento quantità (Colli)
       qty_before: (typeof entry.qty_before === 'number') ? entry.qty_before : null,
-      qty_delta:  (typeof entry.qty_delta  === 'number') ? entry.qty_delta  : null,
+      /* 2.16 — voce 33: `qty_delta` non mente. Quando i due estremi ci sono,
+         la variazione è la loro differenza, calcolata qui e non dal chiamante:
+         un `PICK` scriveva `null` con before 10 e after 9, un `MOVE` di riga
+         intera scriveva 0. `null` resta il «non si sa» dei movimenti storici,
+         e vale solo se manca un estremo. */
+      qty_delta:  quantoSiEMosso(entry),
       qty_after:  (typeof entry.qty_after  === 'number') ? entry.qty_after  : null,
       /* 1.4.2 — quanto si è mosso in UM, e in quale unità. `null` e assente
          sono la stessa cosa e vogliono dire «movimento a soli colli»: è la
@@ -3069,6 +3081,20 @@ const Store = {
       this._applyToCache('inventory', 'put', spostata);
     }
     await this._patchUdc(id, { location_code: dest });
+    /* 2.16 — voce 34: da file la riga per riga la scrive il client, perche'
+       qui non c'e' un servizio a cui chiederla. Stessa forma di
+       `/api/op/moveUdc`, stessa ragione. */
+    const chi = this.getCurrentIdentity().initials;
+    for (const r of righe) {
+      const quanti = Number.isFinite(Number(r.qty)) ? Number(r.qty) : null;
+      await this.logMovement({
+        type: MOV.MOVE,
+        article_code: r.article_code || '', article_description: r.article_description || '',
+        lot_code: r.lot_code || '', location_code: da, dest_location: dest,
+        user: chi, notes: `Spostata con l'unità di carico ${id}`,
+        qty_before: quanti, qty_delta: 0, qty_after: quanti,
+      });
+    }
     await this._touchMeta();
     return { ok: true, from: da, to: dest, righe: righe.length };
   },
