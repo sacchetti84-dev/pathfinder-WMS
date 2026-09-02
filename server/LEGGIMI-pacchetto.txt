@@ -102,6 +102,49 @@ PER VEDERE COSA FAREBBE, SENZA TOCCARE NIENTE
   in servizio senza conseguenze.
 
 
+LE STAMPANTI DI ETICHETTE — DALLA 2.19
+
+  Le etichette di merce e unita' di carico escono su stampanti Zebra
+  collegate in RETE. A parlarci e' il servizio, non il browser: un browser
+  non apre un socket TCP, e la porta 9100 di una Zebra vuole esattamente
+  quello. E' anche il motivo per cui funziona allo stesso modo dal PC e dal
+  terminale Android.
+
+  L'INSTALLER NON LE CONFIGURA, e non le cerca. Vanno dichiarate una volta
+  dall'applicativo: Configurazione -> Stampanti, ruolo Admin. Per ciascuna
+  servono nome, indirizzo IP, porta 9100, risoluzione della testina
+  (203 dpi) e le misure del rotolo montato (100 x 80 mm). Il pulsante
+  «Prova» manda un'etichetta che non porta dati di magazzino e riporta lo
+  stato che la macchina dichiara.
+
+  FINCHE' NON CE N'E' NESSUNA NON CAMBIA NIENTE: le etichette escono su A4
+  dal browser, come prima della 2.19. La stampante si affianca alla carta e
+  non la sostituisce — se e' spenta o il rotolo e' finito, il foglio c'e'
+  ancora.
+
+  COSA DEVE FARE LA RETE, PRIMA. E' lavoro dell'IT, non del pacchetto:
+
+    - IP fisso, o riserva DHCP sul MAC di ogni stampante. Un indirizzo che
+      cambia da solo e' un'etichetta che smette di uscire senza che nessuno
+      abbia toccato niente;
+    - TCP 9100 in USCITA da questa macchina verso le stampanti, se fra le
+      due c'e' un firewall o una VLAN separata. E' l'unica connessione che
+      il servizio apre verso l'esterno di se';
+    - le stampanti su rete privata (10.x, 172.16-31.x, 192.168.x): il
+      servizio risolve il nome prima di connettersi e RIFIUTA un indirizzo
+      pubblico;
+    - calibrazione del supporto una volta per macchina — etichette staccate
+      si rilevano a interspazio, si tiene premuto FEED all'accensione — e
+      calore adatto al supporto, dal pannello.
+
+  Il tipo di supporto, il calore e lo spellicolatore Pathfinder non li manda
+  MAI: sono configurazione della macchina, si fanno col pannello e valgono
+  per ogni lavoro.
+
+  I dettagli, e la tabella dei messaggi di guasto, stanno in
+  servizio\README.md e nella scheda tecnica per l'IT (cap. 5.3).
+
+
 SE QUALCOSA NON VA
 
   Il servizio risponde su http://localhost:4173/api/app-info e dice quale

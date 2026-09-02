@@ -28,7 +28,7 @@ browser and install nothing.
 4. [Getting started (reviewers)](#4-getting-started-reviewers)
 5. [Repository layout](#5-repository-layout)
 6. [Installing the service](#6-installing-the-service)
-7. [Configuration](#7-configuration)
+7. [Configuration](#7-configuration) · [Label printers](#label-printers--from-219)
 8. [Backup and restore](#8-backup-and-restore)
 9. [Upgrading and rolling back](#9-upgrading-and-rolling-back)
 10. [Uninstalling](#10-uninstalling)
@@ -135,7 +135,7 @@ network.
 ```bash
 npm ci                 # exact dependency set from package-lock.json
 npm run check          # TypeScript, application and service, must be clean
-npm test               # 1,222 checks in 44 files
+npm test               # 1,258 checks in 46 files
 npm run build          # produces consegna/Pathfinder <version>/
 ```
 
@@ -166,7 +166,7 @@ server/        the data service — Node + Express, two database drivers
   lib/         all service logic once, for both databases; all SQL in one file
   migrazione/  SQLite → PostgreSQL migration and its audit
   test/        service checks, schema migration, installation scripts
-test/          1,222 checks that run without a service
+test/          1,258 checks that run without a service
 banco/         benches that need a running service (not part of `npm test`)
   gerarchia    roles, enforced where they are enforced: on the service
   ciclo/       a whole cycle from goods-in to consumption
@@ -264,6 +264,134 @@ everything would work and everyone would believe the PINs were encrypted.
 Not in the code: **Configuration → DDT and Documents**. Without company name,
 address, town and **VAT number**, documents come out marked "not compliant".
 
+### Label printers — from 2.19
+
+Goods and load-unit labels print on **networked Zebra printers**. The
+**service** talks to them, not the browser: a browser cannot open a TCP socket,
+and port 9100 on a Zebra needs exactly that. It is also why this works
+identically from a desk PC and from the MC9400 handheld.
+
+**A4 printing stays.** If a printer is off, the roll has run out, or none has
+been configured, the label prints on a sheet as it always did. The Zebra is
+added alongside the paper, never in place of it.
+
+#### What has to exist first — network work, not Pathfinder's
+
+| Item | Why |
+|---|---|
+| **Static IP**, or a DHCP reservation on the printer's MAC | An address that changes on its own is a label that stops coming out with nobody having touched anything |
+| **Outbound TCP 9100** from the service machine to the printers | The only connection the service opens beyond itself. If a firewall or a separate VLAN sits between them, it has to be opened |
+| Printers on an **internal network** — `10.x`, `172.16-31.x`, `192.168.x` | The service resolves the name **before** connecting and **refuses a public address**: without that check it would become a bridge to the outside |
+| **Media calibration**, once per machine | Die-cut adhesive labels use **gap sensing**. Hold **FEED** at power-on until the printer feeds by itself. Without it the label prints off-register and the barcode straddles the cut |
+| **Darkness** matched to the stock, from the panel | Too little and the bars fade; too much and they spread until no scanner reads them |
+
+> **Pathfinder never sends media type, darkness, peel-off or persistent-save
+> commands** (`^MN`, `^MD`, `^MM`, `^JUS`). Those are **machine**
+> configuration, set once at the panel, valid for every job. The day the
+> application ships them with every label, the application owns the printer
+> configuration.
+
+#### Adding a printer
+
+**Configuration → Printers → + Add printer.** Admin role required.
+
+| Field | What goes in it |
+|---|---|
+| **Name** | What the operator picks in the aisle: **say where it is** — "Zebra — Shipping", not "Printer 2" |
+| **Address** | The printer's IP, or its network name |
+| **Port** | `9100`. Also allowed: 6101, 9101, 9102, 9103 — for external print servers and multi-channel models |
+| **Printhead** | `203 dpi` for desktop units; `300` for finer industrial ones |
+| **Label width / height** | The dimensions of the **roll actually loaded**, in millimetres. Ours: **100 × 80** |
+| **Site served** | Optional, and it does one thing: propose the right printer. The one in `MAG1` is the one next to MAG1, and sending a MAG1 label to the MAG2 printer means an operator walking across the warehouse to collect a piece of paper |
+| **Active** | Clear it and the printer leaves the operator's list without being deleted |
+
+Then **🏷 Test**: out comes a label carrying name, address, printhead and
+dimensions — **no warehouse data**, because a test that prints real goods is a
+real label circulating on the floor with no goods under it. The service then
+asks the machine how it is and reports back.
+
+#### The goods label layout
+
+Same screen, below. Eight fields stack **top-down, in that order**; for each
+one you set whether it appears, its height in millimetres, its alignment, and
+how many lines it may wrap to.
+
+| Field | Default |
+|---|---|
+| Article code · Description · **Barcode** · Lot · Expiry · **Weight** | **on** |
+| Packs · Location | off |
+
+- **Under the bars the printhead writes the code in plain text itself.** Not an
+  extra datum: it is the human-readable interpretation the standard asks for,
+  and it leaves a number to key in when the scanner will not read.
+- **"Weight" is the quantity in units of measure**, and the row is titled for
+  what it is: "Peso" for KG and GR, "Quantità" for PZ, MT and LT. With no unit
+  configured the row stays empty — a weight without a unit is not a weight.
+- **Location is off by default because it ages.** A pallet moves, and what was
+  printed stays glued to the goods saying something no longer true. Turn it on
+  and it prints declared "at time of printing", small and at the bottom.
+- **The millimetre total sits at the bottom of the screen**, compared against
+  the roll height. By default it occupies **68.5 mm of 80**: the remaining 11.5
+  are not wasted — registration on die-cut stock drifts a millimetre or two per
+  feed, and a field at the edge eventually gets clipped.
+- **A layout taller than the roll is refused by the service, not truncated.** A
+  truncated label comes out looking correct and missing its last row — by
+  default the weight — and whoever sticks it on has no way to notice.
+
+> **Load-unit labels have no layout, by decision.** A pallet carries N lines of
+> N different articles: description, expiry and weight are not even *defined*
+> for a load unit, and the first time someone loads a second batch onto it
+> whatever is printed becomes false. The only datum that never ages is the
+> number, which is never reused; everything else is told by the system, which
+> knows it *now* and not at print time. What is configurable is the **media**,
+> which belongs to the printer.
+
+#### Printing
+
+| What | From where |
+|---|---|
+| **Goods label** | Map → a location → the line → **🏷 Label**, or from the detail panel |
+| **Load-unit label** | Prints **at creation**: a pallet with no label is a pallet nobody can scan. Reprint from the load-unit list, 🏷 button |
+
+The dialog asks two things, and they behave in opposite ways:
+
+- **the printer is remembered** — whoever chose it is standing next to it for
+  the rest of the shift, and the choice stays **on that terminal**, not in the
+  database: which machine you have nearby is a fact about where you are
+  standing;
+- **the copy count always returns to 1**, and can go up to 50. Remembering "6"
+  would mean six labels on the next line that nobody asked for: an exception
+  that gets remembered stops being an exception.
+
+> **"Sent" is not "printed", and the message says which one it is showing.**
+> Port 9100 accepts the bytes and closes: out of media, head open and ribbon
+> out **all look like success**. The service sends, then asks the machine how
+> it is, and the on-screen message is green only when the printer answered
+> **and** is well. Red when it answered with a fault — sent, but the label did
+> not come out. Amber when it did not answer at all: not a failure, but not a
+> confirmation either, and the machine needs looking at.
+
+#### When the label does not come out
+
+| Message | What it means, and what to check |
+|---|---|
+| "No printer configured" | None has been added. The label prints on A4, which is what the application did before 2.19 |
+| "does not answer within 3 s" | Off, unplugged, or on a different address. Try `Test-NetConnection <ip> -Port 9100` **from the service machine**, not another one |
+| "connection refused: something is at that address, but it is not listening on the print port" | The address answers, but not on that port. Usually networking disabled on the printer, or another device holding that IP |
+| "resolves to *x.x.x.x*, which is a public address" | The name points outside the internal network. Use the IP, or fix DNS |
+| "The layout occupies *X* mm and the label is *Y* tall" | Turn a field off or reduce its height. The service refuses rather than truncating, deliberately |
+| "The code *…* in Code128 occupies *X* mm and the label has *Y*" | The code is too long for the roll. Bars are **never squeezed below 0.25 mm**: under that no scanner reads them, and printing unreadable bars is worse than printing none |
+| "sent, but the printer reports **out of media** / **head open** / …" | The send succeeded and **the label did not come out**: look at the machine. Port 9100 accepts the bytes regardless, which is why this message exists |
+| "the printer does not report its own status" | It does not answer `~HQES`. Not a failure — often an external print server that does not know the command — but not a confirmation either |
+
+**The label prints off-register, or the barcode straddles the cut.** Not
+Pathfinder: **media calibration**. Hold **FEED** at power-on until the printer
+feeds by itself.
+
+**Bars fade, or spread until unreadable.** That is **darkness**, set from the
+printer panel. Pathfinder never sends it, because it is machine configuration
+and applies to every job.
+
 ---
 
 ## 8. Backup and restore
@@ -349,9 +477,10 @@ From the package, in an administrator window:
 
 | Suite | Checks | Command |
 |---|---|---|
-| Application | **1,222** in 44 files | `npm test` |
+| Application | **1,258** in 46 files | `npm test` |
 | Types | application and service | `npm run check` |
-| Service | **141** | `node server/test/collaudo.js` |
+| Service | **156** | `node server/test/collaudo.js` |
+| **Zebra label printing** | **78** | `node server/test/collaudo-stampa.js` |
 | Installation scripts | **43** | `node server/test/collaudo-installazione.js` |
 | Schema migration | **8** | `node server/test/collaudo-migrazione-1.4.js` |
 | Roles, on the service | **40** | `node banco/gerarchia.cjs` |

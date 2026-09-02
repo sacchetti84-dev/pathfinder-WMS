@@ -67,12 +67,51 @@ list is `MAIUSCOLE` in `lib/schema.js`; it deliberately excludes PIN material
 | **Open without a session** | `/api/health` · `/api/app-info` (queried by the installer, **before** any PIN exists) · `/api/auth/*`, which is the door. `/api/auth/operatori` returns **the minimum**: initials, name, role, "has a PIN" |
 | **Collections** | `GET/POST/PUT/PATCH/DELETE /api/c/:col[/:key]` · `/bulk` · `/count` · `/query` — **session required since 2.11** |
 | **Composed operations** | `/api/tx` · `/api/op/removeItem` · `/api/op/commitPickStop` · `/api/op/sampleItem` · `/api/op/moveUdc` · `/api/op/verifyPin` · `/api/op/hashPin` · `/api/op/rinnovaPin` |
+| **Label printing** — 2.19 | `/api/op/stampaEtichetta` · `/api/op/provaStampante`. See below |
 | **Service** | `/api/load` · `/api/clear` · `/api/deleteWhere/:col` · `/api/backup` · `/api/events` (SSE) |
 
 `moveUdc` moves a load unit and all its rows **in one transaction**, refuses if
 the same key already sits outside the unit in the destination bay, and writes
 one movement record per batch carried — a single record naming nothing is not
 the signature of who moved the goods.
+
+---
+
+## Label printing — the only socket the service opens outward
+
+A browser cannot open a TCP socket, and port 9100 on a Zebra needs exactly
+that. `lib/zpl.js` builds the label; `lib/stampa-zebra.js` opens the socket.
+The split is deliberate: the label can be tested with no printer present, and
+the network can be tested without looking at the label.
+
+**The client sends a `printer_id` and a record key, never a label.** Host and
+port are read from `meta.printers`; the content is re-read from the database.
+Under GMP a label is a record, and one built by the browser can be forged from
+a console.
+
+Two gates, and neither is in configuration — because `meta` is writable by any
+signed-in operator, so a printer record is data the service does not trust:
+
+1. **The port must be in a closed list** — 6101, 9100–9103. Without it, a
+   "printer" at `127.0.0.1:5432` makes the service talk to its own PostgreSQL.
+2. **The address must resolve to a private range**, checked *before* connecting.
+   Without it the service becomes a bridge to the outside.
+
+**"Sent" is not "printed".** Port 9100 accepts the bytes and closes: out of
+media, head open and ribbon out all look like success. `inviaZpl` reports what
+is certain — the job was accepted — and `statoStampante` asks `~HQES`
+separately. Callers report both, and the interface says which one it is showing.
+
+Requests to the same printer are **serialised**: port 9100 takes one connection
+at a time, and with several terminals on one machine that is the normal case,
+not the exception. Different printers stay parallel.
+
+Printer settings — media type, darkness, peel-off, persistent save — are
+**never sent**. They belong to the machine.
+
+`node test/collaudo-stampa.js` runs 78 checks against a fake printer listening
+on 9100. No hardware needed; what hardware *is* needed for is recorded in
+`INDEX.md`, entry 83.
 
 ---
 

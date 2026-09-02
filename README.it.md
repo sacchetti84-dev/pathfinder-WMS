@@ -9,6 +9,11 @@
 > Resta qui perché porta ragionamenti che l'inglese non trasferisce, ed è la
 > copia di lavoro dell'autore. Il documento autorevole del progetto resta
 > [`INDEX.md`](INDEX.md).
+>
+> **Due sezioni sono invece aggiornate alla 2.19** e si leggono così come
+> stanno: [«Stampanti di etichette»](#stampanti-di-etichette--dalla-219) nel
+> capitolo 6 e [«L'etichetta non esce dalla
+> Zebra»](#letichetta-non-esce-dalla-zebra) nel capitolo 9.
 
 
 **Gestione magazzino — Dietopack S.r.l. (Naturacare Group)**
@@ -33,10 +38,10 @@ e non installano niente.
 3. [Installazione su una macchina di prova](#3-installazione-su-una-macchina-di-prova)
 4. [Installazione sul PC di magazzino](#4-installazione-sul-pc-di-magazzino)
 5. [Trasloco su macchina virtuale](#5-trasloco-su-macchina-virtuale)
-6. [Configurazione](#6-configurazione)
+6. [Configurazione](#6-configurazione) · [Stampanti di etichette](#stampanti-di-etichette--dalla-219)
 7. [Backup e ripristino](#7-backup-e-ripristino)
 8. [Aggiornare a una versione nuova](#8-aggiornare-a-una-versione-nuova) · [Togliere Pathfinder](#togliere-pathfinder-da-questa-macchina)
-9. [Quando qualcosa non va](#9-quando-qualcosa-non-va)
+9. [Quando qualcosa non va](#9-quando-qualcosa-non-va) · [L'etichetta non esce](#letichetta-non-esce-dalla-zebra)
 10. [Sviluppo](#10-sviluppo)
 11. [Decisioni da conoscere prima di metterci le mani](#11-decisioni-da-conoscere-prima-di-metterci-le-mani)
 
@@ -290,6 +295,115 @@ Non stanno nel codice: si scrivono in **Configurazione → DDT e Documenti**.
 Senza ragione sociale, indirizzo, comune e **partita IVA** i documenti escono
 con l'avviso «documento non conforme».
 
+### Stampanti di etichette — dalla 2.19
+
+Le etichette di merce e unità di carico escono su **stampanti Zebra collegate
+in rete**. A parlarci è il **servizio**, non il browser: un browser non apre
+un socket TCP, e la porta 9100 di una Zebra vuole esattamente quello. È anche
+il motivo per cui funziona allo stesso modo dal PC e dal terminale MC9400.
+
+**La stampa su A4 resta.** Se una stampante è spenta, il rotolo è finito o non
+ne è stata configurata nessuna, l'etichetta esce sul foglio come è sempre
+uscita. La Zebra si affianca alla carta, non la sostituisce.
+
+#### Cosa deve esserci prima — è lavoro di rete, non di Pathfinder
+
+| Cosa | Perché |
+|---|---|
+| **Indirizzo IP fisso**, o riserva DHCP sul MAC della stampante | Un indirizzo che cambia da solo è un'etichetta che smette di uscire senza che nessuno abbia toccato niente |
+| **TCP 9100 in uscita** dalla macchina del servizio verso le stampanti | È l'unica connessione che il servizio apre verso l'esterno di sé. Se c'è un firewall o una VLAN separata fra le due, va aperta |
+| Le stampanti su **rete interna** — `10.x`, `172.16-31.x`, `192.168.x` | Il servizio risolve il nome **prima** di connettersi e **rifiuta un indirizzo pubblico**: senza quel controllo diventerebbe un ponte verso l'esterno |
+| **Calibrazione del supporto**, una volta per macchina | Etichette adesive staccate si rilevano a **interspazio**. Si tiene premuto **FEED** all'accensione finché non avanza da sola. Senza, l'etichetta esce sfasata e il codice a barre finisce a cavallo del taglio |
+| **Calore (darkness)** adatto al supporto, dal pannello | Troppo poco e le barre sbiadiscono, troppo e si allargano fino a non essere più leggibili |
+
+> **Pathfinder non manda mai alla stampante il tipo di supporto, il calore, lo
+> spellicolatore o il salvataggio permanente** (`^MN`, `^MD`, `^MM`, `^JUS`).
+> Sono configurazione della **macchina**, si fanno una volta col pannello e
+> valgono per tutti. Il giorno che l'applicativo le spedisce a ogni etichetta,
+> è l'applicativo a possedere la configurazione delle stampanti.
+
+#### Aggiungere una stampante
+
+**Configurazione → Stampanti → + Aggiungi stampante.** Serve il ruolo Admin.
+
+| Campo | Cosa scriverci |
+|---|---|
+| **Nome** | Quello che l'operatore sceglie in corsia: **che dica dov'è** — «Zebra — Spedizioni», non «Stampante 2» |
+| **Indirizzo** | L'IP della stampante, o il suo nome di rete |
+| **Porta** | `9100`. Le altre ammesse sono 6101, 9101, 9102, 9103 — servono ai print server esterni e ai modelli a più canali |
+| **Testina** | `203 dpi` per le desktop; `300` per le industriali più fitte |
+| **Etichetta — larghezza / altezza** | Le misure del **rotolo montato**, in millimetri. Le nostre: **100 × 80** |
+| **Sito servito** | Facoltativo, e serve a una cosa sola: proporre la stampante giusta. Quella di `MAG1` è quella vicina a MAG1, e mandare un'etichetta di MAG1 sulla stampante di MAG2 vuol dire un operatore che attraversa il magazzino per raccogliere un pezzo di carta |
+| **Attiva** | Toglila e sparisce dall'elenco di chi stampa, senza cancellarla |
+
+Poi il pulsante **🏷 Prova**: esce un'etichetta che porta nome, indirizzo,
+testina e misure — **non porta dati di magazzino**, perché una prova che
+stampa merce vera è un'etichetta vera che gira per il reparto senza merce
+sotto. Subito dopo il servizio chiede alla macchina come sta e lo riporta.
+
+#### Il layout dell'etichetta della merce
+
+Stessa scheda, sotto. Otto campi che si impilano **dall'alto, in quell'ordine**;
+di ognuno si decide se c'è, quanto è alto in millimetri, come si allinea e su
+quante righe può andare a capo.
+
+| Campo | Di serie |
+|---|---|
+| Codice articolo · Descrizione · **Codice a barre** · Lotto · Scadenza · **Peso** | **accesi** |
+| Colli · Ubicazione | spenti |
+
+- **Sotto le barre la testina scrive da sé il codice in chiaro.** Non è un dato
+  in più: è la rappresentazione leggibile che lo standard chiede, e lascia un
+  numero da digitare quando il lettore non legge.
+- **Il «peso» è la quantità in unità di misura**, e la riga si intitola per
+  quello che è: su articoli in KG o GR dice «Peso», su PZ, MT e LT dice
+  «Quantità». Senza unità configurata la riga resta vuota — un peso senza
+  unità non è un peso.
+- **L'ubicazione nasce spenta perché invecchia.** Un pallet si sposta, e quel
+  che è stampato resta incollato alla merce a dire una cosa che non è più vera.
+  Chi la accende la trova dichiarata «alla stampa», in piccolo e in fondo.
+- **Il totale in millimetri sta in fondo alla scheda**, confrontato con
+  l'altezza del rotolo. Di serie occupa **68,5 mm degli 80**: gli 11,5 che
+  restano non sono spazio sprecato — su etichette staccate il registro balla di
+  un millimetro o due a ogni avanzamento, e un campo a filo del bordo prima o
+  poi si taglia.
+- **Un layout più alto del rotolo il servizio lo rifiuta, non lo tronca.**
+  Un'etichetta troncata esce con l'aria di essere giusta e le manca l'ultima
+  riga — che di serie è il peso — e chi la incolla non ha modo di accorgersene.
+
+> **L'etichetta dell'unità di carico non ha un layout, ed è una decisione.**
+> Un pallet porta N righe di N articoli diversi: descrizione, scadenza e peso
+> non sono nemmeno *definiti* per un'unità di carico, e la prima volta che
+> qualcuno ci carica sopra una seconda partita quel che c'è scritto diventa
+> falso. L'unico dato che non invecchia è il numero, che non si riusa mai;
+> tutto il resto lo dice il sistema, che lo sa adesso e non alla stampa. Quel
+> che si configura è il **supporto**, che sta sulla stampante.
+
+#### Come si stampa
+
+| Cosa | Da dove |
+|---|---|
+| **Etichetta della merce** | Mappa → un vano → la riga → **🏷 Etichetta**, oppure dal pannello di dettaglio a lato |
+| **Etichetta dell'unità di carico** | Esce **alla creazione**: un pallet senza etichetta è un pallet che nessuno può scansionare. Si ristampa dall'elenco delle unità di carico, col pulsante 🏷 |
+
+La maschera chiede due cose e si comportano all'opposto:
+
+- **la stampante si ricorda** — chi l'ha scelta ci sta accanto per tutto il
+  turno, e il ricordo resta **su quel terminale**, non a database: quale
+  macchina hai vicino è un fatto del posto in cui stai;
+- **le copie tornano sempre a 1**, e si possono alzare fino a 50. Ricordare
+  «6» vorrebbe dire che alla riga dopo ne escono sei senza che nessuno le abbia
+  chieste: un'eccezione che si ricorda smette di essere un'eccezione.
+
+> **«Inviata» non è «stampata», e il riscontro dice quale dei due sta
+> mostrando.** La porta 9100 accetta i byte e chiude: carta finita, testina
+> aperta e nastro esaurito **passano tutti come successo**. Il servizio manda,
+> poi chiede alla macchina come sta, e il messaggio a video è verde solo quando
+> la stampante ha risposto **e** sta bene. Rosso quando ha risposto con un
+> errore — inviata, ma l'etichetta non è uscita. Giallo quando non ha risposto
+> affatto: non è un guasto, ma non è nemmeno una conferma, e la macchina va
+> guardata.
+
 ---
 
 ## 7. Backup e ripristino
@@ -499,6 +613,32 @@ Get-Content C:\Pathfinder\backup\backup.log -Tail 10
 
 Il registro riporta ogni esecuzione con esito. Se manca la riga, l'attività
 non è partita: da amministratore, `Get-ScheduledTaskInfo -TaskName 'Pathfinder - Backup serale'`.
+
+### L'etichetta non esce dalla Zebra
+
+I messaggi dicono già cosa guardare. Quelli che si vedono davvero:
+
+| Messaggio | Cosa vuol dire, e cosa si guarda |
+|---|---|
+| «Nessuna stampante configurata» | Non ne è stata aggiunta nessuna. L'etichetta esce su A4, che è quel che l'applicativo faceva prima della 2.19 |
+| «Questa macchina lavora da file» | Senza servizio non c'è nessuno che possa aprire un socket. Solo A4 |
+| «**non risponde entro 3 s**» | La stampante è spenta, staccata dalla rete, o ha preso un altro indirizzo. Si prova a raggiungerla: `Test-NetConnection <ip> -Port 9100` dalla macchina del **servizio**, non da un'altra |
+| «**connessione rifiutata**: a quell'indirizzo c'è qualcosa, ma non ascolta sulla porta di stampa» | L'indirizzo risponde ma non su quella porta. Di solito è la rete disattivata sulla stampante, o un altro apparecchio che si è preso quell'IP |
+| «risolve su *x.x.x.x*, che è un **indirizzo pubblico**» | Il nome punta fuori dalla rete interna. Si scrive l'IP, o si sistema il DNS |
+| «la porta *N* non è una porta di stampa Zebra» | Ammesse solo 6101, 9100, 9101, 9102, 9103 |
+| «**Il layout occupa *X* mm e l'etichetta è alta *Y***» | Si spegne un campo o se ne riduce l'altezza in Configurazione → Stampanti. Il servizio rifiuta invece di troncare, di proposito |
+| «Il codice *…* in Code128 occupa *X* mm e sull'etichetta ce ne sono *Y*» | Il codice è troppo lungo per il rotolo. Le barre **non si stringono sotto 0,25 mm**: sotto quella misura non le legge nessun lettore, e stampare barre illeggibili è peggio che non stamparle |
+| «inviata, ma la stampante segnala **carta finita** / **testina aperta** / …» | L'invio è riuscito e **l'etichetta non è uscita**: si guarda la macchina. La porta 9100 accetta i byte comunque, ed è il motivo per cui questo messaggio esiste |
+| «la stampante **non dichiara il proprio stato**» | Non risponde alla domanda `~HQES`. Non è un guasto — spesso è un print server esterno che quel comando non lo conosce — ma non è nemmeno una conferma: l'etichetta va guardata |
+
+**L'etichetta esce sfasata, o il codice a barre finisce a cavallo del taglio.**
+Non è Pathfinder: è la **calibrazione del supporto**. Etichette adesive
+staccate si rilevano a interspazio, e la taratura si fa una volta per macchina
+tenendo premuto **FEED** all'accensione finché non avanza da sola.
+
+**Le barre sbiadiscono, o si allargano fino a non leggersi.** È il **calore**,
+e si regola dal pannello della stampante: Pathfinder non lo manda mai, perché
+è configurazione della macchina e vale per tutti i lavori.
 
 ---
 

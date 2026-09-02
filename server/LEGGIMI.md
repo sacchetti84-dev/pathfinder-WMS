@@ -114,7 +114,48 @@ Start-ScheduledTask -TaskName 'Pathfinder - Servizio dati'
 
 # collaudo (usa un database usa-e-getta, non tocca quello di lavoro)
 cd server; npm test
+
+# collaudo delle etichette Zebra — non serve una stampante:
+# alza una finta Zebra sulla 9100 e legge i byte che le arrivano
+cd server; node test/collaudo-stampa.js
 ```
+
+## Le etichette sulle Zebra in rete — dalla 2.19
+
+Un browser non apre un socket TCP, e la porta 9100 di una Zebra vuole
+esattamente quello: la stampa la fa il servizio. `lib/zpl.js` costruisce
+l'etichetta, `lib/stampa-zebra.js` apre il socket — separati perché
+l'etichetta si prova senza stampante e la rete si prova senza guardare
+l'etichetta.
+
+**Il client manda un identificativo di stampante e la chiave di un record,
+mai un'etichetta.** Indirizzo e porta li legge il servizio da `meta.printers`,
+e il contenuto lo rilegge dal database: in regime GMP un'etichetta è un
+documento, e un documento costruito dal browser si falsifica in una console.
+
+Due cancelli, e stanno nel codice — `meta` la scrive chiunque abbia una
+sessione, quindi di un record di stampante non ci si fida comunque:
+
+1. **la porta sta in un elenco chiuso** (6101, 9100-9103): senza, una
+   «stampante» a `127.0.0.1:5432` fa parlare il servizio col proprio PostgreSQL;
+2. **l'indirizzo si risolve prima di connettersi e dev'essere privato**: senza,
+   il servizio diventa un ponte verso l'esterno.
+
+**«Inviata» non è «stampata».** La 9100 accetta i byte e chiude: carta finita,
+testina aperta e nastro esaurito passano tutti come successo. Il servizio manda,
+poi chiede `~HQES`, e riporta i due fatti **separati** — l'interfaccia dice
+quale dei due sta mostrando.
+
+Le richieste alla **stessa** stampante si mettono in fila: la 9100 accetta una
+connessione per volta, e con più terminali su una macchina sola è il caso
+normale. Stampanti diverse restano parallele.
+
+Tipo di supporto, calore, spellicolatore e salvataggio permanente **non si
+mandano mai**: sono configurazione della macchina, si fanno col pannello.
+
+Come si configurano le stampanti — e cosa deve fare la rete prima — sta in
+[`../README.it.md`](../README.it.md), capitolo 6, e nella scheda tecnica per
+l'IT (`documenti/IT-TECH-SHEET.md`, cap. 5.3).
 
 ## Una nota su `better-sqlite3`
 

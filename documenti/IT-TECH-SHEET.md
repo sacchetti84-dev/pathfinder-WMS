@@ -1,7 +1,7 @@
 # PATHFINDER — SCHEDA TECNICA PER IL TEAM IT
 # PATHFINDER — TECHNICAL DATA SHEET FOR THE IT TEAM
 
-**Codice / Code:** REP-IT-001  |  **Revisione / Revision:** **04**  |  **Data / Date:** 02/09/2026
+**Codice / Code:** REP-IT-001  |  **Revisione / Revision:** **05**  |  **Data / Date:** 02/09/2026
 
 **Redatto da / Prepared by:** Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
 
@@ -30,6 +30,7 @@ language of record.
 | **02** | **02/09/2026** | Documento reso **bilingue**. Aggiornato dalla versione 2.12 alla **2.17**. **Il limite 2 è chiuso**: i permessi per ruolo sono imposti dal servizio (2.13) e l'ultimo Admin non si può togliere da solo (2.16). **Tolta la dichiarazione di conservazione a sei anni**: il registro non ha una scadenza dentro l'applicativo (2.17), e il periodo lo stabilisce la procedura aziendale — cap. 8.3. Aggiunte la via di fuga dell'Admin, la migrazione dalla 1.4, due limiti nuovi (10, 11) e i numeri di collaudo rimisurati. Corretto il riferimento a `server\azure`, che non esiste dal 26/08 | Document made **bilingual**. Updated from release 2.12 to **2.17**. **Limitation 2 is closed**: role permissions are enforced by the service (2.13) and the last Admin cannot remove themselves (2.16). **The six-year retention statement is removed**: the register has no expiry inside the application (2.17), and the period is set by company procedure — §8.3. Added the Admin recovery route, the 1.4 migration, two new limitations (10, 11) and re-measured test figures. Corrected the reference to `server\azure`, which has not existed since 26/08 |
 | **03** | **02/09/2026** | Recepisce l'**audit IT della repository** (REP-AUDIT-001, 02/09/2026). La **2.18** chiude tre difetti di sicurezza non dichiarati — il corpo della richiesta letto prima dell'autenticazione, l'anagrafica nominativa esposta senza sessione, la sessione che non scadeva mai — e aggiunge il **registro del servizio su file**, l'**integrazione continua** e la **copia secondaria dei backup**. Corretto il cap. 8.4, che lasciava intendere un controllo del testo libero «in un punto solo» mentre per il testo libero sta nel browser. Aggiunti i **limiti 12 e 13**: sono due rischi accettati, non due difetti | Takes up the **IT audit of the repository** (REP-AUDIT-001, 02/09/2026). **2.18** closes three undeclared security defects — the request body read before authentication, the staff roster exposed without a session, the session that never expired — and adds the **service log file**, **continuous integration** and a **secondary backup copy**. §8.4 corrected: it implied a free-text check «in one place» that for free text lives in the browser. Added **limitations 12 and 13**: two accepted risks, not two defects |
 | **04** | **02/09/2026** | **Corretta la versione minima di Node: 22, non 20.** `better-sqlite3` 13 pubblica il binario per Node 22+; su una macchina con la 20 l'installazione arrivava in fondo e il servizio non partiva — nemmeno su PostgreSQL, perché `lib/db.js` carica il driver SQLite in ogni caso. Il numero sbagliato era in `package.json`, in questa scheda e nell'elenco di cose chieste all'IT. **L'ha trovato l'integrazione continua**, alla sua seconda corsa. La 2.18.1 aggiunge il controllo all'installer, che ora si ferma senza toccare niente, e una prova che fallisce se `engines` promette meno di quel che le dipendenze pretendono | **Corrected the minimum Node version: 22, not 20.** `better-sqlite3` 13 ships its binary for Node 22+; on a machine with 20 the installation completed and the service did not start — not even on PostgreSQL, since `lib/db.js` loads the SQLite driver in any case. The wrong number was in `package.json`, in this data sheet and in the list of things asked of IT. **Continuous integration found it**, on its second run. 2.18.1 adds the check to the installer, which now stops without touching anything, and a test that fails if `engines` promises less than the dependencies require |
+| **05** | **02/09/2026** | Recepisce la **2.19**: le etichette di merce e unità di carico escono su **stampanti Zebra in rete**, e a parlarci è il servizio — un browser un socket TCP non lo apre. **Nuovo cap. 5.3** con i requisiti di rete e di taratura, e la dichiarazione che la **TCP 9100 in uscita è l'unica connessione che il servizio apre verso l'esterno di sé**: l'indirizzo della stampante non arriva mai dalla richiesta del browser, le porte ammesse sono un elenco chiuso nel codice, e un host che risolve su un indirizzo pubblico è rifiutato. Aggiornati il cap. 3 (le connessioni in uscita), il 5.1 (rete), il 6.3 (configurazione delle stampanti e del layout) e il 12 (due richieste nuove all'IT). **La stampa su A4 resta invariata** | Takes up **2.19**: goods and load-unit labels print on **networked Zebra printers**, and the service does the talking — a browser cannot open a TCP socket. **New §5.3** with the network and setup requirements, and the statement that **outbound TCP 9100 is the only connection the service opens beyond itself**: the printer address never arrives from the browser's request, the allowed ports are a closed list in the code, and a host resolving to a public address is refused. Updated §3 (outbound connections), §5.1 (network), §6.3 (printer and layout configuration) and §12 (two new asks of IT). **A4 printing is unchanged** |
 
 ---
 ---
@@ -70,6 +71,7 @@ un'altra macchina; il passaggio alla versione corrente è trattato al capitolo 6
 | Dove stanno i dati | **Solo su quella macchina**: PostgreSQL su `127.0.0.1:5432`, backup in `C:\Pathfinder\backup\` |
 | Esce qualcosa dall'azienda | **No.** Nessuna telemetria, nessuna chiamata verso l'esterno, nessun CDN, nessun servizio di terzi. Il codice non contiene un solo indirizzo remoto |
 | Che porta apre | Una: **TCP 4173** in ingresso, profili *Dominio* e *Privato* |
+| Che connessioni apre in uscita | **Una sola, e dalla 2.19: TCP 9100 verso le stampanti di etichette** in rete. Il servizio **rifiuta un indirizzo pubblico**: risolve il nome prima di connettersi e si ferma se non è privato — cap. 5.3 |
 | Con che account gira | `SYSTEM`, da un'attività pianificata avviata all'accensione |
 | Serve internet | **Solo alla prima installazione**, per scaricare tre dipendenze Node dal registry npm. Poi mai più |
 | Che cosa installa sui client | **Niente.** I terminali aprono un indirizzo nel browser |
@@ -135,7 +137,7 @@ una transazione lato servizio.
 | Database | **PostgreSQL 17**, installato preventivamente. L'installer controlla motore, servizio, porta e binari `pg_dump` / `pg_restore`, e **se mancano dice dove si prendono e si ferma senza toccare niente** |
 | Disco | ~500 MB per applicativo, servizio e dipendenze; più lo spazio dei backup (~0,5 MB per backup, uno al giorno) |
 | Memoria | Il processo Node sta sotto i 200 MB. Il dimensionamento reale lo detta PostgreSQL |
-| Rete | Un indirizzo IP raggiungibile dai terminali; porta 4173 in ingresso |
+| Rete | Un indirizzo IP raggiungibile dai terminali; porta 4173 in ingresso. **Dalla 2.19, TCP 9100 in uscita verso le stampanti di etichette** — cap. 5.3 |
 | Accesso a internet | **Solo alla prima installazione**, per `npm install` di tre pacchetti (`express`, `pg`, `better-sqlite3`). Le dipendenze non viaggiano nel pacchetto |
 | Privilegi | Amministratore locale, richiesto a ogni installazione (serve a fermare l'attività pianificata) |
 
@@ -153,6 +155,36 @@ una transazione lato servizio.
 | Schermo | L'interfaccia è tarata sul terminale Zebra MC9400 (4,3", 800×480, fra i 400 e i 533 px CSS) e si adatta fino al desktop |
 | Input | Lettore ottico in emulazione tastiera. Nessun driver dedicato |
 | Rete | Accesso HTTP alla porta 4173 della postazione server |
+
+### 5.3 Stampanti di etichette — dalla 2.19
+
+Le etichette di merce e unità di carico escono su **stampanti Zebra in rete**.
+A parlarci è il **servizio**, non il browser: un browser non apre un socket
+TCP, e la porta 9100 di una Zebra vuole esattamente quello. È anche la ragione
+per cui la funzione serve allo stesso modo le postazioni e i terminali Android,
+dove l'applicativo è una pagina web e nessun driver è installabile.
+
+| Voce | Requisito |
+|:---|:---|
+| Indirizzamento | **IP fisso, o riserva DHCP sul MAC** di ogni stampante. Un indirizzo che cambia da solo è un'etichetta che smette di uscire senza che nessuno abbia toccato niente |
+| Rete | **TCP 9100 in uscita** dalla postazione che ospita il servizio verso le stampanti. Se fra le due c'è un firewall o una VLAN separata, va aperta |
+| Ambito | Le stampanti devono stare su **rete privata** — `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`. Il servizio **risolve il nome prima di connettersi e rifiuta un indirizzo pubblico** |
+| Porte ammesse | **Solo** 6101, 9100, 9101, 9102, 9103 — le porte RAW delle Zebra e dei print server esterni. L'elenco è nel codice del servizio e **non si allarga dalla configurazione** |
+| Taratura | **Calibrazione del supporto** una volta per macchina (etichette staccate: rilevamento a interspazio, tasto FEED tenuto premuto all'accensione) e **calore** adatto al supporto, dal pannello |
+| Supporto in uso | Adesive staccate **100 × 80 mm**, testina **203 dpi** |
+
+> **⚠ Questa è l'UNICA connessione che il servizio apre verso l'esterno di sé,
+> e i due cancelli che la difendono sono nel codice, non nella configurazione.**
+> L'indirizzo della stampante **non arriva mai dalla richiesta del browser**: il
+> client manda un identificativo di stampante e la chiave di un record, e host e
+> porta li legge il servizio. Senza questo, la rotta di stampa sarebbe il modo
+> di scrivere byte arbitrari su qualunque `host:porta` raggiungibile dal server,
+> con la credenziale di un operatore qualsiasi.
+
+> **💡 Pathfinder non manda mai alla stampante il tipo di supporto, il calore,
+> lo spellicolatore o il salvataggio permanente.** Sono configurazione della
+> macchina, si fanno una volta col pannello e valgono per ogni lavoro — anche
+> per quelli che non vengono da Pathfinder.
 
 ---
 
@@ -214,6 +246,22 @@ finestra si chiude da sola e non si riapre.
 > **⚠ Su una macchina nuova il primo Admin è il primo gesto**, prima di
 > qualunque dato: finché non esiste, quella finestra resta aperta a chiunque sia
 > sulla rete.
+
+**Le stampanti di etichette, invece, vanno dichiarate** — dalla 2.19, e solo se
+si vuole stampare in rete: **Configurazione → Stampanti**, ruolo Admin. Per
+ciascuna servono nome, indirizzo, porta (`9100`), risoluzione della testina
+(`203 dpi`) e le misure del rotolo montato (`100 × 80 mm`). Il campo **sito
+servito** è facoltativo e decide quale stampante viene proposta a chi etichetta
+merce di quel sito. Il pulsante **Prova** manda un'etichetta che non porta dati
+di magazzino e riporta lo stato che la macchina dichiara.
+
+**Finché non ce n'è nessuna, le etichette escono su A4 dal browser**, come
+prima della 2.19: la stampante si affianca alla carta e non la sostituisce.
+Nella stessa scheda si dispone il **layout dell'etichetta della merce** —
+codice a barre, descrizione, scadenza, peso, lotto, codice articolo, e i due
+campi facoltativi colli e ubicazione — con altezza in millimetri, allineamento
+e mandata a capo. Il totale è confrontato con l'altezza del rotolo: **un layout
+più alto viene rifiutato, non troncato**.
 
 ### 6.4 Ripristino
 
@@ -628,6 +676,8 @@ verbale di quella corsa invece di lasciarlo sovrascrivere dalla successiva.
 - [ ] **Una postazione Windows** raggiungibile dai terminali, con **Node.js LTS 22 o superiore** e PostgreSQL 17 installati
 - [ ] **Accesso al registry npm** dalla postazione, limitatamente alla prima installazione
 - [ ] **Apertura della porta TCP 4173** in ingresso sui profili Dominio e Privato (la fa l'installer, serve l'autorizzazione)
+- [ ] **Apertura della TCP 9100 in uscita** dalla postazione del servizio verso le stampanti di etichette, se fra le due c'è un firewall o una VLAN separata (cap. 5.3)
+- [ ] **IP fisso o riserva DHCP per ogni stampante di etichette**, e la loro **calibrazione del supporto** — un indirizzo che cambia da solo, o una macchina non calibrata, sono etichette che smettono di uscire senza che nessuno abbia toccato niente
 - [ ] **Privilegi di amministratore locale** per l'installazione e per gli aggiornamenti
 - [ ] **Eventuale esclusione antivirus** sulla cartella `C:\Pathfinder\` e sul processo Node, se le policy lo richiedono
 - [ ] **Decisione su TLS** (limite 1): nome DNS interno e certificato dalla CA aziendale — il codice è già pronto
@@ -706,6 +756,7 @@ different machine; the move to the current release is covered in §6.5.
 | Where the data lives | **On that machine only**: PostgreSQL on `127.0.0.1:5432`, backups in `C:\Pathfinder\backup\` |
 | Does anything leave the company | **No.** No telemetry, no outbound calls, no CDN, no third-party service. The code does not contain a single remote address |
 | Which port it opens | One: **TCP 4173** inbound, *Domain* and *Private* profiles |
+| What it opens outbound | **One thing only, and only since 2.19: TCP 9100 to the networked label printers.** The service **refuses a public address**: it resolves the name before connecting and stops if it is not private — §5.3 |
 | Under which account it runs | `SYSTEM`, from a scheduled task started at boot |
 | Does it need internet | **Only on first installation**, to fetch three Node dependencies from the npm registry. Never again afterwards |
 | What it installs on clients | **Nothing.** Terminals open an address in a browser |
@@ -770,7 +821,7 @@ inside a service-side transaction.
 | Database | **PostgreSQL 17**, installed beforehand. The installer checks engine, service, port and the `pg_dump` / `pg_restore` binaries, and **if they are missing it says where to get them and stops without touching anything** |
 | Disk | ~500 MB for application, service and dependencies; plus backup space (~0.5 MB per backup, one a day) |
 | Memory | The Node process stays under 200 MB. Real sizing is dictated by PostgreSQL |
-| Network | An IP address reachable by the terminals; port 4173 inbound |
+| Network | An IP address reachable by the terminals; port 4173 inbound. **From 2.19, TCP 9100 outbound to the label printers** — §5.3 |
 | Internet access | **Only on first installation**, for `npm install` of three packages (`express`, `pg`, `better-sqlite3`). Dependencies do not travel inside the package |
 | Privileges | Local administrator, required on every installation (needed to stop the scheduled task) |
 
@@ -788,6 +839,36 @@ inside a service-side transaction.
 | Screen | The interface is tuned for the Zebra MC9400 terminal (4.3", 800×480, between 400 and 533 CSS px) and scales up to desktop |
 | Input | Keyboard-emulation barcode reader. No dedicated driver |
 | Network | HTTP access to port 4173 on the server workstation |
+
+### 5.3 Label printers — from 2.19
+
+Goods and load-unit labels print on **networked Zebra printers**. The
+**service** talks to them, not the browser: a browser cannot open a TCP socket,
+and port 9100 on a Zebra needs exactly that. It is also why the feature serves
+desktop workstations and Android handhelds alike, where the application is a
+web page and no driver can be installed.
+
+| Item | Requirement |
+|:---|:---|
+| Addressing | **Static IP, or a DHCP reservation on the MAC** of each printer. An address that changes on its own is a label that stops coming out with nobody having touched anything |
+| Network | **Outbound TCP 9100** from the workstation hosting the service to the printers. If a firewall or a separate VLAN sits between them, it must be opened |
+| Scope | Printers must be on a **private network** — `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`. The service **resolves the name before connecting and refuses a public address** |
+| Allowed ports | **Only** 6101, 9100, 9101, 9102, 9103 — the RAW ports of Zebra printers and external print servers. The list is in the service code and **cannot be widened from configuration** |
+| Setup | **Media calibration** once per machine (die-cut labels: gap sensing, FEED held at power-on) and **darkness** matched to the stock, from the panel |
+| Media in use | Die-cut adhesive labels **100 × 80 mm**, **203 dpi** printhead |
+
+> **⚠ This is the ONLY connection the service opens beyond itself, and the two
+> gates that guard it are in the code, not in configuration.** The printer
+> address **never arrives from the browser's request**: the client sends a
+> printer identifier and a record key, and the service reads host and port
+> itself. Without this, the print route would be a way to write arbitrary bytes
+> to any `host:port` reachable from the server, using any operator's
+> credentials.
+
+> **💡 Pathfinder never sends media type, darkness, peel-off or persistent-save
+> commands to the printer.** Those are machine configuration, set once at the
+> panel, and they apply to every job — including jobs that do not come from
+> Pathfinder.
 
 ---
 
@@ -847,6 +928,21 @@ window closes by itself and does not reopen.
 
 > **⚠ On a new machine the first Admin is the first act**, before any data: until
 > one exists, that window is open to anyone on the network.
+
+**Label printers, on the other hand, do have to be declared** — from 2.19, and
+only if network printing is wanted: **Configuration → Printers**, Admin role.
+Each needs a name, an address, a port (`9100`), the printhead resolution
+(`203 dpi`) and the dimensions of the roll loaded (`100 × 80 mm`). The **site
+served** field is optional and decides which printer is proposed to whoever
+labels goods at that site. The **Test** button sends a label carrying no
+warehouse data and reports the status the machine declares.
+
+**Until one exists, labels print on A4 from the browser**, as before 2.19: the
+printer is added alongside the paper, not in place of it. The same screen lays
+out the **goods label** — barcode, description, expiry, weight, lot, article
+code, plus the two optional fields packs and location — with height in
+millimetres, alignment and wrapping. The total is compared against the roll
+height: **a taller layout is refused, not truncated**.
 
 ### 6.4 Restore
 
@@ -1259,6 +1355,8 @@ that run's report aside instead of letting the next run overwrite it.
 - [ ] **A Windows workstation** reachable by the terminals, with **Node.js LTS 22 or later** and PostgreSQL 17 installed
 - [ ] **Access to the npm registry** from that workstation, for the first installation only
 - [ ] **Opening TCP port 4173** inbound on the Domain and Private profiles (the installer does it; authorisation is needed)
+- [ ] **Opening outbound TCP 9100** from the service workstation to the label printers, if a firewall or a separate VLAN sits between them (§5.3)
+- [ ] **A static IP or DHCP reservation for each label printer**, and their **media calibration** — an address that changes on its own, or an uncalibrated machine, means labels that stop coming out with nobody having touched anything
 - [ ] **Local administrator privileges** for installation and upgrades
 - [ ] **Antivirus exclusion**, if policy requires it, on the `C:\Pathfinder\` folder and the Node process
 - [ ] **A decision on TLS** (limitation 1): internal DNS name and a certificate from the company CA — the code is ready
