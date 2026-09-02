@@ -1,6 +1,8 @@
 import { type Vista, $ } from './vista';
 import { caricaExcel } from '../../modules/excel';
 import { Store } from '../../core/store';
+import { ePf, riepiloga, bancaliImpegnati, ETICHETTE_STATO } from '../../modules/bancale';
+import type { StatoBancale } from '../../modules/bancale';
 import type { Ubicazione } from '../../core/geometria';
 import type { NonConformita, Deroga } from '../../modules/conformita';
 import type { CodiceAllergene } from '../../modules/anagrafica';
@@ -52,7 +54,18 @@ export const VistaMappa = {
           <div class="legend-item"><div class="legend-dot bg-sx-danger"></div>Bloccata</div>
           <div class="legend-item"><div class="legend-dot bg-sx-warning"></div>Riservata</div>
           <div class="legend-item"><div class="legend-dot bg-sx-disabled"></div>Disatt.</div>
+          ${this._mapFiltroPf ? `
+            <div class="legend-item"><div class="legend-dot bg-sx-accent"></div>Bancale PF pronto</div>
+            <div class="legend-item"><div class="legend-dot bg-sx-warning"></div>Impegnato su DDT</div>
+            <div class="legend-item"><div class="legend-dot bg-sx-text-muted"></div>Spedito</div>` : ''}
           <div class="legend-item ml-auto text-sx-text-muted">💡 Tasto dx = Attiva/Disattiva</div>
+        </div>
+        <div class="legend">
+          <button class="btn btn-sm ${this._mapFiltroPf ? 'btn-primary' : ''}"
+            onclick="App._mapToggleFiltroPf()"
+            title="Tinge i bancali di prodotto finito con lo stato che hanno">
+            🏭 ${this._mapFiltroPf ? 'Prodotto finito: acceso' : 'Prodotto finito'}
+          </button>
         </div>
         ${this._fasciaConformita(locs)}
       </div>`;
@@ -430,6 +443,29 @@ export const VistaMappa = {
      la maschera: `Store.moveUdc`, una transazione, l'unità e tutte le sue
      righe insieme. Non è una scorciatoia che salta un controllo — il
      controllo è dentro `moveUdc` e vale per tutti e due i modi. */
+  /** 2.20 — quando è acceso, i bancali di prodotto finito si tingono dello
+      stato che hanno: pronto, impegnato su un DDT, spedito. Lo accende chi
+      arriva dall'elenco del prodotto finito, e si spegne da qui. */
+  _mapFiltroPf: false,
+
+  _mapToggleFiltroPf() {
+    this._mapFiltroPf = !this._mapFiltroPf;
+    this.renderMap();
+  },
+
+  /** Lo stato dei bancali, per codice di unità, calcolato una volta per
+      disegnata: `_renderCell` passa su ogni vano, e chiederlo cella per
+      cella vorrebbe dire rileggere i DDT pendenti per ogni casella. */
+  _pfStatiBancali() {
+    const impegnati = bancaliImpegnati(Store.getPendingOutbound());
+    const stati = new Map<string, StatoBancale>();
+    for (const u of Store.getUdcList()) {
+      if (!ePf(u)) continue;
+      stati.set(u.udc_id, riepiloga(u, Store.righeDiUdc(u.udc_id), impegnati).stato);
+    }
+    return stati;
+  },
+
   _udcNelVanoHTML(code, size) {
     const dentro = Store.getUdcInLocation(code);
     if (!dentro.length) return '';
@@ -446,12 +482,23 @@ export const VistaMappa = {
     const perLarghezza = Math.floor((size - 6) / dentro.length) - 1;
     const lato = Math.min(perLarghezza, Math.floor(size * 0.34));
     if (lato < 5) return `<span class="cell-udc-many" title="${dentro.length} unità di carico">▣${dentro.length}</span>`;
-    return `<span class="cell-udc-box">${dentro.map((u) => `<i class="cell-udc"
+    /* Il colore dice lo stato SOLO col filtro acceso, e mai da solo: il
+       titolo lo scrive, perché un magazzino ha daltonici come qualunque
+       altro posto e un quadratino di sei pixel non ha spazio per un'icona. */
+    const stati = this._mapFiltroPf
+      ? this._pfStatiBancali() as Map<string, StatoBancale> : null;
+    return `<span class="cell-udc-box">${dentro.map((u) => {
+      const stato = stati?.get(u.udc_id) || null;
+      return `<i class="cell-udc${stato ? ` pf-${stato}` : ''}"
       style="--lato:${lato}px"
       draggable="true"
       data-udc="${this._esc(u.udc_id)}"
       ondragstart="App._udcDragStart(event,'${this._esc(u.udc_id)}')"
-      title="${this._esc(u.udc_id)} — ${Store.righeDiUdc(u.udc_id).length} righe · trascina per spostarla"></i>`).join('')}</span>`;
+      title="${this._esc(u.udc_id)}${stato ? ` — ${ETICHETTE_STATO[stato]}` : ''} — ${(() => {
+        const n = Store.righeDiUdc(u.udc_id).length;
+        return `${n} ${n === 1 ? 'riga' : 'righe'}`;
+      })()} · trascina per spostarla"></i>`;
+    }).join('')}</span>`;
   },
 
   _renderCell(code, size) {

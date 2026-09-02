@@ -5,6 +5,8 @@ import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
 import { svg as barcodeSvg, primoCarattereFuoriSet } from '../../modules/code128';
 import { colliAttesi, descriviModello } from '../../modules/imballo';
+import { componi, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
+import type { Colonna, Stato } from '../../modules/tabella';
 import {
   ePf, riepiloga, bancaliImpegnati, descriviContenuto, ETICHETTE_STATO, zonePf,
 } from '../../modules/bancale';
@@ -50,6 +52,11 @@ export const VistaProdottoFinito = {
   /** Il bancale che si sta componendo. `null` = nessuno aperto. Vive a
       video e non a database: finché non si chiude, non esiste. */
   _pfBozza: null as Bozza | null,
+
+  /** Ordinamento e ricerca dell'elenco. §8: ogni tabella si ordina e si
+      filtra, il vuoto va in fondo nei due versi, e il terzo clic riporta
+      all'ordine di partenza. */
+  _pfTabella: STATO_VUOTO as Stato,
 
   _formProdottoFinito(el: HTMLElement) {
     const zone = zonePf(Store.getSites());
@@ -392,34 +399,108 @@ export const VistaProdottoFinito = {
       .sort((a, b) => a.udc_id.localeCompare(b.udc_id));
   },
 
-  _pfElencoHTML() {
-    const bancali = this._pfBancali() as RiepilogoBancale[];
-    const righe = bancali.length ? bancali.map((r: RiepilogoBancale) => `
-      <tr>
+  /* Le colonne dell'elenco. `valore` serve dove la cella non è un campo del
+     riepilogo: il contenuto è una frase composta, e lo stato si ordina per
+     come si legge, non per come si chiama dentro. */
+  _pfColonne(): Colonna<RiepilogoBancale>[] {
+    return [
+      { campo: 'udc_id', titolo: 'Bancale' },
+      { campo: 'stato', titolo: 'Stato', valore: (r) => ETICHETTE_STATO[r.stato] },
+      { campo: 'contenuto', titolo: 'Contenuto', valore: (r) => descriviContenuto(r) },
+      { campo: 'article_description', titolo: 'Descrizione' },
+      { campo: 'expiry_date', titolo: 'Scadenza', tipo: 'data' },
+      { campo: 'colli', titolo: 'Colli', tipo: 'numero', cercabile: false },
+      { campo: 'uom_qty', titolo: 'Quantità', tipo: 'numero', cercabile: false },
+      { campo: 'location_code', titolo: 'Ubicazione' },
+      { campo: 'odp_num', titolo: 'Ordine' },
+      { campo: 'azioni', titolo: '', ordinabile: false, cercabile: false },
+    ];
+  },
+
+  _pfOrdina(campo: string) {
+    this._pfTabella = alClic(this._pfTabella, campo);
+    this._formProdottoFinito($('movFormArea'));
+  },
+
+  /* La ricerca NON ridisegna il proprio campo: perderebbe fuoco e cursore a
+     ogni tasto. Ridisegna solo la tabella — stessa regola della schermata
+     del conto di produzione. */
+  _pfCerca(v: string) {
+    this._pfTabella = { ...this._pfTabella, cerca: String(v ?? '') };
+    const zona = $('pfElencoTabella');
+    if (zona) zona.innerHTML = this._pfTabellaHTML();
+  },
+
+  _pfTabellaHTML() {
+    const tutti = this._pfBancali() as RiepilogoBancale[];
+    const colonne = this._pfColonne() as Colonna<RiepilogoBancale>[];
+    const righe = componi(tutti, colonne, this._pfTabella) as RiepilogoBancale[];
+
+    const th = (campo: string, titolo: string, classe = '') => {
+      const col = colonne.find((c) => c.campo === campo)!;
+      return col.ordinabile === false
+        ? `<th class="${classe}">${titolo}</th>`
+        : `<th class="sx-th-ord ${classe}" onclick="App._pfOrdina('${campo}')">${titolo}${segno(this._pfTabella, campo)}</th>`;
+    };
+
+    const corpo = righe.length ? righe.map((r: RiepilogoBancale) => `
+      <tr class="${r.stato === 'spedito' ? 'opacity-60' : ''}">
         <td class="mono font-bold">${this._esc(r.udc_id)}</td>
-        <td><span class="badge badge-muted">${ETICHETTE_STATO[r.stato]}</span></td>
+        <td><span class="badge badge-${r.stato === 'pronto' ? 'success' : r.stato === 'impegnato' ? 'warning' : 'muted'}">${ETICHETTE_STATO[r.stato]}</span></td>
         <td class="mono">${this._esc(descriviContenuto(r))}</td>
         <td>${this._esc(r.article_description || '')}</td>
-        <td class="mono">${this._esc(r.expiry_date || '')}</td>
+        <td class="mono">${this._esc(r.expiry_date ? this._dateISOtoIT(r.expiry_date) : '')}</td>
         <td class="mono td-right">${r.colli}</td>
         <td class="mono td-right">${r.uom_qty === null ? '' : `${r.uom_qty} ${this._esc(r.uom || '')}`}</td>
         <td class="mono">${this._esc(r.location_code)}</td>
+        <td class="mono">${this._esc(r.odp_num || '')}</td>
         <td class="whitespace-nowrap">
           <button class="btn btn-sm" onclick="App._pfEtichetta('${this._esc(r.udc_id)}')">🏷 Etichetta</button>
         </td>
       </tr>`).join('')
-      : `<tr><td colspan="9" class="text-sx-text-muted">Nessun bancale di prodotto finito.</td></tr>`;
+      : `<tr><td colspan="10" class="text-sx-text-muted">${tutti.length
+          ? 'Nessun bancale risponde al filtro.'
+          : 'Nessun bancale di prodotto finito.'}</td></tr>`;
 
     return `
-      <div class="flex justify-between items-center flex-wrap gap-4 mb-6">
-        <strong>Bancali di prodotto finito (${bancali.length})</strong>
-        <button class="btn btn-primary" onclick="App._pfNuovoBancale()">+ Nuovo bancale</button>
-      </div>
       <div class="overflow-x-auto"><table class="sx-table"><thead><tr>
-        <th>Bancale</th><th>Stato</th><th>Contenuto</th><th>Descrizione</th>
-        <th>Scadenza</th><th class="td-right">Colli</th><th class="td-right">Quantità</th>
-        <th>Ubicazione</th><th class="w-[140px]">Azioni</th>
-      </tr></thead><tbody>${righe}</tbody></table></div>`;
+        ${th('udc_id', 'Bancale')}${th('stato', 'Stato')}${th('contenuto', 'Contenuto')}
+        ${th('article_description', 'Descrizione')}${th('expiry_date', 'Scadenza')}
+        ${th('colli', 'Colli', 'td-right')}${th('uom_qty', 'Quantità', 'td-right')}
+        ${th('location_code', 'Ubicazione')}${th('odp_num', 'Ordine')}
+        ${th('azioni', '', 'w-[140px]')}
+      </tr></thead><tbody>${corpo}</tbody></table></div>
+      <div class="text-label-small text-sx-text-muted mt-3">
+        ${righe.length} ${righe.length === 1 ? 'bancale' : 'bancali'} su ${tutti.length}
+      </div>`;
+  },
+
+  _pfElencoHTML() {
+    const zona = zonePf(Store.getSites())[0];
+    return `
+      <div class="flex justify-between items-center flex-wrap gap-4 mb-6">
+        <strong>Bancali di prodotto finito</strong>
+        <div class="flex gap-3 flex-wrap">
+          ${zona ? `<button class="btn" onclick="App._pfVediInMappa()">🗺 Vedi in mappa</button>` : ''}
+          <button class="btn btn-primary" onclick="App._pfNuovoBancale()">+ Nuovo bancale</button>
+        </div>
+      </div>
+      <div class="form-group mb-5">
+        <input class="input" id="pfCerca" value="${this._esc(this._pfTabella.cerca)}"
+               placeholder="🔍 Filtra per bancale, articolo, lotto, ubicazione, ordine…"
+               oninput="App._pfCerca(this.value)">
+      </div>
+      <div id="pfElencoTabella">${this._pfTabellaHTML()}</div>`;
+  },
+
+  /* LA VISTA GRAFICA NON È UNA MAPPA NUOVA: è la mappa, aperta sulla zona di
+     prodotto finito e col filtro acceso. Una seconda pianta da tenere
+     allineata alle zone sarebbe una seconda verità sullo stesso magazzino. */
+  _pfVediInMappa() {
+    const zona = zonePf(Store.getSites())[0];
+    if (!zona) return this.toast('Nessuna zona è dichiarata di prodotto finito', 'warning');
+    this._mapFiltroPf = true;
+    this.openZone(zona.sito.id, zona.zona.id);
   },
 
 } satisfies Vista;

@@ -121,6 +121,9 @@ const CAMPI_TESTO: ReadonlySet<string> = new Set([
   /* 2.20 — la scadenza del prodotto finito e il numero di colli: una data e
      un conteggio, e maiuscolarli non vuol dire niente. */
   'pfExp', 'pfColli',
+  /* La ricerca dell'elenco bancali: si cerca anche una descrizione, e
+     maiuscolarla non aiuterebbe a trovarla. */
+  'pfCerca',
 ]);
 
 /** Questo campo porta un codice? */
