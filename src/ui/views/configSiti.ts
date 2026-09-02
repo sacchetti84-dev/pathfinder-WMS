@@ -234,6 +234,10 @@ export const VistaConfigSiti = {
        zona come gli altri due e scende a tutte le sue celle: un gesto solo,
        e il motore di verifica legge dove legge gia'. */
     const pericolosa = zone?.hazard_zone === true;
+    /* 2.20 — la zona del prodotto finito. Sta insieme agli altri tre perche'
+       si compila nello stesso momento, ma non e' un attributo di
+       destinazione d'uso: non verifica niente e non esclude nessuno. */
+    const prodottoFinito = zone?.pf_zone === true;
     const pericoli = Store.getPericoli();
     const hazScelti = new Set(zone?.hazards || []);
     const hazCaselle = pericoli.map(h =>
@@ -268,6 +272,18 @@ export const VistaConfigSiti = {
           ${pericoli.length
             ? `<div class="all-grid">${hazCaselle}</div>`
             : `<div class="text-label-small text-sx-text-muted">Nessuna pericolosità configurata — si aggiungono in Configurazione → Parametri articolo.</div>`}</div>
+        <div class="form-group mb-4 [border-top:1px_dashed_var(--sx-border)] pt-6">
+          <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
+            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezPfZone" ${prodottoFinito ? 'checked' : ''}>
+            <span>Zona di <strong>prodotto finito</strong> — qui il reparto posa i bancali in attesa di partire</span>
+          </label>
+          <div class="text-label-small text-sx-text-muted mt-2">
+            Non è un vincolo di stoccaggio e non esclude niente: dice dove la maschera del
+            prodotto finito propone di posare un bancale, e dove l'elenco delle spedizioni
+            va a guardare. <strong>Vale anche su un sito terzista</strong>, che è dove il
+            prodotto finito finisce quando viaggia in conto lavorazione.
+          </div>
+        </div>
         <div class="text-label-small text-sx-text-muted mt-3">
           🧭 Lasciata non caratterizzata, la zona non segnala nulla.<br>
           🔓 Una singola ubicazione marcata <strong>Riservata</strong> ammette allergeni
@@ -292,6 +308,7 @@ export const VistaConfigSiti = {
       allergens: riservata && allergens.length ? allergens : undefined,
       hazard_zone: pericolosa,
       hazards: pericolosa && hazards.length ? hazards : undefined,
+      pf_zone: $('ezPfZone')?.checked === true,
     };
   },
 

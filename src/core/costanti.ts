@@ -43,6 +43,9 @@ const MOV = Object.freeze({
   /* 2.16 — voce 34 · l'unita' di carico: il CONTENITORE, non quel che porta.
      La merce che si sposta con lei scrive le sue righe, una per partita. */
   UDC: 'UDC',
+  /* 2.20 — il versamento del prodotto finito: la merce che il reparto ha
+     fatto entra a magazzino con una causale sua. */
+  PROD: 'PROD',
   PURGE: 'PURGE',     // v2.0.1 [B8] — Purge manuale registro storico (evento di audit)
   PINRESET: 'PINRESET'
 } as const satisfies Record<string, TipoMovimento>);
@@ -57,6 +60,7 @@ const MOV_LABELS = {
   SHIP: 'Spedizione',
   SAMPLE: 'Campionamento',            // 1.4.2.1
   UDC: 'Unità di carico',             // 2.16
+  PROD: 'Versamento produzione',      // 2.20
   PURGE: 'Purge Registro (manuale)',  // v2.0.1 [B8]
   PINRESET: 'Rinnovo PIN operatore'   // v2.7.0 [G6]
 } satisfies Record<TipoMovimento, string>;

@@ -49,6 +49,11 @@ export interface Zona {
   hazard_zone?: boolean;
   /** Se valorizzato, le sole pericolosita' ammesse. Vuoto su zona pericolosa = tutte. */
   hazards?: string[];
+  /** 2.20 — la zona tiene il PRODOTTO FINITO in attesa di partire. Non e' un
+      vincolo di stoccaggio: e' dove la maschera del reparto propone di
+      posare un bancale e dove l'elenco delle spedizioni va a guardare.
+      Assente = zona come prima. */
+  pf_zone?: boolean;
   /** LA GEOMETRIA DELLA ZONA — da qui `geometria.ts` genera le ubicazioni.
       Una zona a scaffale ha corsie, campate e livelli; una a terra file e
       posizioni; una alla rinfusa posizioni e colonne di griglia. Erano tutte
@@ -636,6 +641,18 @@ export interface Udc {
   created_by?: string;
   closed_at?: Istante | null;
   emptied_at?: Istante | null;
+  /* 2.20 — IL BANCALE DI PRODOTTO FINITO È UN'UNITÀ DI CARICO, e questi tre
+     campi sono tutto ciò che lo distingue. Assenti = l'unità di carico di
+     prima, per sempre. */
+  /** `pf` dice che è nato dal reparto e va nel magazzino del prodotto
+      finito. Un'unità di carico senza questo campo resta quella della 1.12. */
+  kind?: 'pf' | string;
+  /** L'ordine di produzione, e NON È OBBLIGATORIO: chi imballa non si ferma
+      perché non ha il numero sotto mano. */
+  odp_num?: string;
+  /** Il modello di imballo da cui è uscita la proposta dei colli. Resta
+      scritto perché la packing list ne legge supporto e tara. */
+  model_code?: string;
 }
 
 /** 1.4.1 — la richiesta di un'attività che l'applicativo sa già fare.

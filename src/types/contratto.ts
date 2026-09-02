@@ -18,6 +18,10 @@ export type MOV =
      chiude, e prima queste tre cose si scrivevano come `EDIT` e `MOVE` con
      articolo e lotto vuoti — righe mute in mezzo al registro della merce. */
   | 'UDC'
+  /* 2.20 — il prodotto finito entra a magazzino dal reparto, e non e' un
+     posizionamento di merce arrivata: chi fra sei mesi cerca cosa ha versato
+     la produzione filtra QUESTA riga. Un `IN` con una nota non si filtra. */
+  | 'PROD'
   | 'PURGE' | 'PINRESET';
 
 /* ── Criteri di ricerca ──────────────────────────────────────────── */

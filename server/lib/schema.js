@@ -192,7 +192,9 @@ const MAIUSCOLE = {
   /* meta NON si tocca: le chiavi sono camelCase. */
   meta:             [],
   lots:             ['article_code', 'lot_code', 'uom'],
-  udc:              ['udc_id', 'sscc', 'location_code', 'site_id'],
+  /* 2.20 — `odp_num` e `model_code` sono codici e si maiuscolano; `kind`
+     no: e' un enum confrontato alla lettera come `status` e `type`. */
+  udc:              ['udc_id', 'sscc', 'location_code', 'site_id', 'odp_num', 'model_code'],
   tasks:            ['task_id', 'assigned_to', 'requested_by', 'completed_by',
                      'payload.article_code', 'payload.lot_code', 'payload.item_key',
                      'payload.from', 'payload.to', 'payload.location_code',

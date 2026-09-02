@@ -3085,7 +3085,12 @@ const Store = {
     return prossimoSerialeUdc(massimo);
   },
 
-  async createUdc(dati: { type?: string; location_code?: string; site_id?: string } = {}) {
+  async createUdc(dati: {
+    type?: string; location_code?: string; site_id?: string;
+    /* 2.20 — i tre del bancale di prodotto finito, tutti facoltativi: senza,
+       nasce l'unita' di carico di prima. */
+    kind?: string; odp_num?: string; model_code?: string;
+  } = {}) {
     const seriale = this._prossimoSerialeUdc();
     const codice = nuovoCodiceUdc(this.getPrefissoGS1(), seriale);
     if (!codice) {
@@ -3107,6 +3112,11 @@ const Store = {
       closed_at: null,
       emptied_at: null,
     };
+    /* Assenti restano ASSENTI: una stringa vuota su `kind` direbbe «non e'
+       un bancale», che e' vero, ma la scriverebbe su ogni UDC della 1.12. */
+    if (dati.kind) rec.kind = dati.kind;
+    if (dati.odp_num) rec.odp_num = dati.odp_num;
+    if (dati.model_code) rec.model_code = dati.model_code;
     await Persistence.add('udc', rec);
     this._applyToCache('udc', 'put', rec);
     await this._touchMeta();

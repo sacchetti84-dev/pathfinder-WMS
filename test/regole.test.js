@@ -139,8 +139,14 @@ describe('il doppio contesto dei gestori inline', () => {
    (forma, convalida, conto dei colli) e si configurano in
    `ui/views/parametri.ts`: qui dentro stanno le 47 righe del ponte —
    leggere e scrivere `meta.imballi` passa da `_cache` e da `Persistence`,
-   che nessun modulo esterno tocca. */
-const TETTO_STORE = 4398;
+   che nessun modulo esterno tocca.
+
+   03/09/2026 — 4398 → 4408, e sono dieci righe: `createUdc` fa passare i tre
+   campi facoltativi del bancale di prodotto finito (`kind`, `odp_num`,
+   `model_code`). Non e' logica nuova — la lettura di un bancale sta tutta in
+   `modules/bancale.ts` — e' la firma di un metodo che gia' scriveva quel
+   record. */
+const TETTO_STORE = 4408;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {
