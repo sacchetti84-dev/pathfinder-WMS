@@ -517,6 +517,8 @@ const Store = {
          pagina, e poi sparirebbe senza che nessuno l'abbia tolta. */
       printers: metaObj.printers ?? null,
       labelLayout: metaObj.labelLayout ?? null,
+      /* 2.20 — il layout dell'etichetta del bancale. Trappola 22 come gli altri. */
+      labelLayoutPf: metaObj.labelLayoutPf ?? null,
       /* 2.20 — i modelli di imballo. Trappola 22 anche loro. */
       imballi: metaObj.imballi ?? null
     };
@@ -3028,6 +3030,23 @@ const Store = {
     return pulito;
   },
 
+  /* 2.20 — il layout dell'etichetta del BANCALE, in una chiave sua: i campi
+     non sono quelli della merce, e un layout solo per due etichette diverse
+     vorrebbe dire righe che nominano campi che l'altra non ha. */
+  getLayoutEtichettaPf(): LayoutEtichetta {
+    return leggiLayoutEtichetta((this._cache.meta as Record<string, any>)?.labelLayoutPf, 'bancale');
+  },
+
+  async saveLayoutEtichettaPf(layout: LayoutEtichetta) {
+    const pulito = leggiLayoutEtichetta(layout, 'bancale');
+    const rec = { key: 'labelLayoutPf', value: pulito };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    (this._cache.meta as Record<string, any>).labelLayoutPf = pulito;
+    await this._touchMeta();
+    return pulito;
+  },
+
   /* QUALE STAMPANTE HAI VICINO NON E' UN FATTO DELL'AZIENDA: e' un fatto del
      posto in cui stai. Sta nel `localStorage` di QUEL browser e non a
      database — scriverlo a database vorrebbe dire che l'ultimo terminale che
@@ -3049,7 +3068,7 @@ const Store = {
       due fatti diversi — `inviata` e' certo, `stato` e' quel che la macchina
       ha detto: la 9100 accetta i byte e chiude anche a carta finita. */
   async stampaEtichetta(richiesta: {
-    printer_id: string; tipo: 'item' | 'udc';
+    printer_id: string; tipo: 'item' | 'udc' | 'pf';
     item_key?: string; location_code?: string; udc_id?: string; copie?: number;
   }) {
     if (!Persistence.supportsRemoteOps) {

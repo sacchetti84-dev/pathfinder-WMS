@@ -139,6 +139,47 @@
   .udc-label-forma { text-align: center; font-size: 8pt; letter-spacing: 0.1em;
     text-transform: uppercase; color: #333; }
 
+  /* 2.20 — L'ETICHETTA DEL BANCALE DI PRODOTTO FINITO.
+
+     Sta fra le altre due: porta il codice del bancale come l'etichetta
+     dell'unita' di carico — e' quello che il muletto sposta e che il DDT
+     nomina — ma sotto scrive anche cosa c'e' sopra, perche' un bancale di
+     PF di norma porta un articolo e un lotto soli, e chi lo carica sul
+     camion quei due li cerca senza passare il lettore. Su un bancale misto
+     le righe della merce non escono affatto: il dettaglio lo dice la
+     packing list. */
+  .pf-label {
+    width: 100mm; height: 80mm;
+    box-sizing: border-box;
+    padding: 5mm 6mm;
+    border: 1.5pt solid #000;
+    display: flex; flex-direction: column;
+    font-family: Arial, Helvetica, sans-serif;
+    color: #000; background: #fff;
+    page-break-after: always;
+  }
+  .pf-label-testa {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 15pt; font-weight: 700; letter-spacing: 0.02em;
+    word-break: break-all;
+  }
+  .pf-label-desc { font-size: 9pt; margin-top: 1mm; }
+  .pf-label-barcode {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    margin: 2mm 0;
+  }
+  .pf-label-barcode svg { max-width: 100%; height: auto; }
+  .pf-label-code {
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 20pt; font-weight: 700; letter-spacing: 0.04em;
+    text-align: center; word-break: break-all;
+  }
+  .pf-label-riga {
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-size: 10pt; border-top: 0.5pt solid #999; padding: 0.6mm 0;
+  }
+  .pf-label-riga span { font-size: 7.5pt; text-transform: uppercase; color: #333; }
+
   /* 2.1 — L'ETICHETTA IDENTIFICATIVA DELLA MERCE.
 
      Non e' l'etichetta di un'unita' di carico. Quella porta il solo codice

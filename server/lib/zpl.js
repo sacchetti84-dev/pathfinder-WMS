@@ -220,6 +220,81 @@ const CAMPI = {
     disegnare la scheda di configurazione: l'elenco sta qui una volta sola. */
 const CAMPI_AMMESSI = Object.keys(CAMPI);
 
+/* ── I CAMPI DELL'ETICHETTA DI UN BANCALE DI PRODOTTO FINITO — 2.20 ───────
+
+   E' un catalogo suo e non un'aggiunta a quello della merce, perche' le due
+   etichette rispondono a domande diverse: quella della merce identifica una
+   RIGA DI GIACENZA (`item_key`), questa identifica un BANCALE (`udc_id`), che
+   e' l'oggetto che il muletto sposta e che il DDT nomina.
+
+   SU UN BANCALE MISTO I CAMPI DELLA MERCE RESTANO VUOTI. Un pallet con due
+   partite diverse non ha «un» lotto ne' «una» scadenza: scriverci quella
+   della prima riga sarebbe un'etichetta che mente, incollata al legno. Il
+   campo articolo lo dichiara — «MISTO — n partite» — e il dettaglio lo porta
+   la packing list, che le righe le elenca tutte. */
+const CAMPI_PF = {
+  /* Il simbolo porta `udc_id`: la stessa stringa dell'etichetta A4 e la
+     stessa che il servizio cerca quando qualcuno scansiona un bancale. */
+  bancale: {
+    etichetta: 'Codice bancale',
+    barre: true,
+    valore: (d) => d.udc_id,
+  },
+  articolo: {
+    etichetta: 'Codice articolo',
+    valore: (d) => (d.mono === false
+      ? `MISTO — ${Number(d.partite) || 0} partite`
+      : d.article_code),
+  },
+  descrizione: {
+    etichetta: 'Descrizione',
+    valore: (d) => (d.mono === false ? '' : d.article_description),
+  },
+  lotto: {
+    etichetta: 'Lotto',
+    prefisso: 'Lotto ',
+    valore: (d) => (d.mono === false ? '' : d.lot_code),
+  },
+  scadenza: {
+    etichetta: 'Scadenza',
+    prefisso: 'Scad. ',
+    valore: (d) => (d.mono === false ? '' : dataIT(d.expiry_date)),
+  },
+  /* Come sull'etichetta della merce: il numero e' `qty_uom` e il nome sopra
+     cambia con l'unita'. Su un bancale con unita' diverse non c'e' un totale
+     — 300 KG piu' 40 PZ fanno 340 di niente — e la riga resta vuota. */
+  peso: {
+    etichetta: 'Peso / quantità in UM',
+    valore: (d) => {
+      const uom = String(d.uom ?? '').toUpperCase();
+      if (!uom) return '';
+      const n = quantitaIT(d.qty_uom, uom);
+      if (!n) return '';
+      return `${UNITA_DI_PESO.has(uom) ? 'Peso' : 'Quantità'} ${n} ${uom}`;
+    },
+  },
+  colli: {
+    etichetta: 'Colli',
+    prefisso: 'Colli ',
+    valore: (d) => (Number.isFinite(Number(d.qty)) ? String(Number(d.qty)) : ''),
+  },
+  /* L'ordine di produzione, quando c'e'. E' facoltativo per decisione: chi
+     imballa non si ferma perche' non ha il numero sotto mano. */
+  odp: {
+    etichetta: 'Ordine di produzione',
+    prefisso: 'ODP ',
+    valore: (d) => d.odp_num,
+  },
+  /* L'unico che invecchia, spento di serie: un bancale si sposta. */
+  ubicazione: {
+    etichetta: 'Ubicazione (invecchia)',
+    prefisso: 'Ub. alla stampa: ',
+    valore: (d) => d.location_code,
+  },
+};
+
+const CAMPI_PF_AMMESSI = Object.keys(CAMPI_PF);
+
 /* ── IL LAYOUT DI SERIE ───────────────────────────────────────────────────
    I quattro dati che l'etichetta della merce deve portare — barre,
    descrizione, scadenza, peso — piu' i due che la rendono leggibile senza
@@ -248,14 +323,44 @@ const LAYOUT_DI_SERIE = Object.freeze({
   ]),
 });
 
+/* IL LAYOUT DI SERIE DEL BANCALE — 2.20. Le barre col codice del bancale in
+   mezzo, sopra il codice articolo, sotto lotto, scadenza, colli e peso.
+   L'ordine di produzione e l'ubicazione nascono spenti: il primo non ce
+   l'hanno tutti i bancali, la seconda invecchia.
+
+   Sullo stesso supporto della merce — 100 x 80 — occupa 70 mm degli 80, e i
+   10 che restano sono la stessa aria che il layout della merce lascia: su
+   un'etichetta staccata il registro balla a ogni avanzamento, e un campo a
+   filo del bordo prima o poi si taglia. */
+const LAYOUT_PF_DI_SERIE = Object.freeze({
+  righe: Object.freeze([
+    { campo: 'articolo',    attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'descrizione', attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
+    { campo: 'bancale',     attivo: true,  altezza_mm: 20,  allineamento: 'C', righe_testo: 1 },
+    { campo: 'lotto',       attivo: true,  altezza_mm: 5.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'scadenza',    attivo: true,  altezza_mm: 5.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'colli',       attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'peso',        attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'odp',         attivo: false, altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
+    { campo: 'ubicazione',  attivo: false, altezza_mm: 3.2, allineamento: 'R', righe_testo: 1 },
+  ]),
+});
+
+/** Un catalogo di campi: `CAMPI` per la merce, `CAMPI_PF` per il bancale.
+    Dichiarato perche' il controllo dei tipi non deduca dal valore di serie
+    che l'unico catalogo possibile sia quello della merce.
+    @typedef {Record<string, { etichetta: string, barre?: boolean,
+      prefisso?: string, valore: (d: any) => any }>} Catalogo */
+
 const ALLINEAMENTI = new Set(['L', 'C', 'R']);
 
 /** Una riga di layout ripulita e completata coi valori di serie: un layout
     salvato da una versione precedente non deve far mancare le chiavi
     aggiunte dopo. E' la stessa regola di `getDocConfig` sul client. */
-function leggiRiga(r) {
+/** @param {any} r @param {Catalogo} [campi] */
+function leggiRiga(r, campi = CAMPI) {
   const campo = String(r?.campo ?? '');
-  if (!CAMPI[campo]) return null;
+  if (!campi[campo]) return null;
   const alta = Number(r?.altezza_mm);
   const quante = Math.trunc(Number(r?.righe_testo));
   return {
@@ -269,11 +374,16 @@ function leggiRiga(r) {
 
 /** Il layout com'e' scritto nei dati, o quello di serie se non c'e'. Un
     layout senza nemmeno una riga valida non e' un layout: si ripiega. */
-function leggiLayout(salvato) {
+/** @param {any} salvato @param {Catalogo} [campi] */
+function leggiLayout(salvato, campi = CAMPI) {
+  /* Il catalogo si riconosce dal campo che ha solo lui: `bancale` sta nel
+     PF, `barcode` nella merce. Confrontare gli oggetti direbbe la stessa
+     cosa, ma il controllo dei tipi lo legge come un confronto impossibile. */
+  const serie = campi.bancale ? LAYOUT_PF_DI_SERIE : LAYOUT_DI_SERIE;
   const righe = (Array.isArray(salvato?.righe) ? salvato.righe : [])
-    .map(leggiRiga)
+    .map((r) => leggiRiga(r, campi))
     .filter(Boolean);
-  return righe.length ? { righe } : { righe: LAYOUT_DI_SERIE.righe.map(leggiRiga) };
+  return righe.length ? { righe } : { righe: serie.righe.map((r) => leggiRiga(r, campi)) };
 }
 
 /* ── DOVE FINISCE OGNI RIGA ───────────────────────────────────────────────
@@ -289,8 +399,9 @@ function leggiLayout(salvato) {
    e' il peso. Chi la incolla non ha modo di accorgersene. Un rifiuto in
    corsia e' una seccatura; un'etichetta che tace un dato e' merce con
    addosso un'informazione sbagliata, e sono due cose diverse. */
-function disponi(layout, altezzaSupportoMm) {
-  const righe = leggiLayout(layout).righe;
+/** @param {any} layout @param {number} [altezzaSupportoMm] @param {Catalogo} [campi] */
+function disponi(layout, altezzaSupportoMm, campi = CAMPI) {
+  const righe = leggiLayout(layout, campi).righe;
   const blocchi = [];
   let y = MARGINE_MM;
   for (const r of righe) {
@@ -298,7 +409,7 @@ function disponi(layout, altezzaSupportoMm) {
     /* La riga in chiaro sotto le barre e' spazio che la testina occupa e che
        il layout non ha chiesto: va contata qui, o il campo dopo ci finisce
        sopra. */
-    const alta = CAMPI[r.campo].barre
+    const alta = campi[r.campo].barre
       ? r.altezza_mm + INTERPRETAZIONE_MM
       : r.altezza_mm * r.righe_testo;
     blocchi.push({ ...r, y_mm: y, alta_mm: alta });
@@ -385,10 +496,29 @@ function involucro(corpo, stampante, copie) {
  * questo file non sa cos'e' un database.
  */
 function etichettaMerce(dati, stampante, layout, copie = 1) {
+  return etichettaDaLayout(dati, stampante, layout, copie, CAMPI);
+}
+
+/**
+ * L'etichetta di un BANCALE di prodotto finito — 2.20. Stessa meccanica
+ * dell'etichetta merce, catalogo di campi suo: il simbolo porta `udc_id`,
+ * e su un bancale misto i campi della merce restano vuoti invece di
+ * nominare la prima partita che capita.
+ */
+function etichettaBancale(dati, stampante, layout, copie = 1) {
+  return etichettaDaLayout(dati, stampante, layout, copie, CAMPI_PF);
+}
+
+/* Il corpo che le due etichette a layout hanno in comune. Sta in una
+   funzione sola perche' le regole che difende — nemmeno un campo acceso, un
+   layout piu' alto del supporto, una riga senza dato che non lascia un buco
+   — valgono uguali per tutte e due, e scritte due volte divergerebbero. */
+/** @param {any} dati @param {any} stampante @param {any} layout @param {number} copie @param {Catalogo} campi */
+function etichettaDaLayout(dati, stampante, layout, copie, campi) {
   const dpi = stampante.dpi;
   const margine = MARGINE_MM;
   const larghezzaStampa = stampante.larghezza_mm - margine * 2;
-  const posa = disponi(layout, stampante.altezza_mm);
+  const posa = disponi(layout, stampante.altezza_mm, campi);
 
   if (!posa.blocchi.length) {
     throw Object.assign(new Error(
@@ -404,7 +534,7 @@ function etichettaMerce(dati, stampante, layout, copie = 1) {
 
   const corpo = [];
   for (const b of posa.blocchi) {
-    const def = CAMPI[b.campo];
+    const def = campi[b.campo];
     if (def.barre) {
       const dato = String(def.valore(dati) ?? '').trim();
       /* Un simbolo che codifica il nulla si scansiona lo stesso e
@@ -500,8 +630,9 @@ function etichettaProva(stampante) {
 }
 
 module.exports = {
-  etichettaMerce, etichettaUdc, etichettaProva,
+  etichettaMerce, etichettaBancale, etichettaUdc, etichettaProva,
   disponi, leggiLayout, testoZpl, punti, puntiPerMm, moduloMinimo, moduliCode128,
   CAMPI, CAMPI_AMMESSI, LAYOUT_DI_SERIE,
+  CAMPI_PF, CAMPI_PF_AMMESSI, LAYOUT_PF_DI_SERIE,
   MARGINE_MM, INTERLINEA_MM, INTERPRETAZIONE_MM, MODULO_MINIMO_MM,
 };

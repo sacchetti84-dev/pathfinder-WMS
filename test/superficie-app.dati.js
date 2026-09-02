@@ -50,7 +50,9 @@
    `_pfTogliRiga`, `_pfAnnullaBozza`, `_pfChiudiBancale`), i tre della
    proposta (`_pfProponiUbicazione`, `_pfArticoloLetto`, `_pfModelloCorrente`,
    `_pfModelloScelto`), e i tre della lettura (`_pfBancali`, `_pfElencoHTML`,
-   `_pfEtichetta`).
+   `_pfEtichetta`), piu' `_pfEtichettaA4` — la via su foglio, che porta il
+   nome col suffisso come le altre due: il nome senza suffisso e' quello che
+   CHIEDE dove stampare.
    2.20: sono entrati i quattro dei modelli di imballo del prodotto finito —
    `_imballiHTML`, `_imballoModifica`, `_imballoSalva`, `_imballoTogli` — e
    `_campoImballo`, la tendina che l'anagrafica articoli mostra solo quando
@@ -62,7 +64,7 @@ export const SUPERFICIE = [
   '_campoImballo', '_imballiHTML', '_imballoModifica', '_imballoSalva', '_imballoTogli',
   '_formProdottoFinito', '_pfAggiungiRiga', '_pfAnnullaBozza', '_pfArticoloLetto',
   '_pfBancali', '_pfBozza', '_pfBozzaHTML', '_pfChiudiBancale', '_pfElencoHTML',
-  '_pfEtichetta', '_pfModelloCorrente', '_pfModelloScelto', '_pfNuovoBancale',
+  '_pfEtichetta', '_pfEtichettaA4', '_pfModelloCorrente', '_pfModelloScelto', '_pfNuovoBancale',
   '_pfProponiUbicazione', '_pfTogliRiga',
   '_chiediStampaEtichetta', '_eseguiStampaEtichetta', '_layoutEtichettaDiSerie', '_layoutEtichettaHTML', '_layoutEtichettaLetto', '_layoutEtichettaSalva', '_provaStampante', '_renderConfigStampanti', '_riscontroStampa', '_sitoDiUbicazione', '_stampaEtichettaItemA4', '_stampanteModifica', '_stampanteSalva', '_stampanteTogli', '_stampantiElencoHTML', '_udcEtichettaA4',
   'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_KNOWN_OPERATORS_KEY',

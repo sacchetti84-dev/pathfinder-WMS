@@ -64,7 +64,7 @@ export const VistaStampaEtichette = {
    * hanno due `@media print` diverse.
    */
   _chiediStampaEtichetta(richiesta: {
-    tipo: 'item' | 'udc';
+    tipo: 'item' | 'udc' | 'pf';
     item_key?: string; location_code?: string; udc_id?: string;
     titolo: string; suA4: string;
   }) {
@@ -131,7 +131,7 @@ export const VistaStampaEtichette = {
   },
 
   async _eseguiStampaEtichetta(richiesta: {
-    tipo: 'item' | 'udc'; item_key?: string; location_code?: string; udc_id?: string;
+    tipo: 'item' | 'udc' | 'pf'; item_key?: string; location_code?: string; udc_id?: string;
   }) {
     const printer_id = String($sel('stpQuale')?.value || '');
     const copie = leggiCopie($('stpCopie')?.value);

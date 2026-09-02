@@ -112,6 +112,47 @@ export const CAMPI_ETICHETTA: readonly {
 
 const CAMPI_PER_NOME = new Map(CAMPI_ETICHETTA.map((c) => [c.campo, c]));
 
+/* ── I CAMPI DELL'ETICHETTA DI UN BANCALE — 2.20 ─────────────────────────
+
+   Catalogo suo, non un'aggiunta a quello della merce: le due etichette
+   rispondono a domande diverse. Quella della merce identifica una RIGA DI
+   GIACENZA (`item_key`), questa identifica il BANCALE (`udc_id`), che e'
+   l'oggetto che il muletto sposta e che il DDT nomina.
+
+   L'elenco e' quello di `server/lib/zpl.js`, che e' chi li sa leggere dal
+   database: qui ci sono i nomi a video e la nota. */
+export const CAMPI_ETICHETTA_PF: readonly {
+  campo: string; nome: string; nota: string; barre?: boolean; invecchia?: boolean;
+}[] = [
+  { campo: 'bancale',     nome: 'Codice bancale', barre: true,
+    nota: 'Code128 col numero del bancale — la stessa stringa dell’etichetta su A4. Sotto le barre la testina scrive il codice in chiaro.' },
+  { campo: 'articolo',    nome: 'Codice articolo',
+    nota: 'Su un bancale misto la riga dice «MISTO — n partite»: un pallet con due partite non ha «un» articolo.' },
+  { campo: 'descrizione', nome: 'Descrizione',
+    nota: 'La descrizione d’anagrafica. Vuota su un bancale misto.' },
+  { campo: 'lotto',       nome: 'Lotto',
+    nota: 'Vuoto su un bancale misto: il dettaglio lo porta la packing list.' },
+  { campo: 'scadenza',    nome: 'Scadenza',
+    nota: 'Vuota su un bancale misto, per la stessa ragione del lotto.' },
+  { campo: 'colli',       nome: 'Colli',
+    nota: 'Quanti colli porta il bancale adesso — la somma di tutte le sue righe.' },
+  { campo: 'peso',        nome: 'Peso / quantità in UM',
+    nota: 'La quantità in unità di misura. Con unità diverse sul bancale la riga resta vuota: 300 KG più 40 PZ fanno 340 di niente.' },
+  { campo: 'odp',         nome: 'Ordine di produzione',
+    nota: 'Quando c’è: il legame all’ordine è facoltativo per decisione. Nasce spento.' },
+  { campo: 'ubicazione',  nome: 'Ubicazione', invecchia: true,
+    nota: '⚠️ INVECCHIA. Un bancale si sposta, e l’ubicazione stampata resta a dire una cosa che non è più vera.' },
+];
+
+const CAMPI_PF_PER_NOME = new Map(CAMPI_ETICHETTA_PF.map((c) => [c.campo, c]));
+
+/** Quale delle due etichette a layout: la merce o il bancale. */
+export type GenereEtichetta = 'merce' | 'bancale';
+
+export function campiDi(genere: GenereEtichetta = 'merce') {
+  return genere === 'bancale' ? CAMPI_ETICHETTA_PF : CAMPI_ETICHETTA;
+}
+
 /** Il layout di serie: i quattro dati che l'etichetta deve portare — barre,
     descrizione, scadenza, peso — più i due che la rendono leggibile senza
     lettore. Colli e ubicazione esistono e nascono spenti.
@@ -138,6 +179,28 @@ export const LAYOUT_DI_SERIE: LayoutEtichetta = {
   ],
 };
 
+/* IL LAYOUT DI SERIE DEL BANCALE — 2.20. Le barre col codice del bancale in
+   mezzo, sopra il codice articolo e la descrizione, sotto lotto, scadenza,
+   colli e peso. Ordine di produzione e ubicazione nascono spenti: il primo
+   non ce l'hanno tutti i bancali, la seconda invecchia.
+
+   Sullo stesso supporto della merce — 100 × 80 — occupa 70 mm degli 80. È lo
+   stesso elenco di `server/lib/zpl.js`, e `test/stampanti.test.js` confronta
+   i due conti riga per riga. */
+export const LAYOUT_PF_DI_SERIE: LayoutEtichetta = {
+  righe: [
+    { campo: 'articolo',    attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'descrizione', attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
+    { campo: 'bancale',     attivo: true,  altezza_mm: 20,  allineamento: 'C', righe_testo: 1 },
+    { campo: 'lotto',       attivo: true,  altezza_mm: 5.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'scadenza',    attivo: true,  altezza_mm: 5.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'colli',       attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'peso',        attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'odp',         attivo: false, altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
+    { campo: 'ubicazione',  attivo: false, altezza_mm: 3.2, allineamento: 'R', righe_testo: 1 },
+  ],
+};
+
 /** Una stampante nuova, con le misure del supporto in uso: **adesive staccate
     100 × 80 su testina a 203 dpi**, che è la serie ZD200 del magazzino.
     Larghezza di stampa 799 punti, dentro i 104 mm che una desktop da 4
@@ -159,9 +222,13 @@ const ALLINEAMENTI = new Set<Allineamento>(['L', 'C', 'R']);
 /** Una riga di layout ripulita e completata coi valori di serie: un layout
     salvato da una versione precedente non deve far mancare le chiavi aggiunte
     dopo. È la stessa regola di `getDocConfig`, e la ragione è la stessa. */
-export function leggiRiga(r: Partial<RigaEtichetta> | null | undefined): RigaEtichetta | null {
+export function leggiRiga(
+  r: Partial<RigaEtichetta> | null | undefined,
+  genere: GenereEtichetta = 'merce',
+): RigaEtichetta | null {
   const campo = String(r?.campo ?? '');
-  if (!CAMPI_PER_NOME.has(campo)) return null;
+  const noti = genere === 'bancale' ? CAMPI_PF_PER_NOME : CAMPI_PER_NOME;
+  if (!noti.has(campo)) return null;
   const alta = Number(r?.altezza_mm);
   const quante = Math.trunc(Number(r?.righe_testo));
   return {
@@ -176,13 +243,15 @@ export function leggiRiga(r: Partial<RigaEtichetta> | null | undefined): RigaEti
 
 /** Il layout com'è scritto nei dati, o quello di serie se non c'è. Un layout
     senza nemmeno una riga valida non è un layout: si ripiega. */
-export function leggiLayout(salvato: unknown): LayoutEtichetta {
+export function leggiLayout(salvato: unknown, genere: GenereEtichetta = 'merce'): LayoutEtichetta {
+  const serie = genere === 'bancale' ? LAYOUT_PF_DI_SERIE : LAYOUT_DI_SERIE;
   const grezze = Array.isArray((salvato as LayoutEtichetta)?.righe)
     ? (salvato as LayoutEtichetta).righe : [];
-  const righe = grezze.map(leggiRiga).filter((r): r is RigaEtichetta => r !== null);
+  const righe = grezze.map((r) => leggiRiga(r, genere))
+    .filter((r): r is RigaEtichetta => r !== null);
   return righe.length
     ? { righe }
-    : { righe: LAYOUT_DI_SERIE.righe.map(leggiRiga) as RigaEtichetta[] };
+    : { righe: serie.righe.map((r) => leggiRiga(r, genere)) as RigaEtichetta[] };
 }
 
 export interface BloccoDisposto extends RigaEtichetta { y_mm: number; alta_mm: number; }
@@ -195,13 +264,17 @@ export interface Disposizione {
 
 /** Dove finisce ogni riga, e quanto occupa il tutto. Lo stesso conto del
     servizio — vedi la testata: là RIFIUTA, qui avvisa mentre si configura. */
-export function disponi(layout: unknown, altezzaSupportoMm?: number | null): Disposizione {
-  const righe = leggiLayout(layout).righe;
+export function disponi(
+  layout: unknown,
+  altezzaSupportoMm?: number | null,
+  genere: GenereEtichetta = 'merce',
+): Disposizione {
+  const righe = leggiLayout(layout, genere).righe;
   const blocchi: BloccoDisposto[] = [];
   let y = MARGINE_MM;
   for (const r of righe) {
     if (!r.attivo) continue;
-    const alta = CAMPI_PER_NOME.get(r.campo)?.barre
+    const alta = (genere === 'bancale' ? CAMPI_PF_PER_NOME : CAMPI_PER_NOME).get(r.campo)?.barre
       ? r.altezza_mm + INTERPRETAZIONE_MM
       : r.altezza_mm * r.righe_testo;
     blocchi.push({ ...r, y_mm: y, alta_mm: alta });

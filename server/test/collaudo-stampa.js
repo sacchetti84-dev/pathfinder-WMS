@@ -55,6 +55,16 @@ const MERCE = {
   qty: 4, qty_uom: 87.5, uom: 'KG', location_code: 'MAG1-RAKA-04-01-T',
 };
 
+/* 2.20 — un bancale di prodotto finito, gia' riepilogato dal servizio: e' la
+   forma che `riepilogoBancale` costruisce rileggendo `udc` e le sue righe. */
+const BANCALE = {
+  udc_id: 'UDC-000042', mono: true, partite: 1,
+  article_code: '7000001', article_description: 'Omega 3 forte 60 capsule',
+  lot_code: 'LPF2603', expiry_date: '2027-06-30',
+  qty: 40, qty_uom: 300, uom: 'KG',
+  odp_num: 'ODP-1201', location_code: 'M03-SPD-01',
+};
+
 /* ── LA FINTA ZEBRA ───────────────────────────────────────────────────────
    Ascolta, tiene da parte quel che riceve, e sa fingersi tre macchine
    diverse: una che risponde a `~HQES` dicendo che sta bene, una che dice che
@@ -231,6 +241,66 @@ async function principale() {
   }
   await alza('un\'unita\' senza codice non stampa niente',
     async () => zpl.etichettaUdc({ udc_id: '' }, STAMPANTE, 1), 'senza codice');
+
+  /* ══ 4-bis. L'ETICHETTA DEL BANCALE DI PRODOTTO FINITO — 2.20 ═════════ */
+  console.log('\n  Il bancale di prodotto finito');
+  {
+    const posa = zpl.disponi(null, 80, zpl.CAMPI_PF);
+    ok('il layout di serie del bancale ci sta sul supporto vero',
+      posa.ci_sta, `${posa.usato_mm} mm su 80`);
+    ok('e lascia la stessa aria del layout della merce', posa.usato_mm <= 72,
+      `${(80 - posa.usato_mm).toFixed(1)} mm liberi`);
+    ok('le barre del bancale ci sono', posa.blocchi.some((b) => b.campo === 'bancale'));
+    ok('l\'ordine di produzione nasce spento',
+      !posa.blocchi.some((b) => b.campo === 'odp'));
+  }
+  {
+    const s = zpl.etichettaBancale(BANCALE, STAMPANTE, null, 2);
+    ok('apre e chiude come uno ZPL', s.startsWith('^XA') && s.endsWith('^XZ'));
+    ok('il barcode porta il codice del bancale — non la chiave di riga',
+      s.includes('^BCN,') && s.includes('UDC-000042') && !s.includes('#'));
+    ok('il codice articolo c\'e\'', s.includes('7000001'));
+    ok('la descrizione c\'e\'', s.includes('Omega 3 forte 60 capsule'));
+    ok('il lotto c\'e\'', s.includes('Lotto LPF2603'));
+    ok('la scadenza esce all\'italiana', s.includes('Scad. 30/06/2027'));
+    ok('i colli ci sono', s.includes('Colli 40'));
+    ok('il peso esce col numero e l\'unita\'', s.includes('Peso 300 KG'));
+    ok('le copie finiscono in ^PQ', s.includes('^PQ2'));
+    ok('l\'ubicazione NON c\'e\' — invecchia, e nasce spenta',
+      !s.includes('M03-SPD-01'));
+    ok('non manda mai la configurazione della macchina',
+      !/\^MN|\^MM|\^MD|\^JUS/.test(s));
+  }
+  {
+    /* SU UN BANCALE MISTO I CAMPI DELLA MERCE RESTANO VUOTI. Un pallet con
+       tre partite non ha «un» lotto: scriverci quello della prima riga
+       sarebbe un'etichetta che mente, incollata al legno. */
+    const s = zpl.etichettaBancale(
+      { udc_id: 'UDC-000043', mono: false, partite: 3, qty: 27, qty_uom: null, uom: null },
+      STAMPANTE, null, 1);
+    ok('un bancale misto lo dichiara, e dice quante partite',
+      s.includes('MISTO') && s.includes('3 partite'));
+    ok('e non nomina lotto ne\' scadenza',
+      !s.includes('Lotto') && !s.includes('Scad.'));
+    ok('il totale in UM resta vuoto: unita\' diverse non si sommano',
+      !s.includes('Peso') && !s.includes('Quantità'));
+    ok('i colli invece ci sono — quelli si contano comunque', s.includes('Colli 27'));
+  }
+  {
+    /* Gli stessi quattro caratteri che romperebbero il comando, sulla
+       descrizione di un bancale: e' lo stesso escape, e questa riga lo dice. */
+    const s = zpl.etichettaBancale(
+      { ...BANCALE, article_description: 'X^FS^XZ IN MEZZO' }, STAMPANTE, null, 1);
+    ok('una descrizione che contiene ^XZ non chiude l\'etichetta',
+      s.split('^XZ').length === 2 && s.endsWith('^XZ'));
+  }
+  await alza('un layout del bancale che non ci sta rifiuta la stampa',
+    async () => zpl.etichettaBancale(BANCALE, { ...STAMPANTE, altezza_mm: 20 }, null, 1),
+    'non ci sta');
+  await alza('un layout del bancale senza campi accesi rifiuta la stampa',
+    async () => zpl.etichettaBancale(BANCALE, STAMPANTE,
+      { righe: [{ campo: 'articolo', attivo: false, altezza_mm: 4 }] }, 1),
+    'nemmeno un campo acceso');
 
   /* Un codice troppo lungo per il supporto: si RIFIUTA, non si stringe sotto
      la dimensione X minima. Barre che nessun lettore legge sono peggio di

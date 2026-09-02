@@ -145,8 +145,14 @@ describe('il doppio contesto dei gestori inline', () => {
    campi facoltativi del bancale di prodotto finito (`kind`, `odp_num`,
    `model_code`). Non e' logica nuova — la lettura di un bancale sta tutta in
    `modules/bancale.ts` — e' la firma di un metodo che gia' scriveva quel
-   record. */
-const TETTO_STORE = 4408;
+   record.
+
+   03/09/2026 — 4408 → 4427: le diciannove righe del ponte per il layout
+   dell'etichetta del bancale (`getLayoutEtichettaPf`, `saveLayoutEtichettaPf`
+   e la chiave dichiarata in `_loadCache`). Stesso ponte di `labelLayout`, per
+   la seconda etichetta: la forma sta in `modules/stampanti.ts` e lo ZPL in
+   `server/lib/zpl.js`. */
+const TETTO_STORE = 4427;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

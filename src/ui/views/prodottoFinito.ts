@@ -3,6 +3,7 @@ import { Store } from '../../core/store';
 import { MOV } from '../../core/costanti';
 import { Validate } from '../../modules/validate';
 import { Dialog } from '../dialog';
+import { svg as barcodeSvg, primoCarattereFuoriSet } from '../../modules/code128';
 import { colliAttesi, descriviModello } from '../../modules/imballo';
 import {
   ePf, riepiloga, bancaliImpegnati, descriviContenuto, ETICHETTE_STATO, zonePf,
@@ -331,12 +332,51 @@ export const VistaProdottoFinito = {
     const u = Store.getUdc(udcId);
     if (!u) return this.toast(`${udcId} non esiste`, 'error');
     this._chiediStampaEtichetta({
-      tipo: 'udc',
+      tipo: 'pf',
       udc_id: u.udc_id,
       location_code: u.location_code || '',
       titolo: `Etichetta bancale ${u.udc_id}`,
-      suA4: `App._udcEtichettaA4('${u.udc_id}')`,
+      suA4: `App._pfEtichettaA4('${u.udc_id}')`,
     });
+  },
+
+  /* L'ETICHETTA DEL BANCALE SU A4 — la via che resta quando la Zebra e'
+     spenta, il rotolo e' finito o la rete e' giu'. §8: la stampante si
+     affianca alla carta, non la sostituisce.
+
+     Le barre portano il codice del bancale — la stessa stringa che manda
+     alla Zebra, perche' quel che deve coincidere fra le due strade e' il
+     simbolo. Sotto, quel che sta sopra il bancale: su un misto i campi
+     della merce restano vuoti e la riga lo dichiara. */
+  _pfEtichettaA4(udcId: string) {
+    const u = Store.getUdc(udcId);
+    if (!u) return this.toast(`${udcId} non esiste`, 'error');
+    const r = riepiloga(u, Store.righeDiUdc(u.udc_id), null,
+      (riga) => Store.getUomConfig(riga.article_code, riga.lot_code)?.uom ?? null);
+
+    const fuori = primoCarattereFuoriSet(u.udc_id);
+    const barre = fuori === null
+      ? barcodeSvg(u.udc_id, { modulo: 0.5, altezza: 24, etichetta: u.udc_id,
+                               descrizione: `Bancale ${u.udc_id}` })
+      : `<div class="pf-label-code">${this._esc(u.udc_id)}</div>`;
+
+    const riga = (etichetta: string, valore: string) => valore
+      ? `<div class="pf-label-riga"><span>${etichetta}</span><strong>${this._esc(valore)}</strong></div>`
+      : '';
+    const quantita = r.uom_qty === null ? '' : `${r.uom_qty} ${r.uom}`;
+
+    this._docPrint(`<div class="pf-label">
+      <div class="pf-label-testa">${this._esc(descriviContenuto(r))}</div>
+      ${r.article_description ? `<div class="pf-label-desc">${this._esc(r.article_description)}</div>` : ''}
+      <div class="pf-label-barcode">${barre}</div>
+      ${riga('Lotto', r.lot_code || '')}
+      ${/* La data all'italiana, come sullo ZPL: due strade che stampano la
+           stessa etichetta non possono scrivere la data in due modi. */''}
+      ${riga('Scadenza', r.expiry_date ? this._dateISOtoIT(r.expiry_date) : '')}
+      ${riga('Colli', String(r.colli))}
+      ${riga('Quantità', quantita)}
+      ${riga('Ordine', r.odp_num || '')}
+    </div>`);
   },
 
   /* ── L'elenco di chi spedisce ────────────────────────────────────────── */

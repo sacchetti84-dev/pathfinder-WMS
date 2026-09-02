@@ -403,6 +403,13 @@ async function stampaMerce(rec, dati, layout, copie) {
   return inviaZpl(rec, zpl.etichettaMerce(dati, st, layout, leggiCopie(copie)));
 }
 
+/** 2.20 — l'etichetta di un bancale di prodotto finito: il riepilogo del
+    bancale, gia' letto dal database, e il layout suo. */
+async function stampaBancale(rec, dati, layout, copie) {
+  const st = leggiStampante(rec);
+  return inviaZpl(rec, zpl.etichettaBancale(dati, st, layout, leggiCopie(copie)));
+}
+
 /** L'etichetta dell'unita' di carico. Nessun layout: §8 — vedi `zpl.js`. */
 async function stampaUdc(rec, udc, copie) {
   const st = leggiStampante(rec);
@@ -418,7 +425,7 @@ async function stampaProva(rec) {
 }
 
 module.exports = {
-  stampaMerce, stampaUdc, stampaProva, inviaZpl, statoStampante,
+  stampaMerce, stampaBancale, stampaUdc, stampaProva, inviaZpl, statoStampante,
   leggiStampante, leggiStato, leggiCopie, risolvi, ePrivato, traduciErrori,
   PORTE_AMMESSE, DPI_AMMESSI, ATTESA_MS, COPIE_MAX,
 };

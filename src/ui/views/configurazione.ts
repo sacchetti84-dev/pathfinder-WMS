@@ -6,10 +6,13 @@ import { PRIORITA_MIN, PRIORITA_MAX, PRIORITA_PREDEFINITA } from '../../modules/
 import { Dialog } from '../dialog';
 import { Tabs } from '../tabs';
 import {
-  CAMPI_ETICHETTA, DPI_AMMESSI, PORTE_AMMESSE, LAYOUT_DI_SERIE,
+  CAMPI_ETICHETTA, DPI_AMMESSI, PORTE_AMMESSE, LAYOUT_DI_SERIE, LAYOUT_PF_DI_SERIE,
   stampanteDiSerie, validaStampante, nuovoIdStampante, disponi as disponiEtichetta,
+  campiDi as campiEtichettaDi,
 } from '../../modules/stampanti';
-import type { Stampante, RigaEtichetta, Allineamento } from '../../modules/stampanti';
+import type {
+  Stampante, RigaEtichetta, Allineamento, GenereEtichetta,
+} from '../../modules/stampanti';
 
 /* Il campo del mittente, e la sua etichetta a video. */
 type CampoMittente = [chiave: keyof Mittente, etichetta: string];
@@ -144,7 +147,8 @@ export const VistaConfigurazione = {
         e il dato si conserva, ma finché non c'è un servizio nessuno può parlare alla stampante.
       </div>` : ''}
       ${this._stampantiElencoHTML(stampanti)}
-      ${this._layoutEtichettaHTML(stampanti)}
+      ${this._layoutEtichettaHTML(stampanti, 'merce')}
+      ${this._layoutEtichettaHTML(stampanti, 'bancale')}
       <div class="config-card mt-8">
         <strong>🏷 L'etichetta dell'unità di carico non ha un layout</strong>
         <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
@@ -331,34 +335,43 @@ export const VistaConfigurazione = {
      servizio lo RIFIUTA — non lo tronca — perché un'etichetta troncata esce
      con l'aria di essere giusta e le manca l'ultima riga, che è il peso.
      Scoprirlo qui costa un secondo; scoprirlo in corsia costa un turno. */
-  _layoutEtichettaHTML(stampanti: Stampante[]) {
-    const layout = Store.getLayoutEtichetta();
+  /* 2.20 — LA SCHEDA E' UNA SOLA PER DUE ETICHETTE, e il genere e' un
+     parametro: merce e bancale hanno campi diversi ma la stessa meccanica —
+     accendi, alza, allinea, e in fondo i millimetri confrontati col
+     supporto. Due copie di questa tabella divergerebbero alla prima
+     modifica. Gli identificativi cambiano col prefisso, o le due schede
+     sulla stessa pagina si leggerebbero a vicenda. */
+  _layoutEtichettaHTML(stampanti: Stampante[], genere: GenereEtichetta = 'merce') {
+    const bancale = genere === 'bancale';
+    const pre = bancale ? 'layPf' : 'lay';
+    const layout = bancale ? Store.getLayoutEtichettaPf() : Store.getLayoutEtichetta();
+    const campi = campiEtichettaDi(genere);
     const rif = stampanti.find((s) => s.attiva !== false) || null;
     const altezza = rif?.altezza_mm ?? 60;
-    const posa = disponiEtichetta(layout, altezza);
+    const posa = disponiEtichetta(layout, altezza, genere);
     const perCampo = new Map(layout.righe.map((r: RigaEtichetta) => [r.campo, r]));
 
-    const righe = CAMPI_ETICHETTA.map((c) => {
+    const righe = campi.map((c) => {
       const r = perCampo.get(c.campo) || { attivo: false, altezza_mm: 4, allineamento: 'L', righe_testo: 1 };
       return `<tr class="${r.attivo ? '' : 'opacity-60'}">
         <td><label class="flex items-center gap-3">
-          <input type="checkbox" id="lay_${c.campo}_on" ${r.attivo ? 'checked' : ''}>
+          <input type="checkbox" id="${pre}_${c.campo}_on" ${r.attivo ? 'checked' : ''}>
           <strong>${this._esc(c.nome)}</strong>${c.invecchia ? ' ⚠️' : ''}
         </label>
         <div class="text-label-small text-sx-text-muted mt-1">${c.nota}</div></td>
-        <td><input class="input" id="lay_${c.campo}_h" type="number" step="0.1" min="1" max="60"
+        <td><input class="input" id="${pre}_${c.campo}_h" type="number" step="0.1" min="1" max="60"
                    value="${r.altezza_mm}" style="width:80px"></td>
-        <td><select class="input select" id="lay_${c.campo}_a" style="width:110px" ${c.barre ? 'disabled' : ''}>
+        <td><select class="input select" id="${pre}_${c.campo}_a" style="width:110px" ${c.barre ? 'disabled' : ''}>
           ${([['L', 'Sinistra'], ['C', 'Centro'], ['R', 'Destra']] as [Allineamento, string][])
             .map(([v, n]) => `<option value="${v}" ${r.allineamento === v ? 'selected' : ''}>${n}</option>`).join('')}
         </select></td>
-        <td><input class="input" id="lay_${c.campo}_r" type="number" min="1" max="4"
+        <td><input class="input" id="${pre}_${c.campo}_r" type="number" min="1" max="4"
                    value="${r.righe_testo}" style="width:70px" ${c.barre ? 'disabled' : ''}></td>
       </tr>`;
     }).join('');
 
     return `<div class="config-card mt-8">
-      <strong>Layout dell'etichetta della merce</strong>
+      <strong>Layout dell'etichetta ${bancale ? 'del bancale di prodotto finito' : 'della merce'}</strong>
       <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
         I campi si impilano <strong>dall'alto, in quest'ordine</strong>. L'altezza è quella del
         carattere in millimetri; sotto le barre la testina scrive da sé il codice in chiaro —
@@ -382,32 +395,34 @@ export const VistaConfigurazione = {
         </span>
       </div>
       <div class="flex gap-3 mt-6 flex-wrap">
-        <button class="btn btn-sm btn-primary" onclick="App._layoutEtichettaSalva()">Salva il layout</button>
-        <button class="btn btn-sm" onclick="App._layoutEtichettaDiSerie()">Torna a quello di serie</button>
+        <button class="btn btn-sm btn-primary" onclick="App._layoutEtichettaSalva('${genere}')">Salva il layout</button>
+        <button class="btn btn-sm" onclick="App._layoutEtichettaDiSerie('${genere}')">Torna a quello di serie</button>
       </div>
     </div>`;
   },
 
-  _layoutEtichettaLetto(): { righe: RigaEtichetta[] } {
+  _layoutEtichettaLetto(genere: GenereEtichetta = 'merce'): { righe: RigaEtichetta[] } {
+    const pre = genere === 'bancale' ? 'layPf' : 'lay';
     return {
-      righe: CAMPI_ETICHETTA.map((c) => ({
+      righe: campiEtichettaDi(genere).map((c) => ({
         campo: c.campo,
-        attivo: Boolean(($(`lay_${c.campo}_on`) as unknown as HTMLInputElement)?.checked),
-        altezza_mm: Number($(`lay_${c.campo}_h`)?.value),
-        allineamento: (c.barre ? 'C' : String($sel(`lay_${c.campo}_a`)?.value || 'L')) as Allineamento,
-        righe_testo: c.barre ? 1 : Number($(`lay_${c.campo}_r`)?.value),
+        attivo: Boolean(($(`${pre}_${c.campo}_on`) as unknown as HTMLInputElement)?.checked),
+        altezza_mm: Number($(`${pre}_${c.campo}_h`)?.value),
+        allineamento: (c.barre ? 'C' : String($sel(`${pre}_${c.campo}_a`)?.value || 'L')) as Allineamento,
+        righe_testo: c.barre ? 1 : Number($(`${pre}_${c.campo}_r`)?.value),
       })),
     };
   },
 
-  async _layoutEtichettaSalva() {
+  async _layoutEtichettaSalva(genere: GenereEtichetta = 'merce') {
     if (!this._requireOperator('la modifica del layout dell’etichetta')) return;
-    const layout = this._layoutEtichettaLetto();
+    const layout = this._layoutEtichettaLetto(genere);
     if (!layout.righe.some((r: RigaEtichetta) => r.attivo)) {
       return this.toast('Un’etichetta senza nemmeno un campo acceso non è un’etichetta', 'error');
     }
     try {
-      await Store.saveLayoutEtichetta(layout);
+      if (genere === 'bancale') await Store.saveLayoutEtichettaPf(layout);
+      else await Store.saveLayoutEtichetta(layout);
       this.renderConfig();
       this.toast('Layout salvato — vale per le etichette nuove', 'success');
     } catch (e) {
@@ -415,15 +430,20 @@ export const VistaConfigurazione = {
     }
   },
 
-  async _layoutEtichettaDiSerie() {
+  async _layoutEtichettaDiSerie(genere: GenereEtichetta = 'merce') {
     if (!this._requireOperator('la modifica del layout dell’etichetta')) return;
+    const bancale = genere === 'bancale';
     if (!await Dialog.confirm({
       title: 'Tornare al layout di serie?',
-      message: 'Barre, codice articolo, descrizione, lotto, scadenza e peso accesi; '
-             + 'colli e ubicazione spenti. Le etichette già stampate non cambiano.',
+      message: bancale
+        ? 'Codice articolo, descrizione, barre del bancale, lotto, scadenza, colli e peso accesi; '
+          + 'ordine di produzione e ubicazione spenti. Le etichette già stampate non cambiano.'
+        : 'Barre, codice articolo, descrizione, lotto, scadenza e peso accesi; '
+          + 'colli e ubicazione spenti. Le etichette già stampate non cambiano.',
       confirmLabel: 'Torna al layout di serie',
     })) return;
-    await Store.saveLayoutEtichetta(LAYOUT_DI_SERIE);
+    if (bancale) await Store.saveLayoutEtichettaPf(LAYOUT_PF_DI_SERIE);
+    else await Store.saveLayoutEtichetta(LAYOUT_DI_SERIE);
     this.renderConfig();
     this.toast('Layout di serie ripristinato', 'success');
   },

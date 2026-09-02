@@ -21,6 +21,7 @@ import {
   disponi, leggiLayout, leggiRiga, validaStampante, proponiStampante,
   nuovoIdStampante, leggiCopie, stampanteDiSerie,
   LAYOUT_DI_SERIE, CAMPI_ETICHETTA, COPIE_MAX,
+  LAYOUT_PF_DI_SERIE, CAMPI_ETICHETTA_PF,
   MARGINE_MM, INTERLINEA_MM, INTERPRETAZIONE_MM,
 } from '../src/modules/stampanti';
 
@@ -89,6 +90,80 @@ describe('il conto dei millimetri è lo stesso del servizio', () => {
   it('i campi che il client offre sono quelli che il servizio sa leggere', () => {
     expect(CAMPI_ETICHETTA.map((c) => c.campo).sort())
       .toEqual([...zpl.CAMPI_AMMESSI].sort());
+  });
+});
+
+/* 2.20 — LA STESSA RETE SULLA SECONDA ETICHETTA. Il bancale di prodotto
+   finito ha un catalogo di campi suo e un layout suo, e il conto dei
+   millimetri e' scritto due volte come quello della merce: se una delle due
+   copie cambia da sola, la scheda di configurazione direbbe «ci sta» su
+   un'etichetta che il servizio rifiuta. */
+describe('il bancale: il conto dei millimetri è lo stesso del servizio', () => {
+  it('il layout di serie occupa gli stessi millimetri', () => {
+    const qui = disponi(null, 80, 'bancale');
+    const la = zpl.disponi(null, 80, zpl.CAMPI_PF);
+    expect(qui.usato_mm).toBe(la.usato_mm);
+    expect(qui.ci_sta).toBe(la.ci_sta);
+    expect(qui.blocchi.map((b) => b.campo)).toEqual(la.blocchi.map((b) => b.campo));
+  });
+
+  it('ogni riga finisce alla stessa altezza', () => {
+    const qui = disponi(null, 80, 'bancale').blocchi;
+    const la = zpl.disponi(null, 80, zpl.CAMPI_PF).blocchi;
+    expect(qui.map((b) => [b.campo, b.y_mm, b.alta_mm]))
+      .toEqual(la.map((b) => [b.campo, b.y_mm, b.alta_mm]));
+  });
+
+  it('sul supporto vero occupa 70 mm degli 80, e i due sono d’accordo', () => {
+    expect(disponi(null, 80, 'bancale').usato_mm).toBe(70);
+    expect(zpl.disponi(null, 80, zpl.CAMPI_PF).usato_mm).toBe(70);
+    expect(disponi(null, 80, 'bancale').ci_sta).toBe(true);
+    expect(disponi(null, 60, 'bancale').ci_sta).toBe(false);
+    expect(zpl.disponi(null, 60, zpl.CAMPI_PF).ci_sta).toBe(false);
+  });
+
+  it('i campi che il client offre sono quelli che il servizio sa leggere', () => {
+    expect(CAMPI_ETICHETTA_PF.map((c) => c.campo).sort())
+      .toEqual([...zpl.CAMPI_PF_AMMESSI].sort());
+  });
+
+  /* I due cataloghi non sono lo stesso elenco con un campo in piu': quello
+     della merce identifica una riga di giacenza (`barcode` = ARTICOLO#LOTTO),
+     questo identifica un bancale (`bancale` = UDC). Confonderli vorrebbe dire
+     un layout che nomina campi che l'altra etichetta non sa leggere. */
+  it('i due cataloghi restano distinti', () => {
+    const merce = CAMPI_ETICHETTA.map((c) => c.campo);
+    const bancale = CAMPI_ETICHETTA_PF.map((c) => c.campo);
+    expect(merce).toContain('barcode');
+    expect(merce).not.toContain('bancale');
+    expect(bancale).toContain('bancale');
+    expect(bancale).not.toContain('barcode');
+    expect(leggiRiga({ campo: 'barcode' }, 'bancale')).toBe(null);
+    expect(leggiRiga({ campo: 'bancale' }, 'merce')).toBe(null);
+  });
+
+  /* Un layout scritto per un'etichetta e letto per l'altra PERDE le righe che
+     l'altra non conosce, e le tiene tutte le altre — sette campi su nove i
+     due cataloghi ce li hanno uguali. Il `barcode` della merce sparisce, e
+     quel che resta e' un'etichetta senza barre: e' il motivo per cui i due
+     layout stanno in due chiavi di `meta` diverse e nessuno li mescola. */
+  it('un layout della merce letto come bancale perde le barre', () => {
+    const letto = leggiLayout(LAYOUT_DI_SERIE, 'bancale');
+    expect(letto.righe.map((r) => r.campo)).not.toContain('barcode');
+    expect(letto.righe.map((r) => r.campo)).not.toContain('bancale');
+  });
+
+  it('senza nemmeno una riga valida si ripiega su quello di serie', () => {
+    const letto = leggiLayout({ righe: [{ campo: 'barcode', attivo: true }] }, 'bancale');
+    expect(letto.righe.map((r) => r.campo))
+      .toEqual(LAYOUT_PF_DI_SERIE.righe.map((r) => r.campo));
+  });
+
+  it('l’ordine di produzione e l’ubicazione nascono spenti', () => {
+    const spento = (campo) => LAYOUT_PF_DI_SERIE.righe.find((r) => r.campo === campo).attivo;
+    expect(spento('odp')).toBe(false);
+    expect(spento('ubicazione')).toBe(false);
+    expect(CAMPI_ETICHETTA_PF.find((c) => c.campo === 'ubicazione').invecchia).toBe(true);
   });
 });
 
