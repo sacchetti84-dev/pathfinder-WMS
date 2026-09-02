@@ -78,7 +78,8 @@ const salta = (nome, perche) => {
    accusa l'installer di aver sbagliato strada quando la strada era giusta.
    Si legge invece dalla sua `-Prova`, che la strada la dichiara a voce. */
 let INSTALLATO = false;
-const SENZA_INSTALLAZIONE = 'su questa macchina Pathfinder non e\' installato: serve una radice esistente';
+const SENZA_INSTALLAZIONE =
+  'l\'installer ha preso la prima installazione: qui non c\'e\' una radice da aggiornare';
 
 /* Una consegna finta: indice, un asset col nome a impronta e il manifesto.
    `marchio` cambia i byte a parita' di numero di versione — e' il caso che il
@@ -343,9 +344,23 @@ try {
      fallisce, l'unica cosa che serve e' leggere la sua risposta, e senza
      questa riga non la si legge — men che meno dal registro di una corsa
      automatica su una macchina che non si ha davanti. */
-  ok('prepara-postgres dice se il motore c\'e\' o se manca, e non lascia dubbi',
-     /PostgreSQL/.test(dettoPg) &&
-     (/nessuna modifica/i.test(dettoPg) || /non risulta installato/i.test(dettoPg)),
+  /* I VERDETTI SONO TRE, NON DUE — 2.18.1.
+     Fino alla 2.18 questa riga ne ammetteva due: «non risulta installato» e
+     «nessuna modifica». Ne mancava uno che lo script sa dire benissimo e che
+     qui non era mai capitato: IL MOTORE C'È MA NON RISPONDE — servizio fermo,
+     porta chiusa, host sbagliato. Sul runner di Windows PostgreSQL 17 è
+     installato e il suo servizio è spento, e la prova cadeva su una risposta
+     giusta. Non era lo script a sbagliare: era l'elenco delle risposte
+     ammesse a essere corto.
+     Quel che si pretende resta uno solo: che dica come sta, in uno dei tre
+     versi, invece di lasciare a chi installa il compito di indovinarlo. */
+  const VERDETTI_PG = [
+    /non risulta installato/i,     // il motore non c'e'
+    /nessuno risponde/i,           // c'e' ma e' spento o irraggiungibile
+    /nessuna modifica/i,           // c'e', risponde, e la prova non tocca niente
+  ];
+  ok('prepara-postgres dice se il motore c\'e\', se manca o se non risponde',
+     /PostgreSQL/.test(dettoPg) && VERDETTI_PG.some((v) => v.test(dettoPg)),
      dettoPg.replace(/\s+/g, ' ').trim().slice(0, 200) || '(non ha detto niente)');
 
   /* UNA RISPOSTA VUOTA NON E' UNO ZERO, e uno zero qui vuol dire «migraci
