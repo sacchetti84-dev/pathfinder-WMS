@@ -3,6 +3,8 @@ import { Store } from '../../core/store';
 import { Dialog } from '../dialog';
 import { validaVoce, normalizzaCodice, etichettaDi } from '../../modules/parametri';
 import type { Voce, ParametriArticolo } from '../../modules/parametri';
+import { validaModello, colliAttesi, descriviModello } from '../../modules/imballo';
+import type { ModelloImballo } from '../../modules/imballo';
 
 /* UNA SCHEDA È UNA TENDINA DELL'ANAGRAFICA.
 
@@ -82,7 +84,166 @@ export const VistaParametri = {
         Le tendine dell'anagrafica articoli e della caratterizzazione delle zone si compilano da qui.
         <strong>I valori di legge si vedono e non si tolgono</strong>: sopra si aggiunge.
       </div>
-      ${schede}`;
+      ${schede}
+      ${this._imballiHTML()}`;
+  },
+
+  /* ═══ 2.20 · I MODELLI DI IMBALLO ══════════════════════════════════
+     Sta qui e non in una scheda sua perché è la stessa cosa delle quattro
+     sopra: una tendina dell'anagrafica che è un dato. Cambia la forma —
+     un modello porta due conteggi e una tara, non un codice e un'etichetta —
+     e per questo si compila in una finestra invece che in una riga.
+
+     IL MODELLO PROPONE. Il numero di colli che esce da qui è quello che la
+     maschera del prodotto finito scrive nel campo prima che l'operatore lo
+     guardi: se il bancale vero ne porta 37, vince il bancale. */
+  _imballiHTML() {
+    const modelli = Store.getModelliImballo() as ModelloImballo[];
+    const righe = modelli.length ? modelli.map((m) => `
+      <tr>
+        <td class="mono font-bold">${this._esc(m.code)}</td>
+        <td>${this._esc(m.label)}</td>
+        <td>${this._esc(m.supporto || '—')}</td>
+        <td class="mono td-right">${m.colli_strato} × ${m.strati} = <strong>${colliAttesi(m)}</strong></td>
+        <td class="mono td-right">${m.tara_kg == null ? '—' : `${m.tara_kg} KG`}</td>
+        <td class="whitespace-nowrap">
+          <button class="btn btn-sm" onclick="App._imballoModifica('${this._esc(m.code)}')">✏️ Modifica</button>
+          <button class="btn btn-sm btn-danger" onclick="App._imballoTogli('${this._esc(m.code)}')">Togli</button>
+        </td>
+      </tr>`).join('')
+      : `<tr><td colspan="6" class="text-sx-text-muted">Nessun modello. Chi imballa dichiara i colli senza una proposta.</td></tr>`;
+
+    return `
+      <div class="mb-9">
+        <div class="flex justify-between items-center flex-wrap gap-4">
+          <h3 class="m-0">📦 Modelli di imballo (${modelli.length})</h3>
+          <button class="btn btn-sm btn-primary" onclick="App._imballoModifica('')">+ Aggiungi modello</button>
+        </div>
+        <div class="text-label-small text-sx-text-muted mb-5 mt-2.5">
+          Come si compone un bancale: supporto, colli per strato, strati, tara.
+          L'articolo ne indica <strong>uno</strong> in anagrafica, e da lì esce la proposta
+          dei colli. <strong>La tara serve al peso lordo</strong> della packing list: senza,
+          il lordo non si scrive.
+        </div>
+        <div class="overflow-x-auto"><table class="sx-table"><thead><tr>
+          <th class="w-[150px]">Codice</th><th>Nome</th><th class="w-[140px]">Supporto</th>
+          <th class="w-[170px]">Colli</th><th class="w-[110px]">Tara</th><th class="w-[220px]">Azioni</th>
+        </tr></thead><tbody>${righe}</tbody></table></div>
+      </div>`;
+  },
+
+  _imballoModifica(code: string) {
+    if (!this._requireOperator('la configurazione degli imballi')) return;
+    const elenco = Store.getModelliImballo() as ModelloImballo[];
+    const m = elenco.find((x) => x.code === code)
+      || { code: '', label: '', supporto: '', colli_strato: 0, strati: 0 } as ModelloImballo;
+    const nuovo = !m.code;
+
+    this.showModal(
+      nuovo ? '📦 Nuovo modello di imballo' : `📦 ${this._esc(m.label)}`,
+      `<div class="flex gap-3 flex-wrap">
+        <div class="form-group mb-6 w-[170px]">
+          <label>Codice <span class="req">*</span></label>
+          <input class="input input-mono uppercase" id="imbCode" maxlength="24"
+                 value="${this._esc(m.code)}" ${nuovo ? '' : 'disabled'} placeholder="EPAL85">
+        </div>
+        <div class="form-group mb-6 flex-1 min-w-[200px]">
+          <label>Nome <span class="req">*</span></label>
+          <input class="input" id="imbLabel" maxlength="60" value="${this._esc(m.label)}"
+                 placeholder="EPAL 8 per strato">
+        </div>
+      </div>
+      <div class="flex gap-3 flex-wrap">
+        <div class="form-group mb-6 flex-1 min-w-[160px]">
+          <label>Supporto</label>
+          <input class="input" id="imbSupporto" maxlength="40" value="${this._esc(m.supporto || '')}"
+                 placeholder="EPAL · mezzo bancale · cassone">
+        </div>
+        <div class="form-group mb-6 w-[140px]">
+          <label>Colli per strato <span class="req">*</span></label>
+          <input class="input" id="imbColliStrato" type="number" min="1" step="1" value="${m.colli_strato || ''}">
+        </div>
+        <div class="form-group mb-6 w-[140px]">
+          <label>Strati <span class="req">*</span></label>
+          <input class="input" id="imbStrati" type="number" min="1" step="1" value="${m.strati || ''}">
+        </div>
+      </div>
+      <div class="flex gap-3 flex-wrap">
+        <div class="form-group mb-6 w-[160px]">
+          <label>Tara del supporto (KG)</label>
+          <input class="input" id="imbTara" type="number" min="0" step="0.1"
+                 value="${m.tara_kg == null ? '' : m.tara_kg}" placeholder="25">
+        </div>
+        <div class="form-group mb-6 w-[180px]">
+          <label>Altezza massima (mm)</label>
+          <input class="input" id="imbAltezza" type="number" min="1" step="10"
+                 value="${m.altezza_max_mm == null ? '' : m.altezza_max_mm}" placeholder="1800">
+        </div>
+      </div>
+      <div class="text-body-small text-sx-text-secondary leading-[1.6]">
+        Colli per strato e strati fanno il <strong>numero atteso</strong>, e nient'altro:
+        chi imballa lo trova già scritto e lo cambia senza dover dire perché.
+        <strong>Tara e altezza sono facoltative</strong> — lasciate in bianco restano
+        «non lo so», che è diverso da zero.
+      </div>`,
+      `<button class="btn" onclick="App.closeModal()">Annulla</button>
+       <button class="btn btn-success" onclick="App._imballoSalva('${this._esc(m.code)}')">Salva</button>`
+    );
+  },
+
+  async _imballoSalva(code: string) {
+    const elenco = Store.getModelliImballo() as ModelloImballo[];
+    const numero = (id: string) => {
+      const v = String($(id)?.value ?? '').trim();
+      return v === '' ? undefined : Number(v);
+    };
+    const rec: ModelloImballo = {
+      code: normalizzaCodice(code || $('imbCode')?.value),
+      label: String($('imbLabel')?.value ?? '').trim(),
+      supporto: String($('imbSupporto')?.value ?? '').trim(),
+      colli_strato: Number($('imbColliStrato')?.value),
+      strati: Number($('imbStrati')?.value),
+    };
+    const tara = numero('imbTara');
+    if (tara !== undefined) rec.tara_kg = tara;
+    const altezza = numero('imbAltezza');
+    if (altezza !== undefined) rec.altezza_max_mm = altezza;
+
+    const altri = elenco.filter((x) => x.code !== rec.code);
+    const errori = validaModello(rec, altri);
+    if (errori.length) return this.toast(errori.join(' · '), 'error');
+
+    const i = elenco.findIndex((x) => x.code === rec.code);
+    if (i >= 0) elenco[i] = rec; else elenco.push(rec);
+    try {
+      await Store.saveModelliImballo(elenco);
+    } catch (e) {
+      return this.toast((e as Error).message, 'error');
+    }
+    this.closeModal();
+    this.renderConfig();
+    this.updateSyncIndicator();
+    this.toast(`📦 ${descriviModello(rec)}`, 'success');
+  },
+
+  async _imballoTogli(code: string) {
+    if (!this._requireOperator('la configurazione degli imballi')) return;
+    const elenco = Store.getModelliImballo() as ModelloImballo[];
+    const m = elenco.find((x) => x.code === code);
+    if (!m) return;
+    /* Come le voci qui sopra: togliere il modello NON tocca gli articoli che
+       lo nominano. Restano senza proposta, e chi imballa digita i colli. */
+    if (!await Dialog.confirm({
+      title: 'Togliere il modello di imballo?',
+      message: 'Gli articoli che lo indicano NON vengono toccati: restano senza proposta, '
+             + 'e chi imballa dichiara i colli a mano. I bancali già chiusi non cambiano.',
+      details: Dialog.kv([['Modello', descriviModello(m)]]),
+      confirmLabel: 'Togli', danger: true,
+    })) return;
+    await Store.saveModelliImballo(elenco.filter((x) => x.code !== code));
+    this.renderConfig();
+    this.updateSyncIndicator();
+    this.toast(`${code} tolto dalla configurazione`, 'success');
   },
 
   async doAggiungiParam(chiave: ChiaveParam) {

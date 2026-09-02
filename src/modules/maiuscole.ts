@@ -45,6 +45,9 @@ const CAMPI_CODICE: ReadonlySet<string> = new Set([
   /* 2.19 — Stampanti. Il sito servito e' un `site_id`, e i site_id sono
      maiuscoli come tutti gli altri codici di questo applicativo. */
   'stpSito',
+  /* 2.20 — il codice del modello di imballo: e' una chiave, e l'articolo lo
+     nomina in anagrafica. Due grafie sono due modelli. */
+  'imbCode',
   /* Quarantena */
   'qArt', 'qLot', 'qvArt', 'qvLoc', 'qvLot', 'releaseDestLoc',
   /* Unita' di carico */
@@ -103,6 +106,10 @@ const CAMPI_TESTO: ReadonlySet<string> = new Set([
      L'indirizzo e' un IP o un nome DNS: i nomi DNS sono indifferenti al caso
      e maiuscolarli non cambia dove si va, ma li rende illeggibili. */
   'stpNome', 'stpHost',
+  /* 2.20 — IMBALLI. Il nome e il supporto sono quel che si legge in tendina
+     e sulla packing list: «EPAL 8 per strato» urlato in maiuscolo si legge
+     peggio, e non identifica niente — a identificare c'e' il codice. */
+  'imbLabel', 'imbSupporto',
   /* DATE, QUANTITA' E MISURE — non sono testo, e maiuscolarle non vuol
      dire niente. */
   'editItemExp', 'itemExpiry', 'mInExp', 'pEditExpected', 'pShipDocDate', 'pShipExpected',

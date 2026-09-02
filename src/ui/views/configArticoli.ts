@@ -3,6 +3,7 @@ import { debounce, _h } from '../../core/utils';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { etichettaDi } from '../../modules/parametri';
+import { descriviModello as descriviModelloImballo } from '../../modules/imballo';
 import {
   CERTIFICAZIONI, leggiAllergeni, leggiCodici, scriviAllergeni,
   leggiCertificazioni, scriviCertificazioni, leggiClasseTemperatura,
@@ -153,6 +154,7 @@ export const VistaConfigArticoli = {
         📄 La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
       </div>
       ${this._notaUM('art')}
+      ${this._campoImballo(null, 'art')}
       ${this._campiAttributiArticolo(null, 'art')}
       <div class="form-group"><label>Note</label>
         <input class="input" id="artNotes" maxlength="${Validate.MAX.NOTES}"></div>
@@ -191,6 +193,7 @@ export const VistaConfigArticoli = {
       min_stock: $('artMinStock').value,
       max_stock: $('artMaxStock').value,
       notes: Validate.clean($('artNotes').value),
+      pallet_model: $('artImballo')?.value || '',
       ...this._leggiAttributiArticolo('art')
     });
     if (!ok) return this.toast('Codice articolo già presente', 'error');
@@ -402,6 +405,30 @@ export const VistaConfigArticoli = {
       </div>`;
   },
 
+  /* 2.20 — IL MODELLO DI IMBALLO NON È UN ATTRIBUTO MERCEOLOGICO, e sta in
+     un metodo suo: gli attributi qui sopra usano `null` per cancellare una
+     classificazione, questo è un codice che punta ai `meta.imballi` e segue
+     la regola dei campi di testo. Se nessun modello è configurato la riga
+     non compare: una tendina vuota è una domanda senza risposte. */
+  _campoImballo(art, p) {
+    const modelli = Store.getModelliImballo();
+    if (!modelli.length) return '';
+    const scelto = String(art?.pallet_model || '');
+    const opzioni = modelli.map(m =>
+      `<option value="${this._esc(m.code)}" ${scelto === m.code ? 'selected' : ''}>${this._esc(descriviModelloImballo(m))}</option>`
+    ).join('');
+    return `
+      <div class="form-group mb-5"><label>Modello di imballo</label>
+        <select class="input" id="${p}Imballo">
+          <option value="">— nessuno —</option>${opzioni}
+        </select>
+        <div class="text-label-small text-sx-text-muted mt-2">
+          Da qui esce il <strong>numero di colli proposto</strong> quando si chiude un bancale
+          di prodotto finito. Resta una proposta: chi imballa lo cambia senza dire perché.
+        </div>
+      </div>`;
+  },
+
   _leggiAttributiArticolo(p) {
     const cls = $(`${p}TempClass`)?.value || '';
     const allergens = Store.getAllergeniAmmessi()
@@ -456,6 +483,7 @@ export const VistaConfigArticoli = {
         📄 La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
       </div>
       ${this._notaUM('ea')}
+      ${this._campoImballo(art, 'ea')}
       ${this._campiAttributiArticolo(art, 'ea')}
       <div class="form-group"><label>Note</label>
         <input class="input" id="eaNotes" value="${this._esc(art.notes || '')}" maxlength="${Validate.MAX.NOTES}"></div>
@@ -477,6 +505,7 @@ export const VistaConfigArticoli = {
       min_stock: $('eaMinStock').value,
       max_stock: $('eaMaxStock').value,
       notes: Validate.clean($('eaNotes').value),
+      pallet_model: $('eaImballo')?.value || '',
       ...this._leggiAttributiArticolo('ea')
     });
     this.closeModal();

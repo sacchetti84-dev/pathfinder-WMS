@@ -103,6 +103,10 @@ export interface Articolo {
       `pieces_per_pack`: una sorgente sola, con un ripiego. */
   uom?: UnitaMisura;
   uom_per_collo?: number;
+  /** 2.20 — il codice del MODELLO di imballo, non la sua composizione: i
+      formati veri sono una decina e gli articoli undicimila. Assente = chi
+      imballa dichiara i colli senza una proposta. */
+  pallet_model?: string;
   /** 1.4.4 — punteggio morbido del motore: chi pesa sta in basso. */
   stackable?: boolean;
   active?: boolean;

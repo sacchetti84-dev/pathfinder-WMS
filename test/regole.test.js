@@ -132,8 +132,15 @@ describe('il doppio contesto dei gestori inline', () => {
    (la maschera). Quel che è finito qui dentro sono le 99 righe che NON
    possono stare altrove: leggere e scrivere `meta` passa da `_cache` e da
    `Persistence`, e nessun modulo esterno li tocca. È esattamente la crescita
-   che la regola ammette — il ponte, non la funzionalità. */
-const TETTO_STORE = 4351;
+   che la regola ammette — il ponte, non la funzionalità.
+
+   03/09/2026 — 4351 → 4398, e il gesto è deliberato per la stessa ragione.
+   I modelli di imballo del prodotto finito nascono in `modules/imballo.ts`
+   (forma, convalida, conto dei colli) e si configurano in
+   `ui/views/parametri.ts`: qui dentro stanno le 47 righe del ponte —
+   leggere e scrivere `meta.imballi` passa da `_cache` e da `Persistence`,
+   che nessun modulo esterno tocca. */
+const TETTO_STORE = 4398;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

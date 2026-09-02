@@ -58,6 +58,11 @@ import {
   leggiLayout as leggiLayoutEtichetta, validaStampante, leggiCopie as leggiCopieEtichette,
 } from '../modules/stampanti';
 import type { Stampante, LayoutEtichetta } from '../modules/stampanti';
+import {
+  leggiModelli as leggiModelliImballo, validaModello as validaModelloImballo,
+  trovaModello as trovaModelloImballo,
+} from '../modules/imballo';
+import type { ModelloImballo } from '../modules/imballo';
 import type { PostoCandidato, RegolaStoccaggio } from '../modules/stoccaggio';
 /* 2.8 — le due regole che non si scrivono. Il motore delle regole di
    POLITICA sta in `stoccaggio.ts`; queste sono un'altra cosa e stanno da
@@ -511,7 +516,9 @@ const Store = {
          appena configurata funzionerebbe fino al primo ricaricamento della
          pagina, e poi sparirebbe senza che nessuno l'abbia tolta. */
       printers: metaObj.printers ?? null,
-      labelLayout: metaObj.labelLayout ?? null
+      labelLayout: metaObj.labelLayout ?? null,
+      /* 2.20 — i modelli di imballo. Trappola 22 anche loro. */
+      imballi: metaObj.imballi ?? null
     };
   },
 
@@ -1614,6 +1621,9 @@ const Store = {
        sappiamo», ed e' l'unica delle due che e' vera prima del popolamento. */
     if (Array.isArray(article.allergens)) rec.allergens = article.allergens;
     if (article.temp_class) rec.temp_class = article.temp_class;
+    /* 2.20 — stessa regola: un articolo senza modello di imballo non ha un
+       modello, non ne ha uno vuoto. */
+    if (article.pallet_model) rec.pallet_model = String(article.pallet_model);
     const _id = await Persistence.add('articles', rec);
     const stored = { ...rec, _id };
     this._applyToCache('articles', 'put', stored);
@@ -1624,7 +1634,11 @@ const Store = {
   /* L'elenco e' una lista bianca, non un filtro: un campo che non e' nominato
      qui non si aggiorna MAI. E' il motivo per cui la maschera di modifica non
      puo' cancellare per sbaglio allergeni e classe pur non mostrandoli. */
-  ARTICLE_TEXT_FIELDS: ['description', 'category', 'supplier', 'unit', 'notes'],
+  /* 2.20 — `pallet_model` sta fra i testi e non fra gli attributi: e' un
+     codice che punta a `meta.imballi`, non una classificazione merceologica.
+     Fuori da questa lista si scarterebbe in silenzio, come le certificazioni
+     per quattro versioni. */
+  ARTICLE_TEXT_FIELDS: ['description', 'category', 'supplier', 'unit', 'notes', 'pallet_model'],
   ARTICLE_NUM_FIELDS: ['weight', 'length', 'width', 'height', 'min_stock', 'max_stock',
                        'weight_net_kg', 'pieces_per_pack'],
   /* 1.6 — `certifications` MANCAVA DA QUANDO ESISTE, e la lista bianca la
@@ -1686,6 +1700,7 @@ const Store = {
         notes: r.notes || '', active: true, created: Date.now(),
         ...(Array.isArray(r.allergens) ? { allergens: r.allergens } : {}),
         ...(r.temp_class ? { temp_class: r.temp_class } : {}),
+        ...(r.pallet_model ? { pallet_model: String(r.pallet_model) } : {}),
       });
     }
 
@@ -2965,6 +2980,38 @@ const Store = {
     (this._cache.meta as Record<string, any>).printers = lista;
     await this._touchMeta();
     return lista;
+  },
+
+  /* ═══ 2.20 · I MODELLI DI IMBALLO ════════════════════════════════════
+     Stesso ponte delle stampanti: la forma e la convalida stanno in
+     `modules/imballo.ts`, qui c'e' solo la cache e `Persistence`. Vivono in
+     `meta` perche' sono configurazione — cambiano quando cambia il fornitore
+     dei bancali, non quando cambia il codice. */
+  getModelliImballo(): ModelloImballo[] {
+    return leggiModelliImballo((this._cache.meta as Record<string, any>)?.imballi);
+  },
+
+  async saveModelliImballo(elenco: ModelloImballo[]) {
+    const lista = Array.isArray(elenco) ? elenco : [];
+    for (const m of lista) {
+      const errori = validaModelloImballo(m, lista);
+      if (errori.length) throw new Error(`${m.label || m.code}: ${errori.join(' · ')}`);
+    }
+    const pulito = leggiModelliImballo(lista);
+    const rec = { key: 'imballi', value: pulito };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    (this._cache.meta as Record<string, any>).imballi = pulito;
+    await this._touchMeta();
+    return pulito;
+  },
+
+  /** Il modello di un articolo, se ne ha uno e se esiste ancora. Un codice
+      che punta a un modello cancellato non e' un errore: e' un articolo
+      senza proposta, e la maschera lascia il campo in bianco. */
+  modelloDiArticolo(articleCode: string): ModelloImballo | null {
+    const art = this.getArticle(articleCode);
+    return trovaModelloImballo(this.getModelliImballo(), art?.pallet_model as string | undefined);
   },
 
   getLayoutEtichetta(): LayoutEtichetta {

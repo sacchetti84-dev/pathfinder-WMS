@@ -15,6 +15,7 @@ import {
   CERTIFICAZIONI, CLASSI_TEMPERATURA, leggiAllergeni, leggiCodici, scriviAllergeni,
   leggiCertificazioni, scriviCertificazioni, leggiClasseTemperatura, fogliValoriAmmessi,
 } from '../../modules/anagrafica';
+import { descriviModello as descriviModelloImballo } from '../../modules/imballo';
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 
@@ -853,6 +854,10 @@ export const VistaConfigDati = {
       testo('Fornitore', 'supplier');
       testo('UM', 'unit', true);
       testo('Note', 'notes');
+      /* 2.20 — il MODELLO di imballo, non la sua composizione: un codice che
+         punta ai modelli configurati. Un codice che non esiste non ferma la
+         riga — l'articolo resta senza proposta, e il modello si crea dopo. */
+      testo('Imballo', 'pallet_model', true);
       numero('Peso', 'weight'); numero('Lunghezza', 'length');
       numero('Larghezza', 'width'); numero('Altezza', 'height');
       /* 1.6 — `Peso_Netto_Collo` non si legge piu': D15 lo toglie dai dati
@@ -993,6 +998,7 @@ export const VistaConfigDati = {
       'Temperatura': a.temp_class || '', 'Allergeni': scriviAllergeni(a.allergens),
       'Pericolosita': scriviAllergeni(a.hazards),
       'Certificazioni': scriviCertificazioni(a.certifications),
+      'Imballo': a.pallet_model || '',
       'Note': a.notes || ''
     }));
     const wb = XLSX.utils.book_new();
@@ -1013,7 +1019,11 @@ export const VistaConfigDati = {
          colonna: 'Temperatura', valore: v.code, significato: `${v.label} — voce aziendale` })),
        ...Store.getPericoli().map(v => ({
          colonna: 'Pericolosita', valore: v.code, significato: v.label })),
-       { colonna: 'Pericolosita', valore: 'NESSUNO', significato: 'Verificato: non pericoloso' }]
+       { colonna: 'Pericolosita', valore: 'NESSUNO', significato: 'Verificato: non pericoloso' },
+       /* 2.20 — i modelli di imballo configurati, cosi' la convalida del
+          foglio offre gli stessi codici che l'anagrafica offre in tendina. */
+       ...Store.getModelliImballo().map(m => ({
+         colonna: 'Imballo', valore: m.code, significato: descriviModelloImballo(m) }))]
         .map(v => ({ 'Colonna': v.colonna, 'Valore': v.valore, 'Significato': v.significato }))
     ), 'Valori ammessi');
     XLSX.writeFile(wb, `anagrafica-articoli-${new Date().toISOString().slice(0,10)}.xlsx`);
