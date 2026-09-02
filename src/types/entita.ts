@@ -381,6 +381,9 @@ export interface RigaDocumento {
       una riga in KG e una in PZ, ed e' la ragione per cui i pesi si
       scrivono a mano. */
   uom?: string | null;
+  /** 2.20 — il bancale da cui esce la riga, quando ne ha uno. Assente sulle
+      righe scritte prima: merce presa dal vano, senza contenitore. */
+  udc_id?: string;
   [extra: string]: unknown;
 }
 

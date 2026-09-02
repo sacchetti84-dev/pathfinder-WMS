@@ -3173,6 +3173,13 @@ const Store = {
     return item;
   },
 
+  /** 2.20 — l'unita' e' partita su un documento. Vuoto e spedito sono due
+      fatti diversi: `chiudiUdcSeVuota` scrive il primo, questo il secondo, e
+      da `shipped` non si torna indietro — `assegnaAUdc` non ci carica piu'. */
+  async segnaUdcSpedita(id: string) {
+    return await this._patchUdc(id, { status: 'shipped', emptied_at: Date.now() });
+  },
+
   async _patchUdc(id: string, campi: Partial<Udc>) {
     const u = this.getUdc(id);
     if (!u) return null;

@@ -58,6 +58,10 @@ export const VistaProdottoFinito = {
       all'ordine di partenza. */
   _pfTabella: STATO_VUOTO as Stato,
 
+  /** I bancali spuntati, per codice. Vive quanto la schermata: chi esce da
+      Movimenta ricomincia, come per il carrello del DDT. */
+  _pfSel: new Set<string>(),
+
   _formProdottoFinito(el: HTMLElement) {
     const zone = zonePf(Store.getSites());
     el.innerHTML = `
@@ -445,6 +449,13 @@ export const VistaProdottoFinito = {
 
     const corpo = righe.length ? righe.map((r: RiepilogoBancale) => `
       <tr class="${r.stato === 'spedito' ? 'opacity-60' : ''}">
+        <td>${r.stato === 'pronto'
+          ? `<input type="checkbox" class="w-[18px] h-[18px] cursor-pointer"
+               ${this._pfSel.has(r.udc_id) ? 'checked' : ''}
+               onchange="App._pfSpunta('${this._esc(r.udc_id)}', this.checked)">`
+          : `<span class="text-sx-text-muted" title="${r.stato === 'impegnato'
+              ? 'Già su un DDT pendente: si corregge da quel documento'
+              : ETICHETTE_STATO[r.stato]}">—</span>`}</td>
         <td class="mono font-bold">${this._esc(r.udc_id)}</td>
         <td><span class="badge badge-${r.stato === 'pronto' ? 'success' : r.stato === 'impegnato' ? 'warning' : 'muted'}">${ETICHETTE_STATO[r.stato]}</span></td>
         <td class="mono">${this._esc(descriviContenuto(r))}</td>
@@ -458,12 +469,13 @@ export const VistaProdottoFinito = {
           <button class="btn btn-sm" onclick="App._pfEtichetta('${this._esc(r.udc_id)}')">🏷 Etichetta</button>
         </td>
       </tr>`).join('')
-      : `<tr><td colspan="10" class="text-sx-text-muted">${tutti.length
+      : `<tr><td colspan="11" class="text-sx-text-muted">${tutti.length
           ? 'Nessun bancale risponde al filtro.'
           : 'Nessun bancale di prodotto finito.'}</td></tr>`;
 
     return `
       <div class="overflow-x-auto"><table class="sx-table"><thead><tr>
+        <th class="w-[40px]"></th>
         ${th('udc_id', 'Bancale')}${th('stato', 'Stato')}${th('contenuto', 'Contenuto')}
         ${th('article_description', 'Descrizione')}${th('expiry_date', 'Scadenza')}
         ${th('colli', 'Colli', 'td-right')}${th('uom_qty', 'Quantità', 'td-right')}
@@ -472,7 +484,29 @@ export const VistaProdottoFinito = {
       </tr></thead><tbody>${corpo}</tbody></table></div>
       <div class="text-label-small text-sx-text-muted mt-3">
         ${righe.length} ${righe.length === 1 ? 'bancale' : 'bancali'} su ${tutti.length}
+        ${this._pfSel.size ? ` · <strong>${this._pfSel.size} ${this._pfSel.size === 1 ? 'scelto' : 'scelti'}</strong>` : ''}
       </div>`;
+  },
+
+  /* La spunta non ridisegna la tabella: cambiarla sotto le dita di chi sta
+     spuntando la quarta riga di otto perde la posizione. Si aggiorna il solo
+     pulsante, che è l'unica cosa che dipende da quanti sono. */
+  _pfSpunta(udcId: string, acceso: boolean) {
+    if (acceso) this._pfSel.add(udcId); else this._pfSel.delete(udcId);
+    const b = $('pfCaricaDdt');
+    if (b) {
+      b.textContent = `🚚 Carica in DDT (${this._pfSel.size})`;
+      (b as unknown as HTMLButtonElement).disabled = this._pfSel.size === 0;
+    }
+  },
+
+  /* SI CARICA E BASTA: il DDT lo scrive la maschera delle spedizioni, che è
+     dove la testata vive. Da qui escono le righe, non il documento. */
+  async _pfCaricaInDdt() {
+    if (!this._pfSel.size) return;
+    const scelti = [...this._pfSel];
+    this._pfSel = new Set();
+    await this._shipCaricaDaBancali(scelti);
   },
 
   _pfElencoHTML() {
@@ -481,9 +515,16 @@ export const VistaProdottoFinito = {
       <div class="flex justify-between items-center flex-wrap gap-4 mb-6">
         <strong>Bancali di prodotto finito</strong>
         <div class="flex gap-3 flex-wrap">
+          <button class="btn btn-success" id="pfCaricaDdt" onclick="App._pfCaricaInDdt()"
+            ${this._pfSel.size ? '' : 'disabled'}>🚚 Carica in DDT (${this._pfSel.size})</button>
           ${zona ? `<button class="btn" onclick="App._pfVediInMappa()">🗺 Vedi in mappa</button>` : ''}
           <button class="btn btn-primary" onclick="App._pfNuovoBancale()">+ Nuovo bancale</button>
         </div>
+      </div>
+      <div class="text-label-small text-sx-text-muted mb-4">
+        Si spuntano i bancali <strong>pronti</strong> e si caricano nel DDT: la testata —
+        destinatario, vettore, causale — si compila di là. Un bancale già impegnato su un
+        documento pendente non si spunta: si corregge da quel documento.
       </div>
       <div class="form-group mb-5">
         <input class="input" id="pfCerca" value="${this._esc(this._pfTabella.cerca)}"

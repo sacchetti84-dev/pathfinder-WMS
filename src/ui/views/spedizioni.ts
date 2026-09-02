@@ -30,6 +30,8 @@ type VoceCarrelloDDT = {
   packs_out: { da: number; quantita: number }[] | null;
   qty_uom: number | null;
   uom: string | null;
+  /** 2.20 — il bancale da cui esce la riga, quando ne ha uno. */
+  udc_id?: string;
 };
 
 export const VistaSpedizioni = {
@@ -606,6 +608,102 @@ export const VistaSpedizioni = {
     return Store.colliLiberi(item, gia);
   },
 
+  /* ═══ 2.20 · IL CARRELLO SI RIEMPIE DAI BANCALI ══════════════════════
+     Chi spedisce sceglie i bancali dall'elenco del prodotto finito e li
+     carica qui: un bancale intero per gesto, con tutti i colli che i DDT
+     pendenti non hanno gia' impegnato.
+
+     STA IN QUESTO FILE PERCHE' IL CARRELLO E' DI QUESTO FILE. La scelta dei
+     colli, il conto delle UM e la forma della voce sono gia' scritti in
+     `_shipAddToCart`, e una seconda copia in un'altra vista sarebbe la
+     seconda verita' su come nasce una riga di DDT.
+
+     UNA RIGA CHE NON SI PUO' PRENDERE NON FERMA LE ALTRE: si salta, e il
+     riscontro dice quali e perche'. Chi ha otto bancali sul muletto non
+     ricomincia da capo per il settimo. */
+  async _shipCaricaDaBancali(udcIds) {
+    if (!this._requireOperator('la spedizione')) return;
+    const ids = Array.isArray(udcIds) ? udcIds : [udcIds];
+    const saltate = [];
+    let aggiunte = 0;
+
+    for (const id of ids) {
+      const u = Store.getUdc(id);
+      if (!u) { saltate.push(`${id}: non esiste`); continue; }
+      if (u.status === 'shipped') { saltate.push(`${id}: gia' spedito`); continue; }
+      const righe = Store.righeDiUdc(id);
+      if (!righe.length) { saltate.push(`${id}: e' vuoto`); continue; }
+
+      for (const item of righe) {
+        const chiave = `${item.article_code}#${item.lot_code}`;
+        if (Store.isItemQuarantined(item.item_key, item.location_code)) {
+          saltate.push(`${chiave}: in quarantena`); continue;
+        }
+        if ((this._shipCart as VoceCarrelloDDT[]).some(
+          (r) => r.item_key === item.item_key && r.location_code === item.location_code)) {
+          saltate.push(`${chiave}: gia' in carrello`); continue;
+        }
+
+        let liberi = null;
+        try { liberi = this._shipColliLiberi(item); }
+        catch (err) { saltate.push(`${chiave}: ${(err as Error).message}`); continue; }
+
+        let packsOut = null, qty, qtyUom = null, uom = null;
+        const totale = item.qty || 0;
+        const impegnati = Store.getPendingQtyForItem(item.location_code, item.item_key);
+        const disponibili = Math.max(0, totale - impegnati);
+        if (liberi) {
+          if (!liberi.length) { saltate.push(`${chiave}: tutti i colli sono su un altro DDT`); continue; }
+          const cfg = Store.getUomConfig(item.article_code, item.lot_code);
+          /* `colliLiberi` restituisce un elenco solo dove la confezione c'e':
+             se il ramo e' questo, `cfg` c'e' — ma dirlo al compilatore con
+             un `!` nasconderebbe il perche'. */
+          if (!cfg) { saltate.push(`${chiave}: la confezione del lotto non si legge`); continue; }
+          /* Il bancale si carica INTERO: le scelte sono tutti i colli
+             liberi, presi per intero. Chi ne vuole una parte apre la
+             maschera del DDT e la scrive li'. */
+          const scelte = liberi.map((_: number, i: number) => ({ indice: i }));
+          packsOut = uscitePerIlServizio(liberi, scelte, cfg.uom);
+          qty = packsOut.length;
+          qtyUom = totaleUomColli(packsOut.map((x) => x.quantita), cfg.uom);
+          uom = cfg.uom;
+        } else {
+          if (!disponibili) { saltate.push(`${chiave}: tutto impegnato su un altro DDT`); continue; }
+          qty = disponibili;
+        }
+
+        if (!this._shipCart.length && !this._shipStartTime) this._shipStartTime = Date.now();
+        this._shipCart.push({
+          article_code: item.article_code,
+          article_description: item.article_description || '',
+          lot_code: item.lot_code,
+          location_code: item.location_code,
+          item_key: item.item_key,
+          expiry_date: item.expiry_date || '',
+          qty,
+          qty_at_creation: disponibili,
+          notes: '',
+          packs_out: packsOut,
+          qty_uom: qtyUom,
+          uom,
+          udc_id: u.udc_id,
+        });
+        aggiunte++;
+      }
+    }
+
+    if (!aggiunte && !saltate.length) return this.toast('Nessun bancale scelto', 'warning');
+    /* La maschera si apre comunque, anche con zero righe aggiunte: chi ha
+       premuto vuole vedere il carrello, non un messaggio da solo. */
+    this.startMov('shipping');
+    if (aggiunte) {
+      this.toast(`+ ${aggiunte} ${aggiunte === 1 ? 'riga' : 'righe'} da ${ids.length} ${ids.length === 1 ? 'bancale' : 'bancali'}`, 'success');
+    }
+    if (saltate.length) {
+      this.toast(`${saltate.length} non ${saltate.length === 1 ? 'e\' entrata' : 'sono entrate'}: ${saltate.join(' · ')}`, 'warning');
+    }
+  },
+
   /* IL CARRELLO CHIEDE I COLLI, E NON L'EVASIONE.
 
      Fino alla 1.8.3 la riga portava un numero e i colli si sceglievano al
@@ -1017,6 +1115,22 @@ export const VistaSpedizioni = {
       if (typeof _id === 'number') movIds.push(_id);
     }
     // Aggiorna status documento → evaded
+    /* 2.20 — I BANCALI CHE SI SONO SVUOTATI SONO PARTITI, e si scrive.
+       `removeItem` chiude gia' da se' un'unita' rimasta vuota (`empty`), ma
+       vuoto e spedito sono due fatti diversi: un bancale svuotato in
+       magazzino e' un pallet libero, uno svuotato da un DDT e' merce che sta
+       su un camion. L'elenco del prodotto finito li mostra diversi. */
+    const bancali = new Set((doc.lines || [])
+      .map((l) => String((l as { udc_id?: unknown }).udc_id ?? '').trim())
+      .filter(Boolean));
+    for (const id of bancali) {
+      const u = Store.getUdc(id);
+      if (u && u.status !== 'shipped' && !Store.righeDiUdc(id).length) {
+        try { await Store.segnaUdcSpedita(id); }
+        catch (e) { this.toast(`${id}: ${(e as Error).message}`, 'warning'); }
+      }
+    }
+
     await Store.updatePendingStatus(doc_id, 'evaded');
     /* 1.4.4 — QUI NON SI CHIUDE NIENTE. Il compito di prelievo si è chiuso
        alla registrazione del DDT: l'evasione è il ritiro del vettore, un

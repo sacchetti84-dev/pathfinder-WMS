@@ -55,7 +55,10 @@
    CHIEDE dove stampare. Con l'elenco che si ordina e si filtra sono entrati
    `_pfTabella`, `_pfColonne`, `_pfOrdina`, `_pfCerca` e `_pfTabellaHTML`, e
    con la vista grafica `_pfVediInMappa` piu' i tre della mappa —
-   `_mapFiltroPf`, `_mapToggleFiltroPf`, `_pfStatiBancali`.
+   `_mapFiltroPf`, `_mapToggleFiltroPf`, `_pfStatiBancali`. Con l'aggancio al
+   DDT sono entrati `_pfSel`, `_pfSpunta`, `_pfCaricaInDdt` e
+   `_shipCaricaDaBancali` — quest'ultimo sta in `spedizioni.ts`, perche' il
+   carrello e' di la'.
    2.20: sono entrati i quattro dei modelli di imballo del prodotto finito —
    `_imballiHTML`, `_imballoModifica`, `_imballoSalva`, `_imballoTogli` — e
    `_campoImballo`, la tendina che l'anagrafica articoli mostra solo quando
@@ -69,7 +72,8 @@ export const SUPERFICIE = [
   '_pfBancali', '_pfBozza', '_pfBozzaHTML', '_pfChiudiBancale', '_pfElencoHTML',
   '_pfEtichetta', '_pfEtichettaA4', '_pfModelloCorrente',
   '_pfTabella', '_pfColonne', '_pfOrdina', '_pfCerca', '_pfTabellaHTML', '_pfVediInMappa',
-  '_mapFiltroPf', '_mapToggleFiltroPf', '_pfStatiBancali', '_pfModelloScelto', '_pfNuovoBancale',
+  '_mapFiltroPf', '_mapToggleFiltroPf', '_pfStatiBancali',
+  '_pfSel', '_pfSpunta', '_pfCaricaInDdt', '_shipCaricaDaBancali', '_pfModelloScelto', '_pfNuovoBancale',
   '_pfProponiUbicazione', '_pfTogliRiga',
   '_chiediStampaEtichetta', '_eseguiStampaEtichetta', '_layoutEtichettaDiSerie', '_layoutEtichettaHTML', '_layoutEtichettaLetto', '_layoutEtichettaSalva', '_provaStampante', '_renderConfigStampanti', '_riscontroStampa', '_sitoDiUbicazione', '_stampaEtichettaItemA4', '_stampanteModifica', '_stampanteSalva', '_stampanteTogli', '_stampantiElencoHTML', '_udcEtichettaA4',
   'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_KNOWN_OPERATORS_KEY',

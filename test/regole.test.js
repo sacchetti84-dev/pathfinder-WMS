@@ -151,8 +151,12 @@ describe('il doppio contesto dei gestori inline', () => {
    dell'etichetta del bancale (`getLayoutEtichettaPf`, `saveLayoutEtichettaPf`
    e la chiave dichiarata in `_loadCache`). Stesso ponte di `labelLayout`, per
    la seconda etichetta: la forma sta in `modules/stampanti.ts` e lo ZPL in
-   `server/lib/zpl.js`. */
-const TETTO_STORE = 4427;
+   `server/lib/zpl.js`.
+
+   03/09/2026 — 4427 → 4434: `segnaUdcSpedita`, sette righe. Vuoto e spedito
+   sono due fatti diversi e li scrivono due gesti diversi; questo passa da
+   `_patchUdc`, che sta qui perche' tocca la cache. */
+const TETTO_STORE = 4434;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

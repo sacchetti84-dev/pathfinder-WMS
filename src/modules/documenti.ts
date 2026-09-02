@@ -25,6 +25,11 @@ export function rigaDocumento(l: Partial<RigaDocumento>): RigaDocumento {
     lot_code: l.lot_code,
     location_code: l.location_code,
     item_key: l.item_key,
+    /* 2.20 — DA QUALE BANCALE ESCE QUESTA RIGA. Assente sulle righe scritte
+       prima, e si legge come prima: merce presa dal vano, senza contenitore.
+       Dove c'e', la packing list sa raggruppare le righe per bancale e
+       l'evasione sa quale unita' di carico e' partita. */
+    udc_id: l.udc_id,
     expiry_date: l.expiry_date || '',
     qty: l.qty as number,
     qty_at_creation: (l.qty_at_creation as number) || l.qty,

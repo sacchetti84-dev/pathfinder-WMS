@@ -56,6 +56,18 @@ describe('rigaDocumento', () => {
     expect(rigaDocumento({ article_code: 'X', qty: 1, packs_out: [] }).packs_out).toBe(null);
   });
 
+  /* 2.20 — il bancale da cui esce la riga. Chi aggiunge un campo lo aggiunge
+     QUI, e queste due prove sono la rete: la packing list lo legge per
+     raggruppare, l'evasione per sapere quale unita' e' partita. */
+  it('il bancale passa quando la riga ne porta uno', () => {
+    expect(rigaDocumento({ article_code: 'X', qty: 1, udc_id: 'UDC-000042' }).udc_id)
+      .toBe('UDC-000042');
+  });
+
+  it('una riga senza bancale resta quella di prima', () => {
+    expect(rigaDocumento({ article_code: 'X', qty: 1 }).udc_id).toBeUndefined();
+  });
+
   it('LA RIGA NON E\u0027 UN SACCO: cio\u0027 che non e\u0027 nominato non passa', () => {
     const r = rigaDocumento({ ...piena, _id: 99, roba: 'passata di qui' });
     expect(r._id).toBeUndefined();
