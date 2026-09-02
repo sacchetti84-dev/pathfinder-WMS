@@ -54,15 +54,27 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # Node 20 è il minimo dichiarato in `engines`, ed è quello su cui gira
-      # la macchina di magazzino. Si prova su quello che si installa.
+      # SI PROVA SUL MINIMO DICHIARATO, non su quello che ha lo sviluppatore.
+      # Questa macchina ha Node 24 e non se ne sarebbe accorto nessuno.
+      #
+      # 2.18.1 — E IL MINIMO ERA SBAGLIATO. Fino alla 2.18 diceva 20, qui e in
+      # `engines`; poi la corsa con Node 20 ha visto morire il worker che
+      # carica `better-sqlite3`, che dichiara `engines: { node: ">=22" }` e
+      # pubblica il binario per quell'ABI. Su una macchina con la 20
+      # l'installazione arrivava in fondo e il servizio non partiva — nemmeno
+      # su PostgreSQL, perche' `lib/db.js` carica il driver SQLite in ogni
+      # caso. Il numero e' stato corretto ovunque: `package.json`, installer,
+      # scheda tecnica, e questa riga.
+      #
+      # Una prova in `test/regole.test.js` adesso fallisce se `engines`
+      # promette meno di quel che le dipendenze pretendono.
       # (Le AZIONI invece girano col LORO runtime, che è un'altra cosa: alla
       # prima corsa il runner ha avvisato che con la v4 girano su Node 20,
       # deprecato, e le forzava su Node 24. La v7 dichiara `node24` e non
       # chiede niente in cambio: gli stessi tre parametri di prima.)
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22'
           cache: npm
           cache-dependency-path: |
             package-lock.json
@@ -71,7 +83,7 @@ jobs:
       - name: Dipendenze del client
         run: npm ci
 
-      # `better-sqlite3` pubblica il binario già compilato per Node 20: qui
+      # `better-sqlite3` pubblica il binario già compilato per Node 22: qui
       # l'installazione è un download, non una compilazione. Se un domani
       # questo passo comincia a chiamare node-gyp, è il segno che la versione
       # non ha più il prebuild — la nota sta in `server/package.json`.

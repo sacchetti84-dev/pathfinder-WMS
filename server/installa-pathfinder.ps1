@@ -625,7 +625,37 @@ if ($Disinstalla) {
 $node = Get-Command node -ErrorAction SilentlyContinue
 if (-not $node) {
     Errore ("Node non risulta installato su questa macchina.`n" +
-            "   Installarlo da https://nodejs.org (versione LTS) e rilanciare questo pacchetto.")
+            "   Installarlo da https://nodejs.org (versione LTS 22 o superiore) e rilanciare questo pacchetto.")
+}
+
+# ── 2.18.1 · E NON BASTA CHE CI SIA: DEVE ESSERE ALMENO LA 22 ──────────────
+#
+# `better-sqlite3` 13 dichiara `engines: { node: ">=22" }`, e il binario che
+# npm scarica è compilato per l'ABI di quella riga. Sotto la 22 `npm ci`
+# scrive un `npm warn EBADENGINE` fra cinquanta righe di output, installa lo
+# stesso, e POI il processo muore caricando il modulo nativo.
+#
+# NON È UN CASO DI SCUOLA. Fino alla 2.18 questo pacchetto dichiarava «Node
+# LTS ≥ 20» — nel `package.json`, nella scheda tecnica, e nell'elenco di cose
+# chieste al team IT. Su una macchina con la 20 l'installazione arrivava in
+# fondo e il servizio non partiva: `driver-sqlite` si carica SEMPRE, anche
+# quando il database è PostgreSQL, perché `lib/db.js` lo richiede in testa.
+# L'ha trovato l'integrazione continua alla sua seconda corsa, prima che lo
+# trovasse qualcuno con l'installer in mano.
+#
+# Si guarda PRIMA di toccare qualunque cosa, e ci si ferma senza aver fatto
+# niente: è la stessa regola di `prepara-postgres.ps1` con il motore che
+# manca. Su un PC di magazzino un aggiornamento di Node è l'IT che chiede
+# conto, non una cosa che si improvvisa a metà installazione.
+$nodeVersione = (& $node.Source --version) 2>$null      # es. "v22.11.0"
+$nodeMaggiore = 0
+if ($nodeVersione -match '^v(\d+)\.') { $nodeMaggiore = [int]$Matches[1] }
+if ($nodeMaggiore -lt 22) {
+    Errore ("Node $nodeVersione e' troppo vecchio: serve la 22 o superiore.`n" +
+            "   La dipendenza better-sqlite3 pubblica il binario per Node 22+, e sotto`n" +
+            "   quella versione il servizio non parte — nemmeno su PostgreSQL.`n" +
+            "   Installare Node LTS da https://nodejs.org e rilanciare questo pacchetto.`n" +
+            "   Non e' stato toccato niente su questa macchina.")
 }
 
 # ── 2.7 · Su quale database si va a finire ─────────────────────────────────

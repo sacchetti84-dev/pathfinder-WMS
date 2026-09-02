@@ -1,7 +1,7 @@
 # PATHFINDER — SCHEDA TECNICA PER IL TEAM IT
 # PATHFINDER — TECHNICAL DATA SHEET FOR THE IT TEAM
 
-**Codice / Code:** REP-IT-001  |  **Revisione / Revision:** **03**  |  **Data / Date:** 02/09/2026
+**Codice / Code:** REP-IT-001  |  **Revisione / Revision:** **04**  |  **Data / Date:** 02/09/2026
 
 **Redatto da / Prepared by:** Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
 
@@ -29,6 +29,7 @@ language of record.
 | 01 | 28/08/2026 | Prima emissione | First issue |
 | **02** | **02/09/2026** | Documento reso **bilingue**. Aggiornato dalla versione 2.12 alla **2.17**. **Il limite 2 è chiuso**: i permessi per ruolo sono imposti dal servizio (2.13) e l'ultimo Admin non si può togliere da solo (2.16). **Tolta la dichiarazione di conservazione a sei anni**: il registro non ha una scadenza dentro l'applicativo (2.17), e il periodo lo stabilisce la procedura aziendale — cap. 8.3. Aggiunte la via di fuga dell'Admin, la migrazione dalla 1.4, due limiti nuovi (10, 11) e i numeri di collaudo rimisurati. Corretto il riferimento a `server\azure`, che non esiste dal 26/08 | Document made **bilingual**. Updated from release 2.12 to **2.17**. **Limitation 2 is closed**: role permissions are enforced by the service (2.13) and the last Admin cannot remove themselves (2.16). **The six-year retention statement is removed**: the register has no expiry inside the application (2.17), and the period is set by company procedure — §8.3. Added the Admin recovery route, the 1.4 migration, two new limitations (10, 11) and re-measured test figures. Corrected the reference to `server\azure`, which has not existed since 26/08 |
 | **03** | **02/09/2026** | Recepisce l'**audit IT della repository** (REP-AUDIT-001, 02/09/2026). La **2.18** chiude tre difetti di sicurezza non dichiarati — il corpo della richiesta letto prima dell'autenticazione, l'anagrafica nominativa esposta senza sessione, la sessione che non scadeva mai — e aggiunge il **registro del servizio su file**, l'**integrazione continua** e la **copia secondaria dei backup**. Corretto il cap. 8.4, che lasciava intendere un controllo del testo libero «in un punto solo» mentre per il testo libero sta nel browser. Aggiunti i **limiti 12 e 13**: sono due rischi accettati, non due difetti | Takes up the **IT audit of the repository** (REP-AUDIT-001, 02/09/2026). **2.18** closes three undeclared security defects — the request body read before authentication, the staff roster exposed without a session, the session that never expired — and adds the **service log file**, **continuous integration** and a **secondary backup copy**. §8.4 corrected: it implied a free-text check «in one place» that for free text lives in the browser. Added **limitations 12 and 13**: two accepted risks, not two defects |
+| **04** | **02/09/2026** | **Corretta la versione minima di Node: 22, non 20.** `better-sqlite3` 13 pubblica il binario per Node 22+; su una macchina con la 20 l'installazione arrivava in fondo e il servizio non partiva — nemmeno su PostgreSQL, perché `lib/db.js` carica il driver SQLite in ogni caso. Il numero sbagliato era in `package.json`, in questa scheda e nell'elenco di cose chieste all'IT. **L'ha trovato l'integrazione continua**, alla sua seconda corsa. La 2.18.1 aggiunge il controllo all'installer, che ora si ferma senza toccare niente, e una prova che fallisce se `engines` promette meno di quel che le dipendenze pretendono | **Corrected the minimum Node version: 22, not 20.** `better-sqlite3` 13 ships its binary for Node 22+; on a machine with 20 the installation completed and the service did not start — not even on PostgreSQL, since `lib/db.js` loads the SQLite driver in any case. The wrong number was in `package.json`, in this data sheet and in the list of things asked of IT. **Continuous integration found it**, on its second run. 2.18.1 adds the check to the installer, which now stops without touching anything, and a test that fails if `engines` promises less than the dependencies require |
 
 ---
 ---
@@ -106,7 +107,7 @@ un'altra macchina; il passaggio alla versione corrente è trattato al capitolo 6
 | Strato | Tecnologia | Note |
 |:---|:---|:---|
 | Interfaccia | TypeScript, nessun framework, CSS con Tailwind | Un solo bundle, 4 file, caricato dal browser |
-| Servizio | Node.js ≥ 20, Express 4 | Un processo, nessun servizio Windows nativo |
+| Servizio | Node.js ≥ 22, Express 4 | Un processo, nessun servizio Windows nativo |
 | Persistenza | PostgreSQL 17 (predefinito) oppure SQLite | Lo decide una variabile di macchina; lo stesso codice parla tutti e due |
 | Aggiornamenti a video | Server-Sent Events | Un terminale che scrive, gli altri lo vedono senza ricaricare |
 | Documenti | Generati in pagina e stampati dal browser | DDT, verbali, cartellini, rendiconti, rapporti di prelievo |
@@ -130,7 +131,7 @@ una transazione lato servizio.
 | Voce | Requisito |
 |:---|:---|
 | Sistema operativo | Windows 10/11 o Windows Server, 64 bit |
-| Runtime | **Node.js LTS ≥ 20**, installato preventivamente. L'installer lo verifica e si ferma se manca |
+| Runtime | **Node.js LTS ≥ 22**, installato preventivamente. L'installer verifica che ci sia **e che sia almeno la 22**, e si ferma senza toccare niente in caso contrario. **Corretto in rev04**: fino alla 2.18 qui c'era scritto ≥ 20, ma `better-sqlite3` pubblica il binario per Node 22+ e sotto quella versione il servizio non parte — nemmeno su PostgreSQL |
 | Database | **PostgreSQL 17**, installato preventivamente. L'installer controlla motore, servizio, porta e binari `pg_dump` / `pg_restore`, e **se mancano dice dove si prendono e si ferma senza toccare niente** |
 | Disco | ~500 MB per applicativo, servizio e dipendenze; più lo spazio dei backup (~0,5 MB per backup, uno al giorno) |
 | Memoria | Il processo Node sta sotto i 200 MB. Il dimensionamento reale lo detta PostgreSQL |
@@ -624,7 +625,7 @@ verbale di quella corsa invece di lasciarlo sovrascrivere dalla successiva.
 
 ## 12. Che cosa si chiede al team IT
 
-- [ ] **Una postazione Windows** raggiungibile dai terminali, con Node.js LTS e PostgreSQL 17 installati
+- [ ] **Una postazione Windows** raggiungibile dai terminali, con **Node.js LTS 22 o superiore** e PostgreSQL 17 installati
 - [ ] **Accesso al registry npm** dalla postazione, limitatamente alla prima installazione
 - [ ] **Apertura della porta TCP 4173** in ingresso sui profili Dominio e Privato (la fa l'installer, serve l'autorizzazione)
 - [ ] **Privilegi di amministratore locale** per l'installazione e per gli aggiornamenti
@@ -742,7 +743,7 @@ different machine; the move to the current release is covered in §6.5.
 | Layer | Technology | Notes |
 |:---|:---|:---|
 | Interface | TypeScript, no framework, CSS with Tailwind | A single bundle, 4 files, loaded by the browser |
-| Service | Node.js ≥ 20, Express 4 | One process, no native Windows service |
+| Service | Node.js ≥ 22, Express 4 | One process, no native Windows service |
 | Persistence | PostgreSQL 17 (default) or SQLite | Chosen by a machine variable; the same code speaks both |
 | Live updates | Server-Sent Events | One terminal writes, the others see it without reloading |
 | Documents | Generated in-page and printed from the browser | Delivery notes, disposal records, non-conformity tags, consumption statements, picking reports |
@@ -765,7 +766,7 @@ inside a service-side transaction.
 | Item | Requirement |
 |:---|:---|
 | Operating system | Windows 10/11 or Windows Server, 64-bit |
-| Runtime | **Node.js LTS ≥ 20**, installed beforehand. The installer checks and stops if it is missing |
+| Runtime | **Node.js LTS ≥ 22**, installed beforehand. The installer checks that it is present **and at least 22**, and stops without touching anything otherwise. **Corrected in rev04**: up to 2.18 this said ≥ 20, but `better-sqlite3` ships its binary for Node 22+ and below that version the service does not start — not even on PostgreSQL |
 | Database | **PostgreSQL 17**, installed beforehand. The installer checks engine, service, port and the `pg_dump` / `pg_restore` binaries, and **if they are missing it says where to get them and stops without touching anything** |
 | Disk | ~500 MB for application, service and dependencies; plus backup space (~0.5 MB per backup, one a day) |
 | Memory | The Node process stays under 200 MB. Real sizing is dictated by PostgreSQL |
@@ -1255,7 +1256,7 @@ that run's report aside instead of letting the next run overwrite it.
 
 ## 12. What is asked of the IT team
 
-- [ ] **A Windows workstation** reachable by the terminals, with Node.js LTS and PostgreSQL 17 installed
+- [ ] **A Windows workstation** reachable by the terminals, with **Node.js LTS 22 or later** and PostgreSQL 17 installed
 - [ ] **Access to the npm registry** from that workstation, for the first installation only
 - [ ] **Opening TCP port 4173** inbound on the Domain and Private profiles (the installer does it; authorisation is needed)
 - [ ] **Local administrator privileges** for installation and upgrades

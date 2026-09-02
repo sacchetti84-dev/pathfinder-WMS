@@ -165,7 +165,62 @@ describe('l\'ordine dei middleware del servizio', () => {
   });
 });
 
-/* ── 4 · L'ANAGRAFICA PUBBLICA NON PORTA NOMI ─────────────────────────────
+/* ── 4 · `engines` NON PROMETTE MENO DI QUEL CHE LE DIPENDENZE CHIEDONO ───
+   2.18.1, e questa l'ha trovata l'integrazione continua alla sua seconda
+   corsa.
+
+   `better-sqlite3` 13 dichiara `engines: { node: ">=22" }`, e il binario che
+   npm scarica è compilato per l'ABI di quella riga. `package.json` diceva
+   `>=20`, la scheda tecnica chiedeva al team IT «Node LTS ≥ 20», e su questa
+   macchina gira la 24: nessuno se n'era accorto.
+
+   Su una macchina con Node 20 `npm ci` scrive un `npm warn EBADENGINE` fra
+   cinquanta righe di output, installa lo stesso, e poi il processo muore
+   caricando il modulo nativo. E muore SEMPRE, anche su PostgreSQL, perché
+   `lib/db.js` richiede `driver-sqlite` in testa.
+
+   Una riga di `engines` che promette meno di quel che le dipendenze
+   pretendono non è ottimismo: è un'installazione che arriva in fondo e un
+   servizio che non parte. */
+describe('quel che si promette su Node', () => {
+  /** Il maggiore minimo di una riga come `>=22` o `^20 || ^22 || >=24`. */
+  const minimo = (spec) => {
+    const numeri = String(spec ?? '').match(/(?:>=|\^|~)\s*(\d+)/g) || [];
+    if (!numeri.length) return null;
+    /* Un `||` elenca ALTERNATIVE: il minimo vero è la più bassa. Un vincolo
+       solo (`>=22`) è già il suo minimo. */
+    return Math.min(...numeri.map((n) => parseInt(n.replace(/\D/g, ''), 10)));
+  };
+
+  const alberi = [
+    ['package.json', 'node_modules'],
+    ['server/package.json', 'server/node_modules'],
+  ];
+
+  for (const [manifesto, moduli] of alberi) {
+    it(`${manifesto} non promette meno di quel che installa`, () => {
+      const promesso = minimo(JSON.parse(leggi(manifesto)).engines?.node);
+      expect(promesso, `${manifesto}: manca engines.node`).not.toBe(null);
+
+      if (!existsSync(moduli)) return;   // niente dipendenze, niente da dire
+
+      const esigenti = [];
+      for (const nome of readdirSync(moduli)) {
+        if (nome.startsWith('.')) continue;
+        const p = `${moduli}/${nome}/package.json`;
+        if (!existsSync(p)) continue;
+        let chiesto = null;
+        try { chiesto = minimo(JSON.parse(leggi(p)).engines?.node); } catch { continue; }
+        if (chiesto !== null && chiesto > promesso) esigenti.push(`${nome} vuole >=${chiesto}`);
+      }
+
+      expect(esigenti, `${manifesto} dichiara >=${promesso}, ma: ${esigenti.join(', ')}. `
+        + 'Una macchina con la versione promessa installa e poi non parte.').toEqual([]);
+    });
+  }
+});
+
+/* ── 5 · L'ANAGRAFICA PUBBLICA NON PORTA NOMI ─────────────────────────────
    `GET /api/auth/operatori` risponde senza sessione — deve, è la maschera
    che apre l'applicativo. Fino alla 2.17 rispondeva con nome, cognome e
    `rec_set` di ogni operatore attivo: l'elenco nominativo del personale, e

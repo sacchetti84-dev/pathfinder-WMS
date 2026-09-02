@@ -1,13 +1,13 @@
 {
   "name": "pathfinder",
-  "version": "2.18.0",
+  "version": "2.18.1",
   "description": "Pathfinder — gestione magazzino. Client. Dietopack S.r.l. (Naturacare Group)",
   "author": "Andrea Sacchetti",
   "license": "UNLICENSED",
   "private": true,
   "type": "module",
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "repository": {
     "type": "git",

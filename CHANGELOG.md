@@ -15,6 +15,45 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.18.1 — 2026-09-02
+
+**The minimum Node version was wrong, and continuous integration found it on
+its second run.**
+
+`better-sqlite3` 13 declares `engines: { node: ">=22" }` and ships a prebuilt
+binary for that ABI. This project declared **`>=20`** — in both `package.json`
+files, in the IT data sheet, and in the list of prerequisites asked of the IT
+team. The development machine runs Node 24, so nobody had ever hit it.
+
+On a machine with Node 20 LTS — which the data sheet explicitly permitted —
+`npm ci` prints an `npm warn EBADENGINE` among fifty lines of output, installs
+anyway, and the process then dies loading the native module. **It dies in every
+configuration**, PostgreSQL included, because `lib/db.js` requires the SQLite
+driver at the top of the file. The installation would have completed and the
+service would not have started.
+
+- `engines.node` corrected to **`>=22`** in the client and in the service.
+- **The installer now checks the version**, not just that Node exists, and
+  stops without touching anything if it is below 22 — the same rule
+  `prepara-postgres.ps1` applies to a missing database engine.
+- The IT data sheet (rev04) says **Node LTS ≥ 22** in all four places where it
+  said 20, in both languages.
+- CI runs on **Node 22** — the declared minimum, not the developer's version.
+- A test in `test/regole.test.js` now fails if `engines` promises less than any
+  installed dependency requires. Verified red by putting `>=20` back.
+
+Also in this build: the CI workflow installs the service dependencies **before**
+the type check — `npm run check` type-checks `server/**/*.js` with `checkJs` on,
+and needs `express`, `pg` and `better-sqlite3` resolvable. The first run failed
+there. GitHub Actions moved to v7, whose own runtime is Node 24.
+
+**No application behaviour changed.** The fingerprint does move — from
+`4df34781…` to `0e46abd7…` — because the version number is printed on the foot
+of every document, so it lives in the bundle. Nothing else in the application
+is different.
+
+---
+
 ## 2.18 — 2026-09-02
 
 Answers an external IT audit of the repository (REP-AUDIT-001, 2026-09-02).

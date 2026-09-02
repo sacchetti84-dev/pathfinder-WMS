@@ -16,7 +16,7 @@
     "pg": "^8.23.0"
   },
   "engines": {
-    "node": ">=20"
+    "node": ">=22"
   },
   "comment": "better-sqlite3 va tenuto a una versione che pubblichi il binario gia' compilato per il Node installato: la 11 non ne ha per Node 24 e npm ripiega su node-gyp, che su Windows pretende Visual Studio. Con la 13 l'installazione e' un download di quindici secondi. Se un domani si aggiorna Node, si controlla prima che esista il prebuild."
 }
