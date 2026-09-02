@@ -9,10 +9,21 @@ const crypto = require('crypto');   // 2.11 — il guardiano lo usa prima del PI
 const https = require('https');
 const { apriDatabase } = require('./lib/db');
 const { NAMES } = require('./lib/schema');
+const registro = require('./lib/registro-servizio');   // 2.18 — il servizio lascia traccia
 
 const PORT = Number(process.env.PATHFINDER_PORT || 4173);
 const ROOT = path.resolve(__dirname, '..');
 const DB_FILE = process.env.PATHFINDER_DB || path.join(__dirname, 'data', 'pathfinder.db');
+
+/* 2.18 — IL REGISTRO STA ACCANTO AI DATI, non accanto al codice: la cartella
+   del servizio si rifa' a ogni aggiornamento, quella dei dati no. Su
+   PostgreSQL `DB_FILE` non e' un database ma resta un percorso valido, ed e'
+   la stessa radice che l'installer ha gia' messo a posto coi permessi.
+   `PATHFINDER_LOG=` (vuoto) lo spegne: serve ai collaudi che non vogliono
+   lasciare file in giro. */
+const LOG_FILE = process.env.PATHFINDER_LOG !== undefined
+  ? (process.env.PATHFINDER_LOG || null)
+  : path.join(path.dirname(DB_FILE), 'log', 'pathfinder-servizio.log');
 /* ── 1.7 · L'APPLICATIVO E' UNA CARTELLA ──────────────────────────────────
    Fino alla 1.6 era un file HTML solo e `PATHFINDER_APP` ci puntava. Dalla
    1.7 e' una cartella — `index.html` piu' `assets/` coi nomi a impronta — e
@@ -52,7 +63,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.17';
+const VERSION = '2.18';
 
 /* ── 2.10 · SU QUALE INTERFACCIA SI ASCOLTA ───────────────────────────────
    Fino alla 2.9 `listen` non diceva su quale, e Node in quel caso le prende
@@ -101,7 +112,16 @@ app.use((req, res, next) => {
   next();
 });
 
-app.use(express.json({ limit: '256mb' }));   // un import completo puo' pesare
+/* IL CORPO SI LEGGE DOPO IL GUARDIANO — 2.18.
+   Fino alla 2.17 `express.json` stava QUI, cioe' PRIMA della riga che chiede
+   chi sta chiamando: il corpo veniva letto, tenuto in memoria e parsato, e
+   solo dopo arrivava il 401. Con un tetto di 256 MB, chiunque raggiungesse la
+   porta senza nessuna credenziale poteva far allocare al processo un quarto
+   di giga per richiesta e riceverne indietro un rifiuto. Poche richieste in
+   parallelo e il servizio muore di memoria — e il servizio e' il punto
+   singolo su cui gira il magazzino.
+   La registrazione del parser e' scesa sotto il guardiano; il tetto alto e'
+   rimasto solo dove serve. Vedi la riga dopo la chiusura del guardiano. */
 
 const originOf = (req) => req.get('X-Pathfinder-Client') || null;
 
@@ -329,7 +349,12 @@ const wrap = (fn) => async (req, res) => {
   try { await fn(req, res); }
   catch (err) {
     const e = httpError(err);
-    if (e.status >= 500) console.error('[pathfinder] guasto:', err);
+    if (e.status >= 500) {
+      console.error('[pathfinder] guasto:', err);
+      /* 2.18 — il messaggio SI', lo stack no: uno stack in un registro che
+         qualcuno spedisce all'assistenza porta percorsi e nomi di macchina. */
+      registro.errore('rotta.500', `${req.method} ${req.path} — ${e.message}`);
+    }
     else if (e.quiet) console.warn(`[pathfinder] respinta ${req.method} ${req.originalUrl}: ${e.message}`);
     res.status(e.status).json({ error: e.message });
   }
@@ -386,6 +411,46 @@ const parseCriteria = (raw) => {
    chiude la porta a chi bussa; non protegge da chi ascolta il filo. */
 
 const sessioni = new Map();   // token -> { op_id, initials, creata, ultimoUso }
+
+/* ── 2.18 · `ultimoUso` VIENE FINALMENTE LETTO ────────────────────────────
+   Dalla 2.11 questo campo si scriveva a ogni richiesta e non lo leggeva
+   nessuno: una sessione moriva solo al riavvio del processo.
+
+   La ragione per cui NON c'e' una scadenza a tempo assoluto resta quella del
+   27/08, e non cambia: un token che scade a meta' turno e' un token che
+   scade in corsia, con i guanti addosso e un terminale in mano.
+
+   MA FRA UN TURNO E L'ALTRO E' UN ALTRO CASO, e non era stato considerato.
+   Un terminale condiviso lasciato acceso il venerdi' sera e' ancora dentro
+   il lunedi' mattina, con l'identita' di chi l'ha usato per ultimo — e
+   quell'identita' FIRMA I MOVIMENTI A REGISTRO, che e' la firma GMP.
+
+   Dodici ore: un turno piu' margine. Chi lavora non ci arriva mai, chi ha
+   lasciato il terminale acceso si', e la finestra si sposta a ogni gesto.
+   `PATHFINDER_SESSIONE_ORE=0` la spegne, per chi ha una ragione.
+
+   LA CHIAVE DI MACCHINA NON SCADE: non e' una sessione ed e' l'unico modo
+   che l'installer e il backup serale hanno di parlare col servizio. */
+const SESSIONE_ORE = (() => {
+  const v = Number(process.env.PATHFINDER_SESSIONE_ORE);
+  return Number.isFinite(v) && v >= 0 ? v : 12;
+})();
+const SESSIONE_MS = SESSIONE_ORE * 3600_000;
+
+const sessioneScaduta = (s, adesso = Date.now()) =>
+  SESSIONE_MS > 0 && adesso - s.ultimoUso > SESSIONE_MS;
+
+/* La potatura pigra basta a chiudere la porta — `chiSei` la fa a ogni
+   richiesta — ma non basta a tenere piccola la mappa: una sessione che
+   nessuno ricontrolla resta li' per sempre. Questa passata la toglie di
+   mezzo. `unref` perche' un contatore non deve tenere vivo il processo. */
+const POTATURA_MS = 15 * 60_000;
+const potaturaSessioni = setInterval(() => {
+  if (SESSIONE_MS <= 0) return;
+  const adesso = Date.now();
+  for (const [token, s] of sessioni) if (sessioneScaduta(s, adesso)) sessioni.delete(token);
+}, POTATURA_MS);
+potaturaSessioni.unref?.();
 
 const NOME_COOKIE = 'pathfinder_sessione';
 
@@ -472,6 +537,9 @@ const chiSei = (req) => {
   if (!token) return null;
   const s = sessioni.get(token);
   if (!s) return null;
+  /* 2.18 — la porta si chiude qui, non alla passata periodica: quella tiene
+     piccola la mappa, questa decide se si entra. */
+  if (sessioneScaduta(s)) { sessioni.delete(token); return null; }
   s.ultimoUso = Date.now();
   return s;
 };
@@ -495,11 +563,61 @@ app.use('/api', async (req, res, avanti) => {
     /* 401 e non 403: la differenza non e' formale — il client la legge per
        decidere se riaprire la maschera dell'identificazione invece di dire
        che qualcosa non va. */
+    /* 2.18 — la rotta si registra, il cookie NO: un token di sessione in un
+       file di testo e' la stessa porta, aperta due volte. */
+    registro.avviso('auth.401', `${req.method} /api${req.path} — sessione assente o scaduta`);
     res.status(401).json({ error: 'Sessione non valida: identificarsi.', sessione: false });
   } catch (err) {
     console.error('[pathfinder] guardiano:', err.message);
+    registro.errore('guardiano.500', err.message);
     res.status(500).json({ error: 'errore interno' });
   }
+});
+
+/* ── 2.18 · IL CORPO, ADESSO CHE SI SA CHI CHIAMA ─────────────────────────
+   Due parser, e l'ordine fra i due conta quanto l'ordine col guardiano.
+
+   IL TETTO ALTO STA SOLO DOVE SERVE. Un import completo dell'anagrafica pesa
+   davvero, e queste quattro rotte sono quelle che `persistence/remote.ts`
+   usa per portare dentro e fuori un magazzino intero. Le altre non hanno mai
+   ricevuto un corpo piu' grande di un record.
+
+   IL PARSER GRANDE VA MONTATO PER PRIMO. `express.json` non tocca una
+   richiesta il cui corpo e' gia' stato letto: se passasse prima quello da 2
+   MB, un import da 40 MB si prenderebbe un 413 e nessuno dei due parser
+   successivi potrebbe rimediare.
+
+   Una rotta nuova che riceve corpi grandi va aggiunta a questo elenco: se
+   nessuno se ne ricorda, si vede subito, perche' risponde 413 e non 500. */
+const ROTTE_DI_IMPORT = [
+  '/api/c/:col/bulk',
+  '/api/tx',
+  '/api/clear',
+  '/api/deleteWhere/:col',
+];
+app.use(ROTTE_DI_IMPORT, express.json({ limit: '256mb' }));
+app.use(express.json({ limit: '2mb' }));
+
+/* UN CORPO CHE NON SI LEGGE E' UN 400, NON UNA PAGINA HTML COL SORGENTE —
+   2.18. Gli errori di `express.json` non passano da `wrap`: nascono dentro
+   il middleware, e senza qualcuno che li raccolga finiscono nel gestore
+   predefinito di Express, che risponde HTML e — fuori da `production` — ci
+   mette dentro lo stack. Un terminale che riceve HTML da una rotta `/api`
+   non ha modo di dire all'operatore che cosa e' successo, e lo stack dice a
+   chiunque chiami dove stanno i file sul disco.
+   Quattro argomenti: e' cosi' che Express riconosce un gestore d'errore. */
+app.use((err, req, res, avanti) => {
+  if (res.headersSent) return avanti(err);
+  if (err?.type === 'entity.too.large') {
+    registro.avviso('corpo.413', `${req.method} ${req.path} — ${err.length || '?'} byte, tetto ${err.limit}`);
+    return res.status(413).json({
+      error: 'Richiesta troppo grande per questa rotta. Un import completo passa da /api/tx '
+           + 'o da /api/c/<collezione>/bulk.',
+    });
+  }
+  if (err?.type === 'entity.parse.failed')
+    return res.status(400).json({ error: 'corpo della richiesta non leggibile: non e\' JSON valido' });
+  return avanti(err);
 });
 
 /* ══ 2.13 · L'ANAGRAFICA DEGLI OPERATORI E' DELL'ADMIN, E LO DICE IL SERVIZIO
@@ -679,6 +797,8 @@ app.use('/api', async (req, res, avanti) => {
     }
     /* 403 e non 401: la sessione c'e' ed e' buona. Manca la carica, e il
        client non deve riaprire la maschera dell'identificazione. */
+    registro.avviso('ruoli.403',
+      `${req.method} /api${req.path} — ${chi?.initials || '?'} non e' Admin`);
     res.status(403).json({
       error: 'Riservato al ruolo Admin: l’anagrafica degli operatori non si scrive da qui.',
       ruolo: true,
@@ -1208,10 +1328,31 @@ app.get('/api/auth/stato', wrap(async (req, res) => {
 
 /* L'ELENCO PER LA SCHERMATA DI IDENTIFICAZIONE, e nient'altro.
    Questa risponde SENZA sessione, e allora dice il minimo che serve a
-   disegnare quella schermata: chi c'e', come si chiama, che carica ha, se un
-   PIN ce l'ha. Non passa da `/api/c/operators`, che adesso e' chiusa, e non
-   e' un rimpiazzo: da qui non escono le date, le note, ne' i campi che una
-   riga di operatore porta e che a quella maschera non servono. */
+   disegnare quella schermata: chi c'e', che carica ha, se un PIN ce l'ha.
+   Non passa da `/api/c/operators`, che e' chiusa, e non e' un rimpiazzo: da
+   qui non escono le date, le note, ne' i campi che una riga di operatore
+   porta e che a quella maschera non servono.
+
+   ── 2.18 · «IL MINIMO» ERA ANCORA TROPPO ────────────────────────────────
+   Fino alla 2.17 usciva anche NOME e COGNOME di ogni operatore attivo, e
+   `rec_set`. Chiunque fosse sulla rete otteneva senza autenticarsi
+   l'elenco nominativo del personale di magazzino con i ruoli, e sapeva
+   quali Admin avessero un codice di ripristino — cioe' una seconda via
+   d'ingresso. E' la mappa che serve a scegliere il bersaglio giusto per un
+   PIN di sei cifre, tanto piu' che il freno sui tentativi e' PER OPERATORE:
+   con l'elenco in mano i tentativi utili si moltiplicano per quante righe
+   ha l'elenco.
+
+   ADESSO ESCE LA SIGLA, NON IL NOME. La sigla e' gia' stampata su ogni
+   documento di magazzino e su ogni riga di registro: non e' un segreto, ed
+   e' quello che l'operatore cerca nella lista. Nome e cognome arrivano DOPO
+   l'ingresso, da `/api/c/operators`, che una sessione ce l'ha.
+
+   `role` RESTA, e non e' una svista: la maschera del PIN smarrito deve
+   elencare gli Admin, ed e' l'unica cosa che le serve.
+   `rec_set` ESCE: quella maschera li elenca tutti e il servizio risponde al
+   tentativo. Dire in anticipo chi ha la via di fuga non serve a chi la
+   cerca e serve moltissimo a chi cerca un'altra cosa. */
 app.get('/api/auth/operatori', wrap(async (req, res) => {
   const ops = await db.all('operators');
   res.json(ops
@@ -1219,14 +1360,8 @@ app.get('/api/auth/operatori', wrap(async (req, res) => {
     .map((o) => ({
       op_id: o.op_id,
       initials: o.initials,
-      first_name: o.first_name || '',
-      last_name: o.last_name || '',
       role: o.role || 'operator',
       pin_set: Boolean(o.pin_hash && o.pin_salt),
-      /* 2.13 — serve alla voce «PIN smarrito» della maschera, che deve
-         sapere quali Admin hanno un codice da spendere. E' un booleano:
-         dice che una via di fuga esiste, non qual e'. */
-      rec_set: Boolean(o.rec_hash && o.rec_salt),
     })));
 }));
 
@@ -1240,6 +1375,7 @@ app.post('/api/auth/login', wrap(async (req, res) => {
   const chiave = String(op_id || initials).toUpperCase();
   const attesa = frenoControlla(chiave);
   if (attesa) {
+    registro.avviso('auth.freno', `${chiave} bloccato per ${attesa}s dopo ${MAX_TENTATIVI} tentativi`);
     return res.status(429).json({ ok: false, blocked: true, retryAfter: attesa,
       error: `Troppi tentativi: riprovare fra ${attesa} secondi` });
   }
@@ -1302,6 +1438,7 @@ app.post('/api/op/verifyPin', wrap(async (req, res) => {
   const chiave = String(op_id || initials).toUpperCase();
   const attesa = frenoControlla(chiave);
   if (attesa) {
+    registro.avviso('auth.freno', `${chiave} bloccato per ${attesa}s dopo ${MAX_TENTATIVI} tentativi`);
     return res.status(429).json({ ok: false, blocked: true, retryAfter: attesa,
       error: `Troppi tentativi: riprovare fra ${attesa} secondi` });
   }
@@ -1385,6 +1522,7 @@ app.post('/api/op/rinnovaPin', wrap(async (req, res) => {
   const chiave = `rinnovo:${String(autorizzatore_id).toUpperCase()}`;
   const attesa = frenoControlla(chiave);
   if (attesa) {
+    registro.avviso('auth.freno', `${chiave} bloccato per ${attesa}s dopo ${MAX_TENTATIVI} tentativi`);
     return res.status(429).json({ ok: false, blocked: true, retryAfter: attesa,
       error: `Troppi tentativi: riprovare fra ${attesa} secondi` });
   }
@@ -1443,6 +1581,7 @@ app.post('/api/auth/recupero', wrap(async (req, res) => {
   const chiave = `recupero:${String(op_id).toUpperCase()}`;
   const attesa = frenoControlla(chiave);
   if (attesa) {
+    registro.avviso('auth.freno', `${chiave} bloccato per ${attesa}s dopo ${MAX_TENTATIVI} tentativi`);
     return res.status(429).json({ ok: false, blocked: true, retryAfter: attesa,
       error: `Troppi tentativi: riprovare fra ${attesa} secondi` });
   }
@@ -1607,7 +1746,9 @@ app.post('/api/backup', wrap(async (req, res) => {
   /* `await`, non `.then`: cosi' l'errore passa da `wrap`, che rispetta lo
      stato dichiarato dall'eccezione. */
   await db.backupTo(dest);
-  res.json({ ok: true, file: dest, bytes: fs.statSync(dest).size });
+  const byte = fs.statSync(dest).size;
+  registro.info('backup.fatto', `${path.basename(dest)} — ${byte} byte`);
+  res.json({ ok: true, file: dest, bytes: byte });
 }));
 
 const noCache = (res) => res.set('Cache-Control', 'no-cache');
@@ -1820,6 +1961,7 @@ async function annuncia() {
 
 const shutdown = (sig) => {
   console.log(`\n  ${sig}: chiusura ordinata…`);
+  registro.info('servizio.arresto', `${sig} — versione ${VERSION}`);
   server.close(async () => {
     try { if (db) await db.close(); } catch { /* si sta chiudendo comunque */ }
     process.exit(0);
@@ -1836,12 +1978,18 @@ process.on('SIGTERM', () => shutdown('SIGTERM'));
    dire ventiquattro rotte che rispondono «db is null» a un magazzino che
    crede di stare lavorando. */
 const pronto = (async () => {
+  /* Il registro si apre PRIMA del database: il caso che piu' vale registrare
+     e' proprio quello in cui il database non si apre e il servizio esce con
+     1 — il 28/08 e' costato una giornata di magazzino, e sulla console di
+     SYSTEM non l'ha letto nessuno. */
+  registro.apri(LOG_FILE);
   try {
     db = await apriDatabase({ file: DB_FILE });
   } catch (err) {
     console.error(`
   Il database non si apre: ${err.message}
 `);
+    registro.errore('servizio.avvio', `database non aperto: ${err.message}`);
     process.exit(1);
   }
   await new Promise((ok) => {
@@ -1849,7 +1997,17 @@ const pronto = (async () => {
     else srv.listen(PORT, () => ok(undefined));
   });
   await annuncia();
+  /* `descrizione` e' un getter, e su PostgreSQL nasconde gia' la password:
+     `//***@`. E' il solo posto del registro dove passa una stringa di
+     connessione, e passa mutilata apposta. */
+  registro.info('servizio.avvio',
+    `versione ${VERSION} — porta ${PORT} — ${db.descrizione || 'database aperto'}`);
   return db;
 })();
 
-module.exports = { app, server, pronto, get db() { return db; } };
+/* `sessioni` esce insieme agli altri — 2.18. Non serve a nessuno in
+   esercizio: serve al collaudo, che deve poter portare indietro `ultimoUso`
+   di una sessione vera per vedere se la finestra di inattivita' la chiude.
+   L'alternativa era far aspettare al collaudo la finestra vera, e una prova
+   che dorme e' una prova che prima o poi qualcuno toglie. */
+module.exports = { app, server, pronto, sessioni, get db() { return db; } };

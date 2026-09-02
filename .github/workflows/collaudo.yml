@@ -1,0 +1,87 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PATHFINDER — LA CORSA CHE NESSUNO PUÒ DIMENTICARE DI FARE
+# © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+#
+# PERCHÉ ESISTE, DALLA 2.18.
+# Le prove ci sono da sempre e sono verdi: ~1.250 sul client, 156 sul servizio,
+# 43 sull'installazione. Ma niente impediva a un commit di entrare senza averle
+# lanciate, e niente impediva a `npm run check` di restare rosso per una
+# settimana senza che nessuno se ne accorgesse. In un progetto con un autore
+# solo, «me lo ricordo» e «non c'è» sono la stessa cosa: l'audit del 02/09 l'ha
+# scritto, e questa è la risposta.
+#
+# COSA FA, E BASTA QUELLO.
+# `npm ci` (non `npm install`: le versioni le decide il lockfile), i tipi, le
+# prove del client, le prove del servizio. Nient'altro. Un workflow che fa
+# troppo diventa un workflow che si spegne il giorno che è lento.
+#
+# COSA NON FA: non costruisce e non pubblica. Il pacchetto lo costruisce
+# `npm run build` su una macchina, e la sua impronta si annota a mano — è la
+# regola del progetto, e una build fatta da un servizio di terzi non è la
+# build che si installa.
+# ─────────────────────────────────────────────────────────────────────────────
+
+name: collaudo
+
+on:
+  push:
+    branches: ['**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  collaudo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Node 20 è il minimo dichiarato in `engines`, ed è quello su cui gira
+      # la macchina di magazzino. Si prova su quello che si installa.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Dipendenze del client
+        run: npm ci
+
+      - name: I tipi — client e servizio
+        run: npm run check
+
+      - name: Le prove del client
+        run: npm test
+
+      # `better-sqlite3` pubblica il binario già compilato per Node 20: qui
+      # l'installazione è un download, non una compilazione. Se un domani
+      # questo passo comincia a chiamare node-gyp, è il segno che la versione
+      # non ha più il prebuild — la nota sta in `server/package.json`.
+      - name: Dipendenze del servizio
+        working-directory: server
+        run: npm ci
+
+      - name: Le prove del servizio
+        working-directory: server
+        run: node test/collaudo.js
+
+      - name: Le prove sugli script di installazione
+        working-directory: server
+        run: node test/collaudo-installazione.js
+
+      # INFORMATIVO, E NON FA FALLIRE LA CORSA.
+      # `xlsx` 0.18.5 ha due vulnerabilità note e il rischio è stato accettato
+      # formalmente il 01/09 (limite 3 della scheda IT): i fogli trattati
+      # escono da SAGE X3 dentro l'azienda, non da allegati esterni. Un passo
+      # che fallisse su quelle renderebbe la corsa rossa per sempre, e una
+      # corsa sempre rossa è una corsa che nessuno guarda più.
+      # Serve a SAPERE quando arriva la prossima, non ad aggiornare da solo.
+      - name: Vulnerabilità note — solo per saperlo
+        run: npm audit --audit-level=moderate || true
+
+      - name: Vulnerabilità note del servizio — solo per saperlo
+        working-directory: server
+        run: npm audit --audit-level=moderate || true

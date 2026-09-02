@@ -711,12 +711,23 @@ const App = monolite({
     setTimeout(() => document.getElementById(this._loginSelectedId ? 'loginPin' : 'loginOps')?.focus(), 80);
   },
 
+  /* 2.18 — LA MASCHERA MOSTRA LA SIGLA, NON IL NOME.
+     Fino alla 2.17 questa lista arrivava da `/api/auth/operatori`, che
+     risponde SENZA sessione, e portava nome e cognome di ogni operatore
+     attivo: chiunque fosse sulla rete aveva l'elenco nominativo del
+     personale di magazzino senza autenticarsi. Adesso da li' escono sigla e
+     ruolo — la sigla e' gia' stampata su ogni documento e su ogni riga di
+     registro, e non e' un segreto — e nome e cognome arrivano dopo
+     l'ingresso, quando una sessione c'e'.
+     Se un giorno il record completo fosse gia' in cache (chi rientra dopo un
+     logout senza ricaricare la pagina) il nome si mostra: non e' uscito da
+     una rotta pubblica, e toglierlo confonderebbe chi lo vedeva prima. */
   _loginPillsHTML(ops: Operatore[]) {
     if (!ops.length) return '<div class="gate-error">Nessun operatore attivo in anagrafica.</div>';
     return ops.map(o => {
       const label = (o.last_name || o.first_name)
         ? `${this._esc(o.initials)} · ${this._esc([o.first_name, o.last_name].filter(Boolean).join(' '))}`
-        : `${this._esc(o.initials)} <span class="opacity-70">(da completare)</span>`;
+        : `${this._esc(o.initials)}`;
       return `<button type="button" class="op-pill ${o.op_id === this._loginSelectedId ? 'active' : ''}"
         onclick="App._selectLoginOp('${o.op_id}')">${o.role === 'operator' ? '' : this._etichettaRuolo(o.role).icona + ' '}${label}</button>`;
     }).join('');
@@ -774,16 +785,24 @@ const App = monolite({
      posto di quello appena speso. Chi esce di qui ha un PIN nuovo e la
      cassaforte di nuovo piena. */
   _renderRecoveryGate() {
-    /* Solo gli Admin, e solo quelli che una via di fuga ce l'hanno: gli
-       altri non hanno niente da spendere, e mostrarli sarebbe promettere
-       una porta che non si apre. */
+    /* 2.18 — GLI ADMIN, TUTTI. Fino alla 2.17 questa lista teneva solo
+       quelli che una via di fuga ce l'avevano davvero, e il filtro leggeva
+       `rec_set` da `/api/auth/operatori` — una rotta che risponde SENZA
+       sessione. Cioe': chiunque fosse sulla rete poteva chiedere al servizio
+       quali Admin avessero una seconda via d'ingresso. E' la mezza
+       informazione piu' utile a chi attacca e la meno utile a chi ha
+       dimenticato il PIN, che il suo foglio in cassaforte ce l'ha o non ce
+       l'ha e lo sa da se'.
+       Adesso il campo non esce piu' e la maschera li elenca tutti: chi
+       sceglie un Admin senza codice si prende un rifiuto dal servizio, che
+       e' esattamente lo stesso rifiuto di chi sbaglia a digitare. */
     const admin = Store.getOperators({ activeOnly: true })
-      .filter(o => o.role === 'admin' && Store.haCodiceRipristino(o));
+      .filter(o => o.role === 'admin' && Store.haPin(o));
     if (!admin.length) {
       this._gateShell(
         '🗝 Codice di ripristino',
         `<p class="text-body-small text-sx-text-secondary leading-[1.6]">
-          Nessun Admin di questa installazione ha un codice di ripristino registrato.
+          Nessun Admin di questa installazione ha un PIN registrato.
           Il PIN si rinnova da <strong>Configurazione → Operatori</strong>, autorizzato
           da chi sta un gradino sopra: un Team Leader per gli Operatori, un Admin per tutti.
         </p>`,
@@ -802,7 +821,12 @@ const App = monolite({
       <div class="form-group mb-6">
         <label>Admin <span class="req">*</span></label>
         <select class="input select" id="recWho">
-          ${admin.map(o => `<option value="${o.op_id}">${this._esc(o.initials)} — ${this._esc([o.first_name, o.last_name].filter(Boolean).join(' ') || 'dati incompleti')}</option>`).join('')}
+          ${admin.map(o => {
+            /* 2.18 — la sigla basta, e prima dell'ingresso e' tutto quello che
+               c'e': `/api/auth/operatori` non risponde piu' coi nomi. */
+            const nome = [o.first_name, o.last_name].filter(Boolean).join(' ');
+            return `<option value="${o.op_id}">${this._esc(o.initials)}${nome ? ' — ' + this._esc(nome) : ''}</option>`;
+          }).join('')}
         </select>
       </div>
       <div class="form-group mb-7">

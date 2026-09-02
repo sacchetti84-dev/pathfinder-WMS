@@ -15,6 +15,74 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.18 — 2026-09-02
+
+Answers an external IT audit of the repository (REP-AUDIT-001, 2026-09-02).
+Findings C1 and C2 were formally accepted as risks by the author; C3 to C10
+are closed here. Each fix carries its own test, and every new test was
+verified **red** by reintroducing the defect it covers.
+
+**Security**
+
+- **The request body is no longer read before the caller is identified.**
+  `express.json({ limit: '256mb' })` was registered *before* the session
+  guard, so any unauthenticated caller on the network could make the process
+  allocate up to 256 MB per request and only then receive a 401. The parser
+  now sits **after** the guard, and the high limit lives **only** on the four
+  import routes (`/api/c/:col/bulk`, `/api/tx`, `/api/clear`,
+  `/api/deleteWhere/:col`); everything else is capped at 2 MB.
+- **The public roster no longer carries names.** `GET /api/auth/operatori`
+  answers without a session — it has to, it draws the login screen — but it
+  used to return `first_name`, `last_name` and `rec_set` for every active
+  operator. Anyone on the network got the staff directory with roles, and
+  knew which Admins held a recovery code. It now returns initials, role and
+  `pin_set` only; full names arrive after login. The recovery screen lists
+  all Admins and lets the service reject a wrong code.
+- **Sessions now expire on inactivity.** `ultimoUso` had been written on
+  every request since 2.11 and read by nobody: a session died only when the
+  process restarted. A shared terminal left on Friday evening was still
+  signed in on Monday — and that identity signs movements in the register,
+  which is the GMP signature. The window is **12 hours** (a shift plus
+  margin, not half a shift), configurable via `PATHFINDER_SESSIONE_ORE`, and
+  the machine key is exempt.
+- Oversized and malformed bodies now return **JSON** with an explanation
+  instead of Express's default HTML error page, which carried a stack trace.
+
+**Operations**
+
+- **The service keeps a log.** `server/lib/registro-servizio.js` writes
+  startup and shutdown, 401s and 403s, throttle blocks, 500s and backup
+  outcomes to a rotating file (5 MB, 10 kept). The process runs as SYSTEM in
+  session 0, where nobody reads its console; after an incident there was
+  nothing to re-read. It never records PINs, hashes, request bodies or
+  connection strings. Configured with `PATHFINDER_LOG`.
+- `backup-serale.ps1` accepts **`-CopiaSecondaria <path>`**: after the dump
+  is verified, it is copied to a second location and the result is logged.
+  Off by default, like retention — the destination is an IT decision.
+  Database and backups have lived on the same disk until now.
+
+**Process**
+
+- **Continuous integration**, on every push and pull request: `npm ci`,
+  `npm run check`, `npm test`, then the service and installer test suites.
+  The tests existed and were green, but nothing stopped a commit from
+  landing without them.
+- **Dependabot**, security advisories only. `dexie` and `xlsx` stay pinned:
+  the goal is to *know*, not to upgrade by accident.
+- **`test/regole.test.js`** — three project rules that used to live only in
+  one person's memory:
+  - every field interpolated inside an inline handler is covered by
+    `VIETATI_NEI_CODICI`, with eight documented exceptions;
+  - `src/core/store.ts` does not grow past 4,252 lines;
+  - the session guard is registered before `express.json`.
+- Bench run captures (`banco/*.out`, `banco/*.log`) are no longer tracked.
+  `ARCHIVIO/` stays, and git history was not rewritten.
+- `PATHFINDER_PG_PRODUZIONE` was removed from `.env.local`, which already
+  declared that the production connection string lives in a machine
+  variable.
+
+---
+
 ## 2.16 — 2026-09-02
 
 **Security**

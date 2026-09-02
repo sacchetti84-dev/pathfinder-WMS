@@ -19,6 +19,17 @@
 #  SQLite, che di una copia coerente se ne fa carico. È l'unico modo
 #  corretto, e il servizio lo sa fare già.
 #
+#  LA COPIA SECONDARIA — 2.18, e anche questa va CHIESTA.
+#  Backup e database stanno sulla stessa macchina, e dalla 2.6 anche sullo
+#  stesso disco: un guasto del disco porta via i dati E i loro backup nello
+#  stesso momento. Con -CopiaSecondaria il file gia' verificato viene copiato
+#  una seconda volta dove dice l'IT — una cartella di rete, un disco esterno —
+#  e l'esito della copia finisce nel registro come tutto il resto.
+#  Se la copia non riesce, il backup NON è fallito: l'originale è al suo posto
+#  ed è stato riletto. Si scrive una riga e si esce con zero, perché
+#  un'attività pianificata in rosso per una cartella di rete irraggiungibile
+#  è il modo in cui si smette di guardare le attività pianificate.
+#
 #  PERCHÉ NON CANCELLA NIENTE DA SOLO.
 #  Convenzione §9.4: nessuna cancellazione automatica. La rotazione dei
 #  backup vecchi esiste ma va CHIESTA, passando -GiorniDiConservazione.
@@ -32,7 +43,8 @@
 param(
     [int]$Porta = 4173,
     [string]$Cartella = 'C:\Pathfinder\backup',
-    [int]$GiorniDiConservazione = 0
+    [int]$GiorniDiConservazione = 0,
+    [string]$CopiaSecondaria = ''
 )
 
 $ErrorActionPreference = 'Stop'
@@ -74,6 +86,28 @@ try {
     $file = Get-Item $esito.file
     $mb = [math]::Round($file.Length / 1MB, 1)
     Scrivi-Riga "OK       $($file.Name)  ($mb MB)"
+
+    # ── La copia secondaria, se è stata chiesta ─────────────────────
+    if ($CopiaSecondaria) {
+        try {
+            if (-not (Test-Path $CopiaSecondaria)) {
+                New-Item -ItemType Directory -Force -Path $CopiaSecondaria | Out-Null
+            }
+            $destinazione = Join-Path $CopiaSecondaria $file.Name
+            Copy-Item -LiteralPath $file.FullName -Destination $destinazione -Force
+            # SI GUARDA IL RISULTATO, NON IL CODICE DI USCITA — è la lezione
+            # di icacls (voce 75): una cosa che esce con zero non è una cosa
+            # riuscita. Qui il risultato è un file che c'è e pesa uguale.
+            $copiato = Get-Item -LiteralPath $destinazione -ErrorAction Stop
+            if ($copiato.Length -ne $file.Length) {
+                throw "copiati $($copiato.Length) byte su $($file.Length)"
+            }
+            Scrivi-Riga "COPIA    $destinazione  ($mb MB)"
+        }
+        catch {
+            Scrivi-Riga "COPIA NON RIUSCITA  $CopiaSecondaria  $($_.Exception.Message)"
+        }
+    }
 }
 catch {
     # PERCHÉ USCIRE CON 1: l'Utilità di pianificazione registra il codice di

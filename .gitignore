@@ -118,3 +118,17 @@ Codice di ripristino*
 # ricostruito. Adesso non piu'.
 node_modules/
 consegna/
+
+# ── 6. GLI ESITI DELLE CORSE DI BANCO — 02/09 ─────────────────────────────
+# Ventitre `.out` e un `.log`: la console di un servizio di banco, catturata
+# per rileggerla dieci minuti dopo. Si rigenerano lanciando la corsa, non
+# documentano niente che non stia gia' nell'INDEX, e in una repository che va
+# a revisione esterna sono rumore che il revisore deve scartare a mano.
+#
+# NON E' LA REGOLA DEL 27/08 CHE CADE. Quella diceva: un file che sta su un
+# disco solo prima o poi non c'e' piu', quindi il repository li tenga tutti.
+# Vale per gli artefatti — i pacchetti, le versioni, i backup di prova, che
+# infatti restano in ARCHIVIO. La cattura di una console non e' un artefatto:
+# e' il rumore di un gesto, e il gesto si rifa'.
+banco/*.out
+banco/*.log

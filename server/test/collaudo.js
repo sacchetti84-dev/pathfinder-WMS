@@ -105,6 +105,13 @@ if (SU_PG) {
 const TOKEN = 'collaudo-' + crypto.randomBytes(16).toString('hex');
 process.env.PATHFINDER_TOKEN = TOKEN;
 
+/* 2.18 — IL REGISTRO SCRIVE IN UN FILE USA-E-GETTA. Senza questa riga
+   finirebbe accanto al database di collaudo, che e' nella cartella
+   temporanea e va bene lo stesso, ma qui serve saperne il nome per
+   rileggerlo. */
+const LOG = path.join(os.tmpdir(), `pathfinder-collaudo-${Date.now()}.log`);
+process.env.PATHFINDER_LOG = LOG;
+
 /* 2.6 — `db` e' un getter: il servizio lo apre dentro `pronto`, e prima di
    quel momento vale `null`. Destrutturarlo qui darebbe null per sempre. */
 const servizio = require('../pathfinder-server.js');
@@ -1093,6 +1100,101 @@ const call = async (metodo, url, corpo, cliente = 'T1', { senzaChiave = false } 
   });
   ok('un token di macchina sbagliato non apre', tokenStorto.status === 401,
      'stato ' + tokenStorto.status);
+
+  /* ══ 2.18 · LE TRE PORTE CHE L'AUDIT DEL 02/09 HA TROVATO APERTE ══════
+     Nessuna delle tre era dichiarata da nessuna parte, ed e' il motivo per
+     cui adesso hanno una prova ciascuna. */
+
+  /* UNO — IL CORPO SI LEGGE DOPO AVER CHIESTO CHI CHIAMA.
+     Fino alla 2.17 `express.json` stava PRIMA del guardiano: un corpo da
+     256 MB veniva letto, tenuto in memoria e parsato, e solo dopo arrivava
+     il 401. Chi voleva spegnere il servizio non aveva bisogno di nessuna
+     credenziale, solo di raggiungere la porta.
+     Tre MB bastano a distinguere i tre esiti: 401 (il guardiano ha parlato
+     per primo, ed e' quel che deve succedere), 413 (il parser ha parlato
+     prima di lui) e 200 (nessuno dei due). */
+  const corpoGrande = { zavorra: 'x'.repeat(3 * 1024 * 1024) };
+  const grandeSenzaSessione = await call('POST', '/api/c/meta/bulk', corpoGrande, 'T1', { senzaChiave: true });
+  ok('un corpo da 3 MB senza sessione prende 401, non 413 e non 200',
+     grandeSenzaSessione.stato === 401, 'stato ' + grandeSenzaSessione.stato);
+
+  /* DUE — MA LE ROTTE DI IMPORT DEVONO ANCORA POTER RICEVERE UN MAGAZZINO.
+     Il tetto alto e' rimasto, e vive solo li'. Se questa prova diventa
+     rossa con un 413, qualcuno ha tolto una rotta da `ROTTE_DI_IMPORT`. */
+  const grandeConChiave = await call('POST', '/api/c/meta/bulk',
+    [{ key: 'zavorra-di-prova', value: 'y'.repeat(3 * 1024 * 1024) }]);
+  ok('la stessa mole passa sulla rotta di import, con la chiave di macchina',
+     grandeConChiave.stato === 200, 'stato ' + grandeConChiave.stato);
+  await call('DELETE', '/api/c/meta/zavorra-di-prova');
+
+  /* E una rotta qualunque ha il tetto basso: 2 MB, non 256. */
+  const grandeSuRottaNormale = await call('PUT', '/api/c/meta/zavorra-2', corpoGrande);
+  ok('fuori dalle rotte di import il tetto e basso: 413',
+     grandeSuRottaNormale.stato === 413, 'stato ' + grandeSuRottaNormale.stato);
+  ok('e il 413 e JSON con una spiegazione, non la pagina HTML di Express',
+     typeof grandeSuRottaNormale.dati?.error === 'string'
+       && /import completo/.test(grandeSuRottaNormale.dati.error),
+     typeof grandeSuRottaNormale.dati);
+
+  /* TRE — L'ANAGRAFICA PUBBLICA NON PORTA PIU' I NOMI.
+     Fino alla 2.17 chiunque sulla rete otteneva l'elenco nominativo del
+     personale di magazzino con i ruoli, e sapeva quali Admin avessero un
+     codice di ripristino: la mappa per scegliere il bersaglio giusto di un
+     PIN a sei cifre, tanto piu' che il freno sui tentativi e' PER
+     OPERATORE. */
+  ok('l elenco pubblico non porta nome e cognome',
+     sicuro && sicuro.first_name === undefined && sicuro.last_name === undefined,
+     sicuro ? Object.keys(sicuro).join(',') : '(non trovato)');
+  ok('ne dice chi ha una seconda via d ingresso',
+     sicuro && sicuro.rec_set === undefined);
+  ok('e quel che resta basta a disegnare la maschera: sigla, ruolo, se un PIN c e',
+     sicuro && typeof sicuro.initials === 'string' && typeof sicuro.role === 'string'
+       && sicuro.pin_set === true);
+
+  /* QUATTRO — LA SESSIONE SCADE PER INATTIVITA'.
+     `ultimoUso` si scriveva dalla 2.11 e non lo leggeva nessuno: una
+     sessione moriva solo al riavvio del processo. Un terminale condiviso
+     lasciato acceso il venerdi' sera era ancora dentro il lunedi' mattina,
+     con l'identita' di chi l'aveva usato per ultimo — e quell'identita'
+     firma i movimenti a registro.
+     La prova non aspetta dodici ore: porta indietro `ultimoUso` di una
+     sessione vera, che e' la stessa cosa vista dal servizio. */
+  const perScadere = await fetch(BASE + '/api/auth/login', {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ initials: 'SIC1', pin: '482913' }),
+  });
+  const cookieScaduto = (perScadere.headers.get('set-cookie') || '').split(';')[0];
+  const tokenScaduto = cookieScaduto.split('=')[1];
+  const viva = await fetch(BASE + '/api/load', { headers: { Cookie: cookieScaduto } });
+  ok('una sessione appena aperta carica', viva.status === 200, 'stato ' + viva.status);
+
+  const riga = servizio.sessioni.get(tokenScaduto);
+  ok('la sessione esiste nella mappa del servizio', !!riga);
+  if (riga) riga.ultimoUso = Date.now() - 13 * 3600_000;   // tredici ore: oltre la finestra
+  const morta = await fetch(BASE + '/api/load', { headers: { Cookie: cookieScaduto } });
+  ok('ferma da tredici ore, non entra piu', morta.status === 401, 'stato ' + morta.status);
+  ok('e il servizio se l e tolta di mezzo, non la tiene li',
+     !servizio.sessioni.has(tokenScaduto));
+
+  /* LA CHIAVE DI MACCHINA NON SCADE, e non e' una dimenticanza: e' l'unico
+     modo che l'installer e il backup serale hanno di parlare col servizio,
+     e nessuno dei due fa login. */
+  const macchinaDopo = await call('GET', '/api/health');
+  ok('la chiave di macchina non conosce la finestra di inattivita',
+     macchinaDopo.stato === 200);
+
+  /* CINQUE — IL SERVIZIO LASCIA TRACCIA.
+     Il processo gira come SYSTEM in sessione 0: la sua console non la legge
+     nessuno, e dopo un incidente non restava niente da rileggere. */
+  await new Promise(r => setTimeout(r, 50));
+  const registroScritto = fs.existsSync(LOG) ? fs.readFileSync(LOG, 'utf8') : '';
+  ok('il registro del servizio esiste e ha registrato l avvio',
+     /servizio\.avvio/.test(registroScritto), LOG);
+  ok('e ha registrato i rifiuti per sessione mancante',
+     /auth\.401/.test(registroScritto));
+  ok('il registro NON contiene il PIN, ne l impronta, ne il cookie',
+     !registroScritto.includes('482913') && !/pin_hash|pin_salt/.test(registroScritto)
+       && !registroScritto.includes(tokenScaduto));
 
   /* ══ 2.13 · L'ATTESA DELL'AVVIO DI POSTGRESQL, PROVATA DA FERMA ═══════
      La correzione e' della 2.12.1, scritta la sera di una giornata di

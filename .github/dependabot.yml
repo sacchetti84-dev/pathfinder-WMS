@@ -1,0 +1,41 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# PATHFINDER — CHI AVVISA QUANDO ARRIVA LA PROSSIMA VULNERABILITÀ
+# © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+#
+# SOLO SICUREZZA, E NON È UNA MEZZA MISURA.
+# `dexie` e `xlsx` sono FISSE, senza accento circonflesso, e la ragione sta
+# scritta in `package.json`: sono le due che scendevano dai CDN nella 1.1, e
+# l'applicativo è collaudato con quelle. Aggiornarle è una decisione, non un
+# effetto collaterale.
+# `open-pull-requests-limit: 0` spegne gli aggiornamenti di versione e lascia
+# accesi SOLO gli avvisi di sicurezza, che GitHub apre comunque: l'obiettivo è
+# sapere il giorno che esce una vulnerabilità nuova, non ritrovarsi otto pull
+# request di manutenzione da leggere.
+#
+# `xlsx` 0.18.5 ha già due vulnerabilità note, e il rischio è stato accettato
+# formalmente il 01/09/2026 — limite 3 della scheda IT. Quelle non sono una
+# notizia; la prossima sì.
+# ─────────────────────────────────────────────────────────────────────────────
+
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+
+  - package-ecosystem: npm
+    directory: /server
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 0
+
+  # Le azioni del workflow si aggiornano: sono infrastruttura di collaudo, non
+  # codice che finisce in magazzino, e una versione ferma di `checkout` è solo
+  # un avviso di deprecazione che prima o poi diventa una corsa rossa.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

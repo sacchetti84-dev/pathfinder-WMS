@@ -1,7 +1,7 @@
 # PATHFINDER — SCHEDA TECNICA PER IL TEAM IT
 # PATHFINDER — TECHNICAL DATA SHEET FOR THE IT TEAM
 
-**Codice / Code:** REP-IT-001  |  **Revisione / Revision:** **02**  |  **Data / Date:** 02/09/2026
+**Codice / Code:** REP-IT-001  |  **Revisione / Revision:** **03**  |  **Data / Date:** 02/09/2026
 
 **Redatto da / Prepared by:** Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
 
@@ -28,6 +28,7 @@ language of record.
 |:--|:--|:---|:---|
 | 01 | 28/08/2026 | Prima emissione | First issue |
 | **02** | **02/09/2026** | Documento reso **bilingue**. Aggiornato dalla versione 2.12 alla **2.17**. **Il limite 2 è chiuso**: i permessi per ruolo sono imposti dal servizio (2.13) e l'ultimo Admin non si può togliere da solo (2.16). **Tolta la dichiarazione di conservazione a sei anni**: il registro non ha una scadenza dentro l'applicativo (2.17), e il periodo lo stabilisce la procedura aziendale — cap. 8.3. Aggiunte la via di fuga dell'Admin, la migrazione dalla 1.4, due limiti nuovi (10, 11) e i numeri di collaudo rimisurati. Corretto il riferimento a `server\azure`, che non esiste dal 26/08 | Document made **bilingual**. Updated from release 2.12 to **2.17**. **Limitation 2 is closed**: role permissions are enforced by the service (2.13) and the last Admin cannot remove themselves (2.16). **The six-year retention statement is removed**: the register has no expiry inside the application (2.17), and the period is set by company procedure — §8.3. Added the Admin recovery route, the 1.4 migration, two new limitations (10, 11) and re-measured test figures. Corrected the reference to `server\azure`, which has not existed since 26/08 |
+| **03** | **02/09/2026** | Recepisce l'**audit IT della repository** (REP-AUDIT-001, 02/09/2026). La **2.18** chiude tre difetti di sicurezza non dichiarati — il corpo della richiesta letto prima dell'autenticazione, l'anagrafica nominativa esposta senza sessione, la sessione che non scadeva mai — e aggiunge il **registro del servizio su file**, l'**integrazione continua** e la **copia secondaria dei backup**. Corretto il cap. 8.4, che lasciava intendere un controllo del testo libero «in un punto solo» mentre per il testo libero sta nel browser. Aggiunti i **limiti 12 e 13**: sono due rischi accettati, non due difetti | Takes up the **IT audit of the repository** (REP-AUDIT-001, 02/09/2026). **2.18** closes three undeclared security defects — the request body read before authentication, the staff roster exposed without a session, the session that never expired — and adds the **service log file**, **continuous integration** and a **secondary backup copy**. §8.4 corrected: it implied a free-text check «in one place» that for free text lives in the browser. Added **limitations 12 and 13**: two accepted risks, not two defects |
 
 ---
 ---
@@ -511,6 +512,18 @@ Configurazione → Operatori — e stampando un codice di ripristino.
 ### 8.4 Superficie applicativa
 
 - **SQL sempre parametrizzato**, in tutti e due i driver di database.
+- **I controlli sul testo libero stanno nel browser, e va detto — corretto in rev03.**
+  Fino alla rev02 questo capitolo lasciava intendere un controllo «in un punto solo»
+  valido per tutto. È vero per i **codici** — articolo, lotto, ubicazione, sigla — che
+  il servizio rifiuta se contengono virgolette, apici o segni di tag. **Non è vero per
+  il testo libero** (descrizioni, note, ragioni sociali): lì le regole vivono in
+  `src/modules/validate.ts`, cioè nel client, e l'import da Excel non ci passa.
+  **Portarle sul servizio romperebbe gli import**: vietano l'apostrofo, e un'anagrafica
+  alimentare è piena di `OLIO D'OLIVA`. La difesa vera contro l'iniezione in pagina
+  resta l'escape HTML, applicato in 952 punti, più il divieto sui caratteri nei codici
+  — che dalla 2.18 ha **una prova automatica**: verifica che ogni campo interpolato
+  dentro un gestore inline sia coperto da quel divieto, e ha otto eccezioni scritte.
+- **Il servizio tiene un registro su file dalla 2.18** — cap. 9.
 - **I codici non possono contenere caratteri che spezzino un gestore
   dell'interfaccia**: si rifiutano in scrittura, in un punto solo, invece di
   ripulirli di nascosto — un codice ripulito è un codice diverso da quello che il
@@ -541,6 +554,8 @@ Configurazione → Operatori — e stampando un codice di ripristino.
 | Registro | Ogni corsa scrive una riga con esito e dimensione in `backup.log` |
 | Backup a richiesta | Una chiamata al servizio, usata anche dall'installer **prima di ogni aggiornamento** |
 | Diagnosi | `/api/app-info` risponde versione, impronta, byte e cartella servita; **quando qualcosa non va porta anche il codice di errore reale e l'account con cui gira il processo** |
+| Copia secondaria | **Dalla 2.18**: `-CopiaSecondaria <percorso>` copia il dump verificato in una seconda destinazione — cartella di rete o disco esterno — e scrive l'esito nel registro. **Spenta di serie**, la destinazione la decide l'IT. Fino alla 2.17 backup e database stavano sullo stesso disco, e un guasto li portava via insieme |
+| **Registro del servizio** | **Dalla 2.18**: un file che raccoglie avvii e arresti, i rifiuti per sessione mancante (401) e per ruolo (403), i blocchi del freno sui tentativi, gli errori 500 e gli esiti dei backup. **Ruota a 5 MB e ne tiene 10.** Il processo gira come SYSTEM in sessione 0, dove la console non la legge nessuno: prima della 2.18, dopo un incidente non restava niente da rileggere. **Non registra mai** PIN, impronte, corpi delle richieste né stringhe di connessione. Percorso in `PATHFINDER_LOG` |
 | Stato del database | `/api/health` risponde collezioni, conteggi riga per riga e revisione |
 
 > **⚠ ATTENZIONE — continuità operativa.** Il database sta **sulla stessa macchina
@@ -570,6 +585,8 @@ trovarli da solo. Ognuno ha la mitigazione di oggi e che cosa serve per chiuderl
 | 9 | **Niente lavoro offline** | Se il servizio non risponde, l'applicativo si ferma e lo dichiara a schermo intero | **È una scelta**, non una mancanza: nessuna coda locale da risincronizzare, quindi nessun conflitto e nessun saldo che diverge fra due terminali | Non si intende cambiarla |
 | **10** | **Impronte di PIN nella storia del repository di codice** | Un dump del magazzino con `pin_hash` e `pin_salt` di persone reali è stato tracciato per quattro giorni ad agosto | La storia è stata **riscritta il 01/09** e il file non sta in nessun ramo; il repository è **privato**. I vecchi commit restano però raggiungibili per SHA finché GitHub non fa pulizia | Richiesta a GitHub Support per la pulizia degli oggetti sfollati, e **rinnovo dei PIN** degli operatori coinvolti quando rientrano a database. Le impronte in quel dump erano SHA-256, non scrypt |
 | **11** | **Il passaggio dalla 1.4 non è ancora stato provato sui dati veri** | La migrazione è dimostrata su un export archiviato, non su un export prodotto oggi dal magazzino | Un banco automatico di **14 prove** esercita il percorso da database vuoto e verifica che non si perda nulla | Esportare dalla macchina di magazzino e puntarci sopra lo stesso banco, con i due controlli del cap. 6.5 |
+| **12** | **Copia di lavoro sulla macchina dello sviluppatore** | I database di banco e gli export di prova stanno sul PC di sviluppo, in una cartella sincronizzata su un servizio cloud personale | **Rischio accettato dall'autore il 02/09/2026.** I dati del personale in quei file sono **fittizi, inventati per le prove**; i backup e le informazioni aziendali non sono distribuiti. Una prova automatica (`test/segretiFuori.test.js`) impedisce che un'impronta di PIN entri nel repository | **Si riapre il giorno che sulla macchina di sviluppo entra un export del magazzino vero.** Allora servono: albero di lavoro fuori dalla sincronizzazione, deposito cifrato per i database di prova, e sostituzione dei dati veri con dati generati |
+| **13** | **Una sola persona sul progetto** | Nessuna seconda persona ha mai installato, aggiornato o riportato indietro il sistema | **Rischio accettato dall'autore il 02/09/2026**: all'accettazione del progetto in azienda intervengono altre figure a supporto. Nel frattempo la documentazione è scritta per essere seguita da chi non c'era — `INDEX.md`, questa scheda, e dalla 2.18 l'**integrazione continua**, che esegue le prove al posto della memoria di una persona | **Il collaudo vero è una seconda persona che installa Pathfinder da zero seguendo solo questa scheda e l'installer**, e scrive dove si è fermata. Da fare **prima** del passaggio del magazzino vero alla beta |
 
 ---
 
@@ -577,8 +594,8 @@ trovarli da solo. Ognuno ha la mitigazione di oggi e che cosa serve per chiuderl
 
 | Voce | Valore, misurato il 02/09/2026 |
 |:---|:---|
-| Collaudi automatici sull'applicativo | **1.222 prove in 44 file** — 1.221 verdi, 1 dichiarata saltata — in circa 4 secondi |
-| Collaudi sul servizio dati | **141 prove**, eseguibili **contro tutti e due i motori di database** |
+| Collaudi automatici sull'applicativo | **1.228 prove in 45 file** — 1.227 verdi, 1 dichiarata saltata — in circa 4 secondi |
+| Collaudi sul servizio dati | **156 prove**, eseguibili **contro tutti e due i motori di database** |
 | Collaudi sugli script di installazione | **43 prove**, che esercitano installazione, disinstallazione, ritorno indietro e installer in modalità prova |
 | Collaudi sul cambio di schema | **8 prove**: una versione vecchia rilegge il database di una nuova |
 | Collaudi sui permessi per ruolo | **40 prove** contro il servizio vero, con `fetch` e i cookie veri |
@@ -588,6 +605,8 @@ trovarli da solo. Ognuno ha la mitigazione di oggi e che cosa serve per chiuderl
 | Sorgente | **79 file TypeScript**, **nessun JavaScript** nel client |
 | Integrità del rilascio | Manifesto con impronta SHA-256 file per file, verificata dall'installer |
 | Riproducibilità | La build è **riproducibile bit per bit** dallo stesso commit |
+| Regole di progetto imposte da una prova | **Dalla 2.18**: ogni campo interpolato in un gestore inline è coperto dal divieto sui caratteri nei codici; `store.ts` non cresce; il guardiano della sessione resta registrato prima del parser del corpo |
+| Integrazione continua | **Dalla 2.18**: tipi, prove del client, prove del servizio e prove dell'installazione girano a ogni push e a ogni pull request |
 | Prestazioni interfaccia | Primo caricamento **251 kB**, ricarica **300 byte** (assets immutabili, indice `no-cache`); la libreria Excel si carica **solo a import o export** |
 | Prestazioni motore | Proposta di stoccaggio su 330 ubicazioni: **2,1 – 2,8 ms** |
 
@@ -1123,6 +1142,19 @@ Configuration → Operators — and by printing a recovery code.
 ### 8.4 Application surface
 
 - **SQL is always parameterised**, in both database drivers.
+- **Free-text checks live in the browser, and this needs saying — corrected in rev03.**
+  Up to rev02 this chapter implied a single-point check valid for everything. That is
+  true for **codes** — article, lot, location, initials — which the service rejects if
+  they contain quotes, apostrophes or tag characters. **It is not true for free text**
+  (descriptions, notes, company names): those rules live in `src/modules/validate.ts`,
+  that is, in the client, and the Excel import does not pass through them.
+  **Moving them to the service would break imports**: they forbid the apostrophe, and a
+  food-industry article list is full of `OLIO D'OLIVA`. The real defence against
+  injection into the page remains HTML escaping, applied at 952 sites, plus the ban on
+  characters in codes — which since 2.18 has **an automated test**: it verifies that
+  every field interpolated inside an inline handler is covered by that ban, and it
+  carries eight documented exceptions.
+- **The service keeps a log file since 2.18** — §9.
 - **Codes cannot contain characters that would break an interface handler**: they
   are refused on write, in one place, rather than silently cleaned — a cleaned
   code is a different code from the one the caller believes they wrote.
@@ -1152,6 +1184,8 @@ Configuration → Operators — and by printing a recovery code.
 | Log | Every run writes a line with outcome and size to `backup.log` |
 | On-demand backup | One call to the service, also used by the installer **before every upgrade** |
 | Diagnostics | `/api/app-info` returns release, fingerprint, bytes and the folder being served; **when something is wrong it also carries the real error code and the account the process runs under** |
+| Secondary copy | **Since 2.18**: `-CopiaSecondaria <path>` copies the verified dump to a second destination — network folder or external disk — and logs the outcome. **Off by default**; the destination is an IT decision. Until 2.17 backups and database sat on the same disk, and one failure took both |
+| **Service log** | **Since 2.18**: a file recording startups and shutdowns, refusals for missing session (401) and for role (403), throttle blocks, 500 errors and backup outcomes. **Rotates at 5 MB, keeps 10.** The process runs as SYSTEM in session 0, where nobody reads the console: before 2.18 there was nothing to re-read after an incident. It **never records** PINs, hashes, request bodies or connection strings. Path in `PATHFINDER_LOG` |
 | Database state | `/api/health` returns collections, per-table counts and revision |
 
 > **⚠ NOTE — operational continuity.** The database sits **on the same machine as
@@ -1182,6 +1216,8 @@ what would be needed to close it.
 | 9 | **No offline working** | If the service does not answer, the application stops and says so full-screen | **This is a choice**, not a gap: no local queue to reconcile, therefore no conflicts and no balance diverging between two terminals | Not intended to change |
 | **10** | **PIN hashes in the code repository's history** | A warehouse dump with real people's `pin_hash` and `pin_salt` was tracked for four days in August | The history was **rewritten on 01/09** and the file is in no branch; the repository is **private**. Old commits nonetheless remain reachable by SHA until GitHub garbage-collects | A request to GitHub Support to purge unreferenced objects, and **renewal of the PINs** of the operators concerned when they return to the database. The hashes in that dump were SHA-256, not scrypt |
 | **11** | **The move from 1.4 has not yet been tried on live data** | The migration is proven on an archived export, not on an export produced today by the warehouse | An automated bench of **14 checks** exercises the path from an empty database and verifies that nothing is lost | Export from the warehouse machine and point the same bench at it, with the two checks in §6.5 |
+| **12** | **Working copy on the developer's machine** | Bench databases and trial exports live on the development PC, in a folder synchronised to a personal cloud account | **Risk formally accepted by the author on 02/09/2026.** The staff data in those files is **fictitious, invented for testing**; backups and company information are not distributed. An automated test (`test/segretiFuori.test.js`) prevents a PIN hash from entering the repository | **Reopens the day a real warehouse export lands on the development machine.** That requires: working tree outside the synchronised folder, an encrypted store for bench databases, and real data replaced by generated data |
+| **13** | **A single person on the project** | No second person has ever installed, updated or rolled back the system | **Risk formally accepted by the author on 02/09/2026**: further people join in support once the project is accepted by the company. Meanwhile the documentation is written to be followed by someone who was not there — `INDEX.md`, this data sheet, and since 2.18 **continuous integration**, which runs the tests in place of one person's memory | **The real test is a second person installing Pathfinder from scratch** using only this data sheet and the installer, writing down where they got stuck. To be done **before** the live warehouse moves to the beta |
 
 ---
 
@@ -1189,8 +1225,8 @@ what would be needed to close it.
 
 | Item | Value, measured 02/09/2026 |
 |:---|:---|
-| Automated checks on the application | **1,222 checks in 44 files** — 1,221 green, 1 declared skipped — in about 4 seconds |
-| Checks on the data service | **141 checks**, runnable **against both database engines** |
+| Automated checks on the application | **1,228 checks in 45 files** — 1,227 green, 1 declared skipped — in about 4 seconds |
+| Checks on the data service | **156 checks**, runnable **against both database engines** |
 | Checks on the installation scripts | **43 checks**, exercising installation, uninstallation, rollback and the installer in dry-run mode |
 | Checks on the schema change | **8 checks**: an older release re-reads a newer release's database |
 | Checks on role permissions | **40 checks** against the real service, with `fetch` and real cookies |
@@ -1200,6 +1236,8 @@ what would be needed to close it.
 | Source | **79 TypeScript files**, **no JavaScript** in the client |
 | Release integrity | Manifest with a per-file SHA-256 fingerprint, verified by the installer |
 | Reproducibility | The build is **reproducible bit for bit** from the same commit |
+| Project rules enforced by a test | **Since 2.18**: every field interpolated into an inline handler is covered by the ban on characters in codes; `store.ts` does not grow; the session guard stays registered before the body parser |
+| Continuous integration | **Since 2.18**: types, client checks, service checks and installer checks run on every push and every pull request |
 | Interface performance | First load **251 kB**, reload **300 bytes** (immutable assets, `no-cache` index); the Excel library loads **only on import or export** |
 | Engine performance | Storage proposal over 330 locations: **2.1 – 2.8 ms** |
 
