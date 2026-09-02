@@ -873,6 +873,23 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
                     border: 1px dashed #b45309; padding: 4px; margin-bottom: 10px; }
 
   .doc-empty { color: #999; font-style: italic; font-weight: 400; }
+  /* 2.20 — LA PACKING LIST: UN BANCALE PER BLOCCO.
+
+     Chi scarica il camion cerca il codice che ha letto sull'etichetta del
+     pallet e vuole trovarci sotto quello che dovrebbe esserci sopra: il
+     codice sta in testa al blocco, grande e in monospaziato, e il blocco non
+     si spezza fra due fogli — meta' delle righe su una pagina e meta'
+     sull'altra e' esattamente il foglio che nessuno rilegge. */
+  .pk-blocco { break-inside: avoid; margin-bottom: 4mm; }
+  .pk-testa {
+    display: flex; align-items: baseline; gap: 4mm; flex-wrap: wrap;
+    border-bottom: 1pt solid #21305A; padding-bottom: 1mm; margin-bottom: 1.5mm;
+  }
+  .pk-udc { font-family: Consolas, "Courier New", monospace;
+    font-size: 12pt; font-weight: 700; color: #21305A; }
+  .pk-meta { font-size: 8pt; color: #555; }
+  .pk-colli { margin-left: auto; font-size: 9pt; font-weight: 700; }
+  .doc-note-small { font-size: 7.5pt; color: #666; margin-top: 3mm; line-height: 1.4; }
 
   .doc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
   .doc-cell { border: 1px solid #ccc; padding: 4px 8px; border-radius: 3px; }

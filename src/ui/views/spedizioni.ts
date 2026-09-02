@@ -1,7 +1,7 @@
 import { type Vista, $ } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
-import type { DocumentoUscita, Destinatario } from '../../types/entita';
+import type { DocumentoUscita, Destinatario, RigaDocumento } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { pickupAlertStatus } from '../../modules/pickupAlert';
 import {
@@ -11,9 +11,22 @@ import { uscite as uscitePerIlServizio, totaleUom as totaleUomColli, descriviCol
 import { formattaQuantita, sommaUom as sommaUomColli } from '../../modules/misure';
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
+import { descriviModello as descriviModelloImballo } from '../../modules/imballo';
 
 /* Una riga del carrello DDT: la merce scelta, quanti colli, e quanti ce
    n'erano quando la riga è nata — serve a dire se nel frattempo è cambiata. */
+/* Un blocco della packing list: un bancale e le righe che porta. Nasce a
+   stampa e muore col foglio — non e' un record. */
+type PackingBlocco = {
+  udc_id: string;
+  supporto: string;
+  modello: string;
+  tara: number | null;
+  odp: string;
+  righe: RigaDocumento[];
+  colli: number;
+};
+
 type VoceCarrelloDDT = {
   article_code: string;
   article_description: string;
@@ -486,6 +499,7 @@ export const VistaSpedizioni = {
           <button class="btn" style="flex:1;min-width:120px;padding:0.5rem;font-weight:700;background:${themeColor};color:#fff;border-color:${themeColor}" onclick="App._evadiSpedizione('${this._esc(doc.doc_id)}')">✓ EVADI DDT</button>
           <button class="btn bg-sx-accent-soft text-sx-accent border-sx-accent font-semibold" onclick="App._editPendingDoc('${this._esc(doc.doc_id)}')" title="Modifica DDT">📝 Modifica</button>
           <button class="btn" onclick="App._printDDT('${this._esc(doc.doc_id)}')" title="Stampa il DDT">🖨</button>
+          <button class="btn" onclick="App._printPackingList('${this._esc(doc.doc_id)}')" title="Stampa la packing list — un bancale per blocco">📦</button>
           <button class="btn btn-ghost text-sx-danger" onclick="App._cancelPendingShip('${this._esc(doc.doc_id)}')" title="Annulla DDT">✕</button>
         </div>
       </div>
@@ -1170,6 +1184,138 @@ export const VistaSpedizioni = {
     await Store.updatePendingStatus(doc_id, 'cancelled');
     this.toast(`✓ DDT ${doc.ddt_num} annullato`, 'success');
     this._formSpedizioni($('movFormArea'));
+  },
+
+  /* ═══ 2.20 · LA PACKING LIST ══════════════════════════════════════════
+     NON E' UNA COLLEZIONE NUOVA: e' un secondo modo di stampare lo stesso
+     documento archiviato. §8 — i documenti si rileggono, non si
+     ricostruiscono: le righe del DDT portano gia' colli, uscite, unita' di
+     misura e, dalla 2.20, il bancale da cui escono.
+
+     UN BANCALE PER BLOCCO, e sotto le sue righe. E' il foglio che chi
+     scarica il camion tiene in mano: cerca il codice sull'etichetta del
+     pallet e ci trova sotto quello che dovrebbe esserci sopra.
+
+     IL SUPPORTO E LA TARA SI LEGGONO ADESSO, non alla registrazione del
+     documento: stanno sull'unita' di carico e nei modelli configurati, e il
+     foglio lo dichiara. Congelarli sulla riga vorrebbe dire un campo in piu'
+     su ogni DDT per un dato che cambia una volta ogni due anni. */
+  _packingBlocchi(doc: DocumentoUscita): PackingBlocco[] {
+    const modelli = Store.getModelliImballo();
+    const perBancale = new Map<string, RigaDocumento[]>();
+    for (const l of doc.lines || []) {
+      const id = String(l.udc_id || '');
+      const gruppo = perBancale.get(id) ?? [];
+      gruppo.push(l);
+      perBancale.set(id, gruppo);
+    }
+    return [...perBancale.entries()].map(([id, righe]) => {
+      const u = id ? Store.getUdc(id) : null;
+      const modello = u?.model_code ? modelli.find((m) => m.code === u.model_code) : null;
+      return {
+        udc_id: id,
+        supporto: modello?.supporto || '',
+        modello: modello ? descriviModelloImballo(modello) : '',
+        tara: modello?.tara_kg ?? null,
+        odp: u?.odp_num || '',
+        righe,
+        colli: righe.reduce((n: number, l: RigaDocumento) => n + (l.qty || 0), 0),
+      };
+    });
+  },
+
+  /** Il peso lordo dei bancali: netto piu' tare. `null` quando il netto non
+      si sa — righe senza unita', o unita' diverse che non si sommano — o
+      quando nessun bancale porta una tara. Un lordo inventato su
+      un'etichetta di trasporto e' un numero che qualcuno mette in bolla. */
+  _packingLordo(blocchi: PackingBlocco[]) {
+    let netto = 0, tare = 0, unita = null, mista = false, conTara = false;
+    for (const b of blocchi) {
+      if (b.tara != null) { tare += b.tara * 1; conTara = true; }
+      for (const l of b.righe) {
+        if (l.qty_uom == null || !l.uom) { mista = true; continue; }
+        if (unita && unita !== l.uom) { mista = true; continue; }
+        unita = l.uom;
+        netto += Number(l.qty_uom) || 0;
+      }
+    }
+    if (mista || unita !== 'KG' || !conTara) return null;
+    return netto + tare;
+  },
+
+  _printPackingList(doc_id) {
+    const doc = Store.getPendingDoc(doc_id) || Store.getAllOutbound().find((d) => d.doc_id === doc_id);
+    if (!doc) return this.toast('Documento non trovato', 'error');
+    Feedback.clear();
+
+    const blocchi = this._packingBlocchi(doc);
+    const totaleColli = doc.lines.reduce((n: number, l: RigaDocumento) => n + (l.qty || 0), 0);
+    const lordo = this._packingLordo(blocchi);
+    const isDraft = doc.status === 'pending';
+
+    const corpo = (blocchi as PackingBlocco[]).map((b: PackingBlocco) => {
+      const righe = b.righe.map((l: RigaDocumento) => `<tr>
+        <td class="c-art">${this._esc(l.article_code)}</td>
+        <td class="c-desc">${this._esc(l.article_description || '—')}</td>
+        <td class="c-lot">${this._esc(l.lot_code || '')}</td>
+        <td class="c-exp">${this._esc(this._dateISOtoIT(l.expiry_date) || l.expiry_date || '')}</td>
+        <td class="c-qty">${l.qty}</td>
+        <td class="c-pcs">${(l.qty_uom != null && l.uom)
+          ? `${formattaQuantita(l.qty_uom, l.uom)} ${this._esc(l.uom)}` : ''}</td>
+      </tr>`).join('');
+      return `<div class="pk-blocco">
+        <div class="pk-testa">
+          <span class="pk-udc">${b.udc_id ? this._esc(b.udc_id) : 'Merce senza bancale'}</span>
+          <span class="pk-meta">${b.modello ? this._esc(b.modello) : ''}${b.odp ? ` · ordine ${this._esc(b.odp)}` : ''}</span>
+          <span class="pk-colli">${b.colli} ${b.colli === 1 ? 'collo' : 'colli'}${b.tara != null ? ` · tara ${b.tara} KG` : ''}</span>
+        </div>
+        <table class="ddt-table"><thead><tr>
+          <th class="c-art">Articolo</th><th class="c-desc">Descrizione</th>
+          <th class="c-lot">Lotto</th><th class="c-exp">Scadenza</th>
+          <th class="c-qty">Colli</th><th class="c-pcs">Quantità</th>
+        </tr></thead><tbody>${righe}</tbody></table>
+      </div>`;
+    }).join('');
+
+    $('printReport').innerHTML = this._docPageHTML({
+      kind: 'PACKING LIST',
+      kindSub: `Distinta di imballo — allegata al DDT ${doc.ddt_num || ''}`,
+      num: doc.ddt_num,
+      dateVal: doc.doc_date ? this._dateISOtoIT(doc.doc_date) : new Date(doc.created_at).toLocaleDateString('it-IT'),
+      sender: (doc.sender && doc.sender.name) ? doc.sender : null,
+      docId: doc.doc_id,
+      watermark: isDraft ? 'BOZZA' : '',
+      flow: true,
+      headExtra: `<div class="ddt-strip">
+        <span class="ddt-strip-lbl">Destinatario</span>
+        <span class="ddt-strip-val">${this._esc(doc.destination || '—')}</span>
+        ${doc.ship_to ? `<span class="ddt-strip-ref">Destinazione: <strong>${this._esc(doc.ship_to)}</strong></span>` : ''}
+      </div>`,
+      body: `
+        ${this._docWarnHTML()}
+        ${isDraft ? `<div class="doc-draft-note">
+          DOCUMENTO NON ANCORA EVASO — la merce è prenotata ma non è uscita dal magazzino.
+        </div>` : ''}
+        ${corpo || '<div class="doc-empty">Nessuna riga su questo documento.</div>'}
+        <div class="ddt-totals">
+          ${this._docCell('Bancali', String((blocchi as PackingBlocco[]).filter((b: PackingBlocco) => b.udc_id).length))}
+          ${this._docCell('Numero colli', String(totaleColli))}
+          ${this._docCell('Quantità totale', this._ddtTotaliUom(doc.lines))}
+          ${this._docCell('Peso lordo calcolato (kg)', lordo == null ? '' : String(lordo))}
+        </div>
+        <div class="doc-note-small">
+          Supporti e tare sono quelli configurati <strong>alla stampa</strong>; il peso lordo è
+          calcolato sommando le tare dei bancali al peso netto, e resta vuoto dove le unità di
+          misura non si sommano.
+        </div>`,
+      signs: [
+        ['Preparato da', doc.operator || ''],
+        ['Verificato da', ''],
+        ['Ricevuto da', ''],
+      ],
+    });
+    window.print();
+    setTimeout(() => { $('printReport').innerHTML = ''; }, 1500);
   },
 
   _printDDT(doc_id) {

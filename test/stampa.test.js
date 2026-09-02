@@ -126,10 +126,30 @@ describe('chi scorre e chi no', () => {
     }
   });
 
-  it('DDT, verbali e cartellini restano a pagina sola', () => {
-    for (const f of ['src/ui/views/spedizioni.ts', 'src/ui/views/smaltimento.ts',
+  it('verbali e cartellini restano a pagina sola', () => {
+    for (const f of ['src/ui/views/smaltimento.ts',
                      'src/ui/views/campionamento.ts', 'src/ui/views/quarantena.ts']) {
       expect(legge(f).includes('flow: true'), f).toBe(false);
     }
+  });
+
+  /* 2.20 — `spedizioni.ts` stampa DUE documenti, e non scorrono allo stesso
+     modo. Il DDT e' progettato per stare in un foglio: e' quello che
+     accompagna il trasporto, e un DDT su tre pagine e' un DDT che si perde.
+     La packing list invece e' un elenco che cresce col numero di bancali —
+     dieci pallet non stanno in una pagina — e chiede `flow`, come i tre
+     report. La differenza sta nello stesso file, quindi si guarda documento
+     per documento e non file per file. */
+  it('il DDT sta in un foglio, la packing list scorre', () => {
+    const s = legge('src/ui/views/spedizioni.ts');
+    const daKind = (kind) => {
+      const i = s.indexOf(`kind: '${kind}'`);
+      expect(i, kind).toBeGreaterThan(-1);
+      /* Dal `kind` alla fine della chiamata a `_docPageHTML`: il primo
+         `});` che segue chiude l'oggetto passato. */
+      return s.slice(i, s.indexOf('});', i));
+    };
+    expect(daKind('PACKING LIST')).toContain('flow: true');
+    expect(daKind('DOCUMENTO DI TRASPORTO')).not.toContain('flow: true');
   });
 });

@@ -18,6 +18,9 @@ type RigaArchivio = {
   stato: { lbl: string; cls: string };
   search: string;
   print: string;
+  /** 2.20 — un secondo foglio dallo stesso documento, dove esiste: la
+      packing list del DDT. Assente sugli altri generi. */
+  print2?: { azione: string; icona: string; titolo: string };
 };
 
 export const VistaArchivio = {
@@ -58,7 +61,13 @@ export const VistaArchivio = {
         sub: `${(d.lines || []).length} righe · ${colli} Coll.${d.carrier ? ' · ' + d.carrier : ''}`,
         stato,
         search: `${d.ddt_num} ${d.doc_id} ${d.destination} ${d.carrier || ''} ${(d.lines || []).map(l => l.article_code + ' ' + l.lot_code).join(' ')}`,
-        print: `App._printDDT('${esc(d.doc_id)}')`
+        print: `App._printDDT('${esc(d.doc_id)}')`,
+        /* La packing list ha senso su un DDT che porta bancali: altrove
+           sarebbe un foglio con una sola sezione «merce senza bancale». */
+        print2: (d.lines || []).some((l) => l.udc_id)
+          ? { azione: `App._printPackingList('${esc(d.doc_id)}')`, icona: '📦',
+              titolo: 'Packing list — un bancale per blocco' }
+          : undefined
       });
     }
 
@@ -227,7 +236,7 @@ export const VistaArchivio = {
               ${th('num', 'Numero', 'w-[150px]')}
               ${th('title', 'Riferimento')}
               ${th('stato', 'Stato', 'w-[105px]')}
-              <th class="w-[60px]"></th>
+              <th class="w-[100px]"></th>
             </tr></thead>
             <tbody>
               ${rows.map((r) => `<tr>
@@ -239,7 +248,10 @@ export const VistaArchivio = {
                   <div class="truncate text-label-small text-sx-text-muted">${this._esc(r.sub)}</div>
                 </td>
                 <td><span class="badge ${r.stato.cls}">${this._esc(r.stato.lbl)}</span></td>
-                <td><button class="btn btn-sm btn-ghost" onclick="${r.print}" title="Ristampa">🖨</button></td>
+                <td class="whitespace-nowrap">
+                  <button class="btn btn-sm btn-ghost" onclick="${r.print}" title="Ristampa">🖨</button>
+                  ${r.print2 ? `<button class="btn btn-sm btn-ghost" onclick="${r.print2.azione}" title="${this._esc(r.print2.titolo)}">${r.print2.icona}</button>` : ''}
+                </td>
               </tr>`).join('')}
             </tbody>
           </table>

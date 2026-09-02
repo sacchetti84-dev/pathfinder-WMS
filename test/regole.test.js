@@ -60,6 +60,7 @@ const AMMESSI = new Map([
   ['capofila', 'wip.ts — è `odp_num` con un altro nome, ed `odp_num` è coperto'],
   ['name',     'app.ts — nome di un backup su OPFS, generato dall\'applicativo da una data'],
   ['printer_id', 'configurazione.ts — 2.19: lo genera `nuovoIdStampante`, che scrive `STP-<n>` e nient\'altro. Non è una cella che qualcuno compila'],
+  ['azione',   'archivio.ts — 2.20: non è un campo, è il gestore INTERO della packing list, costruito lì accanto da `esc(doc_id)`. Stesso caso di `print`'],
   ['suA4',     'stampaEtichette.ts — 2.19: non è un campo, è il gestore INTERO, costruito nel sorgente da chi apre la maschera. Stesso caso di `print` in archivio.ts'],
 ]);
 
