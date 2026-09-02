@@ -3,7 +3,7 @@
 # © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
 #
 # PERCHÉ ESISTE, DALLA 2.18.
-# Le prove ci sono da sempre e sono verdi: ~1.250 sul client, 156 sul servizio,
+# Le prove ci sono da sempre e sono verdi: ~1.230 sul client, 156 sul servizio,
 # 43 sull'installazione. Ma niente impediva a un commit di entrare senza averle
 # lanciate, e niente impediva a `npm run check` di restare rosso per una
 # settimana senza che nessuno se ne accorgesse. In un progetto con un autore
@@ -19,6 +19,20 @@
 # `npm run build` su una macchina, e la sua impronta si annota a mano — è la
 # regola del progetto, e una build fatta da un servizio di terzi non è la
 # build che si installa.
+#
+# ── LE DIPENDENZE DEL SERVIZIO SI INSTALLANO PRIMA DEI TIPI ─────────────────
+# La prima corsa, il 02/09, è fallita qui — ed è esattamente il genere di cosa
+# per cui questo file esiste.
+#
+# `npm run check` sono DUE `tsc`, non uno: il client e il servizio. Quello del
+# servizio ha `checkJs` acceso e `include: ["server/**/*.js"]`, quindi controlla
+# davvero il codice del servizio — e per farlo deve poter risolvere `express`,
+# `pg` e `better-sqlite3`. Sulla macchina di sviluppo `server/node_modules`
+# c'è da sempre e la domanda non si pone; su un runner pulito no, e i tipi
+# fallivano con tre «Cannot find module» prima ancora di arrivare alle prove.
+#
+# Quindi: PRIMA tutte e due le installazioni, POI i tipi. Chi sposta questi
+# passi rimette il difetto.
 # ─────────────────────────────────────────────────────────────────────────────
 
 name: collaudo
@@ -38,23 +52,24 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Node 20 è il minimo dichiarato in `engines`, ed è quello su cui gira
       # la macchina di magazzino. Si prova su quello che si installa.
-      - uses: actions/setup-node@v4
+      # (Le AZIONI invece girano col LORO runtime, che è un'altra cosa: alla
+      # prima corsa il runner ha avvisato che con la v4 girano su Node 20,
+      # deprecato, e le forzava su Node 24. La v7 dichiara `node24` e non
+      # chiede niente in cambio: gli stessi tre parametri di prima.)
+      - uses: actions/setup-node@v7
         with:
           node-version: '20'
           cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            server/package-lock.json
 
       - name: Dipendenze del client
         run: npm ci
-
-      - name: I tipi — client e servizio
-        run: npm run check
-
-      - name: Le prove del client
-        run: npm test
 
       # `better-sqlite3` pubblica il binario già compilato per Node 20: qui
       # l'installazione è un download, non una compilazione. Se un domani
@@ -64,6 +79,13 @@ jobs:
         working-directory: server
         run: npm ci
 
+      # Adesso, e non prima: vedi l'intestazione.
+      - name: I tipi — client e servizio
+        run: npm run check
+
+      - name: Le prove del client
+        run: npm test
+
       - name: Le prove del servizio
         working-directory: server
         run: node test/collaudo.js
@@ -71,6 +93,10 @@ jobs:
       - name: Le prove sugli script di installazione
         working-directory: server
         run: node test/collaudo-installazione.js
+
+      - name: Le prove sul cambio di schema
+        working-directory: server
+        run: node test/collaudo-migrazione-1.4.js
 
       # INFORMATIVO, E NON FA FALLIRE LA CORSA.
       # `xlsx` 0.18.5 ha due vulnerabilità note e il rischio è stato accettato
