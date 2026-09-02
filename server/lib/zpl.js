@@ -224,17 +224,27 @@ const CAMPI_AMMESSI = Object.keys(CAMPI);
    I quattro dati che l'etichetta della merce deve portare — barre,
    descrizione, scadenza, peso — piu' i due che la rendono leggibile senza
    lettore: il codice articolo in testa e il lotto. Colli e ubicazione
-   esistono e nascono spenti. */
+   esistono e nascono spenti.
+
+   TARATO SUL SUPPORTO VERO: adesive staccate 100 x 80. Occupa 68,5 mm degli
+   80, e gli 11,5 che restano non sono spazio sprecato — su un'etichetta
+   staccata il registro balla di un millimetro o due a ogni avanzamento, e un
+   campo a filo del bordo e' un campo che prima o poi si taglia.
+
+   E' lo stesso elenco di `src/modules/stampanti.ts`, che lo usa per disegnare
+   la scheda di configurazione: `test/stampanti.test.js` confronta i due conti
+   riga per riga, perche' due copie che divergono in silenzio sono due
+   verita'. */
 const LAYOUT_DI_SERIE = Object.freeze({
   righe: Object.freeze([
-    { campo: 'articolo',    attivo: true,  altezza_mm: 4.5, allineamento: 'L', righe_testo: 1 },
-    { campo: 'descrizione', attivo: true,  altezza_mm: 3.2, allineamento: 'L', righe_testo: 2 },
-    { campo: 'barcode',     attivo: true,  altezza_mm: 15,  allineamento: 'C', righe_testo: 1 },
-    { campo: 'lotto',       attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
-    { campo: 'scadenza',    attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
-    { campo: 'peso',        attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
-    { campo: 'colli',       attivo: false, altezza_mm: 3.5, allineamento: 'L', righe_testo: 1 },
-    { campo: 'ubicazione',  attivo: false, altezza_mm: 2.8, allineamento: 'R', righe_testo: 1 },
+    { campo: 'articolo',    attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'descrizione', attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 2 },
+    { campo: 'barcode',     attivo: true,  altezza_mm: 22,  allineamento: 'C', righe_testo: 1 },
+    { campo: 'lotto',       attivo: true,  altezza_mm: 5.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'scadenza',    attivo: true,  altezza_mm: 5.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'peso',        attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'colli',       attivo: false, altezza_mm: 5,   allineamento: 'L', righe_testo: 1 },
+    { campo: 'ubicazione',  attivo: false, altezza_mm: 3.2, allineamento: 'R', righe_testo: 1 },
   ]),
 });
 

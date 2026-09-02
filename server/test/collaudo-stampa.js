@@ -39,11 +39,13 @@ const alza = async (nome, fn, pezzo) => {
   catch (e) { ok(nome, String(e.message).includes(pezzo), `«${e.message}»`); }
 };
 
-/* La stampante di prova: 100 x 60 a 203 dpi, che e' il supporto
-   dell'etichetta merce di oggi — `.item-label` in `05-pick-report.css`. */
+/* La stampante di prova e' quella vera del magazzino: serie ZD200, testina a
+   203 dpi, adesive staccate 100 x 80. Le misure NON sono quelle
+   dell'etichetta su A4 (100 x 60, `.item-label` in `05-pick-report.css`):
+   quella e' un ripiego su foglio e non deve imitare il rotolo. */
 const STAMPANTE = {
   printer_id: 'STP-BANCO', nome: 'Banco', host: '127.0.0.1', porta: 9100,
-  dpi: 203, larghezza_mm: 100, altezza_mm: 60, site_id: 'MAG1', attiva: true,
+  dpi: 203, larghezza_mm: 100, altezza_mm: 80, site_id: 'MAG1', attiva: true,
 };
 
 const MERCE = {
@@ -129,10 +131,20 @@ async function principale() {
   /* ══ 3. IL LAYOUT NEI MILLIMETRI ══════════════════════════════════════ */
   console.log('\n  Il layout');
   {
-    const posa = zpl.disponi(null, 60);
+    const posa = zpl.disponi(null, 80);
     ok('il layout di serie porta i sei campi accesi', posa.blocchi.length === 6,
       posa.blocchi.map((b) => b.campo).join(', '));
-    ok('il layout di serie ci sta su 60 mm', posa.ci_sta, `${posa.usato_mm} mm`);
+    ok('il layout di serie ci sta sul supporto vero, 80 mm', posa.ci_sta, `${posa.usato_mm} mm`);
+    /* Gli undici millimetri che avanzano non sono spazio sprecato: su
+       un'etichetta staccata il registro balla a ogni avanzamento, e un campo
+       a filo del bordo prima o poi si taglia. */
+    ok('e lascia un margine di sicurezza sotto', posa.usato_mm <= 72,
+      `${(80 - posa.usato_mm).toFixed(1)} mm liberi`);
+    /* Con TUTTI i campi accesi ci sta ancora, appena — e la scheda di
+       configurazione lo dice mentre li si accende. */
+    const tutti = { righe: zpl.LAYOUT_DI_SERIE.righe.map((r) => ({ ...r, attivo: true })) };
+    ok('con colli e ubicazione accesi ci sta ancora', zpl.disponi(tutti, 80).ci_sta,
+      `${zpl.disponi(tutti, 80).usato_mm} mm su 80`);
     ok('barre, descrizione, scadenza e peso ci sono tutti',
       ['barcode', 'descrizione', 'scadenza', 'peso']
         .every((c) => posa.blocchi.some((b) => b.campo === c)));
@@ -146,14 +158,19 @@ async function principale() {
         || b.y_mm >= posa.blocchi[i - 1].y_mm + posa.blocchi[i - 1].alta_mm));
   }
   {
-    const posa = zpl.disponi(null, 25);
-    ok('un layout piu\' alto del supporto lo dichiara', !posa.ci_sta, `${posa.usato_mm} su 25 mm`);
+    /* I 60 mm sono la misura dell'etichetta su A4, e a questo layout NON
+       bastano: i due formati sono diversi di proposito — l'A4 e' un ripiego
+       su foglio e non deve imitare il rotolo. Il banco lo dice, cosi' se un
+       giorno qualcuno configura una stampante con quel supporto sa gia' cosa
+       succede. */
+    const posa = zpl.disponi(null, 60);
+    ok('un layout piu\' alto del supporto lo dichiara', !posa.ci_sta, `${posa.usato_mm} su 60 mm`);
   }
   ok('un campo spento non occupa spazio',
-    zpl.disponi({ righe: [{ campo: 'articolo', attivo: false, altezza_mm: 5 }] }, 60)
+    zpl.disponi({ righe: [{ campo: 'articolo', attivo: false, altezza_mm: 5 }] }, 80)
       .blocchi.length === 0);
   ok('un campo che non esiste si scarta invece di rompere il layout',
-    zpl.disponi({ righe: [{ campo: 'inventato', attivo: true, altezza_mm: 5 }] }, 60)
+    zpl.disponi({ righe: [{ campo: 'inventato', attivo: true, altezza_mm: 5 }] }, 80)
       .blocchi.length === 6, 'ripiega su quello di serie');
 
   /* Un layout troppo alto NON si tronca: si rifiuta. Un'etichetta troncata
@@ -173,7 +190,7 @@ async function principale() {
     ok('apre e chiude come uno ZPL', s.startsWith('^XA') && s.endsWith('^XZ'));
     ok('dichiara UTF-8 — o gli accenti escono sbagliati', s.includes('^CI28'));
     ok('dichiara larghezza e altezza del supporto',
-      s.includes('^PW799') && s.includes('^LL480'), '100 x 60 a 203 dpi');
+      s.includes('^PW799') && s.includes('^LL639'), '100 x 80 a 203 dpi');
     ok('le copie finiscono in ^PQ', s.includes('^PQ3'));
     ok('il barcode porta la chiave di riga', s.includes('^BCN,') && s.includes('6001055#L2603'));
     ok('la descrizione c\'e\'', s.includes('Manganese solfato monoidrato'));

@@ -114,26 +114,43 @@ const CAMPI_PER_NOME = new Map(CAMPI_ETICHETTA.map((c) => [c.campo, c]));
 
 /** Il layout di serie: i quattro dati che l'etichetta deve portare — barre,
     descrizione, scadenza, peso — più i due che la rendono leggibile senza
-    lettore. Colli e ubicazione esistono e nascono spenti. */
+    lettore. Colli e ubicazione esistono e nascono spenti.
+
+    LE MISURE SONO QUELLE DEL SUPPORTO VERO: adesive staccate 100 × 80. Occupa
+    68,5 mm degli 80, e gli 11,5 che restano non sono spazio sprecato — su
+    un'etichetta staccata il registro balla di un millimetro o due a ogni
+    avanzamento, e un campo a filo del bordo è un campo che prima o poi si
+    taglia. Con colli e ubicazione accesi si sale a 78,7: ci sta, appena, e la
+    scheda di configurazione lo dice mentre li si accende.
+
+    I CORPI SONO GRANDI PERCHÉ CHI LEGGE HA I GUANTI. Il peso è il numero che
+    l'operatore cerca per primo, e ha il corpo del codice articolo. */
 export const LAYOUT_DI_SERIE: LayoutEtichetta = {
   righe: [
-    { campo: 'articolo',    attivo: true,  altezza_mm: 4.5, allineamento: 'L', righe_testo: 1 },
-    { campo: 'descrizione', attivo: true,  altezza_mm: 3.2, allineamento: 'L', righe_testo: 2 },
-    { campo: 'barcode',     attivo: true,  altezza_mm: 15,  allineamento: 'C', righe_testo: 1 },
-    { campo: 'lotto',       attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
-    { campo: 'scadenza',    attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
-    { campo: 'peso',        attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 1 },
-    { campo: 'colli',       attivo: false, altezza_mm: 3.5, allineamento: 'L', righe_testo: 1 },
-    { campo: 'ubicazione',  attivo: false, altezza_mm: 2.8, allineamento: 'R', righe_testo: 1 },
+    { campo: 'articolo',    attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'descrizione', attivo: true,  altezza_mm: 4,   allineamento: 'L', righe_testo: 2 },
+    { campo: 'barcode',     attivo: true,  altezza_mm: 22,  allineamento: 'C', righe_testo: 1 },
+    { campo: 'lotto',       attivo: true,  altezza_mm: 5.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'scadenza',    attivo: true,  altezza_mm: 5.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'peso',        attivo: true,  altezza_mm: 6.5, allineamento: 'L', righe_testo: 1 },
+    { campo: 'colli',       attivo: false, altezza_mm: 5,   allineamento: 'L', righe_testo: 1 },
+    { campo: 'ubicazione',  attivo: false, altezza_mm: 3.2, allineamento: 'R', righe_testo: 1 },
   ],
 };
 
-/** Una stampante nuova, con le misure dell'etichetta merce di oggi — 100 × 60,
-    che è `.item-label` in `05-pick-report.css`. */
+/** Una stampante nuova, con le misure del supporto in uso: **adesive staccate
+    100 × 80 su testina a 203 dpi**, che è la serie ZD200 del magazzino.
+    Larghezza di stampa 799 punti, dentro i 104 mm che una desktop da 4
+    pollici copre.
+
+    Non è la misura dell'etichetta su A4 (`.item-label`, 100 × 60): quella è
+    un ripiego su foglio e non deve imitare il rotolo. §8 — la stampa non si
+    migra, e le due strade portano lo stesso codice a barre, non lo stesso
+    formato. */
 export function stampanteDiSerie(): Stampante {
   return {
     printer_id: '', nome: '', host: '', porta: 9100, dpi: 203,
-    larghezza_mm: 100, altezza_mm: 60, site_id: '', attiva: true,
+    larghezza_mm: 100, altezza_mm: 80, site_id: '', attiva: true,
   };
 }
 

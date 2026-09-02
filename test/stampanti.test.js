@@ -28,7 +28,7 @@ const zpl = createRequire(import.meta.url)('../server/lib/zpl.js');
 
 const STAMPANTE = {
   printer_id: 'STP-1', nome: 'Spedizioni', host: '10.0.1.50', porta: 9100,
-  dpi: 203, larghezza_mm: 100, altezza_mm: 60, site_id: 'MAG1', attiva: true,
+  dpi: 203, larghezza_mm: 100, altezza_mm: 80, site_id: 'MAG1', attiva: true,
 };
 
 describe('il conto dei millimetri è lo stesso del servizio', () => {
@@ -41,16 +41,16 @@ describe('il conto dei millimetri è lo stesso del servizio', () => {
   });
 
   it('il layout di serie occupa gli stessi millimetri', () => {
-    const qui = disponi(null, 60);
-    const la = zpl.disponi(null, 60);
+    const qui = disponi(null, 80);
+    const la = zpl.disponi(null, 80);
     expect(qui.usato_mm).toBe(la.usato_mm);
     expect(qui.ci_sta).toBe(la.ci_sta);
     expect(qui.blocchi.map((b) => b.campo)).toEqual(la.blocchi.map((b) => b.campo));
   });
 
   it('ogni riga finisce alla stessa altezza', () => {
-    const qui = disponi(null, 60).blocchi;
-    const la = zpl.disponi(null, 60).blocchi;
+    const qui = disponi(null, 80).blocchi;
+    const la = zpl.disponi(null, 80).blocchi;
     expect(qui.map((b) => [b.campo, b.y_mm, b.alta_mm]))
       .toEqual(la.map((b) => [b.campo, b.y_mm, b.alta_mm]));
   });
@@ -66,10 +66,24 @@ describe('il conto dei millimetri è lo stesso del servizio', () => {
         { campo: 'colli', attivo: false, altezza_mm: 9, allineamento: 'L', righe_testo: 1 },
       ],
     };
-    for (const altezza of [30, 45, 60, 100]) {
+    for (const altezza of [30, 45, 60, 80, 100]) {
       expect(disponi(strano, altezza).usato_mm).toBe(zpl.disponi(strano, altezza).usato_mm);
       expect(disponi(strano, altezza).ci_sta).toBe(zpl.disponi(strano, altezza).ci_sta);
     }
+  });
+
+  /* Il numero che la scheda di configurazione mostra a chi sposta un cursore.
+     Se cambia qui e non di la', l'operatore legge «ci sta» su un'etichetta
+     che il servizio rifiuta — ed e' il difetto che questa batteria esiste per
+     impedire. */
+  it('sul supporto vero i due conti danno lo stesso verdetto', () => {
+    expect(disponi(null, 80).usato_mm).toBe(68.5);
+    expect(zpl.disponi(null, 80).usato_mm).toBe(68.5);
+    expect(disponi(null, 80).ci_sta).toBe(true);
+    /* Sui 60 mm dell'etichetta A4 non ci sta, e i due sono d'accordo pure su
+       questo: i due formati sono diversi di proposito. */
+    expect(disponi(null, 60).ci_sta).toBe(false);
+    expect(zpl.disponi(null, 60).ci_sta).toBe(false);
   });
 
   it('i campi che il client offre sono quelli che il servizio sa leggere', () => {
@@ -150,9 +164,13 @@ describe('la convalida di una stampante', () => {
       .toContainEqual(expect.stringContaining('già una stampante'));
   });
 
-  it('la stampante di serie ha le misure dell’etichetta merce di oggi', () => {
-    /* 100 × 60, che è `.item-label` in `05-pick-report.css`. */
-    expect(stampanteDiSerie()).toMatchObject({ larghezza_mm: 100, altezza_mm: 60, porta: 9100, dpi: 203 });
+  /* Le misure sono quelle del supporto VERO — adesive staccate 100 × 80 su
+     testina a 203 dpi, la serie ZD200 del magazzino. NON sono quelle
+     dell'etichetta su A4 (100 × 60, `.item-label`): quella è un ripiego su
+     foglio e non deve imitare il rotolo. Le due strade portano lo stesso
+     codice a barre, non lo stesso formato. */
+  it('la stampante di serie ha le misure del supporto vero', () => {
+    expect(stampanteDiSerie()).toMatchObject({ larghezza_mm: 100, altezza_mm: 80, porta: 9100, dpi: 203 });
   });
 
   /* Una chiave non si riusa mai: un'etichetta stampata da `STP-3` deve

@@ -48,6 +48,16 @@ pallets created with no label and nobody told.
   and weight, plus article code and lot. Each field has a height in millimetres,
   alignment and wrap count; the total is shown against the roll height while you
   choose it. **A layout taller than the media is refused, not truncated.**
+- The default layout is sized for the media actually in use — **die-cut
+  adhesive labels, 100 × 80 mm, 203 dpi printhead** (ZD200 series). It occupies
+  68.5 mm of the 80; the remaining 11.5 mm are deliberate, because registration
+  on die-cut stock drifts a millimetre or two per feed and a field at the edge
+  eventually gets clipped. Type sizes are generous because the reader is wearing
+  gloves. These are **not** the A4 label's dimensions (100 × 60) and are not
+  meant to be: the sheet is a fallback, not an imitation of the roll.
+- Media calibration (die-cut stock uses **gap sensing**) and darkness stay on
+  the printer, set once at the panel. The service deliberately never sends
+  them.
 - The weight row is titled for what it is: "Peso" for KG and GR, "Quantità" for
   PZ, MT and LT — calling pieces a weight misleads whoever reads the label six
   months later.
@@ -62,10 +72,13 @@ pallets created with no label and nobody told.
   commands: those are machine configuration, set once at the panel.
 - **A4 printing is unchanged.** The printer is added alongside the sheet, never
   in place of it.
-- 76 new service tests (`server/test/collaudo-stampa.js`) run against a fake
+- 78 new service tests (`server/test/collaudo-stampa.js`) run against a fake
   printer listening on 9100 — no hardware required. What hardware *is* still
   required for — a real scanner reading the bars, print alignment, darkness —
-  is recorded as open work.
+  is recorded as open work — as is the one assumption everything rests on: that
+  these printers have a network port at all. Desktop Zebras in this class often
+  ship USB-only, and an external print server would cover that case without a
+  line of code changing.
 
 ---
 
