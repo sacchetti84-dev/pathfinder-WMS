@@ -5,6 +5,11 @@ import { Validate } from '../../modules/validate';
 import { PRIORITA_MIN, PRIORITA_MAX, PRIORITA_PREDEFINITA } from '../../modules/stoccaggio';
 import { Dialog } from '../dialog';
 import { Tabs } from '../tabs';
+import {
+  CAMPI_ETICHETTA, DPI_AMMESSI, PORTE_AMMESSE, LAYOUT_DI_SERIE,
+  stampanteDiSerie, validaStampante, nuovoIdStampante, disponi as disponiEtichetta,
+} from '../../modules/stampanti';
+import type { Stampante, RigaEtichetta, Allineamento } from '../../modules/stampanti';
 
 /* Il campo del mittente, e la sua etichetta a video. */
 type CampoMittente = [chiave: keyof Mittente, etichetta: string];
@@ -69,6 +74,7 @@ export const VistaConfigurazione = {
         <button class="config-tab ${this._configTab === 'docs' ? 'active' : ''}" onclick="App._configTab='docs';App.renderConfig()">DDT e Documenti</button>
         <button class="config-tab ${this._configTab === 'session' ? 'active' : ''}" onclick="App._configTab='session';App.renderConfig()">Sessione</button>
         <button class="config-tab ${this._configTab === 'features' ? 'active' : ''}" onclick="App._configTab='features';App.renderConfig()">Produzione ed etichette</button>
+        <button class="config-tab ${this._configTab === 'printers' ? 'active' : ''}" onclick="App._configTab='printers';App.renderConfig()">Stampanti</button>
         <button class="config-tab ${this._configTab === 'rules' ? 'active' : ''}" onclick="App._configTab='rules';App.renderConfig()">Regole di stoccaggio</button>
         <button class="config-tab ${this._configTab === 'data' ? 'active' : ''}" onclick="App._configTab='data';App.renderConfig()">Dati e Backup</button>
       </div>
@@ -84,6 +90,7 @@ export const VistaConfigurazione = {
     else if (this._configTab === 'docs') this._renderConfigDocs(content);   // v3.0.0 [M4]
     else if (this._configTab === 'session') this._renderConfigSession(content);
     else if (this._configTab === 'features') this._renderConfigFeatures(content);
+    else if (this._configTab === 'printers') this._renderConfigStampanti(content);
     else this._renderConfigData(content);
   },
 
@@ -105,6 +112,320 @@ export const VistaConfigurazione = {
       </div>
       ${this._areaWipHTML()}
       ${this._prefissoGS1HTML()}`;
+  },
+
+  /* ═══ 2.19 · LE STAMPANTI ZEBRA IN RETE ════════════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Due cose in una scheda, e stanno insieme perché non si configurano una
+     senza l'altra: CHI stampa — indirizzo, porta, testina, supporto — e COSA
+     c'è sull'etichetta della merce.
+
+     LE MISURE DEL SUPPORTO STANNO SULLA STAMPANTE, NON SUL LAYOUT. Il rotolo
+     montato è una proprietà della macchina: due stampanti con la stessa
+     disposizione di campi possono avere etichette di formato diverso, e
+     legare la misura al layout vorrebbe dire un layout per rotolo.
+
+     L'ETICHETTA DELL'UNITÀ DI CARICO NON SI CONFIGURA, ed è una decisione di
+     §8 e non una funzione mancante — il perché sta scritto nella scheda. */
+  _renderConfigStampanti(el: HTMLElement) {
+    const stampanti = Store.getStampanti() as Stampante[];
+    const servito = Store.eServito();
+    el.innerHTML = `
+      <div class="mov-preview mb-8 leading-[1.6]">
+        Le <strong>Zebra in rete</strong> stampano le etichette della merce e delle unità di
+        carico. A parlarci è il <strong>servizio</strong>, non il browser: un browser non apre
+        un socket TCP, e la porta 9100 di una Zebra vuole esattamente quello.
+        <br><strong>La stampa su A4 resta</strong>: se una stampante è spenta o il rotolo è
+        finito, l'etichetta esce sul foglio come è sempre uscita.
+      </div>
+      ${!servito ? `<div class="mov-preview mov-preview-warn mb-8 leading-[1.6]">
+        <strong>Questa macchina lavora da file.</strong> Le stampanti si configurano lo stesso
+        e il dato si conserva, ma finché non c'è un servizio nessuno può parlare alla stampante.
+      </div>` : ''}
+      ${this._stampantiElencoHTML(stampanti)}
+      ${this._layoutEtichettaHTML(stampanti)}
+      <div class="config-card mt-8">
+        <strong>🏷 L'etichetta dell'unità di carico non ha un layout</strong>
+        <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+          E non è una funzione mancante. Un pallet porta N righe di N articoli diversi:
+          descrizione, scadenza e peso non sono nemmeno <em>definiti</em> per un'unità di carico,
+          e la prima volta che qualcuno ci carica sopra una seconda partita quel che c'è scritto
+          diventa falso — incollato al legno, e letto da chi passa.
+          <strong>L'unico dato che non invecchia è il numero</strong>, che non si riusa mai:
+          tutto il resto lo dice il sistema, che lo sa adesso e non alla stampa.
+          Quel che si configura è il <strong>supporto</strong> — misure e testina — che sta sulla stampante.
+        </div>
+      </div>`;
+  },
+
+  _stampantiElencoHTML(stampanti: Stampante[]) {
+    const righe = stampanti.map((s) => `<tr class="${s.attiva === false ? 'opacity-60' : ''}">
+      <td><strong>${this._esc(s.nome)}</strong>${s.attiva === false ? ' <span class="badge badge-muted">disattivata</span>' : ''}</td>
+      <td class="mono">${this._esc(s.host)}:${s.porta}</td>
+      <td class="whitespace-nowrap">${s.dpi} dpi · ${s.larghezza_mm}×${s.altezza_mm} mm</td>
+      <td class="mono">${this._esc(s.site_id || '—')}</td>
+      <td class="whitespace-nowrap">
+        <button class="btn btn-sm" onclick="App._stampanteModifica('${this._esc(s.printer_id)}')">✏️ Modifica</button>
+        <button class="btn btn-sm btn-accent" onclick="App._provaStampante('${this._esc(s.printer_id)}')">🏷 Prova</button>
+        <button class="btn btn-sm btn-danger" onclick="App._stampanteTogli('${this._esc(s.printer_id)}')">Togli</button>
+      </td>
+    </tr>`).join('');
+
+    return `<div class="config-card">
+      <div class="flex justify-between items-center flex-wrap gap-4">
+        <strong>Stampanti configurate (${stampanti.length})</strong>
+        <button class="btn btn-sm btn-primary" onclick="App._stampanteModifica('')">+ Aggiungi stampante</button>
+      </div>
+      <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+        Il <strong>sito</strong> è facoltativo e serve a una cosa sola: proporre la stampante
+        giusta. Quella di MAG1 è quella vicina a MAG1, e mandare un'etichetta di MAG1 sulla
+        stampante di MAG2 vuol dire un operatore che attraversa il magazzino per raccogliere
+        un pezzo di carta.
+      </div>
+      ${stampanti.length
+        ? `<div class="overflow-x-auto mt-6"><table class="sx-table">
+            <thead><tr><th>Nome</th><th>Indirizzo</th><th>Testina e supporto</th><th>Sito</th><th class="w-[280px]">Azioni</th></tr></thead>
+            <tbody>${righe}</tbody></table></div>`
+        : `<div class="text-body-small text-sx-text-muted mt-6">
+            Nessuna stampante. Finché non ce n'è una, le etichette escono su A4 dal browser.
+          </div>`}
+    </div>`;
+  },
+
+  _stampanteModifica(printerId: string) {
+    if (!this._requireOperator('la configurazione delle stampanti')) return;
+    const elenco = Store.getStampanti() as Stampante[];
+    const s = elenco.find((x) => x.printer_id === printerId) || stampanteDiSerie();
+    const nuova = !s.printer_id;
+
+    this.showModal(
+      nuova ? '🖨 Nuova stampante Zebra' : `🖨 ${this._esc(s.nome)}`,
+      `<div class="form-group mb-6">
+        <label>Nome <span class="req">*</span></label>
+        <input class="input" id="stpNome" maxlength="60" value="${this._esc(s.nome)}"
+               placeholder="Es: Zebra ZT411 — Spedizioni">
+        <div class="text-label-small text-sx-text-muted mt-2">È quello che l'operatore sceglie in corsia: che dica dov'è.</div>
+      </div>
+      <div class="flex gap-3 flex-wrap">
+        <div class="form-group mb-6 flex-1 min-w-[200px]">
+          <label>Indirizzo IP o nome di rete <span class="req">*</span></label>
+          <input class="input input-mono" id="stpHost" maxlength="100" value="${this._esc(s.host)}"
+                 placeholder="10.0.1.50">
+        </div>
+        <div class="form-group mb-6 w-[130px]">
+          <label>Porta</label>
+          <select class="input select" id="stpPorta">
+            ${PORTE_AMMESSE.map((p) => `<option value="${p}" ${s.porta === p ? 'selected' : ''}>${p}</option>`).join('')}
+          </select>
+        </div>
+      </div>
+      <div class="mov-preview mb-6 text-body-small leading-[1.6]">
+        L'indirizzo dev'essere sulla <strong>rete interna</strong> — 10.x, 172.16-31.x, 192.168.x —
+        e la porta una <strong>porta di stampa Zebra</strong>. Il servizio rifiuta il resto:
+        senza quei due cancelli, questa scheda diventa il modo di far parlare il servizio
+        con qualunque macchina raggiungibile.
+      </div>
+      <div class="flex gap-3 flex-wrap">
+        <div class="form-group mb-6 w-[150px]">
+          <label>Testina</label>
+          <select class="input select" id="stpDpi">
+            ${DPI_AMMESSI.map((d) => `<option value="${d}" ${s.dpi === d ? 'selected' : ''}>${d} dpi</option>`).join('')}
+          </select>
+        </div>
+        <div class="form-group mb-6 w-[150px]">
+          <label>Etichetta — larghezza</label>
+          <input class="input" id="stpLarghezza" type="number" step="0.5" min="10" max="300" value="${s.larghezza_mm}">
+        </div>
+        <div class="form-group mb-6 w-[150px]">
+          <label>Etichetta — altezza</label>
+          <input class="input" id="stpAltezza" type="number" step="0.5" min="10" max="300" value="${s.altezza_mm}">
+        </div>
+        <div class="form-group mb-6 w-[150px]">
+          <label>Sito servito</label>
+          <input class="input input-mono uppercase" id="stpSito" maxlength="4" value="${this._esc(s.site_id)}" placeholder="MAG1">
+        </div>
+      </div>
+      <div class="text-body-small text-sx-text-secondary leading-[1.6] mb-6">
+        Le misure sono quelle del <strong>rotolo montato</strong>, in millimetri. Non si mandano
+        alla stampante il tipo di supporto, il calore e lo spellicolatore: sono la configurazione
+        della macchina, si fanno una volta col pannello e valgono per tutti.
+      </div>
+      <div class="form-group mb-0">
+        <label class="flex items-center gap-3">
+          <input type="checkbox" id="stpAttiva" ${s.attiva !== false ? 'checked' : ''}>
+          Attiva — compare nell'elenco di chi stampa
+        </label>
+      </div>`,
+      `<button class="btn" onclick="App.closeModal()">Annulla</button>
+       <button class="btn btn-success" onclick="App._stampanteSalva('${this._esc(s.printer_id)}')">Salva</button>`
+    );
+  },
+
+  async _stampanteSalva(printerId: string) {
+    const elenco = Store.getStampanti() as Stampante[];
+    const rec: Stampante = {
+      printer_id: printerId || nuovoIdStampante(elenco),
+      nome: String($('stpNome')?.value ?? '').trim(),
+      host: String($('stpHost')?.value ?? '').trim(),
+      porta: Number($sel('stpPorta')?.value),
+      dpi: Number($sel('stpDpi')?.value) as Stampante['dpi'],
+      larghezza_mm: Number($('stpLarghezza')?.value),
+      altezza_mm: Number($('stpAltezza')?.value),
+      site_id: String($('stpSito')?.value ?? '').trim().toUpperCase(),
+      attiva: Boolean(($('stpAttiva') as unknown as HTMLInputElement)?.checked),
+    };
+    const errori = validaStampante(rec, elenco);
+    if (errori.length) return this.toast(errori.join(' · '), 'error');
+
+    /* IL LAYOUT DEVE STARE SUL SUPPORTO DI QUESTA STAMPANTE, e si dice
+       adesso: scoprirlo al primo pallet vuol dire un operatore fermo davanti
+       a un rifiuto che non sa risolvere. Non blocca — il rotolo può essere
+       destinato alle sole unità di carico, che un layout non ce l'hanno — ma
+       non lo si tace. */
+    const posa = disponiEtichetta(Store.getLayoutEtichetta(), rec.altezza_mm);
+
+    const i = elenco.findIndex((x) => x.printer_id === rec.printer_id);
+    if (i >= 0) elenco[i] = rec; else elenco.push(rec);
+
+    try {
+      await Store.saveStampanti(elenco);
+    } catch (e) {
+      return this.toast((e as Error).message, 'error');
+    }
+    this.closeModal();
+    this.renderConfig();
+    this.toast(`🖨 ${rec.nome} — ${rec.host}:${rec.porta}`, 'success');
+    if (!posa.ci_sta) {
+      this.toast(
+        `⚠️ Il layout dell'etichetta merce occupa ${posa.usato_mm} mm e questo supporto è alto ${rec.altezza_mm}: su questa stampante la merce non si stampa finché non si spegne un campo`,
+        'warning');
+    }
+  },
+
+  async _stampanteTogli(printerId: string) {
+    if (!this._requireOperator('la configurazione delle stampanti')) return;
+    const elenco = Store.getStampanti() as Stampante[];
+    const s = elenco.find((x) => x.printer_id === printerId);
+    if (!s) return;
+    if (!await Dialog.confirm({
+      title: 'Togliere la stampante?',
+      message: 'Sparisce dall’elenco di chi stampa. Le etichette già uscite non cambiano, '
+             + 'e chi l’aveva scelta su un terminale si ritrova la proposta di serie.',
+      details: Dialog.kv([['Nome', s.nome], ['Indirizzo', `${s.host}:${s.porta}`]]),
+      confirmLabel: 'Togli', danger: true,
+    })) return;
+    await Store.saveStampanti(elenco.filter((x) => x.printer_id !== printerId));
+    this.renderConfig();
+    this.toast(`${s.nome} tolta`, 'success');
+  },
+
+  /* ── LA DISPOSIZIONE DELL'ETICHETTA MERCE ───────────────────────────────
+
+     I campi si impilano dall'alto nell'ordine in cui stanno qui. Di ognuno si
+     decide se c'è, quanto è alto in millimetri, come si allinea e su quante
+     righe può andare a capo.
+
+     I MILLIMETRI SI VEDONO MENTRE SI SCEGLIE. Il totale sta in fondo,
+     confrontato con l'altezza del supporto: un layout più alto del rotolo il
+     servizio lo RIFIUTA — non lo tronca — perché un'etichetta troncata esce
+     con l'aria di essere giusta e le manca l'ultima riga, che è il peso.
+     Scoprirlo qui costa un secondo; scoprirlo in corsia costa un turno. */
+  _layoutEtichettaHTML(stampanti: Stampante[]) {
+    const layout = Store.getLayoutEtichetta();
+    const rif = stampanti.find((s) => s.attiva !== false) || null;
+    const altezza = rif?.altezza_mm ?? 60;
+    const posa = disponiEtichetta(layout, altezza);
+    const perCampo = new Map(layout.righe.map((r: RigaEtichetta) => [r.campo, r]));
+
+    const righe = CAMPI_ETICHETTA.map((c) => {
+      const r = perCampo.get(c.campo) || { attivo: false, altezza_mm: 4, allineamento: 'L', righe_testo: 1 };
+      return `<tr class="${r.attivo ? '' : 'opacity-60'}">
+        <td><label class="flex items-center gap-3">
+          <input type="checkbox" id="lay_${c.campo}_on" ${r.attivo ? 'checked' : ''}>
+          <strong>${this._esc(c.nome)}</strong>${c.invecchia ? ' ⚠️' : ''}
+        </label>
+        <div class="text-label-small text-sx-text-muted mt-1">${c.nota}</div></td>
+        <td><input class="input" id="lay_${c.campo}_h" type="number" step="0.1" min="1" max="60"
+                   value="${r.altezza_mm}" style="width:80px"></td>
+        <td><select class="input select" id="lay_${c.campo}_a" style="width:110px" ${c.barre ? 'disabled' : ''}>
+          ${([['L', 'Sinistra'], ['C', 'Centro'], ['R', 'Destra']] as [Allineamento, string][])
+            .map(([v, n]) => `<option value="${v}" ${r.allineamento === v ? 'selected' : ''}>${n}</option>`).join('')}
+        </select></td>
+        <td><input class="input" id="lay_${c.campo}_r" type="number" min="1" max="4"
+                   value="${r.righe_testo}" style="width:70px" ${c.barre ? 'disabled' : ''}></td>
+      </tr>`;
+    }).join('');
+
+    return `<div class="config-card mt-8">
+      <strong>Layout dell'etichetta della merce</strong>
+      <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+        I campi si impilano <strong>dall'alto, in quest'ordine</strong>. L'altezza è quella del
+        carattere in millimetri; sotto le barre la testina scrive da sé il codice in chiaro —
+        non è un dato in più, è la rappresentazione leggibile che lo standard chiede, e lascia
+        un numero da digitare quando il lettore non legge.
+      </div>
+      <div class="overflow-x-auto mt-6"><table class="sx-table">
+        <thead><tr><th>Campo</th><th class="w-[110px]">Altezza mm</th><th class="w-[140px]">Allineamento</th><th class="w-[100px]">Righe</th></tr></thead>
+        <tbody>${righe}</tbody></table></div>
+      <div class="mov-preview ${posa.ci_sta ? '' : 'mov-preview-err'} mt-6 leading-[1.6]">
+        Occupa <strong>${posa.usato_mm} mm</strong>
+        ${rif
+          ? `su un supporto di <strong>${altezza} mm</strong> — «${this._esc(rif.nome)}».`
+          : `. Nessuna stampante configurata: il confronto è su <strong>${altezza} mm</strong>, la misura di serie.`}
+        ${posa.ci_sta
+          ? ' Ci sta.'
+          : ' <strong>Non ci sta</strong>: su quel supporto il servizio rifiuta la stampa invece di troncare l\'etichetta. Si spegne un campo o se ne riduce l\'altezza.'}
+        <br><span class="text-label-small text-sx-text-muted">
+          Nel conto ci sono i ${(3 * 2)} mm di margine, l'interlinea fra le righe, e i 3,5 mm
+          della riga in chiaro sotto le barre — che la testina aggiunge e il layout non chiede.
+        </span>
+      </div>
+      <div class="flex gap-3 mt-6 flex-wrap">
+        <button class="btn btn-sm btn-primary" onclick="App._layoutEtichettaSalva()">Salva il layout</button>
+        <button class="btn btn-sm" onclick="App._layoutEtichettaDiSerie()">Torna a quello di serie</button>
+      </div>
+    </div>`;
+  },
+
+  _layoutEtichettaLetto(): { righe: RigaEtichetta[] } {
+    return {
+      righe: CAMPI_ETICHETTA.map((c) => ({
+        campo: c.campo,
+        attivo: Boolean(($(`lay_${c.campo}_on`) as unknown as HTMLInputElement)?.checked),
+        altezza_mm: Number($(`lay_${c.campo}_h`)?.value),
+        allineamento: (c.barre ? 'C' : String($sel(`lay_${c.campo}_a`)?.value || 'L')) as Allineamento,
+        righe_testo: c.barre ? 1 : Number($(`lay_${c.campo}_r`)?.value),
+      })),
+    };
+  },
+
+  async _layoutEtichettaSalva() {
+    if (!this._requireOperator('la modifica del layout dell’etichetta')) return;
+    const layout = this._layoutEtichettaLetto();
+    if (!layout.righe.some((r: RigaEtichetta) => r.attivo)) {
+      return this.toast('Un’etichetta senza nemmeno un campo acceso non è un’etichetta', 'error');
+    }
+    try {
+      await Store.saveLayoutEtichetta(layout);
+      this.renderConfig();
+      this.toast('Layout salvato — vale per le etichette nuove', 'success');
+    } catch (e) {
+      this.toast((e as Error).message, 'error');
+    }
+  },
+
+  async _layoutEtichettaDiSerie() {
+    if (!this._requireOperator('la modifica del layout dell’etichetta')) return;
+    if (!await Dialog.confirm({
+      title: 'Tornare al layout di serie?',
+      message: 'Barre, codice articolo, descrizione, lotto, scadenza e peso accesi; '
+             + 'colli e ubicazione spenti. Le etichette già stampate non cambiano.',
+      confirmLabel: 'Torna al layout di serie',
+    })) return;
+    await Store.saveLayoutEtichetta(LAYOUT_DI_SERIE);
+    this.renderConfig();
+    this.toast('Layout di serie ripristinato', 'success');
   },
 
   /* ═══════════════════════════════════════════════════════════════════

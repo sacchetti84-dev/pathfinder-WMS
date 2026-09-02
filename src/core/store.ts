@@ -54,6 +54,10 @@ import {
 import {
   proponi as proponiStoccaggio, validaRegola as validaRegolaStoccaggio,
 } from '../modules/stoccaggio';
+import {
+  leggiLayout as leggiLayoutEtichetta, validaStampante, leggiCopie as leggiCopieEtichette,
+} from '../modules/stampanti';
+import type { Stampante, LayoutEtichetta } from '../modules/stampanti';
 import type { PostoCandidato, RegolaStoccaggio } from '../modules/stoccaggio';
 /* 2.8 — le due regole che non si scrivono. Il motore delle regole di
    POLITICA sta in `stoccaggio.ts`; queste sono un'altra cosa e stanno da
@@ -501,7 +505,13 @@ const Store = {
       areaWip: metaObj.areaWip ?? '',
       /* 2.1 — il layout del cruscotto. Trappola 22: dichiarata qui, o
          vivrebbe in cache fino al primo ricaricamento e poi sparirebbe. */
-      dashboardLayout: metaObj.dashboardLayout ?? null
+      dashboardLayout: metaObj.dashboardLayout ?? null,
+      /* 2.19 — le stampanti di etichette e la disposizione dell'etichetta
+         merce. Trappola 22 anche loro: senza queste due righe una stampante
+         appena configurata funzionerebbe fino al primo ricaricamento della
+         pagina, e poi sparirebbe senza che nessuno l'abbia tolta. */
+      printers: metaObj.printers ?? null,
+      labelLayout: metaObj.labelLayout ?? null
     };
   },
 
@@ -2925,6 +2935,95 @@ const Store = {
     this._applyToCache('meta', 'put', rec);
     (this._cache.meta as Record<string, any>).udcPrefissoGS1 = p;
     return p;
+  },
+
+  /* ═══ 2.19 · LE STAMPANTI DI ETICHETTE ═══════════════════════════════
+     Il PONTE, e nient'altro: la forma del dato e la sua convalida stanno in
+     `modules/stampanti.ts`, la costruzione dell'etichetta e il socket in
+     `server/lib/`, la maschera in `ui/views/stampaEtichette.ts`. Qui c'e'
+     solo quel che non puo' stare altrove — la cache e `Persistence`.
+
+     Stanno in `meta` come `docConfig`: un IP cambia quando cambia lo switch,
+     e questo non vale una ricompilazione. */
+  getStampanti(): Stampante[] {
+    const salvate = (this._cache.meta as Record<string, any>)?.printers;
+    return Array.isArray(salvate) ? salvate as Stampante[] : [];
+  },
+
+  async saveStampanti(elenco: Stampante[]) {
+    const lista = Array.isArray(elenco) ? elenco : [];
+    /* Si convalida anche QUI e non solo nella maschera: un elenco arriva
+       anche da un import, e il servizio rifiuterebbe al momento della
+       stampa — cioè in corsia, davanti a un pallet. */
+    for (const s of lista) {
+      const errori = validaStampante(s, lista);
+      if (errori.length) throw new Error(`${s.nome || s.printer_id}: ${errori.join(' · ')}`);
+    }
+    const rec = { key: 'printers', value: lista };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    (this._cache.meta as Record<string, any>).printers = lista;
+    await this._touchMeta();
+    return lista;
+  },
+
+  getLayoutEtichetta(): LayoutEtichetta {
+    return leggiLayoutEtichetta((this._cache.meta as Record<string, any>)?.labelLayout);
+  },
+
+  async saveLayoutEtichetta(layout: LayoutEtichetta) {
+    const pulito = leggiLayoutEtichetta(layout);
+    const rec = { key: 'labelLayout', value: pulito };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    (this._cache.meta as Record<string, any>).labelLayout = pulito;
+    await this._touchMeta();
+    return pulito;
+  },
+
+  /* QUALE STAMPANTE HAI VICINO NON E' UN FATTO DELL'AZIENDA: e' un fatto del
+     posto in cui stai. Sta nel `localStorage` di QUEL browser e non a
+     database — scriverlo a database vorrebbe dire che l'ultimo terminale che
+     sceglie decide per tutti gli altri, e con tre banchi di etichettatura e'
+     esattamente il difetto da non fare. Un browser senza archiviazione non
+     e' un guasto: si ricomincia dalla proposta. */
+  RICORDO_STAMPANTE: 'pathfinder.stampante',
+
+  getStampanteRicordata(): string {
+    try { return localStorage.getItem(this.RICORDO_STAMPANTE) || ''; } catch { return ''; }
+  },
+
+  ricordaStampante(printerId: string) {
+    try { localStorage.setItem(this.RICORDO_STAMPANTE, String(printerId ?? '')); } catch { /* si ripropone */ }
+  },
+
+  /** Il client manda CHI stampa e QUALE record, mai il contenuto: l'etichetta
+      la costruisce il servizio da quel che sta a database. La risposta porta
+      due fatti diversi — `inviata` e' certo, `stato` e' quel che la macchina
+      ha detto: la 9100 accetta i byte e chiude anche a carta finita. */
+  async stampaEtichetta(richiesta: {
+    printer_id: string; tipo: 'item' | 'udc';
+    item_key?: string; location_code?: string; udc_id?: string; copie?: number;
+  }) {
+    if (!Persistence.supportsRemoteOps) {
+      throw new Error('La stampa in rete la fa il servizio: da file non c’è nessuno che possa parlare alla stampante');
+    }
+    return await Persistence.op!<{
+      inviata: boolean; copie: number; stampante: string;
+      stato: { noto: boolean; errori: boolean; dettagli: string[] };
+    }>('stampaEtichetta', { ...richiesta, copie: leggiCopieEtichette(richiesta.copie) });
+  },
+
+  /** La prova non porta dati di magazzino: un'etichetta di prova con merce
+      vera e' un'etichetta vera che gira per il reparto senza merce sotto. */
+  async provaStampante(printerId: string) {
+    if (!Persistence.supportsRemoteOps) {
+      throw new Error('La prova la fa il servizio: da file non c’è nessuno che possa parlare alla stampante');
+    }
+    return await Persistence.op!<{
+      inviata: boolean; stampante: string; host: string; porta: number;
+      stato: { noto: boolean; errori: boolean; dettagli: string[] };
+    }>('provaStampante', { printer_id: printerId });
   },
 
   /* Il seriale successivo si ricava dal PIÙ ALTO già emesso, comprese le UDC

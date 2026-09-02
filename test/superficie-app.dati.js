@@ -33,10 +33,22 @@
    `_scaratterizzaUbicazione` e `_rigaAttributiVano` per la
    caratterizzazione della singola cella; `_usaVanoDiCasa` e
    `_usaUdcProposta` per i due bottoni delle regole base.
+   2.19: sono entrati i sedici della stampa su Zebra in rete. La maschera
+   che sta fra il pulsante e l'etichetta — `_chiediStampaEtichetta`,
+   `_eseguiStampaEtichetta`, `_riscontroStampa`, `_sitoDiUbicazione`,
+   `_provaStampante`. La scheda di configurazione —
+   `_renderConfigStampanti`, `_stampantiElencoHTML`, `_stampanteModifica`,
+   `_stampanteSalva`, `_stampanteTogli`, e i quattro del layout
+   (`_layoutEtichettaHTML`, `_layoutEtichettaLetto`, `_layoutEtichettaSalva`,
+   `_layoutEtichettaDiSerie`). Piu' i due che portano il vecchio nome della
+   stampa su foglio: `_udcEtichettaA4` e `_stampaEtichettaItemA4`, perche' il
+   nome senza suffisso adesso e' quello che CHIEDE dove stampare — la Zebra
+   si affianca alla carta, non la sostituisce.
    2.1: sono usciti i sei della copia esterna (`vault*`, `doVaultRestore`,
    `_scheduleVaultBackup`), `purgeOldLogsManual` con la purga, e i due
    salvataggi a mano `forceSave` e `manualSave`. */
 export const SUPERFICIE = [
+  '_chiediStampaEtichetta', '_eseguiStampaEtichetta', '_layoutEtichettaDiSerie', '_layoutEtichettaHTML', '_layoutEtichettaLetto', '_layoutEtichettaSalva', '_provaStampante', '_renderConfigStampanti', '_riscontroStampa', '_sitoDiUbicazione', '_stampaEtichettaItemA4', '_stampanteModifica', '_stampanteSalva', '_stampanteTogli', '_stampantiElencoHTML', '_udcEtichettaA4',
   'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_KNOWN_OPERATORS_KEY',
   '_MIGRATED_KEY', '_MOVQUEUE_KEY', '_MOV_COLORS', '_MOV_SHORT', '_OPERATOR_KEY',
   '_PARAM_SCHEDE', '_PICK_REPORT_VER', '_SCANNER_FIX_KEY', '_SIDEBAR_KEY',   '_activateOperator', '_afterLogin', '_aggiornaConformita', '_aggiornaNotaUM',

@@ -59,6 +59,8 @@ const AMMESSI = new Map([
   ['kind',     'cruscotto.ts — enum di `pending_outbound` (`ddt`…), scritto dall\'applicativo e confrontato alla lettera'],
   ['capofila', 'wip.ts — è `odp_num` con un altro nome, ed `odp_num` è coperto'],
   ['name',     'app.ts — nome di un backup su OPFS, generato dall\'applicativo da una data'],
+  ['printer_id', 'configurazione.ts — 2.19: lo genera `nuovoIdStampante`, che scrive `STP-<n>` e nient\'altro. Non è una cella che qualcuno compila'],
+  ['suA4',     'stampaEtichette.ts — 2.19: non è un campo, è il gestore INTERO, costruito nel sorgente da chi apre la maschera. Stesso caso di `print` in archivio.ts'],
 ]);
 
 function espressioniNeiGestori() {
@@ -121,8 +123,17 @@ describe('il doppio contesto dei gestori inline', () => {
    Non è una riscrittura, è una regola di non peggioramento: il file non
    cresce, e ogni funzionalità nuova nasce in un modulo suo. Il numero sta
    qui e non in un commento perché alzarlo sia un gesto DELIBERATO e visibile
-   nel diff — non l'effetto collaterale di una giornata di lavoro. */
-const TETTO_STORE = 4252;
+   nel diff — non l'effetto collaterale di una giornata di lavoro.
+
+   02/09/2026 — 4252 → 4351, e il gesto è deliberato. Le stampanti Zebra in
+   rete sono nate in quattro file loro: `modules/stampanti.ts` (forma del
+   dato, convalida, disposizione dei campi), `server/lib/zpl.js` (l'etichetta),
+   `server/lib/stampa-zebra.js` (il socket) e `ui/views/stampaEtichette.ts`
+   (la maschera). Quel che è finito qui dentro sono le 99 righe che NON
+   possono stare altrove: leggere e scrivere `meta` passa da `_cache` e da
+   `Persistence`, e nessun modulo esterno li tocca. È esattamente la crescita
+   che la regola ammette — il ponte, non la funzionalità. */
+const TETTO_STORE = 4351;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

@@ -76,6 +76,10 @@ import { VistaSpedizioni } from './views/spedizioni';
 import { VistaDocumento } from './views/documento';
 import { VistaMappa } from './views/mappa';
 import { VistaGiacenze } from './views/giacenze';
+/* 2.19 — la maschera che sta fra il pulsante e l'etichetta. In un file suo
+   perche' la chiamano in due — l'unita' di carico e la merce — e la stessa
+   domanda fatta in due modi sarebbe la stessa domanda imparata due volte. */
+import { VistaStampaEtichette } from './views/stampaEtichette';
 import { VistaConfigOperatori } from './views/configOperatori';
 import { VistaConfigSiti } from './views/configSiti';
 import { VistaConfigArticoli } from './views/configArticoli';
@@ -1893,7 +1897,7 @@ const App = monolite({
    serve a una cosa sola — estrarre e' SPOSTARE. Un metodo rimasto anche di
    qua verrebbe sovrascritto in silenzio, e da quel momento girerebbero due
    versioni della stessa maschera con una sola visibile. */
-for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampionamento, VistaMovimenta, VistaPosiziona, VistaSmaltimento, VistaPrelievo, VistaPercorso, VistaRapportoPrelievo, VistaInventario, VistaUdc, VistaWip, VistaQuarantena, VistaSpedizioni, VistaDocumento, VistaMappa, VistaGiacenze, VistaConfigOperatori, VistaConfigSiti, VistaConfigArticoli, VistaConfigDati, VistaConfigurazione, VistaCruscotto, VistaRegistro, VistaArchivio, VistaRicerca]) {
+for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampionamento, VistaMovimenta, VistaPosiziona, VistaSmaltimento, VistaPrelievo, VistaPercorso, VistaRapportoPrelievo, VistaInventario, VistaUdc, VistaWip, VistaQuarantena, VistaSpedizioni, VistaDocumento, VistaMappa, VistaGiacenze, VistaStampaEtichette, VistaConfigOperatori, VistaConfigSiti, VistaConfigArticoli, VistaConfigDati, VistaConfigurazione, VistaCruscotto, VistaRegistro, VistaArchivio, VistaRicerca]) {
   /* Qui si scrive per nome, e un nome non e' una chiave dichiarata: le due
      letture servono a questo e non aggiungono niente a runtime. */
   const dentro = App as unknown as Record<string, unknown>;

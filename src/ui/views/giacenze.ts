@@ -178,8 +178,27 @@ export const VistaGiacenze = {
      rietichetta dopo uno spostamento deve poterlo vedere.
 
      Il codice a barre porta la chiave della riga, `ARTICOLO#LOTTO`, che è
-     esattamente ciò che le maschere di Movimenta cercano. */
+     esattamente ciò che le maschere di Movimenta cercano.
+
+     2.19 — IL PULSANTE CHIEDE PRIMA CHI STAMPA. Una Zebra in rete, o questo
+     foglio. Il layout dell'etichetta Zebra si configura — barre, descrizione,
+     scadenza, peso — e lo costruisce il SERVIZIO leggendo la riga a database:
+     un'etichetta è un documento, e un documento costruito dal browser si
+     falsifica scrivendo in una console. Il foglio A4 resta com'era: §8 dice
+     che la stampa non si migra, e qui la regola lavora a favore — la
+     stampante si affianca alla carta, non la sostituisce. */
   _stampaEtichettaItem(locationCode, itemKey) {
+    const item = Store.getItemsAtLocation(locationCode).find((i) => i.item_key === itemKey);
+    if (!item) return this.toast('Item non più presente in questa ubicazione', 'error');
+    this.closeModal();
+    this._chiediStampaEtichetta({
+      tipo: 'item', item_key: item.item_key, location_code: locationCode,
+      titolo: `Etichetta ${item.item_key}`,
+      suA4: `App._stampaEtichettaItemA4('${this._esc(locationCode)}','${this._esc(itemKey)}')`,
+    });
+  },
+
+  _stampaEtichettaItemA4(locationCode, itemKey) {
     const item = Store.getItemsAtLocation(locationCode).find((i) => i.item_key === itemKey);
     if (!item) return this.toast('Item non più presente in questa ubicazione', 'error');
     const chiave = item.item_key;

@@ -282,7 +282,29 @@ export const VistaUdc = {
     this.toast(`🔀 ${id}: ${da} → ${dest} · ${esito?.righe ?? 0} righe`, 'success');
   },
 
-  /* ─── L'ETICHETTA — 2.1 ────────────────────────────────────────────
+  /* ─── L'ETICHETTA — 2.1, LA STAMPANTE — 2.19 ──────────────────────
+     Il pulsante chiede prima CHI stampa: una Zebra in rete, o il foglio A4
+     dal browser che c'è dalla 2.1 e non se ne va. La maschera sta in
+     `views/stampaEtichette.ts` perché la stessa domanda la fa anche la
+     merce, e imparata due volte sarebbe due domande.
+
+     SENZA STAMPANTI CONFIGURATE NON CAMBIA NIENTE: la maschera lo dice e
+     manda al foglio, che è esattamente il comportamento di ieri. Vale anche
+     per la macchina che lavora da file, dove un socket non lo apre nessuno. */
+  _udcEtichetta(id) {
+    const u = Store.getUdc(id);
+    if (!u) return this.toast('Unità non trovata', 'error');
+    this._chiediStampaEtichetta({
+      tipo: 'udc', udc_id: u.udc_id,
+      /* L'ubicazione non finisce sull'etichetta — sotto è scritto perché —
+         ma serve QUI, per proporre la stampante del sito giusto. */
+      location_code: u.location_code || '',
+      titolo: `Etichetta ${u.udc_id}`,
+      suA4: `App._udcEtichettaA4('${this._esc(u.udc_id)}')`,
+    });
+  },
+
+  /* ─── L'ETICHETTA SU A4 — 2.1 ──────────────────────────────────────
      100 × 80 mm su A4, dal browser: nessun driver, nessuna stampante
      speciale.
 
@@ -299,7 +321,7 @@ export const VistaUdc = {
      rappresentazione leggibile dello stesso codice — quella che lo standard
      chiede, e che lascia un numero da digitare a chi ha il pallet davanti
      quando il lettore non legge. */
-  _udcEtichetta(id) {
+  _udcEtichettaA4(id) {
     const u = Store.getUdc(id);
     if (!u) return this.toast('Unità non trovata', 'error');
     const forma = riconosci(u.udc_id);

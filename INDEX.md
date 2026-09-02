@@ -7,9 +7,14 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **02/09/2026 sera** — **la 2.17 è in servizio su questa macchina**,
-installata da Andrea. Porta via il limite di ritenzione, che non cancellava
-niente e dichiarava un numero che nessuna norma chiede. Nella stessa giornata
+Aggiornato: **02/09/2026 notte** — **la 2.19.0 è costruita e non installata**:
+le etichette di merce e unità di carico escono su **Zebra in rete**, e a
+parlare alla porta 9100 è il servizio, perché un browser un socket TCP non lo
+apre. La stampa su A4 resta dov'era — §8 dice che non si migra, e qui la
+regola lavora a favore: la stampante si affianca alla carta. **In servizio su
+questa macchina c'è ancora la 2.17**, installata da Andrea, che porta via il
+limite di ritenzione — non cancellava niente e dichiarava un numero che
+nessuna norma chiede. Nella stessa giornata
 la repository è passata da **4.539 file tracciati a 926** ed è andata in
 inglese per il team IT. §0 dice adesso quel che non diceva: **le macchine sono
 due**, e il magazzino vero gira ancora la **1.4** altrove.
@@ -352,6 +357,8 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
+| **2.19.0** | **COSTRUITA, NON INSTALLATA** — 02/09 | — | Le etichette escono dalla **stampante**: Zebra in rete sulla porta 9100, e a parlarle è il servizio. Le stampanti e il **layout dell'etichetta merce** — barre, descrizione, scadenza, peso — si configurano; chi stampa sceglie la macchina e quante copie. **L'A4 resta**, e non come ripiego di cortesia |
+| **2.18.1** | costruita, non installata | — | Il minimo di Node era sbagliato e l'ha trovato la CI: `>=20` dichiarato ovunque, `better-sqlite3` 13 ne vuole 22 |
 | **2.17** | **IN SERVIZIO su questa macchina dal 02/09** | `b6b24d70…` | Il limite di ritenzione esce dal codice: `LOG_RETENTION_DAYS` non cancellava niente e sei anni non li chiedeva nessuna norma. Le tre etichette dicono adesso quel che il sistema fa |
 | **2.16** | in servizio il 02/09 — è la **via di ritorno** | `111d58b5…` | Il punto zero: **l'ultimo Admin non si toglie da solo** (murato nel servizio) · il registro dice **quanto** si è mosso e **chi** si è mosso, anche in blocco (voci 33, 34) · causale **`UDC`** · un difetto grave **ferma** il banco del ciclo (voce 50) · servito, l'indicatore smette di dire «Non salvato» · cinque icone che uscivano monocromatiche |
 | **2.15** | in servizio dal 01/09 al 02/09 — è la **via di ritorno** | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
@@ -404,6 +411,107 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.19 — le etichette escono dalla stampante
+
+**Il vincolo che decide tutto il resto: un browser non apre un socket TCP.**
+Non c'è un'API che lo permetta, nemmeno verso un indirizzo della rete locale,
+e la porta 9100 di una Zebra vuole esattamente quello. Le altre due strade —
+Zebra Browser Print, un programma da installare su ogni macchina, o un driver
+di stampa — lasciano scoperto l'**MC9400**, che è Android e dove l'applicativo
+è una pagina. **A parlare alla stampante è quindi il servizio**, che c'è già,
+è già l'arbitro di §8, e serve la scrivania e il terminale con lo stesso
+codice. Zero dipendenze nuove: `net` e `dns` sono moduli di Node.
+
+**L'indirizzo non arriva mai dalla richiesta.** Il client manda un
+`printer_id` e la chiave di un record; host e porta si leggono da
+`meta.printers`. Senza questo, la rotta sarebbe il modo di scrivere byte
+arbitrari su qualunque `host:porta` raggiungibile dal server, con la
+credenziale di un operatore qualsiasi. E siccome `meta` la scrive chiunque
+abbia una sessione — il guardiano dei ruoli difende `operators`, non `meta` —
+di quel record **non ci si fida comunque**: la porta sta in un elenco chiuso
+(6101, 9100-9103; senza, una «stampante» a `127.0.0.1:5432` fa parlare il
+servizio col proprio PostgreSQL) e l'indirizzo **si risolve prima di
+connettersi** e deve essere privato, o il servizio diventa un ponte verso
+l'esterno.
+
+**L'etichetta la costruisce il servizio, non il browser.** In regime GMP
+un'etichetta è un documento, e un documento costruito dal client si falsifica
+scrivendo in una console: il servizio rilegge la riga da database e scrive lui
+lo ZPL. Le barre le disegna il firmware con `^BC` — `modules/code128.ts` resta
+quello dell'A4 e non viene duplicato, la cifra di controllo non si riscrive
+due volte, e quel che deve coincidere fra le due strade è la sola stringa
+codificata: `item_key` o `udc_id`.
+
+**«INVIATA» NON È «STAMPATA», ED È IL PUNTO PIÙ PERICOLOSO DELLA FUNZIONE.**
+La porta 9100 accetta i byte e chiude: carta finita, testina aperta e nastro
+esaurito **passano tutti come successo**. Chiamarlo «stampata» vorrebbe dire
+che al primo rotolo finito il magazzino continua a creare pallet che nessuno
+può scansionare — che è esattamente ciò che §8 dice di un UDC senza etichetta.
+Quindi il servizio manda, poi **chiede `~HQES`**, e la maschera dice quale dei
+due fatti sta mostrando: verde se la macchina ha risposto e sta bene, **rosso
+se ha risposto con un errore** (inviata, ma l'etichetta non è uscita), giallo
+se non ha risposto affatto — che non è un guasto, è un server di stampa che
+quel comando non lo conosce, ma non è nemmeno una conferma.
+
+**Il layout è un dato, e i millimetri si vedono mentre si scelgono.** Otto
+campi, ognuno con altezza in mm, allineamento e righe di testo; il totale sta
+in fondo alla scheda confrontato con l'altezza del rotolo. Un layout più alto
+del supporto **il servizio lo rifiuta, non lo tronca**: un'etichetta troncata
+esce con l'aria di essere giusta e le manca l'ultima riga, che nel layout di
+serie è il peso, e chi la incolla non ha modo di accorgersene.
+
+- **Il «peso» è la quantità in UM, e si intitola per quello che è**: su KG e
+  GR la riga dice «Peso», su PZ, MT e LT dice «Quantità». Il numero è lo
+  stesso campo — `qty_uom` — ma un'etichetta che chiama peso dei pezzi manda
+  fuori strada chi la legge sei mesi dopo. Senza unità la riga resta vuota:
+  una parte dell'anagrafica non ce l'ha ancora (voce 52), e un peso senza
+  unità non è un peso.
+- **L'ubicazione nasce spenta e si intitola da sé** — «invecchia». §8: un
+  pallet si sposta, e quel che è stampato resta incollato alla merce a dire
+  una cosa che non è più vera.
+- **L'etichetta dell'unità di carico non ha un layout, ed è una decisione.**
+  Un pallet porta N righe di N articoli diversi: descrizione, scadenza e peso
+  non sono nemmeno *definiti* per un'unità di carico. Quel che si configura è
+  il **supporto**, che sta sulla stampante.
+- **La dimensione X minima è un rifiuto, non un consiglio.** Sotto 0,25 mm le
+  barre si fondono al primo calo di calore, e il modulo minimo sale con la
+  testina — 2 punti a 203 dpi, 3 a 300. Un codice che non ci sta a quella
+  larghezza **non si stampa**: §8 dice già per l'A4 che stampare barre che
+  nessun lettore legge è peggio che non stamparle.
+- **Quattro caratteri romperebbero il comando** — `^ ~ \ _`. Una descrizione
+  che ne porta uno non stampa un carattere storto: **spezza il campo**, e da
+  lì in poi la testina legge come comandi i byte del testo. Si risolve con
+  `^FH` e gli escape esadecimali, che non tolgono e non sostituiscono niente:
+  un'etichetta GMP che riscrive in silenzio il dato che porta è peggio di una
+  che non esce.
+- **La stampante si ricorda, le copie no.** Chi ha scelto una stampante ci sta
+  accanto per tutto il turno, e il ricordo sta nel `localStorage` di quel
+  browser — a database vorrebbe dire che l'ultimo terminale che sceglie decide
+  per tutti. Le copie tornano sempre a 1: un'eccezione che si ricorda smette
+  di essere un'eccezione, e sei etichette uguali attaccate a merce diversa
+  sono un difetto peggiore di sei etichette buttate. Tetto a 50 per invio, che
+  non è un limite tecnico ma un dito che scivola.
+- **Una stampante alla volta**: la 9100 accetta una connessione per volta, e
+  con più terminali sulla stessa macchina le richieste si mettono in fila —
+  stessa disciplina delle transazioni di §8, su una risorsa che non è il
+  database. Stampanti diverse restano parallele.
+- **Pathfinder non manda mai `^MN`, `^MM`, `^MD`, `^JUS`**: supporto, calore,
+  spellicolatore e salvataggio permanente sono configurazione della MACCHINA,
+  si fanno col pannello e valgono per tutti. Il giorno che l'applicativo li
+  spedisce a ogni etichetta, l'applicativo possiede la configurazione delle
+  stampanti.
+- **Chi ha stampato cosa va nel registro del servizio, non in `mov_log`**: una
+  ristampa non muove merce.
+
+**Il banco alza una finta Zebra.** Una stampante ZPL è un server TCP che
+ingoia byte: `server/test/collaudo-stampa.js` ne accende una sulla 9100 e
+legge quel che le arriva — **76 prove**, fra cui le tre che contano davvero:
+con la carta finita l'invio riesce lo stesso, lo stato lo dice, e cinque
+richieste insieme escono tutte e cinque. Il conto dei millimetri è scritto due
+volte — client e servizio — e `test/stampanti.test.js` importa il modulo del
+servizio per confrontarli riga per riga: due copie che divergono in silenzio
+sono due verità.
 
 ### 2.17 — il limite di ritenzione non c'era
 
@@ -1238,6 +1346,9 @@ scelta e non per dimenticanza (§8).
 ### Aperte — da pianificare
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **83** | ⚠️ **LE ETICHETTE ZEBRA NON HANNO MAI VISTO UNA ZEBRA.** La 2.19 gira su un banco che alza una finta stampante sulla 9100 — 76 prove verdi, e coprono quel che si può coprire da fermo: il layout nei millimetri, i quattro caratteri che spezzerebbero lo ZPL, la porta che sta in un elenco chiuso, l'indirizzo che non esce dalla rete interna, le richieste che si mettono in fila, e la carta finita che passa come successo mentre `~HQES` lo dice. **Quel che il banco non può dire è se l'etichetta esca** | **Serve una stampante vera, e quattro misure con quella davanti.** (1) Le barre lette da un **lettore ottico** su carta termica, che è lo stesso passo che il Code128 su A4 ha fatto il 25/08 (voce chiusa 23). (2) L'etichetta **dritta e dentro il supporto**: i margini di 3 mm sono una scelta, non una misura, e la zona che una testina non stampa la decide il modello. (3) Il **calore** giusto per il supporto montato — sta sul pannello della macchina, non nel codice, e va scritto nella SOP. (4) Che `~HQES` **risponda davvero**: il banco finge tre macchine, ma quale delle tre sia la Zebra vera si sa solo provandola. Prima ancora: **modello, dpi e supporto** — a gap, a tacca nera o continuo — che decidono `^MN` sul pannello e le misure in configurazione |
+| **84** | ⚠️ **LA PORTA 9100 IN USCITA NON È NELLO SHEET TECNICO.** `documenti/IT-TECH-SHEET.md` (REP-IT-001) dichiara **una porta sola: la 4173 in ingresso**. Dalla 2.19 il servizio apre connessioni **in uscita** verso le stampanti, e quella è una richiesta di autorizzazione al team IT, non un dettaglio di codice | **Va nello sheet prima che nel firewall**, in tutte e due le lingue: TCP 9100 in uscita dall'host del servizio verso la VLAN stampanti, e **IP statico o riserva DHCP** per ogni Zebra — un indirizzo che cambia da solo è un'etichetta che smette di uscire senza che nessuno abbia toccato niente. Da scrivere insieme alla voce 82 (lo sheet in inglese) |
+| **85** | **IL LAYOUT DELL'ETICHETTA MERCE È QUELLO DI SERIE, E NESSUNO L'HA GUARDATO CON LA MERCE DAVANTI.** Sei campi accesi, 51 mm su 60: barre, codice articolo, descrizione su due righe, lotto, scadenza, peso. È una proposta scritta a tavolino — chi etichetta i sacchi in accettazione può volere il peso più grande, la descrizione più piccola, o i colli accesi | **Una passata in reparto con un rotolo vero.** Il layout è un dato e si cambia in Configurazione senza ricompilare: il punto non è il codice, è **quale etichetta serve a chi la legge coi guanti**. Da fare dopo la voce 83, che dice se le misure di serie stanno in piedi |
 | **79** | ⚠️ **DALLA 1.4 ALLA BETA: IL BANCO C'È E PASSA, MANCA LA CORSA SUI DATI VERI.** Il magazzino vero gira la **1.4** su un'altra macchina — §0. È un **HTML unico da 1,54 MB**, dati in **IndexedDB via Dexie** (`WarehouseMapperDB`), backup su OPFS, `exportAll`/`importAll` con `_format` **`warehouse-mapper-v1.5`** — lo stesso che dichiara la beta. **La strada quindi esiste**: si esporta dal browser del magazzino e si importa nella beta. Verificato il 02/09 che due export veri dell'epoca — `_appVersion` **1.6** e **1.1.0** — si lascino **chiavare dallo schema di oggi**: ogni collezione trova la sua chiave primaria, e quelle assenti restano com'erano come vuole §8. **02/09 — ADESSO GIRA**: `banco/migrazione/dalla-1.4.cjs`, **14 prove, tutte verdi**. Parte da un database **vuoto**, come una macchina appena installata, importa `14082026_warehouse-mapper-2026-08-14.json` e conta: ogni collezione arriva col numero di righe che aveva, i **104 movimenti** ci sono tutti, la merce si ritrova vano per vano con articolo lotto e colli, le righe **senza UM** non ne guadagnano una dal nulla, `righeLette` non lancia su una riga che di colli non ne dichiara, i compiti aperti restano aperti, e sul database importato **il primo Admin si crea e entra** | **Resta la corsa sui dati veri**, che nessuno ha ancora esportato dalla macchina di magazzino. Due cose che il banco ha già misurato e che su quel file vanno rimisurate **prima** di premere Importa: (1) **quante righe cambiano nome per il maiuscolo** — qui 4 su 190, e un'etichetta stampata prima non corrisponde più alla chiave a database, quindi la ristampa diventa un passo della migrazione; (2) **se due righe finiscono sulla stessa chiave** una volta maiuscolate — qui nessuna, ma lì una coprirebbe l'altra e la merce sparirebbe davvero. La prova che lo chiede è già scritta: basta puntarla sull'export vero |
 | **78** | ⚠️ **I VECCHI COMMIT RESTANO RAGGIUNGIBILI SU GITHUB PER SHA.** La storia è stata riscritta e `main` spinto a forza (voce 72): il dump non sta più in nessun ramo, `GET /contents/…?ref=main` risponde **404**, e il ramo `claude/annotazioni-modifiche-ecq4c5` con la sua PR #1 **diverge da prima** del commit incriminato, quindi non lo porta. **Ma il vecchio commit risponde ancora**: `GET /commits/ecd25381…` restituisce il suo SHA. È il comportamento normale di GitHub — gli oggetti sfollati restano finché non passa il garbage collector — e il repository è **privato**, quindi li vede solo chi vi ha accesso | **Due gesti, e sono di Andrea.** (1) Chiedere a **GitHub Support** di ripulire gli oggetti sfollati e le cache: è l'unico modo di togliere quei byte dal server. (2) **Rinnovare i PIN** degli operatori che stanno in quel dump quando rientreranno a database: le impronte lì dentro sono **SHA-256**, e su sei cifre un milione di tentativi è un istante. Oggi non urge — a database c'è **un operatore solo**, `ADM1`, nato dopo |
 | **77** | ⚠️ **UN FILE CHIAMATO «variabile postgre.txt» STA SUL DESKTOP, 843 byte.** In `Desktop\Pathfinder-archivio-2026-09-01\`, accanto ai dump. Non è stato aperto e non è in git; il nome dice che porta la stringa di connessione di PostgreSQL, cioè **utente e password** — la cosa che §11 tiene fuori dal repository insieme ai file di database | Va guardato e, se è quello, **spostato dove stanno i segreti** o cancellato dopo aver messo la stringa dove serve. Un segreto in chiaro sul Desktop, dentro OneDrive, è un segreto sincronizzato altrove |
@@ -1274,7 +1385,7 @@ hanno con cosa lavorare.
 | # | Cosa |
 |---|---|
 | **8** | **Nome DNS interno e certificato** dalla CA aziendale. Il codice è pronto: due variabili e HTTPS si accende. **È anche l'unica risposta al mezzo difetto che la 2.11 lascia aperto** |
-| **24** | **Se le etichette escono dal cancello.** Quel che si stampa è **Code128, non GS1-128**: manca FNC1 e l'identificativo `(00)`. Il giorno che un cliente deve leggere un SSCC, `modules/code128.ts` va **esteso, non aggirato** |
+| **24** | **Se le etichette escono dal cancello.** Quel che si stampa è **Code128, non GS1-128**: manca FNC1 e l'identificativo `(00)`. Il giorno che un cliente deve leggere un SSCC, `modules/code128.ts` va **esteso, non aggirato**. **Dalla 2.19 i costruttori sono due**, e la tentazione è di chiuderla solo da una parte: `^BC` di ZPL il GS1-128 lo sa fare da firmware, in tre caratteri. Farlo lì e non nell'A4 vorrebbe dire **due etichette dello stesso pallet che codificano cose diverse** — due verità, che è il difetto che questa voce esiste per evitare. Si estendono insieme o non si estende niente |
 
 ### Da chiarire — manca un fatto
 | # | Cosa | Cosa manca |
@@ -1344,7 +1455,14 @@ npm test         # vitest — 1.246 prove in 42 file al 31/08
 node test/collaudo.js                    # 127 prove sul servizio, da server\
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server\
 node test/collaudo-installazione.js      # 31 prove sugli script di installazione, da server\
+node test/collaudo-stampa.js             # 76 prove sulle etichette Zebra, da server\
 ```
+
+`collaudo-stampa.js` **non ha bisogno di una stampante**: alza un finto
+ascoltatore sulla 9100 e legge i byte che gli arrivano. Quel che invece una
+stampante la vuole — che l'etichetta esca dritta, che le barre le legga un
+lettore vero, che il calore sia giusto per il supporto montato — è la
+**voce 83**.
 
 `SINGLE_FILE=1 npm run build` riproduce il file unico di prima.
 
@@ -2285,6 +2403,25 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 - **Le barre sono nere su bianco dichiarato**: un tema scuro le rende illeggibili
   a qualunque lettore. La carta non ha un tema. **Quello che esce è Code128, non
   GS1-128** — voce 24.
+- **LA STAMPANTE SI AFFIANCA ALLA CARTA, NON LA SOSTITUISCE — 2.19.** Le tre
+  `@media print` restano dove sono: stampante spenta, rotolo finito o rete giù,
+  e l'etichetta esce su A4 dal browser come è sempre uscita. Senza quel
+  pulsante un guasto alla stampante fermerebbe la creazione delle unità di
+  carico.
+- **A PARLARE ALLA STAMPANTE È IL SERVIZIO, E L'INDIRIZZO NON ARRIVA MAI DALLA
+  RICHIESTA — 2.19.** Un browser non apre un socket TCP; il client manda un
+  `printer_id` e la chiave di un record, il resto lo legge il servizio da
+  `meta.printers`. **L'etichetta la costruisce il servizio** rileggendo la riga
+  a database: in regime GMP un'etichetta è un documento, e un documento
+  costruito dal browser si falsifica scrivendo in una console.
+- **«INVIATA» NON È «STAMPATA» — 2.19.** La porta 9100 accetta i byte e chiude:
+  carta finita, testina aperta e nastro esaurito passano tutti come successo. A
+  dirlo è `~HQES`, che si chiede dopo ogni invio, e **la maschera dichiara
+  quale dei due fatti sta mostrando**.
+- **UN LAYOUT CHE NON CI STA SI RIFIUTA, NON SI TRONCA — 2.19.** Un'etichetta
+  troncata esce con l'aria di essere giusta e le manca l'ultima riga. E **sotto
+  0,25 mm di modulo le barre non si stampano affatto**: è la stessa regola per
+  cui un simbolo che non si può scrivere non si scrive.
 
 ### Metodo e interfaccia
 
@@ -2449,6 +2586,7 @@ in Configurazione → Operatori.
 | `modules/giacenzaArticolo.ts` | 175 | La giacenza di un articolo per lotto, FEFO, e la coda di conte nell'ordine dello scaffale. **Le UM non si calcolano qui**: arrivano risolte da `Store.righeLette`. Puro |
 | `modules/trasferimentiOdp.ts` · `dispositivo.ts` | 142 · 74 | Le tappe in un altro magazzino e il compito che ne nasce · su che cosa sta girando (decide **la larghezza**, non il sistema operativo). Puri |
 | `modules/udc.ts` | 162 | Il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perché **un'etichetta dura**. Puro |
+| `modules/stampanti.ts` | 293 | **2.19** — la forma di una stampante Zebra, la sua convalida, e `disponi`: dove finisce ogni riga dell'etichetta in millimetri. `proponiStampante` sceglie quella giusta — l'ultima usata, poi quella del sito. **Non c'è lo ZPL**: le barre e i comandi li scrive il servizio, perché un'etichetta è un documento e un documento costruito dal browser si falsifica in una console. Puro |
 | `modules/stoccaggio.ts` | 613 | Dove si mette la merce: vincoli **duri**, poi punteggio. Le regole sono un dato di `storage_rules`; ogni proposta dice perché. **2.8**: pericolosità, portata, la casa del lotto in cima, la categoria come terzo bersaglio con **un solo livello**. Puro |
 | `modules/regoleBase.ts` | 448 | **2.8** — le due regole che NON si scrivono, più i tre motivi precompilati dello scavalco. Sta da solo perché quelle di `stoccaggio.ts` sono regole di **politica**, queste sono il modo in cui un magazzino resta leggibile. Puro |
 | `modules/wip.ts` | 918 | **Il conto di un ordine**: entrato, tornato, residuo; il consumo si dichiara **a ordine chiuso**. `colliFuori`, `archiviato`, `ordiniArchiviati`, `righeSenzaOrdine`. **2.12**: `giro_odps`, `giro_richieste`, `giro_id` sul movimento, e quattro letture — `contoTenutoDa`, `ordiniServiti`, `richiesteDiRiga`, `consumoPerOrdine` (che legge le quote scritte **alla chiusura**). **2.14**: `inLavorazione` (una riga per ordine × articolo#lotto di quello che è fermo nel vano, senza sapere prima nessun numero), `resi` e `motivoNonStornabile`, più i quattro campi dello storno sul movimento. Puro |
@@ -2495,6 +2633,7 @@ spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `mappa.ts` · `documento.ts` | 418 · 410 | Pianta, frontale, conformità e deroghe · la correzione di un DDT pendente su uno snapshot |
 | `campionamento.ts` · `movimenta.ts` | 359 · 354 | Campionamento GMP e verbale · il telaio dei moduli e il registro di sessione |
 | `udc.ts` | 322 | Le unità di carico: elenco, creazione, carico, spostamento, etichetta |
+| `stampaEtichette.ts` | 213 | **2.19** — la maschera fra il pulsante e l'etichetta: **quale stampante** (si ricorda) e **quante copie** (tornano sempre a 1). In un file suo perché la chiamano in due — l'unità di carico e la merce. Il riscontro dice **quale fatto sta mostrando**: inviata, oppure stampata |
 | `ricerca.ts` · `destinatari.ts` · `archivio.ts` · `registro.ts` · `parametri.ts` | 227 · 226 · **274** · 191 · 106 | Ricerca in barra · rubrica DDT · **i cinque generi di documento — dalla 2.14 anche gli ordini di produzione chiusi** · registro movimenti · le quattro schede che sono un dato |
 | `vista.ts` · `globale.d.ts` | 36 · 10 | Il tipo `Vista` e `$`/`$q` · `declare const App` |
 
@@ -2515,6 +2654,8 @@ farlo tacere**: se suona, un metodo non è rientrato.
 | `lib/driver-base.js` | 318 | **TUTTA la logica del servizio dati, una volta sola per due database**: scritture, letture, filtri, transazioni, revisione e notifica, normalizzazione in maiuscolo. I driver portano solo i quattro gesti che un database sa fare. **`AsyncLocalStorage`, non un flag** |
 | `lib/driver-sqlite.js` · `lib/driver-postgres.js` | 121 · 267 | `better-sqlite3`, `_migra`, backup a file · `pg`, il pool, la connessione fissata alla transazione, il riallineamento delle sequenze, `int8` decodificato a numero, e dalla 2.12.1 **l'attesa dell'avvio**: `_attendiIlServer`, `siRiprova`, `attesaPrima` — esportate apposta per essere provate da ferme |
 | `lib/sql.js` | 259 | **TUTTO lo SQL, col dialetto come parametro.** `startsWith` è `substr(col,1,N) = ?` e **non** un `LIKE` |
+| `lib/zpl.js` | 420 | **2.19 — l'etichetta.** Entrano un record, una stampante e un layout; esce una stringa ZPL. Nessun socket, nessun database, nessuno stato: si collauda senza avere una stampante sotto. Le barre le disegna `^BC` (il firmware), non `code128.ts` — la cifra di controllo non si riscrive due volte. **Non manda mai `^MN` `^MM` `^MD` `^JUS`**: sono la configurazione della macchina. Un layout più alto del supporto lo **rifiuta**, non lo tronca |
+| `lib/stampa-zebra.js` | 400 | **2.19 — il socket**, ed è il solo posto del servizio che ne apra uno verso l'esterno. Porta in un elenco chiuso, indirizzo **risolto prima** e privato per forza, attesa di 3 s (senza, una stampante spenta blocca venti secondi), **una connessione per volta per stampante**. `statoStampante` chiede `~HQES`, perché la 9100 accetta i byte anche a carta finita |
 | `lib/schema.js` · `lib/schema-postgres.js` | 297 · 133 | Tabelle e indici in **due funzioni separate**, con la migrazione in mezzo, più **`MAIUSCOLE`** · il DDL PostgreSQL dalla **stessa** dichiarazione, con `COLLATE "C"` su ogni colonna di testo (senza, `ORDER BY location_code` rimescola le corsie) |
 | `installa-pathfinder.ps1` | — | **L'installer.** Nel pacchetto diventa `installa.ps1`. `-NonChiedere`, **`-Prova`**, `-Database`, `-SenzaMigrazione` |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate e le variabili, `PATHFINDER_PG` compresa. Da amministratore, **una volta**, dal sorgente o da `C:\Pathfinder\servizio` |
@@ -2522,6 +2663,7 @@ farlo tacere**: se suona, un metodo non è rientrato.
 | `installa-versione.ps1` · `torna-indietro.ps1` · `backup-serale.ps1` | — | Disinstalla-reinstalla e materializza · scambia `corrente` e `precedente` (**solo l'applicativo**) · backup a caldo delle 20:00 |
 | `migrazione/` | — | `migra-sqlite-postgres.js`, `audit.js`, `audit-sqlite.js`, `maiuscola-codici.cjs`, `LEGGIMI.md`. **Viaggia nel pacchetto dalla 2.7**: migra una COPIA e ricontrolla i conteggi tavolo per tavolo, e prima di copiare gira l'audit |
 | `test/collaudo.js` · `collaudo-migrazione-1.4.js` · `collaudo-installazione.js` | 586 · 158 · — | **139** prove sul servizio (le ultime dodici sull'attesa dell'avvio di PostgreSQL, con orologio e sonno finti) · 8 sul cambio di schema · 31 sugli script di installazione (incluso l'installer in `-Prova`) |
+| `test/collaudo-stampa.js` | 352 | **2.19 — 76 prove sulle etichette**, con una **finta Zebra** che ascolta sulla 9100 e racconta cosa le è arrivato. Le tre che contano: con la carta finita l'invio riesce lo stesso, `~HQES` lo dice, e cinque richieste insieme escono tutte e cinque. **Quel che non può provare** — barre lette da un lettore, etichetta dritta, calore — è la voce 83 |
 
 ### Collaudi — `test/`
 

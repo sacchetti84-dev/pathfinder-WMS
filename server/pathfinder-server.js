@@ -10,6 +10,7 @@ const https = require('https');
 const { apriDatabase } = require('./lib/db');
 const { NAMES } = require('./lib/schema');
 const registro = require('./lib/registro-servizio');   // 2.18 — il servizio lascia traccia
+const zebra = require('./lib/stampa-zebra');           // 2.19 — le etichette sulle Zebra in rete
 
 const PORT = Number(process.env.PATHFINDER_PORT || 4173);
 const ROOT = path.resolve(__dirname, '..');
@@ -63,7 +64,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.18.1';
+const VERSION = '2.19.0';
 
 /* ── 2.10 · SU QUALE INTERFACCIA SI ASCOLTA ───────────────────────────────
    Fino alla 2.9 `listen` non diceva su quale, e Node in quel caso le prende
@@ -1207,6 +1208,161 @@ app.post('/api/op/commitPickStop', wrap(async (req, res) => {
   }, originOf(req));
 
   res.json(out);
+}));
+
+/* ══ 2.19 · LE ETICHETTE SULLE ZEBRA IN RETE ══════════════════════════════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   Un browser non apre un socket TCP, e la 9100 di una Zebra vuole
+   esattamente quello. Le rotte stanno qui perche' il servizio e' l'unico
+   pezzo che possa parlarle, e perche' serve la scrivania e l'MC9400 con lo
+   stesso codice — vedi la testata di `lib/stampa-zebra.js`.
+
+   IL CLIENT MANDA UN `printer_id` E UNA CHIAVE DI RECORD, NON UN'ETICHETTA.
+   Il contenuto lo rilegge il servizio dal database, e sono due cose diverse:
+   in regime GMP l'etichetta e' un documento, e un documento costruito dal
+   browser si falsifica scrivendo in una console. L'indirizzo della stampante,
+   per la stessa ragione, non viaggia mai nella richiesta.
+
+   «INVIATA» NON E' «STAMPATA». La 9100 accetta i byte e chiude: carta
+   finita, testina aperta e nastro esaurito passano tutti come successo. La
+   risposta porta quindi DUE fatti separati — `inviata`, che e' certo, e
+   `stato`, che e' quel che la macchina ha risposto a `~HQES` — e la maschera
+   dice quale dei due sta mostrando. §8: un pallet senza etichetta e' un
+   pallet che nessuno puo' scansionare, e un fallimento muto ne produce uno
+   a ogni creazione finche' qualcuno non guarda il rotolo. */
+
+/* Le stampanti e il layout vivono in `meta`, come `docConfig`: sono una
+   politica di magazzino e cambiano senza che cambi la versione. */
+const stampantiConfigurate = async () => {
+  const rec = await db.get('meta', 'printers');
+  return Array.isArray(rec?.value) ? rec.value : [];
+};
+
+const stampanteDetta = async (printer_id) => {
+  const id = String(printer_id ?? '').trim();
+  if (!id) throw Object.assign(new Error('Manca printer_id: non e\' detto su quale stampante'), { status: 400 });
+  const trovata = (await stampantiConfigurate()).find((s) => String(s?.printer_id ?? '') === id);
+  if (!trovata) {
+    throw Object.assign(new Error(
+      `La stampante ${id} non e' fra quelle configurate: si aggiunge in Configurazione -> Stampanti`),
+      { status: 404 });
+  }
+  return trovata;
+};
+
+const layoutEtichetta = async () => {
+  const rec = await db.get('meta', 'labelLayout');
+  /* Nessun layout salvato non e' un errore: `zpl.leggiLayout` ripiega su
+     quello di serie, che e' quel che vede una macchina appena installata. */
+  return rec?.value || null;
+};
+
+/* ── L'UNITA' DI MISURA DELLA RIGA ────────────────────────────────────────
+
+   E' il pezzo di `Store.getUomConfig` che serve a un'etichetta: quello che
+   sceglie la SIGLA. Il `per_collo` e i suoi ripieghi restano sul client —
+   servono a dividere i colli, e un'etichetta non divide niente.
+
+   La regola e' quella di `src/modules/misure.ts` e si porta dietro le sue
+   due ragioni: `NR` di SAGE X3 e' `PZ` scritto in un'altra codifica (7.077
+   articoli su 11.197, voce della 2.5), e un `uom` scritto e NON capito non
+   ripiega su `unit` — chi ha compilato quella cella intendeva qualcosa, e
+   indovinare al posto suo mette un'unita' sbagliata su della merce. */
+const UOM_VALIDE = new Set(['PZ', 'MT', 'LT', 'KG', 'GR']);
+const UOM_SINONIMI = { NR: 'PZ' };
+
+/** `null` cella vuota · `undefined` c'e' scritto qualcosa di sconosciuto. */
+const leggiUomStretta = (raw) => {
+  const v = String(raw ?? '').trim().toUpperCase();
+  if (!v) return null;
+  if (UOM_VALIDE.has(v)) return v;
+  return UOM_SINONIMI[v];
+};
+
+const uomDiRiga = async (article_code, lot_code) => {
+  const lotti = await db.query('lots',
+    { criteria: { field: 'article_code', op: 'equals', value: article_code } });
+  const dalLotto = leggiUomStretta(
+    lotti.find((l) => String(l?.lot_code ?? '') === String(lot_code))?.uom);
+  if (dalLotto) return dalLotto;
+
+  const arts = await db.query('articles',
+    { criteria: { field: 'code', op: 'equals', value: article_code } });
+  const art = arts[0];
+  const propria = leggiUomStretta(art?.uom);
+  if (propria === undefined) return null;
+  return propria ?? leggiUomStretta(art?.unit) ?? null;
+};
+
+/* Chi ha stampato cosa, su quale macchina, e com'e' andata. NON va in
+   `mov_log`, che registra i movimenti della merce: una ristampa non muove
+   niente. Va nel registro del servizio, che dalla 2.18 e' il posto dove si
+   rilegge cos'e' successo — e su un'etichetta la domanda «chi l'ha
+   stampata» arriva prima o poi. */
+const segnaStampa = (req, cosa, esito) => {
+  const chi = req.operatore?.initials || 'SERVIZIO';
+  registro.info('stampa.etichetta', `${chi} — ${cosa} — ${esito}`);
+};
+
+app.post('/api/op/stampaEtichetta', wrap(async (req, res) => {
+  const { printer_id, tipo, item_key, location_code, udc_id, copie } = req.body || {};
+  const rec = await stampanteDetta(printer_id);
+  const quante = zebra.leggiCopie(copie);
+
+  let inviata;
+  let cosa;
+
+  if (tipo === 'udc') {
+    const id = String(udc_id ?? '').trim();
+    const udc = id ? await db.get('udc', id) : null;
+    if (!udc) throw Object.assign(new Error(`${id || 'unita\' di carico'} non esiste`), { status: 404 });
+    cosa = `UDC ${udc.udc_id} x${quante}`;
+    inviata = await zebra.stampaUdc(rec, udc, quante);
+
+  } else if (tipo === 'item') {
+    const chiave = String(item_key ?? '').trim();
+    const dove = String(location_code ?? '').trim().toUpperCase();
+    if (!chiave || !dove) {
+      throw Object.assign(new Error('Per l\'etichetta della merce servono item_key e location_code'),
+        { status: 400 });
+    }
+    /* La riga si cerca per chiave E per vano: la stessa merce puo' stare in
+       due ubicazioni (voce 59), e stampare quella sbagliata vuol dire
+       stampare un peso che non e' di questa. */
+    const righe = await db.query('inventory',
+      { criteria: { field: 'item_key', op: 'equals', value: chiave } });
+    const riga = righe.find((r) => String(r?.location_code ?? '').toUpperCase() === dove);
+    if (!riga) {
+      throw Object.assign(new Error(`${chiave} non e' piu' in ${dove}: la merce e' stata mossa`),
+        { status: 404 });
+    }
+    const dati = { ...riga, uom: await uomDiRiga(riga.article_code, riga.lot_code) };
+    cosa = `${chiave} in ${dove} x${quante}`;
+    inviata = await zebra.stampaMerce(rec, dati, await layoutEtichetta(), quante);
+
+  } else {
+    throw Object.assign(new Error('tipo dev\'essere «item» oppure «udc»'), { status: 400 });
+  }
+
+  /* Lo stato si chiede DOPO, e non fa fallire una stampa riuscita: una
+     stampante che non risponde a `~HQES` e' quasi sempre un server di stampa
+     che non conosce il comando, e l'etichetta e' uscita lo stesso. Quel che
+     non si deve fare e' dire «stampata» quando si sa solo «inviata». */
+  const stato = await zebra.statoStampante(rec);
+  segnaStampa(req, cosa, `inviata a ${inviata.host}:${inviata.porta}`
+    + (stato.noto ? (stato.errori ? ` — ERRORI: ${stato.dettagli.join(', ')}` : ' — stampante a posto')
+                  : ' — stato sconosciuto'));
+  res.json({ inviata: true, copie: quante, stampante: inviata.stampante, stato });
+}));
+
+app.post('/api/op/provaStampante', wrap(async (req, res) => {
+  const rec = await stampanteDetta(req.body?.printer_id);
+  const esito = await zebra.stampaProva(rec);
+  segnaStampa(req, `prova su ${esito.stampante}`,
+    esito.stato.noto ? (esito.stato.errori ? `ERRORI: ${esito.stato.dettagli.join(', ')}` : 'a posto')
+                     : 'stato sconosciuto');
+  res.json({ inviata: true, ...esito });
 }));
 
 /* ── 2.10 · UN PIN DI SEI CIFRE MERITA UN CONTO LENTO ─────────────────────

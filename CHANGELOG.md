@@ -15,6 +15,60 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.19.0 — 2026-09-02
+
+**Item and load-unit labels now print on networked Zebra printers. The service
+talks to the printer, because a browser cannot open a TCP socket.**
+
+Port 9100 on a Zebra needs a raw TCP connection, and no browser API provides
+one — not even to a local address. The alternatives (Zebra Browser Print, or a
+printer driver per machine) both leave the MC9400 handheld uncovered, because
+there the application is a web page. The service already exists, is already the
+arbiter for concurrency, and serves the desk and the handheld with the same
+code. No new dependencies: `net` and `dns` ship with Node.
+
+**The address never comes from the request.** The client sends a `printer_id`
+and a record key; host and port are read from configuration. Two gates guard
+what configuration says, because any signed-in operator can write it: the port
+must be in a closed list (6101, 9100–9103), and the host is resolved *before
+connecting* and must be a private address — otherwise the service becomes a
+bridge to the outside.
+
+**The service builds the label, not the browser.** Under GMP a label is a
+record, and one built by the client can be forged from a console. Bars are
+drawn by printer firmware (`^BC`); the check digit is never computed twice.
+
+**"Sent" is not "printed", and the interface says which one it is showing.**
+Port 9100 accepts the bytes and closes — out of media, head open and ribbon out
+all look like success. The service therefore queries `~HQES` after every send
+and reports the two facts separately. Without this, a finished roll would mean
+pallets created with no label and nobody told.
+
+- **Configurable label layout** for goods labels: barcode, description, expiry
+  and weight, plus article code and lot. Each field has a height in millimetres,
+  alignment and wrap count; the total is shown against the roll height while you
+  choose it. **A layout taller than the media is refused, not truncated.**
+- The weight row is titled for what it is: "Peso" for KG and GR, "Quantità" for
+  PZ, MT and LT — calling pieces a weight misleads whoever reads the label six
+  months later.
+- **Load-unit labels have no layout, by decision.** A pallet carries N lines of
+  N different articles; description, expiry and weight are not even defined for
+  one. Only the media size is configurable.
+- The printer choice is remembered per browser; the copy count always returns
+  to 1, capped at 50 per send.
+- Requests to the same printer are serialised — port 9100 accepts one
+  connection at a time.
+- The service never sends media type, darkness, peel-off or persistent-save
+  commands: those are machine configuration, set once at the panel.
+- **A4 printing is unchanged.** The printer is added alongside the sheet, never
+  in place of it.
+- 76 new service tests (`server/test/collaudo-stampa.js`) run against a fake
+  printer listening on 9100 — no hardware required. What hardware *is* still
+  required for — a real scanner reading the bars, print alignment, darkness —
+  is recorded as open work.
+
+---
+
 ## 2.18.1 — 2026-09-02
 
 **The minimum Node version was wrong, and continuous integration found it on

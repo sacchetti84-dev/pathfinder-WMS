@@ -42,6 +42,9 @@ const CAMPI_CODICE: ReadonlySet<string> = new Set([
   /* Documenti e spedizioni */
   'pEditArt', 'pEditDdt', 'pEditLot', 'pShipArt', 'pShipLot', 'pShipDdt',
   'pShipDestProvince', 'pShipDestVat',
+  /* 2.19 — Stampanti. Il sito servito e' un `site_id`, e i site_id sono
+     maiuscoli come tutti gli altri codici di questo applicativo. */
+  'stpSito',
   /* Quarantena */
   'qArt', 'qLot', 'qvArt', 'qvLoc', 'qvLot', 'releaseDestLoc',
   /* Unita' di carico */
@@ -95,6 +98,11 @@ const CAMPI_TESTO: ReadonlySet<string> = new Set([
   'laNota',
   /* INDIRIZZI */
   'pShipDestAddress', 'pShipDestCity', 'pShipDestZip',
+  /* 2.19 — STAMPANTI. Il nome e' quello che l'operatore legge in corsia —
+     «Zebra ZT411 — Spedizioni» urlato in maiuscolo non aiuta nessuno.
+     L'indirizzo e' un IP o un nome DNS: i nomi DNS sono indifferenti al caso
+     e maiuscolarli non cambia dove si va, ma li rende illeggibili. */
+  'stpNome', 'stpHost',
   /* DATE, QUANTITA' E MISURE — non sono testo, e maiuscolarle non vuol
      dire niente. */
   'editItemExp', 'itemExpiry', 'mInExp', 'pEditExpected', 'pShipDocDate', 'pShipExpected',
