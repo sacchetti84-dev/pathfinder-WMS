@@ -47,6 +47,39 @@ const ok = (nome, cond, nota = '') => {
   else { fallite++; console.log(`  FALLISCE ${nome}${nota ? ' — ' + nota : ''}`); }
 };
 
+/* ── 2.18.1 · QUEL CHE SI PUÒ CHIEDERE A UNA MACCHINA CHE NON HA NIENTE ──
+
+   Quattro di queste prove non guardano l'installer: guardano l'installer
+   MESSO DAVANTI A UNA MACCHINA CHE PATHFINDER CE L'HA GIÀ. «Aggiornando,
+   una radice diversa si rifiuta» ha senso solo se esiste una radice da cui
+   essere diversi; su una macchina vuota la strada giusta è la prima
+   installazione, e l'installer fa bene a prenderla.
+
+   Fino alla 2.18 questa batteria girava solo qui, dove Pathfinder c'è, e la
+   distinzione non serviva. Dal 02/09 gira anche sull'integrazione continua,
+   su un runner che non ha mai visto un'installazione: quelle quattro
+   fallivano, e non perché l'installer fosse rotto.
+
+   SI DICHIARANO SALTATE, E SI DICE PERCHÉ. Un collaudo che tace su una
+   parte del lavoro è peggio di uno che dice «questa parte non l'ho vista»:
+   chi legge un conteggio pieno su un runner deve sapere che le altre
+   quattro aspettano una macchina vera. */
+let saltate = 0;
+const salta = (nome, perche) => {
+  saltate++; console.log(`  SALTATA ${nome} — ${perche}`);
+};
+
+/* NON SI INDOVINA SE C'È UN'INSTALLAZIONE: LO SI CHIEDE ALL'INSTALLER.
+   Il primo tentativo leggeva `PATHFINDER_APP_DIR` dall'ambiente del processo,
+   e diceva una cosa diversa da quella che decide l'installer: lui guarda la
+   variabile DI MACCHINA **e** che il servizio risponda — `$vivo -and $varApp`
+   — e con la variabile presente e il servizio giù prende la prima
+   installazione. Due criteri diversi sullo stesso fatto sono un collaudo che
+   accusa l'installer di aver sbagliato strada quando la strada era giusta.
+   Si legge invece dalla sua `-Prova`, che la strada la dichiara a voce. */
+let INSTALLATO = false;
+const SENZA_INSTALLAZIONE = 'su questa macchina Pathfinder non e\' installato: serve una radice esistente';
+
 /* Una consegna finta: indice, un asset col nome a impronta e il manifesto.
    `marchio` cambia i byte a parita' di numero di versione — e' il caso che il
    collaudo esiste per coprire. */
@@ -169,7 +202,7 @@ try {
     console.log('           non si trova ne\' `installa-pathfinder.ps1` accanto');
     console.log('           al servizio, ne\' `installa.ps1` nella radice del');
     console.log('           pacchetto. Le altre hanno girato.');
-    console.log(`\n  ${passate} passate, ${fallite} fallite\n`);
+    console.log(`\n  ${passate} passate, ${fallite} fallite` + (saltate ? `, ${saltate} saltate` : '') + '\n');
     fs.rmSync(CASA, { recursive: true, force: true });
     process.exit(fallite ? 1 : 0);
   }
@@ -197,8 +230,14 @@ try {
 
   const detto = prova([]);
   ok('la prova dice la strada e non tocca niente', /PROVA/.test(detto) && /strada/.test(detto));
-  ok("e su questa macchina, che Pathfinder ce l'ha, la strada e' l'aggiornamento",
-     /aggiornamento/.test(detto));
+  /* LE STRADE SONO DUE E SI ESCLUDONO. Che ne dichiari una, e una sola, vale
+     su qualunque macchina: e' la riga da cui questo collaudo capisce dove si
+     trova, e se ne dicesse due non ci sarebbe da fidarsi di nessuna. */
+  const dice = (r) => new RegExp(r, 'i').test(detto);
+  INSTALLATO = dice('aggiornamento');
+  ok('e la strada dichiarata e una delle due, e una sola',
+     INSTALLATO !== dice('prima installazione'),
+     (detto.split('\n').find((r) => /strada/i.test(r)) || '').trim());
   ok('la prova non lascia niente in giro',
      !fs.existsSync(path.join(CASA, 'pathfinder-3.0')));
 
@@ -225,8 +264,12 @@ try {
   try {
     dettoRadice = prova(['-Radice', path.join(CASA, 'altrove')]);
   } catch (e) { respintaRadice = true; dettoRadice = (e.stdout || '') + (e.stderr || ''); }
-  ok('e una radice diversa da quella installata viene rifiutata',
-     respintaRadice && /non e.* installare/i.test(dettoRadice));
+  if (INSTALLATO) {
+    ok('e una radice diversa da quella installata viene rifiutata',
+       respintaRadice && /non e.* installare/i.test(dettoRadice));
+  } else {
+    salta('e una radice diversa da quella installata viene rifiutata', SENZA_INSTALLAZIONE);
+  }
 
   /* ── 2.7 · IL DATABASE ───────────────────────────────────────────────────
      Dalla 2.7 un'installazione decide anche SU COSA finisce il magazzino, e
@@ -295,9 +338,15 @@ try {
       '-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', preparaPg, '-Prova', '-NonChiedere',
     ], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] });
   } catch (e) { dettoPg = (e.stdout || '') + (e.stderr || ''); }
+  /* 2.18.1 — LA NOTA PORTA QUEL CHE LO SCRIPT HA DETTO. Questa prova non
+     pretende che PostgreSQL ci sia, pretende che lo script lo DICA; quando
+     fallisce, l'unica cosa che serve e' leggere la sua risposta, e senza
+     questa riga non la si legge — men che meno dal registro di una corsa
+     automatica su una macchina che non si ha davanti. */
   ok('prepara-postgres dice se il motore c\'e\' o se manca, e non lascia dubbi',
      /PostgreSQL/.test(dettoPg) &&
-     (/nessuna modifica/i.test(dettoPg) || /non risulta installato/i.test(dettoPg)));
+     (/nessuna modifica/i.test(dettoPg) || /non risulta installato/i.test(dettoPg)),
+     dettoPg.replace(/\s+/g, ' ').trim().slice(0, 200) || '(non ha detto niente)');
 
   /* UNA RISPOSTA VUOTA NON E' UNO ZERO, e uno zero qui vuol dire «migraci
      sopra». `Start-Process -ArgumentList` NON mette le virgolette: incolla
@@ -433,12 +482,17 @@ try {
      il database non cade senza che qualcuno l'abbia chiesto per nome; prima
      di togliere si salva; e quello che si salva sta FUORI dalla cartella che
      si sta per cancellare. */
-  const dettoDis = prova(['-Disinstalla']);
-  ok('la prova della disinstallazione dice cosa toglierebbe',
-     /disinstallazione/i.test(dettoDis) && /PROVA/.test(dettoDis));
+  if (INSTALLATO) {
+    const dettoDis = prova(['-Disinstalla']);
+    ok('la prova della disinstallazione dice cosa toglierebbe',
+       /disinstallazione/i.test(dettoDis) && /PROVA/.test(dettoDis));
 
-  ok('e senza -AncheIlDatabase dichiara che il database resta',
-     /-AncheIlDatabase/.test(dettoDis));
+    ok('e senza -AncheIlDatabase dichiara che il database resta',
+       /-AncheIlDatabase/.test(dettoDis));
+  } else {
+    salta('la prova della disinstallazione dice cosa toglierebbe', SENZA_INSTALLAZIONE);
+    salta('e senza -AncheIlDatabase dichiara che il database resta', SENZA_INSTALLAZIONE);
+  }
 
   /* Il gesto peggiore sta dietro a un interruttore suo, e l'interruttore da
      solo non basta: la conferma si SCRIVE, ed e' il nome del database. Una
@@ -494,6 +548,6 @@ try {
   console.log(`\n  ERRORE: ${err.message}\n${err.stdout || ''}${err.stderr || ''}`);
 }
 
-console.log(`\n  ${passate} passate, ${fallite} fallite\n`);
+console.log(`\n  ${passate} passate, ${fallite} fallite` + (saltate ? `, ${saltate} saltate` : '') + '\n');
 try { fs.rmSync(CASA, { recursive: true, force: true }); } catch {}
 process.exit(fallite ? 1 : 0);
