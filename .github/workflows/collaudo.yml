@@ -102,10 +102,6 @@ jobs:
         working-directory: server
         run: node test/collaudo.js
 
-      - name: Le prove sugli script di installazione
-        working-directory: server
-        run: node test/collaudo-installazione.js
-
       - name: Le prove sul cambio di schema
         working-directory: server
         run: node test/collaudo-migrazione-1.4.js
@@ -123,3 +119,35 @@ jobs:
       - name: Vulnerabilità note del servizio — solo per saperlo
         working-directory: server
         run: npm audit --audit-level=moderate || true
+
+  # ── L'INSTALLER SI PROVA SU WINDOWS, O NON SI PROVA ────────────────────────
+  #
+  # `collaudo-installazione.js` non legge gli script: LI ESEGUE, con `-Prova`,
+  # e guarda cosa dicono che farebbero. Su Linux `powershell` non esiste e la
+  # corsa muore con `spawnSync powershell ENOENT` — successo alla terza corsa,
+  # il 02/09.
+  #
+  # NON SI RIPIEGA SU `pwsh`, che pure c'è sui runner. L'installer gira su
+  # Windows PowerShell 5.1 e quel dialetto ha comportamenti suoi che questo
+  # progetto ha già pagato: `Out-File -Encoding utf8` che scrive il BOM (voce
+  # del 17/08), `icacls` con `/inheritance:r` e `/T` (voce 75). Provarlo su
+  # PowerShell 7 vorrebbe dire dichiarare verde una cosa mai esercitata.
+  #
+  # Quindi un job suo, su Windows, con dentro le sole prove che hanno bisogno
+  # di quella shell. `-Prova` non scrive niente e non chiede l'elevazione.
+  installazione:
+    runs-on: windows-latest
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+
+      # Questa batteria non importa niente da `node_modules`: solo
+      # `child_process`, `path`, `fs`, `os`. Non serve nessuna installazione.
+      - name: Le prove sugli script di installazione
+        working-directory: server
+        run: node test/collaudo-installazione.js
