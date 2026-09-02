@@ -983,6 +983,12 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
 /* 1.12 — la nona tessera di Movimenta, e l'etichetta dell'unita' di carico. */
 .mov-action-card.c-indigo { border-top-color: var(--sx-primary); }
 .mov-action-card.c-indigo.active { background: var(--sx-primary-soft); border-color: var(--sx-primary); }
+/* 2.20 — IL PRODOTTO FINITO PORTA LO STESSO COLORE DELL'UNITA' DI CARICO, e
+   la classe e' diversa lo stesso: l'evidenziazione della tessera attiva si
+   sceglie con `querySelector('.mov-action-card.<classe>')`, e due tessere
+   con la stessa classe accendono sempre la prima delle due. */
+.mov-action-card.c-pf { border-top-color: var(--sx-primary); }
+.mov-action-card.c-pf.active { background: var(--sx-primary-soft); border-color: var(--sx-primary); }
 
 /* ════ 2.9 — L'ELENCO DELLE GIACENZE FUORI POSTO ════
    © Andrea Sacchetti — Dietopack S.r.l.

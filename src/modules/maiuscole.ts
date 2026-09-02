@@ -48,6 +48,9 @@ const CAMPI_CODICE: ReadonlySet<string> = new Set([
   /* 2.20 — il codice del modello di imballo: e' una chiave, e l'articolo lo
      nomina in anagrafica. Due grafie sono due modelli. */
   'imbCode',
+  /* 2.20 — prodotto finito: ubicazione, articolo, lotto e ordine sono le
+     quattro chiavi che il lettore scrive dentro la maschera del reparto. */
+  'pfLoc', 'pfArt', 'pfLot', 'pfOdp',
   /* Quarantena */
   'qArt', 'qLot', 'qvArt', 'qvLoc', 'qvLot', 'releaseDestLoc',
   /* Unita' di carico */
@@ -115,6 +118,9 @@ const CAMPI_TESTO: ReadonlySet<string> = new Set([
   'editItemExp', 'itemExpiry', 'mInExp', 'pEditExpected', 'pShipDocDate', 'pShipExpected',
   'pShipStartTransport', 'pShipPesoLordo', 'pShipPesoNetto',
   'colliSelParte', 'wipParte', 'wipPerCollo', 'ezLevels',
+  /* 2.20 — la scadenza del prodotto finito e il numero di colli: una data e
+     un conteggio, e maiuscolarli non vuol dire niente. */
+  'pfExp', 'pfColli',
 ]);
 
 /** Questo campo porta un codice? */

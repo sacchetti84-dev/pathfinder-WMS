@@ -40,6 +40,10 @@ export const VistaMovimenta = {
         ${/* 1.12 — la nona. Gli interruttori sono spariti con la 2.0: la
              tessera c'è sempre. */
           this._movCard('udc', 'c-indigo', '📦', 'Unità di carico', 'Il pallet porta con sé quello che ha sopra', 'var(--sx-primary)', Store.getUdcAperte().length)}
+        ${/* 2.20 — la decima. Stesso colore dell'unità di carico, e non è una
+             svista: un bancale di prodotto finito È un'unità di carico, con
+             tre campi in più. Due tessere della stessa famiglia. */
+          this._movCard('pf', 'c-pf', '🏭', 'Prodotto finito', 'Bancali imballati, etichettati, pronti a partire', 'var(--sx-primary)')}
       </div>
       <div id="undoBarArea">${this._undoBarHTML()}</div>
       <div id="taskRunBanner"></div>
@@ -68,7 +72,7 @@ export const VistaMovimenta = {
     if (mode === 'io' && dir && dir !== this._ioMode) { this._ioMode = dir; this._dispReset(); }
     this._movMode = mode;
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
-    const map: Record<string, string> = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal', udc: 'c-indigo' };
+    const map: Record<string, string> = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal', udc: 'c-indigo', pf: 'c-pf' };
     document.querySelector(`.mov-action-card.${map[mode]}`)?.classList.add('active');
     const fa = $('movFormArea');
     /* Ogni maschera si disegna dentro la stessa area, e `call` le passa il
@@ -76,7 +80,7 @@ export const VistaMovimenta = {
     const forms: Record<string, ((el: HTMLElement) => void) | undefined> = {
       io: this._formCaricoScarico, pick: this._formPrelievo, inv: this._formInventario,
       quarantine: this._formQuarantena, shipping: this._formSpedizioni, sampling: this._formCampionamento,
-      udc: this._formUdc };
+      udc: this._formUdc, pf: this._formProdottoFinito };
     forms[mode]?.call(this, fa);
   },
 

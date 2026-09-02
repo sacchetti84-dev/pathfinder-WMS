@@ -44,6 +44,13 @@
    stampa su foglio: `_udcEtichettaA4` e `_stampaEtichettaItemA4`, perche' il
    nome senza suffisso adesso e' quello che CHIEDE dove stampare — la Zebra
    si affianca alla carta, non la sostituisce.
+   2.20: sono entrati i quindici del magazzino del prodotto finito —
+   `_formProdottoFinito` (la maschera), i sette del bancale che si compone
+   (`_pfBozza`, `_pfBozzaHTML`, `_pfNuovoBancale`, `_pfAggiungiRiga`,
+   `_pfTogliRiga`, `_pfAnnullaBozza`, `_pfChiudiBancale`), i tre della
+   proposta (`_pfProponiUbicazione`, `_pfArticoloLetto`, `_pfModelloCorrente`,
+   `_pfModelloScelto`), e i tre della lettura (`_pfBancali`, `_pfElencoHTML`,
+   `_pfEtichetta`).
    2.20: sono entrati i quattro dei modelli di imballo del prodotto finito —
    `_imballiHTML`, `_imballoModifica`, `_imballoSalva`, `_imballoTogli` — e
    `_campoImballo`, la tendina che l'anagrafica articoli mostra solo quando
@@ -53,6 +60,10 @@
    salvataggi a mano `forceSave` e `manualSave`. */
 export const SUPERFICIE = [
   '_campoImballo', '_imballiHTML', '_imballoModifica', '_imballoSalva', '_imballoTogli',
+  '_formProdottoFinito', '_pfAggiungiRiga', '_pfAnnullaBozza', '_pfArticoloLetto',
+  '_pfBancali', '_pfBozza', '_pfBozzaHTML', '_pfChiudiBancale', '_pfElencoHTML',
+  '_pfEtichetta', '_pfModelloCorrente', '_pfModelloScelto', '_pfNuovoBancale',
+  '_pfProponiUbicazione', '_pfTogliRiga',
   '_chiediStampaEtichetta', '_eseguiStampaEtichetta', '_layoutEtichettaDiSerie', '_layoutEtichettaHTML', '_layoutEtichettaLetto', '_layoutEtichettaSalva', '_provaStampante', '_renderConfigStampanti', '_riscontroStampa', '_sitoDiUbicazione', '_stampaEtichettaItemA4', '_stampanteModifica', '_stampanteSalva', '_stampanteTogli', '_stampantiElencoHTML', '_udcEtichettaA4',
   'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_KNOWN_OPERATORS_KEY',
   '_MIGRATED_KEY', '_MOVQUEUE_KEY', '_MOV_COLORS', '_MOV_SHORT', '_OPERATOR_KEY',
