@@ -1,6 +1,6 @@
 # Ciclo 2.0 — dal carico al consumo, su copia del magazzino vero
 
-2026-09-01T23:35:48.274Z
+2026-09-03T02:52:24.205Z
 
 ## ⓪ Il banco
 
@@ -140,18 +140,18 @@ Copertura anagrafica sotto la merce che si muove: senza unità **0** · senza qu
 
 | Articolo | righe | vani | colli | UM | mov. | uscite | fermo da | prima scad. |
 |---|---:|---:|---:|---|---:|---:|---:|---|
-| 6000366 | 5 | 5 | 61 | — | 26 | 9 | 13 gg | 2026-07-28 |
-| 6000366B | 8 | 8 | 293 | 3851 KG | 17 | 8 | 13 gg | — |
-| 7000924 | 4 | 4 | 12 | 290 KG | 15 | 4 | 13 gg | — |
-| 3502551 | 6 | 5 | 183 | 94200 PZ | 7 | 1 | 19 gg | — |
-| 6000242 | 1 | 1 | 12 | — | 6 | 5 | 13 gg | — |
-| 123 | 1 | 1 | 2 | — | 5 | 1 | 28 gg | — |
-| 6000002 | 1 | 1 | 4 | — | 3 | 3 | 25 gg | — |
-| 6000004 | 1 | 1 | 3 | — | 3 | 3 | 25 gg | — |
-| 6000006 | 1 | 1 | 8 | — | 3 | 3 | 25 gg | — |
-| 6000149 | 2 | 2 | 63 | — | 3 | 3 | 25 gg | — |
-| 6000296 | 4 | 4 | 13 | — | 3 | 3 | 25 gg | — |
-| 6001335 | 1 | 1 | 1 | — | 3 | 3 | 25 gg | — |
+| 6000366 | 5 | 5 | 61 | — | 26 | 9 | 15 gg | 2026-07-28 |
+| 6000366B | 8 | 8 | 293 | 3851 KG | 17 | 8 | 15 gg | — |
+| 7000924 | 4 | 4 | 12 | 290 KG | 15 | 4 | 15 gg | — |
+| 3502551 | 6 | 5 | 183 | 94200 PZ | 7 | 1 | 20 gg | — |
+| 6000242 | 1 | 1 | 12 | — | 6 | 5 | 15 gg | — |
+| 123 | 1 | 1 | 2 | — | 5 | 1 | 29 gg | — |
+| 6000002 | 1 | 1 | 4 | — | 3 | 3 | 26 gg | — |
+| 6000004 | 1 | 1 | 3 | — | 3 | 3 | 26 gg | — |
+| 6000006 | 1 | 1 | 8 | — | 3 | 3 | 26 gg | — |
+| 6000149 | 2 | 2 | 63 | — | 3 | 3 | 26 gg | — |
+| 6000296 | 4 | 4 | 13 | — | 3 | 3 | 26 gg | — |
+| 6001335 | 1 | 1 | 1 | — | 3 | 3 | 26 gg | — |
 
 ### Quello che il dato di oggi non regge
 
@@ -188,7 +188,7 @@ Riga dopo la rettifica: 4 colli · 80 KG · [24,25,25,6]
 
 ## DDT — prenotazione ed evasione
 
-Documento `RES-PROVA20-MTJB2Q7S` registrato · giacenza 59 KG (invariata) · fisici 3 coll., disponibili 2
+Documento `RES-PROVA20-MTKXJEYI` registrato · giacenza 59 KG (invariata) · fisici 3 coll., disponibili 2
 Alla evasione i colli si ritrovano per misura: [{"indice":0}]
 Evaso: 59 → 34 KG (usciti 25)
 
@@ -202,7 +202,7 @@ Smaltiti 28 KG su 53: resta 25 KG in 2 coll. [22,3]
 
 ## Attività
 
-`TA-MTJB2QEB-DPNR` · stato in_progress · preso da ANDS · avviato sì
+`TA-MTKXJF4K-R5ZU` · stato in_progress · preso da ANDS · avviato sì
 Dopo un movimento da 1 collo su 3 chiesti: stato done, mossi 1
 Smaltimento, 1 collo su 3: stato in_progress, mossi 1
 Dopo i 2 rimanenti: stato done
@@ -279,7 +279,7 @@ Ordine dei magazzini: M03 → MAG → MAG1 · siti distinti 3
 ## Il trasferimento chiesto dall ordine (1.10)
 
 Da `MAG-ACC-01` (mag) a `M03-TRA-01` · payload: `{"article_code":"6000242","lot_code":"260926","qty_uom":6.085,"uom":"KG","from":"MAG-ACC-01","to":"M03-TRA-01","odp_num":"ODP2607777"}`
-Compito `TA-MTJB2RN4-PA4T` in coda, stato requested
+Compito `TA-MTKXJGC0-4COH` in coda, stato requested
 La tappa si sposta: `MAG-ACC-01` → `M03-TRA-01` · resta un prelievo: sì
 
 ### La memoria delle richieste
@@ -291,7 +291,7 @@ Ordine di visita rovesciato: 2 tappe erano state spostate, 2 sono tornate dov'er
 
 ## Il pacchetto
 
-`_format` **warehouse-mapper-v1.5** · `_appVersion` **2.17** · collezioni previste 19
+`_format` **warehouse-mapper-v1.5** · `_appVersion` **2.19.0** · collezioni previste 19
 Verifica: **passa**
 
 | Collezione | nel pacchetto | in cache |
@@ -549,6 +549,6 @@ Col lotto imballato in misure diverse — che è il caso della miscela vera — 
 | quarantena.ts | 8 | 6 |
 | campionamento.ts | 1 | 2 |
 | inventario.ts | 9 | 24 |
-| spedizioni.ts | 3 | 10 |
+| spedizioni.ts | 3 | 11 |
 | udc.ts | 2 | 12 |
 | wip.ts | 1 | 17 |

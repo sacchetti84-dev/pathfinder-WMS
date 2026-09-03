@@ -5,3 +5,4 @@
 2026-09-02T22:30:09.024Z  AVVISO  auth.401  GET /api/events — sessione assente o scaduta
 2026-09-02T22:51:14.546Z  INFO    servizio.avvio  versione 2.19.0 — porta 4199 — SQLite — C:/Users/sacch/OneDrive/Desktop/PROGETTI E CODING/MAPPER/banco/db/ui.db
 2026-09-02T22:51:23.674Z  AVVISO  auth.401  GET /api/events — sessione assente o scaduta
+2026-09-03T02:52:21.289Z  INFO    servizio.avvio  versione 2.19.0 — porta 4199 — SQLite — C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\banco\db\ciclo.db

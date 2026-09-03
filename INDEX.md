@@ -7,7 +7,21 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **02/09/2026 notte** — **la 2.19.0 è costruita e non installata**:
+Aggiornato: **03/09/2026 notte** — **il magazzino del prodotto finito esiste,
+ed è scritto ma non ancora impacchettato.** Il PF esce dal reparto, viene
+imballato su un bancale, scansionato ed etichettato, e messo nella zona di
+spedizione: fino a ieri di tutto questo Pathfinder non sapeva niente — la
+produzione registrava il **consumo** dei componenti e il prodotto finito
+viveva come una riga di testata sul rapporto di prelievo. Adesso un bancale è
+un'**unità di carico** con tre campi in più, chi spedisce lo vede in un elenco
+che si ordina e su una mappa che si tinge, lo spunta e il DDT si riempie da
+sé, con una **packing list** accanto. E un DDT di **conto terzi** non scarica:
+sposta la merce nel vano del terzista, che sta già sulla mappa. **Otto blocchi,
+otto commit, tutti i collaudi verdi tranne uno che era già rosso** — §4, voce
+**87**. Il numero di versione **non è stato alzato**: si alza quando si
+costruisce, e costruire è un gesto che decide Andrea.
+
+Prima di questo — **la 2.19.0 è costruita e non installata**:
 le etichette di merce e unità di carico escono su **Zebra in rete**, e a
 parlare alla porta 9100 è il servizio, perché un browser un socket TCP non lo
 apre. La stampa su A4 resta dov'era — §8 dice che non si migra, e qui la
@@ -295,14 +309,18 @@ Vuote: `quarantine`, `pending_outbound`, `pick_session`, `disposal_archive`,
 
 ### Collaudi e tipi
 
-Tutti rilanciati il **01/09 sera**, sul codice della 2.16, e **tutti verdi**:
+Tutti rilanciati il **03/09 notte**, sul codice del prodotto finito. **Verdi
+tutti tranne una prova della gerarchia, che era già rossa prima** — verificato
+rimettendo il codice del commit `c693b2c`: non l'ha rotta questo lavoro, ed è
+la **voce 87**.
 | | |
 |---|---|
-| client | **1.222 prove in 44 file — 1.221 verdi e 1 saltata**, `npm test`. I file nuovi sono `emojiVestite.test.js` e **`segretiFuori.test.js`** (voce 80); le altre nuove stanno in `registro-completo.test.js` (4 → **13**) |
+| client | **1.303 prove in 48 file — 1.302 verdi e 1 saltata**, `npm test`. I file nuovi sono `imballo.test.js` (17) e `bancale.test.js` (16); le altre nuove stanno in `stampanti.test.js` (37), `documenti.test.js` (8) e `stampa.test.js` |
 | tipi | `npm run check` **a 0** su client e servizio |
-| servizio | **141** — due nuove sulle righe che una unità di carico scrive quando si sposta (voce 34) |
+| servizio | **156** |
+| stampa (`server/test/collaudo-stampa.js`) | **100** — erano 78: le ventidue nuove sono l'etichetta del bancale, il bancale misto che non inventa niente, e il layout che non ci sta e si rifiuta |
 | migrazione · installazione | **8 · 43** |
-| gerarchia (`banco/gerarchia.cjs`) | **40** — otto nuove sull'ultimo Admin, e verificate rosse rimettendo il difetto: senza la guardia ne cadono **undici**, e dalla prima `PATCH` in poi risponde 403 anche la ricreazione del primo Admin |
+| gerarchia (`banco/gerarchia.cjs`) | **39 su 40** — la rossa è la voce **87** e non riguarda il prodotto finito |
 | ciclo (`banco/ciclo/gira.cjs`) | **47 su 47** — voci 70 e 71 chiuse. Dalla 2.16 **esce 1** se in quella corsa è stato alzato un difetto `grave` |
 | migrazione dalla 1.4 (`banco/migrazione/dalla-1.4.cjs`) | **14** — il salto dal magazzino vero alla beta, su un database vuoto (voce 79). Nuovo il 02/09 |
 
@@ -363,6 +381,7 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
+| **2.20** | **SCRITTA, NON COSTRUITA** — 03/09. Il numero non è ancora nei quattro posti di §7: si alza quando si costruisce | — | **Il magazzino del prodotto finito.** Il bancale è un'unità di carico, la maschera del reparto lo chiude in un gesto e ne stampa l'etichetta, chi spedisce lo trova in elenco e sulla mappa, lo spunta e il DDT si riempie. **Packing list** e **conto terzi**, dove la merce non esce ma si sposta |
 | **2.19.0** | **COSTRUITA, NON INSTALLATA** — 02/09 | — | Le etichette escono dalla **stampante**: Zebra in rete sulla porta 9100, e a parlarle è il servizio. Le stampanti e il **layout dell'etichetta merce** — barre, descrizione, scadenza, peso — si configurano; chi stampa sceglie la macchina e quante copie. **L'A4 resta**, e non come ripiego di cortesia |
 | **2.18.1** | costruita, non installata | — | Il minimo di Node era sbagliato e l'ha trovato la CI: `>=20` dichiarato ovunque, `better-sqlite3` 13 ne vuole 22 |
 | **2.17** | **IN SERVIZIO su questa macchina dal 02/09** | `b6b24d70…` | Il limite di ritenzione esce dal codice: `LOG_RETENTION_DAYS` non cancellava niente e sei anni non li chiedeva nessuna norma. Le tre etichette dicono adesso quel che il sistema fa |
@@ -417,6 +436,93 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.20 — il magazzino del prodotto finito
+
+**Fino alla 2.19 il prodotto finito non esisteva come merce.** La produzione
+registrava il *consumo* dei componenti — righe `consumo` e `chiuso` in `wip` —
+e del prodotto restava una riga di testata letta dall'ODP, stampata sul
+rapporto di prelievo e finita lì. Chi gestisce le spedizioni non aveva né un
+elenco né una pianta di quello che era pronto a partire, e il carrello del DDT
+si riempiva in un modo solo: articolo e lotto scansionati a mano, una riga per
+volta.
+
+**IL BANCALE È UN'UNITÀ DI CARICO, E NON SERVIVA UNA COLLEZIONE NUOVA.** Tre
+campi facoltativi su `udc` — `kind: 'pf'`, `odp_num`, `model_code` — e tutto
+il resto era già scritto: il codice che non si riusa, l'etichetta, lo
+spostamento transazionale, il disegno dentro il vano sulla mappa. Assenti,
+resta l'unità di carico della 1.12.
+
+- **LA COMPOSIZIONE DEL BANCALE È UN DATO, NON UN CAMPO SU 11.197 ARTICOLI.**
+  I formati veri sono una decina — EPAL a 8 × 5, mezzo bancale, il cassone — e
+  scriverli articolo per articolo vorrebbe dire compilare undicimila volte la
+  stessa riga: nessuno la compilerebbe. I **modelli di imballo** stanno in
+  `meta.imballi`, l'articolo ne nomina uno, e da lì esce il numero di colli.
+  **Il modello propone e non impone**: se il bancale vero ne porta 37 invece
+  di 40, vince il bancale, e nessuno deve dire perché.
+- **LA MASCHERA È DEL REPARTO, E IL REPARTO STA IN PIEDI.** Terminale da 4,3",
+  guanti, due secondi di sguardo: ① articolo → ② lotto → ③ scadenza → ④ colli,
+  il lettore che avanza da sé, e alla chiusura nasce l'unità, entrano le righe
+  con causale **`PROD`**, e si apre subito la stampa dell'etichetta — un
+  bancale senza etichetta è un bancale che nessuno può scansionare.
+- **`PROD` È UNA CAUSALE SUA, E NON UN `IN` CON UNA NOTA.** Fra sei mesi la
+  domanda «cosa ha versato la produzione» si fa filtrando una riga; un
+  posizionamento con una nota non si filtra.
+- **L'ORDINE DI PRODUZIONE È FACOLTATIVO**, per decisione: chi imballa non si
+  ferma perché non ha il numero sotto mano. Il conto di produzione non è stato
+  toccato — la resa e il confronto fra prodotto e consumato restano fuori.
+- **UN BANCALE MISTO PASSA, E L'ETICHETTA NON INVENTA NIENTE.** Di norma un
+  bancale porta un articolo e un lotto soli; se ne porta due la maschera lo
+  dice — «misto — n partite» — e va avanti. Sull'etichetta i campi della merce
+  restano **vuoti**: scriverci il lotto della prima riga sarebbe una bugia
+  incollata al legno. Il dettaglio lo porta la packing list.
+- **L'ETICHETTA DEL BANCALE È IL TERZO TIPO**, con un catalogo di campi suo e
+  un layout suo in `meta.labelLayoutPf` — 70 mm sugli 80 del supporto vero.
+  Quella della merce identifica una **riga di giacenza** (`item_key`), questa
+  identifica il **bancale** (`udc_id`), che è l'oggetto che il muletto sposta
+  e che il DDT nomina. La via su A4 resta, come per le altre due.
+- **LA VISTA GRAFICA NON È UNA MAPPA NUOVA.** È la mappa, aperta sulla zona di
+  prodotto finito, col filtro acceso: i bancali dentro il vano si tingono
+  dello stato che hanno — pronto, impegnato su un DDT, spedito — e la legenda
+  lo scrive. Una seconda pianta da tenere allineata alle zone sarebbe una
+  seconda verità sullo stesso magazzino. **Il colore non è mai solo**: il
+  titolo della casella porta lo stato in lettere.
+- **DAL BANCALE AL DDT SI PASSA CON UNA SPUNTA.** Il bancale si carica intero,
+  coi soli colli che nessun documento pendente ha già impegnato; una riga che
+  non si può prendere si salta e il riscontro dice quale e perché. Il carrello
+  resta di `spedizioni.ts`: la scelta dei colli e il conto delle UM erano già
+  scritti lì, e una seconda copia sarebbe la seconda verità su come nasce una
+  riga di DDT.
+- **VUOTO E SPEDITO SONO DUE FATTI DIVERSI.** Un bancale svuotato in magazzino
+  è un pallet libero; uno svuotato da un DDT è merce che sta su un camion.
+  All'evasione i bancali del documento passano a `shipped`, e l'elenco li
+  mostra diversi.
+- **LA PACKING LIST NON È UNA COLLEZIONE NUOVA**: è un secondo modo di
+  stampare lo stesso documento archiviato. Un bancale per blocco, e sotto le
+  sue righe — è il foglio di chi scarica il camion, che cerca il codice letto
+  sull'etichetta del pallet. **Il DDT resta a pagina sola** — accompagna il
+  trasporto — **la packing list scorre**, perché dieci bancali non stanno in
+  un foglio. Il peso lordo somma le tare al netto e **resta vuoto dove le
+  unità non si sommano**: un lordo inventato finisce in bolla.
+- **IL CONTO TERZI NON SCARICA: SPOSTA.** Una causale marcata «la merce si
+  sposta» accompagna merce che resta nostra: all'evasione i bancali cambiano
+  ubicazione e vanno nel vano del sito terzista, che sta già sulla mappa, con
+  `/api/op/moveUdc` — transazionale, una riga di registro per partita, e il
+  rifiuto se nel vano d'arrivo la stessa chiave sta già fuori dall'unità. **Le
+  causali già salvate non cambiano da sole**: la spunta si mette una volta.
+
+> **IL CAMPO CHE NON ARRIVAVA A DATABASE, E L'HA TROVATO IL BANCO.**
+> `dest_location` si scriveva a video e non compariva nel documento:
+> `savePendingOutbound` e `updatePendingDoc` ricostruiscono il record **campo
+> per campo**, come `rigaDocumento` per le righe, e ciò che non è nominato lì
+> si perde **in silenzio**. È la trappola di §7 pagata una seconda volta, su
+> un altro record. E lo snapshot della maschera di correzione non copiava la
+> causale, quindi il campo non sarebbe mai comparso: due difetti in fila sullo
+> stesso dato, e nessuno dei due dava errore.
+
+**Quel che questo lavoro NON fa**: non tocca il conto di produzione (la resa
+resta fuori), non estende il Code128 a GS1-128 (voce 24), non cambia le regole
+di stoccaggio — una zona di prodotto finito non è una regola, è un posto.
 
 ### 2.19 — le etichette escono dalla stampante
 
@@ -1360,6 +1466,10 @@ scelta e non per dimenticanza (§8).
 ### Aperte — da pianificare
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **90** | **IL PRODOTTO FINITO NON HA MAI VISTO IL REPARTO.** La 2.20 è stata provata al banco da capo a fondo — modello di imballo, zona PF, bancale chiuso ed etichettato, elenco, mappa colorata, carrello del DDT, evasione, conto terzi — ma su un database di prova e con un articolo scelto a caso. **Quel che il banco non può dire**: se ① → ② → ③ → ④ regga il ritmo di chi imballa davvero, se i colli proposti dal modello siano quelli giusti sui formati veri, e se chi spedisce trovi nell'elenco le colonne che cerca | **Una passata in reparto e una alla scrivania delle spedizioni**, con la merce vera davanti. Poi si sistemano modelli, colonne e proposta — sono tutti dati o righe di vista, non architettura |
+| **89** | **L'ETICHETTA DEL BANCALE NON HA MAI VISTO UNA ZEBRA**, come la voce 83 per le altre due. Il layout di serie occupa **70 mm degli 80** e le 22 prove nuove del banco coprono lo ZPL, non la carta | **Va nella stessa passata della voce 83**: stessa macchina, stesso supporto, stesso lettore ottico |
+| **88** | **IL LAYOUT DELL'ETICHETTA DEL BANCALE È UNA PROPOSTA SCRITTA A TAVOLINO**, come lo era quello della merce (voce 85): articolo, descrizione, barre, lotto, scadenza, colli, peso. Ordine di produzione e ubicazione nascono spenti | **Si guarda col bancale davanti**: chi carica il camion può volere i colli più grandi, o l'ordine acceso |
+| **87** | ⚠️ **UNA PROVA DELLA GERARCHIA È ROSSA, E LO ERA PRIMA DEL PRODOTTO FINITO.** `banco/gerarchia.cjs` dà **39 su 40**: cade «lo dice anche all'elenco che disegna la schermata di accesso — `rec_set = undefined`». Verificato rimettendo il codice del commit `c693b2c`, cioè la 2.19 committata: **rossa anche là**, quindi non l'ha rotta il lavoro del 03/09. Riguarda il **codice di ripristino** e quel che `/api/auth/operatori` dichiara di un operatore | **Si guarda la rotta**: o l'elenco non porta più `rec_set`, o lo porta con un nome diverso da quello che la prova si aspetta. Da distinguere prima di toccare qualunque cosa — un campo che sparisce da una rotta aperta è un'altra cosa da una prova scritta male |
 | **83** | ⚠️ **LE ETICHETTE ZEBRA NON HANNO MAI VISTO UNA ZEBRA.** La 2.19 gira su un banco che alza una finta stampante sulla 9100 — 78 prove verdi, e coprono quel che si può coprire da fermo: il layout nei millimetri, i quattro caratteri che spezzerebbero lo ZPL, la porta che sta in un elenco chiuso, l'indirizzo che non esce dalla rete interna, le richieste che si mettono in fila, e la carta finita che passa come successo mentre `~HQES` lo dice. **Macchina, supporto e rete adesso ci sono** — Andrea, 02/09: serie **ZD200** (o un modello precedente simile), **203 dpi**, **adesive staccate 100 × 80 mm**, con presa di rete, e le installa il team IT. Il layout di serie è tarato su quelli: 68,5 mm degli 80, con 11,5 di margine perché su un'etichetta staccata il registro balla a ogni avanzamento. **Quel che il banco non può dire è se l'etichetta esca** | **Serve la stampante vera, e quattro misure con quella davanti.** (1) Le barre lette da un **lettore ottico** su carta termica — lo stesso passo che il Code128 su A4 ha fatto il 25/08 (voce chiusa 23). (2) L'etichetta **dritta e dentro il supporto**: i 3 mm di margine sono una scelta, non una misura, e la zona che una testina non stampa la decide il modello. (3) La **calibrazione del supporto**: adesive staccate vuol dire rilevamento a **interspazio**, e si fa una volta col tasto FEED tenuto premuto — Pathfinder `^MN` non lo manda di proposito, quindi se la macchina non è calibrata l'etichetta esce sfasata e il codice a barre finisce a cavallo del taglio. Va nella SOP insieme al **calore**. (4) Che `~HQES` **risponda davvero**: il banco finge tre macchine, quale sia la ZD200 vera si sa provandola |
 | **85** | **IL LAYOUT DELL'ETICHETTA MERCE È QUELLO DI SERIE, E NESSUNO L'HA GUARDATO CON LA MERCE DAVANTI.** Sei campi accesi, 51 mm su 60: barre, codice articolo, descrizione su due righe, lotto, scadenza, peso. È una proposta scritta a tavolino — chi etichetta i sacchi in accettazione può volere il peso più grande, la descrizione più piccola, o i colli accesi | **Una passata in reparto con un rotolo vero.** Il layout è un dato e si cambia in Configurazione senza ricompilare: il punto non è il codice, è **quale etichetta serve a chi la legge coi guanti**. Da fare dopo la voce 83, che dice se le misure di serie stanno in piedi |
 | **79** | ⚠️ **DALLA 1.4 ALLA BETA: IL BANCO C'È E PASSA, MANCA LA CORSA SUI DATI VERI.** Il magazzino vero gira la **1.4** su un'altra macchina — §0. È un **HTML unico da 1,54 MB**, dati in **IndexedDB via Dexie** (`WarehouseMapperDB`), backup su OPFS, `exportAll`/`importAll` con `_format` **`warehouse-mapper-v1.5`** — lo stesso che dichiara la beta. **La strada quindi esiste**: si esporta dal browser del magazzino e si importa nella beta. Verificato il 02/09 che due export veri dell'epoca — `_appVersion` **1.6** e **1.1.0** — si lascino **chiavare dallo schema di oggi**: ogni collezione trova la sua chiave primaria, e quelle assenti restano com'erano come vuole §8. **02/09 — ADESSO GIRA**: `banco/migrazione/dalla-1.4.cjs`, **14 prove, tutte verdi**. Parte da un database **vuoto**, come una macchina appena installata, importa `14082026_warehouse-mapper-2026-08-14.json` e conta: ogni collezione arriva col numero di righe che aveva, i **104 movimenti** ci sono tutti, la merce si ritrova vano per vano con articolo lotto e colli, le righe **senza UM** non ne guadagnano una dal nulla, `righeLette` non lancia su una riga che di colli non ne dichiara, i compiti aperti restano aperti, e sul database importato **il primo Admin si crea e entra** | **Resta la corsa sui dati veri**, che nessuno ha ancora esportato dalla macchina di magazzino. Due cose che il banco ha già misurato e che su quel file vanno rimisurate **prima** di premere Importa: (1) **quante righe cambiano nome per il maiuscolo** — qui 4 su 190, e un'etichetta stampata prima non corrisponde più alla chiave a database, quindi la ristampa diventa un passo della migrazione; (2) **se due righe finiscono sulla stessa chiave** una volta maiuscolate — qui nessuna, ma lì una coprirebbe l'altra e la merce sparirebbe davvero. La prova che lo chiede è già scritta: basta puntarla sull'export vero |
@@ -1463,21 +1573,21 @@ hanno con cosa lavorare.
 npm run dev      # sviluppo, ricarica a caldo — ATTENZIONE: parla col servizio VERO
 npm run build    # produce "consegna/Pathfinder <ver>/" — il pacchetto da consegnare
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest — 1.246 prove in 42 file al 31/08
+npm test         # vitest — 1.303 prove in 48 file al 03/09
 ```
 
 ```bash
-node test/collaudo.js                    # 127 prove sul servizio, da server\
+node test/collaudo.js                    # 156 prove sul servizio, da server\
 node test/collaudo-migrazione-1.4.js     # 8 prove sul cambio di schema, da server\
-node test/collaudo-installazione.js      # 31 prove sugli script di installazione, da server\
-node test/collaudo-stampa.js             # 78 prove sulle etichette Zebra, da server\
+node test/collaudo-installazione.js      # 43 prove sugli script di installazione, da server\
+node test/collaudo-stampa.js             # 100 prove sulle etichette Zebra, da server\
 ```
 
 `collaudo-stampa.js` **non ha bisogno di una stampante**: alza un finto
 ascoltatore sulla 9100 e legge i byte che gli arrivano. Quel che invece una
 stampante la vuole — che l'etichetta esca dritta, che le barre le legga un
-lettore vero, che il calore sia giusto per il supporto montato — è la
-**voce 83**.
+lettore vero, che il calore sia giusto per il supporto montato — sono le
+**voci 83 e 89**.
 
 `SINGLE_FILE=1 npm run build` riproduce il file unico di prima.
 
@@ -1558,6 +1668,42 @@ si finisce prima di accendere il banco.
 > muoiono su `EADDRINUSE`.
 
 > **Il banco non va mai in `C:\Pathfinder\`.** Ci è finito una volta, il 17/08.
+
+### Il banco del prodotto finito — 2.20
+
+Non è automatico: è un giro da fare a mano su una copia usa-e-getta, e ci
+vogliono dieci minuti. **Serve un Admin di cui si conosca il PIN**, e su una
+copia del pristino il modo più corto è svuotare `operators` e lasciare che la
+finestra di primo avvio ne chieda uno nuovo — §1: appena `operators` è a zero
+il servizio riapre quella porta, ed è la stessa che si richiude da sé al primo
+Admin creato.
+
+```powershell
+Copy-Item banco\db\pristino.db banco\db\ui.db -Force
+```
+
+Poi si accende il banco come sopra e si fa questo giro, **con la finestra
+stretta almeno una volta** — la maschera è del reparto, e il reparto ha un
+terminale da 4,3":
+
+1. Configurazione → **Parametri articolo** → un modello di imballo (EPAL 8 × 5,
+   tara 25).
+2. Configurazione → **Siti e Zone** → si marca una zona come **prodotto
+   finito** (sul pristino: `M03 / SPEDIZIONI`).
+3. Movimenta → **Prodotto finito** → nuovo bancale → articolo, lotto,
+   scadenza, colli (proposti dal modello) → **Chiudi bancale**: nasce l'unità,
+   entrano le righe con causale `PROD`, e si apre la stampa dell'etichetta.
+4. L'elenco lo mostra **pronto**; «Vedi in mappa» lo tinge di verde nel vano.
+5. Si spunta, **Carica in DDT**, si compila la testata, si registra, si evade:
+   il bancale diventa **spedito** e il registro porta `SHIP`.
+6. **Conto terzi**: si spunta «la merce si sposta» su una causale, si rifà il
+   giro indicando un'ubicazione di arrivo, e all'evasione la merce **è nel vano
+   d'arrivo** invece di essere sparita.
+7. **Packing list**: dal DDT pendente o dall'archivio, il pulsante accanto a
+   quello del DDT.
+
+**Il giro del 03/09 è passato tutto**, e ha trovato due difetti che nessuna
+prova da ferma vedeva — §3, il riquadro su `dest_location`.
 
 **Le cariche hanno un banco loro, e non chiede niente a questo** — dalla 2.13:
 
@@ -2384,6 +2530,45 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   PERCHÉ.** Su un lotto che i colli li dichiara, «togline due» non è una
   risposta — è la regola della 2.0, e vale anche qui.
 
+### Il prodotto finito — 2.20
+
+- **UN BANCALE DI PRODOTTO FINITO È UN'UNITÀ DI CARICO**, con tre campi
+  facoltativi in più: `kind: 'pf'`, `odp_num`, `model_code`. Assenti, è l'unità
+  di carico della 1.12 — nessuna collezione nuova, nessun record riscritto.
+- **LA COMPOSIZIONE DEL BANCALE È UN MODELLO, NON UN CAMPO DELL'ARTICOLO.** I
+  formati veri sono una decina e gli articoli undicimila. **Il modello propone
+  il numero di colli e non lo impone**: se il bancale reale ne porta 37 invece
+  di 40 vince il bancale, e chi imballa non deve dire perché.
+- **L'ORDINE DI PRODUZIONE È FACOLTATIVO.** Chi imballa non si ferma perché non
+  ha il numero sotto mano. Il legame resta un campo scritto sul bancale, e il
+  conto di produzione non lo guarda: la resa è un'altra cosa e non c'è.
+- **IL PF ENTRA CON LA SUA CAUSALE — `PROD`.** Un `IN` con una nota non si
+  filtra, e la domanda «cosa ha versato la produzione» arriva.
+- **UN BANCALE MISTO PASSA, E QUEL CHE NON È DEFINITO RESTA VUOTO.** Un pallet
+  con due partite non ha «un» lotto né «una» scadenza: l'etichetta dichiara
+  «MISTO — n partite» e lascia in bianco i campi della merce. Il dettaglio lo
+  porta la packing list, che le righe le elenca tutte.
+- **VUOTO E SPEDITO SONO DUE FATTI DIVERSI.** Un bancale svuotato in magazzino
+  è un pallet libero; uno svuotato da un DDT è merce su un camion — `empty` lo
+  scrive `chiudiUdcSeVuota`, `shipped` lo scrive l'evasione.
+- **UNA ZONA DI PRODOTTO FINITO NON È UNA REGOLA DI STOCCAGGIO**: non esclude
+  niente e non verifica niente. Dice dove il reparto posa i bancali e dove
+  l'elenco delle spedizioni va a guardare — e **vale anche su un sito
+  terzista**, che è dove il PF finisce quando viaggia in conto lavorazione.
+- **IL CONTO TERZI NON SCARICA: SPOSTA.** Su una causale marcata «la merce si
+  sposta» l'evasione porta i bancali nel vano del sito di arrivo con
+  `/api/op/moveUdc`; la merce resta in giacenza e resta nostra. **Le causali
+  già salvate non cambiano da sole**: la spunta è un gesto umano, una volta.
+- **LA PACKING LIST È UN SECONDO MODO DI STAMPARE LO STESSO DOCUMENTO**, non
+  una collezione: un bancale per blocco, e il **DDT resta a pagina sola**
+  mentre lei **scorre**. Il peso lordo somma le tare al netto e **resta vuoto**
+  dove le unità non si sommano.
+- **UN RECORD DI DOCUMENTO SI RICOSTRUISCE CAMPO PER CAMPO, E I POSTI SONO
+  TRE**: `modules/documenti.ts` per la riga, `savePendingOutbound` e
+  `updatePendingDoc` per la testata. Ciò che non è nominato in quei tre non
+  arriva a database, **e non dà errore** — la 2.20 l'ha pagata su
+  `dest_location`, dopo che la 1.8.4 l'aveva già pagata sui colli.
+
 ### La scansione in corsia — 2.12
 
 - **L'UBICAZIONE SI VERIFICA UNA VOLTA PER VANO, NON UNA PER TAPPA.** La chiave
@@ -2597,11 +2782,13 @@ in Configurazione → Operatori.
 | `modules/compiti.ts` | 555 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. `registroAttivita` unisce i compiti ai campionamenti che nessun compito rivendica. Puro |
 | `modules/misure.ts` · `colli.ts` | 319 · 578 | Le cinque unità e la suddivisione per collo · l'elenco dei colli: uscite come le capisce il servizio, ritrovamento per misura, `scelteDaTaglie`, `riempiFabbisogno`, `rettifica`. Puri |
 | `modules/registro.ts` | 46 | **2.16 — le due domande che si fanno a una riga del registro**: quanto è cambiata (`quantoSiEMosso`) e quanti colli hanno cambiato posto (`quantitaMossa`). Stanno insieme perché confonderle è il difetto della voce 33. Puro |
-| `modules/documenti.ts` | 39 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto. Puro |
+| `modules/documenti.ts` | 44 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto, e dalla 2.20 porta anche `udc_id` — da quale bancale esce la riga. Puro |
 | `modules/giacenzaArticolo.ts` | 175 | La giacenza di un articolo per lotto, FEFO, e la coda di conte nell'ordine dello scaffale. **Le UM non si calcolano qui**: arrivano risolte da `Store.righeLette`. Puro |
 | `modules/trasferimentiOdp.ts` · `dispositivo.ts` | 142 · 74 | Le tappe in un altro magazzino e il compito che ne nasce · su che cosa sta girando (decide **la larghezza**, non il sistema operativo). Puri |
-| `modules/udc.ts` | 162 | Il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perché **un'etichetta dura**. Puro |
-| `modules/stampanti.ts` | 293 | **2.19** — la forma di una stampante Zebra, la sua convalida, e `disponi`: dove finisce ogni riga dell'etichetta in millimetri. `proponiStampante` sceglie quella giusta — l'ultima usata, poi quella del sito. **Non c'è lo ZPL**: le barre e i comandi li scrive il servizio, perché un'etichetta è un documento e un documento costruito dal browser si falsifica in una console. Puro |
+| `modules/udc.ts` | 162 | Il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perché **un'etichetta dura**. Dalla 2.20 lo stesso codice identifica anche un **bancale di prodotto finito** — `modules/bancale.ts`. Puro |
+| `modules/imballo.ts` | 146 | **2.20 — com'è fatto un bancale prima che il bancale esista**: i modelli di imballo, la loro convalida, `colliAttesi` e `pesoLordo`. Sta da solo perché la composizione è un DATO e non un campo su 11.197 articoli. **Il modello propone**: chi imballa riscrive il numero senza dover dire perché. Puro |
+| `modules/bancale.ts` | 158 | **2.20 — come si LEGGE un bancale di prodotto finito**, in un posto solo: mono o misto, colli, UM (diverse → MISTA, mai una somma), e i quattro stati — pronto, impegnato su un DDT, spedito, vuoto. La stessa domanda la fanno l'elenco, la mappa, l'etichetta e la packing list: quattro copie sarebbero quattro risposte. `zonePf` elenca le zone dichiarate, terzisti compresi. Puro |
+| `modules/stampanti.ts` | 377 | **2.19** — la forma di una stampante Zebra, la sua convalida, e `disponi`: dove finisce ogni riga dell'etichetta in millimetri. `proponiStampante` sceglie quella giusta — l'ultima usata, poi quella del sito. **2.20**: i cataloghi di campi sono **due** — merce e bancale — e il genere è un parametro di `leggiRiga`, `leggiLayout` e `disponi`, non una seconda copia. **Non c'è lo ZPL**: le barre e i comandi li scrive il servizio, perché un'etichetta è un documento e un documento costruito dal browser si falsifica in una console. Puro |
 | `modules/stoccaggio.ts` | 613 | Dove si mette la merce: vincoli **duri**, poi punteggio. Le regole sono un dato di `storage_rules`; ogni proposta dice perché. **2.8**: pericolosità, portata, la casa del lotto in cima, la categoria come terzo bersaglio con **un solo livello**. Puro |
 | `modules/regoleBase.ts` | 448 | **2.8** — le due regole che NON si scrivono, più i tre motivi precompilati dello scavalco. Sta da solo perché quelle di `stoccaggio.ts` sono regole di **politica**, queste sono il modo in cui un magazzino resta leggibile. Puro |
 | `modules/wip.ts` | 918 | **Il conto di un ordine**: entrato, tornato, residuo; il consumo si dichiara **a ordine chiuso**. `colliFuori`, `archiviato`, `ordiniArchiviati`, `righeSenzaOrdine`. **2.12**: `giro_odps`, `giro_richieste`, `giro_id` sul movimento, e quattro letture — `contoTenutoDa`, `ordiniServiti`, `richiesteDiRiga`, `consumoPerOrdine` (che legge le quote scritte **alla chiusura**). **2.14**: `inLavorazione` (una riga per ordine × articolo#lotto di quello che è fermo nel vano, senza sapere prima nessun numero), `resi` e `motivoNonStornabile`, più i quattro campi dello storno sul movimento. Puro |
@@ -2632,7 +2819,7 @@ spostare, e un doppione verrebbe sovrascritto in silenzio.
 | File | Righe | Cosa disegna |
 |---|---:|---|
 | `percorso.ts` | 1.834 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano |
-| `spedizioni.ts` | 1.080 | DDT: testata, carrello, documento pendente, evasione, stampa |
+| `spedizioni.ts` | 1.613 | DDT: testata, carrello, documento pendente, evasione, stampa. **2.20**: il carrello si riempie **dai bancali** (`_shipCaricaDaBancali` — sta qui perché il carrello è qui), la **packing list** che raggruppa le righe per bancale, e `_evadiTrasferendo`, l'evasione del **conto terzi** che sposta la merce invece di scaricarla |
 | `inventario.ts` | 1.035 | Inventario di vano, conta mirata, ramo «Per articolo» col giro di conte |
 | `configDati.ts` | 975 | Dati, resilienza, i tre fogli Excel, reset (che chiede il PIN dell'Admin) |
 | `cruscotto.ts` | 900 | I tredici riquadri componibili e le sette scorciatoie |
@@ -2645,11 +2832,12 @@ spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `rapportoPrelievo.ts` | 579 | Un rapporto, tre sorgenti. **2.12**: la testata porta «Giro — ordini serviti» |
 | `giacenze.ts` | 527 | Dettaglio di un'ubicazione, i cinque gesti che partono da lì, il totale in colli e UM |
 | `configArticoli.ts` · `configurazione.ts` · `configSiti.ts` · `configOperatori.ts` | 498 · 437 · 375 · 362 | Anagrafica e attributi · le schede · siti e zone · operatori, PIN, sessione |
-| `mappa.ts` · `documento.ts` | 418 · 410 | Pianta, frontale, conformità e deroghe · la correzione di un DDT pendente su uno snapshot |
+| `mappa.ts` · `documento.ts` | 697 · 441 | Pianta, frontale, conformità e deroghe — **2.20**: il filtro che tinge i bancali di prodotto finito con lo stato che hanno · la correzione di un DDT pendente su uno snapshot, che dalla 2.20 porta anche la causale e l'ubicazione di arrivo |
 | `campionamento.ts` · `movimenta.ts` | 359 · 354 | Campionamento GMP e verbale · il telaio dei moduli e il registro di sessione |
 | `udc.ts` | 322 | Le unità di carico: elenco, creazione, carico, spostamento, etichetta |
-| `stampaEtichette.ts` | 213 | **2.19** — la maschera fra il pulsante e l'etichetta: **quale stampante** (si ricorda) e **quante copie** (tornano sempre a 1). In un file suo perché la chiamano in due — l'unità di carico e la merce. Il riscontro dice **quale fatto sta mostrando**: inviata, oppure stampata |
-| `ricerca.ts` · `destinatari.ts` · `archivio.ts` · `registro.ts` · `parametri.ts` | 227 · 226 · **274** · 191 · 106 | Ricerca in barra · rubrica DDT · **i cinque generi di documento — dalla 2.14 anche gli ordini di produzione chiusi** · registro movimenti · le quattro schede che sono un dato |
+| `prodottoFinito.ts` | 547 | **2.20 — il magazzino del prodotto finito.** La maschera del reparto che chiude un bancale in un gesto e ne stampa l'etichetta, e l'elenco di chi spedisce: ordinabile, filtrabile, con la spunta che carica il DDT. Il pulsante «Vedi in mappa» non disegna niente — apre la mappa sulla zona PF col filtro acceso |
+| `stampaEtichette.ts` | 204 | **2.19** — la maschera fra il pulsante e l'etichetta: **quale stampante** (si ricorda) e **quante copie** (tornano sempre a 1). In un file suo perché la chiamano in tre — l'unità di carico, la merce e, dalla 2.20, il bancale. Il riscontro dice **quale fatto sta mostrando**: inviata, oppure stampata |
+| `ricerca.ts` · `destinatari.ts` · `archivio.ts` · `registro.ts` · `parametri.ts` | 227 · 226 · **286** · 191 · **287** | Ricerca in barra · rubrica DDT · **i cinque generi di documento — dalla 2.14 anche gli ordini di produzione chiusi**, e dalla 2.20 un secondo foglio sui DDT che portano bancali · registro movimenti · le quattro schede che sono un dato, **più i modelli di imballo** |
 | `vista.ts` · `globale.d.ts` | 36 · 10 | Il tipo `Vista` e `$`/`$q` · `declare const App` |
 
 > **`wipRegistro.ts` non esiste in `main`**: era della 2.3 ritirata.
@@ -2669,8 +2857,8 @@ farlo tacere**: se suona, un metodo non è rientrato.
 | `lib/driver-base.js` | 318 | **TUTTA la logica del servizio dati, una volta sola per due database**: scritture, letture, filtri, transazioni, revisione e notifica, normalizzazione in maiuscolo. I driver portano solo i quattro gesti che un database sa fare. **`AsyncLocalStorage`, non un flag** |
 | `lib/driver-sqlite.js` · `lib/driver-postgres.js` | 121 · 267 | `better-sqlite3`, `_migra`, backup a file · `pg`, il pool, la connessione fissata alla transazione, il riallineamento delle sequenze, `int8` decodificato a numero, e dalla 2.12.1 **l'attesa dell'avvio**: `_attendiIlServer`, `siRiprova`, `attesaPrima` — esportate apposta per essere provate da ferme |
 | `lib/sql.js` | 259 | **TUTTO lo SQL, col dialetto come parametro.** `startsWith` è `substr(col,1,N) = ?` e **non** un `LIKE` |
-| `lib/zpl.js` | 420 | **2.19 — l'etichetta.** Entrano un record, una stampante e un layout; esce una stringa ZPL. Nessun socket, nessun database, nessuno stato: si collauda senza avere una stampante sotto. Le barre le disegna `^BC` (il firmware), non `code128.ts` — la cifra di controllo non si riscrive due volte. **Non manda mai `^MN` `^MM` `^MD` `^JUS`**: sono la configurazione della macchina. Un layout più alto del supporto lo **rifiuta**, non lo tronca |
-| `lib/stampa-zebra.js` | 400 | **2.19 — il socket**, ed è il solo posto del servizio che ne apra uno verso l'esterno. Porta in un elenco chiuso, indirizzo **risolto prima** e privato per forza, attesa di 3 s (senza, una stampante spenta blocca venti secondi), **una connessione per volta per stampante**. `statoStampante` chiede `~HQES`, perché la 9100 accetta i byte anche a carta finita |
+| `lib/zpl.js` | 638 | **2.19 — l'etichetta.** Entrano un record, una stampante e un layout; esce una stringa ZPL. Nessun socket, nessun database, nessuno stato: si collauda senza avere una stampante sotto. Le barre le disegna `^BC` (il firmware), non `code128.ts` — la cifra di controllo non si riscrive due volte. **Non manda mai `^MN` `^MM` `^MD` `^JUS`**: sono la configurazione della macchina. Un layout più alto del supporto lo **rifiuta**, non lo tronca. **2.20**: i cataloghi di campi sono due — merce e bancale — e `disponi` prende il catalogo come parametro; `etichettaBancale` sta accanto alle altre due |
+| `lib/stampa-zebra.js` | 431 | **2.19 — il socket**, ed è il solo posto del servizio che ne apra uno verso l'esterno. Porta in un elenco chiuso, indirizzo **risolto prima** e privato per forza, attesa di 3 s (senza, una stampante spenta blocca venti secondi), **una connessione per volta per stampante**. `statoStampante` chiede `~HQES`, perché la 9100 accetta i byte anche a carta finita |
 | `lib/schema.js` · `lib/schema-postgres.js` | 297 · 133 | Tabelle e indici in **due funzioni separate**, con la migrazione in mezzo, più **`MAIUSCOLE`** · il DDL PostgreSQL dalla **stessa** dichiarazione, con `COLLATE "C"` su ogni colonna di testo (senza, `ORDER BY location_code` rimescola le corsie) |
 | `installa-pathfinder.ps1` | — | **L'installer.** Nel pacchetto diventa `installa.ps1`. `-NonChiedere`, **`-Prova`**, `-Database`, `-SenzaMigrazione` |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate e le variabili, `PATHFINDER_PG` compresa. Da amministratore, **una volta**, dal sorgente o da `C:\Pathfinder\servizio` |
@@ -2678,12 +2866,13 @@ farlo tacere**: se suona, un metodo non è rientrato.
 | `installa-versione.ps1` · `torna-indietro.ps1` · `backup-serale.ps1` | — | Disinstalla-reinstalla e materializza · scambia `corrente` e `precedente` (**solo l'applicativo**) · backup a caldo delle 20:00 |
 | `migrazione/` | — | `migra-sqlite-postgres.js`, `audit.js`, `audit-sqlite.js`, `maiuscola-codici.cjs`, `LEGGIMI.md`. **Viaggia nel pacchetto dalla 2.7**: migra una COPIA e ricontrolla i conteggi tavolo per tavolo, e prima di copiare gira l'audit |
 | `test/collaudo.js` · `collaudo-migrazione-1.4.js` · `collaudo-installazione.js` | 586 · 158 · — | **139** prove sul servizio (le ultime dodici sull'attesa dell'avvio di PostgreSQL, con orologio e sonno finti) · 8 sul cambio di schema · 31 sugli script di installazione (incluso l'installer in `-Prova`) |
-| `test/collaudo-stampa.js` | 365 | **2.19 — 78 prove sulle etichette**, con una **finta Zebra** che ascolta sulla 9100 e racconta cosa le è arrivato. Le tre che contano: con la carta finita l'invio riesce lo stesso, `~HQES` lo dice, e cinque richieste insieme escono tutte e cinque. **Quel che non può provare** — barre lette da un lettore, etichetta dritta, calore — è la voce 83 |
+| `test/collaudo-stampa.js` | 449 | **2.19-2.20 — 100 prove sulle etichette**, con una **finta Zebra** che ascolta sulla 9100 e racconta cosa le è arrivato. Le tre che contano: con la carta finita l'invio riesce lo stesso, `~HQES` lo dice, e cinque richieste insieme escono tutte e cinque. **Quel che non può provare** — barre lette da un lettore, etichetta dritta, calore — è la voce 83 |
 
 ### Collaudi — `test/`
 
-**1.220 prove in 43 file** al 01/09 sera (una saltata). Fuori da `npm test`:
-**141** sul servizio, **43** sull'installazione. `ambiente.js` è il preambolo comune.
+**1.303 prove in 48 file** al 03/09 notte (una saltata). Fuori da `npm test`:
+**156** sul servizio, **100** sulle etichette, **43** sull'installazione.
+`ambiente.js` è il preambolo comune.
 
 Fuori da `test/` stanno i **tre** banchi automatici, che non girano con
 `npm test`: **`banco/gerarchia.cjs`** (**40**, le cariche sul servizio — §5) e
@@ -2697,7 +2886,8 @@ Il **banco della schermata WIP** (§5) non è automatico: è un magazzino di
 copia, degli ODP generati da lui e tre attrezzi da iniettare nella pagina.
 Serve a guardare, e quel che ne esce si scrive qui.
 
-Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
+Fra i file: **`imballo` (17)** e **`bancale` (16)**, i due della 2.20 ·
+`serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 `conformita` · `cache` · `pacchetto` · `statistiche` · `compiti` · `misure` ·
 `colli` · `parametri` · `documenti` · `auditMigrazione` · `maiuscole` · `sql` ·
 **`driver`** · `dialogOspite` · `versioni` · **`giroOdp` (38)**.
@@ -2723,7 +2913,7 @@ Fra i file: `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 | **Applicativo** | `/` e `/app` → l'indice, **`no-cache`** · `/assets/:file` → gli assets, **`immutable` un anno**, col ripiego su `precedente` |
 | **Aperte senza sessione** | `/api/health` · `/api/app-info` (le interroga l'installer, **prima** che esista un PIN) · `/api/auth/*`, che è la porta. `/api/auth/operatori` dà **il minimo**: sigla, nome, carica, «ha un PIN» |
 | **Collezioni** | `GET/POST/PUT/PATCH/DELETE /api/c/:col[/:key]` · `/bulk` · `/count` · `/query` — **sessione richiesta dalla 2.11** |
-| **Operazioni composte** | `/api/tx` · `/api/op/removeItem` · `/api/op/commitPickStop` · `/api/op/sampleItem` · `/api/op/moveUdc` · `/api/op/verifyPin` · `/api/op/hashPin`. `moveUdc` sposta l'unità e tutte le sue righe **in una transazione**, e rifiuta se nel vano d'arrivo la stessa chiave sta già fuori dall'unità |
+| **Operazioni composte** | `/api/tx` · `/api/op/removeItem` · `/api/op/commitPickStop` · `/api/op/sampleItem` · `/api/op/moveUdc` · `/api/op/verifyPin` · `/api/op/hashPin` · `/api/op/stampaEtichetta` (`tipo`: **`item`**, **`udc`** o, dalla 2.20, **`pf`** — il bancale) · `/api/op/provaStampante`. `moveUdc` sposta l'unità e tutte le sue righe **in una transazione**, e rifiuta se nel vano d'arrivo la stessa chiave sta già fuori dall'unità |
 | **Servizio** | `/api/load` · `/api/clear` · `/api/deleteWhere/:col` · `/api/backup` · `/api/events` (SSE) |
 | **Colli** | `packs_out` è un elenco di `{da, quantita}` — la misura del collo e quanto ne esce; un numero solo significa «quel collo, intero». `packs_before` è il seme, come `qty_uom_before`. Con l'elenco, `qty` diventa facoltativo |
 | Variabile di macchina | Valore |
