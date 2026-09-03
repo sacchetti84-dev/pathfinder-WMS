@@ -1,4 +1,4 @@
-import { type Vista, $ } from './vista';
+import { type Vista, $, $sel } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import type { DocumentoUscita, Destinatario, RigaDocumento } from '../../types/entita';
@@ -131,7 +131,7 @@ export const VistaSpedizioni = {
             <div class="form-row mb-4">
               <div class="form-group">
                 <label>Causale del trasporto <span class="req">*</span></label>
-                <select class="select" id="pShipCausale" onchange="App._persistShipHeader()">${causaliOpts}</select>
+                <select class="select" id="pShipCausale" onchange="App._persistShipHeader();App._shipAggiornaDestLoc()">${causaliOpts}</select>
               </div>
               <div class="form-group">
                 <label>N° DDT <span class="req">*</span></label>
@@ -150,6 +150,21 @@ export const VistaSpedizioni = {
                 <label>Riferimento ordine (opz.)</label>
                 <input class="input" id="pShipOrderRef" maxlength="60" placeholder="Ordine cliente, commessa, DDT di origine"
                   value="${this._esc(this._shipOrderRef)}" onchange="App._persistShipHeader()">
+              </div>
+            </div>
+            <!-- 2.20 — CONTO TERZI: la riga nasce nascosta e la accende la
+                 causale. Un'ubicazione di arrivo chiesta su una vendita è una
+                 domanda in più a ogni DDT. -->
+            <div class="form-row mb-0 mt-4" id="pShipDestLocBox" ${this._shipETrasferimento() ? '' : 'hidden'}>
+              <div class="form-group">
+                <label>Ubicazione di arrivo <span class="req">*</span></label>
+                <input class="input input-mono uppercase" id="pShipDestLoc" maxlength="40"
+                  placeholder="M06-COM-01" value="${this._esc(this._shipDestLocation || '')}"
+                  oninput="App._normScan('pShipDestLoc')" onchange="App._persistShipHeader()">
+                <div class="text-label-small text-sx-text-muted mt-1.5">
+                  🏭 Conto terzi: all'evasione la merce <strong>non esce</strong> — si sposta in
+                  questo vano, che sta già sulla mappa. Resta in giacenza, e il DDT accompagna il viaggio.
+                </div>
               </div>
             </div>
           </div>
@@ -781,6 +796,30 @@ export const VistaSpedizioni = {
     this.setPrimaryScanField('pShipArt');
   },
 
+  /** Vero se la causale scelta SPOSTA la merce invece di scaricarla — il
+      conto terzi. Una causale che non esiste più (l'elenco è un dato e si
+      può cambiare) si legge come una spedizione normale: il comportamento
+      di sempre, che è quello che non sorprende nessuno. */
+  _shipETrasferimento(causaleId) {
+    return Boolean(Store.getCausale(causaleId || this._shipCausale)?.trasferimento);
+  },
+
+  /* Il campo si accende togliendo l'attributo, non lo stile: una riga
+     nascosta con `display` non ricompare più (§7). E un campo che non serve
+     si nasconde E si svuota — nascondere è una cosa a video, il payload è
+     storia. */
+  _shipAggiornaDestLoc() {
+    const box = $('pShipDestLocBox');
+    if (!box) return;
+    const serve = this._shipETrasferimento($sel('pShipCausale')?.value);
+    box.hidden = !serve;
+    if (!serve) {
+      const campo = $('pShipDestLoc');
+      if (campo) campo.value = '';
+      this._shipDestLocation = '';
+    }
+  },
+
   _persistShipHeader() {
     const g = (id: string) => Validate.clean($(id)?.value);
     const sel = (id: string) => $(id)?.value;
@@ -788,6 +827,7 @@ export const VistaSpedizioni = {
     if ($('pShipCausale')) this._shipCausale = sel('pShipCausale') || this._shipCausale;
     this._shipDdtNum = g('pShipDdt') || this._shipDdtNum;
     this._shipOrderRef = $('pShipOrderRef') ? g('pShipOrderRef') : this._shipOrderRef;
+    this._shipDestLocation = $('pShipDestLoc') ? g('pShipDestLoc').toUpperCase() : this._shipDestLocation;
     this._shipCustomer = g('pShipCustomer') || this._shipCustomer;
 
     /* Questi campi possono essere legittimamente SVUOTATI (un indirizzo
@@ -882,6 +922,7 @@ export const VistaSpedizioni = {
     this._shipDdtNum = '';
     this._shipDocDate = '';
     this._shipOrderRef = '';
+    this._shipDestLocation = '';
     this._shipCustomer = '';
     this._shipDestAddress = '';
     this._shipDestZip = '';
@@ -988,6 +1029,7 @@ export const VistaSpedizioni = {
         ddt_num: this._shipDdtNum,
         doc_date: this._shipDocDate,
         order_ref: this._shipOrderRef,
+        dest_location: this._shipDestLocation || '',
         destination: this._shipCustomer,
         dest_address: this._shipDestAddress,
         dest_zip: this._shipDestZip,
@@ -1058,19 +1100,50 @@ export const VistaSpedizioni = {
       if ((cur.qty || 1) < l.qty) return this.toast(`Riga ${i+1}: giacenza attuale (${cur.qty || 1}) < qty richiesta (${l.qty})`, 'error');
     }
     const totalColli = doc.lines.reduce((s, l) => s + (l.qty || 1), 0);
+
+    /* 2.20 — IL CONTO TERZI NON SCARICA: SPOSTA. Su una causale marcata
+       «la merce si sposta» il documento accompagna un viaggio, non un'uscita:
+       i bancali cambiano ubicazione e vanno nel vano del sito di arrivo, che
+       sta già sulla mappa. La merce resta in giacenza e resta nostra. */
+    const trasferisce = this._shipETrasferimento(doc.causale_id);
+    const arrivo = String(doc.dest_location || '').trim().toUpperCase();
+    if (trasferisce) {
+      if (!arrivo) {
+        return this.toast('Questa causale sposta la merce, ma il documento non dice in quale ubicazione: '
+          + 'si corregge con 📝 Modifica, oppure si annulla e si rifà', 'error');
+      }
+      if (!Store.locationExists(arrivo)) {
+        return this.toast(`L’ubicazione di arrivo ${arrivo} non esiste`, 'error');
+      }
+    }
+
+    /* Su un trasferimento le righe SENZA bancale non si possono spostare
+       come unità, e scaricarle vorrebbe dire farle sparire da un magazzino
+       che è ancora nostro. Non si blocca: si dice cosa succede, e chi evade
+       decide. */
+    const senzaBancale = trasferisce
+      ? doc.lines.filter((l) => !String(l.udc_id || '').trim()).length : 0;
+
     if (!await Dialog.confirm({
-      title: 'Evadere il DDT?',
-      message: 'La merce viene SCARICATA fisicamente dalla giacenza. Confermare solo a ritiro avvenuto.',
+      title: trasferisce ? 'Evadere il DDT e spostare la merce?' : 'Evadere il DDT?',
+      message: trasferisce
+        ? 'La merce NON esce dal sistema: i bancali cambiano ubicazione e vanno nel vano di arrivo. '
+          + 'Il documento accompagna il viaggio.'
+        : 'La merce viene SCARICATA fisicamente dalla giacenza. Confermare solo a ritiro avvenuto.',
       details: Dialog.kv([
         ['Causale', causale],
         ['N° DDT', doc.ddt_num],
         ['Destinatario', doc.destination],
         ['Movimento a registro', isRet ? 'Reso' : 'Spedizione'],
+        ...(trasferisce ? [['Ubicazione di arrivo', arrivo]] as [string, string][] : []),
+        ...(senzaBancale ? [['⚠️ Righe senza bancale', `${senzaBancale} — queste vengono SCARICATE, non spostate`]] as [string, string][] : []),
         ['Righe', doc.lines.length],
         ['Colli totali', totalColli]
       ]),
-      confirmLabel: 'Evadi e scarica', danger: true
+      confirmLabel: trasferisce ? 'Evadi e sposta' : 'Evadi e scarica', danger: true
     })) return;
+
+    if (trasferisce) return await this._evadiTrasferendo(doc, arrivo, causale);
 
     const reasonNotes = `${causale.toUpperCase()} → ${doc.destination}${doc.carrier ? ' (vettore: ' + doc.carrier + ')' : ''}`;
     const performed = [];
@@ -1183,6 +1256,82 @@ export const VistaSpedizioni = {
     })) return;
     await Store.updatePendingStatus(doc_id, 'cancelled');
     this.toast(`✓ DDT ${doc.ddt_num} annullato`, 'success');
+    this._formSpedizioni($('movFormArea'));
+  },
+
+  /* ═══ 2.20 · L'EVASIONE CHE SPOSTA — IL CONTO TERZI ═══════════════════
+     Un DDT di conto lavorazione o di trasferimento accompagna merce che
+     resta nostra: all'evasione i bancali cambiano ubicazione, e lo fanno con
+     `/api/op/moveUdc` — la stessa rotta della maschera, che è
+     transazionale, scrive una riga di registro per ogni partita e rifiuta se
+     nel vano d'arrivo la stessa chiave sta già fuori dall'unità.
+
+     LE RIGHE SENZA BANCALE SI SCARICANO, e la conferma l'ha detto prima: una
+     riga sciolta non è un'unità che si possa spostare tutta insieme, e
+     inventarle un contenitore per l'occasione sarebbe peggio.
+
+     UN BANCALE CHE NON SI SPOSTA NON FERMA GLI ALTRI: il documento resta
+     pendente e il riscontro dice quale e perché — così chi evade ha davanti
+     un lavoro da finire, non un documento a metà da indovinare. */
+  async _evadiTrasferendo(doc: DocumentoUscita, arrivo: string, causale: string) {
+    const nota = `${causale.toUpperCase()} → ${doc.destination}${doc.carrier ? ' (vettore: ' + doc.carrier + ')' : ''}`;
+    const bancali = [...new Set((doc.lines || [])
+      .map((l: RigaDocumento) => String(l.udc_id || '').trim()).filter(Boolean))];
+
+    const falliti: string[] = [];
+    let spostati = 0;
+    for (const id of bancali) {
+      const u = Store.getUdc(id);
+      if (!u) { falliti.push(`${id}: non esiste più`); continue; }
+      if (u.location_code === arrivo) { spostati++; continue; }
+      try {
+        /* La riga del CONTENITORE dice da dove a dove, come quella della
+           maschera dell'unita' di carico: la merce che porta scrive le sue
+           righe da se', dentro la stessa transazione. */
+        await Store.moveUdc(id, arrivo, {
+          type: MOV.UDC, article_code: '', article_description: '', lot_code: '',
+          location_code: u.location_code || '', dest_location: arrivo,
+          user: Store.getCurrentIdentity().initials, ts: Date.now(),
+          doc_ref: doc.ddt_num,
+          notes: `${nota} — unità di carico ${id}`,
+        });
+        spostati++;
+      } catch (e) {
+        falliti.push(`${id}: ${(e as Error).message}`);
+      }
+    }
+
+    if (falliti.length) {
+      this.toast(`${falliti.length} ${falliti.length === 1 ? 'bancale non si è spostato' : 'bancali non si sono spostati'}: ${falliti.join(' · ')}`, 'error');
+      this.toast('Il DDT resta pendente: si riprova quando i vani sono liberi', 'warning');
+      this._formSpedizioni($('movFormArea'));
+      return;
+    }
+
+    /* Le righe che non stanno su un bancale escono come su un DDT qualunque:
+       la conferma l'ha appena scritto. */
+    const sciolte = (doc.lines || []).filter((l: RigaDocumento) => !String(l.udc_id || '').trim());
+    for (const l of sciolte) {
+      try {
+        const before = Store.getItemsAtLocation(l.location_code!).find((x) => x.item_key === l.item_key);
+        if (!before) { falliti.push(`${l.article_code}#${l.lot_code}: non più in giacenza`); continue; }
+        const scelte = (Array.isArray(l.packs_out) && l.packs_out.length)
+          ? Store.scelteDaUscite(before, l.packs_out) : null;
+        const res = await Store.removeItem(l.location_code!, l.item_key as string, l.qty, null, scelte);
+        await this._logMov(MOV.SHIP, l.article_code, l.article_description, l.lot_code,
+          l.location_code!, null, doc.ddt_num, nota, '',
+          res?._qty_before, -(res?._qty_delta ?? l.qty), res?._qty_after, res?._qty_uom_delta);
+      } catch (e) {
+        falliti.push(`${l.article_code}#${l.lot_code}: ${(e as Error).message}`);
+      }
+    }
+
+    await Store.updatePendingStatus(doc.doc_id, 'evaded');
+    this.updateSyncIndicator();
+    this.toast(`✓ DDT ${doc.ddt_num} evaso — ${spostati} ${spostati === 1 ? 'bancale spostato' : 'bancali spostati'} in ${arrivo}`, 'success');
+    if (falliti.length) {
+      this.toast(`Righe senza bancale non scaricate: ${falliti.join(' · ')}`, 'warning');
+    }
     this._formSpedizioni($('movFormArea'));
   },
 

@@ -156,8 +156,16 @@ describe('il doppio contesto dei gestori inline', () => {
 
    03/09/2026 — 4427 → 4434: `segnaUdcSpedita`, sette righe. Vuoto e spedito
    sono due fatti diversi e li scrivono due gesti diversi; questo passa da
-   `_patchUdc`, che sta qui perche' tocca la cache. */
-const TETTO_STORE = 4434;
+   `_patchUdc`, che sta qui perche' tocca la cache.
+
+   03/09/2026 — 4434 → 4438: quattro righe di commento e la spunta
+   `trasferimento` sulle due causali di conto terzi che nascono di serie.
+
+   03/09/2026 — 4438 → 4446: `dest_location` nei due punti dove il documento
+   si ricostruisce campo per campo — `savePendingOutbound` e
+   `updatePendingDoc`. Non aggiungerlo li' era il difetto: il campo si
+   scriveva a video e non arrivava a database, in silenzio. */
+const TETTO_STORE = 4446;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

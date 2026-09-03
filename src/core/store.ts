@@ -3541,6 +3541,11 @@ const Store = {
       dest_province: entry.dest_province || '',
       dest_vat: entry.dest_vat || '',
       ship_to: entry.ship_to || '',                            // luogo di destinazione, se diverso
+      /* 2.20 — l'ubicazione di arrivo del conto terzi. QUI e non solo nella
+         vista: questo record si ricostruisce campo per campo, e cio' che non
+         e' nominato non arriva a database — la stessa trappola di
+         `rigaDocumento`, che l'ha gia' pagata una volta. */
+      dest_location: entry.dest_location || '',
       // ── trasporto ──
       carrier: entry.carrier || '',
       transport_by: entry.transport_by || '',
@@ -3601,6 +3606,9 @@ const Store = {
     if (patch.destination !== undefined) rec.destination = patch.destination;
     if (patch.carrier !== undefined) rec.carrier = patch.carrier;
     if (patch.expected_pickup_date !== undefined) rec.expected_pickup_date = patch.expected_pickup_date;
+    /* 2.20 — l'ubicazione di arrivo si corregge da qui: un DDT di conto
+       terzi registrato senza, o con quella sbagliata, non si evade. */
+    if (patch.dest_location !== undefined) rec.dest_location = patch.dest_location;
     if (Array.isArray(patch.lines)) {
       rec.lines = patch.lines.map(rigaDocumento);
     }
@@ -3877,14 +3885,18 @@ const Store = {
     },
     /* `mov` decide il tipo di movimento a registro [M3]. Solo due valori
        ammessi: 'RET' e 'SHIP'. */
+    /* 2.20 — `trasferimento` dice che la merce NON esce dal sistema: cambia
+       ubicazione e va nel vano del sito di arrivo. E' il conto terzi, ed e'
+       acceso di serie solo su un impianto nuovo — le causali gia' salvate
+       non si riscrivono, §8: nessun dato cambia significato da solo. */
     causali: [
       { id: 'vendita',    label: 'Vendita',                mov: 'SHIP' },
       { id: 'reso_forn',  label: 'Reso a fornitore',       mov: 'RET'  },
       { id: 'reso_cli',   label: 'Reso da cliente',        mov: 'RET'  },
-      { id: 'c_lavoraz',  label: 'Conto lavorazione',      mov: 'SHIP' },
+      { id: 'c_lavoraz',  label: 'Conto lavorazione',      mov: 'SHIP', trasferimento: true },
       { id: 'c_visione',  label: 'Conto visione',          mov: 'SHIP' },
       { id: 'omaggio',    label: 'Omaggio',                mov: 'SHIP' },
-      { id: 'trasf_int',  label: 'Trasferimento interno',  mov: 'SHIP' },
+      { id: 'trasf_int',  label: 'Trasferimento interno',  mov: 'SHIP', trasferimento: true },
       { id: 'riparaz',    label: 'Riparazione',            mov: 'SHIP' },
       { id: 'campion',    label: 'Campionatura',           mov: 'SHIP' }
     ],

@@ -51,6 +51,9 @@ const CAMPI_CODICE: ReadonlySet<string> = new Set([
   /* 2.20 — prodotto finito: ubicazione, articolo, lotto e ordine sono le
      quattro chiavi che il lettore scrive dentro la maschera del reparto. */
   'pfLoc', 'pfArt', 'pfLot', 'pfOdp',
+  /* 2.20 — l'ubicazione di arrivo di un DDT di conto terzi: e' un vano, e i
+     vani sono maiuscoli come ogni altro codice. */
+  'pShipDestLoc', 'pEditDestLoc',
   /* Quarantena */
   'qArt', 'qLot', 'qvArt', 'qvLoc', 'qvLot', 'releaseDestLoc',
   /* Unita' di carico */

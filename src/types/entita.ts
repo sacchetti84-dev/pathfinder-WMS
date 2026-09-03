@@ -327,6 +327,10 @@ export interface DocumentoUscita {
   dest_vat?: string;
   /** Dove va la merce, se diverso dalla sede del destinatario. */
   ship_to?: string;
+  /** 2.20 — L'UBICAZIONE DI ARRIVO, sulle causali di conto terzi: la merce
+      non esce dal sistema, si sposta in quel vano. Assente su tutti gli
+      altri documenti, che scaricano come hanno sempre scaricato. */
+  dest_location?: string;
   /** Il mittente CONGELATO al momento dell'emissione: una ristampa fra due
       anni deve dare lo stesso foglio, anche se l'anagrafica è cambiata. */
   sender?: Mittente;

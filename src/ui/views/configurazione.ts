@@ -788,6 +788,13 @@ export const VistaConfigurazione = {
             <option value="RET"  ${c.mov === 'RET' ? 'selected' : ''}>Reso</option>
           </select>
         </td>
+        <td class="w-[190px]">
+          <label class="flex items-center gap-3 cursor-pointer normal-case text-body-small">
+            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" ${c.trasferimento ? 'checked' : ''}
+              onchange="App._docCausaleEdit(${i},'trasferimento',this.checked)">
+            <span>La merce si sposta</span>
+          </label>
+        </td>
         <td class="w-[44px] text-center">
           <button class="btn btn-sm btn-ghost text-sx-danger"
             onclick="App._docCausaleRemove(${i})" title="Rimuovi la causale">✕</button>
@@ -865,8 +872,15 @@ export const VistaConfigurazione = {
           <em>Reso</em> scrivono un movimento di reso, tutte le altre una spedizione. È così che il cruscotto continua
           a distinguerli dopo l'unificazione dei due moduli.
         </p>
+        <p class="text-body-small text-sx-text-muted mb-6">
+          <strong>«La merce si sposta»</strong> è la causale del conto terzi — conto lavorazione,
+          conto deposito, trasferimento fra magazzini: all'evasione la merce <strong>non esce dal
+          sistema</strong>, cambia ubicazione e va nel vano del sito di arrivo, che sta già sulla
+          mappa. Resta in giacenza, resta nostra, e il DDT accompagna il viaggio.
+          Le causali già salvate non cambiano da sole: la spunta si mette una volta.
+        </p>
         <table class="sx-table w-full">
-          <thead><tr><th>Descrizione</th><th>Movimento a registro</th><th></th></tr></thead>
+          <thead><tr><th>Descrizione</th><th>Movimento a registro</th><th>Conto terzi</th><th></th></tr></thead>
           <tbody>${causaliRows}</tbody>
         </table>
         <div class="flex gap-4 mt-5 flex-wrap">
@@ -968,6 +982,11 @@ export const VistaConfigurazione = {
       const v = Validate.clean(value);
       if (!v) return this.toast('La descrizione della causale non può essere vuota', 'error');
       cfg.causali[i].label = v;
+    } else if (field === 'trasferimento') {
+      /* Assente e falso sono la stessa cosa qui — una causale non marcata
+         scarica come ha sempre scaricato — quindi la spunta si scrive come
+         booleano e non lascia un terzo stato da interpretare. */
+      cfg.causali[i].trasferimento = value === true || value === 'true';
     } else {
       cfg.causali[i].mov = value === 'RET' ? 'RET' : 'SHIP';
     }

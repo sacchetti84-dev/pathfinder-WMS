@@ -193,6 +193,8 @@ const App = monolite({
   _shipDdtNum: '',             // N° del documento
   _shipDocDate: '',            // Data del documento (ISO)
   _shipOrderRef: '',           // Riferimento a ordine / commessa / DDT di origine
+  /* 2.20 — l'ubicazione di arrivo, sulle sole causali di conto terzi. */
+  _shipDestLocation: '',
   // ── destinatario ──
   _shipCustomer: '',           // Denominazione del destinatario
   _shipDestAddress: '',        // Indirizzo

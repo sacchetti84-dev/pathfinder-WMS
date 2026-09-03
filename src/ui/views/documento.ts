@@ -27,6 +27,12 @@ export const VistaDocumento = {
       destination: doc.destination,
       carrier: doc.carrier || '',
       expected_pickup_date: doc.expected_pickup_date || '',
+      /* 2.20 — la causale e l'ubicazione di arrivo entrano nello snapshot:
+         senza la prima la maschera non sa se il documento sposta la merce, e
+         il campo dell'arrivo non comparirebbe mai. La causale si legge e non
+         si tocca — da qui si correggono le quattro cose di sempre. */
+      causale_id: doc.causale_id || '',
+      dest_location: doc.dest_location || '',
       lines: doc.lines.map(l => ({ ...l })),
       newLineState: null  // stato corrente per aggiungere una nuova riga
     };
@@ -143,6 +149,20 @@ export const VistaDocumento = {
               <label>Vettore</label>
               <input class="input" id="pEditCarrier" placeholder="Es: BRT, GLS" maxlength="${Validate.MAX.OPERATOR}" value="${this._esc(s.carrier)}">
             </div>
+            ${/* 2.20 — l'ubicazione di arrivo del conto terzi: compare solo
+                 dove la causale sposta la merce, ed è l'unico posto da cui si
+                 corregge un documento registrato senza. Senza, l'evasione si
+                 ferma e lo dice. */''}
+            ${this._shipETrasferimento(s.causale_id) ? `
+              <div class="form-group">
+                <label>Ubicazione di arrivo <span class="req">*</span></label>
+                <input class="input input-mono uppercase" id="pEditDestLoc" maxlength="40"
+                  placeholder="M06-COM-01" value="${this._esc(s.dest_location || '')}"
+                  oninput="App._normScan('pEditDestLoc')">
+                <div class="text-label-small text-sx-text-muted mt-1.5">
+                  🏭 La merce non esce: si sposta in questo vano.
+                </div>
+              </div>` : ''}
           </div>
         </div>
         <!-- RIGHE -->
@@ -352,6 +372,8 @@ export const VistaDocumento = {
     if (ddt !== undefined) s.ddt_num = Validate.clean(ddt);
     if (dest !== undefined) s.destination = Validate.clean(dest);
     if (carrier !== undefined) s.carrier = Validate.clean(carrier);
+    const destLoc = $('pEditDestLoc')?.value;
+    if (destLoc !== undefined) s.dest_location = Validate.clean(destLoc, true);
     // v2.3.0 [D1] — il campo è in gg/mm/aaaa; su data non valida mantiene la precedente
     // (il modale si ri-renderizza subito e azzererebbe la digitazione in corso)
     if (expected !== undefined) {
@@ -395,6 +417,7 @@ export const VistaDocumento = {
         destination: s.destination,
         carrier: s.carrier,
         expected_pickup_date: s.expected_pickup_date,
+        dest_location: s.dest_location || '',
         lines: s.lines
       });
       this.toast(`✓ DDT ${s.ddt_num} aggiornato`, 'success');

@@ -60,7 +60,9 @@
    `_shipCaricaDaBancali` — quest'ultimo sta in `spedizioni.ts`, perche' il
    carrello e' di la'. Con la packing list sono entrati `_printPackingList`,
    `_packingBlocchi` e `_packingLordo` — anche loro in `spedizioni.ts`, perche'
-   il documento da cui la packing list nasce e' il DDT.
+   il documento da cui la packing list nasce e' il DDT. Col conto terzi sono
+   entrati `_shipDestLocation`, `_shipETrasferimento`, `_shipAggiornaDestLoc`
+   e `_evadiTrasferendo` — l'evasione che sposta invece di scaricare.
    2.20: sono entrati i quattro dei modelli di imballo del prodotto finito —
    `_imballiHTML`, `_imballoModifica`, `_imballoSalva`, `_imballoTogli` — e
    `_campoImballo`, la tendina che l'anagrafica articoli mostra solo quando
@@ -76,7 +78,8 @@ export const SUPERFICIE = [
   '_pfTabella', '_pfColonne', '_pfOrdina', '_pfCerca', '_pfTabellaHTML', '_pfVediInMappa',
   '_mapFiltroPf', '_mapToggleFiltroPf', '_pfStatiBancali',
   '_pfSel', '_pfSpunta', '_pfCaricaInDdt', '_shipCaricaDaBancali',
-  '_printPackingList', '_packingBlocchi', '_packingLordo', '_pfModelloScelto', '_pfNuovoBancale',
+  '_printPackingList', '_packingBlocchi', '_packingLordo',
+  '_shipDestLocation', '_shipETrasferimento', '_shipAggiornaDestLoc', '_evadiTrasferendo', '_pfModelloScelto', '_pfNuovoBancale',
   '_pfProponiUbicazione', '_pfTogliRiga',
   '_chiediStampaEtichetta', '_eseguiStampaEtichetta', '_layoutEtichettaDiSerie', '_layoutEtichettaHTML', '_layoutEtichettaLetto', '_layoutEtichettaSalva', '_provaStampante', '_renderConfigStampanti', '_riscontroStampa', '_sitoDiUbicazione', '_stampaEtichettaItemA4', '_stampanteModifica', '_stampanteSalva', '_stampanteTogli', '_stampantiElencoHTML', '_udcEtichettaA4',
   'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_KNOWN_OPERATORS_KEY',
