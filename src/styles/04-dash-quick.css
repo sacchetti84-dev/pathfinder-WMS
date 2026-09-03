@@ -337,6 +337,106 @@
   overflow-wrap: anywhere;
 }
 
+/* ══ 2.22 · LA CAMPATA DELLA TAPPA, VISTA DI FRONTE ═════════════════
+   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+   Sta DI FIANCO ai dati finché c'è larghezza, e scende sotto quando non
+   ce n'è: i dati della tappa sono quello che si legge, la campata è
+   quello che si guarda, e sopra i 700px stanno bene insieme.
+
+   I colori sono quelli della mappa — `.grid-cell.status-*` — perché è la
+   stessa domanda: chi guarda una cella verde in mappa e una qui deve
+   capire la stessa cosa senza impararlo due volte. */
+.route-stop-main {
+  display: flex; align-items: flex-start; gap: 0.9rem;
+  padding: 0.6rem 0;
+}
+.route-stop-main > .route-stop-body { flex: 1; min-width: 0; padding: 0; }
+
+.route-col { width: 136px; flex-shrink: 0; }
+.route-col-cap {
+  font-size: var(--md-sys-typescale-label-small-size);
+  text-transform: uppercase; letter-spacing: 0.05em;
+  color: var(--md-sys-color-on-surface-variant);
+  margin-bottom: 0.3rem;
+}
+.route-col-pila { display: flex; flex-direction: column; gap: 3px; }
+.route-col-vano {
+  display: flex; align-items: center; gap: 0.4rem;
+  min-height: 40px; padding: 0 0.45rem;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--md-sys-shape-corner-extra-small);
+  background: var(--md-sys-color-surface-container-lowest);
+}
+.route-col-liv {
+  width: 20px; flex-shrink: 0; text-align: center;
+  font-size: var(--md-sys-typescale-body-medium-size); font-weight: 800;
+  color: var(--md-sys-color-on-surface-variant);
+}
+.route-col-stato {
+  font-size: var(--md-sys-typescale-label-small-size);
+  line-height: 1.15; min-width: 0; overflow-wrap: anywhere;
+}
+.route-col-vano--occupied { background: var(--sx-success-soft); border-color: var(--sx-success); color: var(--sx-success); }
+.route-col-vano--blocked  { background: var(--sx-danger-soft);  border-color: var(--sx-danger);  color: var(--sx-danger); }
+.route-col-vano--reserved { background: var(--sx-warning-soft); border-color: var(--sx-warning); color: var(--sx-warning); }
+.route-col-vano--disabled { background: var(--sx-bg-alt); border-color: var(--sx-border); color: var(--sx-disabled); opacity: 0.55; }
+.route-col-vano--empty    { color: var(--sx-text-muted); }
+
+/* IL VANO DELLA TAPPA SI ACCENDE PIENO, non con un contenitore tenue.
+   Provato al banco il 03/09: `primary-container` (#A4F2D5) e il verde
+   dell'occupata (#B2F0CF) sono lo stesso verde a un metro di distanza, e
+   una colonna con due livelli occupati diventava tre riquadri verdi.
+   Pieno come il numero della tappa in testa alla scheda: quello si vede da
+   solo, e sono la stessa cosa detta due volte. */
+.route-col-vano--tappa {
+  background: var(--md-sys-color-primary);
+  border: 2px solid var(--md-sys-color-primary);
+  color: var(--md-sys-color-on-primary);
+  min-height: 52px;
+}
+.route-col-vano--tappa .route-col-liv,
+.route-col-vano--tappa .route-col-stato {
+  color: var(--md-sys-color-on-primary); font-weight: 800;
+}
+/* Il pavimento: senza, la pila di livelli non dice da che parte è terra. */
+.route-col-terra {
+  margin-top: 3px; padding-top: 0.2rem;
+  border-top: 3px solid var(--md-sys-color-on-surface-variant);
+  font-size: var(--md-sys-typescale-label-small-size);
+  text-align: center; color: var(--md-sys-color-on-surface-variant);
+}
+
+/* Stesso articolo, lotto diverso, un altro livello della stessa campata.
+   Sta con le bande e non in fondo: è quel che cambia il gesto. */
+.route-col-rischio {
+  background: var(--md-ext-warning-container);
+  color: var(--md-ext-on-warning-container);
+  border-radius: var(--md-sys-shape-corner-medium);
+  padding: 0.6rem 0.75rem;
+  margin: 0.6rem 0 0;
+  font-size: var(--md-sys-typescale-body-small-size);
+  line-height: 1.4;
+}
+.route-col-rischio > strong {
+  display: block;
+  font-size: var(--md-sys-typescale-title-small-size);
+  margin-bottom: 0.15rem;
+}
+
+/* SOTTO I 700px LA CAMPATA SCENDE SOTTO I DATI. Di fianco resterebbe una
+   colonna da 136px accanto a una da 120: due colonne strette invece di
+   una leggibile. Il disegno resta in piedi e si centra — una scaffalatura
+   stesa in orizzontale non è più una scaffalatura. */
+@media (max-width: 700px) {
+  .route-stop-main { flex-direction: column; gap: 0.6rem; }
+  .route-col { width: 100%; }
+  .route-col-pila, .route-col-cap, .route-col-terra {
+    max-width: 260px; margin-left: auto; margin-right: auto;
+  }
+  .route-col-cap { text-align: center; }
+}
+
 /* ══ 2.12 · IL GIRO E LA SOSTA ══════════════════════════════════════
    © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) */
 

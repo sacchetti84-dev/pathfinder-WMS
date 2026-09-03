@@ -8,6 +8,7 @@ import { PickRoute } from '../../modules/pickRoute';
 import { tappeAltrove, richiestaTrasferimento, tappaInAttesa, sitoDiCasa } from '../../modules/trasferimentiOdp';
 import { etichettaTipo } from '../../modules/compiti';
 import { descriviColli as descriviElencoColli, eccedenza as eccedenzaColli } from '../../modules/colli';
+import { colonnaDi, type Colonna } from '../../modules/colonna';
 import { formattaQuantita } from '../../modules/misure';
 import type { Percorso, Tappa } from '../../modules/pickRoute';
 import {
@@ -1088,6 +1089,79 @@ export const VistaPercorso = {
     </div>`;
   },
 
+  /* ═══ 2.22 — LA CAMPATA DELLA TAPPA, VISTA DI FRONTE ════════════════
+
+     La scheda dice `MG1-SCA-04-06-2` e chi è davanti allo scaffale deve
+     tradurlo in un gesto: quale ripiano, contando da terra. Il disegno lo
+     dice prima che la mano parta.
+
+     SI GUARDA E BASTA. Nessun clic, nessun gestore: la scheda della tappa
+     è aperta durante un prelievo, e ogni bottone di questo applicativo
+     scrive nel magazzino di qualcuno.
+
+     Il modulo è `modules/colonna.ts` — puro, e collaudato da fermo. Qui
+     resta il disegno. Su una zona a terra o alla rinfusa torna `null` e
+     non si disegna niente: una colonna di un rettangolo solo ripeterebbe
+     il codice che sta già in testa alla scheda. */
+  _routeColonna(st): Colonna | null {
+    if (!st?.location_code) return null;
+    /* La geometria si ricostruisce a ogni disegnata come fanno la mappa e
+       la verifica di stoccaggio: è un giro sulle zone, non sulle giacenze. */
+    const geo = Store.buildLocationGeometry();
+    const g = geo.get(st.location_code);
+    if (!g) return null;
+    return colonnaDi({
+      code: st.location_code,
+      geo,
+      zona: Store.getZone(g.site_id, g.zone_id),
+      stato: (code) => Store.getLocationStatus(code),
+      righe: (code) => Store.getItemsAtLocation(code),
+      article_code: st.article_code,
+      lot_code: st.lot_code,
+    });
+  },
+
+  /* Le cinque etichette di stato, con le stesse parole della mappa. */
+  _COL_STATI: {
+    occupied: 'Occupata', empty: 'Vuota', blocked: 'Bloccata',
+    reserved: 'Riservata', disabled: 'Disattivata',
+  },
+
+  _routeColonnaHTML(col: Colonna | null) {
+    if (!col) return '';
+    const vani = col.vani.map((v) => {
+      const etichetta = v.tappa ? 'Da prelevare' : (this._COL_STATI[v.stato] || '—');
+      return `<div class="route-col-vano route-col-vano--${this._esc(v.stato)}${v.tappa ? ' route-col-vano--tappa' : ''}"
+          title="${this._esc(v.code)} — ${this._esc(etichetta)}">
+          <span class="route-col-liv mono">${this._esc(v.level)}</span>
+          <span class="route-col-stato">${this._esc(etichetta)}</span>
+        </div>`;
+    }).join('');
+    return `<aside class="route-col" aria-label="Campata ${col.bay} della corsia ${col.aisle}, vista di fronte">
+      <div class="route-col-cap">Corsia ${col.aisle} · campata ${col.bay}</div>
+      <div class="route-col-pila">${vani}</div>
+      <div class="route-col-terra">terra</div>
+    </aside>`;
+  },
+
+  /* STESSO ARTICOLO, LOTTO DIVERSO, UN ALTRO LIVELLO. Sta con le bande e
+     non in fondo, per la stessa ragione della banda del trasferimento: è
+     quel che cambia il gesto, e leggerlo dopo aver preso è tardi.
+
+     La scansione del vano non salva da questo — chi legge l'etichetta del
+     livello sbagliato scansiona un codice valido, solo non è il suo. */
+  _routeRischioLottoHTML(col: Colonna | null) {
+    if (!col?.rischioLotto.length) return '';
+    const liv = col.rischioLotto;
+    const quali = liv.map((l) => `<b class="mono">${this._esc(l)}</b>`).join(', ');
+    return `<div class="route-col-rischio">
+      <strong>Stesso articolo, lotto diverso in questa campata</strong>
+      ${liv.length === 1 ? `Il livello ${quali} tiene lo stesso articolo con un altro lotto.` :
+        `I livelli ${quali} tengono lo stesso articolo con un altro lotto.`}
+      Prelevare dal livello <b class="mono">${this._esc(col.vani.find((v) => v.tappa)?.level || '')}</b>.
+    </div>`;
+  },
+
   _routeCurrentHTML(st, sosta = null) {
     const site = Store.getSite(st.site_id);
     /* 2.5 — la giacenza si legge ADESSO. Vedi `_routeDisponibili`. */
@@ -1096,6 +1170,9 @@ export const VistaPercorso = {
     const riga = Store.getItemsAtLocation(st.location_code).find((i) => i.item_key === st.item_key) || null;
     const elenco = riga ? Store.colliDiRiga(riga) : null;
     const vanoOk = this._routeScanValida(st) && !!this._routeScan.loc;
+    /* 2.22 — la campata si chiede UNA volta per disegnata e si passa ai due
+       pezzi che la usano: la banda del rischio e il disegno. */
+    const col = this._routeColonna(st);
     return `
       <article class="route-stop-card">
         <header class="route-stop-head">
@@ -1108,7 +1185,9 @@ export const VistaPercorso = {
 
         ${this._routeTrasfBandaHTML(st)}
         ${this._routeSostaHTML(st, sosta)}
+        ${this._routeRischioLottoHTML(col)}
 
+        <div class="route-stop-main">
         <div class="route-stop-body">
           <div class="route-stop-kv"><span>Articolo</span><b class="mono">${this._esc(st.article_code)}</b></div>
           <div class="route-stop-kv"><span>Descrizione</span><b>${this._esc(st.article_description || '—')}</b></div>
@@ -1116,6 +1195,8 @@ export const VistaPercorso = {
           <div class="route-stop-kv"><span>Scadenza</span><b>${this._esc(this._isoToIt(st.expiry_iso))}</b></div>
           <div class="route-stop-kv route-stop-kg"><span>Richiesti da ordine</span><b>${this._qtaOrdine(st.kg_required, st.um)} ${this._esc(st.um)}</b></div>
           <div class="route-stop-kv${disponibili <= 0 ? ' route-stop-vuoto' : ''}"><span>Colli in ubicazione</span><b>${disponibili}</b></div>
+        </div>
+        ${this._routeColonnaHTML(col)}
         </div>
 
         ${this._routeQuoteHTML(st)}

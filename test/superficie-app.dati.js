@@ -107,7 +107,13 @@
    e' entrato `MARCHIO_BANCALE`, il rimando allo sprite di `index.html`.
    2.1: sono usciti i sei della copia esterna (`vault*`, `doVaultRestore`,
    `_scheduleVaultBackup`), `purgeOldLogsManual` con la purga, e i due
-   salvataggi a mano `forceSave` e `manualSave`. */
+   salvataggi a mano `forceSave` e `manualSave`.
+   2.22: la scheda della tappa mostra la CAMPATA vista di fronte — a che
+   altezza sta il vano da prelevare. Sono entrati `_routeColonna` (che
+   chiede la campata a `modules/colonna.ts`), `_routeColonnaHTML` (il
+   disegno), `_routeRischioLottoHTML` (la banda dello stesso articolo con
+   un altro lotto, un altro livello) e `_COL_STATI`, le cinque etichette di
+   stato scritte con le stesse parole della mappa. */
 export const SUPERFICIE = [
   'MARCHIO_BANCALE',
   '_campoImballo', '_imballiHTML', '_imballoModifica', '_imballoSalva', '_imballoTogli',
@@ -240,7 +246,8 @@ export const SUPERFICIE = [
   '_ridichRigaAdd', '_ridichRigaDel', '_ridichSet', '_ridichiaraColli',
   '_rigaUM', '_ristampaVerbaleCampione',
   '_routeAbandon', '_routeBlock', '_routeCheckArt', '_routeCheckLoc', '_routeCheckLot',
-  '_routeClearImport', '_routeClose', '_routeConfirmStop', '_routeCurrentHTML',
+  '_routeClearImport', '_routeClose', '_routeColonna', '_routeColonnaHTML',
+  '_routeConfirmStop', '_routeCurrentHTML', '_routeRischioLottoHTML', '_COL_STATI',
   '_routeCurrentStop', '_routeFb', '_routeFinishHTML', '_routeImportResultHTML',
   '_routeListRowHTML', '_routeMarkMissing', '_routeMoveSite', '_routeParsed',
   '_routeApertura', '_routeChiaveScan', '_routeDisponibili', '_routeFermoHTML',

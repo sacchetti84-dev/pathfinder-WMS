@@ -7,7 +7,20 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **03/09/2026 sera** — **il prodotto finito ha imparato a farsi
+Aggiornato: **03/09/2026 notte** — **la tappa dice a che altezza sta.** La
+**2.22** disegna nella scheda del prelievo la **campata vista di fronte**: i
+livelli impilati, quello da prelevare acceso pieno, gli altri col solo stato.
+Un codice — `MG1-SCA-04-06-2` — diventa un gesto: quale ripiano, contando da
+terra. Gli altri livelli **non dicono cosa tengono**, perché un vano che non
+si deve toccare non ha niente da spiegare; l'unica cosa che si guarda dentro
+è se lo **stesso articolo sta lì con un altro lotto**, e quella si dice a
+parole in una banda gialla. È il caso in cui la scansione del vano non salva
+nessuno: chi legge l'etichetta del livello sbagliato scansiona un codice
+valido, solo non è il suo. Sulle zone a terra e alla rinfusa **non si disegna
+niente** — non hanno livelli, e una colonna di un rettangolo solo
+ripeterebbe il codice che sta già in testa alla scheda.
+
+Prima, la **2.21** — **il prodotto finito ha imparato a farsi
 da solo, e il camion si carica scansionando.** La 2.20 aveva dato al bancale
 un'esistenza; la **2.21** gli dà il gesto di chi lo fa e di chi lo spedisce.
 La maschera del reparto è diventata quella del carico merce — ① articolo →
@@ -210,7 +223,7 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ---
 
-## 1. Stato, misurato il 03/09/2026 sera
+## 1. Stato, misurato il 03/09/2026 notte
 
 ### In servizio
 
@@ -272,7 +285,36 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.21.1 — costruita, non installata
+### La 2.22.0 — costruita, non installata
+
+**La campata della tappa.** La scheda del prelievo dice il codice del vano;
+adesso dice anche **a che altezza sta**, disegnando la campata di fronte.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.22.0\` |
+| impronta | `c5d97b1526eff6eee230c68f1108b7bc59371f2947514a5e34fc98a53ace4d29` |
+| byte | **2.033.787** in **4 file**, `costruita 2026-09-03T21:47:21Z` |
+| riproducibile | **sì, verificata**: tre build di fila danno la stessa impronta |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.355 in 50 file** (una saltata) · `servizio\test\collaudo-installazione.js` girato **dentro** il pacchetto: **43 su 43**; il servizio del pacchetto dichiara `2.22.0` |
+| cosa cambia dalla 2.21.1 | **un modulo puro nuovo** (`modules/colonna.ts`), tre metodi e una costante in `percorso.ts`, un blocco di CSS. Nessuna regola nuova, nessun campo nuovo a database, nessuna migrazione, niente che scriva |
+| installata | **no.** §0: installare è un atto umano |
+
+> **PORTA ANCHE LA 2.21.1**, che non è mai stata installata: la riga `UDC` del
+> carico spedizioni firmata, con vano di partenza e di arrivo.
+
+> ⚠️ **IL PACCHETTO DELLA 2.21.1 È STATO SOVRASCRITTO IL 03/09 NOTTE, ED È LA
+> TRAPPOLA DEL 19/08 DI §7.** Una build fatta «per vedere se compila», col
+> numero ancora fermo a `2.21.1`, ha riscritto `consegna\Pathfinder 2.21.1\`
+> coi byte della campata: impronta `2bd7af11…` al posto di `f2ecf629…`. Non si
+> è perso niente — il sorgente della 2.21.1 è il commit `9bd9ad7`, la build è
+> riproducibile, e la 2.22.0 contiene quella correzione — ma **la regola
+> resta**, e questa volta è costata a chi la stava rileggendo: il numero si
+> alza **prima** di costruire, e prima di una build di verifica si copia il
+> pacchetto che aspetta un'installazione.
+
+### La 2.21.1 — costruita, non installata, superata dalla 2.22.0
 
 **Una riga di registro, e nient'altro.** Il carico delle spedizioni scriveva
 la sua riga `UDC` col solo tipo e la nota, mentre la stessa causale scritta
@@ -284,7 +326,7 @@ vero di Andrea sul banco, non una prova.
 
 | | |
 |---|---|
-| pacchetto | `consegna\Pathfinder 2.21.1\` |
+| pacchetto | **non esiste più su disco** — sovrascritto il 03/09 notte, vedi l'avviso della 2.22.0. Si rifà dal commit `9bd9ad7` |
 | impronta | `f2ecf62946c317c77fb58c3182f41d5c49cf7e1b297fe7eee0f0f2cb866d297e` |
 | byte | **2.027.739** in **4 file**, `costruita 2026-09-03T21:04:11Z` |
 | riproducibile | **sì, verificata**: tre build di fila danno la stessa impronta |
@@ -517,7 +559,8 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.21.1** | **COSTRUITA, NON INSTALLATA** — 03/09 notte | `f2ecf629…` | **Una riga di registro.** Il carico delle spedizioni scriveva la sua riga `UDC` col solo tipo e la nota: adesso porta operatore, vano di partenza, vano di arrivo e istante, come la scrive la maschera delle unità di carico. Le righe della merce erano già complete |
+| **2.22.0** | **COSTRUITA, NON INSTALLATA** — 03/09 notte | `c5d97b15…` | **La campata della tappa.** La scheda del prelievo disegna la **campata vista di fronte**: i livelli impilati, quello da prelevare acceso pieno, gli altri col **solo stato**. Una banda avvisa quando lo stesso articolo sta su un altro livello **con un lotto diverso** — il caso in cui la scansione del vano non salva nessuno. Sulle zone a terra e alla rinfusa non si disegna niente. Porta dentro anche la 2.21.1 |
+| **2.21.1** | costruita, non installata, **superata dalla 2.22.0** — 03/09 notte | `f2ecf629…` | **Una riga di registro.** Il carico delle spedizioni scriveva la sua riga `UDC` col solo tipo e la nota: adesso porta operatore, vano di partenza, vano di arrivo e istante, come la scrive la maschera delle unità di carico. Le righe della merce erano già complete |
 | **2.21.0** | **IN SERVIZIO su questa macchina dal 03/09 sera** | `479913cd…` | **Il bancale si fa da sé, e il camion si carica scansionando.** La maschera del reparto è quella del carico merce — colli pieni × quanto dentro — e il **modello di carico si impara** dal primo bancale invece di essere compilato su 11.197 articoli. L'etichetta esce **prima** dell'ubicazione. Nasce **Carico spedizioni**: un giro le cui tappe sono bancali, la **baia di carico** come tipo di zona, e i DDT che si evadono a fine giro — quelli completi. Più: articolo e lotto in due colonne, DDT e data **riletti dai documenti**, scarico a mano, DDT raggruppato in stampa, packing list con la composizione del collo |
 | **2.20.0** | in servizio il 03/09 pomeriggio — è la **via di ritorno** | `d10d7830…` | **Il magazzino del prodotto finito.** Il bancale è un'unità di carico, la maschera del reparto lo chiude in un gesto e ne stampa l'etichetta, chi spedisce lo trova in elenco e sulla mappa, lo spunta e il DDT si riempie. **Packing list** e **conto terzi**, dove la merce non esce ma si sposta |
 | **2.19.0** | **COSTRUITA, NON INSTALLATA** — 02/09 | — | Le etichette escono dalla **stampante**: Zebra in rete sulla porta 9100, e a parlarle è il servizio. Le stampanti e il **layout dell'etichetta merce** — barre, descrizione, scadenza, peso — si configurano; chi stampa sceglie la macchina e quante copie. **L'A4 resta**, e non come ripiego di cortesia |
@@ -574,6 +617,68 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.22 — la tappa dice a che altezza sta
+
+**UN CODICE NON È UN GESTO.** La scheda del prelievo diceva
+`MG1-SCA-04-06-2`, e chi è davanti allo scaffale doveva tradurlo da sé:
+quale ripiano, contando da terra. Adesso accanto ai dati c'è la **campata
+vista di fronte** — i livelli impilati come sono nella realtà, il terreno
+disegnato sotto, e il vano da prelevare **acceso pieno**.
+
+**GLI ALTRI LIVELLI PORTANO IL SOLO STATO.** Vuota, occupata, bloccata,
+riservata, disattivata — le stesse cinque parole e gli stessi cinque colori
+della mappa, perché è la stessa domanda e impararla due volte è impararla
+male. Cosa c'è dentro **non si scrive**: un vano che non si deve toccare non
+ha niente da spiegare a chi ha due secondi e i guanti.
+
+**L'ECCEZIONE È IL LOTTO, E SI DICE A PAROLE.** Il modulo guarda dentro gli
+altri livelli per una cosa sola: se tengono lo **stesso articolo con un lotto
+diverso**. Quello non è contesto, è il modo in cui una mano finisce sul
+pallet sbagliato — e **la scansione del vano non ne salva**, perché chi legge
+l'etichetta del livello sotto scansiona un codice valido, solo non è il suo.
+La banda gialla sta **con le bande e non in fondo**, per la stessa ragione
+della banda del trasferimento: è quel che cambia il gesto, e leggerlo dopo
+aver preso è tardi.
+
+**SOLO LE SCAFFALATURE.** Zone a terra e alla rinfusa non hanno livelli:
+`colonnaDi` torna `null` e non si disegna niente. È la regola della 2.1 —
+la vista la decide la zona — e disegnare comunque vorrebbe dire disegnare,
+su quelle zone, la cosa sbagliata. Torna `null` anche uno scaffale a un
+livello solo: quella non è una colonna, è il codice che sta già in testa.
+
+**NON C'È NIENTE DA PREMERE.** La scheda della tappa è aperta durante un
+prelievo, e ogni bottone di questo applicativo scrive nel magazzino di
+qualcuno: il disegno si guarda e basta, e una prova lo verifica cercando
+`onclick`, `<button>` e `href` nella stringa.
+
+**DOVE STA IL CODICE.** La domanda — *com'è fatta la campata che contiene
+questo vano* — la fanno la scheda della tappa e, il giorno che servirà, la
+mappa: quindi sta in un modulo **puro** suo, `modules/colonna.ts`, e non
+dentro la vista. I codici dei fratelli li dà `generaUbicazioni`, mai una
+`split('-')`: un id di zona può contenere un trattino, e spezzare la stringa
+darebbe una colonna plausibile e sbagliata.
+
+**IL VERDE DELLA TAPPA NON POTEVA ESSERE IL VERDE DELL'OCCUPATA.** Primo
+disegno: `primary-container` `#A4F2D5` per la tappa, `success-soft`
+`#B2F0CF` per i vani occupati. A schermo, e a un metro, sono lo stesso
+verde: una campata con due livelli pieni diventava tre riquadri uguali.
+Adesso la tappa è **piena**, come il numero della tappa in testa alla
+scheda — la stessa cosa detta due volte, che è quel che serve quando la si
+guarda per due secondi.
+
+**LE MISURE.** Sopra i 700px la campata sta **di fianco** ai dati, larga
+136px; sotto scende in fondo e si centra a 260px, e resta **verticale** —
+una scaffalatura stesa in orizzontale non è più una scaffalatura. Guardata a
+1000, a 480 e a 400px, che è la fascia dell'MC9400.
+
+**LE PROVE.** `test/colonna.test.js` (**14**) sul modulo: l'ordine dei
+livelli preso dalla configurazione e non dall'alfabeto, i cinque casi che
+tornano `null`, e il rischio lotto — compreso il vano della tappa che **non
+accusa se stesso** quando tiene due lotti dello stesso articolo.
+`test/colonnaTappa.test.js` (**9**) sul disegno, letto come stringa: un vano
+acceso solo, niente da premere, e `not.toMatch(/ART-|lott|coll/i)`, che è il
+modo di provare che i livelli da non toccare **non portano informazioni**.
 
 ### 2.21 — il bancale si fa da sé, e il camion si carica scansionando
 
@@ -1693,6 +1798,8 @@ scelta e non per dimenticanza (§8).
 ### Aperte — da pianificare
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **94** | **LA CAMPATA DELLA 2.22 PUÒ DIRE ANCHE QUALI ALTRI LIVELLI SONO TAPPE DI QUESTO GIRO.** `_routeSosta` raggruppa già le tappe pendenti contigue nello stesso vano, ma non dice niente sui vani sopra e sotto: chi è salito sul carrello per il livello 2 non sa che il 3 lo aspetta fra quattro tappe | **Si guarda dopo un po' di prelievi veri**: quanto spesso due tappe dello stesso giro cadono nella stessa campata. Se capita di rado non vale il segno in più; se capita spesso, il dato c'è già — basta passare a `colonnaDi` i codici delle tappe pendenti |
+| **95** | **`_renderMapFrontal` DELLA MAPPA NON PASSA DA `modules/colonna.ts`.** La 2.22 ha estratto la domanda «com'è fatta questa campata» in un modulo puro, ma la mappa continua a rispondersela da sola, come faceva prima. Non è un difetto — disegna corsie intere, non una colonna — ma **quale sia lo stato di un vano** adesso è scritto in due posti | **Si guarda quando si tocca la mappa la prossima volta**, non prima: spostare un disegno che funziona per farlo passare da un modulo nuovo è il tipo di lavoro che rompe quel che era verde. Se si fa, si fa con le prove della mappa davanti |
 | **93** | **IL MODELLO DI CARICO SI IMPARA DAL PRIMO BANCALE, E IL PRIMO BANCALE PUÒ ESSERE UN FONDO DI PRODUZIONE.** Un articolo che ne fa 40 per pallet, imballato la prima volta a fine lotto con dodici colli, impara «12» e da lì in poi lo propone. Non è un errore — il modello propone e non impone, e si riscrive senza dover dire perché — ma è una proposta sbagliata che nessuno va a correggere finché non dà fastidio | **Si guarda dopo un mese di uso vero**: quanti articoli hanno imparato un numero che non è il loro. Se sono pochi si correggono in Parametri; se sono tanti, la regola da cambiare è **quando** si impara — per esempio solo dal bancale che porta il numero più alto visto finora |
 | **92** | **IL CARICO SPEDIZIONI NON HA MAI VISTO UN CAMION.** Provato al banco da capo a fondo — baia, due DDT, tappa saltata, evasione parziale, sessione ripresa dopo un ricaricamento — e il **03/09 sera** anche sull'installazione di questa macchina, con una baia marcata da Andrea: tutto a posto (voce **91**). Ma sono due magazzini di prova, con pochi bancali per documento. **Quel che né il banco né questa macchina possono dire**: se la serpentina porti dove serve quando i pallet sono venti, se la baia vera abbia le posizioni che il sistema si aspetta, e se «un DDT per volta» sia il ritmo giusto o se chi carica preferisca vedere tutto il mezzo insieme | **Una passata in banchina**, con un carico vero. Poi si decide se la baia debba avere posizioni numerate come quelle di uno scaffale, e se serva vedere più DDT su una schermata sola |
 | **90** | **IL PRODOTTO FINITO NON HA MAI VISTO IL REPARTO.** La 2.20 è stata provata al banco da capo a fondo — modello di imballo, zona PF, bancale chiuso ed etichettato, elenco, mappa colorata, carrello del DDT, evasione, conto terzi — ma su un database di prova e con un articolo scelto a caso. **Quel che il banco non può dire**: se ① → ② → ③ → ④ regga il ritmo di chi imballa davvero, se i colli proposti dal modello siano quelli giusti sui formati veri, e se chi spedisce trovi nell'elenco le colonne che cerca | **Una passata in reparto e una alla scrivania delle spedizioni**, con la merce vera davanti. Poi si sistemano modelli, colonne e proposta — sono tutti dati o righe di vista, non architettura |
@@ -1803,7 +1910,7 @@ hanno con cosa lavorare.
 npm run dev      # sviluppo, ricarica a caldo — ATTENZIONE: parla col servizio VERO
 npm run build    # produce "consegna/Pathfinder <ver>/" — il pacchetto da consegnare
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest — 1.332 prove in 48 file al 03/09 sera
+npm test         # vitest — 1.355 prove in 50 file al 03/09 notte
 ```
 
 ```bash
@@ -2918,6 +3025,15 @@ e nessuna classe deve poterlo smentire.
 - **IL VANO CONFERMATO NON È UN CAMPO SPENTO: È UNA BANDA**, e riscansionare
   resta possibile senza chiedere un motivo.
 - **ARTICOLO E LOTTO SI RISCANSIONANO A OGNI RIGA.** Il vano è uno; la merce no.
+- **LA CAMPATA SI GUARDA, NON SI TOCCA — 2.22.** Il disegno della colonna non
+  ha gestori: la scheda della tappa è aperta durante un prelievo, e ogni
+  bottone di questo applicativo scrive nel magazzino di qualcuno.
+- **I LIVELLI CHE NON SI DEVONO TOCCARE PORTANO IL SOLO STATO — 2.22.** Cosa
+  c'è dentro un vano che non è la tappa non serve a chi preleva: è una riga in
+  più da leggere coi guanti. **L'unica eccezione si dice a parole**: lo stesso
+  articolo con un **lotto diverso** su un altro livello, che è il caso in cui
+  la scansione del vano non salva nessuno — il codice letto è valido, solo non
+  è il suo.
 
 ### Stoccaggio, mappa, documenti
 
@@ -3123,6 +3239,7 @@ in Configurazione → Operatori.
 | `modules/documenti.ts` | 118 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto, e dalla 2.20 porta anche `udc_id` — da quale bancale esce la riga. **2.21**: `raggruppaPerPartita`, la riga che si STAMPA — un articolo e un lotto — mentre quella che si salva resta una per bancale. Puro |
 | `modules/giacenzaArticolo.ts` | 175 | La giacenza di un articolo per lotto, FEFO, e la coda di conte nell'ordine dello scaffale. **Le UM non si calcolano qui**: arrivano risolte da `Store.righeLette`. Puro |
 | `modules/trasferimentiOdp.ts` · `dispositivo.ts` | 142 · 74 | Le tappe in un altro magazzino e il compito che ne nasce · su che cosa sta girando (decide **la larghezza**, non il sistema operativo). Puri |
+| `modules/colonna.ts` | 119 | **2.22 — com'è fatta la campata che contiene un vano**: i livelli dall'alto in basso, ciascuno col **solo stato**, più i livelli che tengono lo stesso articolo con un lotto diverso. Sta da solo perché la domanda la fanno la scheda della tappa e, il giorno che servirà, la mappa. Torna `null` su terra, rinfusa e scaffali a un livello: **una colonna di un rettangolo solo non è una colonna**. I codici dei fratelli li dà `generaUbicazioni`, mai una `split('-')`. Puro |
 | `modules/udc.ts` | 162 | Il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perché **un'etichetta dura**. Dalla 2.20 lo stesso codice identifica anche un **bancale di prodotto finito** — `modules/bancale.ts`. Puro |
 | `modules/imballo.ts` | 199 | **2.20 — com'è fatto un bancale prima che il bancale esista**: i modelli di imballo, la loro convalida, `colliAttesi` e `pesoLordo`. Sta da solo perché la composizione è un DATO e non un campo su 11.197 articoli. **Il modello propone**: chi imballa riscrive il numero senza dover dire perché. **2.21**: `modelloAppreso` e `modelloConColli` — il formato che si IMPARA dal primo bancale invece di essere compilato su 11.197 articoli. Puro |
 | `modules/bancale.ts` | 277 | **2.20 — come si LEGGE un bancale di prodotto finito**, in un posto solo: mono o misto, colli, UM (diverse → MISTA, mai una somma), e i quattro stati — pronto, impegnato su un DDT, spedito, vuoto. La stessa domanda la fanno l'elenco, la mappa, l'etichetta e la packing list: quattro copie sarebbero quattro risposte. `zonePf` elenca le zone dichiarate, terzisti compresi. **2.21**: `zoneCarico` (le baie), `spedizioniDiBancale` — con quale DDT e quando un bancale è partito, **riletto dai documenti evasi** — e un bancale spedito che legge il suo contenuto da quel documento, perché in giacenza non ha più niente. Puro |
@@ -3142,10 +3259,10 @@ in Configurazione → Operatori.
 | `modules/excel.ts` | 31 | **Il punto unico da cui SheetJS si carica, e solo quando serve.** Chi rimette `import * as XLSX` in cima a un file annulla la 1.7 |
 | `modules/validate.ts` · `auth.ts` · `session.ts` · `pickupAlert.ts` · `scanGuard.ts` · `maiuscole.ts` | 104 · 88 · 69 · 43 · 31 · — | Validazioni · PIN e impronta · sessione · allerta ritiri · guardia del lettore · i campi che sono un codice |
 | `types/entita.ts` · `contratto.ts` · `collezioni.ts` | 722 · 157 · 63 | Le entità · l'interfaccia dei due adapter · **le 21 collezioni, sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono |
-| `styles/*.css` | 4.478 | **10 file**, §8 |
+| `styles/*.css` | 4.588 | **10 file**, §8 |
 | `ui/dialog.js` · `feedback.js` · `tabs.js` | 546 · 181 · 59 | Modali · toast e spinner · schede. **2.21**: `Dialog.testo`, una riga sola — un numero di DDT non è una motivazione, e `reason` glielo direbbe a video |
 | `main.js` · `index.html` | 46 · 200 | Avvio e gancio globale · scheletro del DOM e marchi SVG |
-| `ui/views/` | ~18.500 | Le viste, più `vista.ts` e `globale.d.ts` |
+| `ui/views/` | ~18.600 | Le viste, più `vista.ts` e `globale.d.ts` |
 
 ### Le viste — `src/ui/views/`
 
@@ -3156,7 +3273,7 @@ rimette dentro, e **esplode se un metodo è rimasto anche di qua** — estrarre 
 spostare, e un doppione verrebbe sovrascritto in silenzio.
 | File | Righe | Cosa disegna |
 |---|---:|---|
-| `percorso.ts` | 1.834 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano |
+| `percorso.ts` | 1.924 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano. **2.22**: la **campata vista di fronte** accanto ai dati — `_routeColonna` la chiede a `modules/colonna.ts`, `_routeColonnaHTML` la disegna, `_routeRischioLottoHTML` avvisa dello stesso articolo con un altro lotto. Si guarda e basta: nessun gestore |
 | `spedizioni.ts` | 1.689 | DDT: testata, carrello, documento pendente, evasione, stampa. **2.20**: il carrello si riempie **dai bancali** (`_shipCaricaDaBancali` — sta qui perché il carrello è qui), la **packing list** che raggruppa le righe per bancale, e `_evadiTrasferendo`, l'evasione del **conto terzi** che sposta la merce invece di scaricarla. **2.21**: `_shipRigheDaBancali` — come una riga di DDT nasce da un pallet, in un posto solo, perché la chiedono in due — il DDT che **stampa** una riga per articolo#lotto, e la packing list che dice com'è fatto il collo e chiude con un riepilogo per lotto |
 | `inventario.ts` | 1.035 | Inventario di vano, conta mirata, ramo «Per articolo» col giro di conte |
 | `configDati.ts` | 975 | Dati, resilienza, i tre fogli Excel, reset (che chiede il PIN dell'Admin) |
@@ -3210,7 +3327,7 @@ farlo tacere**: se suona, un metodo non è rientrato.
 
 ### Collaudi — `test/`
 
-**1.332 prove in 48 file** al 03/09 sera (una saltata). Fuori da `npm test`:
+**1.355 prove in 50 file** al 03/09 notte (una saltata). Fuori da `npm test`:
 **156** sul servizio, **100** sulle etichette, **43** sull'installazione.
 `ambiente.js` è il preambolo comune.
 
