@@ -118,12 +118,20 @@
    segno di stato. Il lato lo calcola chi disegna — dipende da quante unita'
    stanno nel vano — e arriva come `--lato`: e' una misura che nasce a tempo
    di esecuzione, come `width:${pct}%`, non un valore di stile scritto a mano. */
+/* 2.21 — LE CASELLE SONO FATTE COME I VANI, e non e' decorazione: sono lo
+   stesso disegno a due scale — un contenitore dentro un'ubicazione — e due
+   grammatiche sullo stesso quadro si leggono come due cose diverse. Fondo
+   tenue e bordo pieno, come `status-occupied`; angoli arrotondati come le
+   celle; e l'alone del colore della carta al posto del bordo bianco di
+   prima, che era li' per staccare due caselle vicine — quel compito adesso
+   lo fa l'alone, e il bordo puo' portare lo stato. */
 .cell-udc {
   flex: 0 0 auto;
   width: var(--lato, 6px); height: var(--lato, 6px);
-  background: var(--sx-teal, var(--sx-accent));
-  border: 1px solid var(--sx-card);
-  border-radius: 1px;
+  background: var(--sx-teal-soft, var(--sx-accent-soft));
+  border: 1px solid var(--sx-teal, var(--sx-accent));
+  border-radius: 3px;
+  box-shadow: 0 0 0 1px var(--sx-card);
   pointer-events: auto;
   cursor: grab;
 }
@@ -132,9 +140,9 @@
    uno stato — pronto, impegnato su un DDT, spedito — e non decora niente:
    col filtro spento restano del colore di ogni altra unita' di carico. Non
    e' mai il colore da solo: il titolo della casella lo scrive. */
-.cell-udc.pf-pronto    { background: var(--sx-accent); }
-.cell-udc.pf-impegnato { background: var(--sx-warning); }
-.cell-udc.pf-spedito   { background: var(--sx-text-muted); }
+.cell-udc.pf-pronto    { background: var(--sx-accent-soft);  border-color: var(--sx-accent); }
+.cell-udc.pf-impegnato { background: var(--sx-warning-soft); border-color: var(--sx-warning); }
+.cell-udc.pf-spedito   { background: var(--sx-bg-alt);       border-color: var(--sx-text-muted); }
 .cell-udc-many {
   position: absolute; left: 2px; bottom: 1px;
   font-size: var(--md-sys-typescale-label-small-size);
@@ -658,6 +666,14 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   margin-bottom: 0.45rem;
   filter: saturate(0.92);
 }
+/* 2.21 — IL MARCHIO DEL BANCALE sta dove stanno le emoji delle altre
+   tessere, e occupa lo stesso spazio: `1em` di un carattere display-small.
+   Il colore lo porta la tessera — `currentColor` — perche' un'icona che si
+   dipinge da sola sarebbe l'unica a non seguire il tema. */
+.mov-action-card .mov-icon-svg {
+  width: 1em; height: 1em; display: block; margin: 0 auto;
+  color: var(--sx-primary);
+}
 .mov-action-card h3 {
   font-size: var(--md-sys-typescale-body-large-size);
   font-weight: 700;
@@ -889,6 +905,15 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
     font-size: 12pt; font-weight: 700; color: #21305A; }
   .pk-meta { font-size: 8pt; color: #555; }
   .pk-colli { margin-left: auto; font-size: 9pt; font-weight: 700; }
+  /* 2.21 — IL RIEPILOGO PER ARTICOLO E LOTTO, in coda al foglio. Il corpo
+     della packing list e' per BANCALE, ma la domanda di chi riceve e' per
+     lotto: «quanto di questo lotto e' arrivato». Su dieci blocchi quel
+     numero non si ricava guardandoli, e sommarlo a mano in banchina e' il
+     modo di sbagliare. Non si spezza fra due fogli, come i blocchi. */
+  .pk-riepilogo { break-inside: avoid; margin-top: 5mm; padding-top: 2mm;
+    border-top: 1.5pt solid #21305A; }
+  .pk-riepilogo-tit { font-size: 9pt; font-weight: 700; color: #21305A;
+    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 1.5mm; }
   .doc-note-small { font-size: 7.5pt; color: #666; margin-top: 3mm; line-height: 1.4; }
 
   .doc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
@@ -1013,6 +1038,11 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
    con la stessa classe accendono sempre la prima delle due. */
 .mov-action-card.c-pf { border-top-color: var(--sx-primary); }
 .mov-action-card.c-pf.active { background: var(--sx-primary-soft); border-color: var(--sx-primary); }
+/* 2.21 — il carico delle spedizioni. Arancione come le spedizioni, che e'
+   dove i suoi documenti nascono e dove si evadono: due tessere della stessa
+   famiglia, come prodotto finito e unita' di carico. */
+.mov-action-card.c-load { border-top-color: var(--sx-orange); }
+.mov-action-card.c-load.active { background: var(--sx-orange-soft); border-color: var(--sx-orange); }
 
 /* ════ 2.9 — L'ELENCO DELLE GIACENZE FUORI POSTO ════
    © Andrea Sacchetti — Dietopack S.r.l.

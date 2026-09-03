@@ -7,19 +7,52 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **03/09/2026 notte** — **il magazzino del prodotto finito esiste,
-ed è scritto ma non ancora impacchettato.** Il PF esce dal reparto, viene
+Aggiornato: **03/09/2026 sera** — **il prodotto finito ha imparato a farsi
+da solo, e il camion si carica scansionando.** La 2.20 aveva dato al bancale
+un'esistenza; la **2.21** gli dà il gesto di chi lo fa e di chi lo spedisce.
+La maschera del reparto è diventata quella del carico merce — ① articolo →
+② lotto → ③ **colli pieni × quanto dentro**, col collo incompleto che si
+aggiunge sotto — e **il modello di carico non si compila più: si impara**.
+Undicimila articoli non ricevono un formato perché qualcuno si siede a
+scriverlo; lo ricevono il giorno in cui il reparto imballa il primo bancale
+di quell'articolo, e dal secondo il numero è già proposto. L'etichetta esce
+**prima** dell'ubicazione, che è l'ordine vero: il muletto porta via il
+pallet etichettato, e il vano lo scansiona chi lo posa.
+
+Dall'altra parte del magazzino è nata la **undicesima tessera**: **Carico
+spedizioni**. È il giro di prelievo di chi carica il camion, e le tappe sono
+**bancali** — si scansiona solo il codice del pallet, perché articolo e lotto
+stanno sotto il cellophane. I bancali prelevati vanno in **baia di carico**,
+che è un tipo di zona nuovo, una posizione per pallet; finito un DDT il
+sistema chiede se se ne carica un altro, e alla fine evade tutto insieme. **Un
+DDT a cui manca un bancale non si evade**: resta pendente, e chi spedisce
+decide.
+
+In mezzo: l'elenco dei bancali porta **articolo e lotto in due colonne**, il
+**DDT con cui sono partiti e la data** — che si rileggono dai documenti, non
+sono campi dell'unità — e un filtro di stato; lo **scarico a mano** fa uscire
+i pallet con un numero di DDT già emesso dal gestionale; il **DDT stampa una
+riga per articolo#lotto** mentre le righe salvate restano una per bancale; la
+**packing list** dice com'è fatto il collo e chiude con un riepilogo per
+lotto. Le caselle dei bancali sulla mappa sono fatte come i vani — angoli
+arrotondati, fondo tenue, bordo pieno — e la tessera del prodotto finito ha
+un **marchio suo**: un pallet coi suoi colli, non una fabbrica.
+
+**Cinque blocchi, tutti i collaudi verdi tranne uno che era già rosso** — §4,
+voce **87**. **La 2.21.0 è scritta e provata al banco, e non è ancora
+costruita**: il numero è nei quattro posti di §7, `consegna\` porta ancora la
+2.20.0. Prima di costruire si archivia quel pacchetto — §7.
+
+Prima di questo — **la 2.20.0 è costruita e non installata**, impronta
+`d10d7830…`: il magazzino del prodotto finito. Il PF esce dal reparto, viene
 imballato su un bancale, scansionato ed etichettato, e messo nella zona di
-spedizione: fino a ieri di tutto questo Pathfinder non sapeva niente — la
+spedizione: fino ad allora di tutto questo Pathfinder non sapeva niente — la
 produzione registrava il **consumo** dei componenti e il prodotto finito
-viveva come una riga di testata sul rapporto di prelievo. Adesso un bancale è
+viveva come una riga di testata sul rapporto di prelievo. Un bancale è
 un'**unità di carico** con tre campi in più, chi spedisce lo vede in un elenco
 che si ordina e su una mappa che si tinge, lo spunta e il DDT si riempie da
 sé, con una **packing list** accanto. E un DDT di **conto terzi** non scarica:
-sposta la merce nel vano del terzista, che sta già sulla mappa. **Otto blocchi,
-otto commit, tutti i collaudi verdi tranne uno che era già rosso** — §4, voce
-**87**. **La 2.20.0 è costruita e non installata**, impronta `d10d7830…`, e il
-numero è nei quattro posti di §7.
+sposta la merce nel vano del terzista, che sta già sulla mappa.
 
 Prima di questo — **la 2.19.0 è costruita e non installata**:
 le etichette di merce e unità di carico escono su **Zebra in rete**, e a
@@ -230,6 +263,37 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.21.0 — scritta e provata, non ancora costruita
+
+| | |
+|---|---|
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| pacchetto | **non fatto**: `consegna\` porta ancora la 2.20.0, e §7 dice che prima di costruire si archivia il pacchetto che aspetta un'installazione |
+| collaudi da ferme | **1.332 su 1.333** (`npm test`, una saltata) · **156** sul servizio · **100** sulle etichette · **43** sull'installazione · **8** sul cambio di schema |
+| banco | **fatto a mano**, sul giro descritto in §5: due bancali con modello appreso, scarico a mano, carico di due DDT in baia, tappa saltata, evasione parziale, packing list e DDT stampati a video |
+| prova rossa | **una sola**, ed è la voce **87**: `banco/gerarchia.cjs` dà 39 su 40 dal 03/09 mattina, prima di questo lavoro |
+
+**COSA HA TROVATO IL BANCO, E NESSUNA PROVA DA FERMA VEDEVA — TRE DIFETTI.**
+
+1. **`hidden` non nascondeva niente su un `.form-group`.** L'attributo del
+   browser vale `display: none` con la specificità di un selettore di tipo, e
+   `.form-group { display: flex }` gli passava sopra: la dichiarazione dei
+   colli si vedeva su **ogni** articolo, anche su quelli senza unità di
+   misura, e il codice che l'accendeva e la spegneva funzionava per finta.
+   **Non era un difetto del prodotto finito**: lo stesso blocco esiste nel
+   posizionamento dalla 1.8, ed era rotto lì da allora. Adesso `[hidden] {
+   display: none !important }` sta in `01-base.css` — §7.
+2. **La TRAPPOLA 22, sulla sessione di carico.** `caricoSpedizione` non era
+   dichiarata in `_loadCache`: viveva in cache finché nessuno ricaricava la
+   pagina, e poi spariva — cioè **proprio nel caso per cui era stata
+   salvata**. Un carico su sei DDT dura mezz'ora, e in mezz'ora un terminale
+   si spegne.
+3. **Due bancali nello stesso vano di baia.** La prima stesura cercava una
+   posizione dove il pallet «ci stesse», e due pallet di lotti diversi ci
+   stanno benissimo: finivano impilati nella stessa casella, e la mappa non
+   mostrava più che cosa stesse salendo sul mezzo. Adesso si cerca prima una
+   posizione **vuota**, e si ripiega solo a baia piena.
+
 ### La 2.20.0 — come è stata costruita
 
 | | |
@@ -398,6 +462,7 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
+| **2.21.0** | **SCRITTA E PROVATA, NON COSTRUITA** — 03/09 sera | — | **Il bancale si fa da sé, e il camion si carica scansionando.** La maschera del reparto è quella del carico merce — colli pieni × quanto dentro — e il **modello di carico si impara** dal primo bancale invece di essere compilato su 11.197 articoli. L'etichetta esce **prima** dell'ubicazione. Nasce **Carico spedizioni**: un giro le cui tappe sono bancali, la **baia di carico** come tipo di zona, e i DDT che si evadono a fine giro — quelli completi. Più: articolo e lotto in due colonne, DDT e data **riletti dai documenti**, scarico a mano, DDT raggruppato in stampa, packing list con la composizione del collo |
 | **2.20.0** | **COSTRUITA, NON INSTALLATA** — 03/09 | `d10d7830…` | **Il magazzino del prodotto finito.** Il bancale è un'unità di carico, la maschera del reparto lo chiude in un gesto e ne stampa l'etichetta, chi spedisce lo trova in elenco e sulla mappa, lo spunta e il DDT si riempie. **Packing list** e **conto terzi**, dove la merce non esce ma si sposta |
 | **2.19.0** | **COSTRUITA, NON INSTALLATA** — 02/09 | — | Le etichette escono dalla **stampante**: Zebra in rete sulla porta 9100, e a parlarle è il servizio. Le stampanti e il **layout dell'etichetta merce** — barre, descrizione, scadenza, peso — si configurano; chi stampa sceglie la macchina e quante copie. **L'A4 resta**, e non come ripiego di cortesia |
 | **2.18.1** | costruita, non installata | — | Il minimo di Node era sbagliato e l'ha trovato la CI: `>=20` dichiarato ovunque, `better-sqlite3` 13 ne vuole 22 |
@@ -453,6 +518,95 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.21 — il bancale si fa da sé, e il camion si carica scansionando
+
+**La 2.20 aveva dato al bancale un'esistenza. La 2.21 gli dà il gesto** — di
+chi lo fa in reparto e di chi lo carica sul mezzo.
+
+- **LA MASCHERA DEL REPARTO È QUELLA DEL CARICO MERCE, e non per
+  somiglianza.** Chi imballa il prodotto finito è la stessa persona che
+  posiziona la merce in arrivo, e due maschere diverse per lo stesso gesto
+  sono due gesti da imparare: ① articolo → ② lotto → ③ **colli pieni ×
+  quanto dentro**, col collo incompleto che si aggiunge sotto — gli stessi
+  due campi del posizionamento, e le stesse funzioni pure di `colli.ts`.
+  Scadenza, ordine di produzione e modello stanno dentro un `<details>`:
+  facoltativi, e chiusi.
+- **IL MODELLO DI CARICO NON SI COMPILA: SI IMPARA.** Undicimila articoli non
+  ricevono un formato perché qualcuno si siede a scriverlo — nessuno
+  compilerebbe undicimila righe, ed è il motivo per cui i modelli esistono. Lo
+  ricevono il giorno in cui il reparto imballa il **primo** bancale di
+  quell'articolo: i colli pieni dichiarati diventano un modello `AUTO-<n>`, e
+  dal bancale dopo il numero è già nel campo. **Un modello appreso non ha mai
+  colli incompleti** — il collo spaiato è un fatto di quel pallet, non del
+  formato — e **un articolo che un modello ce l'ha già non lo cambia da
+  solo**: si impara una volta, si corregge in Parametri.
+- **LA QUANTITÀ PER COLLO SI SCRIVE IN ANAGRAFICA, DA CHI HA IL COLLO IN
+  MANO.** Se manca, il campo nasce vuoto e obbligatorio, e quel che si scrive
+  lì finisce su `articles.pieces_per_pack`. È il gemello di
+  `dichiaraConfezioneLotto`, che scrive sul lotto: il prodotto finito la
+  cerca in anagrafica, perché il lotto **nasce qui** e chiederla a un record
+  che non esiste ancora vorrebbe dire non trovarla mai.
+- **L'ETICHETTA ESCE PRIMA DELL'UBICAZIONE, E QUELLO È L'ORDINE VERO.** Il
+  pallet si etichetta al banco d'imballo; il vano lo scansiona chi lo posa, un
+  minuto dopo e dall'altra parte del reparto. Quindi il bancale nasce **senza
+  ubicazione** — uno stato che `assegnaAUdc` conosce dalla 1.12 — e la merce
+  entra in giacenza solo quando il vano si scansiona. **Abbandonare lì non
+  lascia merce che il sistema non sa di avere**: lascia un'etichetta da
+  buttare, e l'elenco la dice in cima con un pulsante.
+- **ARTICOLO E LOTTO SONO DUE COLONNE**, e su un bancale con più partite si
+  legge **«LOTTI MULTIPLI — n partite»**, che è la stessa parola che l'etichetta
+  su foglio e quella sulla Zebra scrivono sullo stesso pallet — sta in
+  `descriviContenuto`, in un posto solo.
+- **IL DDT E LA DATA DI SPEDIZIONE SI RILEGGONO, NON SI SCRIVONO.** I
+  documenti evasi portano già la risposta: un campo sull'unità sarebbe la
+  stessa cosa scritta due volte, e un DDT corretto dopo l'evasione lascerebbe
+  l'unità a raccontare il numero vecchio. **E un bancale spedito non è
+  vuoto**: le sue righe di giacenza non ci sono più, ma quel che portava lo
+  dice il documento che l'ha portato via.
+- **LO SCARICO A MANO CHIEDE UN NUMERO, E BASTA.** Destinatario, vettore e
+  causale stanno già su un foglio che il gestionale ha stampato, e
+  richiederli qui vorrebbe dire farli ricopiare a chi li ha davanti. **Si
+  scrive comunque un documento**, e già evaso: senza, la colonna DDT
+  resterebbe vuota proprio sui bancali che sono partiti, la packing list non
+  si potrebbe più stampare, e il registro direbbe «uscito» senza dire con che
+  cosa. L'evasione è quella di sempre.
+- **IL CARICO DEL CAMION È UN GIRO, E LE TAPPE SONO BANCALI.** La serpentina
+  è quella del prelievo — `PickRoute.ordinaPerCorsia`, dove quella regola già
+  vive — e si scansiona **solo il codice del pallet**: articolo e lotto stanno
+  sotto il cellophane, e chiederli vorrebbe dire chiedere di aprirlo. Un DDT
+  per volta, e finito il primo il sistema chiede se se ne carica un altro:
+  il camion ne porta più di uno, e uscire e rientrare da una schermata a ogni
+  documento è il gesto che si smette di fare.
+- **LA BAIA DI CARICO È UN TIPO DI ZONA, UNA POSIZIONE PER BANCALE.** Non è un
+  vincolo di stoccaggio e non verifica niente: dice dove i pallet aspettano il
+  camion. Una posizione per pallet non è comodità — due bancali dello stesso
+  lotto nello stesso vano sono due righe con la stessa chiave e un saldo che
+  dipende dall'ordine di caricamento, e `moveUdc` li rifiuta — ed è quel che
+  fa vedere sulla mappa che cosa sta salendo sul mezzo.
+- **UN DDT INCOMPLETO NON SI EVADE.** Un bancale che non si trova si salta col
+  motivo, e quel documento resta pendente: evaderlo vorrebbe dire scaricare
+  dalla giacenza un pallet che è ancora a scaffale, e la differenza si
+  scoprirebbe all'inventario. Gli altri escono lo stesso.
+- **SUL DDT UNA RIGA È UN ARTICOLO E UN LOTTO — MA SOLO IN STAMPA.** Chi
+  riceve controlla «quanto di questo lotto è arrivato», e tre pallet dello
+  stesso lotto scritti tre volte lo obbligano a sommare in banchina. Le righe
+  **salvate** restano una per bancale, perché ci vivono sopra la packing list,
+  l'evasione (che scarica dal vano dove la merce sta, e due bancali stanno in
+  due vani) e la domanda «da quale pallet è uscita questa merce».
+- **LA PACKING LIST DICE COM'È FATTO IL COLLO**, non solo quanti sono — «40 ×
+  12,5 KG» — e chiude con un **riepilogo per articolo e lotto**: su dieci
+  blocchi quel totale non si ricava guardandoli.
+- **LE CASELLE DEI BANCALI SONO FATTE COME I VANI.** Angoli arrotondati, fondo
+  tenue, bordo pieno: sono lo stesso disegno a due scale — un contenitore
+  dentro un'ubicazione — e due grammatiche sullo stesso quadro si leggono come
+  due cose diverse. **La tessera del prodotto finito ha un marchio suo**: la
+  fabbrica non è il prodotto finito, è dove si fa.
+
+**Quel che questo lavoro NON fa**: non tocca il conto di produzione, non
+estende il Code128 a GS1-128 (voce 24), non aggiunge una collezione — la
+sessione di carico sta in `meta`, ne vive una per volta e `pick_session` è
+occupata dal giro di prelievo.
 
 ### 2.20 — il magazzino del prodotto finito
 
@@ -1483,6 +1637,9 @@ scelta e non per dimenticanza (§8).
 ### Aperte — da pianificare
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **93** | **IL MODELLO DI CARICO SI IMPARA DAL PRIMO BANCALE, E IL PRIMO BANCALE PUÒ ESSERE UN FONDO DI PRODUZIONE.** Un articolo che ne fa 40 per pallet, imballato la prima volta a fine lotto con dodici colli, impara «12» e da lì in poi lo propone. Non è un errore — il modello propone e non impone, e si riscrive senza dover dire perché — ma è una proposta sbagliata che nessuno va a correggere finché non dà fastidio | **Si guarda dopo un mese di uso vero**: quanti articoli hanno imparato un numero che non è il loro. Se sono pochi si correggono in Parametri; se sono tanti, la regola da cambiare è **quando** si impara — per esempio solo dal bancale che porta il numero più alto visto finora |
+| **92** | **IL CARICO SPEDIZIONI NON HA MAI VISTO UN CAMION.** Provato al banco da capo a fondo — baia, due DDT, tappa saltata, evasione parziale, sessione ripresa dopo un ricaricamento — ma su un magazzino di prova, con due bancali per documento e una baia disegnata da noi. **Quel che il banco non può dire**: se la serpentina porti dove serve quando i pallet sono venti, se la baia vera abbia le posizioni che il sistema si aspetta, e se «un DDT per volta» sia il ritmo giusto o se chi carica preferisca vedere tutto il mezzo insieme | **Una passata in banchina**, con un carico vero. Poi si decide se la baia debba avere posizioni numerate come quelle di uno scaffale, e se serva vedere più DDT su una schermata sola |
+| **91** | **LA BAIA DI CARICO NON È CONFIGURATA DA NESSUNA PARTE, E SENZA NON SI CARICA.** La schermata lo dice in chiaro e non nasconde niente, ma sul magazzino vero **nessuna zona porta `dock_zone`**: finché non se ne marca una, la tessera si apre su un avviso | **È di Andrea**: Configurazione → Siti e Zone, sulla zona dove i bancali aspettano il camion. Serve una zona con **abbastanza posizioni** — una per bancale — quindi a terra o alla rinfusa, non un vano solo |
 | **90** | **IL PRODOTTO FINITO NON HA MAI VISTO IL REPARTO.** La 2.20 è stata provata al banco da capo a fondo — modello di imballo, zona PF, bancale chiuso ed etichettato, elenco, mappa colorata, carrello del DDT, evasione, conto terzi — ma su un database di prova e con un articolo scelto a caso. **Quel che il banco non può dire**: se ① → ② → ③ → ④ regga il ritmo di chi imballa davvero, se i colli proposti dal modello siano quelli giusti sui formati veri, e se chi spedisce trovi nell'elenco le colonne che cerca | **Una passata in reparto e una alla scrivania delle spedizioni**, con la merce vera davanti. Poi si sistemano modelli, colonne e proposta — sono tutti dati o righe di vista, non architettura |
 | **89** | **L'ETICHETTA DEL BANCALE NON HA MAI VISTO UNA ZEBRA**, come la voce 83 per le altre due. Il layout di serie occupa **70 mm degli 80** e le 22 prove nuove del banco coprono lo ZPL, non la carta | **Va nella stessa passata della voce 83**: stessa macchina, stesso supporto, stesso lettore ottico |
 | **88** | **IL LAYOUT DELL'ETICHETTA DEL BANCALE È UNA PROPOSTA SCRITTA A TAVOLINO**, come lo era quello della merce (voce 85): articolo, descrizione, barre, lotto, scadenza, colli, peso. Ordine di produzione e ubicazione nascono spenti | **Si guarda col bancale davanti**: chi carica il camion può volere i colli più grandi, o l'ordine acceso |
@@ -1590,7 +1747,7 @@ hanno con cosa lavorare.
 npm run dev      # sviluppo, ricarica a caldo — ATTENZIONE: parla col servizio VERO
 npm run build    # produce "consegna/Pathfinder <ver>/" — il pacchetto da consegnare
 npm run check    # tsc client + servizio, nessun file emesso
-npm test         # vitest — 1.303 prove in 48 file al 03/09
+npm test         # vitest — 1.332 prove in 48 file al 03/09 sera
 ```
 
 ```bash
@@ -1721,6 +1878,44 @@ terminale da 4,3":
 
 **Il giro del 03/09 è passato tutto**, e ha trovato due difetti che nessuna
 prova da ferma vedeva — §3, il riquadro su `dest_location`.
+
+### Il banco della 2.21 — il bancale che si impara, e il camion
+
+Stessa copia usa-e-getta, e in più **una zona marcata baia di carico**. Sul
+pristino: `M03 / SPEDIZIONI` come prodotto finito e `M03 / TRASFERIMENTI`
+come baia, **tutte e due portate a 20 posizioni** — in baia va una posizione
+per bancale, e con una sola il giro si ferma al secondo pallet.
+
+Il giro fatto il 03/09 sera, tutto passato:
+
+1. **Un articolo senza modello**: i colli nascono vuoti, il «per collo» viene
+   dall'anagrafica. Si dichiara `40 × 20 KG` più `1 × 7 KG` e si chiude: il
+   bancale prende **41 colli e 807 KG**, e l'articolo impara **`AUTO-40`** —
+   i soli colli pieni, il collo spaiato no.
+2. **Lo stesso articolo, un altro lotto**: il campo colli nasce a **40** e il
+   per-collo a **20**. Il bancale porta scritto `model_code: AUTO-40`.
+3. **L'etichetta esce prima del vano**, e la maschera dell'ubicazione sta già
+   sotto la finestra di stampa.
+4. **Scarico a mano** di un bancale: si chiede il solo numero di DDT, nasce un
+   documento **già evaso**, l'unità passa a `shipped` e in elenco compaiono
+   **DDT e data** — e il bancale continua a dire che cosa portava.
+5. **Carico spedizioni**: due bancali su un DDT, scansione dei due codici,
+   spostamento in **due posizioni diverse** della baia, righe del documento
+   riallineate al vano nuovo.
+6. **Ricaricando la pagina il carico si ritrova dov'era** — è la prova della
+   trappola 22, §1.
+7. **Un secondo DDT nello stesso carico, con la tappa saltata**: alla
+   chiusura esce il primo, il secondo **resta pendente** e il riscontro dice
+   quale e quanto manca.
+8. **DDT e packing list a video**: due bancali dello stesso lotto danno **una
+   riga sola** in bolla («80 colli · 1.600 KG · 2 bancali») e **due blocchi**
+   in packing list, ognuno con «40 × 20 KG», più il riepilogo per lotto.
+9. **La maschera a 480 px**, che è il terminale del reparto: ci sta tutta.
+
+> **Il banco della 2.21 ha usato una copia con `operators` svuotata** e un
+> Admin creato dalla finestra di primo avvio, come dice la ricetta qui sopra.
+> `banco\db\ui.db` **non è più il file del banco WIP**: chi torna a quello
+> ricopia `pristino.db`.
 
 **Le cariche hanno un banco loro, e non chiede niente a questo** — dalla 2.13:
 
@@ -2092,6 +2287,13 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   `.gitattributes` dice `* -text`: Git non deve toccare i fine riga. Uno script
   che rilegge in modalità testo e riscrive con `newline=''` **converte CRLF in
   LF senza dirlo**, e il diff passa da 4.248 righe a **13.016**.
+  **RIPAGATA UNA SECONDA VOLTA IL 03/09 SERA, con la 2.21 e con la riga qui
+  sotto già scritta due volte.** Sedici file riscritti da script sono passati a
+  LF, e il commit diceva **18.544 righe cambiate** invece di 2.545. Rimessi a
+  CRLF con lo stesso passaggio in binario, confrontando ogni file con la sua
+  versione in `HEAD~1`: se **là** era CRLF, si riconverte. Dopo, il diff grezzo
+  e quello `--ignore-cr-at-eol` dicono **lo stesso numero**, ed è il controllo
+  che chiude il gesto — si fa **prima** di committare, non dopo.
   **RIPAGATA IL 03/09**, con questa riga già scritta: venti file del prodotto
   finito sono stati riscritti così, e i nove commit portano dentro interi file
   «modificati» che avevano cambiato una riga sola. Rimessi a CRLF con un
@@ -2116,6 +2318,24 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   caricamento dal browser non è un commit: è un commit su una base che non si è
   scelta.** Il codice si spinge con `git push`, e se il push viene rifiutato si
   guarda cosa c'è dall'altra parte prima di insistere.
+
+### `hidden` e il `display` dichiarato — 2.21
+
+L'attributo `hidden` del browser vale `display: none` con la specificità di un
+**selettore di tipo**: qualunque classe che dichiari un `display` gli passa
+sopra. `.form-group { display: flex }` lo faceva, e ogni blocco nato `hidden`
+dentro un `form-group` restava a video — col codice che lo accendeva e lo
+spegneva a funzionare **per finta**.
+
+Si vedeva nella dichiarazione dei colli: il blocco compariva su ogni articolo,
+anche su quelli senza unità di misura, dove non c'è niente da dividere. **Era
+rotto dal 1.8**, non dal prodotto finito: `mInColliBox` ha la stessa forma. In
+`01-layout.css` c'era già `.search-pop[hidden] { display: none }`, cioè la
+stessa toppa messa per un selettore solo.
+
+Adesso **`[hidden] { display: none !important }`** sta in `01-base.css`.
+L'`!important` non è pigrizia: `hidden` non è uno stile, è un fatto sul nodo,
+e nessuna classe deve poterlo smentire.
 
 ### Prove e collaudi
 
@@ -2555,6 +2775,43 @@ Ognuna è costata almeno una volta. Non sono opinioni.
   PERCHÉ.** Su un lotto che i colli li dichiara, «togline due» non è una
   risposta — è la regola della 2.0, e vale anche qui.
 
+### Il prodotto finito — 2.21
+
+- **IL MODELLO DI CARICO SI IMPARA DAL PRIMO BANCALE, E UNA VOLTA SOLA.** I
+  colli PIENI dichiarati diventano `AUTO-<n>`; **un modello appreso non porta
+  mai un collo incompleto**, e **un articolo che un modello ce l'ha già non lo
+  cambia da solo** — la proposta segue il caso normale, non l'ultimo bancale.
+  Fra due formati veri che fanno lo stesso conto (un EPAL da 40 e un cassone
+  da 40) **non si sceglie in automatico**: le tare sono diverse, e un lordo
+  sbagliato finisce in bolla.
+- **LA QUANTITÀ PER COLLO DEL PRODOTTO FINITO STA IN ANAGRAFICA**, non sul
+  lotto: il lotto nasce qui, e chiederla a un record che non esiste ancora
+  vuol dire non trovarla mai. Si scrive `pieces_per_pack`, che è il campo che
+  `misure.configurazione` legge per primo.
+- **L'ETICHETTA ESCE PRIMA DELL'UBICAZIONE.** Il bancale nasce senza vano e
+  senza merce; la giacenza entra alla scansione del vano. Un bancale
+  abbandonato in mezzo è un'**etichetta da buttare**, e l'elenco lo dice.
+- **«LOTTI MULTIPLI — n partite» SI SCRIVE IN UN POSTO SOLO**
+  (`descriviContenuto`): elenco, etichetta su foglio e ZPL devono scrivere la
+  stessa parola sullo stesso pallet.
+- **IL DDT E LA DATA DI SPEDIZIONE DI UN BANCALE SI RILEGGONO DAI DOCUMENTI**,
+  e non sono campi dell'unità. **Un bancale spedito non è vuoto**: quel che
+  portava lo dice il documento che l'ha portato via — è l'unica memoria che ne
+  resta.
+- **LA BAIA DI CARICO È UN POSTO, NON UNA REGOLA**, come la zona di prodotto
+  finito: `dock_zone`, e non verifica niente. **Una posizione per bancale**,
+  finché ce ne sono: due pallet nello stesso vano si disegnano dentro la
+  stessa casella, e la mappa smette di dire che cosa sta salendo sul mezzo.
+- **UN DDT A CUI MANCA UN BANCALE NON SI EVADE**, e non ferma gli altri. Un
+  bancale saltato porta il motivo.
+- **SUL DDT SI RAGGRUPPA IN STAMPA, MAI A DATABASE.** Una riga stampata è un
+  articolo e un lotto; le righe salvate restano una per bancale — la packing
+  list, l'evasione e il legame col pallet ci vivono sopra.
+- **LA SESSIONE DI CARICO STA IN `meta`**, chiave `caricoSpedizione`, e ne
+  vive una per volta. Non in `pick_session`: quella è del giro di prelievo ed
+  è **una sola per tutto l'impianto** — avviare un carico chiuderebbe il
+  prelievo di qualcun altro.
+
 ### Il prodotto finito — 2.20
 
 - **UN BANCALE DI PRODOTTO FINITO È UN'UNITÀ DI CARICO**, con tre campi
@@ -2807,18 +3064,18 @@ in Configurazione → Operatori.
 | `modules/compiti.ts` | 555 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. `registroAttivita` unisce i compiti ai campionamenti che nessun compito rivendica. Puro |
 | `modules/misure.ts` · `colli.ts` | 319 · 578 | Le cinque unità e la suddivisione per collo · l'elenco dei colli: uscite come le capisce il servizio, ritrovamento per misura, `scelteDaTaglie`, `riempiFabbisogno`, `rettifica`. Puri |
 | `modules/registro.ts` | 46 | **2.16 — le due domande che si fanno a una riga del registro**: quanto è cambiata (`quantoSiEMosso`) e quanti colli hanno cambiato posto (`quantitaMossa`). Stanno insieme perché confonderle è il difetto della voce 33. Puro |
-| `modules/documenti.ts` | 44 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto, e dalla 2.20 porta anche `udc_id` — da quale bancale esce la riga. Puro |
+| `modules/documenti.ts` | 118 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto, e dalla 2.20 porta anche `udc_id` — da quale bancale esce la riga. **2.21**: `raggruppaPerPartita`, la riga che si STAMPA — un articolo e un lotto — mentre quella che si salva resta una per bancale. Puro |
 | `modules/giacenzaArticolo.ts` | 175 | La giacenza di un articolo per lotto, FEFO, e la coda di conte nell'ordine dello scaffale. **Le UM non si calcolano qui**: arrivano risolte da `Store.righeLette`. Puro |
 | `modules/trasferimentiOdp.ts` · `dispositivo.ts` | 142 · 74 | Le tappe in un altro magazzino e il compito che ne nasce · su che cosa sta girando (decide **la larghezza**, non il sistema operativo). Puri |
 | `modules/udc.ts` | 162 | Il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perché **un'etichetta dura**. Dalla 2.20 lo stesso codice identifica anche un **bancale di prodotto finito** — `modules/bancale.ts`. Puro |
-| `modules/imballo.ts` | 146 | **2.20 — com'è fatto un bancale prima che il bancale esista**: i modelli di imballo, la loro convalida, `colliAttesi` e `pesoLordo`. Sta da solo perché la composizione è un DATO e non un campo su 11.197 articoli. **Il modello propone**: chi imballa riscrive il numero senza dover dire perché. Puro |
-| `modules/bancale.ts` | 158 | **2.20 — come si LEGGE un bancale di prodotto finito**, in un posto solo: mono o misto, colli, UM (diverse → MISTA, mai una somma), e i quattro stati — pronto, impegnato su un DDT, spedito, vuoto. La stessa domanda la fanno l'elenco, la mappa, l'etichetta e la packing list: quattro copie sarebbero quattro risposte. `zonePf` elenca le zone dichiarate, terzisti compresi. Puro |
+| `modules/imballo.ts` | 199 | **2.20 — com'è fatto un bancale prima che il bancale esista**: i modelli di imballo, la loro convalida, `colliAttesi` e `pesoLordo`. Sta da solo perché la composizione è un DATO e non un campo su 11.197 articoli. **Il modello propone**: chi imballa riscrive il numero senza dover dire perché. **2.21**: `modelloAppreso` e `modelloConColli` — il formato che si IMPARA dal primo bancale invece di essere compilato su 11.197 articoli. Puro |
+| `modules/bancale.ts` | 277 | **2.20 — come si LEGGE un bancale di prodotto finito**, in un posto solo: mono o misto, colli, UM (diverse → MISTA, mai una somma), e i quattro stati — pronto, impegnato su un DDT, spedito, vuoto. La stessa domanda la fanno l'elenco, la mappa, l'etichetta e la packing list: quattro copie sarebbero quattro risposte. `zonePf` elenca le zone dichiarate, terzisti compresi. **2.21**: `zoneCarico` (le baie), `spedizioniDiBancale` — con quale DDT e quando un bancale è partito, **riletto dai documenti evasi** — e un bancale spedito che legge il suo contenuto da quel documento, perché in giacenza non ha più niente. Puro |
 | `modules/stampanti.ts` | 377 | **2.19** — la forma di una stampante Zebra, la sua convalida, e `disponi`: dove finisce ogni riga dell'etichetta in millimetri. `proponiStampante` sceglie quella giusta — l'ultima usata, poi quella del sito. **2.20**: i cataloghi di campi sono **due** — merce e bancale — e il genere è un parametro di `leggiRiga`, `leggiLayout` e `disponi`, non una seconda copia. **Non c'è lo ZPL**: le barre e i comandi li scrive il servizio, perché un'etichetta è un documento e un documento costruito dal browser si falsifica in una console. Puro |
 | `modules/stoccaggio.ts` | 613 | Dove si mette la merce: vincoli **duri**, poi punteggio. Le regole sono un dato di `storage_rules`; ogni proposta dice perché. **2.8**: pericolosità, portata, la casa del lotto in cima, la categoria come terzo bersaglio con **un solo livello**. Puro |
 | `modules/regoleBase.ts` | 448 | **2.8** — le due regole che NON si scrivono, più i tre motivi precompilati dello scavalco. Sta da solo perché quelle di `stoccaggio.ts` sono regole di **politica**, queste sono il modo in cui un magazzino resta leggibile. Puro |
 | `modules/wip.ts` | 918 | **Il conto di un ordine**: entrato, tornato, residuo; il consumo si dichiara **a ordine chiuso**. `colliFuori`, `archiviato`, `ordiniArchiviati`, `righeSenzaOrdine`. **2.12**: `giro_odps`, `giro_richieste`, `giro_id` sul movimento, e quattro letture — `contoTenutoDa`, `ordiniServiti`, `richiesteDiRiga`, `consumoPerOrdine` (che legge le quote scritte **alla chiusura**). **2.14**: `inLavorazione` (una riga per ordine × articolo#lotto di quello che è fermo nel vano, senza sapere prima nessun numero), `resi` e `motivoNonStornabile`, più i quattro campi dello storno sul movimento. Puro |
 | `modules/giroOdp.ts` | 267 | **2.12 — il giro.** `ricalibra` (riparte sempre da `lines_originali`) e l'unione delle distinte, tenendo da parte **quanto ne vuole ciascun ordine**. `quote` ripartisce quel che è uscito e **l'ultima assorbe l'arrotondamento**. **Non decide niente sul conto di produzione.** Puro |
-| `modules/pickRoute.ts` | 353 | Percorso a serpentina, ordine dei siti, magazzino di casa, `riordina`. **2.12**: `buildGiro` — le distinte si sommano **prima**, in `giroOdp.ts`, e le `richieste` si riattaccano dopo **per chiave**, perché `build` decide ubicazione e alternative ed è già collaudata così |
+| `modules/pickRoute.ts` | 366 | Percorso a serpentina, ordine dei siti, magazzino di casa, `riordina`. **2.12**: `buildGiro` — le distinte si sommano **prima**, in `giroOdp.ts`, e le `richieste` si riattaccano dopo **per chiave**, perché `build` decide ubicazione e alternative ed è già collaudata così. **2.21**: `ordinaPerCorsia` — la stessa serpentina su qualunque cosa abbia un'ubicazione, perché il carico del camion prende bancali e non righe |
 | `modules/odpParser.ts` | 286 | Lettura degli ODP da Excel |
 | `modules/kpi.ts` | 330 | I numeri di articoli, movimenti e persone, già a database e mai sommati. `NON_MISURABILE` elenca cosa non si può chiedere e **quale campo servirebbe**. Puro |
 | `modules/code128.ts` | 150 | Il codice a barre, in casa. Solo il sottoinsieme B. **Non è un GS1-128** — manca FNC1 — e sta scritto nel modulo. La tabella dei 107 modelli si collauda con le due invarianti dello standard, non ricopiandola. Puro |
@@ -2829,8 +3086,8 @@ in Configurazione → Operatori.
 | `modules/excel.ts` | 31 | **Il punto unico da cui SheetJS si carica, e solo quando serve.** Chi rimette `import * as XLSX` in cima a un file annulla la 1.7 |
 | `modules/validate.ts` · `auth.ts` · `session.ts` · `pickupAlert.ts` · `scanGuard.ts` · `maiuscole.ts` | 104 · 88 · 69 · 43 · 31 · — | Validazioni · PIN e impronta · sessione · allerta ritiri · guardia del lettore · i campi che sono un codice |
 | `types/entita.ts` · `contratto.ts` · `collezioni.ts` | 722 · 157 · 63 | Le entità · l'interfaccia dei due adapter · **le 21 collezioni, sorgente unica**: il `satisfies` blocca la compilazione se adapter o servizio divergono |
-| `styles/*.css` | 4.234 | **10 file**, §8 |
-| `ui/dialog.js` · `feedback.js` · `tabs.js` | 367 · 181 · 59 | Modali · toast e spinner · schede |
+| `styles/*.css` | 4.478 | **10 file**, §8 |
+| `ui/dialog.js` · `feedback.js` · `tabs.js` | 546 · 181 · 59 | Modali · toast e spinner · schede. **2.21**: `Dialog.testo`, una riga sola — un numero di DDT non è una motivazione, e `reason` glielo direbbe a video |
 | `main.js` · `index.html` | 46 · 200 | Avvio e gancio globale · scheletro del DOM e marchi SVG |
 | `ui/views/` | ~18.500 | Le viste, più `vista.ts` e `globale.d.ts` |
 
@@ -2844,7 +3101,7 @@ spostare, e un doppione verrebbe sovrascritto in silenzio.
 | File | Righe | Cosa disegna |
 |---|---:|---|
 | `percorso.ts` | 1.834 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano |
-| `spedizioni.ts` | 1.613 | DDT: testata, carrello, documento pendente, evasione, stampa. **2.20**: il carrello si riempie **dai bancali** (`_shipCaricaDaBancali` — sta qui perché il carrello è qui), la **packing list** che raggruppa le righe per bancale, e `_evadiTrasferendo`, l'evasione del **conto terzi** che sposta la merce invece di scaricarla |
+| `spedizioni.ts` | 1.689 | DDT: testata, carrello, documento pendente, evasione, stampa. **2.20**: il carrello si riempie **dai bancali** (`_shipCaricaDaBancali` — sta qui perché il carrello è qui), la **packing list** che raggruppa le righe per bancale, e `_evadiTrasferendo`, l'evasione del **conto terzi** che sposta la merce invece di scaricarla. **2.21**: `_shipRigheDaBancali` — come una riga di DDT nasce da un pallet, in un posto solo, perché la chiedono in due — il DDT che **stampa** una riga per articolo#lotto, e la packing list che dice com'è fatto il collo e chiude con un riepilogo per lotto |
 | `inventario.ts` | 1.035 | Inventario di vano, conta mirata, ramo «Per articolo» col giro di conte |
 | `configDati.ts` | 975 | Dati, resilienza, i tre fogli Excel, reset (che chiede il PIN dell'Admin) |
 | `cruscotto.ts` | 900 | I tredici riquadri componibili e le sette scorciatoie |
@@ -2860,12 +3117,14 @@ spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `mappa.ts` · `documento.ts` | 697 · 441 | Pianta, frontale, conformità e deroghe — **2.20**: il filtro che tinge i bancali di prodotto finito con lo stato che hanno · la correzione di un DDT pendente su uno snapshot, che dalla 2.20 porta anche la causale e l'ubicazione di arrivo |
 | `campionamento.ts` · `movimenta.ts` | 359 · 354 | Campionamento GMP e verbale · il telaio dei moduli e il registro di sessione |
 | `udc.ts` | 322 | Le unità di carico: elenco, creazione, carico, spostamento, etichetta |
-| `prodottoFinito.ts` | 547 | **2.20 — il magazzino del prodotto finito.** La maschera del reparto che chiude un bancale in un gesto e ne stampa l'etichetta, e l'elenco di chi spedisce: ordinabile, filtrabile, con la spunta che carica il DDT. Il pulsante «Vedi in mappa» non disegna niente — apre la mappa sulla zona PF col filtro acceso |
+| `prodottoFinito.ts` | 1.071 | **2.20 — il magazzino del prodotto finito.** La maschera del reparto che chiude un bancale in un gesto e ne stampa l'etichetta, e l'elenco di chi spedisce: ordinabile, filtrabile, con la spunta che carica il DDT. Il pulsante «Vedi in mappa» non disegna niente — apre la mappa sulla zona PF col filtro acceso. **2.21**: la maschera è quella del carico merce (① articolo → ② lotto → ③ colli pieni × quanto dentro), il modello di carico si **impara**, l'etichetta esce **prima** dell'ubicazione, l'elenco porta articolo e lotto in due colonne più DDT e data, e lo **scarico a mano** fa uscire i bancali con un numero già emesso dal gestionale |
+| `caricoSpedizione.ts` | 611 | **2.21 — il carico del camion.** È il giro di prelievo di chi spedisce, e le tappe sono **bancali**: si scansiona solo il codice del pallet, i prelevati vanno in **baia**, e finito un DDT il sistema chiede se se ne carica un altro. Alla fine evade i documenti completi e lascia pendenti quelli a cui manca un bancale. La sessione si salva in `meta` e si riprende |
 | `stampaEtichette.ts` | 204 | **2.19** — la maschera fra il pulsante e l'etichetta: **quale stampante** (si ricorda) e **quante copie** (tornano sempre a 1). In un file suo perché la chiamano in tre — l'unità di carico, la merce e, dalla 2.20, il bancale. Il riscontro dice **quale fatto sta mostrando**: inviata, oppure stampata |
 | `ricerca.ts` · `destinatari.ts` · `archivio.ts` · `registro.ts` · `parametri.ts` | 227 · 226 · **286** · 191 · **287** | Ricerca in barra · rubrica DDT · **i cinque generi di documento — dalla 2.14 anche gli ordini di produzione chiusi**, e dalla 2.20 un secondo foglio sui DDT che portano bancali · registro movimenti · le quattro schede che sono un dato, **più i modelli di imballo** |
 | `vista.ts` · `globale.d.ts` | 36 · 10 | Il tipo `Vista` e `$`/`$q` · `declare const App` |
 
 > **`wipRegistro.ts` non esiste in `main`**: era della 2.3 ritirata.
+> **`caricoSpedizione.ts` e' la ventiseiesima**, ed e' entrata con la 2.21.
 
 **Chi ne aggiunge una** la scrive `.ts`, la tipa `Vista`, la importa in `app.ts`
 e la mette nell'elenco del rientro. **La rete**:
@@ -2895,7 +3154,7 @@ farlo tacere**: se suona, un metodo non è rientrato.
 
 ### Collaudi — `test/`
 
-**1.303 prove in 48 file** al 03/09 notte (una saltata). Fuori da `npm test`:
+**1.332 prove in 48 file** al 03/09 sera (una saltata). Fuori da `npm test`:
 **156** sul servizio, **100** sulle etichette, **43** sull'installazione.
 `ambiente.js` è il preambolo comune.
 
@@ -2911,7 +3170,9 @@ Il **banco della schermata WIP** (§5) non è automatico: è un magazzino di
 copia, degli ODP generati da lui e tre attrezzi da iniettare nella pagina.
 Serve a guardare, e quel che ne esce si scrive qui.
 
-Fra i file: **`imballo` (17)** e **`bancale` (16)**, i due della 2.20 ·
+Fra i file: **`imballo` (26)** e **`bancale` (29)**, cresciuti con la 2.21 —
+il modello appreso, le baie, il viaggio riletto dai documenti — e `documenti`,
+che adesso prova anche il raggruppamento per partita ·
 `serpentina` · `fefo` · `geometria` · `odp` · `anagrafica` ·
 `conformita` · `cache` · `pacchetto` · `statistiche` · `compiti` · `misure` ·
 `colli` · `parametri` · `documenti` · `auditMigrazione` · `maiuscole` · `sql` ·

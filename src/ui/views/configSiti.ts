@@ -238,6 +238,10 @@ export const VistaConfigSiti = {
        si compila nello stesso momento, ma non e' un attributo di
        destinazione d'uso: non verifica niente e non esclude nessuno. */
     const prodottoFinito = zone?.pf_zone === true;
+    /* 2.21 — la baia di carico. Sta accanto alla zona di prodotto finito
+       perche' sono i due capi dello stesso viaggio: da dove parte un bancale
+       e dove aspetta il camion. */
+    const baiaCarico = zone?.dock_zone === true;
     const pericoli = Store.getPericoli();
     const hazScelti = new Set(zone?.hazards || []);
     const hazCaselle = pericoli.map(h =>
@@ -284,6 +288,19 @@ export const VistaConfigSiti = {
             prodotto finito finisce quando viaggia in conto lavorazione.
           </div>
         </div>
+        <div class="form-group mb-4">
+          <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
+            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezDockZone" ${baiaCarico ? 'checked' : ''}>
+            <span>Zona di <strong>baia di carico</strong> — qui i bancali aspettano di salire sul camion</span>
+          </label>
+          <div class="text-label-small text-sx-text-muted mt-2">
+            Non è un vincolo di stoccaggio. Il carico delle spedizioni ci porta i bancali
+            prelevati per un DDT: <strong>una posizione per bancale</strong>, così la mappa
+            mostra che cosa sta salendo sul mezzo. Serve una zona con abbastanza posizioni —
+            a terra o alla rinfusa — perché due bancali dello stesso lotto non stanno nello
+            stesso vano.
+          </div>
+        </div>
         <div class="text-label-small text-sx-text-muted mt-3">
           🧭 Lasciata non caratterizzata, la zona non segnala nulla.<br>
           🔓 Una singola ubicazione marcata <strong>Riservata</strong> ammette allergeni
@@ -309,6 +326,7 @@ export const VistaConfigSiti = {
       hazard_zone: pericolosa,
       hazards: pericolosa && hazards.length ? hazards : undefined,
       pf_zone: $('ezPfZone')?.checked === true,
+      dock_zone: $('ezDockZone')?.checked === true,
     };
   },
 

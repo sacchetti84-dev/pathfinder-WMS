@@ -22,6 +22,19 @@ body {
 
 button, input, select, textarea { font-family: inherit; font-size: inherit; line-height: inherit; }
 
+/* 2.21 — `hidden` VUOL DIRE NASCOSTO, ANCHE SU UN `display` DICHIARATO.
+   L'attributo del browser vale `display: none` con la specificita' di un
+   selettore di tipo, e `.form-group { display: flex }` gli passa sopra: un
+   blocco nato `hidden` restava a video, e il codice che lo accende e lo
+   spegne funzionava per finta. Si vedeva nella dichiarazione dei colli —
+   posizionamento e prodotto finito — dove il blocco compariva su ogni
+   articolo, anche su quelli senza unita' di misura.
+
+   `!important` perche' `hidden` non e' uno stile: e' un fatto sul nodo, e
+   nessuna classe deve poterlo smentire. `.search-pop[hidden]` faceva lo
+   stesso lavoro per un selettore solo. */
+[hidden] { display: none !important; }
+
 /* ════ Scrollbar personalizzata ════ */
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: var(--md-sys-color-surface-container); }

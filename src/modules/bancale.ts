@@ -21,7 +21,7 @@
    Nessuno stato, nessun accesso a Store, nessun DOM. Collaudato in
    `test/bancale.test.js`. */
 
-import type { Udc, Giacenza, DocumentoUscita, Sito, Zona } from '../types/entita';
+import type { Udc, Giacenza, DocumentoUscita, Sito, Zona, Istante } from '../types/entita';
 
 /** Dove sta un bancale nel suo giro: pronto a partire, già prenotato da un
     documento, partito, o vuoto — che per un'unità di carico vuol dire
@@ -46,6 +46,39 @@ export interface RiepilogoBancale {
   location_code: string;
   odp_num: string | null;
   model_code: string | null;
+  /** 2.21 — CON QUALE DDT È PARTITO, E QUANDO. Non sono campi del bancale:
+      si rileggono dai documenti evasi, come §8 impone per tutto ciò che un
+      documento sa già. Scriverli sull'unità vorrebbe dire due verità sullo
+      stesso viaggio, e quella sbagliata sarebbe la copia. */
+  ddt_num: string | null;
+  shipped_at: Istante | null;
+}
+
+/** Il viaggio di un bancale: quale documento l'ha portato via, e quando. */
+export interface Spedizione {
+  doc_id: string;
+  ddt_num: string;
+  data: Istante | null;
+  /** Che cosa portava, secondo il documento che l'ha portato via. È l'unica
+      memoria che resta: all'evasione le righe di giacenza spariscono, e un
+      bancale spedito senza questa lettura si direbbe «vuoto» — che è vero e
+      inutile a chi cerca dov'è finita la merce. */
+  righe: readonly Lettura[];
+}
+
+/** Una riga letta, da qualunque parte venga: la giacenza che sta sopra il
+    bancale adesso, o la riga del documento che l'ha portato via. I due
+    record hanno campi diversi — uno la quantità in UM come `null`, l'altro
+    come assente — e il riepilogo non deve conoscerli tutti e due. */
+interface Lettura {
+  item_key: string;
+  article_code: string;
+  article_description: string;
+  lot_code: string;
+  expiry_date: string;
+  qty: number;
+  qty_uom: number | null;
+  uom: string | null;
 }
 
 /** Vero se questa unità di carico è un bancale di prodotto finito. Un'UDC
@@ -70,6 +103,50 @@ export function bancaliImpegnati(pendenti: readonly DocumentoUscita[] | null | u
   return impegnati;
 }
 
+/* CON QUALE DDT È PARTITO UN BANCALE — si rilegge, non si scrive.
+
+   I documenti EVASI portano già la risposta: ogni riga dice da quale unità
+   di carico esce, e la testata dice numero e data. Un campo `ddt_num`
+   sull'unità sarebbe la stessa cosa scritta due volte, e un DDT corretto
+   dopo l'evasione lascerebbe l'unità a raccontare il numero vecchio.
+
+   UN BANCALE SU PIÙ DOCUMENTI VINCE L'ULTIMO: un pallet svuotato a metà su
+   un DDT e finito su un altro è partito davvero col secondo, ed è quello
+   che chi cerca la merce si aspetta di leggere. */
+export function spedizioniDiBancale(
+  documenti: readonly DocumentoUscita[] | null | undefined,
+): Map<string, Spedizione> {
+  const out = new Map<string, Spedizione>();
+  for (const d of documenti || []) {
+    if (d?.status !== 'evaded') continue;
+    const data = (d.evaded_at ?? null) as Istante | null;
+    for (const l of d.lines || []) {
+      const id = String((l as { udc_id?: unknown })?.udc_id ?? '').trim();
+      if (!id) continue;
+      const gia = out.get(id);
+      /* Il più recente vince, e una data assente perde da una che c'è: un
+         documento senza istante non può scalzare uno che sa quando. */
+      if (gia && (gia.data ?? -Infinity) >= (data ?? -Infinity)) continue;
+      /* Le righe di QUEL documento per QUEL bancale: si raccolgono adesso,
+         perché dopo non c'è più da dove. */
+      const sue: Lettura[] = (d.lines || [])
+        .filter((x) => String((x as { udc_id?: unknown })?.udc_id ?? '').trim() === id)
+        .map((x) => ({
+          item_key: String(x.item_key ?? ''),
+          article_code: String(x.article_code ?? ''),
+          article_description: String(x.article_description ?? ''),
+          lot_code: String(x.lot_code ?? ''),
+          expiry_date: String(x.expiry_date ?? ''),
+          qty: Number(x.qty) || 0,
+          qty_uom: typeof x.qty_uom === 'number' ? x.qty_uom : null,
+          uom: x.uom ?? null,
+        }));
+      out.set(id, { doc_id: d.doc_id, ddt_num: String(d.ddt_num ?? ''), data, righe: sue });
+    }
+  }
+  return out;
+}
+
 /** Il riepilogo di un bancale: chi c'è sopra, quanto, e se può partire.
 
     `righe` sono le giacenze che portano il suo `udc_id`; `impegnati` è
@@ -79,9 +156,27 @@ export function riepiloga(
   righe: readonly Giacenza[] | null | undefined,
   impegnati?: ReadonlySet<string> | null,
   uomDiRiga?: (r: Giacenza) => string | null,
+  spedizioni?: ReadonlyMap<string, Spedizione> | null,
 ): RiepilogoBancale {
-  const dentro = (righe || []).filter(r => Number(r?.qty) > 0);
-  const chiavi = new Set(dentro.map(r => String(r.item_key ?? '')));
+  const viaggio = spedizioni?.get(u.udc_id) ?? null;
+  const vive: Lettura[] = (righe || [])
+    .filter(r => Number(r?.qty) > 0)
+    .map(r => ({
+      item_key: String(r.item_key ?? ''),
+      article_code: String(r.article_code ?? ''),
+      article_description: String(r.article_description ?? ''),
+      lot_code: String(r.lot_code ?? ''),
+      expiry_date: String(r.expiry_date ?? ''),
+      qty: Number(r.qty) || 0,
+      qty_uom: Number.isFinite(Number(r.qty_uom)) ? Number(r.qty_uom) : null,
+      uom: uomDiRiga ? uomDiRiga(r) : ((r as { uom?: string }).uom ?? null),
+    }));
+  /* UN BANCALE SPEDITO NON HA PIÙ RIGHE, e non per questo è vuoto: quel che
+     portava lo dice il documento che l'ha portato via, e quella è l'unica
+     memoria che ne resta. Si legge di lì solo quando in giacenza non c'è più
+     niente — finché la merce c'è comanda la merce. */
+  const dentro: readonly Lettura[] = vive.length ? vive : (viaggio?.righe ?? []);
+  const chiavi = new Set(dentro.map(r => r.item_key));
   const mono = chiavi.size === 1;
   const prima = dentro[0];
 
@@ -89,8 +184,8 @@ export function riepiloga(
   let uom_qty: number | null = 0;
   let uom: string | null = null;
   for (const r of dentro) {
-    colli += Number(r.qty) || 0;
-    const u_r = uomDiRiga ? uomDiRiga(r) : (r as { uom?: string }).uom ?? null;
+    colli += r.qty;
+    const u_r = r.uom;
     const q = Number(r.qty_uom);
     if (uom_qty === null) continue;              // già dichiarato MISTA
     if (!u_r || !Number.isFinite(q)) { uom_qty = null; continue; }
@@ -103,7 +198,7 @@ export function riepiloga(
 
   let stato: StatoBancale;
   if (u.status === 'shipped') stato = 'spedito';
-  else if (!dentro.length) stato = 'vuoto';
+  else if (!vive.length) stato = 'vuoto';
   else if (impegnati?.has(u.udc_id)) stato = 'impegnato';
   else stato = 'pronto';
 
@@ -112,26 +207,34 @@ export function riepiloga(
     stato,
     mono,
     partite: chiavi.size,
-    article_code: mono ? String(prima?.article_code ?? '') || null : null,
-    article_description: mono ? String(prima?.article_description ?? '') || null : null,
-    lot_code: mono ? String(prima?.lot_code ?? '') || null : null,
-    expiry_date: mono ? String(prima?.expiry_date ?? '') || null : null,
+    article_code: mono ? (prima?.article_code || null) : null,
+    article_description: mono ? (prima?.article_description || null) : null,
+    lot_code: mono ? (prima?.lot_code || null) : null,
+    expiry_date: mono ? (prima?.expiry_date || null) : null,
     colli,
     uom_qty,
     uom,
     location_code: String(u.location_code ?? ''),
     odp_num: String(u.odp_num ?? '') || null,
     model_code: String(u.model_code ?? '') || null,
+    ddt_num: viaggio?.ddt_num || null,
+    shipped_at: viaggio?.data ?? null,
   };
 }
 
 /** Come si nomina un bancale in una riga di elenco: l'articolo se è uno,
-    altrimenti quante partite porta. **Non si scrive «misto» e basta**: il
-    numero dice se sono due o nove, e cambia cosa si va a controllare. */
+    altrimenti quante partite porta. **Non si scrive «lotti multipli» e
+    basta**: il numero dice se sono due o nove, e cambia cosa si va a
+    controllare.
+
+    2.21 — la dicitura è «LOTTI MULTIPLI» e non «MISTO»: dice quale cosa è
+    multipla. Sta QUI e non in tre viste, perché l'elenco, l'etichetta su
+    foglio e quella sulla Zebra devono scrivere la stessa parola sullo
+    stesso pallet. */
 export function descriviContenuto(r: RiepilogoBancale | null | undefined): string {
   if (!r || !r.partite) return 'vuoto';
   if (r.mono) return `${r.article_code}#${r.lot_code}`;
-  return `MISTO — ${r.partite} partite`;
+  return `LOTTI MULTIPLI — ${r.partite} partite`;
 }
 
 export const ETICHETTE_STATO: Record<StatoBancale, string> = {
@@ -148,10 +251,26 @@ export const ETICHETTE_STATO: Record<StatoBancale, string> = {
 export function zonePf(
   siti: readonly Sito[] | null | undefined,
 ): { sito: Sito; zona: Zona }[] {
+  return zoneMarcate(siti, 'pf_zone');
+}
+
+/** 2.21 — LE BAIE DI CARICO: dove i bancali aspettano il camion. Stesso
+    criterio delle zone di prodotto finito, e per la stessa ragione — non è
+    una regola di stoccaggio, è un posto — quindi la lettura è una sola. */
+export function zoneCarico(
+  siti: readonly Sito[] | null | undefined,
+): { sito: Sito; zona: Zona }[] {
+  return zoneMarcate(siti, 'dock_zone');
+}
+
+function zoneMarcate(
+  siti: readonly Sito[] | null | undefined,
+  bandiera: 'pf_zone' | 'dock_zone',
+): { sito: Sito; zona: Zona }[] {
   const out: { sito: Sito; zona: Zona }[] = [];
   for (const s of siti || []) {
     for (const z of s.zones || []) {
-      if (z?.pf_zone && z.active !== false) out.push({ sito: s, zona: z });
+      if (z?.[bandiera] && z.active !== false) out.push({ sito: s, zona: z });
     }
   }
   return out;

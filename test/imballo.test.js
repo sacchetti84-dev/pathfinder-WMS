@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   colliAttesi, pesoLordo, validaModello, leggiModelli, trovaModello, descriviModello,
+  modelloAppreso, modelloConColli,
 } from '../src/modules/imballo';
 
 const epal = () => ({
@@ -116,5 +117,69 @@ describe('trovaModello e descriviModello', () => {
   it('la descrizione porta supporto e conto dei colli', () => {
     expect(descriviModello(epal())).toBe('EPAL 8 per strato (EPAL) — 8 × 5 = 40 colli');
     expect(descriviModello(null)).toBe('');
+  });
+});
+
+/* 2.21 — IL MODELLO DI CARICO SI IMPARA DAL PRIMO BANCALE.
+   Undicimila articoli non ricevono un modello perche' qualcuno si siede a
+   scriverli: lo ricevono il giorno in cui il reparto imballa il primo
+   bancale di quell'articolo. */
+describe('modelloAppreso', () => {
+  it('nasce dai soli colli pieni, a uno strato', () => {
+    const m = modelloAppreso(40);
+    expect(m).toEqual({ code: 'AUTO-40', label: 'Appreso dal reparto', colli_strato: 40, strati: 1 });
+    expect(colliAttesi(m)).toBe(40);
+  });
+
+  it('e un modello valido: se non lo fosse, `leggiModelli` lo butterebbe in silenzio', () => {
+    expect(validaModello(modelloAppreso(12), [])).toEqual([]);
+    expect(leggiModelli([modelloAppreso(12)])).toHaveLength(1);
+  });
+
+  it('non nasce da un numero che non e un conteggio', () => {
+    expect(modelloAppreso(0)).toBe(null);
+    expect(modelloAppreso(-3)).toBe(null);
+    expect(modelloAppreso('')).toBe(null);
+    expect(modelloAppreso(null)).toBe(null);
+    expect(modelloAppreso('sette')).toBe(null);
+  });
+
+  it('i decimali si troncano: un collo e un conteggio', () => {
+    expect(modelloAppreso(40.7).colli_strato).toBe(40);
+  });
+});
+
+describe('modelloConColli', () => {
+  it('ritrova quello gia appreso invece di crearne un secondo', () => {
+    const elenco = leggiModelli([modelloAppreso(40), modelloAppreso(12)]);
+    expect(modelloConColli(elenco, 40)?.code).toBe('AUTO-40');
+    expect(modelloConColli(elenco, 12)?.code).toBe('AUTO-12');
+    expect(modelloConColli(elenco, 99)).toBe(null);
+  });
+
+  /* UN EPAL DA 40 E UN CASSONE DA 40 PORTANO TARE DIVERSE, e assegnarne uno
+     a caso metterebbe un peso lordo sbagliato in bolla: scegliere fra due
+     formati veri e' un gesto umano, e si fa in Parametri. */
+  it('non pesca fra i modelli configurati a mano, nemmeno a conto uguale', () => {
+    const elenco = leggiModelli([epal()]);        // 8 x 5 = 40, tara 25
+    expect(colliAttesi(elenco[0])).toBe(40);
+    expect(modelloConColli(elenco, 40)).toBe(null);
+  });
+
+  it('niente da imparare, niente da ritrovare', () => {
+    expect(modelloConColli(leggiModelli([modelloAppreso(40)]), 0)).toBe(null);
+    expect(modelloConColli(null, 40)).toBe(null);
+  });
+});
+
+/* A UNO STRATO SOLO LA MOLTIPLICAZIONE NON DICE NIENTE: «40 x 1 = 40» e' il
+   numero scritto tre volte, ed e' la forma dei modelli appresi. */
+describe('descriviModello a uno strato', () => {
+  it('scrive il conto senza la moltiplicazione', () => {
+    expect(descriviModello(modelloAppreso(40))).toBe('Appreso dal reparto — 40 colli');
+  });
+
+  it('con piu strati la moltiplicazione resta: dice come si impila', () => {
+    expect(descriviModello(epal())).toBe('EPAL 8 per strato (EPAL) — 8 × 5 = 40 colli');
   });
 });

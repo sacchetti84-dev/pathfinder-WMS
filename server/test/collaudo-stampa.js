@@ -272,14 +272,14 @@ async function principale() {
       !/\^MN|\^MM|\^MD|\^JUS/.test(s));
   }
   {
-    /* SU UN BANCALE MISTO I CAMPI DELLA MERCE RESTANO VUOTI. Un pallet con
+    /* SU UN BANCALE A LOTTI MULTIPLI I CAMPI DELLA MERCE RESTANO VUOTI. Un pallet con
        tre partite non ha «un» lotto: scriverci quello della prima riga
        sarebbe un'etichetta che mente, incollata al legno. */
     const s = zpl.etichettaBancale(
       { udc_id: 'UDC-000043', mono: false, partite: 3, qty: 27, qty_uom: null, uom: null },
       STAMPANTE, null, 1);
     ok('un bancale misto lo dichiara, e dice quante partite',
-      s.includes('MISTO') && s.includes('3 partite'));
+      s.includes('LOTTI MULTIPLI') && s.includes('3 partite'));
     ok('e non nomina lotto ne\' scadenza',
       !s.includes('Lotto') && !s.includes('Scad.'));
     ok('il totale in UM resta vuoto: unita\' diverse non si sommano',

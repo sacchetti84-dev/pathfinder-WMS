@@ -32,6 +32,20 @@
       <circle cx="8" cy="60" r="4" style="fill:var(--pf-mark);stroke:none"/>
       <circle cx="112" cy="60" r="4" style="fill:var(--pf-node);stroke:none;opacity:0.9"/>
     </g>
+    <!-- 2.21 — IL BANCALE DI PRODOTTO FINITO. La fabbrica non e' il prodotto
+         finito: e' dove si fa. Quel che la scheda nomina e' il pallet
+         imballato — tre colli puliti su un bancale — ed e' l'oggetto che
+         l'operatore ha davanti quando apre quella maschera. Sta nello
+         sprite come i marchi, e prende il colore da `currentColor`: la
+         tessera decide la tinta, l'icona la forma. -->
+    <g id="pfIconBancale" fill="none" stroke="currentColor" stroke-width="2.6"
+       stroke-linecap="round" stroke-linejoin="round">
+      <rect x="17.5" y="6" width="13" height="12" rx="1.8"/>
+      <rect x="10" y="19" width="13" height="12" rx="1.8"/>
+      <rect x="25" y="19" width="13" height="12" rx="1.8"/>
+      <path d="M6 35 H42 M6 44 H42 M11 35 v9 M24 35 v9 M37 35 v9"/>
+    </g>
+
     <g id="pfLogoWord">
       <text x="2" y="58" style="fill:var(--pf-word);font-family:var(--font);font-size:47px;font-weight:800;letter-spacing:1.4px">PATHFINDER</text>
       <text x="4" y="97" style="fill:var(--pf-word-sub);font-family:var(--font);font-size:26px;font-weight:500;letter-spacing:2.4px">GESTIONE MAGAZZINO</text>

@@ -71,6 +71,7 @@ import { VistaRapportoPrelievo } from './views/rapportoPrelievo';
 import { VistaInventario } from './views/inventario';
 import { VistaUdc } from './views/udc';
 import { VistaProdottoFinito } from './views/prodottoFinito';
+import { VistaCaricoSpedizione } from './views/caricoSpedizione';
 import { VistaWip } from './views/wip';
 import { VistaQuarantena } from './views/quarantena';
 import { VistaSpedizioni } from './views/spedizioni';
@@ -1900,7 +1901,7 @@ const App = monolite({
    serve a una cosa sola — estrarre e' SPOSTARE. Un metodo rimasto anche di
    qua verrebbe sovrascritto in silenzio, e da quel momento girerebbero due
    versioni della stessa maschera con una sola visibile. */
-for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampionamento, VistaMovimenta, VistaPosiziona, VistaSmaltimento, VistaPrelievo, VistaPercorso, VistaRapportoPrelievo, VistaInventario, VistaUdc, VistaProdottoFinito, VistaWip, VistaQuarantena, VistaSpedizioni, VistaDocumento, VistaMappa, VistaGiacenze, VistaStampaEtichette, VistaConfigOperatori, VistaConfigSiti, VistaConfigArticoli, VistaConfigDati, VistaConfigurazione, VistaCruscotto, VistaRegistro, VistaArchivio, VistaRicerca]) {
+for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampionamento, VistaMovimenta, VistaPosiziona, VistaSmaltimento, VistaPrelievo, VistaPercorso, VistaRapportoPrelievo, VistaInventario, VistaUdc, VistaProdottoFinito, VistaCaricoSpedizione, VistaWip, VistaQuarantena, VistaSpedizioni, VistaDocumento, VistaMappa, VistaGiacenze, VistaStampaEtichette, VistaConfigOperatori, VistaConfigSiti, VistaConfigArticoli, VistaConfigDati, VistaConfigurazione, VistaCruscotto, VistaRegistro, VistaArchivio, VistaRicerca]) {
   /* Qui si scrive per nome, e un nome non e' una chiave dichiarata: le due
      letture servono a questo e non aggiungono niente a runtime. */
   const dentro = App as unknown as Record<string, unknown>;

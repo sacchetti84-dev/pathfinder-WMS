@@ -12,6 +12,8 @@ import { formattaQuantita, sommaUom as sommaUomColli } from '../../modules/misur
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 import { descriviModello as descriviModelloImballo } from '../../modules/imballo';
+import { raggruppaPerPartita } from '../../modules/documenti';
+import type { PartitaStampata } from '../../modules/documenti';
 
 /* Una riga del carrello DDT: la merce scelta, quanti colli, e quanti ce
    n'erano quando la riga è nata — serve a dire se nel frattempo è cambiata. */
@@ -653,8 +655,39 @@ export const VistaSpedizioni = {
   async _shipCaricaDaBancali(udcIds) {
     if (!this._requireOperator('la spedizione')) return;
     const ids = Array.isArray(udcIds) ? udcIds : [udcIds];
-    const saltate = [];
-    let aggiunte = 0;
+    const { voci, saltate } = this._shipRigheDaBancali(ids, this._shipCart as VoceCarrelloDDT[]);
+    for (const r of voci) {
+      if (!this._shipCart.length && !this._shipStartTime) this._shipStartTime = Date.now();
+      this._shipCart.push(r);
+    }
+    const aggiunte = voci.length;
+    if (!aggiunte && !saltate.length) return this.toast('Nessun bancale scelto', 'warning');
+    /* La maschera si apre comunque, anche con zero righe aggiunte: chi ha
+       premuto vuole vedere il carrello, non un messaggio da solo. */
+    this.startMov('shipping');
+    if (aggiunte) {
+      this.toast(`+ ${aggiunte} ${aggiunte === 1 ? 'riga' : 'righe'} da ${ids.length} ${ids.length === 1 ? 'bancale' : 'bancali'}`, 'success');
+    }
+    if (saltate.length) {
+      this.toast(`${saltate.length} non ${saltate.length === 1 ? 'e\' entrata' : 'sono entrate'}: ${saltate.join(' · ')}`, 'warning');
+    }
+  },
+
+  /* LE RIGHE CHE NASCONO DA UN BANCALE, IN UN POSTO SOLO. Le chiedono in
+     due — il carrello del DDT, che le impila, e lo scarico a mano del
+     prodotto finito, che ci fa un documento gia' evaso — e una seconda
+     copia sarebbe la seconda verita' su come una riga di DDT nasce da un
+     pallet: quali colli sono liberi, che unita' portano, cosa si salta.
+
+     `esistenti` sono le righe gia' in carrello: la stessa merce due volte
+     sullo stesso documento e' una prenotazione doppia sulla stessa
+     giacenza. Vuoto, non c'e' niente da confrontare. */
+  _shipRigheDaBancali(udcIds, esistenti = []) {
+    const ids = Array.isArray(udcIds) ? udcIds : [udcIds];
+    const saltate: string[] = [];
+    const voci: VoceCarrelloDDT[] = [];
+    const gia = new Set((esistenti as VoceCarrelloDDT[]).map(
+      (r) => `${r.item_key}@${r.location_code}`));
 
     for (const id of ids) {
       const u = Store.getUdc(id);
@@ -668,8 +701,7 @@ export const VistaSpedizioni = {
         if (Store.isItemQuarantined(item.item_key, item.location_code)) {
           saltate.push(`${chiave}: in quarantena`); continue;
         }
-        if ((this._shipCart as VoceCarrelloDDT[]).some(
-          (r) => r.item_key === item.item_key && r.location_code === item.location_code)) {
+        if (gia.has(`${item.item_key}@${item.location_code}`)) {
           saltate.push(`${chiave}: gia' in carrello`); continue;
         }
 
@@ -701,8 +733,8 @@ export const VistaSpedizioni = {
           qty = disponibili;
         }
 
-        if (!this._shipCart.length && !this._shipStartTime) this._shipStartTime = Date.now();
-        this._shipCart.push({
+        gia.add(`${item.item_key}@${item.location_code}`);
+        voci.push({
           article_code: item.article_code,
           article_description: item.article_description || '',
           lot_code: item.lot_code,
@@ -717,20 +749,9 @@ export const VistaSpedizioni = {
           uom,
           udc_id: u.udc_id,
         });
-        aggiunte++;
       }
     }
-
-    if (!aggiunte && !saltate.length) return this.toast('Nessun bancale scelto', 'warning');
-    /* La maschera si apre comunque, anche con zero righe aggiunte: chi ha
-       premuto vuole vedere il carrello, non un messaggio da solo. */
-    this.startMov('shipping');
-    if (aggiunte) {
-      this.toast(`+ ${aggiunte} ${aggiunte === 1 ? 'riga' : 'righe'} da ${ids.length} ${ids.length === 1 ? 'bancale' : 'bancali'}`, 'success');
-    }
-    if (saltate.length) {
-      this.toast(`${saltate.length} non ${saltate.length === 1 ? 'e\' entrata' : 'sono entrate'}: ${saltate.join(' · ')}`, 'warning');
-    }
+    return { voci, saltate };
   },
 
   /* IL CARRELLO CHIEDE I COLLI, E NON L'EVASIONE.
@@ -1392,6 +1413,46 @@ export const VistaSpedizioni = {
     return netto + tare;
   },
 
+  /** «40 × 12,5 KG» — com'e' fatto il collo, non quanti sono. Le uscite
+      stanno sulla riga dalla 1.8.4; un documento scritto prima non le porta,
+      e allora la cella resta VUOTA: un documento si rilegge, non si
+      ricostruisce, e un «per collo» dedotto dividendo sarebbe un numero
+      inventato appena i colli hanno misure diverse. */
+  _packingComposizione(l: RigaDocumento): string {
+    const uscite = Array.isArray(l.packs_out) ? l.packs_out : null;
+    if (!uscite?.length || !l.uom) return '';
+    return descriviColli(uscite.map((u: { quantita: number }) => u.quantita), l.uom);
+  },
+
+  /* IL FOGLIO E' PER BANCALE, MA LA DOMANDA FINALE E' PER LOTTO. Chi
+     riceve controlla «quanto di questo articolo e di questo lotto e'
+     arrivato», e su dieci bancali quel numero non si ricava guardando i
+     blocchi. E' la stessa partita del DDT — `raggruppaPerPartita` — e qui
+     porta in piu' su quanti bancali e' distribuita. */
+  _packingRiepilogoHTML(doc: DocumentoUscita): string {
+    /* Con UNA riga sola il riepilogo ripeterebbe il blocco che sta sopra.
+       Da due in su risponde a una domanda che il foglio non risponde: dieci
+       bancali di tre lotti non si sommano guardando i blocchi. */
+    if ((doc.lines?.length ?? 0) < 2) return '';
+    const partite = raggruppaPerPartita(doc.lines) as PartitaStampata[];
+    return `<div class="pk-riepilogo">
+      <div class="pk-riepilogo-tit">Riepilogo per articolo e lotto</div>
+      <table class="ddt-table"><thead><tr>
+        <th class="c-art">Articolo</th><th class="c-desc">Descrizione</th>
+        <th class="c-lot">Lotto</th><th class="c-qty">Bancali</th>
+        <th class="c-qty">Colli</th><th class="c-pcs">Quantità</th>
+      </tr></thead><tbody>${partite.map((p) => `<tr>
+        <td class="c-art">${this._esc(p.article_code)}</td>
+        <td class="c-desc">${this._esc(p.article_description || '—')}</td>
+        <td class="c-lot">${this._esc(p.lot_code)}</td>
+        <td class="c-qty">${p.bancali.length || ''}</td>
+        <td class="c-qty">${p.qty}</td>
+        <td class="c-pcs">${(p.qty_uom != null && p.uom)
+          ? `${formattaQuantita(p.qty_uom, p.uom)} ${this._esc(p.uom)}` : ''}</td>
+      </tr>`).join('')}</tbody></table>
+    </div>`;
+  },
+
   _printPackingList(doc_id) {
     const doc = Store.getPendingDoc(doc_id) || Store.getAllOutbound().find((d) => d.doc_id === doc_id);
     if (!doc) return this.toast('Documento non trovato', 'error');
@@ -1409,6 +1470,12 @@ export const VistaSpedizioni = {
         <td class="c-lot">${this._esc(l.lot_code || '')}</td>
         <td class="c-exp">${this._esc(this._dateISOtoIT(l.expiry_date) || l.expiry_date || '')}</td>
         <td class="c-qty">${l.qty}</td>
+        ${/* 2.21 — QUANTO C'E' IN OGNI COLLO, e non solo quanti colli. Chi
+             scarica il camion conta i colli e apre il primo: «40 × 12,5 KG»
+             gli dice se quello che ha in mano e' il collo giusto, e «7
+             colli» non glielo dice. Le uscite sono gia' sulla riga dalla
+             1.8.4 — si stampano, non si ricalcolano. */''}
+        <td class="c-pcs">${this._esc(this._packingComposizione(l))}</td>
         <td class="c-pcs">${(l.qty_uom != null && l.uom)
           ? `${formattaQuantita(l.qty_uom, l.uom)} ${this._esc(l.uom)}` : ''}</td>
       </tr>`).join('');
@@ -1421,7 +1488,7 @@ export const VistaSpedizioni = {
         <table class="ddt-table"><thead><tr>
           <th class="c-art">Articolo</th><th class="c-desc">Descrizione</th>
           <th class="c-lot">Lotto</th><th class="c-exp">Scadenza</th>
-          <th class="c-qty">Colli</th><th class="c-pcs">Quantità</th>
+          <th class="c-qty">Colli</th><th class="c-pcs">Per collo</th><th class="c-pcs">Quantità</th>
         </tr></thead><tbody>${righe}</tbody></table>
       </div>`;
     }).join('');
@@ -1446,6 +1513,7 @@ export const VistaSpedizioni = {
           DOCUMENTO NON ANCORA EVASO — la merce è prenotata ma non è uscita dal magazzino.
         </div>` : ''}
         ${corpo || '<div class="doc-empty">Nessuna riga su questo documento.</div>'}
+        ${this._packingRiepilogoHTML(doc)}
         <div class="ddt-totals">
           ${this._docCell('Bancali', String((blocchi as PackingBlocco[]).filter((b: PackingBlocco) => b.udc_id).length))}
           ${this._docCell('Numero colli', String(totaleColli))}
@@ -1500,23 +1568,31 @@ export const VistaSpedizioni = {
       [doc.dest_zip, doc.dest_city, doc.dest_province ? `(${doc.dest_province})` : ''].filter(Boolean).join(' ')
     ].filter(Boolean).join(' — ');
 
-    const rows = doc.lines.map((l, i) => {
+    /* 2.21 — SUL DDT UNA RIGA E' UN ARTICOLO E UN LOTTO. Tre bancali dello
+       stesso lotto sono tre righe salvate — l'evasione scarica da tre vani,
+       e la packing list li elenca uno per uno — ma una riga sola in bolla:
+       chi riceve controlla quanto di quel lotto e' arrivato, e sommare a
+       mano in banchina e' il modo di sbagliare. Il raggruppamento sta in
+       `modules/documenti.ts`, che e' dove una riga di documento si compone. */
+    const partite = raggruppaPerPartita(doc.lines) as PartitaStampata[];
+    const rows = partite.map((p, i) => {
       /* 1.8.4 — LA QUANTITA' DELLA RIGA E' QUELLA DEI COLLI CHE ESCONO, non
          un prodotto sull'anagrafica: `pieces_per_pack × colli` e' falso
          appena la riga porta colli di misura diversa, ed e' quel che questa
          colonna stampava. Un documento scritto prima della 1.8.4 le UM non
          le porta, e allora la cella resta vuota: un documento si rilegge,
          non si ricostruisce. */
-      const um = (l.qty_uom != null && l.uom) ? `${formattaQuantita(l.qty_uom, l.uom)} ${l.uom}` : '—';
+      const um = (p.qty_uom != null && p.uom) ? `${formattaQuantita(p.qty_uom, p.uom)} ${p.uom}` : '—';
       return `<tr>
         <td class="c-idx">${i+1}</td>
-        <td class="c-art">${this._esc(l.article_code)}</td>
-        <td class="c-desc">${this._esc(l.article_description || '—')}${this._avvisiRigaStampa(l.article_code)}</td>
-        <td class="c-lot">${this._esc(l.lot_code)}</td>
-        <td class="c-exp">${this._esc(this._dateISOtoIT(l.expiry_date) || l.expiry_date || '—')}</td>
-        <td class="c-qty">${l.qty}</td>
+        <td class="c-art">${this._esc(p.article_code)}</td>
+        <td class="c-desc">${this._esc(p.article_description || '—')}${this._avvisiRigaStampa(p.article_code)}</td>
+        <td class="c-lot">${this._esc(p.lot_code)}</td>
+        <td class="c-exp">${this._esc(this._dateISOtoIT(p.expiry_date) || p.expiry_date || '—')}</td>
+        <td class="c-qty">${p.qty}</td>
         <td class="c-pcs">${this._esc(um)}</td>
-        <td class="c-note">${this._esc(l.notes || '')}</td>
+        <td class="c-note">${this._esc(p.notes || '')}${p.bancali.length > 1
+          ? `<span class="doc-empty"> · ${p.bancali.length} bancali</span>` : ''}</td>
       </tr>`;
     }).join('');
 

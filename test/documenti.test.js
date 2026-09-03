@@ -9,7 +9,7 @@
    questa e' la prova che la sorveglia. */
 
 import { describe, it, expect } from 'vitest';
-import { rigaDocumento } from '../src/modules/documenti';
+import { rigaDocumento, raggruppaPerPartita } from '../src/modules/documenti';
 
 describe('rigaDocumento', () => {
   const piena = {
@@ -72,5 +72,70 @@ describe('rigaDocumento', () => {
     const r = rigaDocumento({ ...piena, _id: 99, roba: 'passata di qui' });
     expect(r._id).toBeUndefined();
     expect(r.roba).toBeUndefined();
+  });
+});
+
+/* 2.21 — SUL DDT UNA RIGA E' UN ARTICOLO E UN LOTTO.
+   Tre bancali dello stesso lotto sono tre righe SALVATE — l'evasione
+   scarica da tre vani e la packing list li elenca uno per uno — ma una riga
+   sola in bolla: chi riceve controlla quanto di quel lotto e' arrivato, e
+   sommare a mano in banchina e' il modo di sbagliare. */
+describe('raggruppaPerPartita', () => {
+  const riga = (extra = {}) => ({
+    article_code: 'PF001', article_description: 'Omega 3', lot_code: 'L1',
+    location_code: 'MAG1-SPED-01-01', item_key: 'PF001#L1', expiry_date: '2027-06-30',
+    qty: 40, qty_uom: 500, uom: 'KG', udc_id: 'UDC-000012', ...extra,
+  });
+
+  it('somma colli e quantita dello stesso articolo e lotto', () => {
+    const p = raggruppaPerPartita([riga(), riga({ udc_id: 'UDC-000013', qty: 37, qty_uom: 462.5 })]);
+    expect(p).toHaveLength(1);
+    expect(p[0].qty).toBe(77);
+    expect(p[0].qty_uom).toBe(962.5);
+    expect(p[0].bancali).toEqual(['UDC-000012', 'UDC-000013']);
+    expect(p[0].righe).toBe(2);
+  });
+
+  it('due lotti restano due righe, e l ordine e quello del documento', () => {
+    const p = raggruppaPerPartita([riga(), riga({ lot_code: 'L2' }), riga({ qty: 1 })]);
+    expect(p.map(x => x.lot_code)).toEqual(['L1', 'L2']);
+    expect(p[0].qty).toBe(41);
+  });
+
+  /* LE UNITA' DIVERSE NON SI SOMMANO: 300 KG piu' 40 PZ fanno 340 di
+     niente, e il totale resta VUOTO — un'assenza, non uno zero. */
+  it('unita diverse lasciano il totale vuoto', () => {
+    const p = raggruppaPerPartita([riga(), riga({ uom: 'PZ', qty_uom: 40 })]);
+    expect(p[0].qty_uom).toBe(null);
+    expect(p[0].qty).toBe(80);
+  });
+
+  it('una riga senza unita azzera il totale, non lo ignora', () => {
+    const p = raggruppaPerPartita([riga(), riga({ uom: null, qty_uom: null })]);
+    expect(p[0].qty_uom).toBe(null);
+  });
+
+  /* Un lotto solo ha una scadenza sola: se le righe ne portano due, nessuna
+     delle due e' «la» scadenza della riga stampata. */
+  it('due scadenze sullo stesso lotto non ne fanno una', () => {
+    const p = raggruppaPerPartita([riga(), riga({ expiry_date: '2027-12-31' })]);
+    expect(p[0].expiry_date).toBe('');
+  });
+
+  it('le note si uniscono senza ripetersi', () => {
+    const p = raggruppaPerPartita([
+      riga({ notes: 'ordine 12' }), riga({ notes: 'ordine 12' }), riga({ notes: 'fragile' }),
+    ]);
+    expect(p[0].notes).toBe('ordine 12 · fragile');
+  });
+
+  it('una riga senza bancale non inventa un bancale', () => {
+    const p = raggruppaPerPartita([riga({ udc_id: undefined })]);
+    expect(p[0].bancali).toEqual([]);
+  });
+
+  it('un documento senza righe non e un errore', () => {
+    expect(raggruppaPerPartita(null)).toEqual([]);
+    expect(raggruppaPerPartita([])).toEqual([]);
   });
 });

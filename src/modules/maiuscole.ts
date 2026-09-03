@@ -54,6 +54,10 @@ const CAMPI_CODICE: ReadonlySet<string> = new Set([
   /* 2.20 — l'ubicazione di arrivo di un DDT di conto terzi: e' un vano, e i
      vani sono maiuscoli come ogni altro codice. */
   'pShipDestLoc', 'pEditDestLoc',
+  /* 2.21 — il codice del bancale, letto dall'etichetta del pallet mentre si
+     carica il camion: e' un codice di unita' di carico, e due grafie sono
+     due unita'. */
+  'carScan',
   /* Quarantena */
   'qArt', 'qLot', 'qvArt', 'qvLoc', 'qvLot', 'releaseDestLoc',
   /* Unita' di carico */

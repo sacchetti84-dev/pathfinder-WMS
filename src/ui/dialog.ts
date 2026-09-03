@@ -8,7 +8,7 @@ import { Feedback } from './feedback';
    il fuoco iniziale cerca fra loro il pulsante che vale `false` e un tipo
    stretto renderebbe quel confronto impossibile da scrivere. */
 type Esito = string | number | boolean | null;
-type Genere = 'confirm' | 'alert' | 'reason' | 'qty';
+type Genere = 'confirm' | 'alert' | 'reason' | 'qty' | 'testo';
 
 type Azione = {
   label: string;
@@ -217,7 +217,7 @@ const Dialog = {
       e.preventDefault(); e.stopPropagation();
       /* v2.5.0 — 'reason' annulla come 'qty': restituisce null, non false.
          Un false verrebbe letto come "confermato senza motivazione". */
-      this._finish((this._kind === 'qty' || this._kind === 'reason') ? null : false);
+      this._finish((this._kind === 'qty' || this._kind === 'reason' || this._kind === 'testo') ? null : false);
       return;
     }
     if (e.key !== 'Enter') return;
@@ -243,6 +243,7 @@ const Dialog = {
     e.preventDefault(); e.stopPropagation();
     if (this._kind === 'qty') this._submitQty();
     else if (this._kind === 'reason') this._submitReason(this._reasonMin);
+    else if (this._kind === 'testo') this._submitTesto();
     else this._finish(true);
   },
 
@@ -373,6 +374,69 @@ const Dialog = {
           onClick: () => this._submitReason(minLen) }
       ]
     });
+  },
+
+  /* 2.21 — UNA RIGA SOLA, E NON È `reason`. Un numero di DDT non è una
+     motivazione: non finisce a log, non ha un minimo di cinque caratteri e
+     non sta su tre righe di textarea. `reason` glielo direbbe a video, e
+     chi legge un avviso che non lo riguarda smette di leggere gli avvisi.
+
+     Il lettore barcode ci spara dentro come in ogni campo di Pathfinder, e
+     INVIO conferma: è il gesto che l'operatore fa già dappertutto. */
+  testo({ title, message = '', details = null, placeholder = '', valore = '',
+          maiuscolo = false, minLen = 1, icon = '✎', confirmLabel = 'Conferma',
+          nota = '' }: {
+    title: string; message?: string; details?: Node | null; placeholder?: string;
+    valore?: string; maiuscolo?: boolean; minLen?: number; icon?: string;
+    confirmLabel?: string; nota?: string;
+  }): Promise<string | null> {
+    const wrap = document.createElement('div');
+    if (details) wrap.appendChild(details);
+
+    const input = document.createElement('input');
+    input.className = maiuscolo ? 'input input-mono uppercase' : 'input input-mono';
+    input.id = 'dlgTestoInput';
+    input.type = 'text';
+    input.maxLength = 60;
+    input.autocomplete = 'off';
+    input.placeholder = placeholder;
+    input.value = valore;
+    if (maiuscolo) input.addEventListener('input', () => { input.value = input.value.toUpperCase(); });
+    wrap.appendChild(input);
+
+    if (nota) {
+      const hint = document.createElement('div');
+      hint.className = 'dlg-guard';
+      hint.style.margin = '0.5rem 0 0';
+      hint.textContent = nota;
+      wrap.appendChild(hint);
+    }
+
+    this._testoMin = minLen;
+    return this._open<string>({
+      icon, title,
+      bodyNode: this._mkBody(message, wrap),
+      kind: 'testo',
+      focusTarget: 'dlgTestoInput',
+      actions: [
+        { label: 'Annulla', value: null },
+        { label: confirmLabel, cls: 'btn-accent', onClick: () => this._submitTesto() }
+      ]
+    });
+  },
+
+  _testoMin: 1,
+
+  _submitTesto() {
+    const input = document.getElementById('dlgTestoInput') as HTMLInputElement | null;
+    const txt = (input?.value || '').trim();
+    if (txt.length < this._testoMin) {
+      Feedback.signal('error', 'Manca il dato',
+        `Servono almeno ${this._testoMin} ${this._testoMin === 1 ? 'carattere' : 'caratteri'}.`);
+      input?.focus();
+      return;
+    }
+    this._finish(txt);
   },
 
   _submitReason(minLen: number) {

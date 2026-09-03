@@ -227,10 +227,10 @@ const CAMPI_AMMESSI = Object.keys(CAMPI);
    RIGA DI GIACENZA (`item_key`), questa identifica un BANCALE (`udc_id`), che
    e' l'oggetto che il muletto sposta e che il DDT nomina.
 
-   SU UN BANCALE MISTO I CAMPI DELLA MERCE RESTANO VUOTI. Un pallet con due
+   SU UN BANCALE A LOTTI MULTIPLI I CAMPI DELLA MERCE RESTANO VUOTI. Un pallet con due
    partite diverse non ha «un» lotto ne' «una» scadenza: scriverci quella
    della prima riga sarebbe un'etichetta che mente, incollata al legno. Il
-   campo articolo lo dichiara — «MISTO — n partite» — e il dettaglio lo porta
+   campo articolo lo dichiara — «LOTTI MULTIPLI — n partite» — e il dettaglio lo porta
    la packing list, che le righe le elenca tutte. */
 const CAMPI_PF = {
   /* Il simbolo porta `udc_id`: la stessa stringa dell'etichetta A4 e la
@@ -243,7 +243,7 @@ const CAMPI_PF = {
   articolo: {
     etichetta: 'Codice articolo',
     valore: (d) => (d.mono === false
-      ? `MISTO — ${Number(d.partite) || 0} partite`
+      ? `LOTTI MULTIPLI — ${Number(d.partite) || 0} partite`
       : d.article_code),
   },
   descrizione: {

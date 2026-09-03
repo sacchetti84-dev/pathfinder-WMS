@@ -54,6 +54,11 @@ export interface Zona {
       posare un bancale e dove l'elenco delle spedizioni va a guardare.
       Assente = zona come prima. */
   pf_zone?: boolean;
+  /** 2.21 — la zona è una BAIA DI CARICO: il posto dove i bancali aspettano
+      di salire sul camion. Non è un vincolo di stoccaggio e non verifica
+      niente: dice dove il carico di un DDT porta i bancali prelevati, e da
+      lì li scarica l'evasione. Assente = zona come prima. */
+  dock_zone?: boolean;
   /** LA GEOMETRIA DELLA ZONA — da qui `geometria.ts` genera le ubicazioni.
       Una zona a scaffale ha corsie, campate e livelli; una a terra file e
       posizioni; una alla rinfusa posizioni e colonne di griglia. Erano tutte

@@ -43,7 +43,12 @@ export const VistaMovimenta = {
         ${/* 2.20 — la decima. Stesso colore dell'unità di carico, e non è una
              svista: un bancale di prodotto finito È un'unità di carico, con
              tre campi in più. Due tessere della stessa famiglia. */
-          this._movCard('pf', 'c-pf', '🏭', 'Prodotto finito', 'Bancali imballati, etichettati, pronti a partire', 'var(--sx-primary)')}
+          this._movCard('pf', 'c-pf', this.MARCHIO_BANCALE, 'Prodotto finito', 'Bancali imballati, etichettati, pronti a partire', 'var(--sx-primary)')}
+        ${/* 2.21 — l'undicesima. È il giro di prelievo di chi carica il
+             camion: le tappe sono bancali, e alla fine i DDT si evadono. */
+          this._movCard('load', 'c-load', '🚛', 'Carico spedizioni',
+            'Un DDT per volta, bancali scansionati in baia', 'var(--sx-orange)',
+            Store.getCaricoInCorso() ? 1 : 0)}
       </div>
       <div id="undoBarArea">${this._undoBarHTML()}</div>
       <div id="taskRunBanner"></div>
@@ -51,6 +56,13 @@ export const VistaMovimenta = {
       <div id="movLogArea">${this._renderSessionLog()}</div>
     </div>`;
   },
+
+  /* 2.21 — LA FABBRICA NON E' IL PRODOTTO FINITO: e' dove si fa. La tessera
+     nomina il pallet imballato, ed e' quello che va disegnato — un bancale
+     con sopra i suoi colli. Emoji di bancali non ne esistono, quindi e' un
+     marchio SVG come quelli di `index.html`, e prende la tinta dalla tessera
+     con `currentColor`. */
+  MARCHIO_BANCALE: '<svg class="mov-icon-svg" viewBox="0 0 48 48" role="img" aria-label="Bancale di prodotto finito"><use href="#pfIconBancale"/></svg>',
 
   _movCard(mode: string, cls: string, icon: string, title: string, sub: string,
            color: string, badgeCount = 0) {
@@ -72,7 +84,7 @@ export const VistaMovimenta = {
     if (mode === 'io' && dir && dir !== this._ioMode) { this._ioMode = dir; this._dispReset(); }
     this._movMode = mode;
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
-    const map: Record<string, string> = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal', udc: 'c-indigo', pf: 'c-pf' };
+    const map: Record<string, string> = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal', udc: 'c-indigo', pf: 'c-pf', load: 'c-load' };
     document.querySelector(`.mov-action-card.${map[mode]}`)?.classList.add('active');
     const fa = $('movFormArea');
     /* Ogni maschera si disegna dentro la stessa area, e `call` le passa il
@@ -80,7 +92,8 @@ export const VistaMovimenta = {
     const forms: Record<string, ((el: HTMLElement) => void) | undefined> = {
       io: this._formCaricoScarico, pick: this._formPrelievo, inv: this._formInventario,
       quarantine: this._formQuarantena, shipping: this._formSpedizioni, sampling: this._formCampionamento,
-      udc: this._formUdc, pf: this._formProdottoFinito };
+      udc: this._formUdc, pf: this._formProdottoFinito,
+      load: this._formCaricoSpedizione };
     forms[mode]?.call(this, fa);
   },
 

@@ -328,6 +328,19 @@ const PickRoute = {
      serpentina e la numerazione sono le stesse di `build`: una tappa che
      cambia ubicazione cambia anche il punto del giro in cui la si incontra,
      e lasciarle il numero di prima farebbe camminare all'indietro. */
+  /* 2.21 — LA SERPENTINA SU QUALUNQUE COSA ABBIA UN'UBICAZIONE.
+     Il carico di un DDT non prende righe: prende BANCALI, e un bancale non
+     ha un articolo ne' un lotto. La regola del giro pero' e' la stessa —
+     corsie pari al contrario, i magazzini nell'ordine dichiarato — e
+     riscriverla accanto sarebbe la seconda serpentina dello stesso
+     magazzino. Non c'e' «casa»: il giro di carico parte da dove sono i
+     bancali, non dal magazzino con piu' righe di un ordine. */
+  ordinaPerCorsia<T extends Ordinabile>(righe: readonly T[]): T[] {
+    const geo = Store.buildLocationGeometry();
+    const rank = new Map(this.getSiteOrder().map((id, i) => [id, i + 1] as const));
+    return [...righe].sort(this._serpentineCompare(geo, rank));
+  },
+
   riordina(stops: Tappa[]): Tappa[] {
     const geo = Store.buildLocationGeometry();
     /* La stessa regola di `build`, casa compresa: una tappa spostata puo'

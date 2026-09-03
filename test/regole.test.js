@@ -164,8 +164,30 @@ describe('il doppio contesto dei gestori inline', () => {
    03/09/2026 — 4438 → 4446: `dest_location` nei due punti dove il documento
    si ricostruisce campo per campo — `savePendingOutbound` e
    `updatePendingDoc`. Non aggiungerlo li' era il difetto: il campo si
-   scriveva a video e non arrivava a database, in silenzio. */
-const TETTO_STORE = 4446;
+   scriveva a video e non arrivava a database, in silenzio.
+
+   03/09/2026 — 4446 -> 4520: i quattro ponti del prodotto finito 2.21.
+   `apprendiModelloImballo` e `apprendiModelloDiArticolo` (il modello di
+   carico che si impara dal primo bancale invece di essere compilato su
+   11.197 articoli), `dichiaraConfezioneArticolo` (la quantita' per collo
+   scritta in ANAGRAFICA, dove il prodotto finito la cerca — il gemello di
+   `dichiaraConfezioneLotto`, che scrive sul lotto) e `posizionaUdcVuota`
+   (il vano di un bancale gia' etichettato e ancora senza merce). Sono ponti
+   verso `Persistence` e la cache: la forma e la convalida stanno in
+   `modules/imballo.ts` e `modules/misure.ts`, che e' dove sono collaudate.
+
+   03/09/2026 — 4520 -> 4561: i tre della sessione di carico —
+   `getCaricoInCorso`, `salvaCarico`, `chiudiCarico`. Sta in `meta` e non in
+   una collezione nuova: ne vive UNA per volta, `pick_session` e' occupata
+   dal giro di prelievo ed e' una sola per tutto l'impianto, e una
+   ventiduesima collezione per un record solo sarebbe schema, DDL,
+   migrazione e adapter per una riga.
+
+   03/09/2026 — 4561 -> 4566: `caricoSpedizione` dichiarata in `_loadCache`.
+   E' la TRAPPOLA 22 (§7): una chiave di `meta` non dichiarata li' vive in
+   cache finche' nessuno ricarica la pagina, e poi sparisce. Su una sessione
+   di carico morde nel caso esatto per cui e' stata salvata. */
+const TETTO_STORE = 4566;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

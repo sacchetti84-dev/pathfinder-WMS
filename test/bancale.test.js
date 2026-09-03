@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ePf, bancaliImpegnati, riepiloga, descriviContenuto, zonePf,
+  ePf, bancaliImpegnati, riepiloga, descriviContenuto, zonePf, zoneCarico,
+  spedizioniDiBancale,
 } from '../src/modules/bancale';
 
 const udc = (extra = {}) => ({
@@ -117,7 +118,7 @@ describe('descriviContenuto', () => {
   it('dice l articolo se e uno, e quante partite se sono di piu', () => {
     expect(descriviContenuto(riepiloga(udc(), [riga()]))).toBe('PF001#L1');
     const misto = riepiloga(udc(), [riga(), riga({ item_key: 'PF002#L9' })]);
-    expect(descriviContenuto(misto)).toBe('MISTO — 2 partite');
+    expect(descriviContenuto(misto)).toBe('LOTTI MULTIPLI — 2 partite');
     expect(descriviContenuto(riepiloga(udc(), []))).toBe('vuoto');
   });
 });
@@ -145,5 +146,145 @@ describe('zonePf', () => {
   it('senza siti non esplode', () => {
     expect(zonePf(null)).toEqual([]);
     expect(zonePf([{ id: 'X', name: 'X' }])).toEqual([]);
+  });
+});
+
+/* 2.21 — LA BAIA DI CARICO E' UN POSTO, non una regola: stesso criterio
+   delle zone di prodotto finito, e la lettura e' una sola. */
+describe('zoneCarico', () => {
+  const siti = [
+    { id: 'MAG1', name: 'Magazzino 1', zones: [
+      { site_id: 'MAG1', id: 'SPED', name: 'Spedizioni', pf_zone: true },
+      { site_id: 'MAG1', id: 'BAIA', name: 'Baia camion', dock_zone: true },
+      { site_id: 'MAG1', id: 'BAI2', name: 'Baia vecchia', dock_zone: true, active: false },
+    ] },
+  ];
+
+  it('elenca le sole zone marcate baia, e non le altre', () => {
+    expect(zoneCarico(siti).map(z => z.zona.id)).toEqual(['BAIA']);
+  });
+
+  /* Una zona puo' essere tutt'e due: il prodotto finito si posa dove il
+     camion carica, e le due bandiere non si escludono. */
+  it('una zona puo essere insieme prodotto finito e baia', () => {
+    const doppia = [{ id: 'M', name: 'M', zones: [
+      { site_id: 'M', id: 'Z', name: 'Z', pf_zone: true, dock_zone: true },
+    ] }];
+    expect(zonePf(doppia)).toHaveLength(1);
+    expect(zoneCarico(doppia)).toHaveLength(1);
+  });
+
+  it('senza siti non esplode', () => {
+    expect(zoneCarico(null)).toEqual([]);
+  });
+});
+
+/* 2.21 — CON QUALE DDT E' PARTITO UN BANCALE SI RILEGGE, NON SI SCRIVE.
+   I documenti evasi portano gia' la risposta, e un campo sull'unita'
+   sarebbe la stessa cosa scritta due volte: un DDT corretto dopo l'evasione
+   lascerebbe l'unita' a raccontare il numero vecchio. */
+describe('spedizioniDiBancale', () => {
+  const evaso = (doc_id, ddt_num, evaded_at, udcIds) => ({
+    doc_id, ddt_num, operator: 'ANDS', status: 'evaded', created_at: 1, evaded_at,
+    lines: udcIds.map((id) => ({ article_code: 'PF001', lot_code: 'L1', qty: 1, udc_id: id })),
+  });
+
+  it('un bancale su un documento evaso porta numero e data', () => {
+    const m = spedizioniDiBancale([evaso('D1', '10/2026', 5000, ['UDC-000012'])]);
+    expect(m.get('UDC-000012')).toMatchObject({ doc_id: 'D1', ddt_num: '10/2026', data: 5000 });
+  });
+
+  /* ALL'EVASIONE LE RIGHE DI GIACENZA SPARISCONO, e un bancale spedito
+     senza questa lettura si direbbe «vuoto»: vero, e inutile a chi cerca
+     dov'e' finita la merce. Il documento resta l'unica memoria. */
+  it('si porta dietro che cosa quel documento gli ha tolto', () => {
+    const m = spedizioniDiBancale([evaso('D1', '10/2026', 5000, ['UDC-000012'])]);
+    expect(m.get('UDC-000012').righe).toEqual([{
+      item_key: '', article_code: 'PF001', article_description: '',
+      lot_code: 'L1', expiry_date: '', qty: 1, qty_uom: null, uom: null,
+    }]);
+  });
+
+  /* Un documento PENDENTE non ha portato via niente: la merce e' prenotata
+     e sta ancora a scaffale. Uno annullato non ha mai prenotato. */
+  it('i documenti non evasi non spediscono niente', () => {
+    expect(spedizioniDiBancale([
+      { ...evaso('D1', '10/2026', 5000, ['UDC-000012']), status: 'pending' },
+      { ...evaso('D2', '11/2026', 6000, ['UDC-000013']), status: 'cancelled' },
+    ]).size).toBe(0);
+  });
+
+  /* Un pallet svuotato a meta' su un DDT e finito su un altro e' partito
+     davvero col secondo, ed e' quello che chi cerca la merce si aspetta. */
+  it('su piu documenti vince il piu recente', () => {
+    const m = spedizioniDiBancale([
+      evaso('D1', '10/2026', 5000, ['UDC-000012']),
+      evaso('D2', '11/2026', 9000, ['UDC-000012']),
+    ]);
+    expect(m.get('UDC-000012').ddt_num).toBe('11/2026');
+  });
+
+  it('una data assente non scalza una che c e', () => {
+    const m = spedizioniDiBancale([
+      evaso('D1', '10/2026', 5000, ['UDC-000012']),
+      evaso('D2', '11/2026', null, ['UDC-000012']),
+    ]);
+    expect(m.get('UDC-000012').ddt_num).toBe('10/2026');
+  });
+
+  it('le righe senza bancale non entrano, e un elenco assente non e un errore', () => {
+    expect(spedizioniDiBancale([evaso('D1', '10/2026', 5000, ['', '  '])]).size).toBe(0);
+    expect(spedizioniDiBancale(null).size).toBe(0);
+  });
+});
+
+/* IL VIAGGIO ARRIVA AL RIEPILOGO DA FUORI: `riepiloga` non sa leggere i
+   documenti, e non deve — la stessa mappa serve a duecento bancali, e
+   costruirla una volta per riga sarebbe sessantamila giri. */
+describe('riepiloga con il viaggio', () => {
+  it('porta DDT e data del documento che l ha spedito', () => {
+    const viaggi = new Map([['UDC-000012', { doc_id: 'D1', ddt_num: '10/2026', data: 5000 }]]);
+    const r = riepiloga(udc({ status: 'shipped' }), [riga()], null, null, viaggi);
+    expect(r.ddt_num).toBe('10/2026');
+    expect(r.shipped_at).toBe(5000);
+    expect(r.stato).toBe('spedito');
+  });
+
+  it('senza viaggio i due campi sono assenti, non vuoti per finta', () => {
+    const r = riepiloga(udc(), [riga()], null, null, null);
+    expect(r.ddt_num).toBe(null);
+    expect(r.shipped_at).toBe(null);
+  });
+
+  /* Un bancale spedito non ha piu' righe: quel che portava lo dice il
+     documento, e la riga di elenco smette di leggersi «vuoto». */
+  it('senza righe in giacenza legge il contenuto dal documento', () => {
+    const viaggi = new Map([['UDC-000012', {
+      doc_id: 'D1', ddt_num: '10/2026', data: 5000,
+      righe: [{ item_key: 'PF001#L1', article_code: 'PF001', article_description: 'Omega 3',
+                lot_code: 'L1', expiry_date: '2027-06-30', qty: 40, qty_uom: 500, uom: 'KG' }],
+    }]]);
+    const r = riepiloga(udc({ status: 'shipped' }), [], null, null, viaggi);
+    expect(r.stato).toBe('spedito');
+    expect(r.mono).toBe(true);
+    expect(r.article_code).toBe('PF001');
+    expect(r.lot_code).toBe('L1');
+    expect(r.colli).toBe(40);
+    expect(r.uom_qty).toBe(500);
+    expect(descriviContenuto(r)).toBe('PF001#L1');
+  });
+
+  /* FINCHE' LA MERCE C'E' COMANDA LA MERCE: un bancale svuotato a meta' da
+     un DDT porta ancora quel che gli e' rimasto sopra, non quel che e'
+     uscito. */
+  it('con righe in giacenza il documento non le scavalca', () => {
+    const viaggi = new Map([['UDC-000012', {
+      doc_id: 'D1', ddt_num: '10/2026', data: 5000,
+      righe: [{ item_key: 'PF001#L1', article_code: 'PF001', article_description: '',
+                lot_code: 'L1', expiry_date: '', qty: 999, qty_uom: null, uom: null }],
+    }]]);
+    const r = riepiloga(udc(), [riga()], null, null, viaggi);
+    expect(r.colli).toBe(40);
+    expect(r.stato).toBe('pronto');
   });
 });

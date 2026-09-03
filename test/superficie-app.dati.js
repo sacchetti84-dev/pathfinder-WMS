@@ -67,10 +67,49 @@
    `_imballiHTML`, `_imballoModifica`, `_imballoSalva`, `_imballoTogli` — e
    `_campoImballo`, la tendina che l'anagrafica articoli mostra solo quando
    un modello esiste.
+   2.21: la maschera del prodotto finito e' diventata quella del carico
+   merce — articolo, lotto, colli pieni per quanto dentro — e l'ubicazione si
+   scansiona DOPO l'etichetta. Sono entrati i due della maschera
+   (`_pfPartiteHTML`, `_pfUbicazioneHTML`), gli otto della dichiarazione dei
+   colli (`_pfColli`, `_pfColliChiave`, `_pfCampoColliHTML`, `_pfColliRigaAdd`,
+   `_pfColliRigaDel`, `_pfColliRigaSet`, `_pfRenderColli`, `_pfAnteprimaColli`),
+   `_pfConfezione` e `_pfFuocoColli`, `_pfPosiziona` — il gesto che porta il
+   bancale nel vano e ci fa entrare la merce — `_cbPickPf`, e i tre dei
+   bancali etichettati e mai riempiti (`_pfOrfani`, `_pfOrfaniHTML`,
+   `_pfScartaOrfano`), piu' `_pfModelloDelBancale` — il formato che il
+   bancale porta scritto sopra, anche quando l'articolo lo sta imparando
+   proprio da lui.
+   2.21: l'elenco dei bancali porta articolo e lotto in due colonne, il DDT
+   con cui sono partiti e la data — che si RILEGGONO dai documenti evasi,
+   non sono campi dell'unita' — e un filtro di stato: sono entrati
+   `_pfArticoloCella`, `_pfFiltroStato`, `_pfFiltrati` e `_pfStato`. Con lo
+   scarico a mano sono entrati `_pfScaricoManuale`, `_pfCausaleUscita` e
+   `_shipRigheDaBancali` — quest'ultimo in `spedizioni.ts`, perche' come una
+   riga di DDT nasce da un bancale sta scritto li' e non si copia.
+   2.21: e' nata la schermata del CARICO SPEDIZIONI — `caricoSpedizione.ts`,
+   la ventiseiesima vista. E' il giro di prelievo di chi carica il camion, e
+   le tappe sono BANCALI: `_formCaricoSpedizione`, i tre dell'avvio
+   (`_carDocumentiCaricabili`, `_carAvvioHTML`, `_carAvvia`), i due della
+   forma (`_carDocDelCarico`, `_carTappeDaDoc`), i due del giro
+   (`_carDocCorrente`, `_carGiroHTML`), i cinque della scansione
+   (`_carScansiona`, `_carRiallineaDoc`, `_carVanoLibero`, `_carFeedback`,
+   `_carRiscontro`), `_carSalta`, i due del secondo DDT (`_carAltroDdt`,
+   `_carScegliDdt`), i due della fine (`_carChiudi`, `_carAbbandona`) e
+   `_carEsito`, che e' l'unico stato che non sta a database.
+   2.21: la packing list dice anche COM'E' FATTO IL COLLO e chiude con un
+   riepilogo per articolo e lotto — `_packingComposizione` e
+   `_packingRiepilogoHTML`. Il DDT stampa una riga per articolo#lotto invece
+   di una per bancale: il raggruppamento e' `raggruppaPerPartita` in
+   `modules/documenti.ts`, dove una riga di documento si compone, e le righe
+   SALVATE restano una per bancale.
+   2.21: la tessera del prodotto finito porta un MARCHIO invece di
+   un'emoji — la fabbrica non e' il prodotto finito, e' dove si fa — quindi
+   e' entrato `MARCHIO_BANCALE`, il rimando allo sprite di `index.html`.
    2.1: sono usciti i sei della copia esterna (`vault*`, `doVaultRestore`,
    `_scheduleVaultBackup`), `purgeOldLogsManual` con la purga, e i due
    salvataggi a mano `forceSave` e `manualSave`. */
 export const SUPERFICIE = [
+  'MARCHIO_BANCALE',
   '_campoImballo', '_imballiHTML', '_imballoModifica', '_imballoSalva', '_imballoTogli',
   '_formProdottoFinito', '_pfAggiungiRiga', '_pfAnnullaBozza', '_pfArticoloLetto',
   '_pfBancali', '_pfBozza', '_pfBozzaHTML', '_pfChiudiBancale', '_pfElencoHTML',
@@ -79,8 +118,20 @@ export const SUPERFICIE = [
   '_mapFiltroPf', '_mapToggleFiltroPf', '_pfStatiBancali',
   '_pfSel', '_pfSpunta', '_pfCaricaInDdt', '_shipCaricaDaBancali',
   '_printPackingList', '_packingBlocchi', '_packingLordo',
+  '_packingComposizione', '_packingRiepilogoHTML',
   '_shipDestLocation', '_shipETrasferimento', '_shipAggiornaDestLoc', '_evadiTrasferendo', '_pfModelloScelto', '_pfNuovoBancale',
   '_pfProponiUbicazione', '_pfTogliRiga',
+  '_pfPartiteHTML', '_pfUbicazioneHTML', '_pfPosiziona', '_cbPickPf', '_pfFuocoColli',
+  '_pfColli', '_pfColliChiave', '_pfConfezione', '_pfCampoColliHTML',
+  '_pfColliRigaAdd', '_pfColliRigaDel', '_pfColliRigaSet',
+  '_pfRenderColli', '_pfAnteprimaColli',
+  '_pfOrfani', '_pfOrfaniHTML', '_pfScartaOrfano', '_pfModelloDelBancale',
+  '_pfArticoloCella', '_pfFiltroStato', '_pfFiltrati', '_pfStato',
+  '_pfScaricoManuale', '_pfCausaleUscita', '_shipRigheDaBancali',
+  '_formCaricoSpedizione', '_carEsito', '_carDocumentiCaricabili', '_carAvvioHTML',
+  '_carAvvia', '_carDocDelCarico', '_carTappeDaDoc', '_carDocCorrente', '_carGiroHTML',
+  '_carScansiona', '_carRiallineaDoc', '_carVanoLibero', '_carFeedback', '_carRiscontro',
+  '_carSalta', '_carAltroDdt', '_carScegliDdt', '_carChiudi', '_carAbbandona',
   '_chiediStampaEtichetta', '_eseguiStampaEtichetta', '_layoutEtichettaDiSerie', '_layoutEtichettaHTML', '_layoutEtichettaLetto', '_layoutEtichettaSalva', '_provaStampante', '_renderConfigStampanti', '_riscontroStampa', '_sitoDiUbicazione', '_stampaEtichettaItemA4', '_stampanteModifica', '_stampanteSalva', '_stampanteTogli', '_stampantiElencoHTML', '_udcEtichettaA4',
   'UNDO_WINDOW_MS', '_ARC_KINDS', '_DOC_REQUIRED', '_KNOWN_OPERATORS_KEY',
   '_MIGRATED_KEY', '_MOVQUEUE_KEY', '_MOV_COLORS', '_MOV_SHORT', '_OPERATOR_KEY',

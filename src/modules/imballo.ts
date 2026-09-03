@@ -136,11 +136,64 @@ export function trovaModello(
   return (elenco || []).find(m => m.code === c) ?? null;
 }
 
-/** Come si legge in tendina e sulla packing list: «EPAL 8 × 5 = 40 colli». */
+/** Come si legge in tendina e sulla packing list: «EPAL 8 × 5 = 40 colli».
+    A UNO STRATO SOLO LA MOLTIPLICAZIONE NON DICE NIENTE — «40 × 1 = 40» è il
+    numero scritto tre volte — e resta il conto e basta: è la forma dei
+    modelli appresi dal reparto, che gli strati non li sanno. */
 export function descriviModello(m: ModelloImballo | null | undefined): string {
   if (!m) return '';
   const attesi = colliAttesi(m);
-  const conto = attesi === null ? '' : ` — ${m.colli_strato} × ${m.strati} = ${attesi} colli`;
+  const conto = attesi === null ? ''
+    : (m.strati === 1 ? ` — ${attesi} colli` : ` — ${m.colli_strato} × ${m.strati} = ${attesi} colli`);
   const supporto = m.supporto ? ` (${m.supporto})` : '';
   return `${m.label}${supporto}${conto}`;
+}
+
+/* IL MODELLO DI CARICO SI IMPARA, NON SI COMPILA — 2.21.
+
+   Undicimila articoli non ricevono un modello perché qualcuno si siede a
+   scriverli: lo ricevono il giorno in cui il reparto imballa il primo
+   bancale di quell'articolo. La distinta che l'operatore ha appena
+   dichiarato diventa il modello, e dal bancale dopo il numero è già lì.
+
+   UN MODELLO APPRESO NON HA MAI COLLI INCOMPLETI: porta i soli colli PIENI.
+   Il collo spaiato è un fatto di QUEL bancale — fine produzione, resto di
+   lotto — e scriverlo nel modello vorrebbe dire proporlo per sempre.
+
+   Gli strati non si sanno, e non si inventano: uno solo, e la descrizione
+   scrive il conto senza la moltiplicazione. Supporto e tara restano vuoti —
+   chi configura li aggiunge in Parametri, e la packing list li legge da lì. */
+export function modelloAppreso(colli: unknown): ModelloImballo | null {
+  const n = Number(colli);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const interi = Math.floor(n);
+  /* IL NOME DICE DA DOVE VIENE, NON QUANTI SONO: il conto lo scrive già
+     `descriviModello`, e «Bancale da 40 colli — 40 colli» è lo stesso
+     numero due volte. Chi apre Parametri deve capire in un colpo quali
+     modelli ha scritto lui e quali ha imparato il reparto. */
+  return {
+    code: `AUTO-${interi}`,
+    label: 'Appreso dal reparto',
+    colli_strato: interi,
+    strati: 1,
+  };
+}
+
+/** Il modello APPRESO che porta esattamente questi colli pieni, se c'è già.
+    Si cerca prima di crearne uno: due articoli che fanno 40 colli
+    condividono il formato, e un modello per articolo sarebbe undicimila
+    righe di configurazione — cioè il dato che questo modulo esiste per non
+    chiedere.
+
+    NON SI PESCA FRA I MODELLI CONFIGURATI A MANO, nemmeno quando il conto
+    combacia: un EPAL da 40 e un cassone da 40 portano tare diverse, e
+    assegnarne uno a caso metterebbe un peso lordo sbagliato in bolla.
+    Scegliere fra due formati veri è un gesto umano, e si fa in Parametri. */
+export function modelloConColli(
+  elenco: readonly ModelloImballo[] | null | undefined,
+  colli: unknown,
+): ModelloImballo | null {
+  const atteso = modelloAppreso(colli);
+  if (!atteso) return null;
+  return (elenco || []).find(m => m.code === atteso.code && colliAttesi(m) === colliAttesi(atteso)) ?? null;
 }

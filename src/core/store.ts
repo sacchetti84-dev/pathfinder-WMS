@@ -26,7 +26,7 @@ import {
   configurazione as configurazioneUom, congela as congelaLotto, daLotto,
   suddividi, uomDaColli, verifica as verificaUm, descrivi as descriviUom,
   sommaUom, sottraiUom, arrotonda as arrotondaUom, decimali as decimaliUom,
-  validaConfigurazione as validaConfezione,
+  validaConfigurazione as validaConfezione, leggiUnita as leggiUnitaMisura,
   type Configurazione,
 } from '../modules/misure';
 import {
@@ -60,7 +60,7 @@ import {
 import type { Stampante, LayoutEtichetta } from '../modules/stampanti';
 import {
   leggiModelli as leggiModelliImballo, validaModello as validaModelloImballo,
-  trovaModello as trovaModelloImballo,
+  trovaModello as trovaModelloImballo, modelloAppreso, modelloConColli,
 } from '../modules/imballo';
 import type { ModelloImballo } from '../modules/imballo';
 import type { PostoCandidato, RegolaStoccaggio } from '../modules/stoccaggio';
@@ -520,7 +520,12 @@ const Store = {
       /* 2.20 — il layout dell'etichetta del bancale. Trappola 22 come gli altri. */
       labelLayoutPf: metaObj.labelLayoutPf ?? null,
       /* 2.20 — i modelli di imballo. Trappola 22 anche loro. */
-      imballi: metaObj.imballi ?? null
+      imballi: metaObj.imballi ?? null,
+      /* 2.21 — il carico di una spedizione in corso. Trappola 22, e qui
+         morde piu' forte che altrove: un carico su sei DDT dura mezz'ora, e
+         senza questa riga sopravviveva finche' nessuno ricaricava la pagina
+         — cioe' proprio nel caso per cui e' stato salvato. */
+      caricoSpedizione: metaObj.caricoSpedizione ?? null
     };
   },
 
@@ -3016,6 +3021,61 @@ const Store = {
     return trovaModelloImballo(this.getModelliImballo(), art?.pallet_model as string | undefined);
   },
 
+  /* ═══ 2.21 · IL MODELLO DI CARICO SI IMPARA ══════════════════════════
+     Undicimila articoli non ricevono un modello perché qualcuno si siede a
+     scriverli: lo ricevono il giorno in cui il reparto imballa il primo
+     bancale. Il numero di colli PIENI che l'operatore ha appena dichiarato
+     diventa il modello, e dal bancale dopo è già proposto.
+
+     UN ARTICOLO CHE UN MODELLO CE L'HA GIÀ NON LO CAMBIA DA SOLO. Un bancale
+     di fine produzione porta dodici colli invece di quaranta, ed è normale:
+     riscrivere il modello a ogni chiusura vorrebbe dire che la proposta
+     insegue l'ultimo caso invece del caso normale. Si impara UNA volta; si
+     corregge in Configurazione → Parametri. */
+  async apprendiModelloImballo(colliInteri: unknown): Promise<string | null> {
+    const nuovo = modelloAppreso(colliInteri);
+    if (!nuovo) return null;
+    const elenco = this.getModelliImballo();
+    const gia = modelloConColli(elenco, colliInteri);
+    if (gia) return gia.code;
+    await this.saveModelliImballo([...elenco, nuovo]);
+    return nuovo.code;
+  },
+
+  /** Il modello appreso, assegnato all'articolo che non ne aveva nessuno.
+      Torna il codice assegnato, o `null` se non c'era niente da imparare —
+      un bancale di soli colli incompleti non insegna un formato. */
+  async apprendiModelloDiArticolo(articleCode: string, colliInteri: unknown): Promise<string | null> {
+    const art = this.getArticle(articleCode);
+    if (!art) return null;
+    if (trovaModelloImballo(this.getModelliImballo(), art.pallet_model)) return null;
+    const code = await this.apprendiModelloImballo(colliInteri);
+    if (!code) return null;
+    await this.updateArticle(articleCode, { pallet_model: code });
+    return code;
+  },
+
+  /* LA CONFEZIONE DELL'ARTICOLO, DICHIARATA DA CHI HA LA MERCE IN MANO.
+     Il gemello di `dichiaraConfezioneLotto`, e non è un doppione: quella
+     scrive sul LOTTO — un fatto di quella partita — questa scrive in
+     ANAGRAFICA, che è dove il prodotto finito la va a cercare. Un articolo
+     imballato oggi in colli da 12 li farà da 12 anche il mese prossimo.
+
+     Si scrive `pieces_per_pack` e non `uom_per_collo`: è il campo che
+     `misure.configurazione` legge per primo, e scrivere l'altro vorrebbe
+     dire un numero che la maschera non rilegge. */
+  async dichiaraConfezioneArticolo(articleCode: string, unita: unknown, perCollo: unknown) {
+    const art = this.getArticle(articleCode);
+    if (!art) throw new Error(`${articleCode} non è in anagrafica`);
+    const uom = leggiUnitaMisura(unita) ?? configurazioneUom(art)?.uom ?? null;
+    if (!uom) throw new Error(`${articleCode}: manca l'unità di misura`);
+    const errori = validaConfezione(uom, perCollo);
+    if (errori.length) throw new Error(errori.join(' · '));
+    const per = arrotondaUom(perCollo, decimaliUom(uom))!;
+    await this.updateArticle(articleCode, { unit: uom, pieces_per_pack: per });
+    return { uom, per_collo: per };
+  },
+
   getLayoutEtichetta(): LayoutEtichetta {
     return leggiLayoutEtichetta((this._cache.meta as Record<string, any>)?.labelLayout);
   },
@@ -3171,6 +3231,25 @@ const Store = {
     if (precedente && precedente !== udcId) await this.chiudiUdcSeVuota(precedente);
     await this._touchMeta();
     return item;
+  },
+
+  /* 2.21 — L'UBICAZIONE DI UN BANCALE APPENA ETICHETTATO E ANCORA VUOTO.
+     Il prodotto finito nasce al banco d'imballo, dove l'etichetta esce, e il
+     vano lo scansiona chi lo posa un minuto dopo: fra i due momenti il
+     bancale esiste e non sta da nessuna parte. Non e' `moveUdc` — non c'e'
+     niente da spostare, e una transazione su zero righe scriverebbe un
+     movimento che non e' successo — e non e' `assegnaAUdc`, che l'ubicazione
+     la scrive solo come effetto di una riga che sale sopra. */
+  async posizionaUdcVuota(id: string, locationCode: string) {
+    const dest = String(locationCode ?? '').trim().toUpperCase();
+    const u = this.getUdc(id);
+    if (!u) throw new Error(`${id} non esiste`);
+    if (u.status !== 'open') throw new Error(`${id} è ${u.status}: non si posiziona più`);
+    if (u.location_code) throw new Error(`${id} sta già in ${u.location_code}`);
+    if (this.righeDiUdc(id).length) throw new Error(`${id} ha già merce sopra: si sposta con moveUdc`);
+    if (!dest) throw new Error('Indica l’ubicazione');
+    if (!this.locationExists(dest)) throw new Error(`Ubicazione ${dest} inesistente`);
+    return await this._patchUdc(id, { location_code: dest, site_id: dest.split('-')[0] || u.site_id });
   },
 
   /** 2.20 — l'unita' e' partita su un documento. Vuoto e spedito sono due
@@ -3732,6 +3811,47 @@ const Store = {
 
   /* Ritorna la sessione attiva, o null. Legge dalla cache in memoria,
      allineata a ogni scrittura. */
+  /* ═══ 2.21 · IL CARICO DI UNA SPEDIZIONE ═════════════════════════════
+     Un carico su sei DDT dura mezz'ora, e in mezz'ora un terminale si
+     spegne: la sessione si salva, e chi rientra la ritrova dov'era.
+
+     STA IN `meta` E NON IN UNA COLLEZIONE NUOVA. Ne vive UNA per volta, come
+     `pick_session` — ma quella e' occupata dal giro di prelievo, ed e' una
+     sola per tutto l'impianto: farci stare anche il carico vorrebbe dire che
+     avviare un carico chiude il prelievo di qualcun altro. Una collezione
+     ventiduesima per un record solo sarebbe schema, DDL, migrazione e
+     adapter per una riga; `meta` tiene gia' i modelli di imballo, il layout
+     delle etichette e l'area WIP, ed e' dov'e' scritto quel che l'impianto
+     sta facendo adesso.
+
+     LA CHIAVE E' camelCase, come tutte quelle di `meta`: l'elenco
+     `MAIUSCOLE` del servizio non le tocca — §8. */
+  getCaricoInCorso() {
+    const c = (this._cache.meta as Record<string, any>)?.caricoSpedizione;
+    return (c && typeof c === 'object' && c.status === 'active') ? c : null;
+  },
+
+  async salvaCarico(carico: Record<string, any>) {
+    if (!carico?.carico_id) throw new Error('Sessione di carico priva di identificativo');
+    const rec = { key: 'caricoSpedizione', value: { ...carico, updated_at: Date.now() } };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    (this._cache.meta as Record<string, any>).caricoSpedizione = rec.value;
+    await this._touchMeta();
+    return rec.value;
+  },
+
+  /* NESSUNA CANCELLAZIONE DI RECORD — §8: la chiave resta e porta `null`.
+     Un record cancellato e uno mai scritto si leggono uguali, e qui il
+     secondo caso e' l'impianto che non ha mai caricato niente. */
+  async chiudiCarico() {
+    const rec = { key: 'caricoSpedizione', value: null };
+    await Persistence.put('meta', rec);
+    this._applyToCache('meta', 'put', rec);
+    (this._cache.meta as Record<string, any>).caricoSpedizione = null;
+    await this._touchMeta();
+  },
+
   getActivePickSession() {
     return this._cache.pickSession || null;
   },

@@ -127,7 +127,7 @@ export const CAMPI_ETICHETTA_PF: readonly {
   { campo: 'bancale',     nome: 'Codice bancale', barre: true,
     nota: 'Code128 col numero del bancale — la stessa stringa dell’etichetta su A4. Sotto le barre la testina scrive il codice in chiaro.' },
   { campo: 'articolo',    nome: 'Codice articolo',
-    nota: 'Su un bancale misto la riga dice «MISTO — n partite»: un pallet con due partite non ha «un» articolo.' },
+    nota: 'Su un bancale con più partite la riga dice «LOTTI MULTIPLI — n partite»: un pallet con due partite non ha «un» articolo.' },
   { campo: 'descrizione', nome: 'Descrizione',
     nota: 'La descrizione d’anagrafica. Vuota su un bancale misto.' },
   { campo: 'lotto',       nome: 'Lotto',
