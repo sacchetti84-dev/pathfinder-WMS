@@ -18,8 +18,8 @@ che si ordina e su una mappa che si tinge, lo spunta e il DDT si riempie da
 sé, con una **packing list** accanto. E un DDT di **conto terzi** non scarica:
 sposta la merce nel vano del terzista, che sta già sulla mappa. **Otto blocchi,
 otto commit, tutti i collaudi verdi tranne uno che era già rosso** — §4, voce
-**87**. Il numero di versione **non è stato alzato**: si alza quando si
-costruisce, e costruire è un gesto che decide Andrea.
+**87**. **La 2.20.0 è costruita e non installata**, impronta `d10d7830…`, e il
+numero è nei quattro posti di §7.
 
 Prima di questo — **la 2.19.0 è costruita e non installata**:
 le etichette di merce e unità di carico escono su **Zebra in rete**, e a
@@ -230,6 +230,23 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.20.0 — come è stata costruita
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.20.0\` |
+| impronta | `d10d78308952d360bb4451614ce43bb0f87b4466a916136090fe9bd690bb6fb7` |
+| byte | **1.982.683** in **4 file**, `costruita 2026-09-03T15:48:15Z` |
+| riproducibile | **sì, verificata**: tre build di fila dello stesso albero danno la stessa impronta — anche quella fatta dopo aver rimesso i fine riga, che il bundle non li vede |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi dal pacchetto | `servizio\test\collaudo-installazione.js` girato **dentro** `consegna\Pathfinder 2.20.0\`: **43 su 43**; il servizio del pacchetto dichiara `2.20.0` e porta il catalogo dei campi del bancale |
+| prova a vuoto | **non fatta**: `installa.ps1 -Prova` legge la macchina, e §0 dice che tutto ciò che tocca `C:\Pathfinder\` si propone e si aspetta il via |
+
+**La 2.19.0, che non è mai stata installata, è archiviata** in
+`ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.19.0\` — §7: prima di costruire si
+copia il pacchetto che aspetta un'installazione, perché la build azzera
+`consegna\`.
+
 ### Il fix che viveva in un pacchetto solo
 
 Il **28/08 il magazzino è rimasto giù una giornata intera**. L'attività
@@ -381,7 +398,7 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.20** | **SCRITTA, NON COSTRUITA** — 03/09. Il numero non è ancora nei quattro posti di §7: si alza quando si costruisce | — | **Il magazzino del prodotto finito.** Il bancale è un'unità di carico, la maschera del reparto lo chiude in un gesto e ne stampa l'etichetta, chi spedisce lo trova in elenco e sulla mappa, lo spunta e il DDT si riempie. **Packing list** e **conto terzi**, dove la merce non esce ma si sposta |
+| **2.20.0** | **COSTRUITA, NON INSTALLATA** — 03/09 | `d10d7830…` | **Il magazzino del prodotto finito.** Il bancale è un'unità di carico, la maschera del reparto lo chiude in un gesto e ne stampa l'etichetta, chi spedisce lo trova in elenco e sulla mappa, lo spunta e il DDT si riempie. **Packing list** e **conto terzi**, dove la merce non esce ma si sposta |
 | **2.19.0** | **COSTRUITA, NON INSTALLATA** — 02/09 | — | Le etichette escono dalla **stampante**: Zebra in rete sulla porta 9100, e a parlarle è il servizio. Le stampanti e il **layout dell'etichetta merce** — barre, descrizione, scadenza, peso — si configurano; chi stampa sceglie la macchina e quante copie. **L'A4 resta**, e non come ripiego di cortesia |
 | **2.18.1** | costruita, non installata | — | Il minimo di Node era sbagliato e l'ha trovato la CI: `>=20` dichiarato ovunque, `better-sqlite3` 13 ne vuole 22 |
 | **2.17** | **IN SERVIZIO su questa macchina dal 02/09** | `b6b24d70…` | Il limite di ritenzione esce dal codice: `LOG_RETENTION_DAYS` non cancellava niente e sei anni non li chiedeva nessuna norma. Le tre etichette dicono adesso quel che il sistema fa |
@@ -2074,7 +2091,15 @@ Ognuna è costata almeno una volta. Non sono opinioni.
 - **CHI MODIFICA UN FILE DA UNO SCRIPT LO RILEGGE IN BINARIO.**
   `.gitattributes` dice `* -text`: Git non deve toccare i fine riga. Uno script
   che rilegge in modalità testo e riscrive con `newline=''` **converte CRLF in
-  LF senza dirlo**, e il diff passa da 4.248 righe a **13.016**. **I fine riga
+  LF senza dirlo**, e il diff passa da 4.248 righe a **13.016**.
+  **RIPAGATA IL 03/09**, con questa riga già scritta: venti file del prodotto
+  finito sono stati riscritti così, e i nove commit portano dentro interi file
+  «modificati» che avevano cambiato una riga sola. Rimessi a CRLF con un
+  passaggio in binario, e **l'impronta del pacchetto non è cambiata** — il
+  bundle i fine riga del sorgente non li vede. Resta un file solo diverso da
+  com'era: `spedizioni.ts` aveva **4 righe CRLF su 1.200**, e adesso è LF per
+  intero. Una prova che guardi i fine riga non c'è, e sarebbe la cosa che
+  chiude davvero questa voce. **I fine riga
   non sono uniformi**: `quarantena.ts` è LF, `spedizioni.ts` è misto, quasi
   tutto il resto è CRLF — uno script che cerca un blocco convertendo a CRLF non
   lo trova nei file LF, e «zero occorrenze» somiglia a «quel codice non c'è

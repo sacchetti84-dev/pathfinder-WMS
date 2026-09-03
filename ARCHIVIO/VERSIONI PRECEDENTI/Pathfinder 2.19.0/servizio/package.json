@@ -1,0 +1,22 @@
+{
+  "name": "pathfinder-server",
+  "version": "1.0.0",
+  "description": "Servizio dati di Pathfinder — Dietopack S.r.l. (Naturacare Group)",
+  "author": "Andrea Sacchetti",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "pathfinder-server.js",
+  "scripts": {
+    "start": "node pathfinder-server.js",
+    "test": "node test/collaudo.js"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "express": "^4.19.2",
+    "pg": "^8.23.0"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "comment": "better-sqlite3 va tenuto a una versione che pubblichi il binario gia' compilato per il Node installato: la 11 non ne ha per Node 24 e npm ripiega su node-gyp, che su Windows pretende Visual Studio. Con la 13 l'installazione e' un download di quindici secondi. Se un domani si aggiorna Node, si controlla prima che esista il prebuild."
+}

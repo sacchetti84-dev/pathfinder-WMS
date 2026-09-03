@@ -64,7 +64,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.20.0';
+const VERSION = '2.19.0';
 
 /* ── 2.10 · SU QUALE INTERFACCIA SI ASCOLTA ───────────────────────────────
    Fino alla 2.9 `listen` non diceva su quale, e Node in quel caso le prende
@@ -1258,14 +1258,6 @@ const layoutEtichetta = async () => {
   return rec?.value || null;
 };
 
-/* 2.20 — il layout del BANCALE sta in una chiave sua. Due etichette che
-   rispondono a domande diverse — una riga di giacenza, un bancale — non
-   condividono una disposizione: i campi non sono gli stessi. */
-const layoutEtichettaPf = async () => {
-  const rec = await db.get('meta', 'labelLayoutPf');
-  return rec?.value || null;
-};
-
 /* ── L'UNITA' DI MISURA DELLA RIGA ────────────────────────────────────────
 
    E' il pezzo di `Store.getUomConfig` che serve a un'etichetta: quello che
@@ -1303,47 +1295,6 @@ const uomDiRiga = async (article_code, lot_code) => {
   return propria ?? leggiUomStretta(art?.unit) ?? null;
 };
 
-/* IL RIEPILOGO DI UN BANCALE, LETTO DAL DATABASE E NON DAL CLIENT — 2.20.
-   Chi c'e' sopra, quanti colli, quante unita' di misura. E' la stessa
-   lettura di `src/modules/bancale.ts`, e sta anche qui per la ragione per
-   cui l'etichetta la costruisce il servizio: in regime GMP un'etichetta e'
-   un documento, e un documento costruito dal browser si falsifica scrivendo
-   in una console.
-
-   LE UNITA' DIVERSE NON SI SOMMANO. 300 KG piu' 40 PZ fanno 340 di niente:
-   il totale resta assente e la riga dell'etichetta esce vuota. */
-const riepilogoBancale = async (udc) => {
-  const righe = (await db.query('inventory',
-    { criteria: { field: 'udc_id', op: 'equals', value: udc.udc_id } }))
-    .filter((r) => Number(r?.qty) > 0);
-  const chiavi = new Set(righe.map((r) => String(r.item_key ?? '')));
-  const mono = chiavi.size === 1;
-  const prima = righe[0] || {};
-  let colli = 0, totaleUom = 0, uom = null, mista = false;
-  for (const r of righe) {
-    colli += Number(r.qty) || 0;
-    const u = await uomDiRiga(r.article_code, r.lot_code);
-    const q = Number(r.qty_uom);
-    if (mista) continue;
-    if (!u || !Number.isFinite(q)) { mista = true; continue; }
-    if (uom && uom !== u) { mista = true; continue; }
-    uom = u;
-    totaleUom += q;
-  }
-  return {
-    udc_id: udc.udc_id, mono, partite: chiavi.size,
-    article_code: mono ? prima.article_code : null,
-    article_description: mono ? prima.article_description : null,
-    lot_code: mono ? prima.lot_code : null,
-    expiry_date: mono ? prima.expiry_date : null,
-    qty: colli,
-    qty_uom: (mista || !uom) ? null : totaleUom,
-    uom: mista ? null : uom,
-    odp_num: udc.odp_num || '',
-    location_code: udc.location_code || '',
-  };
-};
-
 /* Chi ha stampato cosa, su quale macchina, e com'e' andata. NON va in
    `mov_log`, che registra i movimenti della merce: una ristampa non muove
    niente. Va nel registro del servizio, che dalla 2.18 e' il posto dove si
@@ -1362,18 +1313,7 @@ app.post('/api/op/stampaEtichetta', wrap(async (req, res) => {
   let inviata;
   let cosa;
 
-  if (tipo === 'pf') {
-    /* 2.20 — il bancale di prodotto finito. Come per gli altri due, quel che
-       arriva dal client e' una CHIAVE: il record e le sue righe li rilegge
-       il servizio, e da li' esce l'etichetta. */
-    const id = String(udc_id ?? '').trim();
-    const bancale = id ? await db.get('udc', id) : null;
-    if (!bancale) throw Object.assign(new Error(`${id || 'bancale'} non esiste`), { status: 404 });
-    const dati = await riepilogoBancale(bancale);
-    cosa = `bancale ${bancale.udc_id} x${quante}`;
-    inviata = await zebra.stampaBancale(rec, dati, await layoutEtichettaPf(), quante);
-
-  } else if (tipo === 'udc') {
+  if (tipo === 'udc') {
     const id = String(udc_id ?? '').trim();
     const udc = id ? await db.get('udc', id) : null;
     if (!udc) throw Object.assign(new Error(`${id || 'unita\' di carico'} non esiste`), { status: 404 });
@@ -1402,7 +1342,7 @@ app.post('/api/op/stampaEtichetta', wrap(async (req, res) => {
     inviata = await zebra.stampaMerce(rec, dati, await layoutEtichetta(), quante);
 
   } else {
-    throw Object.assign(new Error('tipo dev\'essere «item», «udc» oppure «pf»'), { status: 400 });
+    throw Object.assign(new Error('tipo dev\'essere «item» oppure «udc»'), { status: 400 });
   }
 
   /* Lo stato si chiede DOPO, e non fa fallire una stampa riuscita: una
