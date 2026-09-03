@@ -39,9 +39,11 @@ arrotondati, fondo tenue, bordo pieno — e la tessera del prodotto finito ha
 un **marchio suo**: un pallet coi suoi colli, non una fabbrica.
 
 **Cinque blocchi, tutti i collaudi verdi tranne uno che era già rosso** — §4,
-voce **87**. **La 2.21.0 è costruita E IN SERVIZIO su questa macchina**,
-impronta `479913cd…` — misurata da `/api/app-info`, non dedotta: §0 punto 2.
-Il numero è nei quattro posti di §7.
+voce **87**. **La 2.21.0 è in servizio su questa macchina**, impronta
+`479913cd…` — misurata da `/api/app-info`, non dedotta: §0 punto 2. Accanto
+c'è la **2.21.1, costruita e non installata** (`f2ecf629…`): una riga di
+registro, trovata dal carico vero di Andrea sul banco. Il numero è nei
+quattro posti di §7.
 
 Prima di questo — **la 2.20.0**, impronta `d10d7830…`, in servizio dalle
 15:54:46Z di oggi e adesso via di ritorno: il magazzino del prodotto finito.
@@ -270,6 +272,33 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.21.1 — costruita, non installata
+
+**Una riga di registro, e nient'altro.** Il carico delle spedizioni scriveva
+la sua riga `UDC` col solo tipo e la nota, mentre la stessa causale scritta
+dalla maschera delle unità di carico porta operatore, vano di partenza, vano
+di arrivo e istante. Le righe della merce erano complete, quindi non si è
+perso niente — ma una causale con due forme è una causale che fra sei mesi
+non si sa leggere, e §8 chiede **chi ha firmato**. L'ha trovata il carico
+vero di Andrea sul banco, non una prova.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.21.1\` |
+| impronta | `f2ecf62946c317c77fb58c3182f41d5c49cf7e1b297fe7eee0f0f2cb866d297e` |
+| byte | **2.027.739** in **4 file**, `costruita 2026-09-03T21:04:11Z` |
+| riproducibile | **sì, verificata**: tre build di fila danno la stessa impronta |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi dal pacchetto | `servizio\test\collaudo-installazione.js` girato **dentro** `consegna\Pathfinder 2.21.1\`: **43 su 43**; il servizio del pacchetto dichiara `2.21.1` |
+| cosa cambia dalla 2.21.0 | **un file di vista e quattro campi**: `caricoSpedizione.ts` passa a `moveUdc` il record intero. Nessuna regola nuova, nessun campo nuovo a database, nessuna migrazione |
+| installata | **no.** `/api/app-info` risponde ancora `2.21.0` — §0: installare è un atto umano |
+
+> **PERCHÉ UN NUMERO NUOVO E NON UNA SECONDA 2.21.0.** L'impronta identifica
+> **quei byte**, e il pacchetto in archivio porta quella. Rifare la 2.21.0 con
+> byte diversi vorrebbe dire due pacchetti con lo stesso nome e due impronte,
+> cioè togliere alla tabella di §2 l'unica cosa che la rende utile. Tre numeri
+> perché è una build di prova su una definitiva — §2.
+
 ### La 2.21.0 — come è stata costruita, e come è finita in servizio
 
 | | |
@@ -331,9 +360,11 @@ di Andrea la notte del 03/09.
 | collaudi dal pacchetto | `servizio\test\collaudo-installazione.js` girato **dentro** `consegna\Pathfinder 2.20.0\`: **43 su 43**; il servizio del pacchetto dichiara `2.20.0` e porta il catalogo dei campi del bancale |
 | prova a vuoto | **non fatta**: `installa.ps1 -Prova` legge la macchina, e §0 dice che tutto ciò che tocca `C:\Pathfinder\` si propone e si aspetta il via |
 
-**La 2.20.0 e la 2.19.0, che non sono mai state installate, sono archiviate**
-in `ARCHIVIO\VERSIONI PRECEDENTI\` — §7: prima di costruire si copia il
-pacchetto che aspetta un'installazione, perché la build azzera `consegna\`.
+**La 2.21.0, la 2.20.0 e la 2.19.0 sono archiviate** in
+`ARCHIVIO\VERSIONI PRECEDENTI\` — §7: prima di costruire si copia il
+pacchetto che c'era, perché la build azzera `consegna\`. Vale anche per una
+versione **installata**: `app\corrente` la porta, ma il pacchetto con cui è
+stata installata sta solo lì.
 
 ### Il fix che viveva in un pacchetto solo
 
@@ -486,6 +517,7 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
+| **2.21.1** | **COSTRUITA, NON INSTALLATA** — 03/09 notte | `f2ecf629…` | **Una riga di registro.** Il carico delle spedizioni scriveva la sua riga `UDC` col solo tipo e la nota: adesso porta operatore, vano di partenza, vano di arrivo e istante, come la scrive la maschera delle unità di carico. Le righe della merce erano già complete |
 | **2.21.0** | **IN SERVIZIO su questa macchina dal 03/09 sera** | `479913cd…` | **Il bancale si fa da sé, e il camion si carica scansionando.** La maschera del reparto è quella del carico merce — colli pieni × quanto dentro — e il **modello di carico si impara** dal primo bancale invece di essere compilato su 11.197 articoli. L'etichetta esce **prima** dell'ubicazione. Nasce **Carico spedizioni**: un giro le cui tappe sono bancali, la **baia di carico** come tipo di zona, e i DDT che si evadono a fine giro — quelli completi. Più: articolo e lotto in due colonne, DDT e data **riletti dai documenti**, scarico a mano, DDT raggruppato in stampa, packing list con la composizione del collo |
 | **2.20.0** | in servizio il 03/09 pomeriggio — è la **via di ritorno** | `d10d7830…` | **Il magazzino del prodotto finito.** Il bancale è un'unità di carico, la maschera del reparto lo chiude in un gesto e ne stampa l'etichetta, chi spedisce lo trova in elenco e sulla mappa, lo spunta e il DDT si riempie. **Packing list** e **conto terzi**, dove la merce non esce ma si sposta |
 | **2.19.0** | **COSTRUITA, NON INSTALLATA** — 02/09 | — | Le etichette escono dalla **stampante**: Zebra in rete sulla porta 9100, e a parlarle è il servizio. Le stampanti e il **layout dell'etichetta merce** — barre, descrizione, scadenza, peso — si configurano; chi stampa sceglie la macchina e quante copie. **L'A4 resta**, e non come ripiego di cortesia |

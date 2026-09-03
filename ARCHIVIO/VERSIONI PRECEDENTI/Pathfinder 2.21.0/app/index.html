@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Pathfinder 2.21.0 — © Andrea Sacchetti</title>
+  <script type="module" crossorigin src="/assets/index-B7Ka2QdK.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-Cvh18DRV.css">
+</head>
+<body>
+<svg id="pfLogoSprite" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="pfLogoMark" fill="none" stroke-linecap="round" stroke-linejoin="round">
+      <!-- Struttura esagonale: il volume del magazzino visto in assonometria -->
+      <path d="M60 14 L99.8 37 L99.8 83 L60 106 L20.2 83 L20.2 37 Z"
+            style="stroke:var(--pf-mark);stroke-width:5;opacity:0.92"/>
+      <path d="M60 14 L60 60 M60 60 L20.2 83 M60 60 L99.8 83"
+            style="stroke:var(--pf-mark);stroke-width:4.2;opacity:0.55"/>
+      <!-- Diramazioni: il percorso che il sistema calcola dentro quel volume -->
+      <path d="M33 66 L33 78 L52 78 L52 89" style="stroke:var(--pf-node);stroke-width:5"/>
+      <path d="M45 52 L45 43 L65 43 L65 34" style="stroke:var(--pf-node);stroke-width:5"/>
+      <path d="M70 63 L83 63 L83 52" style="stroke:var(--pf-node);stroke-width:5"/>
+      <path d="M20.2 60 L8 60 M99.8 60 L112 60" style="stroke:var(--pf-mark);stroke-width:4.6"/>
+      <!-- Nodi: gli anelli marcano gli estremi del percorso, i pieni gli snodi -->
+      <circle cx="60" cy="14" r="9" style="stroke:var(--pf-node);stroke-width:4.5"/>
+      <circle cx="60" cy="14" r="3.6" style="fill:var(--pf-node);stroke:none"/>
+      <circle cx="99.8" cy="37" r="9" style="stroke:var(--pf-node);stroke-width:4.5;opacity:0.85"/>
+      <circle cx="60" cy="106" r="9.5" style="stroke:var(--pf-mark);stroke-width:4.5"/>
+      <circle cx="60" cy="106" r="3.6" style="fill:var(--pf-node);stroke:none"/>
+      <circle cx="20.2" cy="37" r="4.4" style="fill:var(--pf-mark);stroke:none"/>
+      <circle cx="20.2" cy="83" r="4.4" style="fill:var(--pf-mark);stroke:none"/>
+      <circle cx="99.8" cy="83" r="4.4" style="fill:var(--pf-mark);stroke:none"/>
+      <circle cx="60" cy="60" r="4.6" style="fill:var(--pf-node);stroke:none"/>
+      <circle cx="8" cy="60" r="4" style="fill:var(--pf-mark);stroke:none"/>
+      <circle cx="112" cy="60" r="4" style="fill:var(--pf-node);stroke:none;opacity:0.9"/>
+    </g>
+    <!-- 2.21 — IL BANCALE DI PRODOTTO FINITO. La fabbrica non e' il prodotto
+         finito: e' dove si fa. Quel che la scheda nomina e' il pallet
+         imballato — tre colli puliti su un bancale — ed e' l'oggetto che
+         l'operatore ha davanti quando apre quella maschera. Sta nello
+         sprite come i marchi, e prende il colore da `currentColor`: la
+         tessera decide la tinta, l'icona la forma. -->
+    <g id="pfIconBancale" fill="none" stroke="currentColor" stroke-width="2.6"
+       stroke-linecap="round" stroke-linejoin="round">
+      <rect x="17.5" y="6" width="13" height="12" rx="1.8"/>
+      <rect x="10" y="19" width="13" height="12" rx="1.8"/>
+      <rect x="25" y="19" width="13" height="12" rx="1.8"/>
+      <path d="M6 35 H42 M6 44 H42 M11 35 v9 M24 35 v9 M37 35 v9"/>
+    </g>
+
+    <g id="pfLogoWord">
+      <text x="2" y="58" style="fill:var(--pf-word);font-family:var(--font);font-size:47px;font-weight:800;letter-spacing:1.4px">PATHFINDER</text>
+      <text x="4" y="97" style="fill:var(--pf-word-sub);font-family:var(--font);font-size:26px;font-weight:500;letter-spacing:2.4px">GESTIONE MAGAZZINO</text>
+    </g>
+
+  </defs>
+</svg>
+
+<svg id="ncLogoSprite" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true" focusable="false">
+  <defs>
+    <g id="ncLogo">
+      <path d="M61.0468 14.8603C59.1144 12.9527 56.0591 11.8491 51.8424 11.8491C47.2162 11.8491 44.2664 12.7036 41.2655 14.0058L43.1978 19.82C45.6869 18.9182 47.7728 18.3665 50.7226 18.3665C54.5874 18.3665 56.571 20.1196 56.571 23.2758V23.7266C54.6386 23.0771 52.655 22.6231 49.91 22.6231C43.4506 22.6231 38.9268 25.3284 38.9268 31.1899V31.2908C38.9268 36.6037 43.1466 39.5076 48.2847 39.5076C52.0439 39.5076 54.6418 38.1581 56.5198 36.1023V39.0063H63.9966V23.4208C63.9966 19.8137 63.0816 16.8562 61.05 14.854L61.0468 14.8603ZM56.6733 29.5408C56.6733 32.2966 54.2323 34.2515 50.6234 34.2515C48.1344 34.2515 46.4035 33.047 46.4035 30.9944V30.8967C46.4035 28.4877 48.4383 27.1855 51.74 27.1855C53.6212 27.1855 55.352 27.5891 56.6733 28.185V29.5408Z" fill="#94BC47"/>
+      <path d="M85.8087 18.6662V12.1488H79.4037V5.28467H71.6709V12.1488H68.4172V18.6662H71.6709V31.395C71.6709 37.6065 74.8734 39.4637 79.6052 39.4637C82.1967 39.4637 84.0811 38.8614 85.7063 37.9092V31.7955C84.5866 32.3977 83.3164 32.7477 81.8927 32.7477C80.1683 32.7477 79.4037 31.8964 79.4037 30.1433V18.6662H85.8087Z" fill="#94BC47"/>
+      <path d="M108.537 12.1489V27.1353C108.537 30.7424 106.659 32.5964 103.707 32.5964C100.754 32.5964 99.0291 30.7456 99.0291 27.1353V12.1489H91.2964V29.5411C91.2964 35.7053 94.7069 39.511 100.552 39.511C104.468 39.511 106.755 37.4553 108.534 35.204V39.0129H116.267V12.1489H108.534H108.537Z" fill="#94BC47"/>
+      <path d="M130.909 17.5655V12.1517H123.183V39.0125H130.909V29.0898C130.909 22.6734 134.064 19.6181 139.199 19.6181H139.608V11.6472C135.03 11.4486 132.487 13.8512 130.913 17.5623L130.909 17.5655Z" fill="#94BC47"/>
+      <path d="M163.661 14.8603C161.729 12.9527 158.673 11.8491 154.457 11.8491C149.83 11.8491 146.881 12.7036 143.88 14.0058L145.812 19.82C148.301 18.9182 150.387 18.3665 153.337 18.3665C157.202 18.3665 159.185 20.1196 159.185 23.2758V23.7266C157.253 23.0771 155.269 22.6231 152.524 22.6231C146.065 22.6231 141.541 25.3284 141.541 31.1899V31.2908C141.541 36.6037 145.761 39.5076 150.899 39.5076C154.658 39.5076 157.256 38.1581 159.134 36.1023V39.0063H166.611V23.4208C166.611 19.8137 165.696 16.8562 163.664 14.854L163.661 14.8603ZM159.284 29.5408C159.284 32.2966 156.843 34.2515 153.234 34.2515C150.745 34.2515 149.015 33.047 149.015 30.9944V30.8967C149.015 28.4877 151.049 27.1855 154.351 27.1855C156.232 27.1855 157.963 27.5891 159.284 28.185V29.5408Z" fill="#94BC47"/>
+      <path d="M192.547 30.8809C190.378 32.8263 188.443 34.0686 185.285 34.0686C180.55 34.0686 177.274 30.1809 177.274 25.5175V25.4387C177.274 20.7722 180.63 16.9602 185.285 16.9602C188.049 16.9602 190.218 18.1268 192.349 20.0312L196.217 15.639C193.651 13.1481 190.535 11.436 185.33 11.436C176.842 11.436 170.923 17.7768 170.923 25.5175V25.5932C170.923 33.4128 176.964 39.5927 185.093 39.5927C190.42 39.5927 193.578 37.7261 196.415 34.7307L192.547 30.8809Z" fill="#21305A"/>
+      <path d="M216.341 11.7104H210.736L198.902 39.1262H205.095L207.623 33.0187H219.3L221.828 39.1262H228.182L216.341 11.7104ZM209.789 27.7311L213.462 18.9025L217.131 27.7311H209.789Z" fill="#21305A"/>
+      <path d="M249.562 29.402C253.075 28.1187 255.484 25.3566 255.484 20.9613V20.8856C255.484 18.319 254.655 16.1781 253.113 14.6615C251.299 12.8737 248.577 11.8994 245.064 11.8994H232.439V39.1228H238.515V30.4109H243.292L249.21 39.1228H256.316L249.565 29.3988L249.562 29.402ZM249.325 21.2734C249.325 23.5688 247.63 25.1233 244.67 25.1233H238.512V17.3069H244.552C247.511 17.3069 249.325 18.628 249.325 21.1946V21.2734Z" fill="#21305A"/>
+      <path d="M267.006 33.7973V28.0808H280.03V22.7522H267.006V17.2281H281.802V11.8994H260.969V39.1228H282.001V33.7941H267.006V33.7973Z" fill="#21305A"/>
+      <path d="M8.49737 22.9415V39.126H0V8.61719C0.55668 16.071 5.41003 19.4889 8.49737 22.9415Z" fill="#94BC47"/>
+      <path d="M27.7604 34.7688C27.6356 35.9386 27.4853 37.0958 27.2101 38.234C27.1749 38.3791 27.1365 38.5241 27.1014 38.666C27.063 38.8205 27.0214 38.975 26.9734 39.1263C26.9734 39.1106 26.9734 39.0916 26.9734 39.0759C26.9606 38.8615 26.9446 38.6471 26.9222 38.4295C26.7302 37.4079 26.5575 36.3832 26.3431 35.3679C26.0232 33.8513 25.4441 32.4009 24.8107 30.9883C24.1068 29.4213 23.2782 27.9109 22.3664 26.4511C21.4546 24.9912 20.3988 23.5093 19.3014 22.122C18.2105 20.7472 17.0491 19.4293 15.8238 18.1712C14.656 16.973 13.4307 15.8316 12.1446 14.7627C10.9864 13.8011 9.77709 12.8993 8.50697 12.089C7.34562 11.3512 6.21946 10.7489 5.15729 10.3075C6.28984 11.1714 7.4096 12.0669 8.50697 12.997C16.4157 19.672 23.2174 27.9582 26.2887 36.9444C21.4066 29.6956 14.3169 26.8168 8.50697 21.5828C3.66321 17.2284 0 12.1426 0 3.9352C0 2.86316 0.0639862 1.73437 0.195158 0.548828C1.98997 3.21946 4.33187 4.57527 7.21444 6.06666C7.64635 6.28421 8.07506 6.50808 8.50057 6.73195C16.4221 10.8971 23.1918 15.9987 26.2823 22.7557C27.8948 26.2777 28.5027 30.2473 27.7604 34.7688Z" fill="#94BC47"/>
+      <path d="M34.7799 0.548828V39.1263H27.4534L27.0983 38.666C27.1367 38.5241 26.9352 38.3791 26.9671 38.234C27.2423 37.0958 27.6326 35.9354 27.7574 34.7657C28.9283 29.9131 28.9955 25.5714 26.2793 20.681V0.548828H34.7767H34.7799Z" fill="#94BC47"/>
+      <path d="M27.4572 38.2339H26.9709V39.123H27.4572V38.2339Z" fill="#21305A"/>
+      <path d="M236.247 3.25409V4.62882H237.872V5.66302C237.462 5.9531 236.941 6.09814 236.352 6.09814C235.05 6.09814 234.126 5.12385 234.126 3.79957V3.78065C234.126 2.55096 235.06 1.52622 236.237 1.52622C237.085 1.52622 237.587 1.79423 238.157 2.26088L239.171 1.05011C238.598 0.567699 238.006 0.252394 237.184 0.123119C236.912 0.0821299 236.615 0.0600586 236.282 0.0600586C236.029 0.0600586 235.786 0.0821299 235.552 0.123119C233.713 0.447883 232.433 1.97711 232.433 3.79957V3.82164C232.433 5.96256 234.007 7.54223 236.291 7.54223C237.635 7.54223 238.675 7.02829 239.43 6.39452V3.25409H236.237H236.247Z" fill="#21305A"/>
+      <path d="M248.046 4.77987C248.98 4.44249 249.623 3.70468 249.623 2.53805V2.51598C249.623 1.83493 249.402 1.26738 248.993 0.863789C248.506 0.384526 247.787 0.125977 246.852 0.125977H243.493V7.36537H245.112V5.05103H246.379L247.956 7.36537H249.844L248.049 4.77987H248.046ZM247.982 2.62003C247.982 3.22857 247.531 3.64477 246.74 3.64477H245.106V1.56376H246.708C247.495 1.56376 247.979 1.91691 247.979 2.59796V2.62003H247.982Z" fill="#21305A"/>
+      <path d="M258.441 0.122969C258.112 0.0409896 257.766 0 257.401 0C257.037 0 256.688 0.0441426 256.362 0.122969C254.647 0.54863 253.485 2.01479 253.485 3.74266V3.76473C253.485 5.82367 255.111 7.48533 257.379 7.48533C259.647 7.48533 261.292 5.79845 261.292 3.74266V3.72374C261.292 1.99588 260.146 0.545477 258.435 0.122969H258.441ZM259.606 3.76789C259.606 5.01019 258.703 6.02231 257.401 6.02231C256.099 6.02231 255.175 4.98812 255.175 3.74582V3.7269C255.175 2.4846 256.08 1.47247 257.382 1.47247C258.684 1.47247 259.606 2.50667 259.606 3.74582V3.76789Z" fill="#21305A"/>
+      <path d="M269.702 0.123047V4.27245C269.702 5.42016 269.104 6.00663 268.119 6.00663C267.133 6.00663 266.535 5.39809 266.535 4.21885V0.123047H264.919V4.26299C264.919 6.3913 266.126 7.4791 268.096 7.4791C270.067 7.4791 271.318 6.40391 271.318 4.20939V0.123047H269.702Z" fill="#21305A"/>
+      <path d="M281.744 2.44999C281.664 1.06896 280.618 0.123047 278.938 0.123047H275.937V7.36244H277.553V5.18999H278.781C280.359 5.18999 281.642 4.39227 281.744 2.85043C281.747 2.78737 281.75 2.71485 281.75 2.64863V2.62972C281.75 2.56981 281.75 2.5099 281.744 2.44999ZM280.116 2.68017C280.116 3.30131 279.642 3.77742 278.836 3.77742H277.553V1.56083H278.801C279.61 1.56083 280.116 1.94551 280.116 2.65809V2.67701V2.68017Z" fill="#21305A"/>
+      <path d="M0.147949 44.7036V51.8799H1.42767V44.7036H0.147949Z" fill="#21305A"/>
+      <path d="M12.1132 44.7036V49.6633L8.21649 44.7036H7.02954V51.8799H8.29007V46.7783L12.302 51.8799H13.3706V44.7036H12.1132Z" fill="#21305A"/>
+      <path d="M23.9821 44.7036V49.6633L20.0854 44.7036H18.9016V51.8799H20.1589V46.7783L24.1709 51.8799H25.2426V44.7036H23.9821Z" fill="#21305A"/>
+      <path d="M34.2652 44.584C32.0289 44.584 30.4517 46.274 30.4517 48.2951V48.314C30.4517 50.332 32.0097 51.9999 34.2428 51.9999C36.476 51.9999 38.0596 50.3099 38.0596 48.2951V48.273C38.0596 46.2551 36.4984 44.5871 34.2652 44.5871V44.584ZM36.7191 48.314C36.7191 49.7077 35.7081 50.8365 34.2652 50.8365C32.8223 50.8365 31.7922 49.6888 31.7922 48.2951V48.273C31.7922 46.8794 32.8 45.7443 34.2428 45.7443C35.6857 45.7443 36.7191 46.8983 36.7191 48.2951V48.314Z" fill="#21305A"/>
+      <path d="M47.9736 44.7036L45.7885 50.2151L43.597 44.7036H42.1797L45.2062 51.9272H46.3388L49.3525 44.7036H47.9704H47.9736Z" fill="#21305A"/>
+      <path d="M56.9895 44.6562H55.8026L52.6033 51.8799H53.9118L54.6604 50.1457H58.0997L58.8355 51.8799H60.1856L56.9863 44.6562H56.9895ZM55.1243 49.0327L56.3721 46.1602L57.6326 49.0327H55.1243Z" fill="#21305A"/>
+      <path d="M63.6406 44.7036V45.8734H65.9505V51.8799H67.2367V45.8734H69.5466V44.7036H63.6406Z" fill="#21305A"/>
+      <path d="M74.627 44.7036V51.8799H75.9067V44.7036H74.627Z" fill="#21305A"/>
+      <path d="M85.0001 44.584C82.767 44.584 81.1865 46.274 81.1865 48.2951V48.314C81.1865 50.332 82.7446 51.9999 84.9809 51.9999C87.2172 51.9999 88.7945 50.3099 88.7945 48.2951V48.273C88.7945 46.2551 87.2364 44.5871 85.0001 44.5871V44.584ZM87.4572 48.314C87.4572 49.7077 86.4494 50.8365 85.0033 50.8365C83.5572 50.8365 82.5302 49.6888 82.5302 48.2951V48.273C82.5302 46.8794 83.538 45.7443 84.9841 45.7443C86.4302 45.7443 87.4572 46.8983 87.4572 48.2951V48.314Z" fill="#21305A"/>
+      <path d="M99.0898 44.7036V49.6633L95.1867 44.7036H94.0029V51.8799H95.2635V46.7783L99.2754 51.8799H100.344V44.7036H99.0866H99.0898Z" fill="#21305A"/>
+      <path d="M117.271 48.1467C117.809 47.8724 118.311 47.4089 118.311 46.5513V46.5292C118.311 46.0468 118.142 45.659 117.822 45.3405C117.406 44.9306 116.75 44.7036 115.921 44.7036H112.658V51.8799H116.027C117.649 51.8799 118.717 51.1926 118.717 49.9124V49.8904C118.717 48.9192 118.126 48.4368 117.275 48.1467H117.271ZM113.912 45.8229H115.752C116.574 45.8229 117.031 46.1729 117.031 46.7373V46.7562C117.031 47.4121 116.481 47.7305 115.656 47.7305H113.912V45.8229ZM117.435 49.7769C117.435 50.4232 116.903 50.7638 116.03 50.7638H113.912V48.7963H115.94C116.948 48.7963 117.438 49.1526 117.438 49.7611V49.78L117.435 49.7769Z" fill="#21305A"/>
+      <path d="M125.096 50.7512V48.8246H128.744V47.699H125.096V45.8324H129.211V44.7036H123.817V51.8799H129.262V50.7512H125.096Z" fill="#21305A"/>
+      <path d="M137.83 47.8726V48.9667H139.689V50.3099C139.241 50.6378 138.62 50.8522 137.932 50.8522C136.448 50.8522 135.459 49.7676 135.459 48.2951V48.273C135.459 46.8983 136.48 45.7443 137.821 45.7443C138.748 45.7443 139.299 46.0407 139.858 46.5105L140.668 45.5551C139.919 44.9308 139.142 44.584 137.872 44.584C135.677 44.584 134.119 46.2835 134.119 48.2951V48.314C134.119 50.4077 135.616 51.9999 137.891 51.9999C139.18 51.9999 140.207 51.4892 140.927 50.8838V47.8726H137.83Z" fill="#21305A"/>
+      <path d="M146.321 44.7036V51.8799H147.601V44.7036H146.321Z" fill="#21305A"/>
+      <path d="M158.287 44.7036V49.6633L154.39 44.7036H153.207V51.8799H154.464V46.7783L158.476 51.8799H159.548V44.7036H158.287Z" fill="#21305A"/>
+      <path d="M167.89 47.7182C166.486 47.3903 166.153 47.1475 166.153 46.5926V46.5705C166.153 46.1007 166.588 45.7192 167.34 45.7192C168.006 45.7192 168.658 45.9746 169.314 46.457L170.002 45.5048C169.26 44.9215 168.421 44.603 167.359 44.603C165.916 44.603 164.873 45.4543 164.873 46.684V46.7061C164.873 48.0272 165.747 48.4781 167.298 48.847C168.649 49.1529 168.94 49.4303 168.94 49.9411V49.96C168.94 50.4929 168.441 50.8618 167.65 50.8618C166.758 50.8618 166.051 50.5244 165.353 49.9285L164.585 50.8303C165.459 51.5965 166.508 51.978 167.622 51.978C169.148 51.978 170.223 51.1771 170.223 49.8371V49.815C170.223 48.6263 169.432 48.084 167.894 47.7151L167.89 47.7182Z" fill="#21305A"/>
+      <path d="M191.112 44.7035L189.378 50.0227L187.586 44.6846H186.505L184.719 50.0227L182.982 44.7035H181.6L184.134 51.9271H185.238L187.023 46.775L188.815 51.9271H189.925L192.452 44.7035H191.108H191.112Z" fill="#21305A"/>
+      <path d="M197.497 44.7036V51.8799H198.777V44.7036H197.497Z" fill="#21305A"/>
+      <path d="M203.857 44.7036V45.8734H206.167V51.8799H207.453V45.8734H209.763V44.7036H203.857Z" fill="#21305A"/>
+      <path d="M219.52 44.7036V47.6864H216.049V44.7036H214.769V51.8799H216.049V48.8562H219.52V51.8799H220.8V44.7036H219.52Z" fill="#21305A"/>
+      <path d="M232.591 44.7036V45.8734H234.897V51.8799H236.187V45.8734H238.493V44.7036H232.591Z" fill="#21305A"/>
+      <path d="M247.723 49.162C248.731 48.8751 249.448 48.1688 249.448 46.9896V46.9675C249.448 46.3432 249.23 45.8135 248.843 45.4225C248.376 44.9716 247.659 44.7036 246.744 44.7036H243.5V51.8799H244.78V49.3764H246.383L248.168 51.8799H249.687L247.72 49.162H247.723ZM244.78 48.2602V45.8545H246.642C247.589 45.8545 248.149 46.2707 248.149 47.04V47.0621C248.149 47.7873 247.563 48.2602 246.651 48.2602H244.777H244.78Z" fill="#21305A"/>
+      <path d="M259.513 44.7038V48.8343C259.513 50.1554 258.815 50.8207 257.679 50.8207C256.544 50.8207 255.84 50.1145 255.84 48.7807V44.7007H254.56V48.8312C254.56 50.9122 255.766 51.9874 257.66 51.9874C259.554 51.9874 260.786 50.9122 260.786 48.7713V44.7007H259.509L259.513 44.7038Z" fill="#21305A"/>
+      <path d="M269.023 47.7182C267.619 47.3903 267.286 47.1475 267.286 46.5926V46.5705C267.286 46.1007 267.721 45.7192 268.47 45.7192C269.139 45.7192 269.791 45.9746 270.447 46.457L271.132 45.5048C270.396 44.9215 269.554 44.603 268.492 44.603C267.046 44.603 266.006 45.4543 266.006 46.684V46.7061C266.006 48.0272 266.88 48.4781 268.432 48.847C269.778 49.1529 270.073 49.4303 270.073 49.9411V49.96C270.073 50.4929 269.574 50.8618 268.783 50.8618C267.891 50.8618 267.184 50.5244 266.486 49.9285L265.719 50.8303C266.592 51.5965 267.641 51.978 268.755 51.978C270.281 51.978 271.356 51.1771 271.356 49.8371V49.815C271.356 48.6263 270.565 48.084 269.027 47.7151L269.023 47.7182Z" fill="#21305A"/>
+      <path d="M275.842 44.7036V45.8734H278.149V51.8799H279.438V45.8734H281.745V44.7036H275.842Z" fill="#21305A"/>
+    </g>
+  </defs>
+</svg>
+
+<div id="bootScreen" class="boot-screen">
+  <div class="boot-spinner"></div>
+  <div class="boot-text">Inizializzazione Pathfinder 1.4…</div>
+</div>
+
+<div class="app" id="appRoot" style="display:none">
+  <!-- Header -->
+  <header class="app-header">
+    <div class="app-brand">
+      <svg class="pf-logo pf-logo--light pf-logo-symbol" viewBox="0 0 120 120" role="img" aria-label="Pathfinder Warehouse Mapper"><use href="#pfLogoMark"/></svg>
+      <svg class="pf-logo pf-logo--light pf-logo-word" viewBox="0 0 400 120" aria-hidden="true" focusable="false"><use href="#pfLogoWord"/></svg>
+      <span class="app-version">2.21.0</span>
+    </div>
+    <div class="app-center">
+      <nav class="app-nav">
+        <button class="nav-btn active" data-view="dashboard" onclick="App.switchView('dashboard')" title="Dashboard"><span>🏠</span><span class="nav-lbl">Dashboard</span></button>
+        <button class="nav-btn" data-view="map" onclick="App.switchView('map')" title="Mappa"><span>🗺</span><span class="nav-lbl">Mappa</span></button>
+        <button class="nav-btn" data-view="movimenta" onclick="App.switchView('movimenta')" title="Movimenta"><span>📦</span><span class="nav-lbl">Movimenta</span></button>
+        <!-- 1.4.1 — compare solo a interruttore `feature.tasks` acceso: la classe
+             -->
+        <button class="nav-btn" data-view="tasks" onclick="App.switchView('tasks')" title="Attività"><span>📋</span><span class="nav-lbl">Attività</span></button>
+        <button class="nav-btn" data-view="archive" onclick="App.switchView('archive')" title="Archivio documenti"><span>🗂</span><span class="nav-lbl">Archivio</span></button>
+      </nav>
+      <!-- v2.7.0 [G2] — Ricerca in barra: il campo resta, i risultati scendono -->
+      <div class="hdr-search" id="hdrSearch">
+        <div class="hdr-search-box">
+          <span class="hdr-search-icon" aria-hidden="true">🔍</span>
+          <input class="hdr-search-input" id="hdrSearchInput" type="search" autocomplete="off" spellcheck="false"
+                 placeholder="Cerca articolo, lotto o ubicazione…"
+                 aria-label="Ricerca in magazzino" aria-expanded="false" aria-controls="searchPop"
+                 oninput="App._onSearchInput()" onkeydown="App._onSearchKeydown(event)" onfocus="App._onSearchFocus()">
+          <button class="hdr-search-clear" type="button" title="Pulisci (Esc)" onclick="App.clearSearch()">✕</button>
+        </div>
+        <div class="search-pop" id="searchPop" role="listbox" aria-label="Risultati della ricerca" hidden></div>
+      </div>
+    </div>
+    <div class="app-header-right">
+      <button class="hdr-icon-btn" id="configIconBtn" data-view="config" onclick="App.switchView('config')" title="Configurazione" aria-label="Configurazione">⚙</button>
+      <button id="operatorBadge" class="op-badge op-badge-empty" onclick="App.showOperatorMenu()" title="Operatore corrente">👤 —</button>
+      <div class="sync-indicator" id="syncIndicator" title="Stato del salvataggio">
+        <span class="sync-dot" id="syncDot"></span>
+        <span id="syncText">Salvato</span>
+      </div>
+    </div>
+  </header>
+
+  <!-- Sidebar -->
+  <aside class="app-sidebar">
+    <div class="sidebar-header">
+      <span>Siti e Zone</span>
+      <button class="sidebar-collapse-btn" type="button" onclick="App.toggleSidebar()" title="Riduci la colonna (Ctrl+B)" aria-label="Riduci la colonna Siti e Zone">«</button>
+    </div>
+    <div id="sidebarContent"></div>
+  </aside>
+
+  <!-- Main area -->
+  <main class="app-main">
+    <!-- v2.7.0 [G4] — Linguetta di riapertura, visibile solo a colonna chiusa -->
+    <button class="sidebar-rail" type="button" onclick="App.toggleSidebar()" title="Mostra Siti e Zone (Ctrl+B)" aria-label="Mostra la colonna Siti e Zone">
+      <span class="sidebar-rail-label">» Siti e Zone</span>
+    </button>
+    <section class="view" id="viewDashboard"></section>
+    <section class="view hidden" id="viewMap">
+      <div id="mapToolbar"></div>
+      <div class="map-container" id="mapContainer"></div>
+    </section>
+    <section class="view hidden" id="viewMovimenta"></section>
+    <section class="view hidden" id="viewTasks"></section>
+    <section class="view hidden" id="viewArchive"></section>
+    <section class="view hidden" id="viewConfig"></section>
+  </main>
+
+  <!-- Mobile tabs -->
+  <nav class="mob-tabs">
+    <button class="mob-tab active" data-view="dashboard" onclick="App.switchView('dashboard')"><span>🏠</span>Dash</button>
+    <button class="mob-tab" data-view="map" onclick="App.switchView('map')"><span>🗺</span>Mappa</button>
+    <button class="mob-tab" data-view="movimenta" onclick="App.switchView('movimenta')"><span>📦</span>Movim.</button>
+    <button class="mob-tab" data-view="tasks" onclick="App.switchView('tasks')"><span>📋</span>Attività</button>
+    <button class="mob-tab" data-view="archive" onclick="App.switchView('archive')"><span>🗂</span>Archivio</button>
+    <button class="mob-tab" data-view="config" onclick="App.switchView('config')"><span>⚙</span>Conf.</button>
+  </nav>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <span>© Andrea Sacchetti — Dietopack S.r.l. / Naturacare Group</span>
+    <span>Pathfinder 2.21.0</span>
+  </footer>
+
+  <!-- Detail panel -->
+  <aside class="detail-panel collapsed" id="detailPanel">
+    <div class="detail-header">
+      <h2 id="detailTitle">—</h2>
+      <button class="btn btn-sm btn-icon btn-ghost" onclick="App.closeDetail()">✕</button>
+    </div>
+    <div class="detail-body" id="detailBody"></div>
+  </aside>
+</div>
+
+<!-- Overlay containers -->
+<!-- v2.1.0 — Feedback centrale, flash perimetrale e dialogo applicativo -->
+<div id="fbFlash" aria-hidden="true"></div>
+<div id="fbCenter" role="status" aria-live="polite" aria-atomic="true"></div>
+<div id="dlgOverlay" role="dialog" aria-modal="true" aria-labelledby="dlgTitle"></div>
+<div id="printReport"></div>
+<input type="file" id="fileImport" accept=".json" style="display:none" onchange="App.handleImport(event)">
+<input type="file" id="fileImportExcel" accept=".xlsx,.xls" style="display:none" onchange="App.handleImportExcel(event)">
+<!-- v2.5.0 — Import dell'ordine di produzione Sage X3 per il prelievo guidato -->
+<input type="file" id="fileImportOdp" accept=".xlsx,.xls" style="display:none" onchange="App.handleImportOdp(event)">
+
+</body>
+</html>
