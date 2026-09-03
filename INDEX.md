@@ -39,19 +39,21 @@ arrotondati, fondo tenue, bordo pieno — e la tessera del prodotto finito ha
 un **marchio suo**: un pallet coi suoi colli, non una fabbrica.
 
 **Cinque blocchi, tutti i collaudi verdi tranne uno che era già rosso** — §4,
-voce **87**. **La 2.21.0 è costruita e non installata**, impronta
-`479913cd…`, e il numero è nei quattro posti di §7.
+voce **87**. **La 2.21.0 è costruita E IN SERVIZIO su questa macchina**,
+impronta `479913cd…` — misurata da `/api/app-info`, non dedotta: §0 punto 2.
+Il numero è nei quattro posti di §7.
 
-Prima di questo — **la 2.20.0 è costruita e non installata**, impronta
-`d10d7830…`: il magazzino del prodotto finito. Il PF esce dal reparto, viene
-imballato su un bancale, scansionato ed etichettato, e messo nella zona di
-spedizione: fino ad allora di tutto questo Pathfinder non sapeva niente — la
-produzione registrava il **consumo** dei componenti e il prodotto finito
-viveva come una riga di testata sul rapporto di prelievo. Un bancale è
-un'**unità di carico** con tre campi in più, chi spedisce lo vede in un elenco
-che si ordina e su una mappa che si tinge, lo spunta e il DDT si riempie da
-sé, con una **packing list** accanto. E un DDT di **conto terzi** non scarica:
-sposta la merce nel vano del terzista, che sta già sulla mappa.
+Prima di questo — **la 2.20.0**, impronta `d10d7830…`, in servizio dalle
+15:54:46Z di oggi e adesso via di ritorno: il magazzino del prodotto finito.
+Il PF esce dal reparto, viene imballato su un bancale, scansionato ed
+etichettato, e messo nella zona di spedizione: fino ad allora di tutto
+questo Pathfinder non sapeva niente — la produzione registrava il
+**consumo** dei componenti e il prodotto finito viveva come una riga di
+testata sul rapporto di prelievo. Un bancale è un'**unità di carico** con
+tre campi in più, chi spedisce lo vede in un elenco che si ordina e su una
+mappa che si tinge, lo spunta e il DDT si riempie da sé, con una **packing
+list** accanto. E un DDT di **conto terzi** non scarica: sposta la merce nel
+vano del terzista, che sta già sulla mappa.
 
 Prima di questo — **la 2.19.0 è costruita e non installata**:
 le etichette di merce e unità di carico escono su **Zebra in rete**, e a
@@ -206,32 +208,38 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ---
 
-## 1. Stato, misurato il 02/09/2026
+## 1. Stato, misurato il 03/09/2026 sera
 
 ### In servizio
 
-**La 2.17, installata da Andrea il 02/09** — su questa macchina, che è quella
+**La 2.21.0, in servizio dal 03/09 sera** — su questa macchina, che è quella
 di **sviluppo** (§0): il magazzino vero non è stato toccato, e gira la 1.4
-altrove. Misurato da `/api/app-info` e `/api/health` a installazione finita:
+altrove. Misurato da `/api/app-info` e `/api/health`, non ricopiato:
 
 | | |
 |---|---|
-| applicativo e servizio | **2.17** — `versione` e `service_version` dicono lo stesso numero |
-| impronta | `b6b24d7091d70e52cbe3cd02cd520363fff5e38de6002c5b51c8e76cda74d731` |
-| byte | **1.903.362** in **4 file**, `costruita 2026-09-01T23:35:12Z` |
-| dove | `C:\Pathfinderpp\corrente`, modo `cartella` |
-| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 333` |
-| bundle servito | `index-mqdW0HMD.js` · `index-BZKbPXaf.css` — **gli stessi del pacchetto** |
+| applicativo e servizio | **2.21.0** — `versione` e `service_version` dicono lo stesso numero |
+| impronta | `479913cded317d687fd7917e341a0e7dec759c925683a065374157e9980a5f26` |
+| byte | **2.027.564** in **4 file**, `costruita 2026-09-03T18:49:50Z` |
+| dove | `C:\Pathfinder\app\corrente`, modo `cartella` |
+| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 562` |
+| bundle servito | `index-B7Ka2QdK.js` · `index-Cvh18DRV.css` — **gli stessi del pacchetto** |
 | porta chiusa | **sì** — `GET /api/c/meta` senza sessione risponde **401** |
-| via di ritorno | `C:\Pathfinderpp\precedente` porta la **2.16** |
-| dati | invariati: 11.197 articoli, 882 giacenze, 4 siti, 17 zone, **1 operatore** |
+| via di ritorno | `C:\Pathfinder\app\precedente` porta la **2.20.0**, impronta `d10d7830…` |
+| dati | 11.197 articoli, **883 giacenze**, 4 siti, 20 zone, **1 operatore**, 8 unità di carico, 4 documenti di uscita |
+
+> **QUESTA RIGA DICEVA «2.17», ED È LA SETTIMA VOLTA.** Nel frattempo sono
+> passate la 2.18, la 2.19, la 2.20 e adesso la 2.21: il documento non le ha
+> inseguite. **Quello che risponde batte quello che c'è scritto qui** — §0
+> punto 2 — e la tabella qui sopra è stata misurata stasera, non ricopiata.
 
 **L'impronta è quella del pacchetto committato, e il bundle servito è quello
 del pacchetto**: i byte che girano sono quelli provati.
 
-**Cosa c'era prima:** la **2.16**, impronta `111d58b5…`, 1.903.224 byte in 4
-file, costruita `2026-09-01T18:51:57Z`. Sta in `app\precedente` ed è la via di
-ritorno intera.
+**Cosa c'era prima:** la **2.20.0**, impronta `d10d7830…`, 1.982.683 byte in
+4 file, costruita `2026-09-03T15:52:00Z`, in servizio dalle 15:54:46Z. Sta in
+`app\precedente` ed è la via di ritorno intera. Prima ancora la 2.19, la 2.18
+e la 2.17: quattro versioni che questa sezione non aveva inseguito.
 
 > **LA FINESTRA DI PRIMO AVVIO SI È CHIUSA, ED È LA COSA DA GUARDARE DOPO OGNI
 > INSTALLAZIONE PULITA.** Appena installata, con `operators` a zero, il
@@ -262,7 +270,7 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.21.0 — come è stata costruita
+### La 2.21.0 — come è stata costruita, e come è finita in servizio
 
 | | |
 |---|---|
@@ -273,6 +281,8 @@ produzione fino all'ultimo giorno.
 | numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
 | collaudi dal pacchetto | `servizio\test\collaudo-installazione.js` girato **dentro** `consegna\Pathfinder 2.21.0\`: **43 su 43**; il servizio del pacchetto dichiara `2.21.0` |
 | prova a vuoto | **non fatta**: `installa.ps1 -Prova` legge la macchina, e §0 dice che tutto ciò che tocca `C:\Pathfinder\` si propone e si aspetta il via |
+| **installata** | **sì, su QUESTA macchina** — il servizio si è riavviato alle **18:53:11Z** e dichiara `2.21.0`; il riavvio precedente, alle 15:54:46Z, dichiarava `2.20.0`. `C:\Pathfinder\app\corrente` porta l'impronta di questo pacchetto e `precedente` porta la **2.20.0** (`d10d7830…`), che è la via di ritorno intera |
+| chi ha installato | **non è stato un agente**: `C:\Pathfinder\` si tocca solo col via di Andrea, e nessun comando di questa sessione l'ha toccata. Il gesto è avvenuto fra la build e la misura |
 | collaudi da ferme | **1.332 su 1.333** (`npm test`, una saltata) · **156** sul servizio · **100** sulle etichette · **43** sull'installazione · **8** sul cambio di schema |
 | banco | **fatto a mano**, sul giro descritto in §5: due bancali con modello appreso, scarico a mano, carico di due DDT in baia, tappa saltata, evasione parziale, packing list e DDT stampati a video |
 | prova rossa | **una sola**, ed è la voce **87**: `banco/gerarchia.cjs` dà 39 su 40 dal 03/09 mattina, prima di questo lavoro |
@@ -465,11 +475,11 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.21.0** | **COSTRUITA, NON INSTALLATA** — 03/09 sera | `479913cd…` | **Il bancale si fa da sé, e il camion si carica scansionando.** La maschera del reparto è quella del carico merce — colli pieni × quanto dentro — e il **modello di carico si impara** dal primo bancale invece di essere compilato su 11.197 articoli. L'etichetta esce **prima** dell'ubicazione. Nasce **Carico spedizioni**: un giro le cui tappe sono bancali, la **baia di carico** come tipo di zona, e i DDT che si evadono a fine giro — quelli completi. Più: articolo e lotto in due colonne, DDT e data **riletti dai documenti**, scarico a mano, DDT raggruppato in stampa, packing list con la composizione del collo |
-| **2.20.0** | **COSTRUITA, NON INSTALLATA** — 03/09 | `d10d7830…` | **Il magazzino del prodotto finito.** Il bancale è un'unità di carico, la maschera del reparto lo chiude in un gesto e ne stampa l'etichetta, chi spedisce lo trova in elenco e sulla mappa, lo spunta e il DDT si riempie. **Packing list** e **conto terzi**, dove la merce non esce ma si sposta |
+| **2.21.0** | **IN SERVIZIO su questa macchina dal 03/09 sera** | `479913cd…` | **Il bancale si fa da sé, e il camion si carica scansionando.** La maschera del reparto è quella del carico merce — colli pieni × quanto dentro — e il **modello di carico si impara** dal primo bancale invece di essere compilato su 11.197 articoli. L'etichetta esce **prima** dell'ubicazione. Nasce **Carico spedizioni**: un giro le cui tappe sono bancali, la **baia di carico** come tipo di zona, e i DDT che si evadono a fine giro — quelli completi. Più: articolo e lotto in due colonne, DDT e data **riletti dai documenti**, scarico a mano, DDT raggruppato in stampa, packing list con la composizione del collo |
+| **2.20.0** | in servizio il 03/09 pomeriggio — è la **via di ritorno** | `d10d7830…` | **Il magazzino del prodotto finito.** Il bancale è un'unità di carico, la maschera del reparto lo chiude in un gesto e ne stampa l'etichetta, chi spedisce lo trova in elenco e sulla mappa, lo spunta e il DDT si riempie. **Packing list** e **conto terzi**, dove la merce non esce ma si sposta |
 | **2.19.0** | **COSTRUITA, NON INSTALLATA** — 02/09 | — | Le etichette escono dalla **stampante**: Zebra in rete sulla porta 9100, e a parlarle è il servizio. Le stampanti e il **layout dell'etichetta merce** — barre, descrizione, scadenza, peso — si configurano; chi stampa sceglie la macchina e quante copie. **L'A4 resta**, e non come ripiego di cortesia |
 | **2.18.1** | costruita, non installata | — | Il minimo di Node era sbagliato e l'ha trovato la CI: `>=20` dichiarato ovunque, `better-sqlite3` 13 ne vuole 22 |
-| **2.17** | **IN SERVIZIO su questa macchina dal 02/09** | `b6b24d70…` | Il limite di ritenzione esce dal codice: `LOG_RETENTION_DAYS` non cancellava niente e sei anni non li chiedeva nessuna norma. Le tre etichette dicono adesso quel che il sistema fa |
+| **2.17** | in servizio dal 02/09 al 03/09 | `b6b24d70…` | Il limite di ritenzione esce dal codice: `LOG_RETENTION_DAYS` non cancellava niente e sei anni non li chiedeva nessuna norma. Le tre etichette dicono adesso quel che il sistema fa |
 | **2.16** | in servizio il 02/09 — è la **via di ritorno** | `111d58b5…` | Il punto zero: **l'ultimo Admin non si toglie da solo** (murato nel servizio) · il registro dice **quanto** si è mosso e **chi** si è mosso, anche in blocco (voci 33, 34) · causale **`UDC`** · un difetto grave **ferma** il banco del ciclo (voce 50) · servito, l'indicatore smette di dire «Non salvato» · cinque icone che uscivano monocromatiche |
 | **2.15** | in servizio dal 01/09 al 02/09 — è la **via di ritorno** | `7b812c48…` | **L'applicativo non cambia di una riga.** L'installer smette di murarsi dentro da solo (voce 75) e impara a **togliersi**: `-Disinstalla`, che prima salva e poi toglie · una radice lasciata da un tentativo fallito si riapre da sé |
 | **2.14** | in servizio il 01/09 per poche ore, archiviata |  `8a25574b…` | La schermata WIP parte **dalla merce e non dal numero**: la lista di quello che è fermo in lavorazione, ordinabile e filtrabile · l'archivio degli ordini chiusi passa in **Archivio** · **un reso sbagliato si storna** · leggibilità e proporzioni delle maschere |
@@ -1707,7 +1717,7 @@ hanno con cosa lavorare.
 | ~~**86**~~ | **LE STAMPANTI HANNO LA PRESA DI RETE, E LE INSTALLA L'IT.** Andrea, 02/09: serie **ZD200** o modello precedente simile, **203 dpi**, adesive staccate **100 × 80**, già in rete e gestite dal team IT. Era il rischio che teneva in piedi tutto il resto — le desktop Zebra di quella fascia escono spesso con la sola USB, e senza una porta TCP il servizio non ha nessuno a cui parlare | **Chiusa dal fatto.** Nessun print server esterno serve; la porta 6101 resta nell'elenco ammesso per i casi futuri, e non costa niente |
 | ~~**84**~~ | **LA PORTA 9100 IN USCITA NON ERA NELLO SHEET TECNICO**, che dichiarava una porta sola: la 4173 in ingresso. Dalla 2.19 il servizio apre connessioni **in uscita** verso le stampanti, e quella è una richiesta di autorizzazione al team IT, non un dettaglio di codice | **Scritta il 02/09, in due lingue.** `documenti/IT-TECH-SHEET.md` passa a **rev05**: nuovo **cap. 5.3** coi requisiti di rete (IP fisso o riserva DHCP, 9100 in uscita, ambito privato, porte ammesse, calibrazione e calore), il cap. 3 dichiara le connessioni in uscita, il 5.1 la rete, il 6.3 la configurazione delle stampanti e del layout, e il 12 porta **due richieste nuove all'IT**. Le istruzioni operative stanno in `README.md` §7 e `README.it.md` §6, con la tabella dei messaggi di guasto in §9; il servizio le ha in `server/README.md` e `server/LEGGIMI.md` |
 | ~~**75**~~ | **L'INSTALLER SI CHIUDEVA LA PORTA IN FACCIA DA SOLO, SU MACCHINA PULITA.** `Blinda-Radice` stringeva i permessi della radice con un `icacls` solo, `/inheritance:r` e `/T` nella stessa riga: quella coppia scende su ogni figlio e gli toglie gli ACE ereditati, mentre i tre `/grant` non arrivano fino in fondo. Restano file con l'**elenco vuoto**, e un elenco vuoto nega tutto — anche a un Amministratore, anche solo per leggere di chi è il file. Girava in fondo al passo del servizio, e il passo dopo doveva lanciare `installa-versione.ps1` **da quella cartella**: «Accesso al percorso negato», segnalato da PowerShell come comando non trovato. **E `icacls` usciva con zero**, quindi l'installer scriveva «Permessi applicati» in verde. Non si era mai visto perché ogni installazione era un aggiornamento, e la blindatura sta nel solo ramo di prima installazione — la stessa cecità della voce sulla 2.10 | **Corretta il 01/09 in `server\installa-pathfinder.ps1`**, non nel pacchetto (§7). Due gesti invece di uno: l'elenco si scrive **sulla sola radice**, poi si spinge in basso con `/reset` **sui figli**, che dà a ognuno l'elenco ereditato dal padre — `/reset` sulla radice no, la rimetterebbe a ereditare da `C:\`. In più la blindatura è stata **spostata dopo il passo dell'applicativo**, così è l'ultimo gesto che tocca il disco e la Verifica passa dopo; e una guardia prova ad **aprire davvero** un file — `Test-Path` diceva `True` anche sui file murati, ed è così che il difetto è passato. **Provato su un albero finto**: col vecchio comando `icacls` esce **0** e il file resta senza nessun ACE; col nuovo il file porta le tre righe `(I)`. **Due prove nuove** in `collaudo-installazione.js` (31 → **33**), e verificate rosse rimettendo ciascuno dei due difetti |
-| ~~**82**~~ | Lo sheet tecnico per il team IT era in italiano, e fermo al 28/08 | **02/09 — `documenti/IT-TECH-SHEET.md` è alla REV02, bilingue.** Italiano e inglese nello stesso documento controllato, stessa numerazione di capitolo, e la clausola che in caso di discordanza **prevale l'italiano**. La rev01 è archiviata in `ARCHIVIO\documenti superati\`. **Aggiornata dalla 2.12 alla 2.17**, e il grosso è che il documento dichiarava cose non più vere: il **limite 2** («permessi per ruolo verificati nel client») era una falla di sicurezza dichiarata aperta e **chiusa dalla 2.13 e dalla 2.16** — adesso è barrata con la prova accanto; la **conservazione a sei anni** è uscita e al suo posto c'è la tabella dei quattro regimi con la decisione rimandata alla QA/RA (cap. 8.3). Aggiunti: la via di fuga dell'Admin (8.2), la disinstallazione (6.1), il passaggio dalla 1.4 coi due controlli da fare prima (6.5), due limiti nuovi — **10** la storia di git, **11** la migrazione non ancora provata sui dati veri — e i numeri di collaudo rimisurati (servizio 127 → **141**, installazione 31 → **43**, più gerarchia **40**, ciclo **47**, migrazione **14**). Corretto il rimando a `serverzure`, che non esiste dal 26/08 |
+| ~~**82**~~ | Lo sheet tecnico per il team IT era in italiano, e fermo al 28/08 | **02/09 — `documenti/IT-TECH-SHEET.md` è alla REV02, bilingue.** Italiano e inglese nello stesso documento controllato, stessa numerazione di capitolo, e la clausola che in caso di discordanza **prevale l'italiano**. La rev01 è archiviata in `ARCHIVIO\documenti superati\`. **Aggiornata dalla 2.12 alla 2.17**, e il grosso è che il documento dichiarava cose non più vere: il **limite 2** («permessi per ruolo verificati nel client») era una falla di sicurezza dichiarata aperta e **chiusa dalla 2.13 e dalla 2.16** — adesso è barrata con la prova accanto; la **conservazione a sei anni** è uscita e al suo posto c'è la tabella dei quattro regimi con la decisione rimandata alla QA/RA (cap. 8.3). Aggiunti: la via di fuga dell'Admin (8.2), la disinstallazione (6.1), il passaggio dalla 1.4 coi due controlli da fare prima (6.5), due limiti nuovi — **10** la storia di git, **11** la migrazione non ancora provata sui dati veri — e i numeri di collaudo rimisurati (servizio 127 → **141**, installazione 31 → **43**, più gerarchia **40**, ciclo **47**, migrazione **14**). Corretto il rimando a `server\azure`, che non esiste dal 26/08 |
 | ~~**80**~~ | Sei export JSON tracciati portavano impronte PIN di persone vere | **02/09 — le impronte sono uscite dai sei file**, in modo chirurgico: `pin_hash`, `pin_salt`, `rec_hash`, `rec_salt` via, tutto il resto byte per byte — 26 righe tolte, conteggi e ogni altro campo verificati invariati. **La storia non è stata riscritta**, per decisione di Andrea: repository privato, e un secondo push forzato nella stessa settimana costa più di quel che rende. **E la lezione è stata imparata come si deve**: non un'altra riga nel `.gitignore` ma **`test/segretiFuori.test.js`**, che apre i JSON tracciati e guarda dentro la collezione `operators`. Verificata rossa rimettendo un'impronta. Un filtro per estensione non reggerà il prossimo formato; guardare dentro sì. **E i backup restano utili senza PIN**: la finestra del primo avvio si riapre, che è il modo giusto di partire su una versione nuova |
 | ~~**74**~~ · ~~**73**~~ · ~~**69**~~ | Il registro azzerato, le giacenze sostituite, i conteggi che non tornavano | **02/09 — NON ERA MAI SUCCESSO NIENTE, ed è §0 che mancava.** Questa è la macchina di **sviluppo**, non il magazzino: i conteggi che si accavallano sono prove. **E il file è stato identificato**, da Andrea: `ARCHIVIO\BACKUP E FILE DI TEST\warehouse-mapper-2026-08-20_GIACENZE REALI IN COLLI.json` — il **primo conteggio vero del magazzino**, quello da cui riparte ogni prova di una versione nuova. Porta `articles` **11.197**, `inventory` **882**, `operators` 2 — **gli stessi numeri uno per uno** dei due «incidenti» — e `mov_log` **presente e vuoto**, che per la regola della voce 45 **svuota il registro**. Non è merce persa: è un conteggio di giacenza, e un conteggio non porta movimenti |
 | ~~**72**~~ | Un dump del magazzino vero, coi PIN dentro, stava nella storia del repository | **01/09 — LA STORIA È STATA RISCRITTA.** Backup completo prima (`pathfinder-pre-riscrittura-2026-09-01.bundle`, 71,6 MB, «complete history» verificata), poi `git filter-repo --path banco/db/pathfinder-2026-08-27.dump --invert-paths` su 296 commit e **push forzato** su `main`. Verificato dopo: `rev-list --objects --all` non nomina più quel blob, e `GET /contents/…?ref=main` risponde **404**. **Il ramo `claude/…` e la PR #1 non lo portavano**: divergono da prima del commit. Il file resta su disco, e `.gitignore` lo tiene fuori. **Restano due code, e sono la voce 78**: i vecchi commit rispondono ancora per SHA finché GitHub non fa pulizia, e i PIN di quel dump vanno rinnovati quando quegli operatori rientrano |
