@@ -352,8 +352,16 @@ export const VistaCaricoSpedizione = {
     }
 
     try {
+      /* LA RIGA DEL CONTENITORE SI SCRIVE INTERA, come la scrive la maschera
+         delle unità di carico: da dove a dove e CHI HA FIRMATO. §8 chiede
+         quei campi, e una causale `UDC` che li porta da una schermata e non
+         dall'altra è la stessa causale con due forme — chi legge il registro
+         fra sei mesi non sa quale delle due sta guardando. */
       await Store.moveUdc(tappa.udc_id, vano, {
-        type: MOV.UDC, notes: `Carico DDT ${corrente.ddt_num} — in baia`,
+        type: MOV.UDC, article_code: '', article_description: '', lot_code: '',
+        location_code: tappa.location_code, dest_location: vano,
+        user: Store.getCurrentIdentity().initials, ts: Date.now(),
+        notes: `Carico DDT ${corrente.ddt_num} — ${tappa.udc_id} in baia`,
       });
     } catch (e) {
       return this._carFeedback('error', (e as Error).message || 'Spostamento non riuscito');

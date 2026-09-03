@@ -287,7 +287,9 @@ produzione fino all'ultimo giorno.
 | banco | **fatto a mano**, sul giro descritto in §5: due bancali con modello appreso, scarico a mano, carico di due DDT in baia, tappa saltata, evasione parziale, packing list e DDT stampati a video |
 | prova rossa | **una sola**, ed è la voce **87**: `banco/gerarchia.cjs` dà 39 su 40 dal 03/09 mattina, prima di questo lavoro |
 
-**COSA HA TROVATO IL BANCO, E NESSUNA PROVA DA FERMA VEDEVA — TRE DIFETTI.**
+**COSA HA TROVATO IL BANCO, E NESSUNA PROVA DA FERMA VEDEVA — QUATTRO
+DIFETTI.** I primi tre dal giro fatto costruendo, il quarto dal carico vero
+di Andrea la notte del 03/09.
 
 1. **`hidden` non nascondeva niente su un `.form-group`.** L'attributo del
    browser vale `display: none` con la specificità di un selettore di tipo, e
@@ -307,6 +309,15 @@ produzione fino all'ultimo giorno.
    stanno benissimo: finivano impilati nella stessa casella, e la mappa non
    mostrava più che cosa stesse salendo sul mezzo. Adesso si cerca prima una
    posizione **vuota**, e si ripiega solo a baia piena.
+4. **LA RIGA `UDC` DEL CARICO NON DICEVA CHI AVEVA FIRMATO** — e l'ha trovata
+   il giro di Andrea sul banco, il 03/09 a notte, non una prova. `moveUdc`
+   riceveva il solo tipo e la nota, quindi il registro portava una riga `UDC`
+   senza operatore e senza da-dove-a-dove, mentre la stessa causale scritta
+   dalla maschera delle unità di carico li porta tutti. **Le righe della merce
+   erano complete** — articolo, lotto, vano di partenza e di arrivo, colli,
+   operatore — quindi non si è perso niente; ma una causale con due forme è
+   una causale che fra sei mesi non si sa leggere. Adesso la riga si scrive
+   intera, come la scrive `udc.ts`.
 
 ### La 2.20.0 — come è stata costruita
 
