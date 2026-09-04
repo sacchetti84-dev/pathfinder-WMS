@@ -851,7 +851,14 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   body, html { background: #fff; overflow: visible; height: auto; }
   .app, .app-header, .app-sidebar, .app-main, .app-footer, .mob-tabs, .detail-panel, .modal-overlay, #pfLogoSprite { display: none !important; }
   #fbCenter, #dlgOverlay, #undoBarArea { display: none !important; }
-  #printReport { display: block; padding: 12mm; font-family: 'Segoe UI', Arial, sans-serif; color: #000; font-size: 10pt; }
+  /* 2.24 — IL MARGINE STA SULLA PAGINA, NON SUL CONTENITORE. Era una
+     `padding: 12mm` su `#printReport`, e una padding vale UNA volta: sul
+     documento a pagina sola andava bene, su uno che scorre la seconda
+     pagina partiva a filo carta e la stampante le tagliava la prima riga.
+     `@page { margin: 12mm }` lo da' a ogni foglio. Le misure non cambiano di
+     un millimetro — 297 − 24 = 273 mm di altezza utile, 210 − 24 = 186 mm di
+     larghezza — sono gli stessi numeri su cui sono tarate le colonne. */
+  #printReport { display: block; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; color: #000; font-size: 10pt; }
   .pr-summary { display: flex; gap: 12px; background: #eff1f3; padding: 8px; border-radius: 3px; margin-bottom: 12px; border: 1px solid #ccd4d9; }
   .pr-summary-item { flex: 1; text-align: center; }
   .pr-summary-val { font-size: 14pt; font-weight: 700; color: #1b3a4b; }
@@ -892,31 +899,55 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
                     border: 1px dashed #b45309; padding: 4px; margin-bottom: 10px; }
 
   .doc-empty { color: #999; font-style: italic; font-weight: 400; }
-  /* 2.20 — LA PACKING LIST: UN BANCALE PER BLOCCO.
+  /* 2.24 — LA PACKING LIST: ARTICOLO, LOTTO, BANCALE.
 
-     Chi scarica il camion cerca il codice che ha letto sull'etichetta del
-     pallet e vuole trovarci sotto quello che dovrebbe esserci sopra: il
-     codice sta in testa al blocco, grande e in monospaziato, e il blocco non
-     si spezza fra due fogli — meta' delle righe su una pagina e meta'
-     sull'altra e' esattamente il foglio che nessuno rilegge. */
-  .pk-blocco { break-inside: avoid; margin-bottom: 4mm; }
-  .pk-testa {
-    display: flex; align-items: baseline; gap: 4mm; flex-wrap: wrap;
-    border-bottom: 1pt solid #21305A; padding-bottom: 1mm; margin-bottom: 1.5mm;
-  }
-  .pk-udc { font-family: Consolas, "Courier New", monospace;
-    font-size: 12pt; font-weight: 700; color: #21305A; }
-  .pk-meta { font-size: 8pt; color: #555; }
-  .pk-colli { margin-left: auto; font-size: 9pt; font-weight: 700; }
-  /* 2.21 — IL RIEPILOGO PER ARTICOLO E LOTTO, in coda al foglio. Il corpo
-     della packing list e' per BANCALE, ma la domanda di chi riceve e' per
-     lotto: «quanto di questo lotto e' arrivato». Su dieci blocchi quel
-     numero non si ricava guardandoli, e sommarlo a mano in banchina e' il
-     modo di sbagliare. Non si spezza fra due fogli, come i blocchi. */
-  .pk-riepilogo { break-inside: avoid; margin-top: 5mm; padding-top: 2mm;
-    border-top: 1.5pt solid #21305A; }
-  .pk-riepilogo-tit { font-size: 9pt; font-weight: 700; color: #21305A;
-    text-transform: uppercase; letter-spacing: 0.04em; margin-bottom: 1.5mm; }
+     Fino alla 2.23 il corpo era un blocco per bancale. Rispondeva a chi
+     scarica il camion e non a chi controlla la merce col DDT in mano, che e'
+     la domanda per cui il foglio esiste: «questo lotto, su quanti bancali e
+     quanto fa». Adesso i livelli sono tre e si distinguono per rientro e
+     peso del segno, non per un colore che una stampante in bianco e nero
+     butta via:
+
+       · ARTICOLO — riga piena, filetto sopra, il codice grande.
+       · LOTTO    — rientrato, fondo tenue, il codice in evidenza.
+       · BANCALE  — rientrato ancora, testo minuto: e' il dettaglio, e chi
+                    cerca il codice sull'etichetta del pallet lo trova qui.
+
+     IL GRUPPO DI UN ARTICOLO NON SI SPEZZA se ci sta in un foglio; se non ci
+     sta si spezza, perche' l'alternativa e' una pagina mezza bianca. Un lotto
+     invece non resta MAI solo in fondo a una pagina coi suoi bancali
+     sull'altra: e' la riga che porta il totale, e separarla da cio' che
+     somma e' il foglio che nessuno rilegge. */
+  .ddt-table--pk .c-cod  { width: 42mm; }
+  .ddt-table--pk .c-desc { /* 68mm residui */ }
+  .ddt-table--pk .c-pcs  { width: 26mm; text-align: left; white-space: nowrap; }
+  .ddt-table--pk tbody.pk-gruppo { break-inside: avoid; page-break-inside: avoid; }
+  .ddt-table--pk tr:nth-child(even) td { background: none; }
+
+  .pk-r-art td { border-top: 1.2pt solid #21305A; border-bottom: none;
+                 padding-top: 2mm; background: none; }
+  .pk-r-art td.c-cod { font-family: Consolas, "Courier New", monospace;
+                       font-size: 11pt; font-weight: 700; color: #21305A; }
+  .pk-r-art td.c-desc { font-weight: 700; font-size: 9.5pt; }
+  .pk-sub { font-size: 7pt; font-weight: 400; color: #666;
+            font-family: 'Segoe UI', Arial, sans-serif; margin-top: 0.3mm; }
+
+  .pk-r-lot td { background: #eef1f5; border-bottom: none; padding-top: 1mm; }
+  .pk-r-lot td.c-cod { padding-left: 6mm; font-family: Consolas, "Courier New", monospace;
+                       font-weight: 700; color: #21305A; }
+  .pk-r-lot td.c-desc { font-size: 8pt; color: #444; }
+  .pk-r-lot { break-after: avoid; page-break-after: avoid; }
+
+  .pk-r-udc td { font-size: 8.5pt; border-bottom: 1px solid #dfe3e8; }
+  .pk-r-udc td.c-cod { padding-left: 12mm; font-family: Consolas, "Courier New", monospace;
+                       color: #333; }
+  .pk-r-udc td.c-desc { font-size: 7.5pt; color: #666; }
+
+  .ddt-table--pk td.c-qty { font-weight: 700; }
+  .ddt-table--pk td.c-num { font-family: Consolas, monospace; font-weight: 700; }
+  .ddt-table--pk td.c-uom { font-family: Consolas, monospace; color: #444; }
+  .ddt-table--pk .pk-r-udc td.c-qty,
+  .ddt-table--pk .pk-r-udc td.c-num { font-weight: 400; }
   .doc-note-small { font-size: 7.5pt; color: #666; margin-top: 3mm; line-height: 1.4; }
 
   .doc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
@@ -925,7 +956,18 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   .doc-cell-lbl { font-size: 7pt; text-transform: uppercase; color: #666; letter-spacing: 0.03em; font-weight: 600; }
   .doc-cell-val { font-size: 9.5pt; font-weight: 600; color: #000; min-height: 12pt; }
 
-  @page { size: A4; margin: 0; }
+  @page {
+    size: A4; margin: 12mm;
+    /* IL NUMERO DI PAGINA, DOVE IL BROWSER SA SCRIVERLO. Le page margin box
+       sono l'unico posto da cui si arriva a `counter(page)`: un documento
+       che scorre non sa da se' su quale foglio sta. Dove non sono sostenute
+       non esce niente e non si rompe niente — ed e' per questo che il conto
+       delle righe sta ANCHE nel piede ripetuto, che funziona ovunque. */
+    @bottom-right {
+      content: "pag. " counter(page) " di " counter(pages);
+      font-family: 'Segoe UI', Arial, sans-serif; font-size: 7pt; color: #777;
+    }
+  }
 
   .doc-page { display: flex; flex-direction: column; min-height: 273mm; line-height: 1.25; }
   .doc-zone-head { flex: 0 0 54.6mm; height: 54.6mm; display: flex; flex-direction: column; gap: 1.5mm; overflow: hidden; }
@@ -979,22 +1021,37 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   .ddt-table td { padding: 1.2mm 2mm; border-bottom: 1px solid #ccc; vertical-align: top;
                   word-wrap: break-word; overflow-wrap: anywhere; }
   .ddt-table tr:nth-child(even) td { background: #f2f4f6; }
-  .ddt-table .c-idx  { width: 9mm;  text-align: center; white-space: nowrap; }
-  .ddt-table .c-art  { width: 24mm; }
-  .ddt-table .c-desc { /* 56mm residui */ }
-  .ddt-table .c-lot  { width: 26mm; }
-  .ddt-table .c-exp  { width: 22mm; white-space: nowrap; }
-  .ddt-table .c-qty  { width: 12mm; text-align: center; white-space: nowrap; }
-  .ddt-table .c-pcs  { width: 13mm; text-align: center; white-space: nowrap; }
-  .ddt-table .c-note { width: 24mm; }
+  /* 2.24 — 186 MM, E QUESTE SEI COLONNE. Il `#` e le Note sono usciti dalla
+     griglia: 33 mm che rubavano lo spazio ai quattro dati che si cercano in
+     banchina — articolo, lotto, scadenza, quanto. Le note scendono sotto la
+     descrizione, dove hanno la larghezza del foglio invece di 24 mm.
 
-  .ddt-table td.c-idx  { font-family: Consolas, monospace; color: #666; }
+     LA QUANTITA' STAVA IN 13 MM CON `nowrap`, ed e' il difetto che si
+     vedeva: «1.250,00 KG» non ci sta, e `nowrap` non manda a capo — sborda
+     sotto la colonna accanto. Adesso il numero ha 22 mm e l'unita' i suoi
+     14, in due celle: incollata, l'unita' si legge una riga per volta;
+     separata, si legge in colonna e si vede subito che un DDT porta chili e
+     pezzi insieme.
+
+     26 + 30 + 22 + 14 + 22 + 14 = 128 mm fissi, e alla descrizione ne
+     restano 58 — due in piu' di prima, non uno di meno. */
+  .ddt-table .c-art  { width: 26mm; }
+  .ddt-table .c-desc { /* 58mm residui */ }
+  .ddt-table .c-lot  { width: 30mm; }
+  .ddt-table .c-exp  { width: 22mm; white-space: nowrap; }
+  .ddt-table .c-qty  { width: 14mm; text-align: center; white-space: nowrap; }
+  .ddt-table .c-num  { width: 22mm; text-align: right;  white-space: nowrap; }
+  .ddt-table .c-uom  { width: 14mm; }
+
   .ddt-table td.c-art  { font-family: Consolas, monospace; font-weight: 700; color: #21305A; }
-  .ddt-table td.c-lot  { font-family: Consolas, monospace; font-weight: 600; }
+  .ddt-table td.c-lot  { font-family: Consolas, monospace; font-weight: 600; font-size: 9.5pt; }
   .ddt-table td.c-exp  { font-family: Consolas, monospace; }
   .ddt-table td.c-qty  { font-weight: 700; }
-  .ddt-table td.c-pcs  { font-family: Consolas, monospace; }
-  .ddt-table td.c-note { font-size: 8pt; color: #444; }
+  .ddt-table td.c-num  { font-family: Consolas, monospace; font-weight: 700; }
+  .ddt-table td.c-uom  { font-family: Consolas, monospace; color: #444; }
+  /* Le note della riga, sotto la descrizione: hanno il foglio per larghezza
+     e non alzano le altre colonne. */
+  .ddt-sub { font-size: 7.5pt; color: #555; line-height: 1.25; margin-top: 0.4mm; }
 
   .doc-fill { flex: 1 1 auto; min-height: 4mm; }
 

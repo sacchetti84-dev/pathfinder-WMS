@@ -616,7 +616,7 @@ export const VistaSmaltimento = {
   _docPageHTML({ kind, kindSub, numLabel, num, dateLabel, dateVal, sender = null,
                  headExtra = '', body = '', signs = [], docId = '',
                  watermark = '', pageClass = '', printedLabel = 'stampato il',
-                 flow = false }) {
+                 flow = false, footNote = '' }) {
     const fmt = new Date().toLocaleString('it-IT',
       { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' });
     const firme = signs.length ? `<div class="doc-signs">${(signs as Firma[]).map((f) => `
@@ -625,10 +625,23 @@ export const VistaSmaltimento = {
 
     const testata = `${this._docHeadHTML({ kind, kindSub, numLabel, num, dateLabel, dateVal, sender })}
         ${headExtra}`;
-    const piede = `${firme}
+    /* 2.24 — LE FIRME NON SI RIPETONO SU OGNI FOGLIO. In un documento che
+       scorre il piede sta nel `tfoot`, che e' il gruppo che il browser
+       ristampa a ogni pagina: le tre righe da firmare uscivano su tutte, e
+       chi firma non sa quale valga. Vanno in coda al CORPO, che finisce una
+       volta sola; nel piede ripetuto resta cio' che ha senso ripetere — il
+       numero del documento e la data di stampa. Il documento a pagina sola
+       non cambia: li' testata, corpo e piede escono una volta ciascuno. */
+    const piede = `${flow ? '' : firme}
         <div class="pr-footer">
           <span class="pr-footer-copy">© Andrea Sacchetti — Pathfinder ${VERSIONE_APP} — Dietopack S.r.l. / Naturacare Group</span>
-          <span>${this._esc(docId)} — ${this._esc(printedLabel)} ${this._esc(fmt)}</span>
+          ${/* 2.24 — CIO' CHE SI RIPETE SU OGNI FOGLIO. In un documento che
+                scorre questo piede torna a ogni pagina, ed e' l'unico posto
+                dove chi riceve puo' accorgersi che un foglio manca: il conto
+                delle righe si confronta con quelle che ha in mano. Il numero
+                di pagina lo scrivono le page margin box di `@page`, dove il
+                browser le sostiene. */''}
+          <span>${this._esc(docId)}${footNote ? ` · ${this._esc(footNote)}` : ''} — ${this._esc(printedLabel)} ${this._esc(fmt)}</span>
         </div>`;
     const filigrana = watermark ? `<div class="doc-draft">${this._esc(watermark)}</div>` : '';
 
@@ -661,7 +674,7 @@ export const VistaSmaltimento = {
         </td></tr></tfoot>
         <tbody><tr><td class="doc-flow-cell doc-flow-cell--body">
           ${filigrana}
-          <section class="doc-zone-body">${body}</section>
+          <section class="doc-zone-body">${body}${firme}</section>
         </td></tr></tbody>
       </table>`;
     }

@@ -7,7 +7,37 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **03/09/2026 notte** — **la tappa dice a che altezza sta.** La
+Aggiornato: **04/09/2026 sera** — **i due fogli che escono dal magazzino
+dicono cose diverse, e adesso si vede.** La **2.24** rifà il DDT e la packing
+list. Il DDT dice **cosa c'è sul camion**: sei colonne — articolo, lotto,
+scadenza, colli, **quantità e unità in due celle** — dove prima erano otto e le
+due che non servivano, il numero di riga e le Note in colonna, rubavano lo
+spazio alle quattro che si cercano in banchina. La packing list dice **com'è
+fatto**: non più un blocco per pallet, ma **articolo → lotto → bancale**, tre
+livelli di riga e **ognuno col suo totale** — chi si ferma al lotto ha il
+numero del lotto, chi scende trova i pallet che lo compongono.
+
+Sotto la superficie stavano **tre difetti che nessuno aveva ancora pagato**.
+La colonna della quantità aveva **13 mm e `nowrap`**: «1.250,00 KG» non ci sta
+e `nowrap` non manda a capo, quindi sbordava sotto la colonna accanto. Il DDT
+**restava a pagina sola per scelta**, ma niente faceva rispettare la scelta: un
+documento con molte partite usciva lo stesso su due fogli, e il secondo
+arrivava **senza testata, senza il numero del DDT e a filo carta**. E le tre
+firme della packing list uscivano **senza etichetta** da quando il foglio
+esiste, perché erano passate come coppie dove il codice legge oggetti — nessun
+errore, nessun tipo che si lamenta. Il margine adesso sta **sulla pagina**, in
+un posto solo, e le firme stanno in coda al **corpo**: nel piede ripetuto si
+firmavano una volta per foglio.
+
+**E il banco misurava fogli vuoti.** `impaginazione` passava verde su sette
+documenti che, nella copia di prova, hanno **una riga**: il caso che rompe un
+foglio non era mai stato provato. Adesso il foglio è una funzione del
+documento — `_ddtFoglioHTML`, `_packingFoglioHTML` — e il banco ne compone due
+da un **carico pieno**, dieci partite su ventisei bancali, senza scrivere
+niente a database. Rimettendo la colonna stretta di prima, il banco nomina
+**ventidue** valori che uscirebbero tagliati: prima ne nominava tre.
+
+Prima di questo — **la tappa dice a che altezza sta.** La
 **2.22** disegna nella scheda del prelievo la **campata vista di fronte**: i
 livelli impilati, quello da prelevare acceso pieno, gli altri col solo stato.
 Un codice — `MG1-SCA-04-06-2` — diventa un gesto: quale ripiano, contando da
@@ -52,11 +82,18 @@ arrotondati, fondo tenue, bordo pieno — e la tessera del prodotto finito ha
 un **marchio suo**: un pallet coi suoi colli, non una fabbrica.
 
 **Cinque blocchi, tutti i collaudi verdi tranne uno che era già rosso** — §4,
-voce **87**. **La 2.21.0 è in servizio su questa macchina**, impronta
-`479913cd…` — misurata da `/api/app-info`, non dedotta: §0 punto 2. Accanto
-c'è la **2.21.1, costruita e non installata** (`f2ecf629…`): una riga di
-registro, trovata dal carico vero di Andrea sul banco. Il numero è nei
-quattro posti di §7.
+voce **87**. **In servizio su questa macchina c'è la 2.23.0**, impronta
+`f9d4e012…` — misurata da `/api/app-info` il 04/09 sera, non dedotta: §0 punto
+2. Accanto c'è la **2.24.0, costruita e non installata** (`39c2ecce…`). Il
+numero è nei quattro posti di §7.
+
+> **E QUESTA È LA QUINTA VOLTA.** Fino al 04/09 sera questo documento diceva
+> che in servizio c'era la **2.21.0** e che la **2.23.0** era «costruita, non
+> installata». Il servizio dice altro, e §0 punto 2 è nato per questo: **quello
+> che risponde batte quello che il documento dice**. È successo con le voci 35
+> e 48-bis, poi ancora, e adesso di nuovo. Non è un errore di chi scrive: è il
+> costo di uno stato che si aggiorna a mano e di un'installazione che, qui, non
+> ha un gesto separato — **servita vuol dire installata**, §0.
 
 Prima di questo — **la 2.20.0**, impronta `d10d7830…`, in servizio dalle
 15:54:46Z di oggi e adesso via di ritorno: il magazzino del prodotto finito.
@@ -291,7 +328,48 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.23.0 — costruita, non installata
+### La 2.24.0 — costruita, non installata
+
+**I due fogli che escono dal magazzino, rifatti.** Il DDT dice **cosa c'è sul
+camion** in sei colonne — articolo, lotto, scadenza, colli, quantità e unità,
+queste ultime in due celle separate — e la packing list dice **com'è fatto**,
+per articolo → lotto → bancale, tre livelli di riga e ognuno col suo totale.
+Sotto, tre difetti che stavano lì da mesi: la colonna della quantità in 13 mm
+con `nowrap`, che tagliava «1.250,00 KG»; il DDT che usciva su due fogli e
+mandava il secondo **senza testata e a filo carta**; le tre firme della packing
+list **senza etichetta**, passate come coppie dove il codice legge oggetti.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.24.0\` |
+| impronta | `39c2ecced9f0d9822ccff8ad54da1a1a700b5825c143050637fc7a80c5ee8bcc` |
+| byte | **2.085.939** in **4 file**, `costruita 2026-09-04T17:27:31Z` |
+| riproducibile | **sì, verificata**: **tre** build di fila danno la stessa impronta |
+| archiviata | `ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.24.0\` — pacchetto intero, installer compreso |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.389 in 52 file** (una saltata) · banco a video **364 su 368**, e i quattro rossi non sono difetti: tre sono `rilievoStile`, che confronta col rilievo preso a **1542×914** mentre la finestra qui era **1006×913** — sono larghezze e `transform-origin` di `.card` e `.kpi-card`, nessuna classe di stampa — e il quarto è `impianto`, rosso perché la sessione era già aperta a mano; da pagina appena ricaricata dà **14 su 14** · `servizio\test\collaudo-installazione.js` girato **dentro** il pacchetto: **43 su 43** |
+| cosa cambia dalla 2.23.0 | **due viste, un modulo puro, un blocco di CSS e il banco**: `distintaPerArticolo` in `modules/documenti.ts`, i fogli di `spedizioni.ts` separati dalla stampa, le firme fuori dal piede ripetuto in `smaltimento.ts` (vale per **tutti e quattro** i documenti che scorrono), `@page { margin: 12mm }`. Nessun campo nuovo a database, nessuna migrazione, niente che scriva |
+| installata | **no.** §0: installare è un atto umano |
+
+> ⚠️ **`consegna\Pathfinder 2.23.0\` È STATA SOVRASCRITTA, ED È LA TRAPPOLA
+> DEL 19/08 DI §7 PAGATA UNA SECONDA VOLTA.** Le build di verifica di questo
+> lavoro sono partite col numero ancora fermo a `2.23.0`. **Non si è perso
+> niente** — il pacchetto intero sta in `ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder
+> 2.23.0\` e il suo manifesto porta ancora `f9d4e012…`, l'impronta dichiarata —
+> ma la regola resta quella: **il numero si alza prima di costruire**, e prima
+> di una build di verifica si copia il pacchetto che aspetta un'installazione.
+> Questa volta l'archivio ha fatto da rete; la volta della 2.21.1 non c'era.
+
+**IL NUMERO DI PAGINA È L'UNICA COSA CHE NON È STATA MISURATA.** `@page` chiede
+`counter(page)` e `counter(pages)` in una *page margin box*, che è l'unico
+posto da cui ci si arriva: il banco prende le regole da `@media print` e quelle
+stanno **dentro** `@page`, quindi non le vede. Dove il browser non le sostiene
+non esce niente e non si rompe niente — e per questo il conto delle righe sta
+**anche** nel piede ripetuto, che funziona ovunque. **Si guarda con
+un'anteprima di stampa**, e finché non lo si è guardato questa riga dice che
+non lo si sa.
+
+### La 2.23.0 — in servizio su questa macchina
 
 **Il banco a video, e due difetti che nessuna prova poteva vedere.** Le prove
 di questo progetto passavano tutte da `fetch`: forti su quel che il magazzino
@@ -309,7 +387,7 @@ lo schermo — quindici flussi, 355 controlli — e ha trovato due cose vere.
 | collaudi | **1.375 in 52 file** (una saltata) · banco del ciclo **47 su 47** · banco a video **355 su 355** · `servizio\test\collaudo-installazione.js` girato **dentro** il pacchetto: **43 su 43** |
 | cosa cambia dalla 2.22.0 | cinque rotte del servizio normalizzano i codici che arrivano nel corpo; una serratura sulla maschera di posizionamento; il resto è banco, che non entra nel pacchetto |
 | database | nessun campo nuovo, nessuna migrazione |
-| installata | **no.** §0: installare è un atto umano |
+| **installata** | **sì, su QUESTA macchina** — `/api/app-info` risponde `2.23.0` con l'impronta `f9d4e012…`, e `C:\Pathfinderpp\corrente` porta quella. Misurato il **04/09 sera**; la riga diceva «no», e diceva male — vedi l'avviso in testa a §1 |
 
 **I DUE DIFETTI, e come sono venuti fuori.**
 
@@ -361,11 +439,23 @@ I quindici flussi: `impianto` (collauda il banco, non l'applicativo),
 `contiDeiDocumenti`, `configZone`, `prodottoFinito`, `caricoSpedizione`,
 `percorso`.
 
-Due meritano una riga. **`impaginazione`** misura i **sette documenti che
-escono in stampa** senza stamparli: prende le regole di `@media print` da
+Due meritano una riga. **`impaginazione`** misura i documenti che escono in
+stampa senza stamparli: prende le regole di `@media print` da
 `document.styleSheets` — dove il browser le ha già lette — le rimette come
-regole normali, porta il foglio a 210mm e cerca testo sopra altro testo e
-testo fuori dal margine. 357 elementi, nessuna sovrapposizione.
+regole normali, porta il foglio all'**area stampabile** (186mm: A4 meno i due
+margini di 12mm) e cerca testo sopra altro testo e testo fuori dal margine.
+
+> **DALLA 2.24 I FOGLI SONO NOVE, E I DUE NUOVI SONO QUELLI CHE CONTANO.** I
+> sette escono dai documenti che stanno a database, e nella copia di prova un
+> DDT ha **una riga**: sono fogli che non hanno niente da impaginare, e la
+> prova passava verde su tutti mentre il caso che rompe un documento non era
+> mai stato misurato. Adesso il banco compone anche un **carico pieno** —
+> dieci partite su ventisei bancali, due unità di misura che non si sommano,
+> descrizioni lunghe, note di riga — e ne misura DDT e packing list **senza
+> scrivere niente a database**: dalla 2.24 il foglio è una funzione del
+> documento. Con la colonna della quantità rimessa a 13mm il banco nomina
+> **ventidue** valori che uscirebbero tagliati, dove sul DDT da una riga ne
+> nominava tre. **389 elementi, nessuna sovrapposizione.**
 **`contiDeiDocumenti`** rifà i conti di **tutti** i DDT: numero colli come
 somma delle righe, quantità **per unità di misura** — mai una cifra sola per
 unità diverse — una riga in bolla per partita e non per bancale, e il peso
@@ -952,12 +1042,79 @@ resta l'unità di carico della 1.12.
   All'evasione i bancali del documento passano a `shipped`, e l'elenco li
   mostra diversi.
 - **LA PACKING LIST NON È UNA COLLEZIONE NUOVA**: è un secondo modo di
-  stampare lo stesso documento archiviato. Un bancale per blocco, e sotto le
-  sue righe — è il foglio di chi scarica il camion, che cerca il codice letto
-  sull'etichetta del pallet. **Il DDT resta a pagina sola** — accompagna il
-  trasporto — **la packing list scorre**, perché dieci bancali non stanno in
-  un foglio. Il peso lordo somma le tare al netto e **resta vuoto dove le
-  unità non si sommano**: un lordo inventato finisce in bolla.
+  stampare lo stesso documento archiviato. Il peso lordo somma le tare al netto
+  e **resta vuoto dove le unità non si sommano**: un lordo inventato finisce in
+  bolla. **Dalla 2.24 il corpo del foglio è articolo → lotto → bancale**, e
+  **tutti e due i documenti scorrono** — le due righe che dicevano «un bancale
+  per blocco» e «il DDT resta a pagina sola» sono cadute: perché, sta scritto
+  poco sotto.
+
+### I due fogli che escono dal magazzino — 2.24
+
+- **IL DDT DICE COSA C'È SUL CAMION, LA PACKING LIST DICE COM'È FATTO.** Sono
+  due domande e non due formati, e fino alla 2.23 il secondo foglio rispondeva
+  a una terza: «questo pallet cosa tiene», che è la domanda di chi scarica. Chi
+  controlla la merce col DDT accanto ne fa un'altra — «questo articolo, in
+  questo lotto, su quanti bancali è arrivato e quanto fa» — e su dieci blocchi
+  quel numero non si ricavava guardandoli. Adesso il corpo è **articolo →
+  lotto → bancale**, tre livelli di riga, e **ogni livello porta il suo
+  totale**: un livello che non somma sarebbe un elenco indentato, non una
+  distinta. Il codice del pallet resta, al terzo livello, dove chi scarica lo
+  cerca.
+- **SEI COLONNE SUL DDT, E SONO QUELLE CHE SI CERCANO IN BANCHINA**: articolo,
+  natura e qualità, lotto, scadenza, colli, **quantità e unità in due celle**.
+  Erano otto: il numero di riga progressivo — che nessuna norma chiede, e chi
+  controlla non cerca «la riga 4», cerca un lotto — e le Note in colonna, 24 mm
+  per un testo libero. Le note sono scese sotto la descrizione, dove hanno la
+  larghezza del foglio. **La quantità stava in 13 mm con `nowrap`**, ed è il
+  difetto che si vedeva: «1.250,00 KG» non ci sta, e `nowrap` non manda a capo
+  — sbordava sotto la colonna accanto. Adesso il numero ha 22 mm e l'unità i
+  suoi 14: **incollata, l'unità si legge una riga per volta; separata, si legge
+  in colonna** e si vede subito che un DDT porta chili e pezzi insieme.
+- **ANCHE IL DDT SCORRE, e la 2.20 aveva deciso il contrario.** «Il DDT resta a
+  pagina sola» era una scelta buona — accompagna il trasporto — ma **niente la
+  faceva rispettare**: un documento con molte partite usciva lo stesso su due
+  fogli, e il secondo arrivava **senza testata, senza il numero del DDT e a
+  filo carta**. Chi lo trova in mano non sa nemmeno di che documento è la
+  seconda metà. Fra un secondo foglio che non esiste e un secondo foglio che si
+  presenta, il secondo.
+- **IL MARGINE STA SULLA PAGINA, E IN UN POSTO SOLO.** Stava in due: una
+  `padding: 12mm` su `#printReport`, che vale per la **prima** pagina e basta,
+  e `padding: 0 12mm` sulle celle del documento che scorre, che era il modo di
+  rimediare alla prima. Adesso lo dà `@page { margin: 12mm }`, che è dove il
+  margine di una pagina sta, e vale per ogni foglio di ogni documento. **Le
+  misure non cambiano di un millimetro** — 297 − 24 = 273 mm, 210 − 24 =
+  186 mm — sono gli stessi numeri su cui le colonne sono tarate.
+- **IL NUMERO DI PAGINA SI CHIEDE, E NON SI PROMETTE.** `@page` porta
+  `@bottom-right { content: "pag. " counter(page) " di " counter(pages) }`:
+  è **l'unico posto** da cui si arriva a `counter(page)`, e un documento che
+  scorre non sa da sé su quale foglio sta. Le *page margin box* Chromium le ha
+  da poco e **il banco non sa misurarle** — prende le regole da `@media print`,
+  e quelle stanno dentro `@page`. Dove il browser non le sostiene non esce
+  niente e non si rompe niente. **Per questo il conto delle righe sta ANCHE nel
+  piede ripetuto** («DDT n · 10 righe in totale»), che funziona ovunque: senza
+  numeri di pagina, è quello che fa accorgere chi riceve che manca un foglio.
+- **LE FIRME SI FIRMANO UNA VOLTA.** In un documento che scorre il piede sta
+  nel `tfoot`, che è il gruppo che il browser ristampa su **ogni** pagina: le
+  tre righe da firmare uscivano su tutte, e chi firma non sa quale valga.
+  Adesso stanno in coda al corpo, che finisce una volta sola. Valeva per tutti
+  e quattro i documenti che scorrono, non solo per i due delle spedizioni.
+- **E LE TRE FIRME DELLA PACKING LIST NON AVEVANO NOME.** Erano passate come
+  **coppie** — `['Preparato da', operatore]` — dove `_docPageHTML` legge `role`
+  e `hint`: le etichette uscivano **vuote** da quando il foglio esiste. Nessun
+  errore, nessun tipo che si lamenta, e `_esc(undefined)` torna stringa vuota
+  senza dire niente. È la stessa famiglia del campo che non arrivava a
+  database, qui in mezzo.
+- **IL FOGLIO SI È SEPARATO DALLA STAMPA**, e serviva al banco. `_printDDT`
+  leggeva dallo Store, componeva il foglio e stampava, tutto insieme: il banco
+  a video poteva misurare solo i documenti già a database, e nella copia di
+  prova un DDT ha **una riga**. Sono fogli che non hanno niente da impaginare,
+  e **la 2.23 è passata verde su un foglio vuoto**. Adesso `_ddtFoglioHTML` e
+  `_packingFoglioHTML` compongono, `_printDDT` e `_printPackingList` leggono e
+  stampano — e il banco passa un **carico pieno** (dieci partite su ventisei
+  bancali, due unità che non si sommano, descrizioni lunghe) senza scrivere
+  niente a database. Il markup resta in una copia sola.
+
 - **IL CONTO TERZI NON SCARICA: SPOSTA.** Una causale marcata «la merce si
   sposta» accompagna merce che resta nostra: all'evasione i bancali cambiano
   ubicazione e vanno nel vano del sito terzista, che sta già sulla mappa, con
@@ -1920,6 +2077,7 @@ scelta e non per dimenticanza (§8).
 ### Aperte — da pianificare
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **97** | **IL NUMERO DI PAGINA DEL DDT NON È MAI STATO VISTO SU CARTA.** La 2.24 fa scorrere il DDT e chiede a `@page` una *page margin box* — `@bottom-right { content: "pag. " counter(page) " di " counter(pages) }`. È l'unico posto da cui si arriva a `counter(page)`, e **il banco non sa misurarlo**: prende le regole da `@media print` e quelle stanno dentro `@page`. Chromium le sostiene da poco; dove non le sostiene non esce niente e non si rompe niente, ma **nessuno l'ha ancora guardato** | **Un'anteprima di stampa e basta**: si apre un DDT lungo, Ctrl+P, e si guarda l'angolo in basso a destra — ricordandosi di **togliere intestazioni e piè di pagina del browser** dalle opzioni, che altrimenti scrivono i loro sopra i nostri. Se non compare, il ripiego c'è già e funziona ovunque: il piede ripetuto porta «n righe in totale», ed è quello che fa accorgere chi riceve che manca un foglio |
 | **96** | **`01-components.css` DICHIARA 70 SELETTORI PIÙ DI UNA VOLTA, PER 143 REGOLE SU 253.** Quasi tutta la pulsantiera è scritta due volte: una nel blocco di base e una in «MD3 STATE LAYER & REFINEMENTS», che parte a riga 405. `.btn` compare **quattro volte** — righe 15, 406, 431, 446 — e la quarta rimette il colore che la terza aveva tolto: **stessa specificità, decide l’ordine**. Fondere in una regola per selettore toglie 143 righe, e cambia l’aspetto dell’applicativo se una sola proprietà finisce nell’ordine sbagliato. Riordinare conta solo fra regole di **pari specificità che toccano la stessa proprietà** — `.btn:hover` fra due `.btn` non è un problema — ma stabilirlo a occhio su 143 regole non si fa | **LA RETE È PRONTA, LA FUSIONE NO.** Il flusso `rilievoStile` del banco a video apre tutte le maschere, cerca gli elementi che quei 58 selettori nominano e scrive che cosa il browser CALCOLA per le 62 proprietà che quelle regole toccano: **1.129 elementi**, misurati e messi da parte in `banco/video/rilievo-stile.json`. Dopo la fusione si rimisura e le due misure devono coincidere; se una differisce, il verbale dice elemento, proprietà, da cosa a cosa. Provata iniettando `.btn{border-radius:3px}`: l’ha detto. **Il passo successivo è la fusione**, e prima va deciso se è rifattorizzazione pura — stesso rendering, zero pixel spostati — o se si sistema anche quel che MD3 ha sbagliato, che è una domanda per chi usa il terminale col guanto |
 | **94** | **LA CAMPATA DELLA 2.22 PUÒ DIRE ANCHE QUALI ALTRI LIVELLI SONO TAPPE DI QUESTO GIRO.** `_routeSosta` raggruppa già le tappe pendenti contigue nello stesso vano, ma non dice niente sui vani sopra e sotto: chi è salito sul carrello per il livello 2 non sa che il 3 lo aspetta fra quattro tappe | **Si guarda dopo un po' di prelievi veri**: quanto spesso due tappe dello stesso giro cadono nella stessa campata. Se capita di rado non vale il segno in più; se capita spesso, il dato c'è già — basta passare a `colonnaDi` i codici delle tappe pendenti |
 | **95** | **`_renderMapFrontal` DELLA MAPPA NON PASSA DA `modules/colonna.ts`.** La 2.22 ha estratto la domanda «com'è fatta questa campata» in un modulo puro, ma la mappa continua a rispondersela da sola, come faceva prima. Non è un difetto — disegna corsie intere, non una colonna — ma **quale sia lo stato di un vano** adesso è scritto in due posti | **Si guarda quando si tocca la mappa la prossima volta**, non prima: spostare un disegno che funziona per farlo passare da un modulo nuovo è il tipo di lavoro che rompe quel che era verde. Se si fa, si fa con le prove della mappa davanti |
@@ -2193,9 +2351,13 @@ Il giro fatto il 03/09 sera, tutto passato:
 7. **Un secondo DDT nello stesso carico, con la tappa saltata**: alla
    chiusura esce il primo, il secondo **resta pendente** e il riscontro dice
    quale e quanto manca.
-8. **DDT e packing list a video**: due bancali dello stesso lotto danno **una
-   riga sola** in bolla («80 colli · 1.600 KG · 2 bancali») e **due blocchi**
-   in packing list, ognuno con «40 × 20 KG», più il riepilogo per lotto.
+8. **DDT e packing list a video** — riscritto per la **2.24**: due bancali
+   dello stesso lotto danno **una riga sola** in bolla, con la quantità e
+   l'unità in **due colonne** («80 · 1.600 · KG») e «2 bancali» sotto la
+   descrizione, non in una colonna Note. In packing list danno **una riga
+   articolo, una riga lotto e due righe bancale** annidate sotto, ognuna con
+   «40 × 20 KG», e i totali di articolo e lotto devono coincidere con la somma
+   delle righe sotto — è la cosa che si guarda per prima.
 9. **La maschera a 480 px**, che è il terminale del reparto: ci sta tutta.
 
 > **Il banco della 2.21 ha usato una copia con `operators` svuotata** e un
@@ -3359,7 +3521,7 @@ in Configurazione → Operatori.
 | `modules/compiti.ts` | 555 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. `registroAttivita` unisce i compiti ai campionamenti che nessun compito rivendica. Puro |
 | `modules/misure.ts` · `colli.ts` | 319 · 578 | Le cinque unità e la suddivisione per collo · l'elenco dei colli: uscite come le capisce il servizio, ritrovamento per misura, `scelteDaTaglie`, `riempiFabbisogno`, `rettifica`. Puri |
 | `modules/registro.ts` | 46 | **2.16 — le due domande che si fanno a una riga del registro**: quanto è cambiata (`quantoSiEMosso`) e quanti colli hanno cambiato posto (`quantitaMossa`). Stanno insieme perché confonderle è il difetto della voce 33. Puro |
-| `modules/documenti.ts` | 118 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto, e dalla 2.20 porta anche `udc_id` — da quale bancale esce la riga. **2.21**: `raggruppaPerPartita`, la riga che si STAMPA — un articolo e un lotto — mentre quella che si salva resta una per bancale. Puro |
+| `modules/documenti.ts` | 258 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto, e dalla 2.20 porta anche `udc_id` — da quale bancale esce la riga. **2.21**: `raggruppaPerPartita`, la riga che si STAMPA — un articolo e un lotto — mentre quella che si salva resta una per bancale. **2.24**: `distintaPerArticolo`, i tre livelli della packing list — articolo, lotto, bancale — ognuno col suo totale, con le stesse due regole del dato: unità diverse lasciano il totale **vuoto** e una scadenza discorde dentro un lotto sparisce. Somma con `sommaUom`, cioè con lo stesso arrotondamento dei totali del DDT: due totali che si scostano di un millesimo sullo stesso foglio sono una contestazione in banchina. Puro |
 | `modules/giacenzaArticolo.ts` | 175 | La giacenza di un articolo per lotto, FEFO, e la coda di conte nell'ordine dello scaffale. **Le UM non si calcolano qui**: arrivano risolte da `Store.righeLette`. Puro |
 | `modules/trasferimentiOdp.ts` · `dispositivo.ts` | 142 · 74 | Le tappe in un altro magazzino e il compito che ne nasce · su che cosa sta girando (decide **la larghezza**, non il sistema operativo). Puri |
 | `modules/colonna.ts` | 119 | **2.22 — com'è fatta la campata che contiene un vano**: i livelli dall'alto in basso, ciascuno col **solo stato**, più i livelli che tengono lo stesso articolo con un lotto diverso. Sta da solo perché la domanda la fanno la scheda della tappa e, il giorno che servirà, la mappa. Torna `null` su terra, rinfusa e scaffali a un livello: **una colonna di un rettangolo solo non è una colonna**. I codici dei fratelli li dà `generaUbicazioni`, mai una `split('-')`. Puro |
@@ -3397,7 +3559,7 @@ spostare, e un doppione verrebbe sovrascritto in silenzio.
 | File | Righe | Cosa disegna |
 |---|---:|---|
 | `percorso.ts` | 1.924 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano. **2.22**: la **campata vista di fronte** accanto ai dati — `_routeColonna` la chiede a `modules/colonna.ts`, `_routeColonnaHTML` la disegna, `_routeRischioLottoHTML` avvisa dello stesso articolo con un altro lotto. Si guarda e basta: nessun gestore |
-| `spedizioni.ts` | 1.689 | DDT: testata, carrello, documento pendente, evasione, stampa. **2.20**: il carrello si riempie **dai bancali** (`_shipCaricaDaBancali` — sta qui perché il carrello è qui), la **packing list** che raggruppa le righe per bancale, e `_evadiTrasferendo`, l'evasione del **conto terzi** che sposta la merce invece di scaricarla. **2.21**: `_shipRigheDaBancali` — come una riga di DDT nasce da un pallet, in un posto solo, perché la chiedono in due — il DDT che **stampa** una riga per articolo#lotto, e la packing list che dice com'è fatto il collo e chiude con un riepilogo per lotto |
+| `spedizioni.ts` | 1.824 | DDT: testata, carrello, documento pendente, evasione, stampa. **2.20**: il carrello si riempie **dai bancali** (`_shipCaricaDaBancali` — sta qui perché il carrello è qui), la **packing list** che raggruppa le righe per bancale, e `_evadiTrasferendo`, l'evasione del **conto terzi** che sposta la merce invece di scaricarla. **2.21**: `_shipRigheDaBancali` — come una riga di DDT nasce da un pallet, in un posto solo, perché la chiedono in due — il DDT che **stampa** una riga per articolo#lotto, e la packing list che dice com'è fatto il collo. **2.24**: il **foglio si separa dalla stampa** — `_ddtFoglioHTML` e `_packingFoglioHTML` compongono, `_printDDT` e `_printPackingList` leggono dallo Store e stampano — perché il banco a video sui documenti a database non misurava mai il caso che rompe un foglio: quello che non ci sta. E la packing list si legge per **articolo → lotto → bancale** (`_packingDistintaHTML`), col numero e la sua unità in due celle (`_packingQta`) |
 | `inventario.ts` | 1.035 | Inventario di vano, conta mirata, ramo «Per articolo» col giro di conte |
 | `configDati.ts` | 975 | Dati, resilienza, i tre fogli Excel, reset (che chiede il PIN dell'Admin) |
 | `cruscotto.ts` | 900 | I tredici riquadri componibili e le sette scorciatoie |

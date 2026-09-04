@@ -12,8 +12,8 @@ import { formattaQuantita, sommaUom as sommaUomColli } from '../../modules/misur
 import { Dialog } from '../dialog';
 import { Feedback } from '../feedback';
 import { descriviModello as descriviModelloImballo } from '../../modules/imballo';
-import { raggruppaPerPartita } from '../../modules/documenti';
-import type { PartitaStampata } from '../../modules/documenti';
+import { raggruppaPerPartita, distintaPerArticolo } from '../../modules/documenti';
+import type { PartitaStampata, DistintaArticolo } from '../../modules/documenti';
 
 /* Una riga del carrello DDT: la merce scelta, quanti colli, e quanti ce
    n'erano quando la riga è nata — serve a dire se nel frattempo è cambiata. */
@@ -559,7 +559,7 @@ export const VistaSpedizioni = {
           <button class="btn" style="flex:1;min-width:120px;padding:0.5rem;font-weight:700;background:${themeColor};color:#fff;border-color:${themeColor}" onclick="App._evadiSpedizione('${this._esc(doc.doc_id)}')">${this._ico('check')} EVADI DDT</button>
           <button class="btn bg-sx-accent-soft text-sx-accent border-sx-accent font-semibold" onclick="App._editPendingDoc('${this._esc(doc.doc_id)}')" title="Modifica DDT">${this._ico('edit')} Modifica</button>
           <button class="btn" onclick="App._printDDT('${this._esc(doc.doc_id)}')" title="Stampa il DDT">${this._ico('printer')}</button>
-          <button class="btn" onclick="App._printPackingList('${this._esc(doc.doc_id)}')" title="Stampa la packing list — un bancale per blocco">${this._ico('package')}</button>
+          <button class="btn" onclick="App._printPackingList('${this._esc(doc.doc_id)}')" title="Stampa la packing list — la distinta per articolo, lotto e bancale">${this._ico('package')}</button>
           <button class="btn btn-ghost text-sx-danger" onclick="App._cancelPendingShip('${this._esc(doc.doc_id)}')" title="Annulla DDT">${this._ico('x')}</button>
         </div>
       </div>
@@ -1461,82 +1461,133 @@ export const VistaSpedizioni = {
       e allora la cella resta VUOTA: un documento si rilegge, non si
       ricostruisce, e un «per collo» dedotto dividendo sarebbe un numero
       inventato appena i colli hanno misure diverse. */
-  _packingComposizione(l: RigaDocumento): string {
-    const uscite = Array.isArray(l.packs_out) ? l.packs_out : null;
-    if (!uscite?.length || !l.uom) return '';
-    return descriviColli(uscite.map((u: { quantita: number }) => u.quantita), l.uom);
+  _packingComposizione(uscite: number[] | null, uom: string | null): string {
+    if (!uscite?.length || !uom) return '';
+    return descriviColli(uscite, uom);
   },
 
-  /* IL FOGLIO E' PER BANCALE, MA LA DOMANDA FINALE E' PER LOTTO. Chi
-     riceve controlla «quanto di questo articolo e di questo lotto e'
-     arrivato», e su dieci bancali quel numero non si ricava guardando i
-     blocchi. E' la stessa partita del DDT — `raggruppaPerPartita` — e qui
-     porta in piu' su quanti bancali e' distribuita. */
-  _packingRiepilogoHTML(doc: DocumentoUscita): string {
-    /* Con UNA riga sola il riepilogo ripeterebbe il blocco che sta sopra.
-       Da due in su risponde a una domanda che il foglio non risponde: dieci
-       bancali di tre lotti non si sommano guardando i blocchi. */
-    if ((doc.lines?.length ?? 0) < 2) return '';
-    const partite = raggruppaPerPartita(doc.lines) as PartitaStampata[];
-    return `<div class="pk-riepilogo">
-      <div class="pk-riepilogo-tit">Riepilogo per articolo e lotto</div>
-      <table class="ddt-table"><thead><tr>
-        <th class="c-art">Articolo</th><th class="c-desc">Descrizione</th>
-        <th class="c-lot">Lotto</th><th class="c-qty">Bancali</th>
-        <th class="c-qty">Colli</th><th class="c-pcs">Quantità</th>
-      </tr></thead><tbody>${partite.map((p) => `<tr>
-        <td class="c-art">${this._esc(p.article_code)}</td>
-        <td class="c-desc">${this._esc(p.article_description || '—')}</td>
-        <td class="c-lot">${this._esc(p.lot_code)}</td>
-        <td class="c-qty">${p.bancali.length || ''}</td>
-        <td class="c-qty">${p.qty}</td>
-        <td class="c-pcs">${(p.qty_uom != null && p.uom)
-          ? `${formattaQuantita(p.qty_uom, p.uom)} ${this._esc(p.uom)}` : ''}</td>
-      </tr>`).join('')}</tbody></table>
-    </div>`;
+  /** Il numero e la sua unita' in due celle: e' la colonna che si legge in
+      verticale scorrendo il foglio, e un'unita' incollata al numero la fa
+      leggere una riga per volta. Vuota dove il totale non si puo' fare. */
+  _packingQta(qty_uom: number | null, uom: string | null): string {
+    if (qty_uom == null || !uom) return '<td class="c-num"></td><td class="c-uom"></td>';
+    return `<td class="c-num">${this._esc(formattaQuantita(qty_uom, uom))}</td>`
+      + `<td class="c-uom">${this._esc(uom)}</td>`;
   },
 
-  _printPackingList(doc_id) {
-    const doc = Store.getPendingDoc(doc_id) || Store.getAllOutbound().find((d) => d.doc_id === doc_id);
-    if (!doc) return this.toast('Documento non trovato', 'error');
-    Feedback.clear();
+  /* ═══ 2.24 · LA DISTINTA: ARTICOLO, LOTTO, BANCALE ══════════════════════
 
+     FINO ALLA 2.23 IL FOGLIO ERA PER BANCALE — un blocco per pallet, e sotto
+     le righe che porta. Rispondeva alla domanda di chi scarica il camion, e
+     lasciava scoperta quella di chi controlla la merce col DDT accanto:
+     «questo articolo, in questo lotto, su quanti bancali e' arrivato e quanto
+     fa in tutto». Su dieci blocchi quel numero non si ricava guardandoli, e
+     il riepilogo in coda lo dava senza dire da dove veniva.
+
+     ADESSO IL FOGLIO SEGUE LA DOMANDA: articolo, dentro il lotto, dentro i
+     bancali. Ogni livello porta il suo totale — chi si ferma al lotto ha il
+     numero del lotto, chi scende trova i pallet che lo compongono — e il
+     livello del bancale porta ancora il codice da cercare sull'etichetta,
+     con supporto e ordine di produzione accanto.
+
+     UNA TABELLA SOLA, NON UNA PER ARTICOLO. Le colonne restano incolonnate da
+     cima a fondo del foglio, l'intestazione si ripete su ogni pagina da se'
+     (`thead`), e i tre livelli si distinguono per rientro e peso del segno.
+     Tre tabelle affiancate darebbero tre griglie che non si allineano. */
+  _packingDistintaHTML(doc: DocumentoUscita): string {
+    const modelli = Store.getModelliImballo();
+    const distinta = distintaPerArticolo(doc.lines) as DistintaArticolo[];
+    if (!distinta.length) return '<div class="doc-empty">Nessuna riga su questo documento.</div>';
+
+    const corpo = distinta.map((a: DistintaArticolo) => {
+      const bancaliArticolo = new Set<string>();
+      for (const l of a.lotti) for (const b of l.bancali) if (b.udc_id) bancaliArticolo.add(b.udc_id);
+
+      const righeLotto = a.lotti.map((l) => {
+        const righeUdc = l.bancali.map((b) => {
+          /* SUPPORTO E ORDINE SI LEGGONO ADESSO, non alla registrazione del
+             documento: stanno sull'unita' di carico e nei modelli
+             configurati. Congelarli sulla riga vorrebbe dire un campo in piu'
+             su ogni DDT per un dato che cambia una volta ogni due anni. */
+          const u = b.udc_id ? Store.getUdc(b.udc_id) : null;
+          const m = u?.model_code ? modelli.find((x) => x.code === u.model_code) : null;
+          const dettaglio = [m ? descriviModelloImballo(m) : '', u?.odp_num ? `ordine ${u.odp_num}` : '']
+            .filter(Boolean).join(' · ');
+          return `<tr class="pk-r-udc">
+            <td class="c-cod">${b.udc_id ? this._esc(b.udc_id) : '<span class="doc-empty">senza bancale</span>'}</td>
+            <td class="c-desc">${this._esc(dettaglio)}</td>
+            <td class="c-qty">${b.colli}</td>
+            <td class="c-pcs">${this._esc(this._packingComposizione(b.uscite, b.uom))}</td>
+            ${this._packingQta(b.qty_uom, b.uom)}
+          </tr>`;
+        }).join('');
+
+        const scad = this._dateISOtoIT(l.expiry_date) || l.expiry_date || '';
+        const quanti = l.bancali.filter((b) => b.udc_id).length;
+        return `<tr class="pk-r-lot">
+          <td class="c-cod">${this._esc(l.lot_code || '—')}</td>
+          <td class="c-desc">${scad ? `scadenza ${this._esc(scad)}` : '<span class="doc-empty">scadenza non indicata</span>'}${
+            quanti ? ` · ${quanti} ${quanti === 1 ? 'bancale' : 'bancali'}` : ''}</td>
+          <td class="c-qty">${l.colli}</td>
+          <td class="c-pcs"></td>
+          ${this._packingQta(l.qty_uom, l.uom)}
+        </tr>${righeUdc}`;
+      }).join('');
+
+      return `<tbody class="pk-gruppo">
+        <tr class="pk-r-art">
+          ${/* Quanti lotti e quanti bancali stanno SOTTO IL CODICE, non nella
+               colonna «Per collo»: quella colonna dice com'e' fatto un collo,
+               e un'intestazione che sopra una cella dice una cosa diversa da
+               quello che la cella porta e' il modo in cui un foglio comincia
+               a non essere creduto. */''}
+          <td class="c-cod">${this._esc(a.article_code)}<div class="pk-sub">${
+            a.lotti.length} ${a.lotti.length === 1 ? 'lotto' : 'lotti'}${
+            bancaliArticolo.size ? ` · ${bancaliArticolo.size} ${bancaliArticolo.size === 1 ? 'bancale' : 'bancali'}` : ''}</div></td>
+          <td class="c-desc">${this._esc(a.article_description || '—')}</td>
+          <td class="c-qty">${a.colli}</td>
+          <td class="c-pcs"></td>
+          ${this._packingQta(a.qty_uom, a.uom)}
+        </tr>
+        ${righeLotto}
+      </tbody>`;
+    }).join('');
+
+    return `<table class="ddt-table ddt-table--pk">
+      <thead><tr>
+        <th class="c-cod">Articolo · lotto · bancale</th>
+        <th class="c-desc">Descrizione, scadenza, supporto</th>
+        <th class="c-qty">Colli</th>
+        <th class="c-pcs">Per collo</th>
+        <th class="c-num">Quantità</th>
+        <th class="c-uom">Unità</th>
+      </tr></thead>
+      ${corpo}
+    </table>`;
+  },
+
+  /* ═══ 2.24 · IL FOGLIO SI SEPARA DALLA STAMPA ══════════════════════════
+
+     Erano una cosa sola: `_printDDT` leggeva il documento dallo Store,
+     componeva il foglio e chiamava `window.print`. Il banco a video non
+     riusciva a misurare altro che i documenti gia' a database — nella copia
+     di prova sono da UNA riga — e il caso che rompe un documento e' l'altro:
+     quello che non sta in una pagina. La 2.23 e' passata verde su un foglio
+     che non aveva niente da impaginare.
+
+     Adesso il foglio e' una funzione del documento, e la stampa e' il gesto:
+     chi prova passa un carico finto e MISURA quello che uscirebbe, senza
+     scrivere niente a database. Il documento resta l'unica sorgente — nessuna
+     seconda copia del markup — e le letture che restano allo Store, i modelli
+     d'imballo e gli avvisi d'articolo, non trovando niente lasciano la cella
+     vuota, che e' quel che fanno anche in produzione su un dato mancante. */
+  _packingFoglioHTML(doc: DocumentoUscita): string {
     const blocchi = this._packingBlocchi(doc);
     const totaleColli = doc.lines.reduce((n: number, l: RigaDocumento) => n + (l.qty || 0), 0);
     const lordo = this._packingLordo(blocchi);
     const isDraft = doc.status === 'pending';
 
-    const corpo = (blocchi as PackingBlocco[]).map((b: PackingBlocco) => {
-      const righe = b.righe.map((l: RigaDocumento) => `<tr>
-        <td class="c-art">${this._esc(l.article_code)}</td>
-        <td class="c-desc">${this._esc(l.article_description || '—')}</td>
-        <td class="c-lot">${this._esc(l.lot_code || '')}</td>
-        <td class="c-exp">${this._esc(this._dateISOtoIT(l.expiry_date) || l.expiry_date || '')}</td>
-        <td class="c-qty">${l.qty}</td>
-        ${/* 2.21 — QUANTO C'E' IN OGNI COLLO, e non solo quanti colli. Chi
-             scarica il camion conta i colli e apre il primo: «40 × 12,5 KG»
-             gli dice se quello che ha in mano e' il collo giusto, e «7
-             colli» non glielo dice. Le uscite sono gia' sulla riga dalla
-             1.8.4 — si stampano, non si ricalcolano. */''}
-        <td class="c-pcs">${this._esc(this._packingComposizione(l))}</td>
-        <td class="c-pcs">${(l.qty_uom != null && l.uom)
-          ? `${formattaQuantita(l.qty_uom, l.uom)} ${this._esc(l.uom)}` : ''}</td>
-      </tr>`).join('');
-      return `<div class="pk-blocco">
-        <div class="pk-testa">
-          <span class="pk-udc">${b.udc_id ? this._esc(b.udc_id) : 'Merce senza bancale'}</span>
-          <span class="pk-meta">${b.modello ? this._esc(b.modello) : ''}${b.odp ? ` · ordine ${this._esc(b.odp)}` : ''}</span>
-          <span class="pk-colli">${b.colli} ${b.colli === 1 ? 'collo' : 'colli'}${b.tara != null ? ` · tara ${b.tara} KG` : ''}</span>
-        </div>
-        <table class="ddt-table"><thead><tr>
-          <th class="c-art">Articolo</th><th class="c-desc">Descrizione</th>
-          <th class="c-lot">Lotto</th><th class="c-exp">Scadenza</th>
-          <th class="c-qty">Colli</th><th class="c-pcs">Per collo</th><th class="c-pcs">Quantità</th>
-        </tr></thead><tbody>${righe}</tbody></table>
-      </div>`;
-    }).join('');
-
-    $('printReport').innerHTML = this._docPageHTML({
+    return this._docPageHTML({
       kind: 'PACKING LIST',
       kindSub: `Distinta di imballo — allegata al DDT ${doc.ddt_num || ''}`,
       num: doc.ddt_num,
@@ -1545,6 +1596,7 @@ export const VistaSpedizioni = {
       docId: doc.doc_id,
       watermark: isDraft ? 'BOZZA' : '',
       flow: true,
+      footNote: `${doc.lines.length} ${doc.lines.length === 1 ? 'riga' : 'righe'} in totale`,
       headExtra: `<div class="ddt-strip">
         <span class="ddt-strip-lbl">Destinatario</span>
         <span class="ddt-strip-val">${this._esc(doc.destination || '—')}</span>
@@ -1555,8 +1607,7 @@ export const VistaSpedizioni = {
         ${isDraft ? `<div class="doc-draft-note">
           DOCUMENTO NON ANCORA EVASO — la merce è prenotata ma non è uscita dal magazzino.
         </div>` : ''}
-        ${corpo || '<div class="doc-empty">Nessuna riga su questo documento.</div>'}
-        ${this._packingRiepilogoHTML(doc)}
+        ${this._packingDistintaHTML(doc)}
         <div class="ddt-totals">
           ${this._docCell('Bancali', String((blocchi as PackingBlocco[]).filter((b: PackingBlocco) => b.udc_id).length))}
           ${this._docCell('Numero colli', String(totaleColli))}
@@ -1568,21 +1619,28 @@ export const VistaSpedizioni = {
           calcolato sommando le tare dei bancali al peso netto, e resta vuoto dove le unità di
           misura non si sommano.
         </div>`,
+      /* Le firme sono OGGETTI, non coppie: `_docPageHTML` legge `role` e
+         `hint`, e le tre etichette uscivano vuote da quando il foglio esiste
+         — nessun errore, nessun tipo che si lamenta. */
       signs: [
-        ['Preparato da', doc.operator || ''],
-        ['Verificato da', ''],
-        ['Ricevuto da', ''],
+        { role: 'Preparato da', hint: doc.operator || '' },
+        { role: 'Verificato da', hint: 'Data e firma' },
+        { role: 'Ricevuto da', hint: 'Data e firma' },
       ],
     });
-    window.print();
-    setTimeout(() => { $('printReport').innerHTML = ''; }, 1500);
   },
 
-  _printDDT(doc_id) {
-    const doc = Store.getPendingDoc(doc_id);
+  /** Il gesto: legge il documento, compone il foglio, stampa. Il documento
+      di una packing list si rilegge anche dall'archivio — si ristampa a
+      distanza di mesi — mentre il DDT si stampa da pendente. */
+  _printPackingList(doc_id) {
+    const doc = Store.getPendingDoc(doc_id) || Store.getAllOutbound().find((d) => d.doc_id === doc_id);
     if (!doc) return this.toast('Documento non trovato', 'error');
-    Feedback.clear();   // v1.1.0 [N1] — vedi _docPrint: niente riscontri sopra il foglio
+    Feedback.clear();
+    this._docPrint(this._packingFoglioHTML(doc));
+  },
 
+  _ddtFoglioHTML(doc: DocumentoUscita): string {
     const isRet = this._docIsReturn(doc);
     const causale = this._docCausaleLabel(doc);
     const isDraft = doc.status === 'pending';
@@ -1618,37 +1676,67 @@ export const VistaSpedizioni = {
        mano in banchina e' il modo di sbagliare. Il raggruppamento sta in
        `modules/documenti.ts`, che e' dove una riga di documento si compone. */
     const partite = raggruppaPerPartita(doc.lines) as PartitaStampata[];
-    const rows = partite.map((p, i) => {
+
+    /* 2.24 — SEI COLONNE, E SONO QUELLE CHE SI CERCANO IN BANCHINA. Il DDT
+       dice cosa c'e' sul camion: articolo, lotto, scadenza, quanto. Erano
+       otto, e due rubavano lo spazio alle quattro:
+
+         · IL NUMERO DI RIGA — nessuna norma lo chiede, e chi controlla non
+           cerca «la riga 4»: cerca un lotto.
+         · LE NOTE in colonna — 24 mm per un testo libero significa una
+           parola per riga, e alzano la riga di tutte le altre colonne.
+           Scendono SOTTO la descrizione, dove hanno la larghezza del foglio.
+
+       La quantita' e la sua unita' stanno in DUE celle: incollate, l'unita'
+       si legge una riga per volta; separate, la colonna delle unita' si
+       legge in verticale e si vede subito che un DDT porta chili e pezzi
+       insieme. */
+    const rows = partite.map((p) => {
       /* 1.8.4 — LA QUANTITA' DELLA RIGA E' QUELLA DEI COLLI CHE ESCONO, non
          un prodotto sull'anagrafica: `pieces_per_pack × colli` e' falso
          appena la riga porta colli di misura diversa, ed e' quel che questa
          colonna stampava. Un documento scritto prima della 1.8.4 le UM non
          le porta, e allora la cella resta vuota: un documento si rilegge,
          non si ricostruisce. */
-      const um = (p.qty_uom != null && p.uom) ? `${formattaQuantita(p.qty_uom, p.uom)} ${p.uom}` : '—';
+      const misurata = p.qty_uom != null && p.uom;
+      const sotto = [
+        p.notes || '',
+        p.bancali.length > 1 ? `${p.bancali.length} bancali` : '',
+      ].filter(Boolean).join(' · ');
       return `<tr>
-        <td class="c-idx">${i+1}</td>
         <td class="c-art">${this._esc(p.article_code)}</td>
-        <td class="c-desc">${this._esc(p.article_description || '—')}${this._avvisiRigaStampa(p.article_code)}</td>
+        <td class="c-desc">${this._esc(p.article_description || '—')}${this._avvisiRigaStampa(p.article_code)}${
+          sotto ? `<div class="ddt-sub">${this._esc(sotto)}</div>` : ''}</td>
         <td class="c-lot">${this._esc(p.lot_code)}</td>
         <td class="c-exp">${this._esc(this._dateISOtoIT(p.expiry_date) || p.expiry_date || '—')}</td>
         <td class="c-qty">${p.qty}</td>
-        <td class="c-pcs">${this._esc(um)}</td>
-        <td class="c-note">${this._esc(p.notes || '')}${p.bancali.length > 1
-          ? `<span class="doc-empty"> · ${p.bancali.length} bancali</span>` : ''}</td>
+        <td class="c-num">${misurata ? this._esc(formattaQuantita(p.qty_uom as number, p.uom)) : '—'}</td>
+        <td class="c-uom">${misurata ? this._esc(p.uom) : ''}</td>
       </tr>`;
     }).join('');
 
     // Il mittente e i suoi campi li compone la testata condivisa.
-    $('printReport').innerHTML = this._docPageHTML({
+    return this._docPageHTML({
       kind: 'DOCUMENTO DI TRASPORTO',
       kindSub: `D.P.R. 472/96 — ${isRet ? 'Reso · uscita merce' : 'Uscita merce'}`,
       num: doc.ddt_num,
       dateVal: fmtDate(doc.doc_date) === '—' ? fmtTs(doc.created_at) : fmtDate(doc.doc_date),
       sender,
       docId: doc.doc_id,
-      pageClass: 'doc-page--ddt',
+      /* `doc-page--ddt` e' uscita di qui nella 2.24: era una classe senza una
+         sola regola in tutto il foglio di stile, dal giorno che e' nata. */
       watermark: isDraft ? 'BOZZA' : '',
+      /* 2.24 — IL DDT SCORRE. Restava a pagina sola per scelta — accompagna
+         il trasporto — ma niente faceva rispettare la scelta: un documento
+         con molte partite usciva lo stesso su due fogli, e il secondo
+         arrivava SENZA testata, senza il numero del DDT e a filo carta,
+         perche' il margine era la padding del contenitore e vale una volta
+         sola. Un foglio cosi' non dice nemmeno di che documento e' la
+         seconda meta'. Adesso testata e piede tornano su ogni pagina —
+         `thead` e `tfoot`, gli stessi due gruppi della packing list — e le
+         firme restano in coda, una volta sola. */
+      flow: true,
+      footNote: `${partite.length} ${partite.length === 1 ? 'riga' : 'righe'} in totale`,
 
       /* Blocco d'identificazione: le parti e la causale. E' cio' che sul
          DDT occupa il residuo della fascia di testata. */
@@ -1682,14 +1770,13 @@ export const VistaSpedizioni = {
 
         <table class="ddt-table">
           <thead><tr>
-            <th class="c-idx">#</th>
             <th class="c-art">Articolo</th>
             <th class="c-desc">Natura e qualità dei beni</th>
             <th class="c-lot">Lotto</th>
             <th class="c-exp">Scadenza</th>
             <th class="c-qty">Colli</th>
-            <th class="c-pcs">Quantità</th>
-            <th class="c-note">Note</th>
+            <th class="c-num">Quantità</th>
+            <th class="c-uom">Unità</th>
           </tr></thead>
           <tbody>${rows}</tbody>
         </table>
@@ -1726,7 +1813,12 @@ export const VistaSpedizioni = {
         { role: 'Firma del destinatario', hint: 'Data e ora della consegna' }
       ]
     });
-    window.print();
-    setTimeout(() => { $('printReport').innerHTML = ''; }, 1500);
+  },
+
+  _printDDT(doc_id) {
+    const doc = Store.getPendingDoc(doc_id);
+    if (!doc) return this.toast('Documento non trovato', 'error');
+    Feedback.clear();   // v1.1.0 [N1] — vedi _docPrint: niente riscontri sopra il foglio
+    this._docPrint(this._ddtFoglioHTML(doc));
   },
 } satisfies Vista;

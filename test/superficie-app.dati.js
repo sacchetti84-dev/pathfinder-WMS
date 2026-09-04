@@ -96,9 +96,18 @@
    `_carRiscontro`), `_carSalta`, i due del secondo DDT (`_carAltroDdt`,
    `_carScegliDdt`), i due della fine (`_carChiudi`, `_carAbbandona`) e
    `_carEsito`, che e' l'unico stato che non sta a database.
-   2.21: la packing list dice anche COM'E' FATTO IL COLLO e chiude con un
-   riepilogo per articolo e lotto — `_packingComposizione` e
-   `_packingRiepilogoHTML`. Il DDT stampa una riga per articolo#lotto invece
+   2.24: la packing list si legge per ARTICOLO, LOTTO E BANCALE — tre livelli
+   di riga, e ognuno porta il suo totale. `_packingRiepilogoHTML` e' uscita
+   perche' il riepilogo in coda era la risposta che adesso da' il foglio
+   intero; sono entrate `_packingDistintaHTML`, che disegna i tre livelli, e
+   `_packingQta`, che scrive il numero e la sua unita' in due celle.
+   `_packingComposizione` prende adesso le uscite e l'unita' invece di una
+   riga: la distinta le ha gia' lette.
+   2.24: il FOGLIO si separa dalla STAMPA — `_ddtFoglioHTML` e
+   `_packingFoglioHTML` compongono, `_printDDT` e `_printPackingList`
+   leggono dallo Store e stampano. Serve al banco a video, che sui documenti
+   a database — da UNA riga nella copia di prova — non misurava mai il caso
+   che rompe un foglio: quello che non ci sta. Il DDT stampa una riga per articolo#lotto invece
    di una per bancale: il raggruppamento e' `raggruppaPerPartita` in
    `modules/documenti.ts`, dove una riga di documento si compone, e le righe
    SALVATE restano una per bancale.
@@ -136,8 +145,9 @@ export const SUPERFICIE = [
   '_pfTabella', '_pfColonne', '_pfOrdina', '_pfCerca', '_pfTabellaHTML', '_pfVediInMappa',
   '_mapFiltroPf', '_mapToggleFiltroPf', '_pfStatiBancali',
   '_pfSel', '_pfSpunta', '_pfCaricaInDdt', '_shipCaricaDaBancali',
-  '_printPackingList', '_packingBlocchi', '_packingLordo',
-  '_packingComposizione', '_packingRiepilogoHTML',
+  '_printPackingList', '_packingFoglioHTML', '_ddtFoglioHTML',
+  '_packingBlocchi', '_packingLordo',
+  '_packingComposizione', '_packingDistintaHTML', '_packingQta',
   '_shipDestLocation', '_shipETrasferimento', '_shipAggiornaDestLoc', '_evadiTrasferendo', '_pfModelloScelto', '_pfNuovoBancale',
   '_pfProponiUbicazione', '_pfTogliRiga',
   '_pfPartiteHTML', '_pfUbicazioneHTML', '_pfPosiziona', '_cbPickPf', '_pfFuocoColli',

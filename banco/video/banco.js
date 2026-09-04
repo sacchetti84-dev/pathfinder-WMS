@@ -1450,7 +1450,8 @@ flusso('posiziona', 'Il posizionamento: la riga nasce, poi si incrementa', async
    scritta a mano che può divergere: è la stessa regola, senza la condizione
    davanti.
 
-   Poi il foglio si porta alla larghezza vera della carta (A4, 210mm) e si
+   Poi il foglio si porta alla larghezza vera dell'area stampabile (A4 meno
+   i due margini di 12mm: 186mm) e si
    guardano due cose sole, che sono le due che rovinano un documento:
 
      · TESTO SOPRA TESTO — due elementi che portano testo e occupano lo
@@ -1522,7 +1523,15 @@ export function misuraFoglio(nome, html) {
   /* La larghezza è quella della carta, non quella del monitor: un foglio
      misurato su uno schermo largo non sborda mai, e su A4 sì. */
   stile.textContent = regolePerLaCarta()
-    + '\n#printReport{display:block!important;width:210mm;box-sizing:border-box;}';
+  /* 2.24 — SI MISURA L'AREA STAMPABILE, NON IL FOGLIO. Il margine stava in
+     una `padding: 12mm` su `#printReport` e questa prova lo rileggeva da lì;
+     dalla 2.24 sta in `@page { margin: 12mm }`, che è la sola forma che lo
+     dia a OGNI pagina — e che un browser applica solo stampando davvero. Qui
+     il contenitore si porta direttamente a 186 mm, cioè 210 meno i due
+     margini: è la stessa area, dichiarata invece che dedotta da una padding.
+     Senza questa riga la prova avrebbe smesso di mordere in silenzio, che è
+     il modo peggiore in cui un collaudo può cambiare. */
+    + '\n#printReport{display:block!important;width:186mm;padding:0;box-sizing:border-box;}';
   document.head.appendChild(stile);
 
   const portanoTesto = [...foglio.querySelectorAll('*')].filter((el) => {
@@ -1549,8 +1558,7 @@ export function misuraFoglio(nome, html) {
   }
 
   const dentro = foglio.getBoundingClientRect();
-  const imbottitura = parseFloat(getComputedStyle(foglio).paddingRight) || 0;
-  const limite = dentro.right - imbottitura;
+  const limite = dentro.right;
   const sbordati = portanoTesto
     .filter((el) => el.getBoundingClientRect().right > limite + 1)
     .map((el) => `«${primoTesto(el)}» sborda di ${Math.round(el.getBoundingClientRect().right - limite)}px`);
@@ -1558,6 +1566,51 @@ export function misuraFoglio(nome, html) {
   stile.remove();
   foglio.innerHTML = '';
   return { nome, elementi: portanoTesto.length, sovrapposti, sbordati };
+}
+
+/** UN CARICO PIENO, e non un documento a caso: dieci partite su ventisei
+    bancali, descrizioni lunghe, due unita' di misura che non si sommano, note
+    di riga. E' la forma che un DDT ha il giorno che si carica un camion, ed e'
+    la sola in cui un foglio si rompe — colonne strette che sbordano, righe che
+    finiscono sotto le firme, una seconda pagina senza testata. */
+export function caricoPieno() {
+  const articoli = [
+    ['7000924', 'LECITINA DI SOIA IN POLVERE NON OGM — SACCO DA 25 KG', 'KG', 25],
+    ['6000366', 'MALTODESTRINA DE 19 ALIMENTARE', 'KG', 20],
+    ['7001188', 'CAPSULE VEGETALI HPMC MISURA 0 TRASPARENTI', 'PZ', 5000],
+    ['7002045', 'ACIDO ASCORBICO POLVERE FINE FARMACOPEA EUROPEA', 'KG', 12.5],
+    ['7003310', 'ESTRATTO SECCO DI CURCUMA 95% CURCUMINOIDI', 'KG', 10],
+  ];
+  const scadenze = { 'L26A0417': '2027-03-31', 'L26B0022': '2027-08-31' };
+  const lines = [];
+  let n = 0;
+  for (const [code, desc, uom, per] of articoli) {
+    for (const lot of Object.keys(scadenze)) {
+      for (let p = 0; p < 3; p++) {
+        n++;
+        if (n % 7 === 0) continue;                 // qualche lotto su due bancali invece di tre
+        const colli = 2 + (n % 4);
+        lines.push({
+          article_code: code, article_description: desc, lot_code: lot,
+          expiry_date: scadenze[lot], udc_id: `UDC-2609${100 + n}`,
+          qty: colli, qty_uom: colli * per, uom,
+          packs_out: Array.from({ length: colli }, () => ({ da: per, quantita: per })),
+          notes: n % 5 === 0 ? 'riga ordine 4471 — consegna tassativa entro le 14' : '',
+        });
+      }
+    }
+  }
+  return {
+    doc_id: 'SHIP-BANCO-CARICO', ddt_num: 'DDT260099', kind: 'SHIP', status: 'evaded',
+    doc_date: '2026-09-04', created_at: Date.now(),
+    destination: 'NATURACARE FRANCE SAS', dest_address: '12 RUE DE LA PAIX',
+    dest_zip: '75002', dest_city: 'PARIS', dest_vat: 'FR12345678901',
+    ship_to: 'DEPOT LOGISTIQUE ROISSY', operator: 'BANCO', carrier: 'DHL FREIGHT',
+    porto: 'Franco', aspetto: 'Bancali filmati', transport_by: 'Mittente',
+    peso_netto: '2450', peso_lordo: '2680', order_ref: '4471',
+    doc_notes: 'Merce deperibile — mantenere sotto i 25 °C.',
+    lines,
+  };
 }
 
 flusso('impaginazione', 'L\'impaginazione dei documenti: niente testo sopra altro testo', async () => {
@@ -1609,7 +1662,23 @@ flusso('impaginazione', 'L\'impaginazione dei documenti: niente testo sopra altr
   window.print = stampaVera;
   foglio.innerHTML = '';
 
-  /* ① QUANTI FOGLI SI SONO RIUSCITI A GUARDARE. Se un documento smette di
+  /* ① IL CARICO CHE NON STA IN UNA PAGINA. I sette qui sopra escono dai
+     documenti che stanno a database, e nella copia di prova un DDT ha UNA
+     riga: sono fogli che non hanno niente da impaginare, e la prova passava
+     verde su tutti mentre il caso che rompe un documento non era mai stato
+     misurato. Un carico vero è dieci partite su ventisei bancali, e non ci
+     sta in un foglio.
+
+     NON SI SCRIVE NIENTE A DATABASE. Dalla 2.24 il foglio è una funzione del
+     documento — `_ddtFoglioHTML`, `_packingFoglioHTML` — e la stampa è un
+     gesto a parte: qui si passa un carico finto e si misura quello che
+     uscirebbe. Le poche letture che restano allo Store (i modelli d'imballo,
+     gli avvisi d'articolo) non trovano niente e lasciano la cella vuota, che
+     è quel che fanno anche in magazzino su un dato mancante. */
+  fogli.push(misuraFoglio('DDT — carico pieno', App._ddtFoglioHTML(caricoPieno())));
+  fogli.push(misuraFoglio('Packing list — carico pieno', App._packingFoglioHTML(caricoPieno())));
+
+  /* ② QUANTI FOGLI SI SONO RIUSCITI A GUARDARE. Se un documento smette di
      uscire, questa riga lo dice: un foglio non misurato non è un foglio
      senza difetti. */
   const misurati = fogli.filter((f) => !f.saltato);
@@ -1617,8 +1686,8 @@ flusso('impaginazione', 'L\'impaginazione dei documenti: niente testo sopra altr
   vero(misurati.length > 0, `si sono misurati ${misurati.length} documenti su ${fogli.length}`);
   uguale(saltati, [], 'ogni documento che la prova chiede si lascia stampare');
 
-  /* ② IL CONTROLLO. Un foglio per riga, col suo nome: un verbale che dice
-     «tre sovrapposizioni» manda a cercare in sette documenti. */
+  /* ③ IL CONTROLLO. Un foglio per riga, col suo nome: un verbale che dice
+     «tre sovrapposizioni» manda a cercare in nove documenti. */
   for (const f of misurati) {
     vero(f.elementi > 0, `${f.nome}: il foglio ha del testo dentro (${f.elementi} elementi)`);
     uguale(f.sovrapposti, [], `${f.nome}: niente testo sopra altro testo`);

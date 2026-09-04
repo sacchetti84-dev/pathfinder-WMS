@@ -16,6 +16,7 @@
    `test/documenti.test.js` glielo ricorda. */
 
 import type { RigaDocumento } from '../types/entita';
+import { sommaUom } from './misure';
 
 export function rigaDocumento(l: Partial<RigaDocumento>): RigaDocumento {
   const uscite = Array.isArray(l.packs_out) && l.packs_out.length ? l.packs_out : null;
@@ -116,4 +117,142 @@ export function raggruppaPerPartita(
     gia.qty_uom += l.qty_uom;
   }
   return [...out.values()];
+}
+/* ═══ 2.24 · LA DISTINTA ANNIDATA ══════════════════════════════════════
+
+   IL DDT DICE COSA C'E' SUL CAMION, LA PACKING LIST DICE COM'E' FATTO.
+   Fino alla 2.23 la packing list si leggeva per BANCALE — un blocco per
+   pallet, e sotto le righe che porta. Rispondeva alla domanda di chi
+   scarica («questo pallet cosa tiene»), e non a quella di chi controlla la
+   merce («questo articolo, in questo lotto, su quanti bancali e' arrivato e
+   quanto fa in tutto»). La seconda e' la domanda che si fa in banchina col
+   DDT accanto, ed e' quella che si voleva sul foglio.
+
+   TRE LIVELLI, E OGNUNO PORTA IL SUO TOTALE: articolo, dentro il lotto,
+   dentro i bancali. Un livello che non sommasse sarebbe un elenco
+   indentato, non una distinta: chi legge il lotto vuole il numero del
+   lotto, non la somma fatta a mano delle righe sotto.
+
+   LE STESSE DUE REGOLE DI `raggruppaPerPartita`, e non per simmetria: sono
+   le regole del dato. Unita' diverse non si sommano e lasciano il totale
+   VUOTO — `null`, non zero, perche' zero e' una quantita' e su un documento
+   di trasporto dice una cosa falsa. Una scadenza discorde dentro lo stesso
+   lotto sparisce: un lotto ha una scadenza sola, e se le righe ne portano
+   due nessuna delle due e' «la» scadenza.
+
+   L'ORDINE E' QUELLO DEI CODICI, e il bancale mancante sta in coda: la
+   merce presa dal vano non ha un pallet da cercare, e messa in mezzo
+   spezzerebbe l'elenco che qualcuno sta scorrendo col dito. */
+
+export interface DistintaBancale {
+  /** Vuoto = merce presa dal vano, senza contenitore. */
+  udc_id: string;
+  colli: number;
+  /** Le uscite della riga: com'e' fatto il collo. `null` sui documenti
+      scritti prima della 1.8.4, che le uscite non le portano. */
+  uscite: number[] | null;
+  qty_uom: number | null;
+  uom: string | null;
+}
+
+export interface DistintaLotto {
+  lot_code: string;
+  expiry_date: string;
+  bancali: DistintaBancale[];
+  colli: number;
+  qty_uom: number | null;
+  uom: string | null;
+}
+
+export interface DistintaArticolo {
+  article_code: string;
+  article_description: string;
+  lotti: DistintaLotto[];
+  colli: number;
+  qty_uom: number | null;
+  uom: string | null;
+}
+
+/** Somma una quantita' in un totale che sa gia' dire di no. Restituisce il
+    nuovo totale, o `null` appena le unita' non coincidono — e una volta
+    detto `null` non torna piu' indietro. */
+function sommaSeStessaUnita(
+  totale: number | null, unitaTotale: string | null,
+  q: number | null | undefined, u: string | null | undefined,
+): number | null {
+  if (totale === null) return null;
+  if (typeof q !== 'number' || !u || u !== unitaTotale) return null;
+  /* Si somma con l'arrotondamento dell'unita', non con un `+` nudo: e' lo
+     stesso conto di `_ddtTotaliUom`, e due totali che si scostano di un
+     millesimo sullo stesso foglio sono una contestazione in banchina. */
+  return sommaUom(totale, q, unitaTotale);
+}
+
+export function distintaPerArticolo(
+  lines: readonly Partial<RigaDocumento>[] | null | undefined,
+): DistintaArticolo[] {
+  const articoli = new Map<string, DistintaArticolo>();
+  const lotti = new Map<string, DistintaLotto>();
+
+  for (const l of lines || []) {
+    const codice = String(l.article_code ?? '');
+    const lotto = String(l.lot_code ?? '');
+    const udc = String((l as { udc_id?: unknown }).udc_id ?? '').trim();
+    const uom = l.uom ?? null;
+    const qtyUom = typeof l.qty_uom === 'number' ? l.qty_uom : null;
+    const colli = Number(l.qty) || 0;
+    const uscite = Array.isArray(l.packs_out) && l.packs_out.length
+      ? l.packs_out.map((p) => p.quantita) : null;
+
+    let art = articoli.get(codice);
+    if (!art) {
+      art = {
+        article_code: codice,
+        article_description: String(l.article_description ?? ''),
+        lotti: [], colli: 0, qty_uom: qtyUom, uom,
+      };
+      articoli.set(codice, art);
+    } else {
+      art.qty_uom = sommaSeStessaUnita(art.qty_uom, art.uom, qtyUom, uom);
+      if (!art.article_description && l.article_description) {
+        art.article_description = String(l.article_description);
+      }
+    }
+    art.colli += colli;
+
+    const chiaveLotto = `${codice}#${lotto}`;
+    let lot = lotti.get(chiaveLotto);
+    if (!lot) {
+      lot = {
+        lot_code: lotto,
+        expiry_date: String(l.expiry_date ?? ''),
+        bancali: [], colli: 0, qty_uom: qtyUom, uom,
+      };
+      lotti.set(chiaveLotto, lot);
+      art.lotti.push(lot);
+    } else {
+      lot.qty_uom = sommaSeStessaUnita(lot.qty_uom, lot.uom, qtyUom, uom);
+      if (String(l.expiry_date ?? '') !== lot.expiry_date) lot.expiry_date = '';
+    }
+    lot.colli += colli;
+
+    /* DUE RIGHE SULLO STESSO BANCALE SONO DUE RIGHE. Uno stesso pallet puo'
+       portare lo stesso articolo#lotto in due righe di documento — due
+       posizionamenti distinti — e sommarle qui perderebbe la ragione per cui
+       `udc_id` sta su una riga: sapere da quale pallet e' uscita quella
+       merce. Si accodano, e il foglio le mostra tutte e due. */
+    lot.bancali.push({ udc_id: udc, colli, uscite, qty_uom: qtyUom, uom });
+  }
+
+  const perCodice = (a: string, b: string) => (a === b ? 0 : a < b ? -1 : 1);
+  const out = [...articoli.values()].sort((a, b) => perCodice(a.article_code, b.article_code));
+  for (const a of out) {
+    a.lotti.sort((x, y) => perCodice(x.lot_code, y.lot_code));
+    /* Il bancale mancante in coda: la merce presa dal vano non ha un codice
+       da cercare, e in mezzo spezzerebbe l'elenco che si scorre col dito. */
+    for (const l of a.lotti) {
+      l.bancali.sort((x, y) => (!x.udc_id ? 1 : !y.udc_id ? -1 : perCodice(x.udc_id, y.udc_id)));
+    }
+  }
+  return out;
 }

@@ -230,13 +230,14 @@
    scritto a mano sotto un header a `position: fixed` diventa sbagliato il
    giorno che la testata cresce di una riga.
 
-   I 12mm di margine del foglio se li prendono le celle e non `#printReport`:
-   il padding di un blocco che attraversa piu' pagine vale solo in cima alla
-   prima e in fondo all'ultima, e dalla seconda in poi la testata uscirebbe
-   attaccata al bordo. */
+   I MARGINI DEL FOGLIO SE LI PRENDEVANO LE CELLE, e dalla 2.24 non piu':
+   `padding: 0 12mm` sulle celle era il modo di dare a ogni pagina un margine
+   che la `padding` di `#printReport` sapeva dare solo alla prima. Adesso il
+   margine sta dove il margine di una pagina sta — `@page { margin: 12mm }`,
+   in `01-views.css` — e vale per ogni foglio di ogni documento, che scorra o
+   no. Tenere tutt'e due voleva dire 24mm su un lato solo dei documenti che
+   scorrono, e le colonne sono tarate su 186mm. */
 @media print {
-  #printReport:has(.doc-page--flow) { padding: 0; }
-
   .doc-page--flow {
     display: table;
     width: 100%;
@@ -248,9 +249,7 @@
   .doc-page--flow > tfoot { display: table-footer-group; }
   .doc-page--flow > tbody { display: table-row-group; }
 
-  .doc-flow-cell { padding: 0 12mm; vertical-align: top; }
-  .doc-flow-cell--head { padding-top: 12mm; }
-  .doc-flow-cell--foot { padding-bottom: 12mm; }
+  .doc-flow-cell { padding: 0; vertical-align: top; }
 
   /* Le tre zone perdono le misure fisse: qui l'altezza la decide quello che
      c'e' dentro, e a spezzare le pagine ci pensa il gruppo di tabella. */

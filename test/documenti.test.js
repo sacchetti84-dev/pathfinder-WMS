@@ -9,7 +9,7 @@
    questa e' la prova che la sorveglia. */
 
 import { describe, it, expect } from 'vitest';
-import { rigaDocumento, raggruppaPerPartita } from '../src/modules/documenti';
+import { rigaDocumento, raggruppaPerPartita, distintaPerArticolo } from '../src/modules/documenti';
 
 describe('rigaDocumento', () => {
   const piena = {
@@ -137,5 +137,97 @@ describe('raggruppaPerPartita', () => {
   it('un documento senza righe non e un errore', () => {
     expect(raggruppaPerPartita(null)).toEqual([]);
     expect(raggruppaPerPartita([])).toEqual([]);
+  });
+});
+
+/* LA DISTINTA ANNIDATA — 2.24.
+
+   La packing list si leggeva per BANCALE, e rispondeva alla domanda di chi
+   scarica il camion. La domanda di chi controlla la merce col DDT accanto e'
+   un'altra — «questo articolo, in questo lotto, su quanti bancali e' arrivato
+   e quanto fa» — e su dieci blocchi non si ricava guardandoli. Qui si
+   sorveglia che i tre livelli sommino, e soprattutto che sappiano NON
+   sommare: un totale che non si puo' fare resta vuoto, non zero. */
+describe('distintaPerArticolo', () => {
+  const r = (o = {}) => ({
+    article_code: '7000924', article_description: 'LECITINA DI SOIA',
+    lot_code: 'L1', expiry_date: '2027-01-31', udc_id: 'UDC-1',
+    qty: 2, qty_uom: 30, uom: 'KG',
+    packs_out: [{ da: 25, quantita: 25 }, { da: 25, quantita: 5 }],
+    ...o,
+  });
+
+  it('tre livelli: articolo, lotto, bancale', () => {
+    const d = distintaPerArticolo([r(), r({ lot_code: 'L2', udc_id: 'UDC-2' })]);
+    expect(d).toHaveLength(1);
+    expect(d[0].article_code).toBe('7000924');
+    expect(d[0].lotti.map((l) => l.lot_code)).toEqual(['L1', 'L2']);
+    expect(d[0].lotti[0].bancali.map((b) => b.udc_id)).toEqual(['UDC-1']);
+  });
+
+  it('OGNI LIVELLO PORTA IL SUO TOTALE, e non lo fa sommare a chi legge', () => {
+    const d = distintaPerArticolo([
+      r({ udc_id: 'UDC-1' }), r({ udc_id: 'UDC-2' }),
+      r({ lot_code: 'L2', udc_id: 'UDC-3', qty: 1, qty_uom: 10 }),
+    ]);
+    expect(d[0].colli).toBe(5);
+    expect(d[0].qty_uom).toBe(70);
+    expect(d[0].lotti[0].colli).toBe(4);
+    expect(d[0].lotti[0].qty_uom).toBe(60);
+    expect(d[0].lotti[1].qty_uom).toBe(10);
+    expect(d[0].lotti[0].bancali[0].qty_uom).toBe(30);
+  });
+
+  it('UNITA DIVERSE LASCIANO IL TOTALE VUOTO, mai zero', () => {
+    const d = distintaPerArticolo([r(), r({ udc_id: 'UDC-2', uom: 'PZ', qty_uom: 4 })]);
+    expect(d[0].qty_uom).toBeNull();
+    expect(d[0].lotti[0].qty_uom).toBeNull();
+    /* Il livello che NON e' misto continua a dire il suo numero. */
+    expect(d[0].lotti[0].bancali[0].qty_uom).toBe(30);
+    expect(d[0].colli).toBe(4);
+  });
+
+  it('una riga senza UM spegne il totale del suo livello', () => {
+    const d = distintaPerArticolo([r(), r({ udc_id: 'UDC-2', qty_uom: null, uom: null })]);
+    expect(d[0].lotti[0].qty_uom).toBeNull();
+  });
+
+  it('una scadenza discorde dentro lo stesso lotto sparisce', () => {
+    const d = distintaPerArticolo([r(), r({ udc_id: 'UDC-2', expiry_date: '2027-02-28' })]);
+    expect(d[0].lotti[0].expiry_date).toBe('');
+  });
+
+  it('due righe sullo stesso bancale restano due righe', () => {
+    const d = distintaPerArticolo([r(), r()]);
+    expect(d[0].lotti[0].bancali).toHaveLength(2);
+    expect(d[0].lotti[0].bancali.every((b) => b.udc_id === 'UDC-1')).toBe(true);
+  });
+
+  it('il bancale che manca sta in coda, non in mezzo', () => {
+    const d = distintaPerArticolo([
+      r({ udc_id: '' }), r({ udc_id: 'UDC-9' }), r({ udc_id: 'UDC-2' }),
+    ]);
+    expect(d[0].lotti[0].bancali.map((b) => b.udc_id)).toEqual(['UDC-2', 'UDC-9', '']);
+  });
+
+  it('articoli e lotti escono in ordine di codice', () => {
+    const d = distintaPerArticolo([
+      r({ article_code: 'B', lot_code: 'L9' }),
+      r({ article_code: 'A' }),
+      r({ article_code: 'B', lot_code: 'L1' }),
+    ]);
+    expect(d.map((a) => a.article_code)).toEqual(['A', 'B']);
+    expect(d[1].lotti.map((l) => l.lot_code)).toEqual(['L1', 'L9']);
+  });
+
+  it('com e fatto il collo arriva al foglio, e un documento vecchio non lo inventa', () => {
+    const d = distintaPerArticolo([r(), r({ udc_id: 'UDC-2', packs_out: null })]);
+    expect(d[0].lotti[0].bancali[0].uscite).toEqual([25, 5]);
+    expect(d[0].lotti[0].bancali[1].uscite).toBeNull();
+  });
+
+  it('un documento senza righe non e un errore', () => {
+    expect(distintaPerArticolo(null)).toEqual([]);
+    expect(distintaPerArticolo([])).toEqual([]);
   });
 });

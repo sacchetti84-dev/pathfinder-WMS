@@ -92,6 +92,7 @@ describe('_docPageHTML — il report che scorre', () => {
    senza di loro la struttura giusta stampa lo stesso una volta sola. */
 describe('il foglio di stile dichiara i due gruppi', () => {
   const css = fs.readFileSync('src/styles/05-pick-report.css', 'utf8');
+  const viste = fs.readFileSync('src/styles/01-views.css', 'utf8');
 
   it('thead e tfoot si ripetono su ogni pagina', () => {
     expect(css).toMatch(/\.doc-page--flow > thead\s*\{[^}]*table-header-group/);
@@ -105,12 +106,30 @@ describe('il foglio di stile dichiara i due gruppi', () => {
     expect(css).toMatch(/\.doc-page--flow \.pr-table td\s*\{[^}]*height: 7mm/);
   });
 
-  /* Il padding di un blocco che attraversa piu' pagine vale in cima alla
-     prima e in fondo all'ultima: dalla seconda in poi la testata uscirebbe
-     attaccata al bordo, e i 12mm se li devono prendere le celle. */
-  it('i margini del foglio se li prendono le celle', () => {
-    expect(css).toContain('#printReport:has(.doc-page--flow) { padding: 0; }');
-    expect(css).toMatch(/\.doc-flow-cell\s*\{[^}]*padding: 0 12mm/);
+  /* 2.24 — IL MARGINE STA SULLA PAGINA, E IN UN POSTO SOLO. Era in due:
+     una `padding: 12mm` su `#printReport`, che vale per la prima pagina e
+     basta, e `padding: 0 12mm` sulle celle del documento che scorre, che era
+     il modo di rimediare alla prima. Adesso lo da' `@page`, che e' dove il
+     margine di una pagina sta, e vale per ogni foglio di ogni documento.
+     Tenerli tutt'e due farebbe 24mm sui documenti che scorrono, e le colonne
+     sono tarate su 186mm: questa prova sorveglia che non tornino. */
+  it('IL MARGINE LO DA LA PAGINA, e nessun altro se lo prende', () => {
+    expect(viste).toMatch(/@page\s*\{[^}]*margin: 12mm/);
+    expect(viste).toMatch(/#printReport\s*\{[^}]*padding: 0;/);
+    expect(css).toMatch(/\.doc-flow-cell\s*\{[^}]*padding: 0;/);
+    expect(css).not.toMatch(/\.doc-flow-cell[^{]*\{[^}]*padding: 0 12mm/);
+    expect(css).not.toMatch(/#printReport:has\(\.doc-page--flow\)\s*\{/);
+  });
+
+  /* Il numero di pagina si puo' scrivere solo da qui: un documento che scorre
+     non sa da se' su quale foglio sta. Dove il browser non sostiene le page
+     margin box non esce niente — ed e' per questo che il conto delle righe
+     sta ANCHE nel piede ripetuto, che funziona ovunque. */
+  it('la pagina chiede il suo numero, e il piede il conto delle righe', () => {
+    expect(viste).toMatch(/@bottom-right\s*\{[^}]*counter\(page\)/);
+    expect(viste).toMatch(/@bottom-right\s*\{[^}]*counter\(pages\)/);
+    const smaltimento = fs.readFileSync('src/ui/views/smaltimento.ts', 'utf8');
+    expect(smaltimento).toMatch(/footNote \? .*_esc\(footNote\)/);
   });
 });
 
@@ -133,14 +152,14 @@ describe('chi scorre e chi no', () => {
     }
   });
 
-  /* 2.20 — `spedizioni.ts` stampa DUE documenti, e non scorrono allo stesso
-     modo. Il DDT e' progettato per stare in un foglio: e' quello che
-     accompagna il trasporto, e un DDT su tre pagine e' un DDT che si perde.
-     La packing list invece e' un elenco che cresce col numero di bancali —
-     dieci pallet non stanno in una pagina — e chiede `flow`, come i tre
-     report. La differenza sta nello stesso file, quindi si guarda documento
-     per documento e non file per file. */
-  it('il DDT sta in un foglio, la packing list scorre', () => {
+  /* 2.24 — ANCHE IL DDT SCORRE, e il perche' va scritto perche' la 2.20 aveva
+     deciso il contrario: un DDT e' progettato per stare in un foglio. Solo che
+     NIENTE faceva rispettare la decisione. Un documento con molte partite
+     usciva lo stesso su due pagine, e la seconda arrivava senza testata,
+     senza il numero del DDT e a filo carta: chi la trova in mano non sa
+     nemmeno di che documento e' la meta'. Fra un secondo foglio che non
+     esiste e un secondo foglio che si presenta, il secondo. */
+  it('i due documenti di spedizione scorrono tutti e due', () => {
     const s = legge('src/ui/views/spedizioni.ts');
     const daKind = (kind) => {
       const i = s.indexOf(`kind: '${kind}'`);
@@ -150,6 +169,42 @@ describe('chi scorre e chi no', () => {
       return s.slice(i, s.indexOf('});', i));
     };
     expect(daKind('PACKING LIST')).toContain('flow: true');
-    expect(daKind('DOCUMENTO DI TRASPORTO')).not.toContain('flow: true');
+    expect(daKind('DOCUMENTO DI TRASPORTO')).toContain('flow: true');
+    /* E tutti e due dichiarano quante righe portano: e' l'unico modo, senza
+       numero di pagina, di accorgersi che un foglio manca. */
+    expect(daKind('PACKING LIST')).toContain('footNote:');
+    expect(daKind('DOCUMENTO DI TRASPORTO')).toContain('footNote:');
+  });
+});
+
+/* 2.24 — LE FIRME SI FIRMANO UNA VOLTA. In un documento che scorre il piede
+   sta nel `tfoot`, che e' il gruppo che il browser ristampa su OGNI pagina:
+   le tre righe da firmare uscivano su tutte, e chi firma non sa quale valga.
+   Vanno in coda al corpo, che finisce una volta sola. */
+describe('le firme, e dove finiscono', () => {
+  it('nel documento che scorre stanno col corpo, non nel piede ripetuto', () => {
+    const html = doc({ flow: true });
+    /* `dentro` non serve qui: il corpo porta una tabella sua, e il primo
+       `</tbody>` che si incontra e' quello di dentro. Si guarda l'ordine. */
+    expect(dentro(html, 'tfoot')).not.toContain('doc-signs');
+    expect(html.indexOf('doc-flow-cell--body')).toBeLessThan(html.indexOf('doc-signs'));
+    /* Nel piede ripetuto resta cio' che ha senso ripetere. */
+    expect(dentro(html, 'tfoot')).toContain('Pathfinder');
+  });
+
+  it('nel documento a pagina sola restano dove sono sempre state', () => {
+    const html = doc();
+    const firme = html.indexOf('doc-signs');
+    expect(html.indexOf('doc-zone-foot')).toBeLessThan(firme);
+    expect(html.indexOf('doc-zone-body')).toBeLessThan(firme);
+  });
+
+  /* La packing list passava COPPIE dove `_docPageHTML` legge `role` e `hint`:
+     le tre etichette uscivano vuote, senza un errore e senza un tipo che si
+     lamentasse. */
+  it('la packing list nomina le sue tre firme', () => {
+    const s = fs.readFileSync('src/ui/views/spedizioni.ts', 'utf8');
+    expect(s).toContain("{ role: 'Preparato da'");
+    expect(s).not.toContain("['Preparato da'");
   });
 });
