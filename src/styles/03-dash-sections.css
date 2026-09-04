@@ -114,7 +114,10 @@
    scorciatoie non c'entra niente. Tornate qui nella 2.23. */
 .qa-bar {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+  /* 2.25 — `min()` perche' su una striscia da 375px il minimo di 212px piu'
+     i margini non ci sta, e una colonna che non ci sta non si stringe: sborda.
+     Sotto i 212px la scorciatoia prende la larghezza che c'e'. */
+  grid-template-columns: repeat(auto-fit, minmax(min(212px, 100%), 1fr));
   gap: 0.6rem;
   margin-bottom: 1rem;
 }

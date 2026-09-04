@@ -9,7 +9,13 @@
   grid-template-rows: auto 1fr auto;
   grid-template-columns: var(--sidebar-w, 260px) 1fr;
   grid-template-areas: "header header" "sidebar main" "footer footer";
+  /* 2.25 — `dvh` E NON `vh`. Su un tablet la barra del browser compare e
+     sparisce mentre si scorre, e `100vh` resta fermo sulla misura A BARRA
+     NASCOSTA: il telaio e' piu' alto della finestra, e quel che sborda in
+     fondo e' la fila delle linguette. `dvh` segue la finestra viva. La riga
+     `vh` resta sotto come ricaduta per chi non conosce `dvh`. */
   height: 100vh;
+  height: 100dvh;
   transition: grid-template-columns 0.22s ease;
 }
 body.sidebar-collapsed .app { --sidebar-w: 0px; }
@@ -333,6 +339,16 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
   overflow: hidden;
   position: relative;
   background: var(--sx-bg);
+  /* 2.25 — `min-width: 0`, ED E' LA RIGA CHE RIMETTE LA TESTATA IN PAGINA.
+     Una casella di griglia parte da `min-width: auto`, cioe' non scende MAI
+     sotto il contenuto piu' largo che tiene dentro. Su 375px una scorciatoia
+     del cruscotto larga 421px allargava la colonna, la colonna allargava la
+     griglia, e la griglia allargava la TESTATA: operatore e stato del
+     salvataggio finivano oltre il bordo destro dello schermo, insieme alla
+     sesta linguetta in fondo. Il difetto non era nella testata — era qui.
+     Con lo zero la colonna si ferma allo schermo e a scorrere e' la vista,
+     che e' gia' `overflow: auto` e sa farlo. */
+  min-width: 0;
 }
 .view { height: 100%; overflow: auto; padding: 1rem; }
 
@@ -558,3 +574,72 @@ body.dispositivo-terminale {
   /* Le tabelle larghe scorrono invece di stringere le colonne fino a
      spezzare un codice a meta'. */
 }
+
+/* ════ 2.25 — IL TELAIO NON SUPERA MAI LO SCHERMO ════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   IL DIFETTO, DETTO UNA VOLTA SOLA. Una casella di griglia parte da
+   `min-width: auto` e non scende sotto il proprio contenuto minimo. Il
+   contenuto minimo della TESTATA e' marchio + campo di ricerca + operatore
+   e stato, e un `<input>` senza `size` ne chiede venti caratteri: su una
+   striscia da 375px fanno 459px di minimo. La griglia si allargava a 459, e
+   con lei si allargavano tutte e tre le righe — testata, vista e linguette.
+   Da fuori si vedeva cosi': l'operatore e il pallino del salvataggio oltre
+   il bordo destro, e la sesta linguetta in fondo tagliata via. Non c'era
+   modo di arrivarci, perche' `html, body` sono `overflow: hidden`.
+
+   LA REGOLA. Chi sta in una casella di griglia dichiara `min-width: 0`: la
+   casella si ferma allo schermo, e a stringersi e' quel che dentro puo'
+   stringersi — qui il campo di ricerca, che ha gia' il suo minimo. */
+.app-header, .mob-tabs { min-width: 0; }
+
+/* Il campo si stringe davvero solo se lo dicono tutti e tre: il contenitore
+   ha il proprio minimo per larghezza (150px, 120px, 0 sotto i 560), la
+   scatola e l'`input` non ne hanno nessuno. */
+.hdr-search-box, .hdr-search-input { min-width: 0; }
+
+/* ════ 2.25 — LA TAVOLETTA E IL DITO ════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   `modules/dispositivo.ts` classifica «tavoletta» dalla 1.11 e nessuno le
+   aveva mai scritto una regola: fra i 561 e i 1024 px l'applicativo usciva
+   con le misure della scrivania, cioe' bersagli da mouse su un vetro che si
+   tocca.
+
+   LA LARGHEZZA DECIDE IL LAYOUT, IL PUNTATORE DECIDE IL BERSAGLIO. Sono due
+   domande diverse e vogliono due regole diverse: quanto ci sta lo dicono le
+   `max-width` di sopra, com'e' fatto il dito lo dice `pointer: coarse`, e un
+   monitor da scrivania che si tocca ha lo stesso dito di un tablet. */
+@media (pointer: coarse) {
+  /* 48px: la stessa misura dei 560px, che sotto i 900 il progetto dichiara
+     gia' come regola e che qui smette di dipendere dalla larghezza. */
+  .btn, .inv-btn, .mob-tab, .nav-btn, .hdr-icon-btn, .op-badge, .op-pill,
+  .config-tab, .prel-tab { min-height: var(--md-touch); }
+
+  /* IL CAMPO SOTTO I 16px E' IL MOTIVO PER CUI LA PAGINA SALTAVA.
+     Safari su iPad ingrandisce da solo quando il fuoco entra in un campo che
+     scrive piu' piccolo di 16px, e la pagina resta ingrandita e spostata:
+     la testata finisce fuori dallo schermo e i tasti «non ci sono piu'».
+     Fino alla 2.24 lo teneva a bada `user-scalable=no`, che pero' spegneva
+     anche la lente all'operatore. Si toglie il divieto e si toglie la causa.
+     Il valore sta in `--md-fs-campo-tocco`, che alza solo chi sta sotto. */
+  input, select, textarea, .input, .select, .textarea,
+  .hdr-search-input { font-size: var(--md-fs-campo-tocco); }
+}
+
+/* ════ 2.25 — QUANDO GIRA COME APPLICAZIONE ════
+   © Andrea Sacchetti — Dietopack S.r.l.
+
+   `body.chiosco` la mette `App._segnaChiosco()` quando la finestra e'
+   l'applicazione installata e non una scheda del browser. Li' non c'e' piu'
+   la barra dell'indirizzo a fare da cuscinetto: la testata arriva sotto
+   l'orologio e la fila delle linguette sotto la barra dei gesti. Le misure
+   le dichiara il sistema — `env(safe-area-inset-*)` — e valgono zero dove
+   non c'e' niente da scansare, quindi la regola non toglie spazio a nessuno.
+   Il `viewport-fit=cover` che le accende sta in `index.html`. */
+body.chiosco .app-header {
+  padding-top: max(0.4rem, env(safe-area-inset-top));
+  padding-left: max(0.75rem, env(safe-area-inset-left));
+  padding-right: max(0.75rem, env(safe-area-inset-right));
+}
+body.chiosco .mob-tabs { padding-bottom: env(safe-area-inset-bottom); }

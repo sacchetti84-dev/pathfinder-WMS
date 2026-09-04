@@ -7,7 +7,45 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **04/09/2026 sera** — **i due fogli che escono dal magazzino
+Aggiornato: **04/09/2026 notte** — **l'interfaccia stava più larga dello
+schermo, e adesso ci sta dentro.** La **2.25** chiude il difetto per cui su un
+telefono e su una tavoletta *«non si vedevano tutti i tasti della barra
+superiore»*: non era la testata. Una casella di griglia parte da `min-width:
+auto` e non scende sotto il proprio contenuto minimo — e il contenuto minimo
+della testata è il campo di ricerca, che senza `size` chiede **venti
+caratteri**. Su 375px facevano **459px**: la griglia si allargava a 459 e con
+lei tutte e tre le righe, così l'operatore, il pallino del salvataggio e la
+**sesta linguetta** in fondo finivano oltre il bordo destro — irraggiungibili,
+perché `html, body` sono `overflow: hidden`. Una riga, `min-width: 0`, e il
+telaio non supera più lo schermo.
+
+Le altre due erano vere anche loro. Le **undici linguette di Configurazione**
+chiedono 1030px in fila e venivano tagliate da `.app-main`, che è `overflow:
+hidden`: Stampanti, Regole di stoccaggio e Dati e Backup non si vedevano e non
+si potevano raggiungere. Adesso vanno **a capo**, come `.prel-tabs` — non
+scorrono, perché una fila che scorre nasconde lo stesso quel che c'è oltre il
+bordo. E lo **zoom**: il `viewport` diceva `user-scalable=no, maximum-scale=1`,
+cioè toglieva la lente a chi legge un lotto in controluce. Era lì per un
+motivo — Safari su iPad ingrandisce da solo quando il fuoco entra in un campo
+che scrive **sotto i 16px**, e la pagina resta ingrandita e spostata — ma si
+toglie la **causa**, non il gesto: sotto `pointer: coarse` i campi partono da
+16px (`--md-fs-campo-tocco`) e i bersagli da **48px**, che è la regola dei 560
+che smette di dipendere dalla larghezza. `dispositivo-tavoletta` esisteva dalla
+1.11 e non aveva **una sola regola**: adesso ce l'ha.
+
+**E Pathfinder si installa.** La modalità **chiosco** è un manifesto web —
+`assets/chiosco.webmanifest`, tre icone, `display: standalone` — e il terminale
+lo apre **dalla sua icona**: niente barra dell'indirizzo da toccare coi guanti,
+niente scheda da chiudere per sbaglio a metà di un prelievo. Non c'è un
+interruttore da ricordare per macchina: l'invito compare da solo su terminale e
+tavoletta, mai su una scrivania, e la scheda Configurazione → Sessione dice **a
+che punto è**. Compreso il punto che oggi blocca tutto e va detto in chiaro:
+**nessun browser installa una pagina servita in `http://`**. Finché il servizio
+non parla **HTTPS**, il chiosco resta una possibilità dichiarata — e lo stato
+`non-sicuro` è scritto perché nessuno vada a cercare il guasto dalla parte
+sbagliata.
+
+Prima di questo — **i due fogli che escono dal magazzino
 dicono cose diverse, e adesso si vede.** La **2.24** rifà il DDT e la packing
 list. Il DDT dice **cosa c'è sul camion**: sei colonne — articolo, lotto,
 scadenza, colli, **quantità e unità in due celle** — dove prima erano otto e le
@@ -84,8 +122,8 @@ un **marchio suo**: un pallet coi suoi colli, non una fabbrica.
 **Cinque blocchi, tutti i collaudi verdi tranne uno che era già rosso** — §4,
 voce **87**. **In servizio su questa macchina c'è la 2.23.0**, impronta
 `f9d4e012…` — misurata da `/api/app-info` il 04/09 sera, non dedotta: §0 punto
-2. Accanto c'è la **2.24.0, costruita e non installata** (`39c2ecce…`). Il
-numero è nei quattro posti di §7.
+2. Accanto ci sono la **2.24.0** e la **2.25.0**, tutte e due **costruite e non
+installate** (`39c2ecce…` e `9b2fecb6…`). Il numero è nei quattro posti di §7.
 
 > **E QUESTA È LA QUINTA VOLTA.** Fino al 04/09 sera questo documento diceva
 > che in servizio c'era la **2.21.0** e che la **2.23.0** era «costruita, non
@@ -327,6 +365,38 @@ produzione fino all'ultimo giorno.
 > ricostruisce dal commit, e la build è riproducibile (§2) — ma è una domanda
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
+
+### La 2.25.0 — costruita, non installata
+
+**L'interfaccia sta dentro lo schermo, e l'applicativo si installa.** Tre
+difetti chiusi su quel che l'operatore vede da un telefono o da una tavoletta —
+il telaio più largo dello schermo, le undici linguette di Configurazione
+tagliate, lo zoom vietato — e la **modalità chiosco**: un manifesto web che
+trasforma la pagina in un'applicazione con la sua icona. Nessun campo nuovo a
+database, nessuna migrazione, niente che scriva.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.25.0\` |
+| impronta | `9b2fecb6b6cb5ac93a255490f4664b61bcfbcdbe2a7a2af99e0384dfcb61ef45` |
+| byte | **2.160.022** in **8 file**, `costruita 2026-09-04T21:46:04Z` |
+| perché 8 e non 4 | entrano nel pacchetto il manifesto del chiosco e le **tre icone** — 192, 512 e la `maskable` che Android ritaglia senza mangiare il marchio. Stanno in `public/assets/`, cioè finiscono in `app/assets/`, che è **la sola cartella che il servizio pubblica** (`/assets/:file`) |
+| riproducibile | **sì, verificata**: due build di fila danno la stessa impronta |
+| archiviata | **non ancora** |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.399 in 53 file** (una saltata) · `npm run check` pulito su client e servizio · il **banco a video non è stato rilanciato**: quel che è cambiato qui è CSS di telaio, e il rilievo dello stile confronta con una finestra di misura diversa — va rifatto prima di installare |
+| provata | a mano, nel browser, su **375 · 480 · 768 · 800 · 820 · 1024 · 1180 · 1366 px**: `document.body.scrollWidth` uguale a `innerWidth` su tutte, testata e sesta linguetta dentro il bordo, le undici linguette di Configurazione tutte visibili su due righe |
+| installata | **no.** §0: installare è un atto umano |
+
+> **IL CHIOSCO VUOLE HTTPS, E OGGI IL SERVIZIO PARLA IN CHIARO.** Il manifesto
+> c'è, le icone ci sono, la scheda in Configurazione → Sessione c'è: ma
+> `beforeinstallprompt` **non arriverà mai** su `http://<ip>:4173`, perché
+> nessun browser installa una pagina servita in chiaro. Su Android si potrà
+> comunque aggiungere un collegamento alla schermata Home, e resterà un
+> collegamento — si apre nel browser, con la barra dell'indirizzo. Perché
+> diventi un'applicazione vera serve **HTTPS sulla macchina che serve
+> Pathfinder**, ed è una decisione di rete, non di codice. Fino ad allora lo
+> stato che si legge è `non-sicuro`, e dice esattamente questo.
 
 ### La 2.24.0 — costruita, non installata
 
@@ -755,9 +825,12 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.22.0** | **COSTRUITA, NON INSTALLATA** — 03/09 notte | `c5d97b15…` | **La campata della tappa.** La scheda del prelievo disegna la **campata vista di fronte**: i livelli impilati, quello da prelevare acceso pieno, gli altri col **solo stato**. Una banda avvisa quando lo stesso articolo sta su un altro livello **con un lotto diverso** — il caso in cui la scansione del vano non salva nessuno. Sulle zone a terra e alla rinfusa non si disegna niente. Porta dentro anche la 2.21.1 |
+| **2.25.0** | **COSTRUITA, NON INSTALLATA** — 04/09 notte | `9b2fecb6…` | **L'interfaccia sta dentro lo schermo, e si installa.** Il telaio non supera più la larghezza della finestra (`min-width: 0` sulle caselle di griglia: era la testata a spingerlo a 459px su uno schermo da 375), le **undici linguette** di Configurazione vanno a capo invece di essere tagliate, lo zoom torna libero e la sua causa — i campi sotto i 16px — sparisce sotto `pointer: coarse`, dove i bersagli sono 48px. `dispositivo-tavoletta` ha finalmente delle regole. Più la **modalità chiosco**: manifesto web e tre icone, Pathfinder si apre dalla sua icona. **Vuole HTTPS** |
+| **2.24.0** | costruita, non installata — 04/09 sera | `39c2ecce…` | **I due fogli che escono dal magazzino, rifatti.** DDT a sei colonne (quantità e unità in due celle), packing list per **articolo → lotto → bancale** con un totale per livello. Tre difetti chiusi: la colonna da 13 mm con `nowrap`, il secondo foglio senza testata, le firme senza etichetta. Il foglio diventa una funzione del documento, e il banco ne compone due da un carico pieno |
+| **2.23.0** | **IN SERVIZIO su questa macchina dal 04/09 sera** | `f9d4e012…` | **Il banco guarda lo schermo.** Quindici flussi e 355 controlli sul DOM in `banco/video/`: ogni prova confronta quel che si vede, il conto rifatto a parte e quel che è finito a database. Ha trovato due difetti invisibili a una prova via `fetch` |
+| **2.22.0** | costruita, non installata, **superata dalla 2.23.0** — 03/09 notte | `c5d97b15…` | **La campata della tappa.** La scheda del prelievo disegna la **campata vista di fronte**: i livelli impilati, quello da prelevare acceso pieno, gli altri col **solo stato**. Una banda avvisa quando lo stesso articolo sta su un altro livello **con un lotto diverso** — il caso in cui la scansione del vano non salva nessuno. Sulle zone a terra e alla rinfusa non si disegna niente. Porta dentro anche la 2.21.1 |
 | **2.21.1** | costruita, non installata, **superata dalla 2.22.0** — 03/09 notte | `f2ecf629…` | **Una riga di registro.** Il carico delle spedizioni scriveva la sua riga `UDC` col solo tipo e la nota: adesso porta operatore, vano di partenza, vano di arrivo e istante, come la scrive la maschera delle unità di carico. Le righe della merce erano già complete |
-| **2.21.0** | **IN SERVIZIO su questa macchina dal 03/09 sera** | `479913cd…` | **Il bancale si fa da sé, e il camion si carica scansionando.** La maschera del reparto è quella del carico merce — colli pieni × quanto dentro — e il **modello di carico si impara** dal primo bancale invece di essere compilato su 11.197 articoli. L'etichetta esce **prima** dell'ubicazione. Nasce **Carico spedizioni**: un giro le cui tappe sono bancali, la **baia di carico** come tipo di zona, e i DDT che si evadono a fine giro — quelli completi. Più: articolo e lotto in due colonne, DDT e data **riletti dai documenti**, scarico a mano, DDT raggruppato in stampa, packing list con la composizione del collo |
+| **2.21.0** | in servizio dal 03/09 sera, **sostituita dalla 2.23.0 il 04/09** | `479913cd…` | **Il bancale si fa da sé, e il camion si carica scansionando.** La maschera del reparto è quella del carico merce — colli pieni × quanto dentro — e il **modello di carico si impara** dal primo bancale invece di essere compilato su 11.197 articoli. L'etichetta esce **prima** dell'ubicazione. Nasce **Carico spedizioni**: un giro le cui tappe sono bancali, la **baia di carico** come tipo di zona, e i DDT che si evadono a fine giro — quelli completi. Più: articolo e lotto in due colonne, DDT e data **riletti dai documenti**, scarico a mano, DDT raggruppato in stampa, packing list con la composizione del collo |
 | **2.20.0** | in servizio il 03/09 pomeriggio — è la **via di ritorno** | `d10d7830…` | **Il magazzino del prodotto finito.** Il bancale è un'unità di carico, la maschera del reparto lo chiude in un gesto e ne stampa l'etichetta, chi spedisce lo trova in elenco e sulla mappa, lo spunta e il DDT si riempie. **Packing list** e **conto terzi**, dove la merce non esce ma si sposta |
 | **2.19.0** | **COSTRUITA, NON INSTALLATA** — 02/09 | — | Le etichette escono dalla **stampante**: Zebra in rete sulla porta 9100, e a parlarle è il servizio. Le stampanti e il **layout dell'etichetta merce** — barre, descrizione, scadenza, peso — si configurano; chi stampa sceglie la macchina e quante copie. **L'A4 resta**, e non come ripiego di cortesia |
 | **2.18.1** | costruita, non installata | — | Il minimo di Node era sbagliato e l'ha trovato la CI: `>=20` dichiarato ovunque, `better-sqlite3` 13 ne vuole 22 |
@@ -813,6 +886,61 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.25 — l'interfaccia sta dentro lo schermo, e si installa
+
+**IL DIFETTO NON ERA NELLA TESTATA.** «Non si vedono tutti i tasti della barra
+superiore» è la descrizione esatta di quel che succedeva, e per tre giorni
+avrebbe mandato a cercare nel posto sbagliato. Una casella di griglia parte da
+`min-width: auto`: non scende **mai** sotto il contenuto minimo di quel che
+tiene dentro. Il contenuto minimo della testata è marchio + campo di ricerca +
+operatore e stato, e un `<input>` senza `size` chiede venti caratteri: su una
+striscia da 375px il minimo era **459px**. La griglia si allargava a 459, e con
+lei si allargavano tutte e tre le righe — testata, vista e linguette. Fuori dal
+bordo destro finivano l'operatore, il pallino del salvataggio e la **sesta
+linguetta**, e non c'era modo di arrivarci perché `html, body` sono `overflow:
+hidden`. La correzione è una riga — `.app-header, .mob-tabs { min-width: 0 }`,
+più `.app-main` e i tre pezzi del campo di ricerca — e a stringersi è quel che
+può stringersi.
+
+**LE UNDICI LINGUETTE ANDAVANO A CAPO, NON A SCORRERE.** Configurazione ne ha
+undici e chiedono 1030px in fila: `.app-main` è `overflow: hidden`, quindi
+Stampanti, Regole di stoccaggio e Dati e Backup venivano **tagliate via**. Si
+poteva far scorrere la fila; non si è fatto, perché una fila che scorre
+nasconde lo stesso quel che c'è oltre il bordo, e la regola di §8 è che chi
+guarda capisca **cosa non sta guardando**. `.prel-tabs` va a capo da sempre per
+la stessa ragione.
+
+**LO ZOOM SI TOGLIEVA PER UN MOTIVO VERO, E IL MOTIVO SI È TOLTO.** Il
+`viewport` diceva `user-scalable=no, maximum-scale=1`: in un magazzino vuol
+dire togliere la lente a chi legge un lotto stampato male. Stava lì perché
+Safari su iPad ingrandisce da solo quando il fuoco entra in un campo che scrive
+**sotto i 16px**, e la pagina resta ingrandita e spostata — che è l'altra metà
+di «i tasti non ci sono più». Adesso il divieto non c'è e la causa nemmeno:
+sotto `pointer: coarse` i campi partono da 16px, e il valore sta in un token
+(`--md-fs-campo-tocco: max(16px, 1em)`) perché `testoAMano` in
+`stileCoerente` è a zero e ci resta.
+
+**`dispositivo-tavoletta` NON AVEVA UNA REGOLA.** La classe la mette
+`_applicaDispositivo` dalla 1.11, e fra i 561 e i 1024 px l'applicativo usciva
+con le misure della scrivania: bersagli da mouse su un vetro che si tocca. La
+distinzione che la 2.25 scrive è che **la larghezza decide il layout, il
+puntatore decide il bersaglio**: le `max-width` dicono quanto ci sta, `pointer:
+coarse` dice com'è fatto il dito — e i 48px dei 560 smettono di dipendere dalla
+larghezza. `100vh` è diventato `100dvh` (con la riga `vh` sotto, come ricaduta):
+su un tablet la barra del browser compare e sparisce, e `100vh` resta fermo
+sulla misura a barra nascosta.
+
+**IL CHIOSCO È UN MANIFESTO, NON UN INTERRUTTORE.** `assets/chiosco.webmanifest`
+più tre icone, `display: standalone`, `display_override: [fullscreen,
+standalone]`: il terminale installa Pathfinder e lo apre dalla sua icona.
+`modules/chiosco.ts` è puro come `dispositivo.ts` — entrano quattro fatti sulla
+macchina, esce uno stato fra cinque — e la scheda in Configurazione → Sessione
+lo scrive con la frase che dice il passo successivo. **`non-sicuro` non è
+`in-attesa`**: senza HTTPS non si installa niente, e un'assenza senza motivo
+manda a cercare il guasto dalla parte sbagliata. Il file si chiama
+`chiosco.webmanifest` e non `manifest.json` perché in questo progetto
+`manifest.json` è il manifesto del **pacchetto** — versione e impronta.
 
 ### 2.23 — il banco guarda lo schermo
 
@@ -3524,6 +3652,7 @@ in Configurazione → Operatori.
 | `modules/documenti.ts` | 258 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto, e dalla 2.20 porta anche `udc_id` — da quale bancale esce la riga. **2.21**: `raggruppaPerPartita`, la riga che si STAMPA — un articolo e un lotto — mentre quella che si salva resta una per bancale. **2.24**: `distintaPerArticolo`, i tre livelli della packing list — articolo, lotto, bancale — ognuno col suo totale, con le stesse due regole del dato: unità diverse lasciano il totale **vuoto** e una scadenza discorde dentro un lotto sparisce. Somma con `sommaUom`, cioè con lo stesso arrotondamento dei totali del DDT: due totali che si scostano di un millesimo sullo stesso foglio sono una contestazione in banchina. Puro |
 | `modules/giacenzaArticolo.ts` | 175 | La giacenza di un articolo per lotto, FEFO, e la coda di conte nell'ordine dello scaffale. **Le UM non si calcolano qui**: arrivano risolte da `Store.righeLette`. Puro |
 | `modules/trasferimentiOdp.ts` · `dispositivo.ts` | 142 · 74 | Le tappe in un altro magazzino e il compito che ne nasce · su che cosa sta girando (decide **la larghezza**, non il sistema operativo). Puri |
+| `modules/chiosco.ts` | 93 | **2.25** — dove sta il chiosco su questa macchina: entrano classe di dispositivo, se gira già come applicazione, se l'origine è sicura e se il browser ha offerto l'installazione; esce uno stato fra cinque, con la frase da leggere. `non-sicuro` è distinto da `in-attesa` apposta: senza HTTPS non si installa niente, e dirlo evita di cercare il guasto altrove. Puro, come `dispositivo.ts` |
 | `modules/colonna.ts` | 119 | **2.22 — com'è fatta la campata che contiene un vano**: i livelli dall'alto in basso, ciascuno col **solo stato**, più i livelli che tengono lo stesso articolo con un lotto diverso. Sta da solo perché la domanda la fanno la scheda della tappa e, il giorno che servirà, la mappa. Torna `null` su terra, rinfusa e scaffali a un livello: **una colonna di un rettangolo solo non è una colonna**. I codici dei fratelli li dà `generaUbicazioni`, mai una `split('-')`. Puro |
 | `modules/udc.ts` | 162 | Il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perché **un'etichetta dura**. Dalla 2.20 lo stesso codice identifica anche un **bancale di prodotto finito** — `modules/bancale.ts`. Puro |
 | `modules/imballo.ts` | 199 | **2.20 — com'è fatto un bancale prima che il bancale esista**: i modelli di imballo, la loro convalida, `colliAttesi` e `pesoLordo`. Sta da solo perché la composizione è un DATO e non un campo su 11.197 articoli. **Il modello propone**: chi imballa riscrive il numero senza dover dire perché. **2.21**: `modelloAppreso` e `modelloConColli` — il formato che si IMPARA dal primo bancale invece di essere compilato su 11.197 articoli. Puro |

@@ -48,6 +48,14 @@
   --md-touch: 48px;
   --md-touch-sm: 40px;
 
+  /* 2.25 — IL MINIMO CHE UN CAMPO PUO' SCRIVERE SOTTO UN DITO. Non e' una
+     scelta tipografica: 16px e' la soglia sotto la quale Safari su iPad
+     ingrandisce la pagina da solo quando il fuoco entra nel campo, e la
+     pagina resta ingrandita e spostata. `max(..., 1em)` si risolve
+     sull'elemento che lo usa, quindi alza solo chi sta sotto e non tocca
+     un campo gia' piu' grande. Lo usa `01-layout.css` in `pointer: coarse`. */
+  --md-fs-campo-tocco: max(16px, 1em);
+
   --font: 'Segoe UI', 'Noto Sans', Arial, -apple-system, BlinkMacSystemFont, sans-serif;
   --mono: 'Consolas', 'SF Mono', 'Courier New', monospace;
 

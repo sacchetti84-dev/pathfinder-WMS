@@ -11,6 +11,8 @@ import { Dialog } from './dialog';
 import { Tabs } from './tabs';
 import { ico, type Icona } from './icone';
 import { classifica, classeCSS, classiPossibili, eAndroid, LARGHEZZA_TERMINALE, LARGHEZZA_TAVOLETTA } from '../modules/dispositivo';
+import type { ClasseDispositivo } from '../modules/dispositivo';
+import { stato as statoChiosco, type StatoChiosco } from '../modules/chiosco';
 import { Store } from '../core/store';
 import { rettifica as rettificaColli } from '../modules/colli';
 import { accendi as accendiMaiuscole } from '../modules/maiuscole';
@@ -462,6 +464,10 @@ const App = monolite({
     }
     window.addEventListener('resize', debounce(() => this._applicaDispositivo(), 200));
     window.addEventListener('orientationchange', () => setTimeout(() => this._applicaDispositivo(), 120));
+
+    /* 2.25 — il chiosco. Si registra qui e non piu' tardi: `beforeinstallprompt`
+       arriva una volta sola, presto, e chi non lo prende al volo non lo rivede. */
+    this._avviaChiosco();
 
     await this._flushRecoveryQueue();
     this._renderRecoveryBanner();
@@ -1195,6 +1201,72 @@ const App = monolite({
     /* La mappa e' disegnata su misura del contenitore: cambiata la densita',
        va ridisegnata o resta della misura di prima. */
     if (this.currentView === 'map' && this.currentSite) this.renderMap();
+  },
+
+  /* ═══ 2.25 · IL CHIOSCO ═══════════════════════════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l.
+
+     Tre fatti, e nessuno di questi e' una preferenza da salvare: se la
+     pagina gira gia' come applicazione installata, se l'indirizzo e' sicuro,
+     e se il browser ha offerto l'installazione. La regola che li mette
+     insieme sta in `modules/chiosco.ts`, qui c'e' solo il filo col browser. */
+
+  /** L'invito del browser, preso al volo e tenuto: `beforeinstallprompt`
+      passa una volta sola e non si puo' richiamare. */
+  _invitoChiosco: null as (Event & { prompt?: () => Promise<void> }) | null,
+
+  _avviaChiosco() {
+    this._segnaChiosco();
+    /* `preventDefault` toglie la barretta di serie del browser: l'invito lo
+       fa l'applicativo, nella scheda dove sta scritto anche il perche'. */
+    window.addEventListener('beforeinstallprompt', (e: Event) => {
+      e.preventDefault();
+      this._invitoChiosco = e as Event & { prompt?: () => Promise<void> };
+      if (this.currentView === 'config' && this._configTab === 'session') this.renderConfig();
+    });
+    window.addEventListener('appinstalled', () => {
+      this._invitoChiosco = null;
+      this._segnaChiosco();
+      this.toast('Pathfinder e\' installato su questo terminale', 'success');
+      if (this.currentView === 'config' && this._configTab === 'session') this.renderConfig();
+    });
+    /* Da installato la finestra nasce in `standalone`, ma su Android ci si
+       arriva anche DOPO, dalla stessa scheda: la classe deve seguire. */
+    window.matchMedia('(display-mode: standalone)')
+      .addEventListener('change', () => this._segnaChiosco());
+  },
+
+  /** Vero se questa finestra e' l'applicazione installata e non una scheda.
+      Due domande perche' iOS non risponde alla prima. */
+  _eChiosco(): boolean {
+    const standalone = window.matchMedia('(display-mode: standalone)').matches
+      || window.matchMedia('(display-mode: fullscreen)').matches;
+    return standalone || (navigator as { standalone?: boolean }).standalone === true;
+  },
+
+  _segnaChiosco() {
+    document.body.classList.toggle('chiosco', this._eChiosco());
+  },
+
+  /** Lo stato da scrivere nella scheda Sessione. */
+  statoChiosco(): StatoChiosco {
+    return statoChiosco({
+      classe: this._dispositivo as ClasseDispositivo,
+      installato: this._eChiosco(),
+      origineSicura: window.isSecureContext,
+      invitoPronto: !!this._invitoChiosco,
+    });
+  },
+
+  async installaChiosco() {
+    const invito = this._invitoChiosco;
+    if (!invito?.prompt) return;
+    /* L'invito si consuma nell'uso: che l'operatore accetti o rifiuti, il
+       browser non lo ripropone, e tenerne una copia vorrebbe dire un
+       pulsante che dalla seconda volta non fa piu' niente. */
+    this._invitoChiosco = null;
+    try { await invito.prompt(); } catch { /* rifiutato: non e' un guasto */ }
+    this.renderConfig();
   },
 
   switchView(view: string) {

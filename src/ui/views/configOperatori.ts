@@ -5,6 +5,7 @@ import type { Operatore } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { Auth } from '../../modules/auth';
 import { Session } from '../../modules/session';
+import { spiega as spiegaChiosco, siPuoInstallare as siPuoInstallareChiosco } from '../../modules/chiosco';
 import { Dialog } from '../dialog';
 import { Persistence } from '../../core/persistence/index';
 import { componi, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
@@ -172,9 +173,33 @@ export const VistaConfigOperatori = {
     </div>`;
   },
 
+  /* ═══ 2.25 · IL CHIOSCO ════════════════════════════════════════════════
+     Sta in «Sessione» perché è una proprietà di QUESTA macchina, come il
+     blocco per inattività: non entra nel database e non vale per gli altri
+     terminali. La scheda non ha un interruttore — installare o no lo decide
+     il browser, e quello che serve leggere è a che punto è. */
+  _chioscoHTML() {
+    const s = this.statoChiosco();
+    if (s === 'non-serve') return '';
+    return `<div class="config-card">
+      <h3>${this._ico('scan')} Chiosco: Pathfinder come applicazione</h3>
+      <p class="text-body-small text-sx-text-secondary leading-larga mb-7">
+        Installato, Pathfinder si apre <strong>dall'icona</strong> e non dentro
+        una scheda del browser: niente barra dell'indirizzo da toccare per
+        sbaglio con i guanti, e schermo pieno per la maschera che si sta
+        usando. I dati non cambiano — è lo stesso applicativo, servito dalla
+        stessa macchina.
+      </p>
+      <div class="text-body-small text-sx-text-secondary leading-larga">${this._esc(spiegaChiosco(s))}</div>
+      ${siPuoInstallareChiosco(s)
+        ? `<div class="mt-6"><button class="btn btn-primary" onclick="App.installaChiosco()">${this._ico('download')} Installa su questo terminale</button></div>`
+        : ''}
+    </div>`;
+  },
+
   _renderConfigSession(el) {
     const min = Session.getTimeoutMinutes();
-    el.innerHTML = `<div class="config-card">
+    el.innerHTML = `${this._chioscoHTML()}<div class="config-card">
       <h3>Blocco per inattività</h3>
       <p class="text-body-small text-sx-text-secondary leading-larga mb-7">
         Trascorso questo tempo senza attività, l'applicazione <strong>salva i dati</strong> e si blocca dietro

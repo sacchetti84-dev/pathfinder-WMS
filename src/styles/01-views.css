@@ -602,7 +602,15 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
 
 /* ════ Config ════ */
 .config-container { max-width: 1200px; margin: 0 auto; }
-.config-tabs { display: flex; border-bottom: 2px solid var(--sx-border); margin-bottom: 1rem; }
+/* 2.25 — LE LINGUETTE VANNO A CAPO, E NON E' UN DETTAGLIO DI GUSTO.
+   Configurazione ne ha undici e chiedono 1030px in fila: su una tavoletta da
+   800 o 1180 la fila sbordava dentro `.app-main`, che e' `overflow: hidden`,
+   e le ultime quattro — Stampanti, Regole di stoccaggio, Dati e Backup —
+   non si vedevano e non si raggiungevano in nessun modo. Non si e' scelto lo
+   scorrimento orizzontale: una fila che scorre nasconde comunque quel che
+   c'e' oltre il bordo, e qui la regola e' che chi guarda capisca cosa NON sta
+   guardando. `.prel-tabs` va a capo dalla 1.x per la stessa ragione. */
+.config-tabs { display: flex; flex-wrap: wrap; border-bottom: 2px solid var(--sx-border); margin-bottom: 1rem; }
 .config-tab { background: transparent; border: none; padding: 0.5rem 1rem; font-size: var(--md-sys-typescale-body-medium-size); cursor: pointer; color: var(--sx-text-secondary); font-family: var(--font); border-bottom: 2px solid transparent; margin-bottom: -2px; font-weight: 500; }
 .config-tab:hover { color: var(--sx-primary); }
 .config-tab.active { color: var(--sx-primary); border-bottom-color: var(--sx-primary); font-weight: 700; }

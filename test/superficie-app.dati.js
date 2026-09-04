@@ -111,6 +111,13 @@
    di una per bancale: il raggruppamento e' `raggruppaPerPartita` in
    `modules/documenti.ts`, dove una riga di documento si compone, e le righe
    SALVATE restano una per bancale.
+   2.25: sono entrati i sei della modalita' chiosco — `_avviaChiosco`,
+   `_segnaChiosco` e `_eChiosco` (il filo col browser: l'invito
+   `beforeinstallprompt` preso al volo e la classe sul body quando la
+   finestra e' l'applicazione installata), `_invitoChiosco` (l'invito
+   tenuto, perche' passa una volta sola), `statoChiosco` e `installaChiosco`
+   (quel che la scheda Sessione legge e il pulsante che preme). In
+   `configOperatori.ts` e' entrata `_chioscoHTML`, la scheda che lo dice.
    2.21: la tessera del prodotto finito porta un MARCHIO invece di
    un'emoji — la fabbrica non e' il prodotto finito, e' dove si fa — quindi
    e' entrato `MARCHIO_BANCALE`, il rimando allo sprite di `index.html`.
@@ -177,7 +184,7 @@ export const SUPERFICIE = [
   '_campiAttributiArticolo', '_campiDestinazioneZona', '_campoColliIngresso',
   '_campoUmIngresso', '_cancelPendingShip', '_causaliDDT', '_cbPickCambio', '_cbPickIn',
   '_cbPickInv', '_cbPickReleaseDest', '_checkPendingPickSession', '_checkStorageQuota',
-  '_chiediColli', '_closeIdentityGate', '_closePickLoc', '_colliIn', '_colliInChiave',
+  '_chiediColli', '_chioscoHTML', '_closeIdentityGate', '_closePickLoc', '_colliIn', '_colliInChiave',
   '_colliInUom', '_colliQtyInput',
   '_colliResolve', '_colliRigaAdd', '_colliRigaDel', '_colliRigaSet', '_colliSel',
   '_colliSelAnnulla', '_colliSelChiudi', '_colliSelOk', '_colliSelOpzioniParte',
@@ -228,6 +235,7 @@ export const SUPERFICIE = [
   '_formInventario', '_formOrdine', '_formPosiziona', '_formPrelievo', '_formProduzione',
   '_formQuarantena', '_formSmaltire', '_formSpedizioni', '_gateOpen', '_gateShell',
   '_getKnownOperators', '_getLocInfo', '_goOp', '_gotoPendingDoc', '_groupProdOrders',
+  '_avviaChiosco', '_eChiosco', '_invitoChiosco',
   '_hasOpenCart', '_hideServiceDown', '_highlightSearchSel', '_invAddExtra', '_invConfirm',
   '_invCount', '_invRemoveExtra', '_invState', '_ioMode', '_ioSwitch', '_isoToIt',
   '_leggiAttributiArticolo', '_leggiDestinazioneZona', '_leggiFoglioArticoli', '_loadInv',
@@ -296,7 +304,7 @@ export const SUPERFICIE = [
   '_scanKeydownFix', '_scannerLayoutFix', '_scegliColli', '_scheduleAutoBackup',
   '_scheduleResync', '_searchAll', '_searchDebounced',
   '_searchHits', '_searchLimits', '_searchOut', '_searchOutsideHandler', '_searchQuar',
-  '_searchSel', '_segnoConformita', '_selectLoginOp', '_setFeedbackPref',
+  '_searchSel', '_segnaChiosco', '_segnoConformita', '_selectLoginOp', '_setFeedbackPref',
   '_setScannerLayoutFix', '_shipAddToCart', '_shipAspetto', '_shipSub', '_shipSubMode', '_renderShipSub', '_formDocumenti', '_SOTTOSCHEDE', '_shipCarrier', '_shipCart',
   '_shipCartZoneHTML', '_shipCausale', '_shipClearCart', '_shipColliLiberi',
   '_shipCustomer', '_shipDdtNum', '_shipDestAddress', '_shipDestCity', '_shipDestProvince',
@@ -334,7 +342,7 @@ export const SUPERFICIE = [
   'showEditOperatorModal', 'showEditRecipientModal', 'showEditSiteModal',
   'showEditZoneModal', 'showModal', 'showMoveItemModal', 'showNewTaskModal',
   'showOPFSBackups', 'showOperatorMenu', 'showQuarantineItemModal', 'showRenewPinModal',
-  'startMov', 'switchView', 'takeOverTab', 'toast', 'toggleLocDisabled',
+  'installaChiosco', 'startMov', 'statoChiosco', 'switchView', 'takeOverTab', 'toast', 'toggleLocDisabled',
   'toggleMirrorFrontal', 'toggleOperatorActive', 'toggleSidebar', 'toggleSite',
   'updateSyncIndicator', 'updateZoneFields',   
   /* 1.9 - L'INVENTARIO PER ARTICOLO, e il giro di conte che ne esce.

@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "Pathfinder — Gestione Magazzino",
+  "short_name": "Pathfinder",
+  "description": "Gestione magazzino Dietopack: carichi, prelievi, inventario e documenti.",
+  "lang": "it",
+  "dir": "ltr",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": ["fullscreen", "standalone"],
+  "orientation": "any",
+  "background_color": "#E9EFEB",
+  "theme_color": "#274C57",
+  "categories": ["business", "productivity"],
+  "icons": [
+    { "src": "/assets/pathfinder-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pathfinder-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/assets/pathfinder-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

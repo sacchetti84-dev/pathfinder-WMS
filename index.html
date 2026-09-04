@@ -2,7 +2,25 @@
 <html lang="it">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<!-- 2.25 — MODALITA' CHIOSCO. Il manifesto e' quello che trasforma la pagina
+     in un'applicazione installata sul terminale: si apre dall'icona, senza
+     barra dell'indirizzo, a schermo pieno. Sta in `assets/` perche' e' la
+     sola cartella che il servizio pubblica (`/assets/:file`), e si chiama
+     `chiosco.webmanifest` per non confondersi con `manifest.json`, che in
+     questo progetto e' il manifesto del PACCHETTO — versione e impronta.
+     `?v=` lo firma: `/assets/:file` risponde `immutable` per un anno, e
+     senza la firma un manifesto cambiato non arriverebbe mai al terminale.
+     VUOLE HTTPS: su `http://` in LAN nessun browser installa niente, e la
+     scheda Configurazione -> Sessione lo dice invece di restare muta. -->
+<link rel="manifest" href="/assets/chiosco.webmanifest?v=__VERSIONE__">
+<link rel="icon" type="image/png" sizes="192x192" href="/assets/pathfinder-192.png">
+<link rel="apple-touch-icon" href="/assets/pathfinder-192.png">
+<meta name="theme-color" content="#274C57">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Pathfinder">
 <title>Pathfinder __VERSIONE__ — © Andrea Sacchetti</title>
 </head>
 <body>
