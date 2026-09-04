@@ -511,6 +511,15 @@ const Store = {
       /* 2.1 — il layout del cruscotto. Trappola 22: dichiarata qui, o
          vivrebbe in cache fino al primo ricaricamento e poi sparirebbe. */
       dashboardLayout: metaObj.dashboardLayout ?? null,
+      /* 2.23 — E DALLA 2.23 LE CHIAVI DI CRUSCOTTO SONO UNA FAMIGLIA.
+         Il layout è per operatore, quindi la chiave è `dashboardLayout:<SIGLA>`
+         e dichiararle a una a una è impossibile: le sigle nascono quando nasce
+         un operatore. La trappola 22 si evita tenendo il PREFISSO — ed è la
+         prima volta che serve, perché è la prima chiave di `meta` che non ha
+         un nome deciso a tavolino. Senza questa riga la preferenza durava
+         fino al ricaricamento e poi tornava quella di serie, in silenzio. */
+      ...Object.fromEntries(Object.entries(metaObj)
+        .filter(([k]) => k.startsWith('dashboardLayout:'))),
       /* 2.19 — le stampanti di etichette e la disposizione dell'etichetta
          merce. Trappola 22 anche loro: senza queste due righe una stampante
          appena configurata funzionerebbe fino al primo ricaricamento della
@@ -2053,16 +2062,27 @@ const Store = {
      assente significa «come nella 2.0» — cioè tutti i riquadri, nell'ordine
      del codice.
 
-     È UNO SOLO PER MAGAZZINO, non uno per operatore. Su un terminale di
-     corsia si alternano quattro persone nello stesso turno, e un cruscotto
-     che cambia forma a ogni cambio sigla è un cruscotto che nessuno impara.
-     Il giorno che servisse per persona, la chiave diventa `dashboard:<op>` e
-     questa riga resta il ripiego.
+     2.23 — ED È UNO PER OPERATORE. Chi spedisce vuole i documenti aperti,
+     chi conta vuole l'accuratezza: erano due mestieri sullo stesso spazio.
+
+     SI LEGGE LA PROPRIA, SI EREDITA LA COMUNE, SI SCRIVE SEMPRE LA PROPRIA.
+     `dashboardLayout:<SIGLA>`, e se non c'è si ripiega su `dashboardLayout`
+     — che resta la forma del magazzino, e quella che un operatore nuovo
+     trova il primo giorno. Ereditare in lettura e non in scrittura è ciò che
+     rende il passaggio invisibile: nessuno perde quel che aveva, e il primo
+     che sposta un riquadro non lo sposta a tutti. Senza sigla si usa la
+     chiave comune: non dovrebbe capitare, il cruscotto sta dietro il gate.
 
      La regola che riconcilia il salvato col codice sta in
      `modules/cruscotto.ts`, ed è pura. */
+  _chiaveCruscotto() {
+    const sigla = String(this.getCurrentIdentity().initials || '').trim();
+    return sigla ? `dashboardLayout:${sigla}` : 'dashboardLayout';
+  },
+
   getDashboardLayout() {
-    const raw = (this._cache.meta as Record<string, any>).dashboardLayout;
+    const meta = this._cache.meta as Record<string, any>;
+    const raw = meta[this._chiaveCruscotto()] ?? meta.dashboardLayout;
     if (!raw) return null;
     if (typeof raw === 'string') {
       try { return JSON.parse(raw); } catch { return null; }
@@ -2071,10 +2091,11 @@ const Store = {
   },
 
   async setDashboardLayout(layout: unknown) {
-    const rec = { key: 'dashboardLayout', value: layout };
+    const chiave = this._chiaveCruscotto();
+    const rec = { key: chiave, value: layout };
     await Persistence.put('meta', rec);
     this._applyToCache('meta', 'put', rec);
-    (this._cache.meta as Record<string, any>).dashboardLayout = layout;
+    (this._cache.meta as Record<string, any>)[chiave] = layout;
     return layout;
   },
 

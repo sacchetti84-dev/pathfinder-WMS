@@ -37,7 +37,7 @@
 @import './01-views.css' layer(app);
 @import './02-dash-charts.css' layer(app);
 @import './03-dash-sections.css' layer(app);
-@import './04-dash-quick.css' layer(app);
+@import './04-operativa.css' layer(app);
 @import './05-pick-report.css' layer(app);
 
 /* Dove si leggono le classi. `source(none)` spegne la ricerca automatica, che
@@ -151,8 +151,33 @@
      `01-tokens.css`, e siccome il `:root` dell'applicativo non sta in un
      layer vincerebbe sul tema — `rounded-md` direbbe 3px mentre il tema
      crede di dire 12px. Un numero non collide con niente. */
+  /* LE INTERLINEE CHE L'APPLICATIVO USA DAVVERO, e sono cinque.
+
+     `leading-[1.6]` compariva 35 volte, `leading-[1.55]` sei: un numero
+     ricopiato non è una scala, è la stessa decisione presa quaranta volte.
+     Qui prende un nome, e cambiarla diventa un gesto solo.
+
+     La tavolozza di serie di Tailwind resta spenta come i colori: `leading-6`
+     — che qui sarebbe un'interlinea in `rem` — non compila, così nessuno la
+     scrive per sbaglio credendo di dire 0,6. */
+  --leading-*: initial;
+  --leading-stretta: 1.3;    /* righe di tabella, dove il testo non va a capo */
+  --leading-riga: 1.5;
+  --leading-testo: 1.55;     /* la banda del flusso */
+  --leading-larga: 1.6;      /* i riscontri e le spiegazioni lunghe */
+  --leading-ampia: 1.7;
+
+  /* IL BERSAGLIO DA GUANTO HA UN NOME. `min-h-[var(--md-touch)]` stava in
+     diciassette punti, ed è la misura che decide se un pulsante si prende col
+     guanto o no: scritta a mano si dimentica, scritta come nome si vede
+     mancare. La spaziatura tattile NON segue `--spacing`, che è la manopola
+     della densità: un dito non si stringe quando si stringe la griglia. */
+  --spacing-touch: var(--md-touch);
+  --spacing-touch-sm: var(--md-touch-sm);
+  --spacing-casella: 16px;   /* la casella di spunta dentro una maschera */
+
   --radius-*: initial;
-  --radius-1: var(--radius);          /* 2px — il filetto */
+  --radius-1: var(--radius);          /* 4px — il filetto */
   --radius-2: 3px;                    /* il raggio medio dell'applicativo */
   --radius-3: var(--md-shape-xs);     /* 4px */
   --radius-4: var(--md-shape-sm);     /* 8px */
@@ -162,19 +187,35 @@
   --radius-full: var(--md-shape-full);
 
   --shadow-*: initial;
-  --shadow-1: 0 1px 1px rgb(24 40 48 / 0.05);
-  --shadow-2: 0 1px 3px rgb(24 40 48 / 0.10);
-  --shadow-3: 0 3px 10px rgb(24 40 48 / 0.16);
+  --shadow-1: 0 1px 1px color-mix(in srgb, var(--md-sys-color-on-surface) 5%, transparent);
+  --shadow-2: 0 1px 3px color-mix(in srgb, var(--md-sys-color-on-surface) 10%, transparent);
+  --shadow-3: 0 3px 10px color-mix(in srgb, var(--md-sys-color-on-surface) 16%, transparent);
   --shadow-elev-1: var(--md-elev-1);
   --shadow-elev-2: var(--md-elev-2);
   --shadow-elev-3: var(--md-elev-3);
   --shadow-elev-4: var(--md-elev-4);
 
-  /* Le soglie che l'applicativo usa gia' nelle sue sette media query, piu'
-     quella che non ha mai avuto: `rf` e' il terminale radiofrequenza. Sotto
-     `rf` non c'e' niente da adattare — la 1.11 dice che li' probabilmente
-     serve un'interfaccia apposita, non un ridimensionamento — ma la soglia
-     serve per dire DOVE finisce l'interfaccia da scrivania. */
+  /* ══ LE SOGLIE SONO UNDICI, E QUESTO È L'ELENCO ═══════════════════════
+     Fino alla 2.22 qui ce n'erano sei e i fogli ne usavano undici: cinque
+     larghezze vivevano solo dentro una `@media`, senza un posto dove qualcuno
+     potesse leggerle tutte insieme.
+
+     NON SI POSSONO SPOSTARE SULLE SEI, e non è pigrizia. Ognuna delle cinque
+     porta una ragione MISURATA sul contenuto, scritta accanto alla regola che
+     la usa: «sotto i 480 la descrizione esce perché costa il venti per cento
+     delle righe visibili», «sotto i 620 escono data e descrizione», «sotto i
+     430 due colonne spezzano l'etichetta a metà». Portare 620 a 700 farebbe
+     cadere le colonne ottanta pixel prima del necessario.
+
+     E NON SI POSSONO NEMMENO LEGGERE DA QUI: `@media` non accetta una
+     variabile CSS — `(max-width: var(--breakpoint-sm))` non compila. Una
+     sorgente unica VERA, qui, non esiste: quel che esiste è un elenco solo, e
+     un collaudo che rifiuta una soglia che non ci sia passata.
+
+     Le prime sei sono la griglia del telaio, e generano le varianti (`sm:`,
+     `md:`…). Le altre cinque sono soglie di CONTENUTO — una tabella che non
+     ci sta più, una riga che si impila — e sono più vicine a una container
+     query scritta a mano che a un punto della griglia. */
   --breakpoint-*: initial;
   --breakpoint-rf: 33.5rem;   /* 536px — l'MC9400 sta sotto */
   --breakpoint-sm: 43.75rem;  /* 700px */
@@ -182,4 +223,12 @@
   --breakpoint-lg: 68.75rem;  /* 1100px */
   --breakpoint-xl: 80rem;     /* 1280px */
   --breakpoint-2xl: 106.25rem;/* 1700px */
+
+  /* Le cinque di contenuto. Il nome dice cosa succede lì, non quanto misura:
+     un numero lo si legge già nel valore. */
+  --breakpoint-verticale: 26.875rem; /* 430px — la scheda della tappa passa a una colonna */
+  --breakpoint-minimo: 30rem;        /* 480px — esce la descrizione dell'articolo */
+  --breakpoint-palmare: 35rem;       /* 560px — i gesti vanno a capo interi, e la ricerca si impila */
+  --breakpoint-colonne: 38.75rem;    /* 620px — escono data e descrizione dai resi */
+  --breakpoint-tabella: 45rem;       /* 720px — le colonne diventano blocchi */
 }

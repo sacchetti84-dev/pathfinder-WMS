@@ -85,6 +85,17 @@ export const VistaCaricoSpedizione = {
       database — il riscontro dell'ultima scansione. */
   _carEsito: '' as string,
 
+  /** Il carico vive dentro la scheda di Spedizioni, non più in una maschera
+      sua. Un punto solo da cui ridisegnarlo, perché i richiami sono sette e
+      sbagliarne uno lascia la schermata ferma su quel che c'era prima.
+
+      SI RIDISEGNA LA SCHEDA INTERA, non solo il corpo: il pallino sulla
+      linguetta dice «c'è un carico in corso», e chiudendo il carico dal di
+      dentro resterebbe acceso a dire una cosa che non è più vera. */
+  _carRidisegna() {
+    this._formSpedizioni($('movFormArea'));
+  },
+
   _formCaricoSpedizione(el: HTMLElement) {
     const c = Store.getCaricoInCorso() as Carico | null;
     el.innerHTML = c ? this._carGiroHTML(c) : this._carAvvioHTML();
@@ -106,7 +117,7 @@ export const VistaCaricoSpedizione = {
     const baie = zoneCarico(Store.getSites());
     const docs = this._carDocumentiCaricabili() as DocumentoUscita[];
     if (!baie.length) {
-      return `<div class="mov-preview mov-preview-warn leading-[1.6]">
+      return `<div class="mov-preview mov-preview-warn leading-larga">
         <strong>Nessuna zona è dichiarata baia di carico.</strong> Si marca in
         Configurazione → Siti e Zone, sulla zona dove i bancali aspettano il camion.
         Serve una zona con abbastanza <strong>posizioni</strong>: in baia va una posizione
@@ -153,7 +164,7 @@ export const VistaCaricoSpedizione = {
         Le <strong>righe sciolte</strong> sono merce messa sul DDT senza passare da un pallet: si
         caricano a mano e non si scansionano.
       </div>`
-      : `<div class="mov-preview leading-[1.6]">
+      : `<div class="mov-preview leading-larga">
           <strong>Nessun DDT pendente porta bancali.</strong> Un documento si carica da qui solo
           quando le sue righe escono da un pallet: si spuntano i bancali in
           <strong>Prodotto finito</strong> e si registra il DDT in <strong>Spedizioni</strong>.
@@ -214,9 +225,9 @@ export const VistaCaricoSpedizione = {
     try { await Store.salvaCarico(carico); }
     catch (e) { return this.toast((e as Error).message || 'Avvio non riuscito', 'error'); }
     this._carEsito = '';
-    this.toast(`🚛 Carico avviato · DDT ${doc.ddt_num} · ${tappe.length} bancali`, 'success');
+    this.toast(`Carico avviato · DDT ${doc.ddt_num} · ${tappe.length} bancali`, 'success');
     this.updateSyncIndicator();
-    this._formCaricoSpedizione($('movFormArea'));
+    this._carRidisegna();
   },
 
   _carDocDelCarico(doc: DocumentoUscita, tappe: TappaCarico[]): DocDelCarico {
@@ -253,9 +264,9 @@ export const VistaCaricoSpedizione = {
         <td class="mono">${this._esc(t.contenuto)}</td>
         <td class="mono td-right">${t.colli}</td>
         <td>${t.stato === 'caricata'
-          ? `<span class="badge badge-success">In baia${t.baia ? ` · ${this._esc(t.baia)}` : ''}</span>`
+          ? `<span class="badge badge-green">In baia${t.baia ? ` · ${this._esc(t.baia)}` : ''}</span>`
           : t.stato === 'saltata'
-            ? `<span class="badge badge-warning" title="${this._esc(t.motivo || '')}">Saltata</span>`
+            ? `<span class="badge badge-amber" title="${this._esc(t.motivo || '')}">Saltata</span>`
             : `<span class="badge badge-muted">Da caricare</span>`}</td>
         <td class="whitespace-nowrap">${t.stato === 'attesa'
           ? `<button class="btn btn-sm" onclick="App._carSalta('${this._esc(t.udc_id)}')">Non lo trovo</button>`
@@ -272,37 +283,24 @@ export const VistaCaricoSpedizione = {
       </div>
 
       ${finito ? `
-        <div class="mov-preview mov-preview-ok mb-6 leading-[1.6]">
+        <div class="mov-preview mov-preview-ok mb-6 leading-larga">
           <strong>Tappe finite su questo DDT.</strong> Si carica un altro documento sullo
           stesso mezzo, oppure si chiude: alla chiusura i DDT completi vengono evasi e la
           merce esce dalla giacenza.
         </div>
         <div class="flex gap-4 flex-wrap mb-8">
           <button class="btn btn-primary" onclick="App._carAltroDdt()">+ Carica un altro DDT</button>
-          <button class="btn btn-success flex-1 p-5.5 font-bold" onclick="App._carChiudi()">✓ HO FINITO — EVADI</button>
+          <button class="btn btn-success btn-conferma" onclick="App._carChiudi()">${this._ico('check')} HO FINITO — EVADI</button>
           <button class="btn btn-danger" onclick="App._carAbbandona()">Abbandona</button>
         </div>`
-      : `
-        <div class="form-group mb-5">
-          <label>Scansiona il bancale <span class="req">*</span></label>
-          <input class="input input-mono uppercase" id="carScan" placeholder="Codice sull'etichetta del pallet"
-            oninput="App._normScan('carScan')"
-            onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('carScan');App._carScansiona();}">
-          <div class="text-label-small text-sx-text-muted mt-2">
-            Si scansiona <strong>solo il bancale</strong>: articolo e lotto stanno sotto il cellophane.
-          </div>
-        </div>
-        <div class="mb-6" id="carEsito">${this._carEsito}</div>
-        <div class="flex gap-4 flex-wrap mb-8">
-          <button class="btn" onclick="App._carAbbandona()">Abbandona il carico</button>
-        </div>`}
+      : this._carTappaHTML(c, corrente, restanti[0], fatte)}
 
       <div class="overflow-x-auto"><table class="sx-table"><thead><tr>
         <th class="w-[40px]">#</th><th>Bancale</th><th>Dove sta</th><th>Contenuto</th>
         <th class="td-right">Colli</th><th>Stato</th><th class="w-[130px]"></th>
       </tr></thead><tbody>${corrente.tappe.map(riga).join('')}</tbody></table></div>
       ${corrente.righe_sciolte ? `<div class="text-label-small text-sx-text-muted mt-3">
-        ⚠️ ${corrente.righe_sciolte} righe di questo DDT non escono da un bancale: si caricano a
+        ${this._ico('alert-triangle')} ${corrente.righe_sciolte} righe di questo DDT non escono da un bancale: si caricano a
         mano e non si scansionano. Non impediscono di evadere.
       </div>` : ''}
 
@@ -317,6 +315,63 @@ export const VistaCaricoSpedizione = {
           <td class="mono td-right">${d.tappe.filter(t => t.stato === 'saltata').length || ''}</td>
         </tr>`).join('')}</tbody></table></div>
       </div>` : ''}`;
+  },
+
+  /* ── LA TAPPA CORRENTE, COME LE ALTRE ───────────────────────────────────
+     2.23 — Fino alla 2.22 questo giro non aveva una scheda: la tappa da fare
+     era una RIGA DI TABELLA come tutte le altre, e chi caricava il camion
+     doveva cercarsela in mezzo a quelle già fatte. Le altre quattro
+     schermate che stanno davanti a un vano — prelievo guidato, conta,
+     quarantena, scarico — la scheda ce l'avevano dalla 2.5, ed è la stessa
+     `route-stop-card`: numero della tappa, il vano grande in monospaziato,
+     e sotto i dati che servono a decidere se è la merce giusta.
+
+     Il vano è il dato più grande della scheda perché è la domanda con cui si
+     apre la tappa: DOVE DEVO ANDARE. Il codice del bancale viene subito
+     dopo, ed è l'unica cosa che si scansiona — articolo e lotto stanno sotto
+     il cellophane.
+
+     L'ELENCO RESTA SOTTO, e serve a un'altra domanda: a che punto sono. È lo
+     stesso schema del prelievo guidato, dove la scheda della tappa sta sopra
+     e `route-list-row` elenca le altre. */
+  _carTappaHTML(c: Carico, doc: DocDelCarico, tappa: TappaCarico, fatte: number) {
+    const dove = this._getLocInfo(tappa.location_code);
+    const sito = [dove?.siteName, dove?.zoneName].filter(Boolean).join(' · ');
+    return `
+      <article class="route-stop-card">
+        <header class="route-stop-head">
+          <span class="route-stop-seq">${fatte + 1}</span>
+          <div class="route-stop-title">
+            <div class="route-stop-loc mono">${this._esc(tappa.location_code)}</div>
+            <div class="route-stop-site">${this._esc(sito || 'Raggiungi questa ubicazione')}</div>
+          </div>
+        </header>
+
+        <div class="route-stop-body">
+          <div class="route-stop-kv"><span>Bancale</span><b class="mono">${this._esc(tappa.udc_id)}</b></div>
+          <div class="route-stop-kv"><span>Contenuto</span><b>${this._esc(tappa.contenuto)}</b></div>
+          <div class="route-stop-kv route-stop-colli"><span>Colli</span><b>${tappa.colli}</b></div>
+          <div class="route-stop-kv"><span>Va in baia</span><b class="mono">${this._esc(c.baia_zona)}</b></div>
+        </div>
+
+        <div class="form-group mt-6 mx-0 mb-4">
+          <label>Scansiona il BANCALE <span class="req">*</span></label>
+          <input class="input input-mono uppercase" id="carScan" placeholder="Codice sull'etichetta del pallet"
+            oninput="App._normScan('carScan')"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('carScan');App._carScansiona();}">
+          <div class="text-label-small text-sx-text-muted mt-2">
+            Si scansiona <strong>solo il bancale</strong>: articolo e lotto stanno sotto il cellophane.
+          </div>
+        </div>
+
+        <div class="mb-6" id="carEsito">${this._carEsito}</div>
+
+        <div class="flex gap-5 mt-6 flex-wrap">
+          <button class="btn btn-warning btn-conferma"
+            onclick="App._carSalta('${this._esc(tappa.udc_id)}')">${this._ico('circle-x')} Non lo trovo</button>
+          <button class="btn min-h-touch" onclick="App._carAbbandona()">Abbandona il carico</button>
+        </div>
+      </article>`;
   },
 
   /* ── La scansione ────────────────────────────────────────────────────── */
@@ -382,9 +437,9 @@ export const VistaCaricoSpedizione = {
     tappa.baia = vano;
     tappa.done_at = Date.now();
     await Store.salvaCarico(c);
-    this._carEsito = this._carRiscontro('ok', `✓ ${tappa.udc_id} → ${vano} · ${tappa.contenuto} · ${tappa.colli} colli`);
+    this._carEsito = this._carRiscontro('ok', `${this._ico('check')} ${tappa.udc_id} → ${vano} · ${tappa.contenuto} · ${tappa.colli} colli`);
     this.updateSyncIndicator();
-    this._formCaricoSpedizione($('movFormArea'));
+    this._carRidisegna();
   },
 
   /** Le righe del documento che escono da questo bancale prendono
@@ -433,7 +488,7 @@ export const VistaCaricoSpedizione = {
 
   _carRiscontro(genere: 'ok' | 'error' | 'warn', testo: string) {
     const classe = genere === 'ok' ? 'mov-preview-ok' : genere === 'error' ? 'mov-preview-err' : 'mov-preview-warn';
-    return `<div class="mov-preview ${classe} leading-[1.6]">${this._esc(testo)}</div>`;
+    return `<div class="mov-preview ${classe} leading-larga">${this._esc(testo)}</div>`;
   },
 
   /* ── Saltare una tappa ───────────────────────────────────────────────── */
@@ -467,7 +522,7 @@ export const VistaCaricoSpedizione = {
     tappa.done_at = Date.now();
     await Store.salvaCarico(c);
     this._carEsito = this._carRiscontro('warn', `${udcId} saltato — ${motivo}`);
-    this._formCaricoSpedizione($('movFormArea'));
+    this._carRidisegna();
   },
 
   /* ── Un altro DDT ────────────────────────────────────────────────────── */
@@ -479,7 +534,7 @@ export const VistaCaricoSpedizione = {
     const liberi = (this._carDocumentiCaricabili() as DocumentoUscita[]).filter(d => !gia.has(d.doc_id));
     if (!liberi.length) return this.toast('Non ci sono altri DDT pendenti con bancali', 'warning');
 
-    this.showModal('🚛 Quale DDT si carica adesso',
+    this.showModal(`${this._ico('tir')} Quale DDT si carica adesso`,
       `<div class="max-h-[400px] overflow-y-auto">${liberi.map((d: DocumentoUscita) => {
         const n = (this._carTappeDaDoc(d) as TappaCarico[]).length;
         return `<div class="search-result-item" onclick="App._carScegliDdt('${this._esc(d.doc_id)}')">
@@ -502,7 +557,7 @@ export const VistaCaricoSpedizione = {
     await Store.salvaCarico(c);
     this._carEsito = '';
     this.toast(`DDT ${doc.ddt_num} · ${tappe.length} bancali da caricare`, 'success');
-    this._formCaricoSpedizione($('movFormArea'));
+    this._carRidisegna();
   },
 
   /* ── La chiusura ─────────────────────────────────────────────────────── */
@@ -533,7 +588,7 @@ export const VistaCaricoSpedizione = {
       await Store.chiudiCarico();
       this._carEsito = '';
       this.toast('Carico chiuso — nessun DDT evaso', 'warning');
-      return this._formCaricoSpedizione($('movFormArea'));
+      return this._carRidisegna();
     }
 
     if (!await Dialog.confirm({
@@ -543,7 +598,7 @@ export const VistaCaricoSpedizione = {
       details: Dialog.kv([
         ['DDT completi', completi.map(d => d.ddt_num || d.doc_id).join(' · ')],
         ['Bancali caricati', bancali],
-        ...(incompleti.length ? [['⚠️ Restano pendenti',
+        ...(incompleti.length ? [['Restano pendenti',
           incompleti.map(d => `${d.ddt_num || d.doc_id} (manca ${d.tappe.filter(t => t.stato !== 'caricata').length})`).join(' · ')]] as [string, string][] : []),
       ]),
       confirmLabel: 'Evadi e chiudi', danger: true,
@@ -581,13 +636,13 @@ export const VistaCaricoSpedizione = {
     catch (e) { this.toast(`Il carico non si è chiuso: ${(e as Error).message}`, 'error'); }
     this._carEsito = '';
     this.updateSyncIndicator();
-    if (evasi.length) this.toast(`🚛 ${evasi.length} DDT evasi — ${evasi.join(' · ')}`, 'success');
+    if (evasi.length) this.toast(`${evasi.length} DDT evasi — ${evasi.join(' · ')}`, 'success');
     else this.toast('Carico chiuso, nessun DDT evaso', 'warning');
     if (incompleti.length) {
       this.toast(`${incompleti.length} ${incompleti.length === 1 ? 'DDT resta pendente' : 'DDT restano pendenti'}: mancano dei bancali`, 'warning');
     }
     if (falliti.length) this.toast(`Non evasi: ${falliti.join(' · ')}`, 'warning');
-    this._formCaricoSpedizione($('movFormArea'));
+    this._carRidisegna();
   },
 
   /* ABBANDONARE NON RIMETTE INDIETRO I BANCALI. Sono in baia davvero:
@@ -613,7 +668,7 @@ export const VistaCaricoSpedizione = {
     await Store.chiudiCarico();
     this._carEsito = '';
     this.toast('Carico abbandonato — i DDT restano pendenti', 'warning');
-    this._formCaricoSpedizione($('movFormArea'));
+    this._carRidisegna();
   },
 
 } satisfies Vista;

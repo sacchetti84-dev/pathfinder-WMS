@@ -121,7 +121,7 @@ export const VistaWip = {
         <td>
           <button class="btn btn-sm btn-ghost mono" title="Apri il conto di ${this._esc(r.odp_num)}"
             onclick="App._wipApri('${this._esc(r.odp_num)}')">${this._esc(r.odp_num)}</button>
-          ${r.serviti.length ? `<span class="badge badge-muted" title="Questo conto serve anche ${this._esc(r.serviti.join(', '))}">🔗 ${r.serviti.length + 1}</span>` : ''}
+          ${r.serviti.length ? `<span class="badge badge-muted" title="Questo conto serve anche ${this._esc(r.serviti.join(', '))}">${this._ico('link')} ${r.serviti.length + 1}</span>` : ''}
         </td>
         <td class="td-num ${storto ? 'text-sx-danger font-bold' : ''}">${r.residuo}</td>
         <td class="td-num">${(typeof r.residuo_uom === 'number' && r.uom)
@@ -131,7 +131,7 @@ export const VistaWip = {
           <button class="inv-btn" title="Rendi a magazzino quello che avanza"
             onclick="App._wipDaRiga('${this._esc(r.odp_num)}','${this._esc(r.item_key)}','reso')">↩</button>
           <button class="inv-btn" title="Consumato del tutto: niente rientra, e questa riga si chiude"
-            onclick="App._wipDaRiga('${this._esc(r.odp_num)}','${this._esc(r.item_key)}','consumo')">🔥</button>
+            onclick="App._wipDaRiga('${this._esc(r.odp_num)}','${this._esc(r.item_key)}','consumo')">${this._ico('flame')}</button>
         </td>
       </tr>`;
     }).join('');
@@ -186,8 +186,8 @@ export const VistaWip = {
       return `<div class="wip-ordine ${this._wipOrdine === odp ? 'wip-ordine--aperto' : ''}">
         <div class="wip-ordine-testa">
           <button class="btn btn-sm btn-ghost mono font-bold" onclick="App._wipApri('${this._esc(odp)}')">${this._esc(odp)}</button>
-          ${serviti.length ? `<span class="badge badge-muted" title="Serve anche ${this._esc(serviti.join(', '))}">🔗 giro di ${serviti.length + 1}</span>` : ''}
-          ${c.incoerente ? '<span class="badge badge-red" title="Da qualche riga è tornato più di quanto sia entrato">⚠️ conto storto</span>' : ''}
+          ${serviti.length ? `<span class="badge badge-muted" title="Serve anche ${this._esc(serviti.join(', '))}">${this._ico('link')} giro di ${serviti.length + 1}</span>` : ''}
+          ${c.incoerente ? `<span class="badge badge-red" title="Da qualche riga è tornato più di quanto sia entrato">${this._ico('alert-triangle')} conto storto</span>` : ''}
           ${vuoto ? '<span class="badge badge-green">tutto rientrato — resta da chiudere</span>' : ''}
         </div>
         <div class="wip-ordine-conto text-label-small text-sx-text-muted">
@@ -198,9 +198,9 @@ export const VistaWip = {
           <!-- «Chiudi» da solo no: sotto c'è il pulsante che chiude la SCHERMATA,
                e due Chiudi a due centimetri l'uno dall'altro sono uno che si
                preme per sbaglio su un gesto che archivia un ordine. -->
-          <button class="btn btn-sm btn-primary" onclick="App._wipApri('${this._esc(odp)}');App._wipChiudi()">🏁 Chiudi e archivia</button>
+          <button class="btn btn-sm btn-primary" onclick="App._wipApri('${this._esc(odp)}');App._wipChiudi()">${this._ico('flag')} Chiudi e archivia</button>
           <button class="btn btn-sm" onclick="App._wipApri('${this._esc(odp)}');App._wipCorreggiReso()">⟲ Correggi un reso</button>
-          <button class="btn btn-sm btn-ghost" onclick="App._wipApri('${this._esc(odp)}');App._wipStampaRendiconto()">🖨 Report</button>
+          <button class="btn btn-sm btn-ghost" onclick="App._wipApri('${this._esc(odp)}');App._wipStampaRendiconto()">${this._ico('printer')} Report</button>
         </div>
       </div>`;
     }).join('');
@@ -227,14 +227,14 @@ export const VistaWip = {
                <span><strong>${ordini}</strong> ordin${ordini === 1 ? 'e' : 'i'}</span>
              </div>
              <button class="btn btn-sm btn-ghost" title="Gli ordini chiusi stanno in Archivio, con gli altri documenti"
-               onclick="App._wipVaiAllArchivio()">🗄 Archivio ODP</button>
+               onclick="App._wipVaiAllArchivio()">${this._ico('database')} Archivio ODP</button>
            </div>`
         : `<div class="mov-preview mov-preview-warn mb-5"><strong>Area WIP non configurata.</strong>
              Si imposta in Configurazione → Funzioni: senza, il prelievo di produzione non ha dove portare la merce.</div>`}
 
       ${orfane.length ? `<div class="mov-preview mov-preview-warn mb-5">
         <button class="wip-orfane-testa" onclick="App._wipOrfaneAperte=!App._wipOrfaneAperte;App._formWip($('pickSubForm'))">
-          <strong>⚠️ ${orfane.length} rig${orfane.length === 1 ? 'a' : 'he'} nel vano che nessun ordine rivendica</strong>
+          <strong>${this._ico('alert-triangle')} ${orfane.length} rig${orfane.length === 1 ? 'a' : 'he'} nel vano che nessun ordine rivendica</strong>
           <span>${this._wipOrfaneAperte ? '▾' : '▸'}</span>
         </button>
         ${this._wipOrfaneAperte ? `<div class="mt-3 text-body-small">
@@ -295,7 +295,7 @@ export const VistaWip = {
       const altrove = Store.contoTenutoDaWip(odp);
       box.innerHTML = altrove
         ? `<div class="mov-preview mov-preview-warn p-7.5">
-             <strong>🔗 Il conto di ${this._esc(odp)} lo tiene ${this._esc(altrove.capofila)}</strong><br>
+             <strong>${this._ico('link')} Il conto di ${this._esc(odp)} lo tiene ${this._esc(altrove.capofila)}</strong><br>
              Prelevato in un giro con altri: la merce e' scesa una volta sola, sotto il
              capofila, e la ripartizione si dichiara alla chiusura di quel conto.
              <div class="mt-4"><button class="btn btn-primary" onclick="App._wipApri('${this._esc(altrove.capofila)}')">Apri il conto di ${this._esc(altrove.capofila)}</button></div>
@@ -316,7 +316,7 @@ export const VistaWip = {
       (typeof n === 'number' && u) ? ` · ${formattaQuantita(n, u)} ${this._esc(u)}` : '';
 
     let html = `${archiviato ? `<div class="mov-preview mov-preview-ok mb-5">
-      <strong>🗄 Ordine chiuso e archiviato</strong>${c.chiuso_il ? ` il ${this._fmtStamp(c.chiuso_il)}` : ''} —
+      <strong>${this._ico('database')} Ordine chiuso e archiviato</strong>${c.chiuso_il ? ` il ${this._fmtStamp(c.chiuso_il)}` : ''} —
       il conto è storia: non entra merce e non ne esce, nemmeno ricaricando lo stesso ordine.
       Il rendiconto si stampa.
     </div>` : ''}
@@ -324,10 +324,10 @@ export const VistaWip = {
       <strong class="mono">${this._esc(odp)}</strong> — vano <span class="mono">${this._esc(vano)}</span><br>
       Entrato <strong>${c.entrato} Coll.</strong> · reso <strong>${c.tornato}</strong>${c.consumato ? ` · <strong class="text-sx-success">consumato ${c.consumato}</strong>` : ''} ·
       <strong class="text-sx-warning">ancora in lavorazione ${c.residuo}</strong>
-      ${c.incoerente ? '<br><strong>⚠️ Da qualche riga è tornato più di quanto sia entrato: il conto non sta in piedi.</strong>' : ''}
+      ${c.incoerente ? `<br><strong>${this._ico('alert-triangle')} Da qualche riga è tornato più di quanto sia entrato: il conto non sta in piedi.</strong>` : ''}
     </div>
     ${serviti.length ? `<div class="mov-preview mov-preview-warn mb-5">
-      <strong>🔗 Serve ${serviti.length + 1} ordini</strong> — ${this._esc([odp, ...serviti].join(' · '))}.
+      <strong>${this._ico('link')} Serve ${serviti.length + 1} ordini</strong> — ${this._esc([odp, ...serviti].join(' · '))}.
       Alla chiusura il consumo si ripartisce in proporzione a quanto ciascuno aveva chiesto.
     </div>` : ''}`;
 
@@ -343,9 +343,9 @@ export const VistaWip = {
           </div>
         </div>
         <div class="inv-actions-row">
-          ${archiviato ? '<span class="text-sx-text-muted">🗄</span>'
+          ${archiviato ? `<span class="text-sx-text-muted">${this._ico('database')}</span>`
             : fuori ? `<button class="inv-btn" title="Rendi a magazzino quello che avanza" onclick="App._wipChiediReso('${this._esc(r.item_key)}')">↩</button>
-            <button class="inv-btn" title="Consumato del tutto: niente rientra, e questa riga si chiude" onclick="App._wipConsumaTutto('${this._esc(r.item_key)}')">🔥</button>` : '<span class="text-sx-success">✓</span>'}
+            <button class="inv-btn" title="Consumato del tutto: niente rientra, e questa riga si chiude" onclick="App._wipConsumaTutto('${this._esc(r.item_key)}')">${this._ico('flame')}</button>` : `<span class="text-sx-success">${this._ico('check')}</span>`}
         </div>
       </div>`;
     }
@@ -353,9 +353,9 @@ export const VistaWip = {
     html += `<div class="mov-divider"></div>
       <div class="flex gap-3 flex-wrap">
         ${archiviato ? '' : `<button class="btn btn-primary" onclick="App._wipChiudi()">
-          🏁 Chiudi e archivia${c.residuo ? ` — ${c.residuo} Coll. diventano consumo` : ''}
+          ${this._ico('flag')} Chiudi e archivia${c.residuo ? ` — ${c.residuo} Coll. diventano consumo` : ''}
         </button>`}
-        <button class="btn" onclick="App._wipStampaRendiconto()">🖨 Report consumo</button>
+        <button class="btn" onclick="App._wipStampaRendiconto()">${this._ico('printer')} Report consumo</button>
         ${!archiviato && rendere.length ? `<span class="text-label-small text-sx-text-muted pt-4">${rendere.length} rig${rendere.length === 1 ? 'a' : 'he'} da rendere, se non è stata consumata</span>` : ''}
       </div>`;
     box.innerHTML = html;
@@ -491,7 +491,7 @@ export const VistaWip = {
       Store.getItemsAtLocation(Store.getAreaWip()).find((x) => x.item_key === itemKey)) || []).length;
     this.showModal(
       '↩ Rendi a magazzino',
-      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-5 py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
         <strong class="mono">${this._esc(r.article_code)}</strong> lotto <span class="mono">${this._esc(r.lot_code)}</span> ·
         ordine <strong class="mono">${this._esc(this._wipOrdine)}</strong> ·
         in lavorazione <strong>${r.residuo} Coll.</strong>
@@ -515,7 +515,7 @@ export const VistaWip = {
           <div class="flex gap-3">
             <input class="input input-mono uppercase flex-1" id="wipDove" placeholder="Scansiona o digita l’ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
               oninput="this.value=this.value.toUpperCase();App._previewLoc('wipDove','wipDovePrev')">
-            <button class="btn btn-sm" type="button" onclick="App._pickLoc('wipDove',null)" title="Sfoglia">📍</button>
+            <button class="btn btn-sm" type="button" onclick="App._pickLoc('wipDove',null)" title="Sfoglia">${this._ico('map-pin')}</button>
           </div>
           <div id="wipDovePrev"></div>
         </div>
@@ -813,7 +813,7 @@ export const VistaWip = {
       <p class="text-body-small">La merce e' scesa dallo scaffale <b>una volta sola</b>, sotto
       l'ordine ${E(odp)}. Le quote qui sopra ripartiscono il consumo dichiarato in proporzione a
       quanto ciascun ordine aveva chiesto: la loro somma, riga per riga, e' il consumo della riga.</p>`
-      : (giro.length ? `<p class="text-body-small"><b>🔗 Giro di ${giro.length + 1} ordini</b> —
+      : (giro.length ? `<p class="text-body-small"><b>${this._ico('link')} Giro di ${giro.length + 1} ordini</b> —
         ${E([odp, ...giro].join(' · '))}. La ripartizione del consumo fra gli ordini si scrive
         alla chiusura: finche' il conto e' aperto non c'e' consumo da ripartire.</p>` : '');
 
@@ -847,7 +847,7 @@ export const VistaWip = {
       chili e uno a pezzi non fanno un totale.</p>
       ${r.chiuso
         ? '<p class="text-body-small">Ogni riga di questo ordine è stata dichiarata: il foglio è un <b>consuntivo</b>.</p>'
-        : '<p class="text-body-small"><b>⚠️ Ordine ancora aperto.</b> Le righe segnate «ancora in lavorazione» portano merce che sta sul bancone: quel delta non è consumo finché non viene dichiarato.</p>'}
+        : `<p class="text-body-small"><b>${this._ico('alert-triangle')} Ordine ancora aperto.</b> Le righe segnate «ancora in lavorazione» portano merce che sta sul bancone: quel delta non è consumo finché non viene dichiarato.</p>`}
       ${bloccoGiro}`;
 
     this._docPrint(this._docPageHTML({
@@ -962,7 +962,7 @@ export const VistaWip = {
     this.updateSyncIndicator();
     this._refreshSessionLog?.();
     if (errore) return this.toast(`Consumo non dichiarato — ${errore}`, 'error');
-    this.toast(`🔥 ${r.article_code}#${r.lot_code}: ${quanto} a consumo di ${odp}`, 'success');
+    this.toast(`${r.article_code}#${r.lot_code}: ${quanto} a consumo di ${odp}`, 'success');
   },
   /* LA CHIUSURA È IL MOMENTO IN CUI IL RESIDUO DIVENTA CONSUMO, ed è
      l'unica cosa che questa maschera fa e che non si può disfare leggendo:
@@ -1027,7 +1027,7 @@ export const VistaWip = {
         + 'nemmeno ricaricando lo stesso ordine dal file di produzione. Il rendiconto resta stampabile.'
         + (senzaQuote.length ? `
 
-⚠️ ${senzaQuote.length} rig${senzaQuote.length === 1 ? 'a non è' : 'he non sono'} ripartibil${senzaQuote.length === 1 ? 'e' : 'i'}: senza unità di misura il consumo resta intestato tutto a ${odp}.` : ''),
+${this._ico('alert-triangle')} ${senzaQuote.length} rig${senzaQuote.length === 1 ? 'a non è' : 'he non sono'} ripartibil${senzaQuote.length === 1 ? 'e' : 'i'}: senza unità di misura il consumo resta intestato tutto a ${odp}.` : ''),
       details: dettaglio.length ? Dialog.kv(dettaglio) : undefined,
       confirmLabel: k.length
         ? (serviti.length ? 'Dichiara, ripartisci e archivia' : 'Dichiara consumato e archivia')
@@ -1061,6 +1061,6 @@ export const VistaWip = {
     this.updateSyncIndicator();
     this._refreshSessionLog?.();
     if (falliti.length) return this.toast(`Chiusura incompleta — ${falliti[0]}`, 'error');
-    this.toast(`🏁 Ordine ${odp} chiuso e archiviato: ${k.length} rig${k.length === 1 ? 'a consumata' : 'he consumate'}`, 'success');
+    this.toast(`Ordine ${odp} chiuso e archiviato: ${k.length} rig${k.length === 1 ? 'a consumata' : 'he consumate'}`, 'success');
   },
 } satisfies Vista;

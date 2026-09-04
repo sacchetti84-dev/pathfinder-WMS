@@ -102,11 +102,11 @@ export const VistaConfigDati = {
         </tbody>
       </table>
       <div class="flex gap-4 flex-wrap">
-        <button class="btn btn-primary" onclick="App.exportData()" title="Scrive un file JSON con tutto il magazzino: giacenze, registro, quarantene, documenti, operatori e impostazioni">💾 Salva backup (JSON)</button>
-        <button class="btn btn-accent" onclick="App.importData()" title="Rimette in questo database il contenuto di un backup JSON">♻️ Recupera da backup (JSON)</button>
-        <button class="btn btn-warning" onclick="App.exportMovLogExcel()">📊 Esporta Registro Movimenti (Excel)</button>
-        <button class="btn btn-warning" onclick="App.exportGiacenzeExcel()" title="Esporta tutte le giacenze raggruppate per Site/Zona/Ubicazione">📦 Esporta Giacenze per Area (Excel)</button>
-        <button class="btn btn-danger ml-auto" onclick="App.confirmResetData()">🗑 Reset completo DB</button>
+        <button class="btn btn-primary" onclick="App.exportData()" title="Scrive un file JSON con tutto il magazzino: giacenze, registro, quarantene, documenti, operatori e impostazioni">${this._ico('device-floppy')} Salva backup (JSON)</button>
+        <button class="btn btn-accent" onclick="App.importData()" title="Rimette in questo database il contenuto di un backup JSON">${this._ico('recycle')} Recupera da backup (JSON)</button>
+        <button class="btn btn-warning" onclick="App.exportMovLogExcel()">${this._ico('chart-bar')} Esporta Registro Movimenti (Excel)</button>
+        <button class="btn btn-warning" onclick="App.exportGiacenzeExcel()" title="Esporta tutte le giacenze raggruppate per Site/Zona/Ubicazione">${this._ico('package')} Esporta Giacenze per Area (Excel)</button>
+        <button class="btn btn-danger ml-auto" onclick="App.confirmResetData()">${this._ico('trash')} Reset completo DB</button>
       </div>
       <!-- 2.1 — LA PURGA NON C'È PIÙ, E LA FRASE QUI SOTTO È DIVENTATA VERA.
            Fino alla 2.0 «nessun record viene mai cancellato automaticamente»
@@ -114,9 +114,9 @@ export const VistaConfigDati = {
            i movimenti oltre la soglia. Adesso non c'è nessuna strada, e la
            soglia resta quel che è sempre stata — la conservazione dichiarata,
            non un permesso di cancellare. -->
-      <div class="bg-[var(--grad-soft-green)] border border-sx-success rounded-[var(--radius-md)] py-6 px-7.5 mt-6">
-        <div class="font-bold text-body-small text-sx-success mb-3">🔒 Conservazione dei record</div>
-        <p class="text-body-small text-sx-text-secondary leading-[1.5]">
+      <div class="bg-sx-success-soft border border-sx-success rounded-5 py-6 px-7.5 mt-6">
+        <div class="font-bold text-body-small text-sx-success mb-3">${this._ico('lock')} Conservazione dei record</div>
+        <p class="text-body-small text-sx-text-secondary leading-riga">
           <strong>Nessun record viene mai cancellato, né automaticamente né a mano.</strong>
           Il registro movimenti <strong>non ha una scadenza dentro l'applicativo</strong>:
           non esiste una funzione che elimini un movimento, e non ne esiste una che
@@ -138,14 +138,14 @@ export const VistaConfigDati = {
         </label>
         <div class="flex-1">
           <div class="font-semibold text-body-medium text-sx-text">Correzione layout scanner US→IT</div>
-          <div class="text-body-small text-sx-text-muted mt-2 leading-[1.5]">
+          <div class="text-body-small text-sx-text-muted mt-2 leading-riga">
             Attiva questa opzione se lo scanner barcode legge <strong>"/"</strong> come <strong>"-"</strong> (o caratteri simili).
             Lo scanner di fabbrica è in modalità tastiera US: su sistemi Windows con layout IT alcuni tasti producono caratteri sbagliati.
             Il fix usa il codice del tasto fisico (indipendente dal layout) per ricostruire il carattere originale del barcode.
             <br><strong>Disattiva</strong> solo se lo scanner è già stato programmato per il layout italiano.
           </div>
           <div class="text-label-small text-sx-text-muted mt-4">
-            Caratteri corretti: <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">/</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">-</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">'</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">\\</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-[2px]">=</code>
+            Caratteri corretti: <code class="bg-sx-bg-alt py-0 px-3 rounded-1">/</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-1">-</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-1">'</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-1">\\</code> · <code class="bg-sx-bg-alt py-0 px-3 rounded-1">=</code>
           </div>
         </div>
       </div>
@@ -153,7 +153,7 @@ export const VistaConfigDati = {
     <!-- v2.1.0 — Card preferenze di riscontro operativo -->
     <div class="config-card mt-7.5">
       <h3>Riscontro Operativo (suono · vibrazione · messaggi)</h3>
-      <p class="text-body-small text-sx-text-secondary leading-[1.55] mb-6">
+      <p class="text-body-small text-sx-text-secondary leading-testo mb-6">
         Dalla v2.1.0 l'esito di ogni operazione compare al <strong>centro dello schermo</strong>, non piu' nell'angolo,
         ed e' accompagnato da una firma sonora diversa per esito positivo, avviso ed errore.
         In reparto rumoroso alzare il volume; in ufficio disattivare l'audio.
@@ -217,10 +217,10 @@ export const VistaConfigDati = {
     const livello = remoto ? 'ok' : (persist.granted ? 'warn' : 'bad');
     const bordo = livello === 'ok' ? 'var(--sx-success)' : livello === 'warn' ? 'var(--sx-warning)' : 'var(--sx-danger)';
     const titolo = livello === 'ok'
-      ? '🛡 Il database vive nel servizio dati'
+      ? `${this._ico('shield-check')} Il database vive nel servizio dati`
       : livello === 'warn'
-        ? '⚠️ Il database vive dentro questo browser'
-        : '⛔ Database dentro il browser, senza archiviazione persistente';
+        ? `${this._ico('alert-triangle')} Il database vive dentro questo browser`
+        : `${this._ico('alert-octagon')} Database dentro il browser, senza archiviazione persistente`;
 
     host.innerHTML = `<div class="config-card" style="border-left:4px solid ${bordo};margin-bottom:0.75rem">
       <h3 style="color:${bordo}">${titolo}</h3>
@@ -234,9 +234,9 @@ export const VistaConfigDati = {
            pulsanti OPFS fallirebbero, essendo supportsLocalBackup false. -->
       <div class="py-5 px-0 border-b border-b-sx-border">
         <div class="font-bold text-body-medium mb-2.5">
-          🗄 Il database non è in questo browser <span class="badge badge-green">servizio dati</span>
+          ${this._ico('database')} Il database non è in questo browser <span class="badge badge-green">servizio dati</span>
         </div>
-        <div class="text-body-small text-sx-text-secondary leading-[1.55]">
+        <div class="text-body-small text-sx-text-secondary leading-testo">
           Vive come file sulla macchina che ospita il servizio${est?.file ? `:<br><span class="mono text-label-small">${this._esc(est.file)}</span>` : '.'}
           <br>Non è soggetto alla cancellazione dei dati di navigazione né alla quota del browser,
           e non serve alcun permesso di archiviazione persistente.
@@ -250,12 +250,12 @@ export const VistaConfigDati = {
       </div>` : `
       <div class="py-5 px-0 border-b border-b-sx-border">
         <div class="font-bold text-body-medium mb-2.5">
-          🔒 Archiviazione persistente
+          ${this._ico('lock')} Archiviazione persistente
           ${persist.granted
             ? '<span class="badge badge-green">concessa</span>'
             : '<span class="badge badge-amber">non concessa</span>'}
         </div>
-        <div class="text-body-small text-sx-text-secondary leading-[1.55]">
+        <div class="text-body-small text-sx-text-secondary leading-testo">
           ${persist.granted
             ? 'Il browser si impegna a non cancellare il database per far spazio ad altro.'
             : `Senza questo permesso il browser <strong>può cancellare il database</strong> quando il disco si riempie.
@@ -264,21 +264,21 @@ export const VistaConfigDati = {
       </div>
 
       <div class="py-5 px-0 border-b border-b-sx-border">
-        <div class="font-bold text-body-medium mb-2.5">🗂 Backup locali settimanali (OPFS)</div>
-        <div class="text-body-small text-sx-text-secondary leading-[1.55] mb-4">
+        <div class="font-bold text-body-medium mb-2.5">${this._ico('folders')} Backup locali settimanali (OPFS)</div>
+        <div class="text-body-small text-sx-text-secondary leading-testo mb-4">
           ${opfsList.length
             ? `${opfsList.length} cop${opfsList.length === 1 ? 'ia' : 'ie'} · più recente: <strong>${opfsList[0]?.name || '—'}</strong>.`
             : 'Nessuna copia presente.'}
           Stanno sullo stesso disco e nello stesso profilo browser del database:
           servono a rimediare a un errore recente, non a un disco che muore.
         </div>
-        <button class="btn btn-sm" onclick="App.showOPFSBackups()">🗂 Elenca e ripristina…</button>
-        <button class="btn btn-sm" onclick="App.opfsBackupNow()">💾 Crea copia locale adesso</button>
+        <button class="btn btn-sm" onclick="App.showOPFSBackups()">${this._ico('folders')} Elenca e ripristina…</button>
+        <button class="btn btn-sm" onclick="App.opfsBackupNow()">${this._ico('device-floppy')} Crea copia locale adesso</button>
       </div>`}
 
       <div class="py-5 px-0">
-        <div class="font-bold text-body-medium mb-2.5">⚡ Registro in memoria</div>
-        <div class="text-body-small text-sx-text-secondary leading-[1.55] mb-4">
+        <div class="font-bold text-body-medium mb-2.5">${this._ico('bolt')} Registro in memoria</div>
+        <div class="text-body-small text-sx-text-secondary leading-testo mb-4">
           In archivio ci sono <strong>${win.total.toLocaleString('it-IT')}</strong> movimenti; in memoria se ne tengono
           <strong>${win.inMemory.toLocaleString('it-IT')}</strong> (ultimi ${win.days || '∞'} giorni).
           Cruscotto e KPI leggono la finestra; Registro, export e ricerche per data interrogano l'archivio completo.
@@ -349,7 +349,7 @@ export const VistaConfigDati = {
     this.updateSyncIndicator();
     const righe = Object.values<number>(Store._countsOf(data) as Record<string, number>)
       .reduce((somma, n) => somma + n, 0);
-    this.toast(`✓ Backup salvato — ${righe.toLocaleString('it-IT')} record in ${a.download}`, 'success');
+    this.toast(`Backup salvato — ${righe.toLocaleString('it-IT')} record in ${a.download}`, 'success');
   },
 
   importData() { $('fileImport').click(); },
@@ -369,14 +369,14 @@ export const VistaConfigDati = {
           .map(d => `  • ${d.collection}: ${d.memoria} in memoria, ${d.disco} nel database`)
           .join('\n');
         await Dialog.confirm({
-          title: '⚠️ Disallineamento rilevato e corretto',
+          title: 'Disallineamento rilevato e corretto', icon: 'alert-triangle',
           message: 'Il controllo ha trovato una differenza fra i dati in memoria e quelli scritti nel database. ' +
                    'La memoria è stata riallineata al database, che è la copia che sopravvive al riavvio.\n\n' +
                    elenco + '\n\nSe la differenza riguarda giacenze o movimenti, verificare l’ultima operazione eseguita.',
           confirmLabel: 'Ho capito'
         });
       } else {
-        this.toast(`✓ Salvataggio verificato — ${total.toLocaleString('it-IT')} record · ${ts}`, 'success');
+        this.toast(`Salvataggio verificato — ${total.toLocaleString('it-IT')} record · ${ts}`, 'success');
       }
       return result;
     } catch (err) {
@@ -396,7 +396,7 @@ export const VistaConfigDati = {
       const check = Store.verifyExportPackage(data);
       if (!check.ok) {
         const proceed = await Dialog.confirm({
-          title: '⚠️ Il file presenta anomalie',
+          title: 'Il file presenta anomalie', icon: 'alert-triangle',
           message: 'La verifica preliminare ha segnalato quanto segue:\n\n' +
                    check.problemi.map(p => '  • ' + p).join('\n') +
                    '\n\nProseguire solo se si è certi della provenienza del file.',
@@ -424,7 +424,7 @@ export const VistaConfigDati = {
          zero movimenti, e allora il registro si svuota davvero. */
       const senzaRegistro = !Array.isArray(data.mov_log);
       const notaRegistro = senzaRegistro
-        ? ' — ⚠️ senza registro movimenti: quello di adesso resta dov’è'
+        ? ' — senza registro movimenti: quello di adesso resta dov’è'
         : '';
 
       let mode = null;
@@ -436,7 +436,7 @@ export const VistaConfigDati = {
                    `Il merge, qui, porterebbe solo siti, zone, articoli e giacenze: resterebbero fuori ${NON_PORTATE}. ` +
                    'Senza operatori nessuno potrebbe entrare né registrare movimenti.',
           details: Dialog.kv([['File', file.name], ['Contenuto', contenuto + notaRegistro]]),
-          confirmLabel: 'Importa TUTTO', cancelLabel: 'Altre opzioni…', icon: '\u{1F4E5}'
+          confirmLabel: 'Importa TUTTO', cancelLabel: 'Altre opzioni…', icon: 'download'
         });
         if (scelta === true) {
           mode = 'overwrite';
@@ -472,7 +472,7 @@ export const VistaConfigDati = {
             ['Scritto il', String(data._exported || '—').slice(0, 16).replace('T', ' ')],
             ['Contenuto', contenuto + notaRegistro],
           ]),
-          confirmLabel: 'RIPRISTINA tutto', cancelLabel: 'Altre opzioni…', danger: true, icon: '\u267B'
+          confirmLabel: 'RIPRISTINA tutto', cancelLabel: 'Altre opzioni…', danger: true, icon: 'recycle'
         });
         if (scelta === true) {
           const adesso = `giacenze ${Store.getInventoryCount()} · movimenti ${Store.getMovLogTotal().toLocaleString('it-IT')} · operatori ${Store.getOperators().length}`;
@@ -499,8 +499,8 @@ export const VistaConfigDati = {
         this.renderSidebar(); this.renderDashboard(); this.renderConfig();
         this.updateSyncIndicator();
         this.toast(mode === 'overwrite'
-          ? '✓ Backup ripristinato: il magazzino è quello del file'
-          : '✓ Dati importati in merge', 'success');
+          ? 'Backup ripristinato: il magazzino è quello del file'
+          : 'Dati importati in merge', 'success');
       }
     } catch (err) {
       this.toast(`Errore import: ${(err as Error).message}`, 'error');
@@ -606,7 +606,7 @@ export const VistaConfigDati = {
 
     const fn = `registro-movimentazioni-${new Date().toISOString().slice(0,10)}.xlsx`;
     XLSX.writeFile(wb, fn);
-    this.toast(`📊 Esportato: ${fn} (${log.length} record, 4 fogli)`, 'success');
+    this.toast(`Esportato: ${fn} (${log.length} record, 4 fogli)`, 'success');
   },
 
   async exportGiacenzeExcel() {
@@ -696,7 +696,7 @@ export const VistaConfigDati = {
             e.siteName, e.zoneName, e.location_code, e.article_code, e.article_description, e.lot_code,
             `${e.qty} ?`, '', '',
             e.expiry_date, e.placed_at_str, e.last_updated_str, e.placed_by,
-            `⚠️ ${e.qty} coll. su una riga sola: non ci stanno in un foglio Excel, `
+            `${this._ico('alert-triangle')} ${e.qty} coll. su una riga sola: non ci stanno in un foglio Excel, `
               + 'e la riga non è stata distesa per collo. Da verificare con una Conta'
               + (e.notes ? ` — ${e.notes}` : ''),
           ]];
@@ -789,7 +789,7 @@ export const VistaConfigDati = {
 
     const fn = `giacenze-${new Date().toISOString().slice(0,10)}.xlsx`;
     XLSX.writeFile(wb, fn);
-    this.toast(`📊 Esportato: ${fn} (${righeAll.length} colli su ${enriched.length} lotti, ${Object.keys(bySite).length + 3} fogli)`, 'success');
+    this.toast(`Esportato: ${fn} (${righeAll.length} colli su ${enriched.length} lotti, ${Object.keys(bySite).length + 3} fogli)`, 'success');
   },
 
   importArticlesExcel() { $('fileImportExcel').click(); },
@@ -818,7 +818,7 @@ export const VistaConfigDati = {
       const esito = await Store.upsertArticles(letto.righe);
       this.renderConfig();
       this.updateSyncIndicator();
-      this.toast(`✓ ${esito.creati} creati · ${esito.modificati} aggiornati`,
+      this.toast(`${esito.creati} creati · ${esito.modificati} aggiornati`,
         esito.creati + esito.modificati > 0 ? 'success' : 'info');
     } catch (err) { this.toast(`Errore Excel: ${(err as Error).message}`, 'error'); }
     event.target.value = '';
@@ -970,7 +970,7 @@ export const VistaConfigDati = {
 
     /* Niente da scrivere e solo problemi: non e' una conferma, e' un referto. */
     if (!letto.righe.length) {
-      await Dialog.alert({ title: 'Nessuna riga importabile', icon: '⚠️', details: wrap });
+      await Dialog.alert({ title: 'Nessuna riga importabile', icon: 'alert-triangle', details: wrap });
       return false;
     }
 
@@ -1027,7 +1027,7 @@ export const VistaConfigDati = {
         .map(v => ({ 'Colonna': v.colonna, 'Valore': v.valore, 'Significato': v.significato }))
     ), 'Valori ammessi');
     XLSX.writeFile(wb, `anagrafica-articoli-${new Date().toISOString().slice(0,10)}.xlsx`);
-    this.toast('✓ Excel esportato — foglio «Valori ammessi» per la convalida', 'success');
+    this.toast('Excel esportato — foglio «Valori ammessi» per la convalida', 'success');
   },
 
   async importArticlesCSV() {
@@ -1076,6 +1076,6 @@ export const VistaConfigDati = {
     this._movSessionLog = []; this._pickCart = []; this._moveSelection = null; this._invState = null; this._qState = null; this._qStage = 'search'; this._movMode = null;
     this.renderSidebar(); this.renderDashboard(); this.renderConfig();
     this.updateSyncIndicator();
-    this.toast(`✓ Database resettato da ${admin.initials} — configurare nuovi siti da Configurazione`, 'info');
+    this.toast(`Database resettato da ${admin.initials} — configurare nuovi siti da Configurazione`, 'info');
   },
 } satisfies Vista;

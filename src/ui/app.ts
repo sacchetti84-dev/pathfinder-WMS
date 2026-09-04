@@ -9,6 +9,7 @@ import { Session } from '../modules/session';
 import { Feedback } from './feedback';
 import { Dialog } from './dialog';
 import { Tabs } from './tabs';
+import { ico, type Icona } from './icone';
 import { classifica, classeCSS, classiPossibili, eAndroid, LARGHEZZA_TERMINALE, LARGHEZZA_TAVOLETTA } from '../modules/dispositivo';
 import { Store } from '../core/store';
 import { rettifica as rettificaColli } from '../modules/colli';
@@ -183,6 +184,8 @@ const App = monolite({
   _pickCart: [],
   _moveSelection: null,
   _pickSubMode: 'cambio',
+  /* 2.23 — Spedizioni ha due schede: il documento e il camion. */
+  _shipSubMode: 'documenti',
   _prodPickStartTime: null,
   _prodOrderNum: '',
   _prodOperator: '',
@@ -303,7 +306,7 @@ const App = monolite({
     el.className = 'svc-down';
     el.innerHTML = `
       <div class="svc-down-box">
-        <div class="svc-down-ico">⛔</div>
+        <div class="svc-down-ico">${this._ico('alert-octagon', 'Servizio non raggiungibile', 'ico-xl')}</div>
         <h2>Servizio dati non raggiungibile</h2>
         <p>Il database di Pathfinder vive sulla macchina, non in questa finestra.
            Finché il servizio non risponde <strong>non è possibile registrare nulla</strong>:
@@ -329,7 +332,7 @@ const App = monolite({
     const el = document.getElementById('svcDown');
     if (!el) return;
     el.remove();
-    this.toast('✓ Servizio dati di nuovo raggiungibile', 'success');
+    this.toast('Servizio dati di nuovo raggiungibile', 'success');
     this._doResync();
   },
 
@@ -406,7 +409,7 @@ const App = monolite({
       await Store.carica();
     } catch (err) {
       nodo('bootScreen').innerHTML =
-        `<div class="text-center p-20 text-sx-danger"><h2>Errore inizializzazione DB</h2><p class="mt-10">${this._esc((err as Error).message)}</p><p class="mt-10 text-body-small text-[#666]">Verifica che il browser supporti IndexedDB e abbia spazio sufficiente.</p></div>`;
+        `<div class="text-center p-20 text-sx-danger"><h2>Errore inizializzazione DB</h2><p class="mt-10">${this._esc((err as Error).message)}</p><p class="mt-10 text-body-small text-sx-text-secondary">Verifica che il browser supporti IndexedDB e abbia spazio sufficiente.</p></div>`;
       return;
     }
     // v1.9.1 — Carica preferenza fix scanner layout
@@ -610,7 +613,7 @@ const App = monolite({
       <div class="modal max-w-[440px]">
         <div class="modal-header">
           <h2>${title}</h2>
-          ${dismissible ? '<button class="btn btn-sm btn-icon btn-ghost" onclick="App._closeIdentityGate()">✕</button>' : ''}
+          ${dismissible ? `<button class="btn btn-sm btn-icon btn-ghost" onclick="App._closeIdentityGate()">${this._ico('x', 'Chiudi')}</button>` : ''}
         </div>
         <div class="modal-body">${bodyHtml}</div>
         <div class="modal-footer">${footerHtml}</div>
@@ -622,8 +625,8 @@ const App = monolite({
   /* ── [G7] Wizard del primo Team Leader ────────────────────────────── */
   _renderFirstLeaderWizard() {
     this._gateShell(
-      '🛡 Primo accesso — Admin',
-      `<p class="text-body-medium text-sx-text-secondary leading-[1.6] mb-8">
+      `${this._ico('shield-check')} Primo accesso — Admin`,
+      `<p class="text-body-medium text-sx-text-secondary leading-larga mb-8">
         Non risulta alcun operatore in anagrafica. Il primo nasce <strong>Admin</strong>:
         è chi crea gli altri, rinnova i PIN smarriti e apre la Configurazione.<br>
         Le <strong>iniziali</strong> sono ciò che verrà scritto su ogni movimento per la tracciabilità GMP.
@@ -678,7 +681,7 @@ const App = monolite({
       this._activateOperator(rec);
       this._closeIdentityGate();
       this._identificato();
-      this.toast(`🛡 Admin ${rec.initials} creato — sei collegato`, 'success');
+      this.toast(`Admin ${rec.initials} creato — sei collegato`, 'success');
       if (this.currentView === 'config') this.renderConfig();
       this._mostraCodiceRipristino(rec, fuga, { nuovo: true });
     } catch (e) {
@@ -693,7 +696,9 @@ const App = monolite({
   _renderLoginModal({ initial = false, reason = '' } = {}) {
     const ops = Store.getOperators({ activeOnly: true });
     this._loginSelectedId = ops.find(o => o.initials === this.currentOperator)?.op_id || null;
-    const title = initial ? '👋 Identificazione' : (reason ? '🔒 Sessione bloccata' : '👤 Cambio operatore');
+    const title = initial ? `${this._ico('hand-move')} Identificazione`
+      : (reason ? `${this._ico('lock')} Sessione bloccata`
+               : `${this._ico('user')} Cambio operatore`);
     this._gateShell(
       title,
       `${reason ? `<div class="mov-preview mov-preview-warn mb-7">${this._esc(reason)}</div>` : ''}
@@ -710,7 +715,7 @@ const App = monolite({
       <div class="mt-5 text-label-small text-sx-text-muted">
         PIN smarrito? Un <strong>Team Leader</strong> o un <strong>Admin</strong> può rinnovarlo
         da Configurazione → Operatori.
-        <button class="btn btn-sm btn-ghost mt-3" onclick="App._renderRecoveryGate()">🗝 Ho un codice di ripristino</button>
+        <button class="btn btn-sm btn-ghost mt-3" onclick="App._renderRecoveryGate()">${this._ico('lock-access')} Ho un codice di ripristino</button>
       </div>`,
       `${initial || reason ? '' : '<button class="btn" onclick="App._closeIdentityGate()">Annulla</button>'}
        <button class="btn btn-primary" onclick="App._confirmLogin()">Accedi</button>`,
@@ -737,7 +742,7 @@ const App = monolite({
         ? `${this._esc(o.initials)} · ${this._esc([o.first_name, o.last_name].filter(Boolean).join(' '))}`
         : `${this._esc(o.initials)}`;
       return `<button type="button" class="op-pill ${o.op_id === this._loginSelectedId ? 'active' : ''}"
-        onclick="App._selectLoginOp('${o.op_id}')">${o.role === 'operator' ? '' : this._etichettaRuolo(o.role).icona + ' '}${label}</button>`;
+        onclick="App._selectLoginOp('${o.op_id}')">${o.role === 'operator' ? '' : this._ico(this._etichettaRuolo(o.role).icona) + ' '}${label}</button>`;
     }).join('');
   },
 
@@ -808,8 +813,8 @@ const App = monolite({
       .filter(o => o.role === 'admin' && Store.haPin(o));
     if (!admin.length) {
       this._gateShell(
-        '🗝 Codice di ripristino',
-        `<p class="text-body-small text-sx-text-secondary leading-[1.6]">
+        `${this._ico('lock-access')} Codice di ripristino`,
+        `<p class="text-body-small text-sx-text-secondary leading-larga">
           Nessun Admin di questa installazione ha un PIN registrato.
           Il PIN si rinnova da <strong>Configurazione → Operatori</strong>, autorizzato
           da chi sta un gradino sopra: un Team Leader per gli Operatori, un Admin per tutti.
@@ -819,8 +824,8 @@ const App = monolite({
       return;
     }
     this._gateShell(
-      '🗝 Rientro con codice di ripristino',
-      `<p class="text-body-small text-sx-text-secondary leading-[1.6] mb-7">
+      `${this._ico('lock-access')} Rientro con codice di ripristino`,
+      `<p class="text-body-small text-sx-text-secondary leading-larga mb-7">
         Il codice è di ${Auth.RIPRISTINO_LUNGHEZZA} caratteri, come sul foglio in cassaforte.
         Trattini e spazi si possono digitare o omettere.
         <strong>Vale una volta sola:</strong> con il PIN nuovo verrà emesso un codice nuovo,
@@ -910,8 +915,8 @@ const App = monolite({
   /* Completamento della scheda importata dallo storico + primo PIN. */
   _renderCompleteProfile(op: Operatore) {
     this._gateShell(
-      `📝 Completa la tua scheda — ${this._esc(op.initials)}`,
-      `<p class="text-body-small text-sx-text-secondary leading-[1.6] mb-8">
+      `${this._ico('edit')} Completa la tua scheda — ${this._esc(op.initials)}`,
+      `<p class="text-body-small text-sx-text-secondary leading-larga mb-8">
         Le iniziali <strong>${this._esc(op.initials)}</strong> provengono dallo storico dei movimenti e restano invariate.
         Mancano nome, cognome e PIN.
       </p>
@@ -969,7 +974,13 @@ const App = monolite({
       if (this.currentView === 'movimenta') this.renderMovimenta();
       this.toast(`Operazione aperta da ${previous} annullata: al lavoro c’è ora ${op.initials}`, 'warning');
     }
-    this.toast(`${this._etichettaRuolo(op.role).icona} Operatore: ${op.initials} (${this._etichettaRuolo(op.role).nome})`, 'success');
+    /* 2.23 — IL CRUSCOTTO E' DI CHI GUARDA, quindi cambia con la sigla. Senza
+       questa riga chi subentra vedrebbe i riquadri di prima fino al primo
+       cambio di vista: non un errore che si nota, ma un cruscotto che per
+       qualche minuto racconta le priorita' di un altro. Si ridisegna solo se
+       si sta guardando, e solo a sigla cambiata. */
+    if (changed && this.currentView === 'dashboard') this.renderDashboard();
+    this.toast(`Operatore: ${op.initials} (${this._etichettaRuolo(op.role).nome})`, 'success');
   },
 
   _hasOpenCart() {
@@ -1003,18 +1014,18 @@ const App = monolite({
     if (!this.currentOperator) return this._openIdentityGate({ initial: true });
     const op = this.currentOperatorRecord;
     this.showModal(
-      '👤 Operatore al lavoro',
-      `<div class="text-body-medium leading-[1.7]">
+      `${this._ico('user')} Operatore al lavoro`,
+      `<div class="text-body-medium leading-ampia">
         <div><strong>${this._esc([op?.first_name, op?.last_name].filter(Boolean).join(' ') || '—')}</strong></div>
         <div>Iniziali <span class="mono font-bold">${this._esc(this.currentOperator)}</span>
-             · ${this._etichettaRuolo(op?.role).icona} ${this._etichettaRuolo(op?.role).nome}</div>
+             · ${this._ico(this._etichettaRuolo(op?.role).icona)} ${this._etichettaRuolo(op?.role).nome}</div>
         <div class="text-body-small text-sx-text-muted mt-4">
           Blocco automatico dopo ${Session.getTimeoutMinutes() ? Session.getTimeoutMinutes() + ' min di inattività' : 'mai (disattivato)'}.
         </div>
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Chiudi</button>
-       <button class="btn btn-accent" onclick="App.closeModal();App._openIdentityGate({})">🔄 Cambia operatore</button>
-       <button class="btn btn-warning" onclick="App.closeModal();App.logoutOperator()">🔒 Blocca ora</button>`
+       <button class="btn btn-accent" onclick="App.closeModal();App._openIdentityGate({})">${this._ico('refresh')} Cambia operatore</button>
+       <button class="btn btn-warning" onclick="App.closeModal();App.logoutOperator()">${this._ico('lock')} Blocca ora</button>`
     );
   },
 
@@ -1036,9 +1047,9 @@ const App = monolite({
   /* 2.1 — il ruolo si scrive in un posto solo: quattro punti lo dicevano
      ciascuno a modo suo, e la carica nuova sarebbe comparsa in tre. */
   _etichettaRuolo(ruolo: string | null | undefined) {
-    return ruolo === 'admin' ? { icona: '🛡', nome: 'Admin' }
-         : ruolo === 'leader' ? { icona: '👑', nome: 'Team Leader' }
-         : { icona: '👤', nome: 'Operatore' };
+    return ruolo === 'admin' ? { icona: 'shield-check' as const, nome: 'Admin' }
+         : ruolo === 'leader' ? { icona: 'crown' as const, nome: 'Team Leader' }
+         : { icona: 'user' as const, nome: 'Operatore' };
   },
 
   _renderOperatorBadge() {
@@ -1046,11 +1057,14 @@ const App = monolite({
     if (!el) return;
     if (this.currentOperator) {
       const r = this._etichettaRuolo(this.currentOperatorRecord?.role);
-      el.textContent = `${r.icona} ${this.currentOperator}`;
+      /* 2.23 — `textContent`: qui un SVG uscirebbe come testo. Il badge
+         porta le iniziali, che sono la cosa che si legge; la carica sta
+         nel `title` qui sotto e nel menu che si apre cliccando. */
+      el.textContent = this.currentOperator;
       el.title = `Operatore corrente: ${this.currentOperator} (${r.nome}) — clicca per cambiare o bloccare`;
       el.classList.remove('op-badge-empty');
     } else {
-      el.textContent = '👤 —';
+      el.textContent = '—';
       el.title = 'Nessun operatore identificato — clicca per accedere';
       el.classList.add('op-badge-empty');
     }
@@ -1071,10 +1085,10 @@ const App = monolite({
       <td class="mono">${(b.size / 1024).toFixed(0)} KB</td>
       <td>${b.lastModified
               ? new Date(b.lastModified).toLocaleString('it-IT') : '—'}</td>
-      <td><button class="btn btn-sm btn-accent" onclick="App.restoreOPFSBackup('${this._esc(b.name)}')">♻️ Ripristina</button></td>
+      <td><button class="btn btn-sm btn-accent" onclick="App.restoreOPFSBackup('${this._esc(b.name)}')">${this._ico('recycle')} Ripristina</button></td>
     </tr>`).join('');
     this.showModal(
-      `🗂 Copie locali disponibili (${list.length})`,
+      `${this._ico('folders')} Copie locali disponibili (${list.length})`,
       `<div class="mov-preview mov-preview-warn mb-7">
         Queste copie stanno sullo <strong>stesso disco e nello stesso profilo browser</strong> del database.
         Servono a rimediare a un errore recente, non a un guasto della macchina: per quello serve la copia su OneDrive.<br>
@@ -1105,7 +1119,7 @@ const App = monolite({
         title: 'Ripristinare questa copia locale?',
         message: (check.ok ? '' : 'Verifica: ' + check.problemi.join(' · ') + '\n\n') +
           'I dati attualmente presenti verranno sostituiti. Verrà prima scaricato un export dello stato attuale.' +
-          (senzaRegistro ? '\n\n⚠️ Questa copia NON contiene il registro movimenti. Il registro di adesso resta dov\u2019è: non viene né sostituito né cancellato.' : ''),
+          (senzaRegistro ? '\n\nQuesta copia NON contiene il registro movimenti. Il registro di adesso resta dov\u2019è: non viene né sostituito né cancellato.' : ''),
         details: Dialog.kv([
           ['File', filename],
           ['Movimenti', senzaRegistro ? 'non inclusi nella copia — il registro attuale resta' : Number(c.mov_log || 0).toLocaleString('it-IT')],
@@ -1119,7 +1133,7 @@ const App = monolite({
       this.renderSidebar();
       this.renderConfig();
       this.updateSyncIndicator();
-      this.toast(`♻️ Ripristino da ${filename} completato`, 'success');
+      this.toast(`Ripristino da ${filename} completato`, 'success');
     } catch (err) {
       console.error('[WM] ripristino OPFS:', err);
       this.toast(`Ripristino non riuscito: ${(err as Error).message}`, 'error');
@@ -1129,7 +1143,7 @@ const App = monolite({
   async opfsBackupNow() {
     try {
       const r = await Store.writeOPFSBackup();
-      this.toast(`💾 Copia locale creata — ${(r.size/1024).toFixed(1)} KB`, 'success');
+      this.toast(`Copia locale creata — ${(r.size/1024).toFixed(1)} KB`, 'success');
       this.renderConfig();
     } catch (err) {
       this.toast(`Copia locale non riuscita: ${(err as Error).message}`, 'error');
@@ -1141,7 +1155,7 @@ const App = monolite({
     try {
       const result = await Store.checkAutoBackup();
       if (result) {
-        this.toast(`💾 Backup automatico creato — ${(result.size/1024).toFixed(1)} KB`, 'info');
+        this.toast(`Backup automatico creato — ${(result.size/1024).toFixed(1)} KB`, 'info');
       }
     } catch (err) {
       console.warn('[WM] _scheduleAutoBackup error:', err);
@@ -1151,7 +1165,7 @@ const App = monolite({
   async _checkStorageQuota() {
     const est = await Store.estimateUsage();
     if (est && est.pct != null && est.pct > 80) {
-      this.toast(`⚠️ Spazio DB al ${est.pct.toFixed(0)}% — considera un export e cleanup`, 'warning');
+      this.toast(`Spazio DB al ${est.pct.toFixed(0)}% — considera un export e cleanup`, 'warning');
     }
   },
 
@@ -1203,7 +1217,7 @@ const App = monolite({
         const first = Store.getSites()[0];
         const firstZone = first?.zones?.find(z => z.active);
         if (firstZone) this.openZone(first!.id, firstZone.id);
-        else nodo('mapContainer').innerHTML = '<div class="empty-state"><div class="empty-icon">🗺</div><p>Nessuna zona configurata — vai in Configurazione</p></div>';
+        else nodo('mapContainer').innerHTML = `<div class="empty-state"><div class="empty-icon">${this._ico('map', '', 'ico-xl')}</div><p>Nessuna zona configurata — vai in Configurazione</p></div>`;
       } else {
         this.renderMap();
       }
@@ -1241,7 +1255,7 @@ const App = monolite({
     const el = nodo('sidebarContent');
     const sites = Store.getSites();
     if (!sites.length) {
-      el.innerHTML = '<div class="empty-state"><div class="empty-icon">📦</div><p>Nessun sito</p><button class="btn btn-sm btn-primary mt-5" onclick="App.switchView(\'config\')">+ Configura</button></div>';
+      el.innerHTML = `<div class="empty-state"><div class="empty-icon">${this._ico('package', '', 'ico-xl')}</div><p>Nessun sito</p><button class="btn btn-sm btn-primary mt-5" onclick="App.switchView('config')">+ Configura</button></div>`;
       return;
     }
     let html = '';
@@ -1313,6 +1327,15 @@ const App = monolite({
     return encodeURIComponent(JSON.stringify(obj)).replace(/'/g, '%27');
   },
 
+  /* 2.23 — L'ICONA. Sta accanto a `_esc` perche' fa lo stesso mestiere: e' un
+     pezzo di markup che le viste chiedono da dentro una stringa, e le viste
+     chiamano `App` per nome. Il tipo `Icona` fa il resto — un nome che non
+     sta nello sprite non compila, mentre prima usciva un quadratino e non se
+     ne accorgeva nessuno. */
+  _ico(nome: Icona, aria = '', classi = '') {
+    return ico(nome, aria, classi);
+  },
+
   _requireOperator(azione = 'questa operazione') {
     if (this._blockedByReadOnly()) return false;
     if (this.currentOperator) return true;
@@ -1343,7 +1366,7 @@ const App = monolite({
     wrap.appendChild(input);
     return Dialog.confirm({
       title, message, details: wrap,
-      confirmLabel: 'Conferma', icon: '\u270E',
+      confirmLabel: 'Conferma', icon: 'pencil',
       focusTarget: 'dlgTextInput'
     }).then(ok => (ok ? (this._lastTextValue || '') : null))
       .catch(() => null);
@@ -1487,14 +1510,14 @@ const App = monolite({
       el.innerHTML = dove
         ? `<div class="mov-preview mov-preview-ok">
             <div class="flex justify-between items-center">
-              <div>🔀 <span class="mono font-bold">${this._esc(code)}</span>
+              <div>${this._ico('arrows-shuffle')} <span class="mono font-bold">${this._esc(code)}</span>
               <span class="text-body-small text-sx-text-muted ml-4">unità di carico · ${this._esc(versoUdc.type || 'pallet')}</span></div>
-              <div><span class="badge badge-green">📍 ${this._esc(dove)}</span>
+              <div><span class="badge badge-green">${this._ico('map-pin')} ${this._esc(dove)}</span>
               <span class="text-label-small text-sx-text-muted ml-3">${righe} righe sopra</span></div>
             </div>
             <div class="text-label-small text-sx-text-muted mt-2">La merce si posiziona nel vano dell'unità e le resta sopra: spostando l'unità, si sposta anche lei.</div>
           </div>`
-        : `<div class="mov-preview mov-preview-err">⚠️ <span class="mono">${this._esc(code)}</span> non ha un'ubicazione: posizionala prima, o scegli un vano</div>`;
+        : `<div class="mov-preview mov-preview-err">${this._ico('alert-triangle')} <span class="mono">${this._esc(code)}</span> non ha un'ubicazione: posizionala prima, o scegli un vano</div>`;
       return;
     }
 
@@ -1510,7 +1533,7 @@ const App = monolite({
         </div>
       </div>`;
     } else if (code.length >= 5) {
-      el.innerHTML = `<div class="mov-preview mov-preview-err">⚠️ "${this._esc(code)}" non trovata</div>`;
+      el.innerHTML = `<div class="mov-preview mov-preview-err">${this._ico('alert-triangle')} "${this._esc(code)}" non trovata</div>`;
     } else { el.innerHTML = ''; }
   },
 
@@ -1551,7 +1574,7 @@ const App = monolite({
     overlay.id = 'pickLocOverlay';
     overlay.onclick = (e) => { if (e.target === overlay) this._closePickLoc(); };
     overlay.innerHTML = `<div class="modal">
-      <div class="modal-header"><h2>📍 Seleziona Ubicazione</h2><button class="btn btn-sm btn-icon btn-ghost" onclick="App._closePickLoc()">✕</button></div>
+      <div class="modal-header"><h2>${this._ico('map-pin')} Seleziona Ubicazione</h2><button class="btn btn-sm btn-icon btn-ghost" onclick="App._closePickLoc()">${this._ico('x', 'Chiudi')}</button></div>
       <div class="modal-body">${html}</div>
     </div>`;
     document.body.appendChild(overlay);
@@ -1621,7 +1644,7 @@ const App = monolite({
     overlay.id = 'modalOverlay';
     overlay.onclick = (e) => { if (e.target === overlay) this.closeModal(); };
     overlay.innerHTML = `<div class="modal ${classi}">
-      <div class="modal-header"><h2>${title}</h2><button class="btn btn-sm btn-icon btn-ghost" onclick="App.closeModal()">✕</button></div>
+      <div class="modal-header"><h2>${title}</h2><button class="btn btn-sm btn-icon btn-ghost" onclick="App.closeModal()">${this._ico('x', 'Chiudi')}</button></div>
       <div class="modal-body">${bodyHtml}</div>
       ${footerHtml ? `<div class="modal-footer">${footerHtml}</div>` : ''}
     </div>`;
@@ -1816,7 +1839,7 @@ const App = monolite({
     this._refreshSessionLog();
     this.updateSyncIndicator();
     if (done === entry.actions.length) {
-      this.toast(`✓ Operazione stornata (${done} righe) · rettifica registrata a log`, 'success');
+      this.toast(`Operazione stornata (${done} righe) · rettifica registrata a log`, 'success');
     } else {
       this.toast(`Storno parziale: ${done}/${entry.actions.length} righe · verificare le giacenze`, 'warning');
     }

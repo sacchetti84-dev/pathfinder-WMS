@@ -107,7 +107,7 @@ export const CAMPI_ETICHETTA: readonly {
   { campo: 'colli',       nome: 'Colli',
     nota: 'Quanti colli porta la riga adesso.' },
   { campo: 'ubicazione',  nome: 'Ubicazione', invecchia: true,
-    nota: '⚠️ INVECCHIA. Un pallet si sposta, e un’ubicazione stampata resta a dire una cosa che non è più vera. Esce dichiarata «alla stampa».' },
+    nota: 'INVECCHIA. Un pallet si sposta, e un’ubicazione stampata resta a dire una cosa che non è più vera. Esce dichiarata «alla stampa».' },
 ];
 
 const CAMPI_PER_NOME = new Map(CAMPI_ETICHETTA.map((c) => [c.campo, c]));
@@ -141,7 +141,7 @@ export const CAMPI_ETICHETTA_PF: readonly {
   { campo: 'odp',         nome: 'Ordine di produzione',
     nota: 'Quando c’è: il legame all’ordine è facoltativo per decisione. Nasce spento.' },
   { campo: 'ubicazione',  nome: 'Ubicazione', invecchia: true,
-    nota: '⚠️ INVECCHIA. Un bancale si sposta, e l’ubicazione stampata resta a dire una cosa che non è più vera.' },
+    nota: 'INVECCHIA. Un bancale si sposta, e l’ubicazione stampata resta a dire una cosa che non è più vera.' },
 ];
 
 const CAMPI_PF_PER_NOME = new Map(CAMPI_ETICHETTA_PF.map((c) => [c.campo, c]));

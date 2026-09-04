@@ -33,8 +33,8 @@ export const VistaDestinatari = {
           <td class="mono">${this._esc(r.vat || r.fiscal_code || '')}</td>
           <td class="td-center">${(r.destinations || []).length}</td>
           <td class="td-center whitespace-nowrap">
-            <button class="btn btn-sm" onclick="App.showEditRecipientModal('${this._esc(r.rcp_id)}')">✏️</button>
-            <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteRecipient('${this._esc(r.rcp_id)}')">🗑</button>
+            <button class="btn btn-sm" onclick="App.showEditRecipientModal('${this._esc(r.rcp_id)}')">${this._ico('pencil')}</button>
+            <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteRecipient('${this._esc(r.rcp_id)}')">${this._ico('trash')}</button>
           </td></tr>`;
       }).join('')
       : `<tr><td class="text-sx-text-muted" colspan="4">${tutti.length ? 'Nessun riscontro.' : 'Vuota — si riempie da sé al primo DDT.'}</td></tr>`;
@@ -46,7 +46,7 @@ export const VistaDestinatari = {
         Due DDT parlano dello stesso destinatario quando coincide la <strong>partita IVA</strong>.
       </div>
       ${senzaPiva ? `<div class="mov-preview mov-preview-warn mb-6">
-        ⚠️ <strong>${senzaPiva}</strong> ${senzaPiva === 1 ? 'destinatario è' : 'destinatari sono'} senza partita IVA: ${senzaPiva === 1 ? 'viene riconosciuto' : 'vengono riconosciuti'} dalla ragione sociale,
+        ${this._ico('alert-triangle')} <strong>${senzaPiva}</strong> ${senzaPiva === 1 ? 'destinatario è' : 'destinatari sono'} senza partita IVA: ${senzaPiva === 1 ? 'viene riconosciuto' : 'vengono riconosciuti'} dalla ragione sociale,
         e due grafie diverse ${senzaPiva === 1 ? 'ne farebbero' : 'ne farebbero'} due record.
       </div>` : ''}
       <div class="form-group mb-5 max-w-[340px]">
@@ -66,7 +66,7 @@ export const VistaDestinatari = {
     const r = Store.getRecipient(rcpId);
     if (!r) return;
     const dest = (r.destinations || []).map((d, i) => `
-      <div class="border border-sx-border rounded-[var(--radius-md)] p-4.5 mb-3.5">
+      <div class="border border-sx-border rounded-5 p-4.5 mb-3.5">
         <div class="form-row mb-3">
           <div class="form-group"><label>Etichetta</label>
             <input class="input" id="rcD${i}Label" value="${this._esc(d.label || '')}" maxlength="40"></div>
@@ -134,7 +134,7 @@ export const VistaDestinatari = {
     this.closeModal();
     this.renderConfig();
     this.updateSyncIndicator();
-    this.toast(`✓ ${nome} aggiornato`, 'success');
+    this.toast(`${nome} aggiornato`, 'success');
   },
 
   async doRimuoviDestinazione(rcpId, i) {
@@ -215,9 +215,9 @@ export const VistaDestinatari = {
       }
       const esito = await Store.upsertRecipient(dati, { permanente });
       if (!esito) return;
-      if (esito.creato) this.toast(`📇 ${esito.record.name} aggiunto all'anagrafica destinatari`, 'info');
-      else if (esito.destinazioneNuova) this.toast(`📇 Nuova destinazione salvata per ${esito.record.name}`, 'info');
-      else if (permanente) this.toast(`📇 Anagrafica di ${esito.record.name} aggiornata`, 'info');
+      if (esito.creato) this.toast(`${esito.record.name} aggiunto all'anagrafica destinatari`, 'info');
+      else if (esito.destinazioneNuova) this.toast(`Nuova destinazione salvata per ${esito.record.name}`, 'info');
+      else if (permanente) this.toast(`Anagrafica di ${esito.record.name} aggiornata`, 'info');
     } catch (err) {
       /* La rubrica non deve mai far sembrare fallito un DDT che è passato. */
       this.toast(`DDT registrato. L'anagrafica destinatari non si è aggiornata: ${(err as Error).message || err}`, 'warning');

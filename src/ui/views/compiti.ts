@@ -74,12 +74,12 @@ export const VistaCompiti = {
     const righe = this._taskTipo ? elenco.filter(t => t.type === this._taskTipo) : elenco;
 
     const opzioniTipo = Object.entries(TIPI_COMPITO).map(([k, v]) =>
-      `<option value="${k}" ${this._taskTipo === k ? 'selected' : ''}>${v.icona} ${this._esc(v.label)}</option>`).join('');
+      `<option value="${k}" ${this._taskTipo === k ? 'selected' : ''}>${this._esc(v.label)}</option>`).join('');
 
     el.innerHTML = `
       <div class="flex justify-between items-center mb-10 flex-wrap gap-5">
         <div>
-          <h1 class="dash-h1">📋 Attività</h1>
+          <h1 class="dash-h1">${this._ico('clipboard-text')} Attività</h1>
           <p class="dash-sub">Cosa c'è da fare, in che ordine, e da quanto aspetta</p>
         </div>
         <button class="btn btn-primary" onclick="App.showNewTaskModal()">+ Nuova attività</button>
@@ -91,19 +91,19 @@ export const VistaCompiti = {
         <div class="flex gap-5 items-center flex-wrap">
           <div class="config-tabs m-0">
             ${['aperte', 'mie', 'registro'].map(a => `<button class="config-tab ${this._taskAmbito === a ? 'active' : ''}"
-              onclick="App._taskAmbito='${a}';App.renderTasks()">${a === 'aperte' ? 'In coda' : a === 'mie' ? `Le mie${io.initials ? ' (' + this._esc(io.initials) + ')' : ''}` : '📚 Registro'}</button>`).join('')}
+              onclick="App._taskAmbito='${a}';App.renderTasks()">${a === 'aperte' ? 'In coda' : a === 'mie' ? `Le mie${io.initials ? ' (' + this._esc(io.initials) + ')' : ''}` : `${this._ico('books')} Registro`}</button>`).join('')}
           </div>
           <select class="select max-w-[230px]" onchange="App._taskTipo=this.value;App.renderTasks()">
             <option value="">Tutti i tipi</option>${opzioniTipo}
           </select>
           <span class="text-body-small text-sx-text-muted">${righe.length} attività</span>
-          ${this._taskAmbito === 'registro' ? `<button class="btn btn-sm ml-auto" onclick="App.exportTasksExcel()">📊 Esporta Excel</button>` : ''}
+          ${this._taskAmbito === 'registro' ? `<button class="btn btn-sm ml-auto" onclick="App.exportTasksExcel()">${this._ico('chart-bar')} Esporta Excel</button>` : ''}
         </div>
       </div>
 
       ${righe.length
         ? (this._taskAmbito === 'registro' ? this._renderTaskRegistro(righe) : this._renderTaskTable(righe, io))
-        : `<div class="empty-state"><div class="empty-icon">✓</div>
+        : `<div class="empty-state"><div class="empty-icon">${this._ico('check')}</div>
         <p>${this._taskAmbito === 'mie' ? 'Non hai attività in carico.' : this._taskAmbito === 'registro' ? 'Non è stata ancora aperta nessuna attività.' : 'Nessuna attività in coda.'}</p></div>`}`;
   },
 
@@ -126,18 +126,18 @@ export const VistaCompiti = {
       </div>
       <div class="kpi-card k-warning">
         <div class="kpi-label">Attesa media in coda</div>
-        <div class="kpi-value text-[1.4rem]">${durataUmana(r.attesaMedia)}</div>
+        <div class="kpi-value text-title-large">${durataUmana(r.attesaMedia)}</div>
         <div class="kpi-sub">${r.conclusi ? `su ${r.conclusi} attività conclus${r.conclusi === 1 ? 'a' : 'e'}` : 'nessuna attività conclusa finora'}</div>
       </div>
       <div class="kpi-card k-success">
         <div class="kpi-label">Durata media</div>
-        <div class="kpi-value text-[1.4rem]">${durataUmana(r.durataMedia)}</div>
+        <div class="kpi-value text-title-large">${durataUmana(r.durataMedia)}</div>
         <div class="kpi-sub">dalla presa in carico alla chiusura</div>
       </div>
       ${vecchio ? `<div class="kpi-card k-purple">
         <div class="kpi-label">In coda da più tempo</div>
-        <div class="kpi-value text-[1.4rem]">${durataUmana(r.attesaMassima)}</div>
-        <div class="kpi-sub">${iconaTipo(vecchio.type)} ${this._esc(etichettaTipo(vecchio.type))} · ${this._esc(vecchio.requested_by)}</div>
+        <div class="kpi-value text-title-large">${durataUmana(r.attesaMassima)}</div>
+        <div class="kpi-sub">${this._ico(iconaTipo(vecchio.type))} ${this._esc(etichettaTipo(vecchio.type))} · ${this._esc(vecchio.requested_by)}</div>
       </div>` : ''}
     </div>`;
   },
@@ -160,7 +160,7 @@ export const VistaCompiti = {
         /* 1.4.4 — «✓ Fatta» non c'è più: sopravviveva per la sola Conta, che
            adesso si chiude confermando il conteggio. Ogni attività si chiude
            portando a termine la sua operazione, e Store lo impone. */
-        azioni.push(`<button class="btn btn-sm btn-ghost text-sx-danger" onclick="App.doCancelTask('${t.task_id}')" title="Annulla, con motivo">✕</button>`);
+        azioni.push(`<button class="btn btn-sm btn-ghost text-sx-danger" onclick="App.doCancelTask('${t.task_id}')" title="Annulla, con motivo">${this._ico('x')}</button>`);
       }
       const prio = aperto && leader
         ? `<select class="select w-[104px] py-1.5 px-3" onchange="App.doSetTaskPriority('${t.task_id}',this.value)">
@@ -169,7 +169,7 @@ export const VistaCompiti = {
         : `<span class="badge ${this._taskPrioClasse(t.priority)}">${etichettaPriorita(t.priority)}</span>`;
       return `<tr class="bg-sx-danger-soft"${tardi ? '' : ''}>
         <td>${prio}</td>
-        <td class="whitespace-nowrap"><span title="${this._esc(etichettaTipo(t.type))}">${iconaTipo(t.type)}</span> ${this._esc(etichettaTipo(t.type))}</td>
+        <td class="whitespace-nowrap"><span title="${this._esc(etichettaTipo(t.type))}">${this._ico(iconaTipo(t.type), etichettaTipo(t.type))}</span> ${this._esc(etichettaTipo(t.type))}</td>
         <td class="min-w-[240px]">${this._renderTaskPayload(t)}</td>
         <td><span class="badge ${this._taskStatoClasse(t.status)}">${this._esc(etichettaStato(t.status))}</span></td>
         <td class="mono">${this._esc(t.assigned_to || '—')}</td>
@@ -270,7 +270,7 @@ export const VistaCompiti = {
           : '<span class="text-sx-text-muted">—</span>';
       return `<tr>
         <td class="mono whitespace-nowrap text-label-small">${this._esc(t.task_id)}</td>
-        <td class="whitespace-nowrap">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}
+        <td class="whitespace-nowrap">${this._ico(iconaTipo(t.type))} ${this._esc(etichettaTipo(t.type))}
           ${daMovimento ? '<span class="badge badge-muted" title="Eseguito aprendo la funzione, senza passare dalla coda">fuori coda</span>' : ''}</td>
         <td class="min-w-[220px]">${this._renderTaskPayload(t)}</td>
         <td><span class="badge ${this._taskStatoClasse(t.status)}">${this._esc(etichettaStato(t.status))}</span></td>
@@ -394,7 +394,7 @@ export const VistaCompiti = {
 
     const fn = `registro-attivita-${new Date().toISOString().slice(0, 10)}.xlsx`;
     XLSX.writeFile(wb, fn);
-    this.toast(`📊 Esportato: ${fn} (${tutte.length} attività, 2 fogli)`, 'success');
+    this.toast(`Esportato: ${fn} (${tutte.length} attività, 2 fogli)`, 'success');
   },
 
   _taskPrioClasse(p) { return p >= 4 ? 'badge-red' : p === 3 ? 'badge-amber' : p === 1 ? 'badge-muted' : 'badge-blue'; },
@@ -446,11 +446,11 @@ export const VistaCompiti = {
     if (!io.initials) return this.toast('Identificati prima di aprire un\'attività', 'warning');
     const leader = io.role === 'leader';
     const operatori = Store.getOperators({ activeOnly: true });
-    this.showModal('📋 Nuova attività', `
+    this.showModal(`${this._ico('clipboard-text')} Nuova attività`, `
       <div class="form-row mb-6">
         <div class="form-group"><label>Tipo di attività <span class="req">*</span></label>
           <select class="select" id="ntType" onchange="App._ntTypeChanged()">
-            ${tipiRichiedibili().map(k => `<option value="${k}">${TIPI_COMPITO[k].icona} ${this._esc(TIPI_COMPITO[k].label)}</option>`).join('')}
+            ${tipiRichiedibili().map(k => `<option value="${k}">${this._esc(TIPI_COMPITO[k].label)}</option>`).join('')}
           </select></div>
         <div class="form-group"><label>Priorità</label>
           <select class="select" id="ntPriority">
@@ -480,12 +480,12 @@ export const VistaCompiti = {
         <div class="form-group"><label id="ntFromLabel">Da (ubicazione)</label>
           <div class="flex gap-3">
             <input class="input input-mono uppercase" id="ntFrom" maxlength="30" placeholder="dalla disponibilità scelta">
-            <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntFrom')" title="Sfoglia le ubicazioni">📍</button>
+            <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntFrom')" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
           </div></div>
         <div class="form-group" id="ntToGroup"><label>A (ubicazione)</label>
           <div class="flex gap-3">
             <input class="input input-mono uppercase" id="ntTo" maxlength="30">
-            <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntTo')" title="Sfoglia le ubicazioni">📍</button>
+            <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntTo')" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
           </div></div>
       </div>
       <!-- Il DDT vuole destinatario, vettore e causale, e li sa chi CHIEDE la
@@ -597,7 +597,7 @@ export const VistaCompiti = {
     const tipo = $('ntType')?.value || '';
     const q = ($('ntArticle')?.value || '').trim();
     if (!q && vuoleUbicazione(tipo)) {
-      box.innerHTML = `<div class="text-label-small text-sx-text-muted">🔢 Conta: si sceglie la riga da ricontare. L'inventario di tutto il vano sta in Movimenta → Inventario e non ha bisogno di un'attività.</div>`;
+      box.innerHTML = `<div class="text-label-small text-sx-text-muted">${this._ico('list-numbers')} Conta: si sceglie la riga da ricontare. L'inventario di tutto il vano sta in Movimenta → Inventario e non ha bisogno di un'attività.</div>`;
       return;
     }
     if (q.length < 2) { box.innerHTML = ''; return; }
@@ -619,17 +619,17 @@ export const VistaCompiti = {
     const righe = Store.findItemLocations(q)
       .filter(it => (Store.getAvailableQty(it.location_code, it.item_key) || 0) > 0);
     if (!righe.length) {
-      box.innerHTML = `<div class="text-label-small text-sx-warning">⚠️ Nessuna giacenza disponibile per «${this._esc(q)}»</div>`;
+      box.innerHTML = `<div class="text-label-small text-sx-warning">${this._ico('alert-triangle')} Nessuna giacenza disponibile per «${this._esc(q)}»</div>`;
       return;
     }
     const ordinate = Store.sortByFEFO(righe).slice(0, 12);
-    box.innerHTML = `<div class="max-h-[190px] overflow-y-auto border border-sx-border rounded-[var(--radius-md)]">${
+    box.innerHTML = `<div class="max-h-[190px] overflow-y-auto border border-sx-border rounded-5">${
       ordinate.map(it => {
         const disp = Store.getAvailableQty(it.location_code, it.item_key) || 0;
         /* 1.8 — una sorgente sola per la descrizione della riga: dove c'è
            l'elenco lo legge, dove no ricade sulla suddivisione calcolata. */
         const descr = Store.descriviRiga(it);
-        const dettaglio = descr === '—' ? '' : ` · ⚖ ${this._esc(descr)}`;
+        const dettaglio = descr === '—' ? '' : ` · ${this._ico('scale')} ${this._esc(descr)}`;
         return `<div class="search-result-item" onclick="App._ntScegli('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">
           <span class="mono font-bold">${this._esc(it.article_code)}</span>
           <span class="mono text-sx-text-secondary">${this._esc(it.lot_code)}</span>
@@ -659,7 +659,7 @@ export const VistaCompiti = {
     const box = $('ntDisp');
     if (!box) return;
     const disp = Store.getAvailableQty(it.location_code, it.item_key) || 0;
-    box.innerHTML = `<div class="text-label-small text-sx-success">✓ ${this._esc(it.article_code)} lotto ${this._esc(it.lot_code)} in ${this._esc(it.location_code)} — ${disp} colli disponibili</div>`;
+    box.innerHTML = `<div class="text-label-small text-sx-success">${this._ico('check')} ${this._esc(it.article_code)} lotto ${this._esc(it.lot_code)} in ${this._esc(it.location_code)} — ${disp} colli disponibili</div>`;
   },
 
   async doCreateTask() {
@@ -713,7 +713,7 @@ export const VistaCompiti = {
         payload: Object.keys(payload).length ? payload : null,
       });
       this.closeModal();
-      this.toast(`📋 ${etichettaTipo(rec.type)} in coda — ${rec.task_id}`, 'success');
+      this.toast(`${etichettaTipo(rec.type)} in coda — ${rec.task_id}`, 'success');
       this.renderTasks();
       if (this.currentView === 'dashboard') this.renderDashboard();
     } catch (e) {
@@ -871,7 +871,7 @@ export const VistaCompiti = {
       p.to ? `a <span class="mono">${this._esc(p.to)}</span>` : '',
     ].filter(Boolean).join(' · ');
     area.innerHTML = `<div class="mov-preview bg-sx-accent-soft border-sx-accent mb-6 flex gap-6 items-center flex-wrap">
-      <span class="font-bold">${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</span>
+      <span class="font-bold">${this._ico(iconaTipo(t.type))} ${this._esc(etichettaTipo(t.type))}</span>
       <span class="mono text-label-small text-sx-text-muted">${this._esc(t.task_id)}</span>
       <span class="text-body-small">${dettaglio}</span>
       ${resta === null ? '' : `<span class="badge badge-blue">restano ${resta} coll.${fatti ? ` · ${fatti} già mossi` : ''}</span>`}
@@ -907,7 +907,7 @@ export const VistaCompiti = {
       return;
     }
     if (!eAperto(rec)) {
-      this.toast(`✓ ${etichettaTipo(rec.type)} completata — ${rec.task_id}`, 'success');
+      this.toast(`${etichettaTipo(rec.type)} completata — ${rec.task_id}`, 'success');
       if (this._taskRun?.task_id === rec.task_id) this._taskRun = null;
     } else {
       const resta = residuo(rec);
@@ -958,7 +958,7 @@ export const VistaCompiti = {
       placeholder: 'Perché non si fa più…',
       /* Non «Annulla»: accanto al pulsante di uscita del dialogo sarebbero
          due Annulla che fanno il contrario l'uno dell'altro. */
-      confirmLabel: '✕ Sì, annullala',
+      confirmLabel: 'Sì, annullala',
       danger: true,
     });
     if (!motivo) return;
@@ -980,14 +980,14 @@ export const VistaCompiti = {
       const m = misure(t);
       return `<tr class="bg-sx-danger-soft"${inRitardo(t) ? '' : ''}>
         <td><span class="badge ${this._taskPrioClasse(t.priority)}">${etichettaPriorita(t.priority)}</span></td>
-        <td>${iconaTipo(t.type)} ${this._esc(etichettaTipo(t.type))}</td>
+        <td>${this._ico(iconaTipo(t.type))} ${this._esc(etichettaTipo(t.type))}</td>
         <td class="mono">${this._esc(t.assigned_to || '—')}</td>
         <td class="whitespace-nowrap">${durataUmana(m.attesa)}</td>
       </tr>`;
     }).join('');
     return `<div class="card">
       <div class="card-title flex justify-between items-center">
-        <span>📋 Attività aperte</span>
+        <span>${this._ico('clipboard-text')} Attività aperte</span>
         <button class="btn btn-sm" onclick="App.switchView('tasks')">Apri la coda</button>
       </div>
       ${r.aperti ? `<div class="text-body-small text-sx-text-secondary mb-4">

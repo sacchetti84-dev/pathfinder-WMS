@@ -31,7 +31,7 @@ export const VistaUdc = {
     const aperte = Store.getUdcAperte();
     const prefisso = Store.getPrefissoGS1();
     el.innerHTML = `<div class="mov-form-card">
-      <h3>📦 <span class="text-sx-teal">Unità di carico</span></h3>
+      <h3>${this._ico('package')} <span class="text-sx-teal">Unità di carico</span></h3>
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① NUOVA</span> nel vano dove sta il pallet →
         <span class="wf-step">② carica</span> le righe che ci stanno sopra →
@@ -46,7 +46,7 @@ export const VistaUdc = {
         <button class="btn btn-success" onclick="App._udcNuova()">+ Nuova unità di carico</button>
       </div>
       <div id="udcElenco"></div>
-      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">${this._ico('x')} Chiudi</button></div>
     </div>`;
     this._udcRenderElenco(aperte);
   },
@@ -68,16 +68,16 @@ export const VistaUdc = {
         <div class="inv-info">
           <div class="inv-code">${this._esc(u.udc_id)} <span class="badge badge-muted">${this._esc(u.type || 'pallet')}</span></div>
           <div class="inv-lot">
-            📍 ${this._esc(u.location_code || '— senza ubicazione')} ·
+            ${this._ico('map-pin')} ${this._esc(u.location_code || '— senza ubicazione')} ·
             ${righe.length} rig${righe.length === 1 ? 'a' : 'he'} · ${colli} Coll.
           </div>
         </div>
         <div class="inv-actions-row">
           <button class="inv-btn" title="Apri e carica la merce" onclick="App._udcApri('${this._esc(u.udc_id)}')">${scelta ? '▾' : '▸'}</button>
-          <button class="inv-btn" title="Sposta l'unità intera" onclick="App._udcChiediSposta('${this._esc(u.udc_id)}')">🔀</button>
-          <button class="inv-btn" title="Ristampa l'etichetta" onclick="App._udcEtichetta('${this._esc(u.udc_id)}')">🏷</button>
-          <button class="inv-btn" title="Metti in quarantena tutta l'unità" onclick="App._udcChiediQuarantena('${this._esc(u.udc_id)}')">🔒</button>
-          <button class="inv-btn btn-danger" title="Smaltisci tutta l'unità" onclick="App._udcChiediSmaltisci('${this._esc(u.udc_id)}')">🗑</button>
+          <button class="inv-btn" title="Sposta l'unità intera" onclick="App._udcChiediSposta('${this._esc(u.udc_id)}')">${this._ico('arrows-shuffle')}</button>
+          <button class="inv-btn" title="Ristampa l'etichetta" onclick="App._udcEtichetta('${this._esc(u.udc_id)}')">${this._ico('tag')}</button>
+          <button class="inv-btn" title="Metti in quarantena tutta l'unità" onclick="App._udcChiediQuarantena('${this._esc(u.udc_id)}')">${this._ico('lock')}</button>
+          <button class="inv-btn btn-danger" title="Smaltisci tutta l'unità" onclick="App._udcChiediSmaltisci('${this._esc(u.udc_id)}')">${this._ico('trash')}</button>
         </div>
       </div>`;
       if (scelta) html += this._udcDettaglioHTML(u, righe);
@@ -97,7 +97,7 @@ export const VistaUdc = {
         <div class="inv-item-row">
           <div class="inv-info">
             <div class="inv-code">${this._esc(r.article_code)} <span class="font-normal text-body-small text-sx-text-secondary">${this._esc(r.article_description || '')}</span></div>
-            <div class="inv-lot">Lotto ${this._esc(r.lot_code)} · ${r.qty || 0} Coll. · ⚖ ${this._esc(Store.descriviRiga(r))}</div>
+            <div class="inv-lot">Lotto ${this._esc(r.lot_code)} · ${r.qty || 0} Coll. · ${this._ico('scale')} ${this._esc(Store.descriviRiga(r))}</div>
           </div>
           <div class="inv-actions-row">
             <button class="inv-btn" title="Togli dall'unità: la merce resta nel vano" onclick="App._udcScarica('${this._esc(r.item_key)}')">↧</button>
@@ -127,7 +127,7 @@ export const VistaUdc = {
 
   _udcNuova() {
     this.showModal(
-      '📦 Nuova unità di carico',
+      `${this._ico('package')} Nuova unità di carico`,
       `<div class="form-row mb-6">
         <div class="form-group">
           <label>Tipo</label>
@@ -143,7 +143,7 @@ export const VistaUdc = {
             <input class="input input-mono uppercase flex-1" id="udcLoc" placeholder="Scansiona o digita" autofocus maxlength="${Validate.MAX.LOC_CODE}"
               oninput="this.value=this.value.toUpperCase();App._previewLoc('udcLoc','udcLocPrev')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();App._udcCrea()}">
-            <button class="btn btn-sm" type="button" onclick="App._pickLoc('udcLoc',null)" title="Sfoglia">📍</button>
+            <button class="btn btn-sm" type="button" onclick="App._pickLoc('udcLoc',null)" title="Sfoglia">${this._ico('map-pin')}</button>
           </div>
           <div id="udcLocPrev"></div>
         </div>
@@ -153,7 +153,7 @@ export const VistaUdc = {
         L'etichetta si stampa subito: è quella che resterà incollata al legno.
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-success" onclick="App._udcCrea()">+ Crea e stampa</button>`
+       <button class="btn btn-success btn-conferma" onclick="App._udcCrea()">+ Crea e stampa</button>`
     );
   },
 
@@ -178,7 +178,7 @@ export const VistaUdc = {
     this._udcSel = rec.udc_id;
     this._formUdc($('movFormArea'));
     this.updateSyncIndicator();
-    this.toast(`📦 ${rec.udc_id} creata in ${loc}`, 'success');
+    this.toast(`${rec.udc_id} creata in ${loc}`, 'success');
     /* L'etichetta si stampa alla CREAZIONE: un pallet senza etichetta è un
        pallet che nessuno può scansionare, e stamparla dopo vuol dire
        ricordarsene. */
@@ -225,8 +225,8 @@ export const VistaUdc = {
     if (!u) return this.toast('Unità non trovata', 'error');
     const righe = Store.righeDiUdc(id);
     this.showModal(
-      `🔀 Sposta ${this._esc(id)}`,
-      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+      `${this._ico('arrows-shuffle')} Sposta ${this._esc(id)}`,
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-5 py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
         <span class="mono font-bold text-sx-teal">${this._esc(id)}</span> · ${this._esc(u.type || 'pallet')}<br>
         Adesso in <strong class="mono">${this._esc(u.location_code || '—')}</strong> ·
         <strong>${righe.length} rig${righe.length === 1 ? 'a' : 'he'}</strong> sopra
@@ -237,7 +237,7 @@ export const VistaUdc = {
           <input class="input input-mono uppercase flex-1" id="udcDest" placeholder="Scansiona o digita" autofocus maxlength="${Validate.MAX.LOC_CODE}"
             oninput="this.value=this.value.toUpperCase();App._previewLoc('udcDest','udcDestPrev')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._udcSposta('${this._esc(id)}')}">
-          <button class="btn btn-sm" type="button" onclick="App._pickLoc('udcDest',null)" title="Sfoglia">📍</button>
+          <button class="btn btn-sm" type="button" onclick="App._pickLoc('udcDest',null)" title="Sfoglia">${this._ico('map-pin')}</button>
         </div>
         <div id="udcDestPrev"></div>
       </div>
@@ -246,7 +246,7 @@ export const VistaUdc = {
         in una transazione sola. Il contenuto non si tocca: colli e quantità restano quelli.
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-primary" onclick="App._udcSposta('${this._esc(id)}')">🔀 Sposta</button>`
+       <button class="btn btn-primary btn-conferma" onclick="App._udcSposta('${this._esc(id)}')">${this._ico('arrows-shuffle')} Sposta</button>`
     );
   },
 
@@ -279,7 +279,7 @@ export const VistaUdc = {
     this.renderMap();
     this.updateSyncIndicator();
     this._refreshSessionLog?.();
-    this.toast(`🔀 ${id}: ${da} → ${dest} · ${esito?.righe ?? 0} righe`, 'success');
+    this.toast(`${id}: ${da} → ${dest} · ${esito?.righe ?? 0} righe`, 'success');
   },
 
   /* ─── L'ETICHETTA — 2.1, LA STAMPANTE — 2.19 ──────────────────────
@@ -365,9 +365,9 @@ export const VistaUdc = {
   },
 
   _udcRiepilogoHTML(u, righe: Giacenza[]) {
-    return `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+    return `<div class="bg-sx-bg-alt border border-sx-border rounded-5 py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
       <span class="mono font-bold text-sx-teal">${this._esc(u.udc_id)}</span> · ${this._esc(u.type || 'pallet')}
-      · 📍 ${this._esc(u.location_code || '—')}<br>
+      · ${this._ico('map-pin')} ${this._esc(u.location_code || '—')}<br>
       ${righe.map((r: Giacenza) => `<div class="mt-2">• <span class="mono">${this._esc(r.article_code)}</span>#${this._esc(r.lot_code)}
         — ${r.qty || 0} Coll. · ${this._esc(Store.descriviRiga(r))}</div>`).join('')}
     </div>`;
@@ -379,7 +379,7 @@ export const VistaUdc = {
     if (!dati) return;
     const causali = Store.getDocConfig().disposalReasons;
     this.showModal(
-      `🗑 Smaltisci ${this._esc(id)}`,
+      `${this._ico('trash')} Smaltisci ${this._esc(id)}`,
       `${this._udcRiepilogoHTML(dati.u, dati.righe)}
       <div class="mov-preview mov-preview-err mb-7">
         <strong>Escono tutte e ${dati.righe.length} le righe, per intero.</strong>
@@ -398,7 +398,7 @@ export const VistaUdc = {
         <input class="input" id="udcDispNota" maxlength="${Validate.MAX.REASON}" placeholder="Obbligatoria se la motivazione è «Altra»">
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-danger" onclick="App._udcSmaltisci('${this._esc(id)}')">🗑 Smaltisci l'unità</button>`
+       <button class="btn btn-danger btn-conferma" onclick="App._udcSmaltisci('${this._esc(id)}')">${this._ico('trash')} Smaltisci l'unità</button>`
     );
   },
 
@@ -472,7 +472,7 @@ export const VistaUdc = {
     if (fallite.length) {
       this.toast(`Smaltite ${fatte.length} righe su ${dati.righe.length}. Non riuscite: ${fallite.join(' · ')}`, 'error');
     } else {
-      this.toast(`✓ ${id} smaltita: ${fatte.length} righe, ${fatte.length} verbali · ${causale}`, 'success');
+      this.toast(`${id} smaltita: ${fatte.length} righe, ${fatte.length} verbali · ${causale}`, 'success');
     }
   },
 
@@ -481,7 +481,7 @@ export const VistaUdc = {
     const dati = this._udcRigheOChiedi(id);
     if (!dati) return;
     this.showModal(
-      `🔒 Quarantena ${this._esc(id)}`,
+      `${this._ico('lock')} Quarantena ${this._esc(id)}`,
       `${this._udcRiepilogoHTML(dati.u, dati.righe)}
       <div class="mov-preview mov-preview-warn mb-7">
         <strong>Tutte e ${dati.righe.length} le righe vanno in area di non conformità</strong>, per intero.
@@ -502,7 +502,7 @@ export const VistaUdc = {
         </div>
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-warning" onclick="App._udcQuarantena('${this._esc(id)}')">🔒 Blocca l'unità</button>`
+       <button class="btn btn-warning btn-conferma" onclick="App._udcQuarantena('${this._esc(id)}')">${this._ico('lock')} Blocca l'unità</button>`
     );
   },
 
@@ -545,7 +545,7 @@ export const VistaUdc = {
     if (fallite.length) {
       this.toast(`In quarantena ${bloccate.length} righe su ${dati.righe.length}. Non riuscite: ${fallite.join(' · ')}`, 'error');
     } else {
-      this.toast(`🔒 ${id} in quarantena: ${bloccate.length} righe · cartellini da ristampare dalla scheda Quarantena`, 'warning');
+      this.toast(`${id} in quarantena: ${bloccate.length} righe · cartellini da ristampare dalla scheda Quarantena`, 'warning');
     }
   },
 } satisfies Vista;

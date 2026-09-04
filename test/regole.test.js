@@ -187,7 +187,26 @@ describe('il doppio contesto dei gestori inline', () => {
    E' la TRAPPOLA 22 (§7): una chiave di `meta` non dichiarata li' vive in
    cache finche' nessuno ricarica la pagina, e poi sparisce. Su una sessione
    di carico morde nel caso esatto per cui e' stata salvata. */
-const TETTO_STORE = 4566;
+/* 2.23 — da 4566 a 4578, e il perché.
+
+   Il cruscotto è diventato di chi lo guarda: `_chiaveCruscotto` legge la
+   sigla e decide su quale chiave di `meta` sta la preferenza. Sono quattro
+   righe di codice più la spiegazione, e stanno QUI e non in un modulo per
+   una ragione precisa: `modules/cruscotto.ts` è puro e non sa chi è
+   collegato, mentre sapere in quale riga di `meta` vive un dato è
+   esattamente il mestiere di `Store`.
+
+   Le altre nove sono la TRAPPOLA 22 applicata a una FAMIGLIA di chiavi:
+   `meta` si ricostruisce da un elenco dichiarato, e `dashboardLayout:<SIGLA>`
+   non si può dichiarare, perché le sigle nascono coi loro operatori. Si tiene
+   il prefisso. Senza quelle righe la preferenza durava fino al ricaricamento
+   e poi tornava quella di serie — in silenzio, che è il modo in cui la
+   trappola 22 morde.
+
+   Il tetto serve a impedire che il nucleo assorba LOGICA. Ventun righe per
+   scegliere una chiave e non perderla non sono logica assorbita — ma se la
+   prossima volta si alza di nuovo senza una riga come questa, allora sì. */
+const TETTO_STORE = 4587;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

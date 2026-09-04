@@ -50,6 +50,21 @@ type VoceCarrelloDDT = {
 };
 
 export const VistaSpedizioni = {
+  /* ═══ 2.23 · SPEDIZIONI HA DUE SCHEDE ═══════════════════════════════════
+     Fino alla 2.22 il carico del camion era una tessera sua in Movimenta, la
+     dodicesima. Ma comporre un DDT e andare a prendere i bancali che ci vanno
+     sopra non sono due mestieri: sono due momenti dello stesso, e chi spedisce
+     li fa nello stesso turno, sullo stesso documento. Averli in due punti del
+     menu voleva dire uscire da una schermata per entrare nell'altra, e
+     tornare indietro per evadere.
+
+     Adesso è una tessera sola con due schede — come «Prelievo» ne ha quattro
+     e «Inventario» tre. Stesso `prel-tabs`, stesso schema `_xxxSub` +
+     `_renderXxxSub`: chi conosce una di quelle conosce anche questa.
+
+     `startMov('load')` continua a valere e apre la scheda del camion: la
+     scorciatoia del cruscotto e ogni altro richiamo non si accorgono di
+     niente. */
   _formSpedizioni(el) {
     /* IL DDT SI EVADE ANCHE DA FUORI MOVIMENTA — dal riquadro in Dashboard, e
        dalla 1.4.2.1 anche dalla coda delle attività. Là dentro `movFormArea`
@@ -57,6 +72,37 @@ export const VistaSpedizioni = {
        uscita e il compito già chiuso, ma l'ultima riga della funzione moriva
        e l'errore usciva in console senza che niente lo raccogliesse. Chi non
        ha un posto dove disegnare non disegna. */
+    if (!el) return;
+    const carico = Store.getCaricoInCorso();
+    el.innerHTML = `<div class="mov-form-card">
+      <h3>${this._ico('truck')} <span class="text-sx-orange">Spedizioni</span> — Documenti di trasporto in uscita</h3>
+      <div class="prel-tabs">
+        <button class="prel-tab ${this._shipSubMode === 'documenti' ? 'active' : ''}"
+          onclick="App._shipSub('documenti')"><span class="prel-tab-icon">${this._ico('clipboard-text')}</span>Documenti</button>
+        <button class="prel-tab ${this._shipSubMode === 'carico' ? 'active' : ''}"
+          onclick="App._shipSub('carico')"><span class="prel-tab-icon">${this._ico('tir')}</span>Carico camion${carico ? ' •' : ''}</button>
+      </div>
+      <div id="shipSubForm"></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">${this._ico('x')} Chiudi</button></div>
+    </div>`;
+    this._renderShipSub();
+  },
+
+  _shipSub(mode) {
+    this._shipSubMode = mode;
+    this._formSpedizioni($('movFormArea'));
+  },
+
+  _renderShipSub() {
+    const el = $('shipSubForm');
+    if (!el) return;
+    if (this._shipSubMode === 'carico') this._formCaricoSpedizione(el);
+    else this._formDocumenti(el);
+  },
+
+  /* La composizione e l'evasione dei DDT: è quel che questa schermata faceva
+     prima, dentro la sua scheda. */
+  _formDocumenti(el) {
     if (!el) return;
     const pending = Store.getPendingOutbound();
     const cart = this._shipCart;
@@ -95,8 +141,7 @@ export const VistaSpedizioni = {
 
     const totaliUom = this._ddtTotaliUom(cart);
 
-    el.innerHTML = `<div class="mov-form-card">
-      <h3>🚚 <span class="text-sx-orange">Spedizioni</span> — Documenti di trasporto in uscita</h3>
+    el.innerHTML = `
       <div class="wf-instructions">
         <strong>Flusso 2-stati:</strong>
         <span class="wf-step">① REGISTRA DDT</span> (testata + righe → DDT pendente, merce ancora in giacenza) →
@@ -106,7 +151,7 @@ export const VistaSpedizioni = {
       </div>
 
       ${gaps.length ? `<div class="mov-preview mov-preview-err mb-6">
-        ⚠️ <strong>Mittente incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.
+        ${this._ico('alert-triangle')} <strong>Mittente incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.
         I DDT si stampano lo stesso, ma con l'avviso che il documento non è conforme.
         <button class="btn btn-sm ml-4" onclick="App._configTab='docs';App.switchView('config')">Configura ora</button>
       </div>` : ''}
@@ -114,22 +159,22 @@ export const VistaSpedizioni = {
       <!-- ═════ LISTA DDT PENDENTI ═════ -->
       <div class="mb-8">
         <div class="flex justify-between items-center mb-3">
-          <strong class="text-body-small text-sx-orange">📋 DDT Pendenti <span class="badge badge-orange">${pending.length}</span></strong>
+          <strong class="text-body-small text-sx-orange">${this._ico('clipboard-text')} DDT Pendenti <span class="badge badge-orange">${pending.length}</span></strong>
         </div>
         ${this._renderPendingDdtList(pending)}
       </div>
 
       <!-- ═════ COMPOSIZIONE NUOVO DDT ═════ -->
       <details class="mt-8" ${cart.length ? 'open' : ''}>
-        <summary class="cursor-pointer text-body-medium font-bold text-sx-primary py-4 px-5 bg-[var(--grad-soft-orange)] border border-sx-orange rounded-[var(--radius)]">
-          ➕ Componi Nuovo DDT ${cart.length ? `<span class="badge badge-orange">${cart.length} righe in bozza</span>` : ''}
+        <summary class="cursor-pointer text-body-medium font-bold text-sx-primary py-4 px-5 bg-sx-orange-soft border border-sx-orange rounded-1">
+          ${this._ico('plus')} Componi Nuovo DDT ${cart.length ? `<span class="badge badge-orange">${cart.length} righe in bozza</span>` : ''}
         </summary>
-        <div class="border border-sx-border [border-top:none] rounded-b-[var(--radius-md)] p-6 bg-sx-card-alt">
+        <div class="border border-sx-border [border-top:none] rounded-b-5 p-6 bg-sx-card-alt">
           ${datalist}
 
           <!-- ── TESTATA: documento ── -->
           <div class="ddt-block">
-            <div class="ddt-block-lbl">📋 Documento</div>
+            <div class="ddt-block-lbl">${this._ico('clipboard-text')} Documento</div>
             <div class="form-row mb-4">
               <div class="form-group">
                 <label>Causale del trasporto <span class="req">*</span></label>
@@ -164,7 +209,7 @@ export const VistaSpedizioni = {
                   placeholder="M06-COM-01" value="${this._esc(this._shipDestLocation || '')}"
                   oninput="App._normScan('pShipDestLoc')" onchange="App._persistShipHeader()">
                 <div class="text-label-small text-sx-text-muted mt-1.5">
-                  🏭 Conto terzi: all'evasione la merce <strong>non esce</strong> — si sposta in
+                  ${this._ico('building-factory')} Conto terzi: all'evasione la merce <strong>non esce</strong> — si sposta in
                   questo vano, che sta già sulla mappa. Resta in giacenza, e il DDT accompagna il viaggio.
                 </div>
               </div>
@@ -173,13 +218,13 @@ export const VistaSpedizioni = {
 
           <!-- ── TESTATA: destinatario ── -->
           <div class="ddt-block">
-            <div class="ddt-block-lbl">🏢 Destinatario</div>
+            <div class="ddt-block-lbl">${this._ico('building-community')} Destinatario</div>
             <div class="form-row mb-4">
               <div class="form-group">
                 <label>Denominazione <span class="req">*</span></label>
                 <input class="input" id="pShipCustomer" list="shipRecipients" placeholder="Ragione sociale del destinatario" maxlength="120"
                   value="${this._esc(this._shipCustomer)}" onchange="App._shipRecipientPicked()">
-                <div class="text-label-small text-sx-text-muted mt-1.5">💡 Un destinatario già usato porta con sé indirizzo e P. IVA.</div>
+                <div class="text-label-small text-sx-text-muted mt-1.5">${this._ico('bulb')} Un destinatario già usato porta con sé indirizzo e P. IVA.</div>
               </div>
               <div class="form-group">
                 <label>Partita IVA / C.F.</label>
@@ -221,7 +266,7 @@ export const VistaSpedizioni = {
 
           <!-- ── TESTATA: trasporto ── -->
           <div class="ddt-block">
-            <div class="ddt-block-lbl">🚛 Trasporto</div>
+            <div class="ddt-block-lbl">${this._ico('tir')} Trasporto</div>
             <div class="form-row mb-4">
               <div class="form-group">
                 <label>Vettore</label>
@@ -245,7 +290,7 @@ export const VistaSpedizioni = {
                 </select>
               </div>
               <div class="form-group">
-                <label>📅 Data ritiro prevista <span class="text-label-small text-sx-text-muted font-normal">(per gli alert)</span></label>
+                <label>${this._ico('calendar-event')} Data ritiro prevista <span class="text-label-small text-sx-text-muted font-normal">(per gli alert)</span></label>
                 <input class="input" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" id="pShipExpected"
                   value="${this._esc(this._dateISOtoIT(this._shipExpectedDate))}"
                   oninput="App._dateMaskInput(this)" onblur="App._dateMaskBlur(this);App._persistShipHeader()">
@@ -267,7 +312,7 @@ export const VistaSpedizioni = {
 
           <!-- ── TESTATA: pesi ── -->
           <div class="ddt-block">
-            <div class="ddt-block-lbl">⚖ Pesi <span class="font-normal normal-case tracking-[0]">— si scrivono a mano</span></div>
+            <div class="ddt-block-lbl">${this._ico('scale')} Pesi <span class="font-normal normal-case tracking-[0]">— si scrivono a mano</span></div>
             <div class="form-row mb-0">
               <div class="form-group">
                 <label>Peso netto (kg)</label>
@@ -317,7 +362,7 @@ export const VistaSpedizioni = {
               <label>Note riga (opz.)</label>
               <input class="input" id="pShipNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Es: riferimento riga d'ordine">
             </div>
-            <button class="btn w-full bg-sx-orange text-white border-sx-orange p-5 font-bold" id="pShipAddBtn" onclick="App._shipAddToCart()">+ AGGIUNGI AL CARRELLO</button>
+            <button class="btn btn-conferma bg-sx-orange text-white border-sx-orange" id="pShipAddBtn" onclick="App._shipAddToCart()">+ AGGIUNGI AL CARRELLO</button>
           </div>
 
           <!-- ── CARRELLO ── -->
@@ -330,9 +375,7 @@ export const VistaSpedizioni = {
           </div>
           <div class="mt-4" id="pShipFeedback"></div>
         </div>
-      </details>
-      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
-    </div>`;
+      </details>`;
     if (!cart.length && !pending.length) $('pShipCustomer')?.focus();
   },
 
@@ -441,7 +484,7 @@ export const VistaSpedizioni = {
      v2.0.0+ — sort by alert priority (overdue/today/tomorrow/soon/ok/none) */
   _renderPendingDdtList(pending) {
     if (!pending.length) {
-      return `<div class="py-5 px-7 bg-sx-card-alt [border:1px_dashed_var(--sx-border)] rounded-[var(--radius)] text-body-small text-sx-text-muted text-center">Nessun DDT pendente — componine uno nuovo qui sotto</div>`;
+      return `<div class="py-5 px-7 bg-sx-card-alt [border:1px_dashed_var(--sx-border)] rounded-1 text-body-small text-sx-text-muted text-center">Nessun DDT pendente — componine uno nuovo qui sotto</div>`;
     }
     const sorted = (pending as DocumentoUscita[]).slice().sort((a, b) => {
       const sa = pickupAlertStatus(a).sortKey;
@@ -470,22 +513,22 @@ export const VistaSpedizioni = {
     const borderWidth = isUrgent ? '2px' : '1px';
     const animation = (alert.level === 'overdue' || alert.level === 'today') ? 'animation:pendingPulse 2s ease-in-out infinite' : '';
     const alertBadgeSummary = alert.level === 'none'
-      ? `<span class="badge" class="bg-sx-card-alt text-sx-text-muted [border:1px_dashed_var(--sx-border-strong)] text-label-small">📅 da definire</span>`
-      : `<span class="badge" style="background:${alert.bg};color:${alert.color};border-color:${alert.color};font-size: var(--md-sys-typescale-label-small-size);font-weight:700">📅 ${this._esc(alert.shortLabel)}</span>`;
+      ? `<span class="badge bg-sx-card-alt text-sx-text-muted [border:1px_dashed_var(--sx-border-strong)] text-label-small">${this._ico('calendar-event')} da definire</span>`
+      : `<span class="badge" style="background:${alert.bg};color:${alert.color};border-color:${alert.color};font-size: var(--md-sys-typescale-label-small-size);font-weight:700">${this._ico('calendar-event')} ${this._esc(alert.shortLabel)}</span>`;
     /* v2.0.1 [A-3] — Controllo di integrità delegato a Store.checkPendingDocIntegrity. */
     const integrity = Store.checkPendingDocIntegrity(doc);
     const warnings = integrity.issues.length;
     const issueByLine = new Map(integrity.issues.map(x => [x.lineIndex, x]));
-    const warnBadge = warnings > 0 ? `<span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3" title="${warnings} riga/e non allineata/e alla giacenza attuale">⚠️ ${warnings}</span>` : '';
+    const warnBadge = warnings > 0 ? `<span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3" title="${warnings} riga/e non allineata/e alla giacenza attuale">${this._ico('alert-triangle')} ${warnings}</span>` : '';
     const linesHtml = doc.lines.map((l, i) => {
       const issue = issueByLine.get(i);
       const rowStyle = issue ? 'background:var(--sx-danger-soft);' : '';
       const issueHtml = issue
-        ? `<div class="text-label-small text-sx-danger pt-1.5 pr-0 pb-2.5 pl-10">⚠️ ${this._esc(issue.message)}</div>`
+        ? `<div class="text-label-small text-sx-danger pt-1.5 pr-0 pb-2.5 pl-10">${this._ico('alert-triangle')} ${this._esc(issue.message)}</div>`
         : '';
       return `<div style="${rowStyle}font-size: var(--md-sys-typescale-label-small-size);padding:0.2rem 0;border-bottom:1px dashed var(--sx-border)">
       <div class="flex justify-between gap-4">
-        <span><span class="text-sx-text-muted">${i+1}.</span> <strong>${this._esc(l.article_code)}</strong> · L:${this._esc(l.lot_code)} · 📍${this._esc(l.location_code!)}${l.notes ? ' · <em>' + this._esc(l.notes) + '</em>' : ''}</span>
+        <span><span class="text-sx-text-muted">${i+1}.</span> <strong>${this._esc(l.article_code)}</strong> · L:${this._esc(l.lot_code)} · ${this._ico('map-pin')}${this._esc(l.location_code!)}${l.notes ? ' · <em>' + this._esc(l.notes) + '</em>' : ''}</span>
         <strong style="color:${themeColor}">${l.qty} Coll.</strong>
       </div>${issueHtml}
     </div>`;
@@ -506,18 +549,18 @@ export const VistaSpedizioni = {
           ${doc.operator ? ' · <strong>' + this._esc(doc.operator) + '</strong>' : ''} · Destinatario: <strong>${this._esc(doc.destination)}</strong>
           ${doc.ship_to ? ' · Destinazione: <strong>' + this._esc(doc.ship_to) + '</strong>' : ''}
         </div>
-        ${alert.level !== 'none' ? `<div style="background:${alert.bg};color:${alert.color};font-weight:700;font-size: var(--md-sys-typescale-body-small-size);padding:0.35rem 0.55rem;border-radius:var(--radius);margin-bottom:0.4rem;border:1px solid ${alert.color}">${this._esc(alert.label)}</div>` : `<div class="bg-sx-card-alt text-sx-text-muted text-label-small py-3 px-5 rounded-[var(--radius)] mb-4 [border:1px_dashed_var(--sx-border-strong)]">📅 Ritiro non datato — nessun alert su questo DDT</div>`}
+        ${alert.level !== 'none' ? `<div style="background:${alert.bg};color:${alert.color};font-weight:700;font-size: var(--md-sys-typescale-body-small-size);padding:0.35rem 0.55rem;border-radius:var(--radius);margin-bottom:0.4rem;border:1px solid ${alert.color}">${alert.level === 'overdue' || alert.level === 'today' ? this._ico('alert-triangle') + ' ' : ''}${this._esc(alert.label)}</div>` : `<div class="bg-sx-card-alt text-sx-text-muted text-label-small py-3 px-5 rounded-1 mb-4 [border:1px_dashed_var(--sx-border-strong)]">${this._ico('calendar-event')} Ritiro non datato — nessun alert su questo DDT</div>`}
         <div class="mb-5">${linesHtml}</div>
-        ${warnings > 0 ? `<div class="bg-sx-danger-soft text-sx-danger text-label-small py-4 px-5.5 rounded-[var(--radius)] mb-4 border border-sx-danger">
-          <strong>⚠️ ${warnings} riga/e NON ALLINEATA/E alla giacenza attuale.</strong><br>
-          Il documento non è evadibile così com'è: usare <strong>📝 Modifica</strong> per riallinearlo, oppure <strong>✕</strong> per annullarlo e rifarlo.
+        ${warnings > 0 ? `<div class="bg-sx-danger-soft text-sx-danger text-label-small py-4 px-5.5 rounded-1 mb-4 border border-sx-danger">
+          <strong>${this._ico('alert-triangle')} ${warnings} riga/e NON ALLINEATA/E alla giacenza attuale.</strong><br>
+          Il documento non è evadibile così com'è: usare <strong>${this._ico('edit')} Modifica</strong> per riallinearlo, oppure <strong>${this._ico('x')}</strong> per annullarlo e rifarlo.
         </div>` : ''}
         <div class="flex gap-4 flex-wrap">
-          <button class="btn" style="flex:1;min-width:120px;padding:0.5rem;font-weight:700;background:${themeColor};color:#fff;border-color:${themeColor}" onclick="App._evadiSpedizione('${this._esc(doc.doc_id)}')">✓ EVADI DDT</button>
-          <button class="btn bg-sx-accent-soft text-sx-accent border-sx-accent font-semibold" onclick="App._editPendingDoc('${this._esc(doc.doc_id)}')" title="Modifica DDT">📝 Modifica</button>
-          <button class="btn" onclick="App._printDDT('${this._esc(doc.doc_id)}')" title="Stampa il DDT">🖨</button>
-          <button class="btn" onclick="App._printPackingList('${this._esc(doc.doc_id)}')" title="Stampa la packing list — un bancale per blocco">📦</button>
-          <button class="btn btn-ghost text-sx-danger" onclick="App._cancelPendingShip('${this._esc(doc.doc_id)}')" title="Annulla DDT">✕</button>
+          <button class="btn" style="flex:1;min-width:120px;padding:0.5rem;font-weight:700;background:${themeColor};color:#fff;border-color:${themeColor}" onclick="App._evadiSpedizione('${this._esc(doc.doc_id)}')">${this._ico('check')} EVADI DDT</button>
+          <button class="btn bg-sx-accent-soft text-sx-accent border-sx-accent font-semibold" onclick="App._editPendingDoc('${this._esc(doc.doc_id)}')" title="Modifica DDT">${this._ico('edit')} Modifica</button>
+          <button class="btn" onclick="App._printDDT('${this._esc(doc.doc_id)}')" title="Stampa il DDT">${this._ico('printer')}</button>
+          <button class="btn" onclick="App._printPackingList('${this._esc(doc.doc_id)}')" title="Stampa la packing list — un bancale per blocco">${this._ico('package')}</button>
+          <button class="btn btn-ghost text-sx-danger" onclick="App._cancelPendingShip('${this._esc(doc.doc_id)}')" title="Annulla DDT">${this._ico('x')}</button>
         </div>
       </div>
     </details>`;
@@ -528,17 +571,17 @@ export const VistaSpedizioni = {
     const lot = Validate.clean($('pShipLot')?.value);
     const info = $('pShipInfo');
     const details = $('pShipDetails');
-    if (!art) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona prima il codice articolo</div>`; $('pShipArt')?.focus(); return; }
-    if (!lot) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona il codice lotto</div>`; $('pShipLot')?.focus(); return; }
+    if (!art) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} Scansiona prima il codice articolo</div>`; $('pShipArt')?.focus(); return; }
+    if (!lot) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} Scansiona il codice lotto</div>`; $('pShipLot')?.focus(); return; }
     const artErr = Validate.article(art);
-    if (artErr) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ ${this._esc(artErr)}</div>`; details.classList.add('hidden'); return; }
+    if (artErr) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} ${this._esc(artErr)}</div>`; details.classList.add('hidden'); return; }
     const lotErr = Validate.lot(lot);
-    if (lotErr) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ ${this._esc(lotErr)}</div>`; details.classList.add('hidden'); return; }
+    if (lotErr) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} ${this._esc(lotErr)}</div>`; details.classList.add('hidden'); return; }
     const allItems = Store.findItemLocations(art);
     const matched = allItems.filter(it => it.lot_code === lot);
-    if (!matched.length) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Item ${this._esc(art)}#${this._esc(lot)} non trovato in magazzino</div>`; details.classList.add('hidden'); return; }
+    if (!matched.length) { info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} Item ${this._esc(art)}#${this._esc(lot)} non trovato in magazzino</div>`; details.classList.add('hidden'); return; }
     const notQuar = matched.filter(it => !Store.isItemQuarantined(it.item_key, it.location_code));
-    if (!notQuar.length) { info.innerHTML = `<div class="text-body-small text-sx-purple mt-2">⚠️ L'item ${this._esc(art)}#${this._esc(lot)} è in quarantena in tutte le ubicazioni in cui si trova</div>`; details.classList.add('hidden'); return; }
+    if (!notQuar.length) { info.innerHTML = `<div class="text-body-small text-sx-purple mt-2">${this._ico('alert-triangle')} L'item ${this._esc(art)}#${this._esc(lot)} è in quarantena in tutte le ubicazioni in cui si trova</div>`; details.classList.add('hidden'); return; }
     const inCartByKey: Record<string, number> = {};
     for (const c of this._shipCart) {
       const k = `${c.location_code}#${c.item_key}`;
@@ -552,7 +595,7 @@ export const VistaSpedizioni = {
       return { ...it, _totalQty: totalQty, _pendingQty: pendingQty, _availableQty: availableQty };
     });
     const usable = enriched.filter(it => it._availableQty > 0);
-    if (!usable.length) { info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠️ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`; details.classList.add('hidden'); return; }
+    if (!usable.length) { info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">${this._ico('alert-triangle')} Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`; details.classList.add('hidden'); return; }
     if (usable.length === 1) { this._shipSelectItem(usable[0]); return; }
     let html = '<div class="max-h-[200px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Item presente in più ubicazioni — seleziona da quale prelevare:</div>';
     for (const it of usable) {
@@ -561,9 +604,9 @@ export const VistaSpedizioni = {
       html += `<div class="inv-item-row cursor-pointer" onclick="App._shipSelectEnc('${p}')">
         <div class="inv-info">
           <div class="inv-code text-sx-orange">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-body-small">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong>${pendBadge}${it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : ''}</div>
+          <div class="inv-lot">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong>${pendBadge}${it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : ''}</div>
         </div>
-        <span class="text-sx-orange text-body-small">🚚 Seleziona</span>
+        <span class="text-sx-orange text-body-small">${this._ico('truck')} Seleziona</span>
       </div>`;
     }
     info.innerHTML = html + '</div>';
@@ -582,14 +625,14 @@ export const VistaSpedizioni = {
       .reduce((s: number, c: VoceCarrelloDDT) => s + c.qty, 0);
     const availableQty = Math.max(0, totalQty - pendingQty - cartQty);
     if (availableQty <= 0) {
-      $('pShipInfo').innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠️ Giacenza tutta impegnata</div>`;
+      $('pShipInfo').innerHTML = `<div class="text-body-small text-sx-warning mt-2">${this._ico('alert-triangle')} Giacenza tutta impegnata</div>`;
       return;
     }
     this._shipState = { item: full, availableQty, totalQty, pendingQty };
     const expBadge = full.expiry_date ? ` · scad. ${this._esc(full.expiry_date)}` : '';
     const pendBadge = pendingQty > 0 ? ` · <span class="text-sx-warning">${pendingQty} prenotati</span>` : '';
     $('pShipInfo').innerHTML = '';
-    $('pShipItemPreview').innerHTML = `<div class="mov-preview bg-[var(--grad-soft-orange)] border-sx-orange mb-4">
+    $('pShipItemPreview').innerHTML = `<div class="mov-preview bg-sx-orange-soft border-sx-orange mb-4">
       <strong class="text-sx-orange">${this._esc(full.article_code)}</strong>
       <span class="text-sx-text-muted">${this._esc(full.article_description || '')}</span><br>
       <span class="text-body-small text-sx-text-muted">Lotto: <strong>${this._esc(full.lot_code)}</strong> · Ubic: <strong class="mono">${this._esc(full.location_code)}</strong> · Disp. effettiva: <strong class="text-sx-orange">${availableQty} Coll.</strong> (tot. ${totalQty}${pendBadge})${expBadge}</span>
@@ -903,11 +946,11 @@ export const VistaSpedizioni = {
     const totaliUom = this._ddtTotaliUom(this._shipCart);
     const wLabel = totaliUom ? ` <span class="dlg-chip">${this._esc(totaliUom)}</span>` : '';
     return `<div class="flex justify-between items-center mt-7 mx-0 mb-3.5">
-        <strong class="text-body-medium">🛒 Carrello Bozza <span class="text-sx-orange">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>${wLabel}` : ''}</strong>
+        <strong class="text-body-medium">${this._ico('shopping-cart')} Carrello Bozza <span class="text-sx-orange">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>${wLabel}` : ''}</strong>
         ${n ? '<button class="btn btn-sm btn-ghost" onclick="App._shipClearCart()">Svuota</button>' : ''}
       </div>
       <div class="pick-cart">${this._renderShipCart()}</div>
-      ${n ? `<button class="btn w-full mt-6 font-extrabold min-h-[var(--md-touch)] bg-sx-orange text-white border-sx-orange" onclick="App._saveShipPending()">📥 REGISTRA DDT PENDENTE (${n} righe)</button>` : ''}`;
+      ${n ? `<button class="btn btn-conferma mt-6 bg-sx-orange text-white border-sx-orange" onclick="App._saveShipPending()">${this._ico('download')} REGISTRA DDT PENDENTE (${n} righe)</button>` : ''}`;
   },
 
   _updateShipCart() {
@@ -929,9 +972,9 @@ export const VistaSpedizioni = {
         <div class="pci-num bg-sx-orange">${i+1}</div>
         <div class="pci-info">
           <div class="pci-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(it.article_description || '')}</span>${partial}</div>
-          <div class="pci-loc">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong class="text-sx-orange">${it.qty} Coll.</strong>${umBadge}${expBadge}${notesBadge}</div>
+          <div class="pci-loc">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} ${this._esc(it.location_code)} · <strong class="text-sx-orange">${it.qty} Coll.</strong>${umBadge}${expBadge}${notesBadge}</div>
         </div>
-        <button class="btn btn-sm btn-ghost text-sx-danger" onclick="App._shipRemoveFromCart(${i})">✕</button>
+        <button class="btn btn-sm btn-ghost text-sx-danger" onclick="App._shipRemoveFromCart(${i})">${this._ico('x')}</button>
       </div>`;
     }).join('');
   },
@@ -974,7 +1017,7 @@ export const VistaSpedizioni = {
       d.status !== 'cancelled' &&
       String(d.ddt_num || '').trim().toUpperCase() === this._shipDdtNum.trim().toUpperCase());
     if (dupe && !await Dialog.confirm({
-      title: '⚠️ Numero DDT già usato',
+      title: 'Numero DDT già usato', icon: 'alert-triangle',
       message: 'Esiste già un documento con questo numero. Procedere solo se la ripetizione è voluta.',
       details: Dialog.kv([
         ['N° DDT', this._shipDdtNum],
@@ -1019,10 +1062,10 @@ export const VistaSpedizioni = {
     let dateWarn = '';
     if (this._shipExpectedDate) {
       const status = pickupAlertStatus({ expected_pickup_date: this._shipExpectedDate });
-      if (status.level === 'overdue') dateWarn = `\n⚠️ Data ritiro nel passato (${status.label})`;
-      else if (status.level === 'today') dateWarn = `\n⚠️ Data ritiro è OGGI`;
+      if (status.level === 'overdue') dateWarn = `\n${this._ico('alert-triangle')} Data ritiro nel passato (${status.label})`;
+      else if (status.level === 'today') dateWarn = `\n${this._ico('alert-triangle')} Data ritiro è OGGI`;
     } else {
-      dateWarn = '\n⚠️ Data ritiro non specificata (nessun alert sarà attivo)';
+      dateWarn = '\nData ritiro non specificata (nessun alert sarà attivo)';
     }
 
     if (!await Dialog.confirm({
@@ -1038,7 +1081,7 @@ export const VistaSpedizioni = {
         ['Righe', this._shipCart.length],
         ['Colli totali', totalColli]
       ]),
-      confirmLabel: 'Registra DDT', icon: '\u{1F4E5}'
+      confirmLabel: 'Registra DDT', icon: 'download'
     })) return;
 
     try {
@@ -1083,7 +1126,7 @@ export const VistaSpedizioni = {
         lines: this._shipCart.slice()
       });
       await Store.rememberDdtNumber(doc.ddt_num);
-      this.toast(`✓ DDT ${doc.ddt_num} registrato come pendente`, 'success');   // v2.2.1 [F4]
+      this.toast(`DDT ${doc.ddt_num} registrato come pendente`, 'success');   // v2.2.1 [F4]
       /* 1.6 — L'ANAGRAFICA SI POPOLA QUI, e non prima: si registra ciò che è
          andato su un documento vero, non ciò che qualcuno stava digitando.
          Dopo il salvataggio, così un errore di rubrica non fa perdere un DDT. */
@@ -1131,7 +1174,7 @@ export const VistaSpedizioni = {
     if (trasferisce) {
       if (!arrivo) {
         return this.toast('Questa causale sposta la merce, ma il documento non dice in quale ubicazione: '
-          + 'si corregge con 📝 Modifica, oppure si annulla e si rifà', 'error');
+          + 'si corregge con Modifica, oppure si annulla e si rifà', 'error');
       }
       if (!Store.locationExists(arrivo)) {
         return this.toast(`L’ubicazione di arrivo ${arrivo} non esiste`, 'error');
@@ -1157,7 +1200,7 @@ export const VistaSpedizioni = {
         ['Destinatario', doc.destination],
         ['Movimento a registro', isRet ? 'Reso' : 'Spedizione'],
         ...(trasferisce ? [['Ubicazione di arrivo', arrivo]] as [string, string][] : []),
-        ...(senzaBancale ? [['⚠️ Righe senza bancale', `${senzaBancale} — queste vengono SCARICATE, non spostate`]] as [string, string][] : []),
+        ...(senzaBancale ? [['Righe senza bancale', `${senzaBancale} — queste vengono SCARICATE, non spostate`]] as [string, string][] : []),
         ['Righe', doc.lines.length],
         ['Colli totali', totalColli]
       ]),
@@ -1247,12 +1290,12 @@ export const VistaSpedizioni = {
        `task_id` che veniva scritto solo se la sessione dell'operatore era
        ancora viva al salvataggio: bastava uscire da Movimenta e rientrare
        perché il filo si spezzasse e il compito non si chiudesse mai più. */
-    this.toast(`✓ DDT ${doc.ddt_num} evaso · ${doc.lines.length} righe · ${totalColli} Coll.`, 'success');
+    this.toast(`DDT ${doc.ddt_num} evaso · ${doc.lines.length} righe · ${totalColli} Coll.`, 'success');
     this.updateSyncIndicator();
     if (await Dialog.confirm({
       title: 'Stampare il DDT?',
       message: 'Il documento esce senza la filigrana di bozza: la merce è uscita.',
-      confirmLabel: 'Stampa', cancelLabel: 'Non ora', icon: '\u{1F5A8}'
+      confirmLabel: 'Stampa', cancelLabel: 'Non ora', icon: 'printer'
     })) this._printDDT(doc_id);
     this._formSpedizioni($('movFormArea'));
     /* Evaso da fuori Movimenta, la vista da rinfrescare è quella da cui si è
@@ -1276,7 +1319,7 @@ export const VistaSpedizioni = {
       confirmLabel: 'Annulla il DDT', cancelLabel: 'Mantieni', danger: true
     })) return;
     await Store.updatePendingStatus(doc_id, 'cancelled');
-    this.toast(`✓ DDT ${doc.ddt_num} annullato`, 'success');
+    this.toast(`DDT ${doc.ddt_num} annullato`, 'success');
     this._formSpedizioni($('movFormArea'));
   },
 
@@ -1349,7 +1392,7 @@ export const VistaSpedizioni = {
 
     await Store.updatePendingStatus(doc.doc_id, 'evaded');
     this.updateSyncIndicator();
-    this.toast(`✓ DDT ${doc.ddt_num} evaso — ${spostati} ${spostati === 1 ? 'bancale spostato' : 'bancali spostati'} in ${arrivo}`, 'success');
+    this.toast(`DDT ${doc.ddt_num} evaso — ${spostati} ${spostati === 1 ? 'bancale spostato' : 'bancali spostati'} in ${arrivo}`, 'success');
     if (falliti.length) {
       this.toast(`Righe senza bancale non scaricate: ${falliti.join(' · ')}`, 'warning');
     }

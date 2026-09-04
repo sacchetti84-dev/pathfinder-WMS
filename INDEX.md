@@ -223,19 +223,19 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ---
 
-## 1. Stato, misurato il 03/09/2026 notte
+## 1. Stato, misurato il 04/09/2026 pomeriggio
 
 ### In servizio
 
-**La 2.21.0, in servizio dal 03/09 sera** — su questa macchina, che è quella
+**La 2.22.0, in servizio** — su questa macchina, che è quella
 di **sviluppo** (§0): il magazzino vero non è stato toccato, e gira la 1.4
 altrove. Misurato da `/api/app-info` e `/api/health`, non ricopiato:
 
 | | |
 |---|---|
-| applicativo e servizio | **2.21.0** — `versione` e `service_version` dicono lo stesso numero |
-| impronta | `479913cded317d687fd7917e341a0e7dec759c925683a065374157e9980a5f26` |
-| byte | **2.027.564** in **4 file**, `costruita 2026-09-03T18:49:50Z` |
+| applicativo e servizio | **2.22.0** — `versione` e `service_version` dicono lo stesso numero |
+| impronta | `c5d97b1526eff6eee230c68f1108b7bc59371f2947514a5e34fc98a53ace4d29` |
+| byte | **2.033.787** in **4 file**, `costruita 2026-09-03T21:47:21Z` |
 | dove | `C:\Pathfinder\app\corrente`, modo `cartella` |
 | database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 562` |
 | bundle servito | `index-B7Ka2QdK.js` · `index-Cvh18DRV.css` — **gli stessi del pacchetto** |
@@ -243,7 +243,13 @@ altrove. Misurato da `/api/app-info` e `/api/health`, non ricopiato:
 | via di ritorno | `C:\Pathfinder\app\precedente` porta la **2.20.0**, impronta `d10d7830…` |
 | dati | 11.197 articoli, **883 giacenze**, 4 siti, 20 zone, **1 operatore**, 8 unità di carico, 4 documenti di uscita |
 
-> **QUESTA RIGA DICEVA «2.17», ED È LA SETTIMA VOLTA.** Nel frattempo sono
+> **QUESTA RIGA DICEVA «2.21.0», ED È L’OTTAVA VOLTA.** La 2.22.0 era
+> dichiarata «costruita, non installata» e intanto era stata installata:
+> `/api/app-info` risponde `2.22.0`, impronta `c5d97b15…`, che è quella del
+> pacchetto. **Quello che risponde batte quello che c’è scritto qui** — §0
+> punto 2 — e la tabella è stata misurata oggi.
+>
+> Per memoria, la volta prima: **la riga diceva «2.17», ed era la settima.** Nel frattempo sono
 > passate la 2.18, la 2.19, la 2.20 e adesso la 2.21: il documento non le ha
 > inseguite. **Quello che risponde batte quello che c'è scritto qui** — §0
 > punto 2 — e la tabella qui sopra è stata misurata stasera, non ricopiata.
@@ -285,7 +291,106 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.22.0 — costruita, non installata
+### La 2.23.0 — costruita, non installata
+
+**Il banco a video, e due difetti che nessuna prova poteva vedere.** Le prove
+di questo progetto passavano tutte da `fetch`: forti su quel che il magazzino
+calcola, cieche su quel che l'operatore legge. Adesso c'è un banco che guarda
+lo schermo — quindici flussi, 355 controlli — e ha trovato due cose vere.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.23.0\` |
+| impronta | `f9d4e0121b73390b896ff72fa735864d81e36e0f9190f9dd5f2f9b33dda2a17f` |
+| byte | **2.082.616** in **4 file**, `costruita 2026-09-04T13:43:54Z` |
+| riproducibile | **sì, verificata**: due build di fila danno la stessa impronta |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.375 in 52 file** (una saltata) · banco del ciclo **47 su 47** · banco a video **355 su 355** · `servizio\test\collaudo-installazione.js` girato **dentro** il pacchetto: **43 su 43** |
+| cosa cambia dalla 2.22.0 | cinque rotte del servizio normalizzano i codici che arrivano nel corpo; una serratura sulla maschera di posizionamento; il resto è banco, che non entra nel pacchetto |
+| database | nessun campo nuovo, nessuna migrazione |
+| installata | **no.** §0: installare è un atto umano |
+
+**I DUE DIFETTI, e come sono venuti fuori.**
+
+**① Una riga con la chiave non maiuscola non si poteva più toccare.** Il
+servizio maiuscola i codici in due punti — dentro un record prima di
+salvarlo, e in fondo a un percorso prima di cercare la riga. Un codice che
+arriva nel **corpo** di una POST non passava da nessuno dei due, e le rotte
+operative cercano la riga con `===`: `123456#qwert` non trova
+`123456#QWERT`. Bastava una riga scritta prima che la normalizzazione
+esistesse — in `pristino.db` ce n'è una — e da quel momento quella merce non
+si poteva più né prelevare, né smaltire, né campionare. L'applicativo
+rispondeva **«123456#qwert non è più in MAG-ACC-03»** di una riga che stava
+lì: la frase peggiore, perché manda a cercare a scaffale una cosa che è al
+suo posto. Corretto in `pathfinder-server.js` con `codiceDalCorpo()`, che
+riusa `normalizzaCampo` — la stessa funzione, non una copia — e con
+`rigaConChiave()`, che guarda i due lati con lo stesso metro perché un
+database mai riscritto da questa versione tiene ancora la chiave com'era.
+
+**② La maschera di posizionamento restava scrivibile mentre la scrittura era
+in volo.** Fra il momento in cui la riga entra in giacenza e quello in cui i
+campi si azzerano passano due scritture — il movimento nel registro e, sul
+bancale, l'assegnazione all'unità. Misurato su questa macchina, col database
+sul disco accanto: **uno-tre secondi**; sul terminale, con la rete del
+magazzino in mezzo, di più. In quei secondi il lettore — che è più veloce di
+una persona — attaccava il codice successivo a quello di prima: `6000366`
+più `7000924` diventava `60003667000924`, e un istante dopo spariva,
+azzerato dal posizionamento che finiva. Chi lavora non ha modo di capirlo:
+rilegge, e il magazzino perde una scansione buona ogni volta che due merci
+si susseguono in fretta. Poteva andare peggio del nulla: il lettore chiude
+la lettura con un Invio, e su quella maschera l'Invio avanza di campo fino a
+chiamare il posizionamento — il codice fuso arrivava alla validazione, che
+non lo trova in anagrafica e **apre il pannello chiedendo una descrizione**.
+Da lì a battezzare un articolo che non esiste c'è un tasto. Adesso la
+maschera si chiude per la durata della scrittura e lo dice; il `finally` la
+riapre comunque, anche se la scrittura finisce male, perché una maschera che
+resta chiusa dopo un errore è un terminale morto.
+
+**IL BANCO A VIDEO** sta in `banco/video/` e non entra nel pacchetto.
+`node banco/video/accendi.cjs` accende un servizio sulla **4199** con una
+copia usa e getta di `pristino.db` — i dati veri sulla 4173 non si toccano —
+serve l'applicativo costruito dalla stessa porta e stampa la riga da
+incollare nella console del browser. Ogni prova guarda tre cose insieme: quel
+che l'operatore **vede**, il **conto** rifatto a parte, e quel che è finito
+**a database**, riletto dal servizio.
+
+I quindici flussi: `impianto` (collauda il banco, non l'applicativo),
+`cruscotto`, `smaltimento`, `unitaDiCarico`, `chiaviNonMaiuscole`,
+`inventario`, `cambioUbicazione`, `quarantena`, `posiziona`, `impaginazione`,
+`contiDeiDocumenti`, `configZone`, `prodottoFinito`, `caricoSpedizione`,
+`percorso`.
+
+Due meritano una riga. **`impaginazione`** misura i **sette documenti che
+escono in stampa** senza stamparli: prende le regole di `@media print` da
+`document.styleSheets` — dove il browser le ha già lette — le rimette come
+regole normali, porta il foglio a 210mm e cerca testo sopra altro testo e
+testo fuori dal margine. 357 elementi, nessuna sovrapposizione.
+**`contiDeiDocumenti`** rifà i conti di **tutti** i DDT: numero colli come
+somma delle righe, quantità **per unità di misura** — mai una cifra sola per
+unità diverse — una riga in bolla per partita e non per bancale, e il peso
+lordo che **resta vuoto** dove non si può fare.
+
+> **UN BANCO CHE NON MORDE NON SERVE.** Ogni prova nuova è stata verificata
+> iniettando il difetto che deve trovare: il saldo sbagliato nel riepilogo
+> dello smaltimento, un collo in più nel totale del DDT, il piede del
+> documento spostato di 60px. Tutte e tre le volte il banco ha detto quale
+> riga, con che numero. Per iniettare un difetto **non basta cambiare il
+> bundle**: accanto a ogni file la consegna ne porta uno `.gz`, e il servizio
+> serve quello a chi capisce gzip — cioè a ogni browser. Sta scritto in
+> `accendi.cjs`.
+
+> **DUE ZONE NUOVE NEL DATABASE DI PROVA, e solo lì.** Il prodotto finito
+> vuole una zona marcata, il carico delle spedizioni vuole una baia, e
+> `pristino.db` non ne ha: il flusso `configZone` le **crea dalla maschera**,
+> non scrivendo nel database. Non si riusa quel che c'è — marcare «baia di
+> carico» la zona degli arrivi avrebbe fatto passare la prova lasciando una
+> bugia dentro il magazzino di prova.
+
+### La 2.22.0 — in servizio dal 03/09
+
+> **ERA SCRITTA «costruita, non installata», E INVECE ERA INSTALLATA.**
+> Vedi il riquadro qui sopra: è l’ottava volta che questa parte del
+> documento resta indietro rispetto al servizio.
 
 **La campata della tappa.** La scheda del prelievo dice il codice del vano;
 adesso dice anche **a che altezza sta**, disegnando la campata di fronte.
@@ -299,7 +404,7 @@ adesso dice anche **a che altezza sta**, disegnando la campata di fronte.
 | numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
 | collaudi | **1.355 in 50 file** (una saltata) · `servizio\test\collaudo-installazione.js` girato **dentro** il pacchetto: **43 su 43**; il servizio del pacchetto dichiara `2.22.0` |
 | cosa cambia dalla 2.21.1 | **un modulo puro nuovo** (`modules/colonna.ts`), tre metodi e una costante in `percorso.ts`, un blocco di CSS. Nessuna regola nuova, nessun campo nuovo a database, nessuna migrazione, niente che scriva |
-| installata | **no.** §0: installare è un atto umano |
+| installata | **sì** — misurata da `/api/app-info` il 04/09 |
 
 > **PORTA ANCHE LA 2.21.1**, che non è mai stata installata: la riga `UDC` del
 > carico spedizioni firmata, con vano di partenza e di arrivo.
@@ -617,6 +722,22 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.23 — il banco guarda lo schermo
+
+**LE PROVE PASSAVANO TUTTE DA `fetch`.** Forti su quel che il magazzino
+calcola, cieche su quel che l’operatore legge: un bancale «in baia» e uno
+«saltato» potevano uscire grigi tutti e due mentre il database diceva due
+cose diverse. Adesso c’è un banco che guarda il DOM — quindici flussi, 355
+controlli, in `banco/video/` — e ogni prova confronta tre cose insieme: quel
+che si **vede**, il **conto** rifatto a parte, e quel che è finito **a
+database**, riletto dal servizio.
+
+Ha trovato due difetti veri, tutti e due invisibili a una prova via `fetch`:
+una riga con la chiave non maiuscola che non si poteva più toccare, e la
+maschera di posizionamento che restava scrivibile mentre la scrittura era in
+volo — il lettore attaccava il codice dopo a quello prima. **Il racconto
+per esteso, con le misure, sta in §1 sotto «La 2.23.0».**
 
 ### 2.22 — la tappa dice a che altezza sta
 

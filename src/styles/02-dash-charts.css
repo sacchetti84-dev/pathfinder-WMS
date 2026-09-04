@@ -1,16 +1,27 @@
+/* ── LA TAVOLOZZA DEI GRAFICI È CATEGORIALE, E NON È QUELLA DEGLI STATI ──
+   2.23 — Sembrano due tavolozze che si contendono lo stesso posto, come i
+   colori dell'interfaccia prima della 2.23, e non lo sono: hanno due mestieri
+   diversi. Una tinta di STATO deve dire «va bene» o «guarda qui», ed è la
+   stessa ovunque compaia. Una tinta CATEGORIALE deve solo distinguersi dalle
+   altre undici in una ciambella da centonovantasei pixel — se due categorie
+   si somigliano, il grafico ha perso il suo mestiere.
+
+   Le quattro che coincidevano ESATTAMENTE con un token erano però un valore
+   scritto due volte: adesso sono rimandi, e restano identiche. Le altre otto
+   sono la tavolozza del grafico, dichiarata qui perché è qui che vive. */
 :root {
-  --ct-cat-in:    #2D694F;  /* verde        — Posizionamento */
+  --ct-cat-in:    var(--md-ext-success);       /* verde        — Posizionamento */
   --ct-cat-pick:  #8A5A00;  /* ambra        — Prelievo produzione */
   --ct-cat-move:  #2E6590;  /* blu          — Cambio ubicazione */
-  --ct-cat-out:   #BA1A1A;  /* rosso        — Smaltimento */
-  --ct-cat-quar:  #565B8B;  /* indaco       — Quarantena */
+  --ct-cat-out:   var(--md-sys-color-error);   /* rosso        — Smaltimento */
+  --ct-cat-quar:  var(--md-ext-quarant);       /* indaco       — Quarantena */
   --ct-cat-qrel:  #7FA88F;  /* verde chiaro — Rilascio quarantena */
   --ct-cat-ret:   #00707A;  /* ciano        — Resi */
   --ct-cat-ship:  #A4462A;  /* terracotta   — Spedizioni */
   --ct-cat-edit:  #6D6A5F;  /* grigio caldo — Modifica dati item */
   --ct-cat-fixp:  #9B4F86;  /* magenta      — Correzione + */
   --ct-cat-fixm:  #C08A2E;  /* oro chiaro   — Correzione - */
-  --ct-cat-repos: #0D3540;  /* blu profondo — Riposizionamento */
+  --ct-cat-repos: var(--md-ext-chrome-deep);  /* blu profondo — Riposizionamento */
 }
 
 /* ── Contenitore comune ── */

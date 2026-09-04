@@ -98,7 +98,7 @@ export const VistaProdottoFinito = {
   _formProdottoFinito(el: HTMLElement) {
     const zone = zonePf(Store.getSites());
     el.innerHTML = `
-      ${!zone.length ? `<div class="mov-preview mov-preview-warn mb-6 leading-[1.6]">
+      ${!zone.length ? `<div class="mov-preview mov-preview-warn mb-6 leading-larga">
         <strong>Nessuna zona è dichiarata di prodotto finito.</strong> Si marca in
         Configurazione → Siti e Zone, sulla zona dove il reparto posa i bancali.
         Finché non c'è, l'ubicazione si scrive a mano — la maschera funziona lo stesso.
@@ -224,7 +224,7 @@ export const VistaProdottoFinito = {
       <div class="flex gap-4 flex-wrap mb-8">
         <button class="btn btn-primary" onclick="App._pfAggiungiRiga()">+ Aggiungi partita</button>
         <button class="btn btn-success" onclick="App._pfChiudiBancale()"
-          ${b.righe.length ? '' : 'disabled'}>🏷 Chiudi bancale ed etichetta (${b.righe.length})</button>
+          ${b.righe.length ? '' : 'disabled'}>${this._ico('tag')} Chiudi bancale ed etichetta (${b.righe.length})</button>
         <button class="btn" onclick="App._pfAnnullaBozza()">Annulla</button>
       </div>
 
@@ -233,7 +233,7 @@ export const VistaProdottoFinito = {
           <th>Articolo</th><th>Descrizione</th><th>Lotto</th><th>Scadenza</th>
           <th class="td-right">Colli</th><th class="td-right">Quantità</th><th class="w-[100px]"></th>
         </tr></thead><tbody>${righe}</tbody></table></div>
-        ${partite.size > 1 ? `<div class="mov-preview mov-preview-warn mt-4 leading-[1.6]">
+        ${partite.size > 1 ? `<div class="mov-preview mov-preview-warn mt-4 leading-larga">
           <strong>Bancale a lotti multipli — ${partite.size} partite.</strong> Passa, e non è un errore:
           l'etichetta non scriverà articolo, lotto e scadenza, perché su un bancale così
           non sono definiti. Il dettaglio lo dice la packing list.
@@ -283,7 +283,7 @@ export const VistaProdottoFinito = {
        colli si riempie da solo è la contraddizione peggiore da leggere. */
     const modello = this._pfModelloCorrente(code);
     if (!art) {
-      info.innerHTML = `<span class="text-sx-warning">⚠️ ${this._esc(code)} non è in anagrafica: si registra lo stesso, e la descrizione resta vuota.</span>`
+      info.innerHTML = `<span class="text-sx-warning">${this._ico('alert-triangle')} ${this._esc(code)} non è in anagrafica: si registra lo stesso, e la descrizione resta vuota.</span>`
         + (modello ? ` · <strong>${this._esc(descriviModello(modello))}</strong>` : '');
     } else {
       info.innerHTML = `${this._esc(art.description || '')}`
@@ -356,7 +356,7 @@ export const VistaProdottoFinito = {
       solo.hidden = false;
       nota.hidden = !art;
       nota.textContent = art
-        ? `⚖ ${art}: nessuna unità di misura in anagrafica — si carica a soli colli. Si compila in Configurazione → Articoli.`
+        ? `${this._ico('scale')} ${art}: nessuna unità di misura in anagrafica — si carica a soli colli. Si compila in Configurazione → Articoli.`
         : '';
       return;
     }
@@ -391,7 +391,7 @@ export const VistaProdottoFinito = {
             oninput="App._pfColliRigaSet(${i},'per',this.value)"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._pfAggiungiRiga();}">
           <span class="text-label-small text-sx-text-muted mono">${this._esc(cfg.uom)}</span>
-          ${i ? `<button class="btn btn-sm" title="Togli questo collo incompleto" onclick="App._pfColliRigaDel(${i})">✕</button>`
+          ${i ? `<button class="btn btn-sm" title="Togli questo collo incompleto" onclick="App._pfColliRigaDel(${i})">${this._ico('x')}</button>`
               : `<span class="text-label-small text-sx-text-muted">colli pieni</span>`}
         </div>`).join('');
     }
@@ -406,13 +406,13 @@ export const VistaProdottoFinito = {
     if (!cfg?.uom) { prev.textContent = ''; return; }
     const errori = validaDichiarazione(this._pfColli, cfg.uom);
     if (errori.length) {
-      prev.textContent = '⚖ ' + errori.join(' · ');
+      prev.textContent = errori.join(' · ');
       prev.style.color = 'var(--sx-warning)';
       return;
     }
     const elenco = espandiColli(this._pfColli, cfg.uom)!;
     prev.style.color = 'var(--sx-text-muted)';
-    prev.textContent = `⚖ ${descriviElenco(elenco, cfg.uom)} — ${formattaQuantita(totaleUomElenco(elenco, cfg.uom), cfg.uom)} ${cfg.uom} in ${elenco.length} coll.`;
+    prev.textContent = `${descriviElenco(elenco, cfg.uom)} — ${formattaQuantita(totaleUomElenco(elenco, cfg.uom), cfg.uom)} ${cfg.uom} in ${elenco.length} coll.`;
   },
 
   /* ── La partita entra nella bozza ────────────────────────────────────── */
@@ -450,7 +450,7 @@ export const VistaProdottoFinito = {
         const per = this._pfColli[0]?.per;
         try {
           await Store.dichiaraConfezioneArticolo(art, cfg.uom, per);
-          this.toast(`⚖ ${art}: un collo pieno fa ${per} ${cfg.uom} — scritto in anagrafica`, 'info');
+          this.toast(`${art}: un collo pieno fa ${per} ${cfg.uom} — scritto in anagrafica`, 'info');
         } catch (e) {
           this.toast(`La confezione di ${art} non è stata scritta in anagrafica: ${(e as Error).message}`, 'warning');
         }
@@ -583,14 +583,14 @@ export const VistaProdottoFinito = {
             placeholder="Scansiona il vano" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('pfLoc');App._previewLoc('pfLoc','pfLocPrev')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('pfLoc');App._pfPosiziona();}">
-          <button class="btn btn-sm" onclick="App._pickLoc('pfLoc','_cbPickPf')" title="Sfoglia le ubicazioni">📍</button>
+          <button class="btn btn-sm" onclick="App._pickLoc('pfLoc','_cbPickPf')" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
         </div>
         <div id="pfLocPrev"></div>
       </div>
 
       <div class="flex gap-4 flex-wrap mb-8">
-        <button class="btn btn-success flex-1 p-5.5 font-bold" onclick="App._pfPosiziona()">✓ POSIZIONA IL BANCALE</button>
-        <button class="btn" onclick="App._pfEtichetta('${this._esc(b.udc_id)}')">🏷 Ristampa etichetta</button>
+        <button class="btn btn-success btn-conferma" onclick="App._pfPosiziona()">${this._ico('check')} POSIZIONA IL BANCALE</button>
+        <button class="btn" onclick="App._pfEtichetta('${this._esc(b.udc_id)}')">${this._ico('tag')} Ristampa etichetta</button>
         <button class="btn btn-danger" onclick="App._pfAnnullaBozza()">Butta</button>
       </div>
 
@@ -667,12 +667,12 @@ export const VistaProdottoFinito = {
     this._pfColliChiave = '';
     this.updateSyncIndicator();
     if (mancate.length) {
-      this.toast(`⚠️ ${udcId} posizionato in ${loc}, ma ${mancate.length} partite non sono entrate — ${mancate.join(' · ')}`, 'error');
+      this.toast(`${udcId} posizionato in ${loc}, ma ${mancate.length} partite non sono entrate — ${mancate.join(' · ')}`, 'error');
     } else {
-      this.toast(`📦 ${udcId} — ${partite} ${partite === 1 ? 'partita' : 'partite'} in ${loc}`, 'success');
+      this.toast(`${udcId} — ${partite} ${partite === 1 ? 'partita' : 'partite'} in ${loc}`, 'success');
     }
     if (imparati.length) {
-      this.toast(`📐 Modello di carico appreso: ${imparati.join(' · ')}`, 'info');
+      this.toast(`Modello di carico appreso: ${imparati.join(' · ')}`, 'info');
     }
     this._formProdottoFinito($('movFormArea'));
   },
@@ -705,7 +705,7 @@ export const VistaProdottoFinito = {
   _pfOrfaniHTML() {
     const orfani = this._pfOrfani() as Udc[];
     if (!orfani.length) return '';
-    return `<div class="mov-preview mov-preview-warn mb-6 leading-[1.6]">
+    return `<div class="mov-preview mov-preview-warn mb-6 leading-larga">
       <strong>${orfani.length} ${orfani.length === 1 ? 'bancale etichettato e mai riempito' : 'bancali etichettati e mai riempiti'}.</strong>
       Sono nati, l'etichetta è uscita, e nessuno ha scansionato il vano: non portano merce.
       <div class="flex gap-3 flex-wrap mt-3">
@@ -885,7 +885,7 @@ export const VistaProdottoFinito = {
         <td class="mono">${this._esc(r.ddt_num || '')}</td>
         <td class="mono">${r.shipped_at ? new Date(r.shipped_at).toLocaleDateString('it-IT') : ''}</td>
         <td class="whitespace-nowrap">
-          <button class="btn btn-sm" onclick="App._pfEtichetta('${this._esc(r.udc_id)}')">🏷 Etichetta</button>
+          <button class="btn btn-sm" onclick="App._pfEtichetta('${this._esc(r.udc_id)}')">${this._ico('tag')} Etichetta</button>
         </td>
       </tr>`).join('')
       : `<tr><td colspan="14" class="text-sx-text-muted">${visibili.length || tutti.length
@@ -917,12 +917,12 @@ export const VistaProdottoFinito = {
     if (acceso) this._pfSel.add(udcId); else this._pfSel.delete(udcId);
     const b = $('pfCaricaDdt');
     if (b) {
-      b.textContent = `🚚 Carica in DDT (${this._pfSel.size})`;
+      b.textContent = `Carica in DDT (${this._pfSel.size})`;
       (b as unknown as HTMLButtonElement).disabled = this._pfSel.size === 0;
     }
     const m = $('pfScaricoManuale');
     if (m) {
-      m.textContent = `📤 Scarica a mano (${this._pfSel.size})`;
+      m.textContent = `Scarica a mano (${this._pfSel.size})`;
       (m as unknown as HTMLButtonElement).disabled = this._pfSel.size === 0;
     }
   },
@@ -978,7 +978,7 @@ export const VistaProdottoFinito = {
         ['Righe', voci.length],
         ['Colli totali', colli],
         ['Causale', causale.label],
-        ...(saltate.length ? [['⚠️ Righe saltate', saltate.join(' · ')]] as [string, string][] : []),
+        ...(saltate.length ? [['Righe saltate', saltate.join(' · ')]] as [string, string][] : []),
       ]),
       placeholder: 'DDT 2026/1234',
       maiuscolo: true,
@@ -1033,10 +1033,10 @@ export const VistaProdottoFinito = {
         <strong>Bancali di prodotto finito</strong>
         <div class="flex gap-3 flex-wrap">
           <button class="btn btn-success" id="pfCaricaDdt" onclick="App._pfCaricaInDdt()"
-            ${this._pfSel.size ? '' : 'disabled'}>🚚 Carica in DDT (${this._pfSel.size})</button>
+            ${this._pfSel.size ? '' : 'disabled'}>${this._ico('truck')} Carica in DDT (${this._pfSel.size})</button>
           <button class="btn" id="pfScaricoManuale" onclick="App._pfScaricoManuale()"
-            ${this._pfSel.size ? '' : 'disabled'}>📤 Scarica a mano (${this._pfSel.size})</button>
-          ${zona ? `<button class="btn" onclick="App._pfVediInMappa()">🗺 Vedi in mappa</button>` : ''}
+            ${this._pfSel.size ? '' : 'disabled'}>${this._ico('upload')} Scarica a mano (${this._pfSel.size})</button>
+          ${zona ? `<button class="btn" onclick="App._pfVediInMappa()">${this._ico('map')} Vedi in mappa</button>` : ''}
           <button class="btn btn-primary" onclick="App._pfNuovoBancale()">+ Nuovo bancale</button>
         </div>
       </div>
@@ -1052,7 +1052,7 @@ export const VistaProdottoFinito = {
       </div>
       <div class="form-group mb-5">
         <input class="input" id="pfCerca" value="${this._esc(this._pfTabella.cerca)}"
-               placeholder="🔍 Filtra per bancale, articolo, lotto, ubicazione, ordine, DDT…"
+               placeholder="${this._ico('search')} Filtra per bancale, articolo, lotto, ubicazione, ordine, DDT…"
                oninput="App._pfCerca(this.value)">
       </div>
       <div id="pfElencoTabella">${this._pfTabellaHTML()}</div>`;

@@ -22,7 +22,7 @@ export const VistaQuarantena = {
   _qRenderSearch(el) {
     const activeQ = Store.getActiveQuarantine();
     el.innerHTML = `<div class="mov-form-card">
-      <h3>🚫 <span class="text-sx-purple">Quarantena</span> — Blocco Qualità</h3>
+      <h3>${this._ico('ban')} <span class="text-sx-purple">Quarantena</span> — Blocco Qualità</h3>
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① ARTICOLO</span> → <span class="wf-step">② LOTTO</span> → INVIO per cercare →
         <span class="wf-step">③ SCEGLI L'UBICAZIONE</span> → <span class="wf-step">④ VERIFICA A SCAFFALE</span> → colli e motivo → <span class="wf-step">⑤ Cartello NC</span>.
@@ -39,19 +39,19 @@ export const VistaQuarantena = {
       </div>
       <div id="qResults"><div class="text-body-medium text-sx-text-muted p-4">Scansiona articolo e lotto, poi premi INVIO</div></div>
       ${activeQ.length ? `<div class="mt-10 border-t border-t-sx-border pt-7.5">
-        <strong class="text-body-small text-sx-text-secondary">🔒 Attive (${activeQ.length})</strong>
+        <strong class="text-body-small text-sx-text-secondary">${this._ico('lock')} Attive (${activeQ.length})</strong>
         <div class="max-h-[180px] overflow-y-auto mt-4">
-          ${activeQ.map(q => `<div class="flex items-center gap-5 py-3.5 px-5 border border-sx-purple bg-sx-purple-soft rounded-[var(--radius)] mb-2.5 text-body-small">
+          ${activeQ.map(q => `<div class="flex items-center gap-5 py-3.5 px-5 border border-sx-purple bg-sx-purple-soft rounded-1 mb-2.5 text-body-small">
             <span class="mono text-sx-purple font-bold">${this._esc(q.article_code)}</span>
             <span class="mono text-sx-text-muted text-label-small">L:${this._esc(q.lot_code)}</span>
-            <span class="mono text-sx-text-muted text-label-small">📍${this._esc(q.blocked_location)} · ${q.qty || 1} Coll.${q.partial ? ' (parz.)' : ''}</span>
+            <span class="mono text-sx-text-muted text-label-small">${this._ico('map-pin')}${this._esc(q.blocked_location)} · ${q.qty || 1} Coll.${q.partial ? ' (parz.)' : ''}</span>
             <span class="truncate text-sx-text-muted text-label-small flex-1" title="${this._esc(q.reason)}">${this._esc(q.reason)}</span>
-            <button class="btn btn-sm btn-success" onclick="App._releaseQuarantine('${this._esc(q.q_id)}')">✓ Rilascia</button>
-            <button class="btn btn-sm" onclick="App._printNCCard('${this._esc(q.q_id)}')" title="Ristampa il cartello NC">🖨</button>
+            <button class="btn btn-sm btn-success" onclick="App._releaseQuarantine('${this._esc(q.q_id)}')">${this._ico('check')} Rilascia</button>
+            <button class="btn btn-sm" onclick="App._printNCCard('${this._esc(q.q_id)}')" title="Ristampa il cartello NC">${this._ico('printer')}</button>
           </div>`).join('')}
         </div>
       </div>` : ''}
-      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">${this._ico('x')} Chiudi</button></div>
     </div>`;
     this.setPrimaryScanField('qArt');
   },
@@ -63,12 +63,12 @@ export const VistaQuarantena = {
     const lot = Validate.clean($('qLot')?.value);
     const el = $('qResults');
     if (!art) {
-      el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice articolo</div>';
+      el.innerHTML = `<div class="text-body-small text-sx-danger p-3">${this._ico('circle-x')} Scansiona il codice articolo</div>`;
       $('qArt')?.focus();
       return;
     }
     if (!lot) {
-      el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>';
+      el.innerHTML = `<div class="text-body-small text-sx-danger p-3">${this._ico('circle-x')} Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
       $('qLot')?.focus();
       return;
     }
@@ -82,7 +82,7 @@ export const VistaQuarantena = {
     const gia = tutte.filter(it => Store.isItemQuarantined(it.item_key, it.location_code));
     const libere = tutte.filter(it => !Store.isItemQuarantined(it.item_key, it.location_code));
     const avvisoGia = gia.length ? `<div class="mov-preview bg-sx-purple-soft border-sx-purple my-4 mx-0">
-      🔒 <strong class="text-sx-purple">Già in quarantena</strong>:
+      ${this._ico('lock')} <strong class="text-sx-purple">Già in quarantena</strong>:
       ${gia.map(g => `<span class="mono">${this._esc(g.location_code)}</span> (${g.qty || 1} Coll.)`).join(' · ')}
     </div>` : '';
 
@@ -107,7 +107,7 @@ export const VistaQuarantena = {
       html += `<div class="inv-item-row${isFEFO ? ' fefo-row' : ''}">
         <div class="inv-info">
           <div class="inv-code text-sx-purple">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-body-small">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-purple">${qtyPhys} Coll. fisici</strong>${reservedLabel}${expiryLabel}</div>
+          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · ${this._ico('map-pin')} <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-purple">${qtyPhys} Coll. fisici</strong>${reservedLabel}${expiryLabel}</div>
         </div>
         <button class="btn btn-sm bg-sx-purple text-white" onclick="App._qSelect('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">➜ Vai e verifica</button>
       </div>`;
@@ -119,7 +119,7 @@ export const VistaQuarantena = {
     const bucket = Store.getItemsAtLocation(loc);
     const item = bucket.find(i => i.item_key === key);
     if (!item) return this.toast('Item non più presente in questa ubicazione', 'error');
-    if (Store.isItemQuarantined(key, loc)) return this.toast('🔒 Questa ubicazione è già in quarantena', 'warning');
+    if (Store.isItemQuarantined(key, loc)) return this.toast('Questa ubicazione è già in quarantena', 'warning');
 
     /* L'area NC si decide adesso e si mostra sulla tappa: l'operatore deve
        sapere dove dovrà portare la merce PRIMA di confermare, non dopo. */
@@ -162,7 +162,7 @@ export const VistaQuarantena = {
     el.innerHTML = `
       <article class="route-stop-card">
         <header class="route-stop-head">
-          <span class="route-stop-seq">🚫</span>
+          <span class="route-stop-seq">${this._ico('ban')}</span>
           <div class="route-stop-title">
             <div class="route-stop-loc mono">${this._esc(d.location_code)}</div>
             <div class="route-stop-site">${this._esc(site?.name || d.site_id || 'Raggiungi questa ubicazione')}</div>
@@ -180,16 +180,16 @@ export const VistaQuarantena = {
 
         ${nc
           ? `<div class="mov-preview mov-preview-err my-5 mx-0">
-              <strong>📍 La merce bloccata andrà in ${this._esc(nc.code)}</strong>
+              <strong>${this._ico('map-pin')} La merce bloccata andrà in ${this._esc(nc.code)}</strong>
               <span class="text-sx-text-muted text-label-small"> (${this._esc(nc.zoneName)}${nc.hasItems ? ' — già contiene item' : ' — vuota'})</span>
             </div>`
           : `<div class="mov-preview mov-preview-warn my-5 mx-0">
-              <strong>⛔ Nessuna ubicazione BLOCCATA configurata.</strong>
+              <strong>${this._ico('alert-octagon')} Nessuna ubicazione BLOCCATA configurata.</strong>
               La quarantena non può partire: aprire Mappa, scegliere un'ubicazione da destinare alle NC e premere «Blocca».
             </div>`}
 
         ${riservati > 0 ? `<div class="mov-preview mov-preview-warn mb-5">
-          <strong>⚠️ ${riservati} Coll. sono impegnati su un DDT pendente.</strong>
+          <strong>${this._ico('alert-triangle')} ${riservati} Coll. sono impegnati su un DDT pendente.</strong>
           Bloccandoli, quel documento non sarà più evadibile e andrà corretto.
         </div>` : ''}
 
@@ -205,7 +205,7 @@ export const VistaQuarantena = {
           <input class="input input-mono" id="qvLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('qvLoc')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('qvLoc');App._qCheckLoc();}">
-          <button class="btn btn-sm" type="button" onclick="App._pickLoc('qvLoc','_qCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
+          <button class="btn btn-sm" type="button" onclick="App._pickLoc('qvLoc','_qCheckLoc')" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
           </div>
         </div>
         <div class="form-group mb-4">
@@ -249,9 +249,9 @@ export const VistaQuarantena = {
         </div>
 
         <div class="flex gap-5 mt-7 flex-wrap">
-          <button class="btn btn-warning flex-1 font-extrabold min-h-[var(--md-touch)]"
-            onclick="App._execQuarantena()">🚫 CONFERMA QUARANTENA</button>
-          <button class="btn min-h-[var(--md-touch)]" onclick="App._qBack()">← Cambia ubicazione</button>
+          <button class="btn btn-warning btn-conferma"
+            onclick="App._execQuarantena()">${this._ico('ban')} CONFERMA QUARANTENA</button>
+          <button class="btn min-h-touch" onclick="App._qBack()">← Cambia ubicazione</button>
         </div>
       </article>`;
     this._qState.scan = { loc: '', art: '', lot: '' };
@@ -404,7 +404,7 @@ export const VistaQuarantena = {
         message: 'La quarantena sposta la merce in un’area di non conformità, e a sistema non ne esiste nessuna.\n\n' +
                  'Aprire Mappa, scegliere un’ubicazione da destinare alle NC e premere «Blocca». ' +
                  'Da quel momento la quarantena la userà come destinazione.',
-        icon: '⛔'
+        icon: 'alert-octagon'
       });
       return { ok: false };
     }
@@ -504,7 +504,7 @@ export const VistaQuarantena = {
     const item = bucket.find(i => i.item_key === d.item_key);
     if (!item) return this.toast('Item non più presente — ricomincia la ricerca', 'error');
     if (Store.isItemQuarantined(d.item_key, d.location_code))
-      return this.toast('🔒 Questa ubicazione è già in quarantena', 'warning');
+      return this.toast('Questa ubicazione è già in quarantena', 'warning');
 
     // ③ i colli
     const qtyPhys = item.qty || 1;
@@ -542,7 +542,7 @@ export const VistaQuarantena = {
       title: 'Rilasciare l\u2019item dalla quarantena?',
       message: 'Dopo il rilascio sarà obbligatorio scansionare un\u2019ubicazione di destinazione CONFORME (non bloccata) dove riposizionare l\u2019item.',
       confirmLabel: 'Rilascia',
-      icon: '\u2705'
+      icon: 'circle-check'
     })) return;
 
     // Recupera il record di quarantena
@@ -566,16 +566,16 @@ export const VistaQuarantena = {
     overlay.innerHTML = `
       <div class="modal max-w-[420px]">
         <div class="modal-header">
-          <h2>✓ Rilascio Quarantena — Ubicazione Destinazione</h2>
+          <h2>${this._ico('check')} Rilascio Quarantena — Ubicazione Destinazione</h2>
         </div>
         <div class="modal-body">
-          <div class="bg-sx-success-soft border border-sx-success rounded-[var(--radius-md)] py-6.5 px-8.5 mb-8.5">
+          <div class="bg-sx-success-soft border border-sx-success rounded-5 py-6.5 px-8.5 mb-8.5">
             <div class="text-body-small text-sx-text-muted mb-2">Item rilasciato dalla quarantena:</div>
             <div class="font-bold text-sx-primary font-mono">${this._esc(qRec.article_code)}</div>
             <div class="text-body-small text-sx-text-secondary">Lotto: <strong>${this._esc(qRec.lot_code)}</strong> · Da: <strong>${this._esc(qRec.blocked_location)}</strong></div>
           </div>
-          <div class="bg-sx-warning-soft border border-sx-warning rounded-[var(--radius)] py-5 px-6.5 mb-8.5 text-body-small text-sx-warning">
-            ⚠️ <strong>Obbligatorio:</strong> un item conforme non può stazionare in un'ubicazione bloccata o di non conformità. Scansiona l'ubicazione di destinazione idonea.
+          <div class="bg-sx-warning-soft border border-sx-warning rounded-1 py-5 px-6.5 mb-8.5 text-body-small text-sx-warning">
+            ${this._ico('alert-triangle')} <strong>Obbligatorio:</strong> un item conforme non può stazionare in un'ubicazione bloccata o di non conformità. Scansiona l'ubicazione di destinazione idonea.
           </div>
           <div class="form-group">
             <label>Scansiona Ubicazione di Destinazione <span class="req">*</span></label>
@@ -583,7 +583,7 @@ export const VistaQuarantena = {
               <input class="input input-mono flex-1" id="releaseDestLoc" placeholder="Scansiona barcode ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
                 oninput="App._normScan('releaseDestLoc');App._previewReleaseDest()"
                 onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('releaseDestLoc');$('releaseOperator')?.focus();}">
-              <button class="btn btn-sm" onclick="App._pickLoc('releaseDestLoc','_cbPickReleaseDest')">📍</button>
+              <button class="btn btn-sm" onclick="App._pickLoc('releaseDestLoc','_cbPickReleaseDest')">${this._ico('map-pin')}</button>
             </div>
             <div class="mt-3" id="releaseDestPrev"></div>
           </div>
@@ -607,7 +607,7 @@ export const VistaQuarantena = {
         </div>
         <div class="modal-footer">
           <button class="btn" onclick="$('releaseDestOverlay').remove()">Annulla</button>
-          <button class="btn btn-success" onclick="App._execReleaseDest('${q_id}')">✓ Conferma e Riposiziona</button>
+          <button class="btn btn-success" onclick="App._execReleaseDest('${q_id}')">${this._ico('check')} Conferma e Riposiziona</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -629,10 +629,10 @@ export const VistaQuarantena = {
     // Blocco critico: l'ubicazione destinazione NON può essere bloccata o riservata NC
     const destStatus = Store.getLocationStatus(dest);
     if (destStatus === 'blocked') {
-      return this.toast(`❌ UBICAZIONE BLOCCATA — ${dest} non è idonea per item conformi. Scansiona un\'ubicazione libera o occupata normale.`, 'error');
+      return this.toast(`UBICAZIONE BLOCCATA — ${dest} non è idonea per item conformi. Scansiona un\'ubicazione libera o occupata normale.`, 'error');
     }
     if (destStatus === 'disabled') {
-      return this.toast(`❌ Ubicazione ${dest} disattivata. Scansiona un\'ubicazione attiva.`, 'error');
+      return this.toast(`Ubicazione ${dest} disattivata. Scansiona un\'ubicazione attiva.`, 'error');
     }
 
     // v2.0.1 [B6] — identificazione obbligatoria: esecutore + responsabile
@@ -709,9 +709,9 @@ export const VistaQuarantena = {
 
     $('releaseDestOverlay')?.remove();
     if (moved) {
-      this.toast(`✓ ${rec.article_code}#${rec.lot_code} rilasciato e spostato in ${dest}`, 'success');
+      this.toast(`${rec.article_code}#${rec.lot_code} rilasciato e spostato in ${dest}`, 'success');
     } else {
-      this.toast(`✓ ${rec.article_code}#${rec.lot_code} rilasciato${moveErr ? ` — ⚠️ ${moveErr}` : ''}`, moveErr ? 'warning' : 'success');
+      this.toast(`${rec.article_code}#${rec.lot_code} rilasciato${moveErr ? ` — ${moveErr}` : ''}`, moveErr ? 'warning' : 'success');
     }
     this._formQuarantena($('movFormArea'));
     this._refreshSessionLog();
@@ -737,7 +737,7 @@ export const VistaQuarantena = {
       </div>`;
 
     const body = `
-      <div class="nc-alert-strip">🚫 MATERIALE BLOCCATO<br>NON UTILIZZARE — ATTENDERE AUTORIZZAZIONE CQ</div>
+      <div class="nc-alert-strip">${this._ico('ban')} MATERIALE BLOCCATO<br>NON UTILIZZARE — ATTENDERE AUTORIZZAZIONE CQ</div>
 
       <div class="nc-reason">
         <div class="nc-reason-lbl">Motivo del blocco</div>

@@ -22,9 +22,9 @@ export const VistaConfigSiti = {
         <td>${zones.length}</td>
         <td>${stats.total}</td>
         <td class="whitespace-nowrap">
-          <button class="btn btn-sm" onclick="App.showEditSiteModal('${site.id}')" title="Modifica">✏️</button>
+          <button class="btn btn-sm" onclick="App.showEditSiteModal('${site.id}')" title="Modifica">${this._ico('pencil')}</button>
           <button class="btn btn-sm" onclick="App.showAddZoneModal('${site.id}')" title="Aggiungi zona">+ Zona</button>
-          <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteSite('${site.id}')" title="Elimina">🗑</button>
+          <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteSite('${site.id}')" title="Elimina">${this._ico('trash')}</button>
         </td>
       </tr>`;
       for (const zone of zones) {
@@ -36,8 +36,8 @@ export const VistaConfigSiti = {
           <td class="mono text-body-small text-sx-text-muted">${dim}</td>
           <td colspan="2">${Store.getZoneStats(site.id, zone.id).total}</td>
           <td class="whitespace-nowrap">
-            <button class="btn btn-sm" onclick="App.showEditZoneModal('${site.id}','${zone.id}')">✏️</button>
-            <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteZone('${site.id}','${zone.id}')">🗑</button>
+            <button class="btn btn-sm" onclick="App.showEditZoneModal('${site.id}','${zone.id}')">${this._ico('pencil')}</button>
+            <button class="btn btn-sm btn-danger" onclick="App.confirmDeleteZone('${site.id}','${zone.id}')">${this._ico('trash')}</button>
           </td>
         </tr>`;
       }
@@ -77,7 +77,7 @@ export const VistaConfigSiti = {
     this.closeModal();
     this.renderSidebar(); this.renderDashboard(); this.renderConfig();
     this.updateSyncIndicator();
-    this.toast(`✓ Sito ${id} creato`, 'success');
+    this.toast(`Sito ${id} creato`, 'success');
   },
 
   showEditSiteModal(siteId) {
@@ -116,7 +116,7 @@ export const VistaConfigSiti = {
     this.closeModal();
     this.renderSidebar(); this.renderDashboard(); this.renderConfig();
     this.updateSyncIndicator();
-    this.toast(`✓ Sito ${siteId} aggiornato`, 'success');
+    this.toast(`Sito ${siteId} aggiornato`, 'success');
   },
 
   async confirmDeleteSite(siteId) {
@@ -169,10 +169,10 @@ export const VistaConfigSiti = {
       </div>
       <div class="form-group mb-6"><label>Livelli (virgola)</label><input class="input input-mono" id="zfLevels" value="T,A,B,C,D" placeholder="T,A,B,C,D"></div>
       <div class="form-group"><label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
-        <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="zfMirror">
+        <input class="w-casella h-casella cursor-pointer" type="checkbox" id="zfMirror">
         <span>Vista frontale specchiata (campate dx → sx)</span>
       </label>
-      <div class="text-label-small text-sx-text-muted mt-2 pl-14">💡 Per chi lavora dal lato opposto alla numerazione delle campate</div></div>`,
+      <div class="text-label-small text-sx-text-muted mt-2 pl-14">${this._ico('bulb')} Per chi lavora dal lato opposto alla numerazione delle campate</div></div>`,
       FLOOR: `<div class="form-row">
         <div class="form-group"><label>File</label><input class="input" id="zfRows" type="number" min="1" max="99" value="4"></div>
         <div class="form-group"><label>Posizioni/fila</label><input class="input" id="zfPosPerRow" type="number" min="1" max="99" value="8"></div>
@@ -210,7 +210,7 @@ export const VistaConfigSiti = {
     this.closeModal();
     this.renderSidebar(); this.renderDashboard(); this.renderConfig();
     this.updateSyncIndicator();
-    this.toast(`✓ Zona ${id} creata in ${siteId}`, 'success');
+    this.toast(`Zona ${id} creata in ${siteId}`, 'success');
   },
 
   /* 1.4.0 — La destinazione d'uso della zona: e' la meta' contro cui si
@@ -258,7 +258,7 @@ export const VistaConfigSiti = {
           </select></div>
         <div class="form-group mb-4">
           <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
-            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezAllergenZone" ${riservata ? 'checked' : ''}
+            <input class="w-casella h-casella cursor-pointer" type="checkbox" id="ezAllergenZone" ${riservata ? 'checked' : ''}
               onchange="$('ezAllergenList').hidden=!this.checked">
             <span>Zona riservata alla merce con allergeni</span>
           </label></div>
@@ -267,7 +267,7 @@ export const VistaConfigSiti = {
           <div class="all-grid">${caselle}</div></div>
         <div class="form-group mb-4">
           <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
-            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezHazardZone" ${pericolosa ? 'checked' : ''}
+            <input class="w-casella h-casella cursor-pointer" type="checkbox" id="ezHazardZone" ${pericolosa ? 'checked' : ''}
               onchange="$('ezHazardList').hidden=!this.checked">
             <span>Zona dedicata alla merce pericolosa</span>
           </label></div>
@@ -278,7 +278,7 @@ export const VistaConfigSiti = {
             : `<div class="text-label-small text-sx-text-muted">Nessuna pericolosità configurata — si aggiungono in Configurazione → Parametri articolo.</div>`}</div>
         <div class="form-group mb-4 [border-top:1px_dashed_var(--sx-border)] pt-6">
           <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
-            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezPfZone" ${prodottoFinito ? 'checked' : ''}>
+            <input class="w-casella h-casella cursor-pointer" type="checkbox" id="ezPfZone" ${prodottoFinito ? 'checked' : ''}>
             <span>Zona di <strong>prodotto finito</strong> — qui il reparto posa i bancali in attesa di partire</span>
           </label>
           <div class="text-label-small text-sx-text-muted mt-2">
@@ -290,7 +290,7 @@ export const VistaConfigSiti = {
         </div>
         <div class="form-group mb-4">
           <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
-            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezDockZone" ${baiaCarico ? 'checked' : ''}>
+            <input class="w-casella h-casella cursor-pointer" type="checkbox" id="ezDockZone" ${baiaCarico ? 'checked' : ''}>
             <span>Zona di <strong>baia di carico</strong> — qui i bancali aspettano di salire sul camion</span>
           </label>
           <div class="text-label-small text-sx-text-muted mt-2">
@@ -302,8 +302,8 @@ export const VistaConfigSiti = {
           </div>
         </div>
         <div class="text-label-small text-sx-text-muted mt-3">
-          🧭 Lasciata non caratterizzata, la zona non segnala nulla.<br>
-          🔓 Una singola ubicazione marcata <strong>Riservata</strong> ammette allergeni
+          ${this._ico('compass')} Lasciata non caratterizzata, la zona non segnala nulla.<br>
+          ${this._ico('lock-open')} Una singola ubicazione marcata <strong>Riservata</strong> ammette allergeni
           comunque, ovunque si trovi — la deroga si vede in mappa e si elenca.
           Sulla temperatura la verifica resta attiva.
         </div>
@@ -341,10 +341,10 @@ export const VistaConfigSiti = {
       </div>
       <div class="form-group mb-6"><label>Livelli</label><input class="input input-mono" id="ezLevels" value="${this._esc((zone!.levels || []).join(','))}"></div>
       <div class="form-group"><label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
-        <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" id="ezMirror" ${zone.mirror_frontal ? 'checked' : ''}>
+        <input class="w-casella h-casella cursor-pointer" type="checkbox" id="ezMirror" ${zone.mirror_frontal ? 'checked' : ''}>
         <span>Vista frontale specchiata (campate dx → sx)</span>
       </label>
-      <div class="text-label-small text-sx-text-muted mt-2 pl-14">💡 Per chi lavora dal lato opposto alla numerazione delle campate</div></div>`;
+      <div class="text-label-small text-sx-text-muted mt-2 pl-14">${this._ico('bulb')} Per chi lavora dal lato opposto alla numerazione delle campate</div></div>`;
     } else if (zone.type === 'FLOOR') {
       configFields = `<div class="form-row">
         <div class="form-group"><label>File</label><input class="input" id="ezRows" type="number" min="1" max="99" value="${zone.rows}"></div>
@@ -359,7 +359,7 @@ export const VistaConfigSiti = {
     this.showModal(`Modifica Zona — ${zoneId} (${zone.type})`, `
       <div class="form-group mb-6"><label>Nome <span class="req">*</span></label>
         <input class="input" id="ezName" value="${this._esc(zone.name)}" maxlength="${Validate.MAX.ZONE_NAME}"></div>
-      <p class="text-body-small text-sx-warning mb-5">⚠️ Modificare le dimensioni può generare ubicazioni orfane per item già posizionati oltre la nuova griglia.</p>
+      <p class="text-body-small text-sx-warning mb-5">${this._ico('alert-triangle')} Modificare le dimensioni può generare ubicazioni orfane per item già posizionati oltre la nuova griglia.</p>
       ${configFields}
       ${this._campiDestinazioneZona(zone)}
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
@@ -391,7 +391,7 @@ export const VistaConfigSiti = {
     this.renderSidebar(); this.renderDashboard(); this.renderConfig();
     if (this.currentSite === siteId && this.currentZone === zoneId) this.renderMap();
     this.updateSyncIndicator();
-    this.toast(`✓ Zona ${zoneId} aggiornata`, 'success');
+    this.toast(`Zona ${zoneId} aggiornata`, 'success');
   },
 
   async confirmDeleteZone(siteId, zoneId) {
@@ -474,8 +474,8 @@ export const VistaConfigSiti = {
     const hazScelti = new Set(cella?.hazards ?? []);
     const pericoli = Store.getPericoli();
 
-    this.showModal(`🎯 Caratterizza ${this._esc(c)}`, `
-      <div class="mov-preview mb-5 leading-[1.6]">
+    this.showModal(`${this._ico('target')} Caratterizza ${this._esc(c)}`, `
+      <div class="mov-preview mb-5 leading-larga">
         Vale <strong>solo per questa cella</strong> e scavalca la zona
         <span class="mono">${this._esc(zona.name || zona.id)}</span>.
         Un campo lasciato su <em>«come la zona»</em> non scrive niente: la cella resta
@@ -574,7 +574,7 @@ export const VistaConfigSiti = {
       this.renderMap();
       this.renderDetail(code);
       this.updateSyncIndicator();
-      this.toast(`✓ ${code} caratterizzata`, 'success');
+      this.toast(`${code} caratterizzata`, 'success');
     } catch (e) {
       this.toast((e as Error).message, 'error');
     }
@@ -595,6 +595,6 @@ export const VistaConfigSiti = {
     this.renderMap();
     this.renderDetail(code);
     this.updateSyncIndicator();
-    this.toast(`✓ ${code} segue di nuovo la sua zona`, 'success');
+    this.toast(`${code} segue di nuovo la sua zona`, 'success');
   },
 } satisfies Vista;

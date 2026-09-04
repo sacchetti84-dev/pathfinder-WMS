@@ -108,3 +108,67 @@
 .chart .ct-gauge { font-size: 14px; }
 .chart .ct-total-lbl { font-size: 9px; }
 /* Fine layer sezioni [S1][S2] — © Andrea Sacchetti */
+
+/* ── Le scorciatoie del cruscotto ──
+   Stavano in `04-dash-quick.css` insieme al giro di prelievo, che con le
+   scorciatoie non c'entra niente. Tornate qui nella 2.23. */
+.qa-bar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(212px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+}
+
+.qa-btn {
+  display: flex; align-items: center; gap: 0.65rem;
+  width: 100%; text-align: left;
+  padding: 0.6rem 0.75rem;
+  background: var(--md-sys-color-surface-container-low);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-left: 4px solid var(--qa-c, var(--md-sys-color-primary));
+  border-radius: var(--md-shape-md, 12px);
+  font-family: var(--font);
+  cursor: pointer;
+  transition: background var(--md-motion-short, 0.15s),
+              border-color var(--md-motion-short, 0.15s);
+}
+.qa-btn:hover { background: var(--md-sys-color-surface-container); border-color: var(--md-sys-color-outline); }
+.qa-btn:active { background: var(--md-sys-color-surface-container-high); }
+.qa-btn:focus-visible { outline: 3px solid var(--md-sys-color-primary); outline-offset: 2px; }
+
+.qa-ico {
+  flex: 0 0 auto;
+  width: 38px; height: 38px;
+  display: flex; align-items: center; justify-content: center;
+  border-radius: var(--md-shape-full, 999px);
+  background: var(--md-sys-color-surface-container-highest);
+  background: color-mix(in srgb, var(--qa-c) 15%, transparent);
+  font-size: var(--md-sys-typescale-body-large-size); line-height: 1;
+}
+
+.qa-txt { flex: 1 1 auto; min-width: 0; }
+.qa-title {
+  font-size: var(--dash-fs-head);
+  font-weight: 700;
+  color: var(--md-sys-color-on-surface);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.qa-sub {
+  font-size: var(--dash-fs-meta);
+  color: var(--md-sys-color-on-surface-variant);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-top: 1px;
+}
+.qa-key {
+  flex: 0 0 auto;
+  font-family: var(--mono);
+  font-size: var(--dash-fs-meta); font-weight: 700;
+  color: var(--md-sys-color-on-surface-variant);
+  background: var(--md-sys-color-surface-container-highest);
+  border: 1px solid var(--md-sys-color-outline-variant);
+  border-radius: var(--md-shape-xs, 4px);
+  padding: 0.1rem 0.4rem;
+}
+/* Il suggerimento del tasto funzione non ha senso dove non c'e' tastiera */
+@media (max-width: 700px) { .qa-key { display: none; } }
+/* Fine layer scorciatoie [Q1] — © Andrea Sacchetti */

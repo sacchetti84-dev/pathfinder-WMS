@@ -75,9 +75,9 @@ export const VistaConfigOperatori = {
         <td><span class="mono font-bold text-sx-primary">${this._esc(o.initials)}</span></td>
         <td>${nome ? this._esc(nome) : '<span class="text-sx-warning italic">da completare</span>'}</td>
         <td>${o.role === 'admin'
-              ? '<span class="badge badge-red">🛡 Admin</span>'
+              ? `<span class="badge badge-red">${this._ico('shield-check')} Admin</span>`
               : o.role === 'leader'
-                ? '<span class="badge badge-blue">👑 Team Leader</span>'
+                ? `<span class="badge badge-blue">${this._ico('crown')} Team Leader</span>`
                 : '<span class="badge badge-muted">Operatore</span>'}</td>
         <td>${Store.haPin(o)
               ? '<span class="badge badge-green">impostato</span>'
@@ -86,17 +86,17 @@ export const VistaConfigOperatori = {
         <td>${inactive ? '<span class="badge badge-red">disattivato</span>' : '<span class="badge badge-green">attivo</span>'}</td>
         <td class="whitespace-nowrap">
           ${comanda
-            ? `<button class="btn btn-sm" onclick="App.showEditOperatorModal('${o.op_id}')" title="Modifica dati e ruolo">✏️</button>`
+            ? `<button class="btn btn-sm" onclick="App.showEditOperatorModal('${o.op_id}')" title="Modifica dati e ruolo">${this._ico('pencil')}</button>`
             : ''}
           ${rinnovabile
-            ? `<button class="btn btn-sm btn-warning" onclick="App.showRenewPinModal('${o.op_id}')" title="Rinnova il PIN">🔑</button>`
+            ? `<button class="btn btn-sm btn-warning" onclick="App.showRenewPinModal('${o.op_id}')" title="Rinnova il PIN">${this._ico('key')}</button>`
             : ''}
           ${comanda && o.role === 'admin'
-            ? `<button class="btn btn-sm" onclick="App.rigeneraCodiceRipristino('${o.op_id}')" title="${Store.haCodiceRipristino(o) ? 'Genera un codice nuovo: quello vecchio smette di valere' : 'Genera il codice di ripristino'}">🗝</button>`
+            ? `<button class="btn btn-sm" onclick="App.rigeneraCodiceRipristino('${o.op_id}')" title="${Store.haCodiceRipristino(o) ? 'Genera un codice nuovo: quello vecchio smette di valere' : 'Genera il codice di ripristino'}">${this._ico('lock-access')}</button>`
             : ''}
           ${comanda
             ? (inactive
-              ? `<button class="btn btn-sm btn-success" onclick="App.toggleOperatorActive('${o.op_id}')" title="Riattiva">✓</button>`
+              ? `<button class="btn btn-sm btn-success" onclick="App.toggleOperatorActive('${o.op_id}')" title="Riattiva">${this._ico('check')}</button>`
               : `<button class="btn btn-sm btn-danger" onclick="App.toggleOperatorActive('${o.op_id}')" title="Disattiva">⊘</button>`)
             : ''}
         </td>
@@ -109,12 +109,12 @@ export const VistaConfigOperatori = {
        è il momento di scoprire una regola nuova, in mezzo a un turno — e
        non sparisce finché ogni Admin attivo non ha il suo codice. */
     const avviso = (comanda && senzaFuga.length) ? `
-      <div class="mov-preview mov-preview-warn mb-7 leading-[1.6]">
-        <strong>🗝 Nessuna via di fuga configurata</strong> per
+      <div class="mov-preview mov-preview-warn mb-7 leading-larga">
+        <strong>${this._ico('lock-access')} Nessuna via di fuga configurata</strong> per
         ${senzaFuga.length === 1 ? 'l’Admin' : 'gli Admin'}
         ${senzaFuga.map(o => `<span class="mono">${this._esc(o.initials)}</span>`).join(', ')}.
         Se ne perde il PIN e non c’è un altro Admin che possa rinnovarglielo,
-        la Configurazione non si riapre più. Il tasto <strong>🗝</strong> sulla
+        la Configurazione non si riapre più. Il tasto <strong>${this._ico('lock-access')}</strong> sulla
         riga genera il codice: si stampa, si mette in cassaforte, e non si
         rilegge mai più.
       </div>` : '';
@@ -126,7 +126,7 @@ export const VistaConfigOperatori = {
           : ''}</h3>
       ${avviso}
       ${comanda ? '' : `
-      <div class="mov-preview mb-7 leading-[1.6]">
+      <div class="mov-preview mb-7 leading-larga">
         Sei collegato come <strong>Team Leader</strong>: da qui rinnovi i PIN
         di Operatori e Team Leader. Creare operatori, cambiare le cariche e
         disattivare qualcuno sono gesti dell’<strong>Admin</strong>, e il PIN
@@ -145,9 +145,9 @@ export const VistaConfigOperatori = {
           <tbody>${rows || `<tr><td class="text-center text-sx-text-muted italic" colspan="7">${this._opOrdine.cerca ? 'Nessun operatore corrisponde alla ricerca' : 'Nessun operatore'}</td></tr>`}</tbody>
         </table>
       </div>
-      <div class="bg-[var(--grad-soft-green)] border border-sx-success rounded-[var(--radius-md)] py-6 px-7.5 mt-7">
-        <div class="font-bold text-body-small text-sx-success mb-3">🔒 Come funzionano PIN, cariche e via di fuga</div>
-        <p class="text-body-small text-sx-text-secondary leading-[1.6]">
+      <div class="bg-sx-success-soft border border-sx-success rounded-5 py-6 px-7.5 mt-7">
+        <div class="font-bold text-body-small text-sx-success mb-3">${this._ico('lock')} Come funzionano PIN, cariche e via di fuga</div>
+        <p class="text-body-small text-sx-text-secondary leading-larga">
           <strong>Tre cariche, e ognuna arriva fin dove serve.</strong>
           L’<strong>Operatore</strong> svolge tutte le attività di magazzino.
           Il <strong>Team Leader</strong> fa lo stesso e in più rinnova i PIN
@@ -160,7 +160,7 @@ export const VistaConfigOperatori = {
           Un PIN smarrito <strong>non è recuperabile</strong> — si rinnova, e il rinnovo lo autorizza
           chi sta un gradino sopra. L’operazione finisce nel registro movimenti;
           il PIN no, né in chiaro né come impronta.<br>
-          <strong>🗝 Sopra l’Admin non c’è nessuno,</strong> e per questo ogni Admin ha un
+          <strong>${this._ico('lock-access')} Sopra l’Admin non c’è nessuno,</strong> e per questo ogni Admin ha un
           <strong>codice di ripristino</strong>: venti caratteri mostrati una volta sola,
           da stampare e custodire. Rientrato con quello, si riscrive il PIN e
           nasce subito un codice nuovo — quello speso non vale più.<br>
@@ -176,7 +176,7 @@ export const VistaConfigOperatori = {
     const min = Session.getTimeoutMinutes();
     el.innerHTML = `<div class="config-card">
       <h3>Blocco per inattività</h3>
-      <p class="text-body-small text-sx-text-secondary leading-[1.6] mb-7">
+      <p class="text-body-small text-sx-text-secondary leading-larga mb-7">
         Trascorso questo tempo senza attività, l'applicazione <strong>salva i dati</strong> e si blocca dietro
         la richiesta di identificazione. Serve a impedire che il movimento successivo venga firmato
         da chi non l'ha eseguito: su un terminale di reparto è la differenza fra un registro
@@ -192,7 +192,7 @@ export const VistaConfigOperatori = {
           ${Session.MIN_MIN}–${Session.MAX_MIN} minuti · <strong>0 = blocco disattivato</strong>
         </span>
       </div>
-      <div class="text-body-small text-sx-text-muted mt-6 leading-[1.6]">
+      <div class="text-body-small text-sx-text-muted mt-6 leading-larga">
         Stato attuale: <strong>${min ? `blocco dopo ${min} minuti` : 'blocco disattivato'}</strong>.
         L'impostazione vale per <strong>questo dispositivo</strong>: non entra nel database né negli export,
         perché un tablet in reparto e un PC in ufficio non hanno le stesse esigenze.
@@ -209,7 +209,7 @@ export const VistaConfigOperatori = {
   /* ── Creazione / modifica operatore (autorizzate da un Team Leader) ── */
   showAddOperatorModal() {
     this.showModal(
-      '➕ Nuovo operatore',
+      `${this._ico('plus')} Nuovo operatore`,
       `<div class="form-row mb-6">
         <div class="form-group"><label>Nome <span class="req">*</span></label><input class="input" id="opFirst" maxlength="40" autofocus></div>
         <div class="form-group"><label>Cognome <span class="req">*</span></label><input class="input" id="opLast" maxlength="40"></div>
@@ -283,7 +283,7 @@ export const VistaConfigOperatori = {
     const op = Store.getOperator(opId);
     if (!op) return this.toast('Operatore non trovato', 'error');
     this.showModal(
-      `✏️ Modifica operatore — ${this._esc(op.initials)}`,
+      `${this._ico('pencil')} Modifica operatore — ${this._esc(op.initials)}`,
       `<div class="form-row mb-6">
         <div class="form-group"><label>Nome <span class="req">*</span></label><input class="input" id="opFirst" maxlength="40" value="${this._esc(op.first_name || '')}" autofocus></div>
         <div class="form-group"><label>Cognome <span class="req">*</span></label><input class="input" id="opLast" maxlength="40" value="${this._esc(op.last_name || '')}"></div>
@@ -293,7 +293,7 @@ export const VistaConfigOperatori = {
           <label>Iniziali <span class="req">*</span></label>
           <input class="input input-mono uppercase" id="opInitials" maxlength="4" value="${this._esc(op.initials)}" oninput="this.value=this.value.toUpperCase()">
           <div class="text-label-small text-sx-warning mt-2">
-            ⚠️ Cambiandole, i movimenti già registrati continueranno a riportare le vecchie
+            ${this._ico('alert-triangle')} Cambiandole, i movimenti già registrati continueranno a riportare le vecchie
           </div>
         </div>
         <div class="form-group">
@@ -411,8 +411,8 @@ export const VistaConfigOperatori = {
     const nome = [op.first_name, op.last_name].filter(Boolean).join(' ') || op.initials;
     const carica = op.role === 'admin' ? 'Admin' : 'Team Leader';
     this.showModal(
-      `🔑 Rinnovo PIN — ${this._esc(op.initials)}`,
-      `<p class="text-body-small text-sx-text-secondary leading-[1.6] mb-7">
+      `${this._ico('key')} Rinnovo PIN — ${this._esc(op.initials)}`,
+      `<p class="text-body-small text-sx-text-secondary leading-larga mb-7">
         Nuovo PIN per <strong>${this._esc(nome)}</strong>. Il PIN precedente cessa di valere immediatamente.
         L'operazione richiede l'autorizzazione di un <strong>${carica}</strong> e viene registrata nel registro movimenti.
       </p>
@@ -435,7 +435,7 @@ export const VistaConfigOperatori = {
       </div>
       <div id="rpError" class="gate-error"></div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-warning" onclick="App.doRenewPin('${opId}')">🔑 Rinnova PIN</button>`
+       <button class="btn btn-warning" onclick="App.doRenewPin('${opId}')">${this._ico('key')} Rinnova PIN</button>`
     );
     setTimeout(() => $('rpLeaderPin')?.focus(), 80);
   },
@@ -489,7 +489,7 @@ export const VistaConfigOperatori = {
       this.closeModal();
       this.renderConfig();
       this.updateSyncIndicator();
-      this.toast(`🔑 PIN di ${op.initials} rinnovato — autorizzato da ${leader!.initials}`, 'success');
+      this.toast(`PIN di ${op.initials} rinnovato — autorizzato da ${leader!.initials}`, 'success');
     } catch (e) {
       const stato = (e as { status?: number }).status;
       if (stato === 401) return err('PIN di chi autorizza non corretto.');
@@ -512,15 +512,15 @@ export const VistaConfigOperatori = {
     overlay.id = 'codiceRipristinoOverlay';
     overlay.innerHTML = `
       <div class="modal max-w-[520px]">
-        <div class="modal-header"><h2>🗝 Codice di ripristino — ${this._esc(op.initials)}</h2></div>
+        <div class="modal-header"><h2>${this._ico('lock-access')} Codice di ripristino — ${this._esc(op.initials)}</h2></div>
         <div class="modal-body">
-          <div class="mov-preview mov-preview-warn mb-7 leading-[1.6]">
+          <div class="mov-preview mov-preview-warn mb-7 leading-larga">
             <strong>Questa schermata non si ripresenta.</strong> Il codice qui sotto
             non è conservato in chiaro da nessuna parte: sul disco resta solo la sua
             impronta, esattamente come per il PIN. Stampalo o trascrivilo adesso, e
             mettilo dove si mettono le chiavi.
           </div>
-          <p class="text-body-small text-sx-text-secondary leading-[1.6] mb-6">
+          <p class="text-body-small text-sx-text-secondary leading-larga mb-6">
             Serve a <strong>${this._esc(nome)}</strong> per rientrare se perde il PIN e
             non c'è un altro Admin che possa rinnovarglielo. Si inserisce dalla
             schermata di accesso, alla voce «PIN smarrito». Vale una volta sola:
@@ -528,14 +528,14 @@ export const VistaConfigOperatori = {
             ${nuovo ? '' : '<br><strong>Il codice precedente, da adesso, non vale più.</strong>'}
           </p>
           <div class="mono text-title-large text-center font-bold tracking-[.08em] select-all
-                      border border-sx-primary rounded-[var(--radius-md)] py-6 px-4 mb-6"
+                      border border-sx-primary rounded-5 py-6 px-4 mb-6"
                id="codiceRipristinoTesto">${this._esc(codice)}</div>
           <label class="text-body-small flex items-center gap-3">
             <input type="checkbox" id="codiceCustodito"> L'ho stampato o trascritto e messo al sicuro
           </label>
         </div>
         <div class="modal-footer">
-          <button class="btn" id="codiceStampa">🖨 Stampa</button>
+          <button class="btn" id="codiceStampa">${this._ico('printer')} Stampa</button>
           <button class="btn" id="codiceCopia">Copia</button>
           <button class="btn btn-primary" id="codiceChiudi" disabled>Ho finito</button>
         </div>
@@ -659,7 +659,7 @@ export const VistaConfigOperatori = {
       overlay.id = 'leaderAuthOverlay';
       overlay.innerHTML = `
         <div class="modal max-w-[400px]">
-          <div class="modal-header"><h2>${soloAdmin ? '🛡 Autorizzazione Admin' : '👑 Autorizzazione Team Leader'}</h2></div>
+          <div class="modal-header"><h2>${soloAdmin ? `${this._ico('shield-check')} Autorizzazione Admin` : `${this._ico('crown')} Autorizzazione Team Leader`}</h2></div>
           <div class="modal-body">
             <p class="text-body-small text-sx-text-secondary mb-7">${this._esc(azione)}</p>
             <div class="form-group mb-6">

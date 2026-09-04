@@ -22,20 +22,20 @@ import { quantitaMossa } from './registro.js';
    tendina e un ramo in più in ogni regola. La funzione «Posiziona» di
    Movimenta resta dov'è: a sparire è il compito, non l'operazione. */
 export const TIPI_COMPITO = {
-  TRANSFER:   { label: 'Trasferimento',   icona: '↔' },
-  PICK_SHIP:  { label: 'Prelievo spedizione', icona: '🚚' },
-  PICK_RET:   { label: 'Prelievo reso',   icona: '↩' },
-  QUARANTINE: { label: 'Blocco quarantena', icona: '🚫' },
-  SAMPLING:   { label: 'Campionamento',   icona: '🧪' },
-  DISPOSAL:   { label: 'Smaltimento',     icona: '🗑' },
-  COUNT:      { label: 'Conta',           icona: '🔢' },
+  TRANSFER:   { label: 'Trasferimento',   icona: 'arrows-left-right' },
+  PICK_SHIP:  { label: 'Prelievo spedizione', icona: 'truck' },
+  PICK_RET:   { label: 'Prelievo reso',   icona: 'arrow-back-up' },
+  QUARANTINE: { label: 'Blocco quarantena', icona: 'ban' },
+  SAMPLING:   { label: 'Campionamento',   icona: 'flask' },
+  DISPOSAL:   { label: 'Smaltimento',     icona: 'trash' },
+  COUNT:      { label: 'Conta',           icona: 'list-numbers' },
   /* 1.5 — LA PULIZIA DELL'AREA DI PRELIEVO DOPO UN CAMPIONAMENTO, che la GMP
      pretende registrata. Non si chiede a mano e non sta in nessuna tendina:
      nasce dalla conferma di un campionamento e nasce gia' chiusa (D16). Sta
      fra i tipi lo stesso perche' deve comparire nel registro delle attivita'
      come attivita' vera, con i suoi tempi e la sua sigla — un'annotazione
      libera non sarebbe interrogabile in audit. */
-  CLEANING:   { label: 'Pulizia post-campionamento', icona: '🧽' },
+  CLEANING:   { label: 'Pulizia post-campionamento', icona: 'spray' },
 } as const;
 
 export type TipoCompito = keyof typeof TIPI_COMPITO;
@@ -81,7 +81,7 @@ export type StatoAperto = typeof STATI_APERTI[number];
 export const etichettaTipo = (t: string): string =>
   (TIPI_COMPITO as Record<string, { label: string }>)[t]?.label ?? String(t);
 export const iconaTipo = (t: string): string =>
-  (TIPI_COMPITO as Record<string, { icona: string }>)[t]?.icona ?? '•';
+  (TIPI_COMPITO as Record<string, { icona: string }>)[t]?.icona ?? 'help';
 export const etichettaPriorita = (p: number): string => PRIORITA[p] ?? String(p);
 export const etichettaStato = (s: string): string => STATI[s] ?? String(s);
 

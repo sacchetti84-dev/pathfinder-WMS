@@ -342,7 +342,7 @@ export const VistaRapportoPrelievo = {
        articolo in PZ avrebbe stampato «12,000 PZ», cioe' dodici pezzi scritti
        come se fossero pesati. `formattaQuantita` legge l'unita'. */
     const uomCell = (v: number | null | undefined, um: string | undefined) => {
-      if (typeof v !== 'number') return '<span class="text-[#999]">—</span>';
+      if (typeof v !== 'number') return '<span class="text-sx-text-muted">—</span>';
       const u = String(um || '').trim().toUpperCase();
       return `${E(formattaQuantita(v, u || null))}${u ? ` <span style="font-size:7pt;color:#666">${E(u)}</span>` : ''}`;
     };
@@ -354,7 +354,7 @@ export const VistaRapportoPrelievo = {
        toccano. Sta in testa a `misure.ts` da sempre: tre formattazioni dello
        stesso numero, per chi legge, sono tre numeri diversi. */
     const kgCell = (kg: number | string | null | undefined, um: string | undefined) => {
-      if (kg == null || kg === '') return '<span class="text-[#999]">—</span>';
+      if (kg == null || kg === '') return '<span class="text-sx-text-muted">—</span>';
       const u = String(um || '').trim().toUpperCase();
       const suffix = (u && u !== 'KG') ? ` <span style="font-size:7pt;color:#666">${E(um)}</span>` : '';
       return `${E(formattaQuantita(kg, u || null))}${suffix}`;
@@ -362,10 +362,10 @@ export const VistaRapportoPrelievo = {
 
     const rowsHTML = snap.rows.map((r, i) => `<tr>
       <td class="td-num">${i + 1}</td>
-      <td class="td-num">${r.seq != null ? E(r.seq) : '<span class="text-[#999]">—</span>'}</td>
+      <td class="td-num">${r.seq != null ? E(r.seq) : '<span class="text-sx-text-muted">—</span>'}</td>
       <td class="td-code">${E(r.article_code || '—')}</td>
       <td>${E(r.article_description || '—')}${this._avvisiRigaStampa(r.article_code)}${
-        r.corrections ? `<div class="pr-corr">✏️ rettificata ${r.corrections === 1 ? 'una volta' : r.corrections + ' volte'}${r.correction_note ? ' — ' + E(r.correction_note) : ''}</div>` : ''}</td>
+        r.corrections ? `<div class="pr-corr">${this._ico('pencil')} rettificata ${r.corrections === 1 ? 'una volta' : r.corrections + ' volte'}${r.correction_note ? ' — ' + E(r.correction_note) : ''}</div>` : ''}</td>
       <td class="td-lot">${E(r.lot_code || '—')}</td>
       <td class="td-loc">${E(r.location_code || '—')}</td>
       <td class="td-num">${kgCell(r.kg_required, r.um)}</td>
@@ -488,7 +488,7 @@ export const VistaRapportoPrelievo = {
         <tbody>${rowsHTML || '<tr class="pr-empty-row"><td colspan="9">Nessuna riga prelevata</td></tr>'}</tbody>
       </table>
       ${rettificate ? `<div class="pr-sec-note pr-sec-note--block">
-        ✏️ ${rettificate} rig${rettificate === 1 ? 'a è stata rettificata' : 'he sono state rettificate'} dopo il prelievo:
+        ${this._ico('pencil')} ${rettificate} rig${rettificate === 1 ? 'a è stata rettificata' : 'he sono state rettificate'} dopo il prelievo:
         i colli tornati a scaffale hanno un movimento di riposizionamento a registro, e la riga qui sopra
         porta la quantità che è rimasta fuori.
       </div>` : ''}

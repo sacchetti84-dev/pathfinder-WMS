@@ -44,7 +44,7 @@ export const VistaDocumento = {
     if (!s) return;
     const isRes = s.kind === 'RES';
     const themeColor = isRes ? 'var(--sx-teal)' : 'var(--sx-orange)';
-    const themeIcon = isRes ? '↩️' : '🚚';
+    const themeIcon = this._ico(isRes ? 'arrow-back-up' : 'truck');
     const themeLabel = isRes ? 'Reso' : 'Spedizione';
     const targetLabel = isRes ? 'Destinatario / Fornitore' : 'Cliente';
     const targetPlaceholder = isRes ? 'Fornitore a cui torna la merce' : 'Cliente destinatario';
@@ -60,7 +60,7 @@ export const VistaDocumento = {
           <div class="pci-num" style="background:${themeColor}">${i+1}</div>
           <div class="pci-info flex-1 min-w-[200px]">
             <div class="pci-code">${this._esc(l.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(l.article_description || '')}</span></div>
-            <div class="pci-loc">L:${this._esc(l.lot_code)} · 📍 ${this._esc(l.location_code)}${expBadge}</div>
+            <div class="pci-loc">L:${this._esc(l.lot_code)} · ${this._ico('map-pin')} ${this._esc(l.location_code)}${expBadge}</div>
             <div class="flex gap-4 items-center mt-3 flex-wrap">
               <label class="text-label-small text-sx-text-muted">Qty:</label>
               <input class="input input-mono w-[70px] text-center font-bold py-2 px-3" type="number" min="1" step="1" value="${l.qty}"
@@ -72,15 +72,15 @@ export const VistaDocumento = {
                 onchange="App._editLineNotes(${i}, this.value)">
             </div>
           </div>
-          <button class="btn btn-sm btn-ghost" class="text-sx-danger self-center" onclick="App._editRemoveLine(${i})" title="Rimuovi riga">✕</button>
+          <button class="btn btn-sm btn-ghost text-sx-danger self-center" onclick="App._editRemoveLine(${i})" title="Rimuovi riga">${this._ico('x')}</button>
         </div>`;
       }).join('');
     // Form per aggiungere nuova riga
     const newLineHtml = `<details class="mt-6">
       <summary style="cursor:pointer;font-size: var(--md-sys-typescale-body-small-size);font-weight:600;color:${themeColor};padding:0.4rem 0.5rem;background:${isRes ? 'var(--grad-soft-teal)' : 'var(--grad-soft-orange)'};border:1px solid ${themeColor};border-radius:var(--radius)">
-        ➕ Aggiungi nuova riga al DDT
+        ${this._ico('plus')} Aggiungi nuova riga al DDT
       </summary>
-      <div class="border border-sx-border [border-top:none] rounded-b-[var(--radius)] p-5 bg-sx-card-alt">
+      <div class="border border-sx-border [border-top:none] rounded-b-1 p-5 bg-sx-card-alt">
         <div class="form-group mb-3">
           <label class="text-label-small">① Articolo</label>
           <input class="input input-mono uppercase" id="pEditArt" placeholder="Scansiona barcode articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
@@ -119,15 +119,15 @@ export const VistaDocumento = {
     overlay.innerHTML = `<div class="modal max-w-[680px] w-[95%]">
       <div class="modal-header">
         <h2>${themeIcon} Modifica DDT ${themeLabel} pendente</h2>
-        <button class="btn btn-sm btn-icon btn-ghost" onclick="App._editCancel()">✕</button>
+        <button class="btn btn-sm btn-icon btn-ghost" onclick="App._editCancel()">${this._ico('x')}</button>
       </div>
       <div class="modal-body">
-        <div class="text-label-small text-sx-text-muted bg-[var(--grad-soft-blue)] py-4 px-5 rounded-[var(--radius)] mb-6">
+        <div class="text-label-small text-sx-text-muted bg-sx-accent-soft py-4 px-5 rounded-1 mb-6">
           Modifiche permesse solo su DDT in stato <strong>pendente</strong>. Le righe vengono validate al salvataggio finale (re-check disponibilità).
         </div>
         <!-- TESTATA -->
         <div style="background:${isRes ? 'var(--grad-soft-teal)' : 'var(--grad-soft-orange)'};border:1px solid ${themeColor};border-radius:var(--radius);padding:0.5rem 0.6rem;margin-bottom:0.6rem">
-          <div style="font-size: var(--md-sys-typescale-label-small-size);color:${themeColor};font-weight:700;margin-bottom:0.3rem">📋 TESTATA DDT</div>
+          <div style="font-size: var(--md-sys-typescale-label-small-size);color:${themeColor};font-weight:700;margin-bottom:0.3rem">${this._ico('clipboard-text')} TESTATA DDT</div>
           <div class="form-row mb-4">
             <div class="form-group">
               <label>N° DDT</label>
@@ -140,7 +140,7 @@ export const VistaDocumento = {
           </div>
           <div class="form-row mb-0">
             <div class="form-group">
-              <label>📅 Data Ritiro Prevista <span style="font-size: var(--md-sys-typescale-label-small-size);color:${tmpAlert.color};font-weight:600">${tmpAlert.shortLabel || ''}</span></label>
+              <label>${this._ico('calendar-event')} Data Ritiro Prevista <span style="font-size: var(--md-sys-typescale-label-small-size);color:${tmpAlert.color};font-weight:600">${tmpAlert.shortLabel || ''}</span></label>
               <input class="input" type="text" inputmode="numeric" placeholder="gg/mm/aaaa" maxlength="10" id="pEditExpected" value="${this._esc(this._dateISOtoIT(s.expected_pickup_date))}"
                 oninput="App._dateMaskInput(this)"
                 onchange="App._editPersistHeader();App._renderEditModal()">
@@ -160,21 +160,21 @@ export const VistaDocumento = {
                   placeholder="M06-COM-01" value="${this._esc(s.dest_location || '')}"
                   oninput="App._normScan('pEditDestLoc')">
                 <div class="text-label-small text-sx-text-muted mt-1.5">
-                  🏭 La merce non esce: si sposta in questo vano.
+                  ${this._ico('building-factory')} La merce non esce: si sposta in questo vano.
                 </div>
               </div>` : ''}
           </div>
         </div>
         <!-- RIGHE -->
         <div class="flex justify-between items-center mt-7 mx-0 mb-2.5">
-          <strong class="text-body-small">📦 Righe DDT <span style="color:${themeColor}">(${s.lines.length})</span> · Tot. <strong style="color:${themeColor}">${totalColli} Coll.</strong></strong>
+          <strong class="text-body-small">${this._ico('package')} Righe DDT <span style="color:${themeColor}">(${s.lines.length})</span> · Tot. <strong style="color:${themeColor}">${totalColli} Coll.</strong></strong>
         </div>
         <div class="pick-cart">${linesHtml}</div>
         ${newLineHtml}
       </div>
       <div class="modal-footer">
-        <button class="btn" onclick="App._editCancel()">✕ Annulla</button>
-        <button class="btn" style="background:${themeColor};color:#fff;border-color:${themeColor};font-weight:700" onclick="App._editSave()">💾 Salva Modifiche</button>
+        <button class="btn" onclick="App._editCancel()">${this._ico('x')} Annulla</button>
+        <button class="btn" style="background:${themeColor};color:#fff;border-color:${themeColor};font-weight:700" onclick="App._editSave()">${this._ico('device-floppy')} Salva Modifiche</button>
       </div>
     </div>`;
     document.body.appendChild(overlay);
@@ -260,16 +260,16 @@ export const VistaDocumento = {
     const info = $('pEditInfo');
     const details = $('pEditDetails');
     if (!art || !lot) {
-      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Articolo e lotto obbligatori</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} Articolo e lotto obbligatori</div>`;
       return;
     }
     if (Validate.article(art) || Validate.lot(lot)) {
-      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Formato non valido</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} Formato non valido</div>`;
       return;
     }
     const allItems = Store.findItemLocations(art).filter(it => it.lot_code === lot && !Store.isItemQuarantined(it.item_key, it.location_code));
     if (!allItems.length) {
-      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Item ${this._esc(art)}#${this._esc(lot)} non disponibile in magazzino</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} Item ${this._esc(art)}#${this._esc(lot)} non disponibile in magazzino</div>`;
       details.classList.add('hidden');
       return;
     }
@@ -291,7 +291,7 @@ export const VistaDocumento = {
     });
     const usable = enriched.filter(it => it._availableQty > 0);
     if (!usable.length) {
-      info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">⚠️ Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">${this._ico('alert-triangle')} Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`;
       details.classList.add('hidden');
       return;
     }
@@ -303,7 +303,7 @@ export const VistaDocumento = {
       html += `<div class="inv-item-row cursor-pointer text-label-small" onclick="App._editSelectNewLineEnc('${p}')">
         <div class="inv-info">
           <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong></div>
+          <div class="inv-lot">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong></div>
         </div>
       </div>`;
     }
@@ -323,7 +323,7 @@ export const VistaDocumento = {
     const expBadge = cur.expiry_date ? ` · scad. ${this._esc(cur.expiry_date)}` : '';
     $('pEditPreview').innerHTML = `<div class="mov-preview mb-3 text-label-small">
       <strong>${this._esc(cur.article_code)}</strong> <span class="text-sx-text-muted">${this._esc(cur.article_description || '')}</span><br>
-      <span class="text-sx-text-muted text-label-small">L:${this._esc(cur.lot_code)} · 📍 ${this._esc(cur.location_code)} · disp. <strong>${item._availableQty} Coll.</strong>${expBadge}</span>
+      <span class="text-sx-text-muted text-label-small">L:${this._esc(cur.lot_code)} · ${this._ico('map-pin')} ${this._esc(cur.location_code)} · disp. <strong>${item._availableQty} Coll.</strong>${expBadge}</span>
     </div>`;
     const qe = $('pEditQty');
     if (qe) { qe.value = item._availableQty; qe.max = item._availableQty; }
@@ -420,7 +420,7 @@ export const VistaDocumento = {
         dest_location: s.dest_location || '',
         lines: s.lines
       });
-      this.toast(`✓ DDT ${s.ddt_num} aggiornato`, 'success');
+      this.toast(`DDT ${s.ddt_num} aggiornato`, 'success');
       this.updateSyncIndicator();
       this._editCancel();
       // Re-render del form per mostrare il DDT aggiornato

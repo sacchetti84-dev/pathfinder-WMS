@@ -132,3 +132,18 @@ consegna/
 # e' il rumore di un gesto, e il gesto si rifa'.
 banco/*.out
 banco/*.log
+
+# ── 7. LA CARTELLA USA E GETTA DEL BANCO A VIDEO — 04/09 ──────────────────
+# `banco/video/app/` e' una COPIA dell'applicativo appena costruito, che
+# `accendi.cjs` rifa' a ogni accensione per servirlo dalla 4199 senza puntare
+# dentro `consegna/` — la cartella che la build azzera, ed e' l'errore del
+# 17/08 scritto in `vite.config.js`.
+#
+# Stessa ragione del punto 6: non e' un artefatto, e' il rumore di un gesto.
+# Il banco vero — `accendi.cjs` e `banco.js` — resta in git, ed e' quel che
+# serve per rifarla.
+banco/video/app/
+
+# E il diario che il servizio del banco scrive girando: stessa ragione, e
+# prima d'ora sporcava `git status` a ogni corsa del ciclo.
+banco/db/log/

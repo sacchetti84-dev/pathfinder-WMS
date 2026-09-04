@@ -42,16 +42,16 @@ export const VistaGiacenze = {
     <div class="detail-section">
       <div class="detail-section-title">Azioni Stato</div>
       <div class="flex gap-sm flex-wrap">
-        ${status !== 'blocked' && status !== 'disabled' ? `<button class="btn btn-sm btn-danger" onclick="App.setLocStatus('${code}','blocked')">🚫 Blocca</button>` : ''}
-        ${status !== 'reserved' && status !== 'disabled' ? `<button class="btn btn-sm btn-warning" onclick="App.setLocStatus('${code}','reserved')">📋 Riserva</button>` : ''}
-        ${(status === 'blocked' || status === 'reserved') ? `<button class="btn btn-sm btn-success" onclick="App.setLocStatus('${code}','empty')">✓ Libera</button>` : ''}
+        ${status !== 'blocked' && status !== 'disabled' ? `<button class="btn btn-sm btn-danger" onclick="App.setLocStatus('${code}','blocked')">${this._ico('ban')} Blocca</button>` : ''}
+        ${status !== 'reserved' && status !== 'disabled' ? `<button class="btn btn-sm btn-warning" onclick="App.setLocStatus('${code}','reserved')">${this._ico('clipboard-text')} Riserva</button>` : ''}
+        ${(status === 'blocked' || status === 'reserved') ? `<button class="btn btn-sm btn-success" onclick="App.setLocStatus('${code}','empty')">${this._ico('check')} Libera</button>` : ''}
         ${status !== 'disabled' && items.length === 0 ? `<button class="btn btn-sm" onclick="App.toggleLocDisabled('${code}')">⊘ Disattiva</button>` : ''}
-        ${status === 'disabled' ? `<button class="btn btn-sm btn-success" onclick="App.toggleLocDisabled('${code}')">✓ Riattiva</button>` : ''}
+        ${status === 'disabled' ? `<button class="btn btn-sm btn-success" onclick="App.toggleLocDisabled('${code}')">${this._ico('check')} Riattiva</button>` : ''}
         <!-- 2.8 — la caratterizzazione sta fra le azioni di stato e non in
              Configurazione, perche' e' qui che si guarda un vano preciso: chi
              decide che QUESTA campata regge meno delle altre lo decide con la
              campata davanti, non da una tabella di duemila righe. -->
-        <button class="btn btn-sm" title="Temperatura, allergeni, pericolosita, capienza e portata di questa sola cella" onclick="App.showCaratterizzaUbicazione('${code}')">🎯 Caratterizza</button>
+        <button class="btn btn-sm" title="Temperatura, allergeni, pericolosita, capienza e portata di questa sola cella" onclick="App.showCaratterizzaUbicazione('${code}')">${this._ico('target')} Caratterizza</button>
       </div>
     </div>
     <div class="detail-section">
@@ -96,7 +96,7 @@ export const VistaGiacenze = {
           <div class="item-card-header">
             <span class="item-code">${this._esc(item.article_code)}</span>
             <span class="item-lot-inline mono">${this._esc(item.lot_code)}</span>
-            ${quarantined ? '<span class="badge bg-sx-purple-soft text-sx-purple border border-sx-purple" title="Item già in quarantena">🔒 NC</span>' : ''}
+            ${quarantined ? `<span class="badge bg-sx-purple-soft text-sx-purple border border-sx-purple" title="Item già in quarantena">${this._ico('lock')} NC</span>` : ''}
             ${sbagliata ? `<span class="chip-fuori-posto" title="${this._esc(sbagliata)}">Fuori posto</span>` : ''}
           </div>
           ${sbagliata ? `<div class="item-fuori-posto-perche text-label-small">${this._esc(sbagliata)}${
@@ -105,15 +105,15 @@ export const VistaGiacenze = {
           <div class="item-desc">${this._esc(item.article_description || '—')}</div>
           ${this._rigaUM(item)}
           <div class="item-actions item-actions-pari">
-            <button class="btn btn-sm" title="Modifica i dati dell’item" onclick="App.showEditItemModal('${this._esc(code)}','${k}')">✏️ Modifica</button>
+            <button class="btn btn-sm" title="Modifica i dati dell’item" onclick="App.showEditItemModal('${this._esc(code)}','${k}')">${this._ico('pencil')} Modifica</button>
             <button class="btn btn-sm${sbagliata ? ' btn-primary' : ''}" title="${
               dove ? `Rimetti a posto: destinazione ${this._esc(dove.location_code)}` : 'Trasferisci in un’altra ubicazione'
-            }" onclick="App.showMoveItemModal('${this._esc(code)}','${k}'${dove ? `,'${this._esc(dove.location_code)}'` : ''})">🔀 Trasferisci</button>
+            }" onclick="App.showMoveItemModal('${this._esc(code)}','${k}'${dove ? `,'${this._esc(dove.location_code)}'` : ''})">${this._ico('arrows-shuffle')} Trasferisci</button>
             ${quarantined
-              ? '<button class="btn btn-sm" disabled title="Item gia’ in quarantena — il rilascio si fa da Movimenta">🔒 In quarantena</button>'
-              : `<button class="btn btn-sm" title="Blocco qualità / non conformità" onclick="App.showQuarantineItemModal('${this._esc(code)}','${k}')">🚫 Quarantena</button>`}
-            <button class="btn btn-sm" title="Tutto il resto: posizionamento, scadenza, note" onclick="App._dettaglioItem('${this._esc(code)}','${k}')">🔍 Dettaglio</button>
-            <button class="btn btn-sm" title="Stampa l’etichetta identificativa" onclick="App._stampaEtichettaItem('${this._esc(code)}','${k}')">🏷 Etichetta</button>
+              ? `<button class="btn btn-sm" disabled title="Item gia’ in quarantena — il rilascio si fa da Movimenta">${this._ico('lock')} In quarantena</button>`
+              : `<button class="btn btn-sm" title="Blocco qualità / non conformità" onclick="App.showQuarantineItemModal('${this._esc(code)}','${k}')">${this._ico('ban')} Quarantena</button>`}
+            <button class="btn btn-sm" title="Tutto il resto: posizionamento, scadenza, note" onclick="App._dettaglioItem('${this._esc(code)}','${k}')">${this._ico('search')} Dettaglio</button>
+            <button class="btn btn-sm" title="Stampa l’etichetta identificativa" onclick="App._stampaEtichettaItem('${this._esc(code)}','${k}')">${this._ico('tag')} Etichetta</button>
           </div>
         </div>`;
       }
@@ -122,7 +122,7 @@ export const VistaGiacenze = {
     html += `</div>
       <div class="detail-section">
         <button class="btn btn-success w-full" onclick="App.showAddItemModal('${code}')">+ Aggiungi item</button>
-        <p class="text-label-small text-sx-text-muted mt-4.5 leading-[1.5]">
+        <p class="text-label-small text-sx-text-muted mt-4.5 leading-riga">
           L’uscita di giacenza non si esegue da qui: usare <strong>Movimenta → Smaltire</strong>,
           che registra il movimento con la sua causale.
         </p>
@@ -149,7 +149,7 @@ export const VistaGiacenze = {
     if (!item) return this.toast('Item non più presente in questa ubicazione', 'error');
     const q = Store.isItemQuarantined(itemKey, locationCode);
     this.showModal(
-      `🔍 ${this._esc(item.article_code)} · lotto ${this._esc(item.lot_code)}`,
+      `${this._ico('search')} ${this._esc(item.article_code)} · lotto ${this._esc(item.lot_code)}`,
       `<div class="detail-section">
         <div class="detail-field"><span class="df-label">Ubicazione</span><span class="df-value mono">${this._esc(locationCode)}</span></div>
         <div class="detail-field"><span class="df-label">Descrizione</span><span class="df-value">${this._esc(item.article_description || '—')}</span></div>
@@ -160,11 +160,11 @@ export const VistaGiacenze = {
         <div class="detail-field"><span class="df-label">Da</span><span class="df-value mono">${this._esc(item.placed_by || '—')}</span></div>
         <div class="detail-field"><span class="df-label">Ultimo aggiornamento</span><span class="df-value">${item.last_updated_at ? new Date(item.last_updated_at).toLocaleString('it-IT') : '—'}</span></div>
         <div class="detail-field"><span class="df-label">Unità di carico</span><span class="df-value mono">${this._esc(item.udc_id || '—')}</span></div>
-        <div class="detail-field"><span class="df-label">Quarantena</span><span class="df-value">${q ? '🔒 attiva' : 'no'}</span></div>
+        <div class="detail-field"><span class="df-label">Quarantena</span><span class="df-value">${q ? `${this._ico('lock')} attiva` : 'no'}</span></div>
         <div class="detail-field"><span class="df-label">Note</span><span class="df-value">${this._esc(item.notes || '—')}</span></div>
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Chiudi</button>
-       <button class="btn btn-primary" onclick="App._stampaEtichettaItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">🏷 Stampa etichetta</button>`
+       <button class="btn btn-primary" onclick="App._stampaEtichettaItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">${this._ico('tag')} Stampa etichetta</button>`
     );
   },
 
@@ -237,7 +237,7 @@ export const VistaGiacenze = {
     return `<div class="detail-field">
       <span class="df-label">In giacenza</span>
       <span class="df-value"><strong class="text-sx-accent">${r.colli} Coll.</strong> · <strong>${um}</strong>${
-        r.senzaUnita ? ` <span class="badge badge-amber" title="${r.senzaUnita} righe non hanno unità di misura: il totale in UM non le comprende">⚠️ ${r.senzaUnita} senza UM</span>` : ''
+        r.senzaUnita ? ` <span class="badge badge-amber" title="${r.senzaUnita} righe non hanno unità di misura: il totale in UM non le comprende">${this._ico('alert-triangle')} ${r.senzaUnita} senza UM</span>` : ''
       }</span>
     </div>`;
   },
@@ -265,8 +265,8 @@ export const VistaGiacenze = {
     const qty = item.qty || 1;
     const dest = String(destSuggerita || '').toUpperCase();
     this.showModal(
-      `🔀 Trasferimento — da ${this._esc(locationCode)}`,
-      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+      `${this._ico('arrows-shuffle')} Trasferimento — da ${this._esc(locationCode)}`,
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-5 py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
         <span class="mono font-bold text-sx-primary">${this._esc(item.article_code)}</span>
         ${this._esc(item.article_description || '')}<br>
         Lotto <strong>${this._esc(item.lot_code)}</strong> · giacenza <strong class="text-sx-accent">${qty} Coll.</strong>
@@ -292,7 +292,7 @@ export const VistaGiacenze = {
         </div>
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-primary" onclick="App.doMoveItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">🔀 Trasferisci</button>`
+       <button class="btn btn-primary" onclick="App.doMoveItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">${this._ico('arrows-shuffle')} Trasferisci</button>`
     );
     /* Il fuoco si mette DOPO che il modal è nel documento: `autofocus` in una
        stringa HTML iniettata non scatta, perché l'attributo agisce al parse
@@ -310,14 +310,14 @@ export const VistaGiacenze = {
     const dest = Validate.clean($('moveItemDest')?.value, true).replace(/'/g, '-');
     if (!dest) { el.innerHTML = ''; return; }
     if (!Store.locationExists(dest)) {
-      el.innerHTML = '<span class="text-sx-danger">✗ Ubicazione inesistente</span>';
+      el.innerHTML = `<span class="text-sx-danger">${this._ico('circle-x')} Ubicazione inesistente</span>`;
       return;
     }
     const st = Store.getLocationStatus(dest);
     const n = Store.getItemsAtLocation(dest).length;
-    if (st === 'blocked')  { el.innerHTML = '<span class="text-sx-danger">✗ Ubicazione BLOCCATA</span>'; return; }
-    if (st === 'disabled') { el.innerHTML = '<span class="text-sx-danger">✗ Ubicazione DISATTIVATA</span>'; return; }
-    el.innerHTML = `<span class="text-sx-success">✓ ${this._esc(dest)}</span> <span class="text-sx-text-muted">— ${st}${n ? ` · ${n} item già presenti` : ' · vuota'}</span>`;
+    if (st === 'blocked')  { el.innerHTML = `<span class="text-sx-danger">${this._ico('circle-x')} Ubicazione BLOCCATA</span>`; return; }
+    if (st === 'disabled') { el.innerHTML = `<span class="text-sx-danger">${this._ico('circle-x')} Ubicazione DISATTIVATA</span>`; return; }
+    el.innerHTML = `<span class="text-sx-success">${this._ico('check')} ${this._esc(dest)}</span> <span class="text-sx-text-muted">— ${st}${n ? ` · ${n} item già presenti` : ' · vuota'}</span>`;
   },
 
   async doMoveItem(locationCode, itemKey) {
@@ -356,16 +356,16 @@ export const VistaGiacenze = {
        lo dice qui, prima che l'operatore compili tre campi per niente. */
     const destInfo = nearest
       ? `<div class="mov-preview mov-preview-err mb-6">
-          <strong>📍 Ubicazione NC di destinazione:</strong> <span class="mono font-bold">${this._esc(nearest.code)}</span>
+          <strong>${this._ico('map-pin')} Ubicazione NC di destinazione:</strong> <span class="mono font-bold">${this._esc(nearest.code)}</span>
           <span class="text-sx-text-muted text-label-small"> (${this._esc(nearest.zoneName)}${nearest.hasItems ? ' — già contiene item' : ' — vuota'})</span>
         </div>`
       : `<div class="mov-preview mov-preview-warn mb-6">
-          <strong>⛔ Nessuna ubicazione BLOCCATA configurata.</strong> La quarantena non può partire:
+          <strong>${this._ico('alert-octagon')} Nessuna ubicazione BLOCCATA configurata.</strong> La quarantena non può partire:
           scegliere in Mappa un'ubicazione da destinare alle NC e premere «Blocca».
         </div>`;
     this.showModal(
-      `🚫 Quarantena item — ${this._esc(locationCode)}`,
-      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+      `${this._ico('ban')} Quarantena item — ${this._esc(locationCode)}`,
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-5 py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
         <span class="mono font-bold text-sx-purple">${this._esc(item.article_code)}</span>
         ${this._esc(item.article_description || '')}<br>
         Lotto <strong>${this._esc(item.lot_code)}</strong> · <strong>${item.qty || 1} Coll.</strong>
@@ -402,7 +402,7 @@ export const VistaGiacenze = {
         <input class="input" id="qiRefPerson" maxlength="${Validate.MAX.OPERATOR}" placeholder="Nome specifico">
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-warning" onclick="App.doQuarantineItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">🚫 Conferma quarantena</button>`
+       <button class="btn btn-warning" onclick="App.doQuarantineItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">${this._ico('ban')} Conferma quarantena</button>`
     );
   },
 
@@ -488,15 +488,15 @@ export const VistaGiacenze = {
     const fmtDate = (ts: number | null | undefined) => ts ? new Date(ts).toLocaleString('it-IT', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' }) : '—';
 
     this.showModal(
-      `✏️ Modifica Item — ${this._esc(locationCode)}`,
-      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+      `${this._ico('pencil')} Modifica Item — ${this._esc(locationCode)}`,
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-5 py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
         <span class="mono font-bold text-sx-primary">${this._esc(item.article_code)}</span> ·
         Lotto <strong>${this._esc(item.lot_code)}</strong> ·
-        📅 Inserito: ${fmtDate(item.placed_at)}
+        ${this._ico('calendar-event')} Inserito: ${fmtDate(item.placed_at)}
       </div>
 
-      <div class="bg-sx-warning-soft border border-sx-warning rounded-[var(--radius)] py-4.5 px-6 mb-8.5 text-body-small text-sx-warning">
-        ⚠️ Modificare <strong>Codice Articolo</strong> o <strong>Lotto</strong> cambia l'identificativo dell'item e viene registrato nel log.
+      <div class="bg-sx-warning-soft border border-sx-warning rounded-1 py-4.5 px-6 mb-8.5 text-body-small text-sx-warning">
+        ${this._ico('alert-triangle')} Modificare <strong>Codice Articolo</strong> o <strong>Lotto</strong> cambia l'identificativo dell'item e viene registrato nel log.
       </div>
 
       <div class="form-row mb-6">
@@ -535,12 +535,12 @@ export const VistaGiacenze = {
         <textarea class="input textarea" id="editItemNotes" rows="2" maxlength="${Validate.MAX.NOTES}" placeholder="Note operative (opzionale)">${this._esc(item.notes || '')}</textarea>
       </div>
 
-      <div class="hidden bg-sx-danger-soft border border-sx-danger rounded-[var(--radius)] py-4.5 px-6 mt-5 text-body-small text-sx-danger" id="editItemKeyWarn">
-        ⚠️ <strong>Cambio identificativo:</strong> il codice articolo o il lotto sono stati modificati. L'operazione ricreerà l'item con il nuovo ID e verrà tracciata nel log movimenti.
+      <div class="hidden bg-sx-danger-soft border border-sx-danger rounded-1 py-4.5 px-6 mt-5 text-body-small text-sx-danger" id="editItemKeyWarn">
+        ${this._ico('alert-triangle')} <strong>Cambio identificativo:</strong> il codice articolo o il lotto sono stati modificati. L'operazione ricreerà l'item con il nuovo ID e verrà tracciata nel log movimenti.
       </div>`,
 
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn btn-primary" onclick="App.doEditItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">💾 Salva Modifiche</button>`
+       <button class="btn btn-primary" onclick="App.doEditItem('${this._esc(locationCode)}','${this._esc(itemKey)}')">${this._ico('device-floppy')} Salva Modifiche</button>`
     );
 
     // Pre-popola info articolo dall'anagrafica
@@ -555,7 +555,7 @@ export const VistaGiacenze = {
     if (!info) return;
     const art = Store.getArticle(code);
     if (art) {
-      info.innerHTML = `<span class="text-sx-success">✓</span> ${this._esc(art.description)} <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
+      info.innerHTML = `<span class="text-sx-success">${this._ico('check')}</span> ${this._esc(art.description)} <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
       // Suggerisce descrizione se campo vuoto
       const descEl = $('editItemDesc');
       /* UN ARTICOLO SENZA DESCRIZIONE LASCIA IL CAMPO VUOTO, non ci scrive
@@ -567,7 +567,7 @@ export const VistaGiacenze = {
          scrive come si scrive un'assenza. */
       if (descEl && !descEl.value.trim()) descEl.value = art.description ?? '';
     } else if (code) {
-      info.innerHTML = `<span class="text-sx-warning">⚠️ Codice non in anagrafica — verrà aggiunto automaticamente al salvataggio</span>`;
+      info.innerHTML = `<span class="text-sx-warning">${this._ico('alert-triangle')} Codice non in anagrafica — verrà aggiunto automaticamente al salvataggio</span>`;
     } else {
       info.innerHTML = '';
     }
@@ -640,10 +640,10 @@ export const VistaGiacenze = {
         colliPrima, colliPrima === null ? null : -colliPrima, 0,
         typeof prima?.qty_uom === 'number' ? -prima.qty_uom : null);
       await this._logMov(MOV.EDIT, art, desc, lot, locationCode, null, '', `Modifica ID da ${originalItemKey}`);
-      this.toast(`✓ Item aggiornato: ${originalItemKey} → ${newItemKey}`, 'success');
+      this.toast(`Item aggiornato: ${originalItemKey} → ${newItemKey}`, 'success');
     } else {
       await this._logMov(MOV.EDIT, art, desc, lot, locationCode, null, '', 'Modifica dati item');
-      this.toast(`✓ Dati aggiornati: ${art}#${lot}`, 'success');
+      this.toast(`Dati aggiornati: ${art}#${lot}`, 'success');
     }
 
     this.closeModal();
@@ -679,7 +679,7 @@ export const VistaGiacenze = {
       <div class="form-group"><label>Note</label>
         <input class="input" id="itemNotes" placeholder="Opzionale" maxlength="${Validate.MAX.NOTES}"></div>
     `, `<button class="btn" onclick="App.closeModal()">Annulla</button>
-        <button class="btn btn-success" onclick="App.doAddItem('${locationCode}')">✓ Aggiungi</button>`);
+        <button class="btn btn-success" onclick="App.doAddItem('${locationCode}')">${this._ico('check')} Aggiungi</button>`);
   },
 
   onArticleSelect() {
@@ -722,7 +722,7 @@ export const VistaGiacenze = {
     this.renderDetail(locationCode);
     this.updateSyncIndicator();
     const incrSuffix = res.mode === 'incremented' ? ` (saldo: ${res.qty_after})` : '';
-    this.toast(`✓ ${code}#${lot} aggiunto a ${locationCode} · +${qty} Coll.${incrSuffix}`, 'success');
+    this.toast(`${code}#${lot} aggiunto a ${locationCode} · +${qty} Coll.${incrSuffix}`, 'success');
   },
 
   /* 2.8 — COSA VALE DAVVERO IN QUESTO VANO.
@@ -756,7 +756,7 @@ export const VistaGiacenze = {
     if (a.portata_kg !== null) pezzi.push(`portata ${a.portata_kg} kg`);
     if (!pezzi.length && !a.caratterizzata) return '';
     return `<div class="detail-field ${a.caratterizzata ? 'loc-attr-riga' : ''}">
-      <span class="df-label">${a.caratterizzata ? '🎯 Caratterizzata' : 'Vincoli'}</span>
+      <span class="df-label">${a.caratterizzata ? `${this._ico('target')} Caratterizzata` : 'Vincoli'}</span>
       <span class="df-value text-body-small">${this._esc(pezzi.join(' · ') || 'nessun vincolo dichiarato')}${
         a.nota ? `<br><em>${this._esc(a.nota)}</em>` : ''}</span></div>`;
   },

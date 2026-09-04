@@ -184,7 +184,6 @@
 .kpi-sub { font-size: var(--md-sys-typescale-label-small-size); color: var(--sx-text-secondary); margin-top: 0.2rem; }
 .kpi-sparkline { display: block; margin-top: 0.3rem; }
 
-.panels-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 0.75rem; margin-bottom: 1rem; }
 
 /* ════ Tables — SAGE X3 dense grid ════ */
 .sx-table {
@@ -270,7 +269,7 @@
 /* ════ Modal generico e Dialog ════ */
 .modal-overlay {
   position: fixed; inset: 0;
-  background: rgba(15, 23, 42, 0.55);
+  background: color-mix(in srgb, var(--md-sys-color-scrim) 55%, transparent);
   display: flex; align-items: center; justify-content: center;
   z-index: 2000;
   padding: 1rem;
@@ -316,7 +315,7 @@
 
 #dlgOverlay {
   position: fixed; inset: 0; z-index: 1200;
-  background: rgba(24,40,48,0.42);
+  background: color-mix(in srgb, var(--md-sys-color-scrim) 42%, transparent);
   display: none; align-items: center; justify-content: center;
   padding: 1rem;
 }
@@ -448,8 +447,8 @@
 .btn:disabled {
   opacity: 1;
   background: transparent;
-  border-color: rgba(23, 29, 26, 0.12);
-  color: rgba(23, 29, 26, 0.38);
+  border-color: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
 }
 .btn-primary  { background: var(--md-ext-chrome-dim); border-color: transparent; color: var(--md-ext-on-chrome); }
 .btn-primary:hover  { background: var(--md-ext-chrome-dim); border-color: transparent; }
@@ -483,8 +482,8 @@
 }
 .btn-primary:disabled, .btn-accent:disabled, .btn-success:disabled,
 .btn-danger:disabled, .btn-warning:disabled {
-  background: rgba(23, 29, 26, 0.12);
-  color: rgba(23, 29, 26, 0.38);
+  background: color-mix(in srgb, var(--md-sys-color-on-surface) 12%, transparent);
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
   border-color: transparent;
 }
 .btn-ghost, .btn-ghost:hover { background: transparent; border-color: transparent; color: var(--md-sys-color-primary); }
@@ -516,9 +515,9 @@
 }
 .input::placeholder, .textarea::placeholder { color: var(--md-sys-color-on-surface-variant); }
 .input:disabled, .select:disabled, .textarea:disabled {
-  background-color: rgba(23, 29, 26, 0.04);
-  color: rgba(23, 29, 26, 0.38);
-  box-shadow: inset 0 -1px 0 rgba(23, 29, 26, 0.38);
+  background-color: color-mix(in srgb, var(--md-sys-color-on-surface) 4%, transparent);
+  color: color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
+  box-shadow: inset 0 -1px 0 color-mix(in srgb, var(--md-sys-color-on-surface) 38%, transparent);
 }
 .select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%233F4944' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
@@ -789,7 +788,6 @@
    Su duemila ubicazioni sono una decina, e devono trovarsi a occhio: chi le
    cerca sta cercando l'eccezione, non la regola. */
 .loc-attr-riga { border-left: 3px solid var(--sx-warning); padding-left: 0.75rem; }
-.loc-attr-eredita { color: var(--sx-text-muted); font-style: italic; }
 
 /* ════ 2.9 — IL CAMPO SCANSIONATO BENE ════
    © Andrea Sacchetti — Dietopack S.r.l.
@@ -851,4 +849,86 @@
 .modal-overlay ~ .modal-overlay {
   background: rgba(0, 0, 0, 0.55);
   z-index: 2001;
+}
+
+/* ════ 2.23 — LE ICONE ════════════════════════════════════════════════════
+   Tabler outline: griglia 24, tratto 2, capi tondi. Un disegno a filo e
+   basta — niente pieni, niente due tinte. In una maschera dove il colore
+   porta uno STATO (vuoto, occupato, bloccato, riservato) un'icona che si
+   porta appresso un colore suo mente, ed e' il difetto che avevano le
+   emoji: 🚫 restava rossa dentro una tessera viola.
+
+   LA MISURA E' IN `em`, MAI IN PIXEL. Un'icona sta dentro una riga di testo
+   e con la riga deve crescere. Cosi' segue anche `--spacing` e la scala
+   tipografica senza che nessuno la insegua a mano.
+
+   IL COLORE NON SI DICHIARA QUI: arriva da `currentColor`. Ed e' per questo
+   che adesso le famiglie delle tessere tingono anche il disegno.
+
+   `vertical-align` e non un allineamento da flex: quasi tutte accompagnano
+   una parola dentro uno `<span>`, e un allineamento che vale solo in un
+   contenitore flex lascerebbe le altre appese in alto. */
+.ico {
+  width: 1.15em;
+  height: 1.15em;
+  vertical-align: -0.22em;
+  flex: none;
+}
+
+/* Le tre misure che servono davvero: dentro una tabella densa, accanto a un
+   titolo, sulla tessera di Movimenta. */
+.ico-sm { width: 1em;    height: 1em;    vertical-align: -0.15em; }
+.ico-lg { width: 1.5em;  height: 1.5em;  vertical-align: -0.35em; }
+.ico-xl { width: 2em;    height: 2em;    vertical-align: -0.45em; }
+
+/* Un'icona dentro un pulsante non allarga il pulsante: l'altezza minima ce
+   l'ha gia' lui, e l'icona ci sta dentro. Lo stacco dal testo e' un filo,
+   perche' icona e parola sono la stessa cosa detta due volte. */
+.btn > .ico { margin-right: 0.15rem; }
+.btn > .ico:only-child { margin-right: 0; }
+
+/* SUL TERMINALE L'ICONA CRESCE, LO SPAZIO NO. La densita' dell'MC9400 si
+   stringe nella spaziatura, mai in quello che si deve guardare o colpire:
+   sotto i 536px il disegno sale di un quinto, e il pulsante che porta solo
+   un'icona prende il bersaglio pieno da guanto. */
+@media (max-width: 33.5rem) {
+  .ico    { width: 1.35em; height: 1.35em; vertical-align: -0.3em; }
+  .ico-sm { width: 1.15em; height: 1.15em; vertical-align: -0.22em; }
+  .ico-lg { width: 1.7em;  height: 1.7em;  vertical-align: -0.42em; }
+
+  .btn-icon {
+    min-width: var(--md-touch);
+    min-height: var(--md-touch);
+  }
+}
+
+/* ════ 2.23 — IL GESTO CHE CHIUDE UN'OPERAZIONE ═══════════════════════════
+   Fino alla 2.22 aveva OTTO forme. Cinque schermate scrivevano
+   `flex-1 font-extrabold min-h-[var(--md-touch)]`, quattro
+   `w-full p-5.5 font-bold`, una `btn btn-success` e basta — e il resto
+   variazioni. Non e' una questione di gusto: `.btn` dichiara
+   `min-height: 40px`, e `p-5.5` non arriva a 48. Sei conferme su nove
+   stavano SOTTO il bersaglio che `--md-touch` dichiara, cioe' sotto la
+   misura tarata sul guanto da magazzino.
+
+   Adesso e' una classe. Il COLORE resta della famiglia dell'operazione —
+   `btn-primary` prelievo, `btn-success` carico, `btn-danger` scarico,
+   `btn-warning` quarantena — perche' quello e' uno stato e va detto. Quel
+   che si unifica e' la FORMA: quanto e' grande, quanto pesa, e che si prende
+   col guanto.
+
+   `flex: 1` e non `width: 100%`: il gesto che chiude sta in fila coi gesti
+   che lo accompagnano — «Non trovato», «Salta», «Lascia» — e deve prendersi
+   lo spazio che avanza, non tutta la riga. */
+.btn-conferma {
+  /* LE DUE MISURE LAVORANO INSIEME, e servono tutte e due. Dentro una riga
+     flex vince `flex-basis: 0%` e il pulsante si spartisce lo spazio coi
+     gesti di contorno; FUORI da una riga flex `flex` non fa niente e a
+     tenere la larghezza resta `width`. Sette di questi pulsanti stavano in
+     un `<div>` normale, ed erano `w-full`: col solo `flex: 1` si sarebbero
+     stretti sul testo. */
+  flex: 1;
+  width: 100%;
+  min-height: var(--md-touch);
+  font-weight: 800;
 }

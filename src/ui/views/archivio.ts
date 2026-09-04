@@ -2,6 +2,7 @@ import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
 import { ordina, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
 import type { Colonna, Stato } from '../../modules/tabella';
+import type { Icona } from '../icone';
 
 /* LE QUATTRO SORGENTI RIDOTTE A UNA FORMA SOLA.
 
@@ -20,7 +21,7 @@ type RigaArchivio = {
   print: string;
   /** 2.20 — un secondo foglio dallo stesso documento, dove esiste: la
       packing list del DDT. Assente sugli altri generi. */
-  print2?: { azione: string; icona: string; titolo: string };
+  print2?: { azione: string; icona: Icona; titolo: string };
 };
 
 export const VistaArchivio = {
@@ -30,16 +31,16 @@ export const VistaArchivio = {
   _arcTo: '',
 
   _ARC_KINDS: {
-    ddt:      { label: 'DDT di uscita',    icon: '🚚' },
-    disposal: { label: 'Verbali smalt.',   icon: '🗑️' },
-    nc:       { label: 'Cartelli NC',      icon: '🚫' },
-    pick:     { label: 'Report prelievo',  icon: '📋' },
+    ddt:      { label: 'DDT di uscita',    icon: 'truck' },
+    disposal: { label: 'Verbali smalt.',   icon: 'trash' },
+    nc:       { label: 'Cartelli NC',      icon: 'ban' },
+    pick:     { label: 'Report prelievo',  icon: 'clipboard-text' },
     /* 2.14 — GLI ORDINI DI PRODUZIONE CHIUSI. Stavano nella schermata WIP
        come una riga di pulsantini troncata a otto: un archivio che cresce
        ogni giorno e si sfoglia con gli occhi non è un archivio. Qui c'è la
        tabella che si ordina, si filtra e si cerca per data, la stessa degli
        altri quattro generi. */
-    odp:      { label: 'Ordini chiusi',    icon: '🏗' }
+    odp:      { label: 'Ordini chiusi',    icon: 'forklift' }
   },
 
   /* Le quattro sorgenti ridotte a una forma sola. Ogni riga sa da dove
@@ -65,7 +66,7 @@ export const VistaArchivio = {
         /* La packing list ha senso su un DDT che porta bancali: altrove
            sarebbe un foglio con una sola sezione «merce senza bancale». */
         print2: (d.lines || []).some((l) => l.udc_id)
-          ? { azione: `App._printPackingList('${esc(d.doc_id)}')`, icona: '📦',
+          ? { azione: `App._printPackingList('${esc(d.doc_id)}')`, icona: 'package',
               titolo: 'Packing list — un bancale per blocco' }
           : undefined
       });
@@ -90,7 +91,7 @@ export const VistaArchivio = {
         ts: q.created_at || 0,
         num: q.q_id,
         title: `${q.article_code} · L:${q.lot_code}`,
-        sub: `${q.qty || 1} Coll.${q.partial ? ' (parziale)' : ''} · 📍 ${q.blocked_location} · ${q.reason || '—'}`,
+        sub: `${q.qty || 1} Coll.${q.partial ? ' (parziale)' : ''} · ${this._ico('map-pin')} ${q.blocked_location} · ${q.reason || '—'}`,
         stato: q.status === 'active'
           ? { lbl: 'Attiva', cls: 'badge-amber' }
           : { lbl: 'Rilasciata', cls: 'badge-green' },
@@ -126,7 +127,7 @@ export const VistaArchivio = {
         num: a.odp_num,
         title: `Ordine ${a.odp_num}`,
         sub: `${c.righe.length} rig${c.righe.length === 1 ? 'a' : 'he'} · consumato ${c.consumato} Coll. · reso ${c.tornato}`
-          + (serviti.length ? ` · 🔗 giro di ${serviti.length + 1}` : ''),
+          + (serviti.length ? ` · ${this._ico('link')} giro di ${serviti.length + 1}` : ''),
         stato: { lbl: 'Chiuso', cls: 'badge-green' },
         search: `${a.odp_num} ${serviti.join(' ')} `
           + c.righe.map((r) => r.article_code + ' ' + r.lot_code).join(' '),
@@ -166,7 +167,7 @@ export const VistaArchivio = {
     /* `this` dentro una vista e' ancora `any` — lo diventera' in C2 — e
        quindi cio' che si legge da li' si nomina qui. */
     let rows: RigaArchivio[] = this._archiveRows();
-    const generi = this._ARC_KINDS as Record<GenereArchivio, { label: string; icon: string }>;
+    const generi = this._ARC_KINDS as Record<GenereArchivio, { label: string; icon: Icona }>;
     const totale = rows.length;
 
     if (this._arcType !== 'all') rows = rows.filter((r) => r.kind === this._arcType);
@@ -193,8 +194,8 @@ export const VistaArchivio = {
     for (const r of this._archiveRows()) conteggi[r.kind] = (conteggi[r.kind] || 0) + 1;
 
     el.innerHTML = `
-      <h1 class="text-title-large text-sx-primary font-bold mb-3.5">🗂 Archivio documenti</h1>
-      <p class="text-body-small text-sx-text-secondary mb-7.5 leading-[1.55]">
+      <h1 class="text-title-large text-sx-primary font-bold mb-3.5">${this._ico('folders')} Archivio documenti</h1>
+      <p class="text-body-small text-sx-text-secondary mb-7.5 leading-testo">
         Ogni documento emesso dall'applicativo, aperto o chiuso, ristampabile per tutta la durata di conservazione.
         La ristampa rilegge il documento archiviato: il foglio esce identico a quello del giorno di emissione.
       </p>
@@ -202,7 +203,7 @@ export const VistaArchivio = {
       <div class="config-tabs mb-6">
         ${chip('all', `Tutti (${totale})`)}
         ${Object.entries(generi).map(([id, k]) =>
-          chip(id, `${k.icon} ${k.label} (${conteggi[id] || 0})`)).join('')}
+          chip(id, `${this._ico(k.icon)} ${k.label} (${conteggi[id] || 0})`)).join('')}
       </div>
 
       <div class="config-card mb-6">
@@ -222,7 +223,7 @@ export const VistaArchivio = {
             <input class="input" type="date" id="arcTo" value="${this._esc(this._arcTo)}"
               onchange="App._arcTo=this.value;App.renderArchive()">
           </div>
-          <button class="btn" onclick="App._arcReset()">✕ Azzera filtri</button>
+          <button class="btn" onclick="App._arcReset()">${this._ico('x')} Azzera filtri</button>
         </div>
       </div>
 
@@ -241,7 +242,7 @@ export const VistaArchivio = {
             <tbody>
               ${rows.map((r) => `<tr>
                 <td class="mono whitespace-nowrap">${r.ts ? this._fmtDateTime(r.ts) : '—'}</td>
-                <td><span title="${this._esc(generi[r.kind].label)}">${generi[r.kind].icon} ${this._esc(generi[r.kind].label)}</span></td>
+                <td><span title="${this._esc(generi[r.kind].label)}">${this._ico(generi[r.kind].icon)} ${this._esc(generi[r.kind].label)}</span></td>
                 <td class="mono font-semibold">${this._esc(r.num)}</td>
                 <td>
                   <div class="font-semibold">${this._esc(r.title)}</div>
@@ -249,8 +250,8 @@ export const VistaArchivio = {
                 </td>
                 <td><span class="badge ${r.stato.cls}">${this._esc(r.stato.lbl)}</span></td>
                 <td class="whitespace-nowrap">
-                  <button class="btn btn-sm btn-ghost" onclick="${r.print}" title="Ristampa">🖨</button>
-                  ${r.print2 ? `<button class="btn btn-sm btn-ghost" onclick="${r.print2.azione}" title="${this._esc(r.print2.titolo)}">${r.print2.icona}</button>` : ''}
+                  <button class="btn btn-sm btn-ghost" onclick="${r.print}" title="Ristampa">${this._ico('printer')}</button>
+                  ${r.print2 ? `<button class="btn btn-sm btn-ghost" onclick="${r.print2.azione}" title="${this._esc(r.print2.titolo)}">${this._ico(r.print2.icona, r.print2.titolo)}</button>` : ''}
                 </td>
               </tr>`).join('')}
             </tbody>

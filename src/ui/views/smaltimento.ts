@@ -56,12 +56,12 @@ export const VistaSmaltimento = {
     const lot = Validate.clean($('mOutLot')?.value);
     const el = $('mOutResults');
     if (!art) {
-      el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice articolo</div>';
+      el.innerHTML = `<div class="text-body-small text-sx-danger p-3">${this._ico('circle-x')} Scansiona il codice articolo</div>`;
       $('mOutArt')?.focus();
       return;
     }
     if (!lot) {
-      el.innerHTML = '<div class="text-body-small text-sx-danger p-3">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>';
+      el.innerHTML = `<div class="text-body-small text-sx-danger p-3">${this._ico('circle-x')} Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
       $('mOutLot')?.focus();
       return;
     }
@@ -75,7 +75,7 @@ export const VistaSmaltimento = {
     const itemsRaw = tutte.filter(it => !Store.isItemQuarantined(it.item_key, it.location_code));
     const bloccate = tutte.filter(it => Store.isItemQuarantined(it.item_key, it.location_code));
     const avvisoNC = bloccate.length ? `<div class="mov-preview mov-preview-err my-4 mx-0">
-      🚫 <strong>In quarantena</strong>, non smaltibile da qui:
+      ${this._ico('ban')} <strong>In quarantena</strong>, non smaltibile da qui:
       ${bloccate.map(b => `<span class="mono">${this._esc(b.location_code)}</span> (${b.qty || 1} Coll.)`).join(' · ')}<br>
       <span class="text-label-small">Gestire l'esito tramite <strong>Quarantena → Rilascio</strong>.</span>
     </div>` : '';
@@ -102,7 +102,7 @@ export const VistaSmaltimento = {
       html += `<div class="inv-item-row${isFEFO ? ' fefo-row' : ''}">
         <div class="inv-info">
           <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-body-small">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${qtyAvail} Coll. disp.</strong> (fisici ${qtyPhys})${reservedLabel}${expiryLabel}</div>
+          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · ${this._ico('map-pin')} <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${qtyAvail} Coll. disp.</strong> (fisici ${qtyPhys})${reservedLabel}${expiryLabel}</div>
         </div>
         ${qtyAvail > 0
           ? `<button class="btn btn-sm btn-danger" onclick="App._dispSelect('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">➜ Vai e verifica</button>`
@@ -116,7 +116,7 @@ export const VistaSmaltimento = {
     const bucket = Store.getItemsAtLocation(loc);
     const item = bucket.find(i => i.item_key === key);
     if (!item) return this.toast('Item non più presente in questa ubicazione', 'error');
-    if (Store.isItemQuarantined(key, loc)) return this.toast('🚫 Item in quarantena in questa ubicazione — usare il flusso di rilascio', 'error');
+    if (Store.isItemQuarantined(key, loc)) return this.toast('Item in quarantena in questa ubicazione — usare il flusso di rilascio', 'error');
     const qtyAvail = Store.getAvailableQty(loc, key);
     if (qtyAvail < 1) return this.toast('Merce interamente impegnata su DDT pendenti — modificare o annullare il DDT', 'error');
 
@@ -162,7 +162,7 @@ export const VistaSmaltimento = {
     el.innerHTML = `
       <article class="route-stop-card route-stop-card--out">
         <header class="route-stop-head">
-          <span class="route-stop-seq">🗑️</span>
+          <span class="route-stop-seq">${this._ico('trash')}</span>
           <div class="route-stop-title">
             <div class="route-stop-loc mono">${this._esc(d.location_code)}</div>
             <div class="route-stop-site">${this._esc(site?.name || d.site_id || 'Raggiungi questa ubicazione')}</div>
@@ -190,7 +190,7 @@ export const VistaSmaltimento = {
           <input class="input input-mono" id="dLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('dLoc')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('dLoc');App._dispCheckLoc();}">
-          <button class="btn btn-sm" type="button" onclick="App._pickLoc('dLoc','_dispCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
+          <button class="btn btn-sm" type="button" onclick="App._pickLoc('dLoc','_dispCheckLoc')" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
           </div>
         </div>
         <div class="form-group mb-4">
@@ -232,9 +232,9 @@ export const VistaSmaltimento = {
         </div>
 
         <div class="flex gap-5 mt-7 flex-wrap">
-          <button class="btn btn-danger flex-1 font-extrabold min-h-[var(--md-touch)]"
-            onclick="App._execSmaltire()">🗑️ CONFERMA SMALTIMENTO</button>
-          <button class="btn min-h-[var(--md-touch)]" onclick="App._dispBack()">← Cambia ubicazione</button>
+          <button class="btn btn-danger btn-conferma"
+            onclick="App._execSmaltire()">${this._ico('trash')} CONFERMA SMALTIMENTO</button>
+          <button class="btn min-h-touch" onclick="App._dispBack()">← Cambia ubicazione</button>
         </div>
       </article>`;
     this._dispState.scan = { loc: '', art: '', lot: '' };
@@ -423,7 +423,7 @@ export const VistaSmaltimento = {
     const bucket = Store.getItemsAtLocation(loc);
     const item = bucket.find(i => i.item_key === key);
     if (!item) return this.toast('Item non più presente — ricomincia la ricerca', 'error');
-    if (Store.isItemQuarantined(key, loc)) return this.toast('🚫 Item in quarantena in questa ubicazione — usare il flusso di rilascio', 'error');
+    if (Store.isItemQuarantined(key, loc)) return this.toast('Item in quarantena in questa ubicazione — usare il flusso di rilascio', 'error');
     const qtyAvail = Store.getAvailableQty(loc, key);
     if (qtyAvail < 1) return this.toast('Merce interamente impegnata su DDT pendenti — modificare o annullare il DDT', 'error');
     const qtyOut = parseInt($('dQty')?.value);
@@ -434,13 +434,13 @@ export const VistaSmaltimento = {
     if (!Store.isFEFOItem(item)) {
       const fefo = Store.getFEFOItemForArticle(item.article_code);
       if (fefo && fefo.expiry_date && (!item.expiry_date || item.expiry_date > fefo.expiry_date)) {
-        const msg = `⚠️ NON-FEFO\n\nStai per smaltire ${item.article_code}#${item.lot_code}` +
+        const msg = `${this._ico('alert-triangle')} NON-FEFO\n\nStai per smaltire ${item.article_code}#${item.lot_code}` +
           (item.expiry_date ? ` (scad. ${item.expiry_date})` : '') +
           `\n\nIl lotto FEFO consigliato è: ${fefo.lot_code}` +
           (fefo.expiry_date ? ` (scad. ${fefo.expiry_date})` : '') +
           ` in ${fefo.location_code}\n\nProcedere comunque?`;
         if (!await Dialog.confirm({
-          title: '⚠️ Smaltimento NON conforme a FEFO',
+          title: 'Smaltimento NON conforme a FEFO', icon: 'alert-triangle',
           message: msg,
           confirmLabel: 'Smaltisci comunque questo lotto',
           cancelLabel: 'Annulla',
@@ -521,7 +521,7 @@ export const VistaSmaltimento = {
     if (!archived) this.toast('Verbale non archiviato: la ristampa non sarà disponibile', 'error');
 
     const modeLabel = removed._mode === 'partial' ? `parziale (${removed._qty_after} rimasti)` : 'totale';
-    this.toast(`✓ Smaltito ${qtyOut} Coll. ${modeLabel}: ${removed.article_code}#${removed.lot_code} · ${verbale}`, 'success');
+    this.toast(`Smaltito ${qtyOut} Coll. ${modeLabel}: ${removed.article_code}#${removed.lot_code} · ${verbale}`, 'success');
     this.updateSyncIndicator();
     this._refreshSessionLog();
     await this._taskAvanza(qtyOut, ['DISPOSAL']);   // 1.4.2.1
@@ -529,7 +529,7 @@ export const VistaSmaltimento = {
     if (await Dialog.confirm({
       title: 'Stampare il verbale di smaltimento?',
       message: `Il verbale ${verbale} riporta articolo, lotto, ubicazione, colli, motivazione e operatore, con spazio per la firma. Resta ristampabile dalla sezione Documenti.`,
-      confirmLabel: 'Stampa', cancelLabel: 'Non ora', icon: '🖨'
+      confirmLabel: 'Stampa', cancelLabel: 'Non ora', icon: 'printer'
     })) this._printDisposal(verbale);
 
     // Si torna alla ricerca: lo scarico successivo è quasi sempre un'altra merce
@@ -575,7 +575,7 @@ export const VistaSmaltimento = {
         <div class="doc-brand">
           <svg class="doc-logo" viewBox="0 0 282 52" role="img" aria-label="Naturacare"><use href="#ncLogo"/></svg>
           <div class="doc-sender">
-            <div class="doc-sender-name">${s.name ? this._esc(s.name) : '<span class="doc-empty">Ragione sociale non configurata</span>'}${s.legal_form ? ` <span class="font-normal text-[#666]">· ${this._esc(s.legal_form)}</span>` : ''}</div>
+            <div class="doc-sender-name">${s.name ? this._esc(s.name) : '<span class="doc-empty">Ragione sociale non configurata</span>'}${s.legal_form ? ` <span class="font-normal text-sx-text-secondary">· ${this._esc(s.legal_form)}</span>` : ''}</div>
             ${sede ? `<div>${this._esc(sede)}</div>` : ''}
             ${fisco ? `<div>${this._esc(fisco)}</div>` : ''}
             ${contatti ? `<div>${this._esc(contatti)}</div>` : ''}
@@ -690,7 +690,7 @@ export const VistaSmaltimento = {
     const gaps = this._docSenderGaps();
     if (!gaps.length) return '';
     return `<div class="doc-warn">
-      <b>⚠️ Documento non conforme — anagrafica del mittente incompleta</b>
+      <b>${this._ico('alert-triangle')} Documento non conforme — anagrafica del mittente incompleta</b>
       Mancano: ${this._esc(gaps.join(', '))}. Compilare in Configurazione → DDT e Documenti e ristampare.
     </div>`;
   },

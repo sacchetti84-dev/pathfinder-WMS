@@ -58,13 +58,13 @@ export const VistaMappa = {
             <div class="legend-item"><div class="legend-dot bg-sx-accent"></div>Bancale PF pronto</div>
             <div class="legend-item"><div class="legend-dot bg-sx-warning"></div>Impegnato su DDT</div>
             <div class="legend-item"><div class="legend-dot bg-sx-text-muted"></div>Spedito</div>` : ''}
-          <div class="legend-item ml-auto text-sx-text-muted">💡 Tasto dx = Attiva/Disattiva</div>
+          <div class="legend-item ml-auto text-sx-text-muted">${this._ico('bulb')} Tasto dx = Attiva/Disattiva</div>
         </div>
         <div class="legend">
           <button class="btn btn-sm ${this._mapFiltroPf ? 'btn-primary' : ''}"
             onclick="App._mapToggleFiltroPf()"
             title="Tinge i bancali di prodotto finito con lo stato che hanno">
-            🏭 ${this._mapFiltroPf ? 'Prodotto finito: acceso' : 'Prodotto finito'}
+            ${this._ico('building-factory')} ${this._mapFiltroPf ? 'Prodotto finito: acceso' : 'Prodotto finito'}
           </button>
         </div>
         ${this._fasciaConformita(locs)}
@@ -106,12 +106,12 @@ export const VistaMappa = {
     const deroghe = conf.deroghe.filter((d: Deroga) => qui.has(d.location_code)).length;
     const nastroDeroghe = deroghe
       ? `<button class="conf-deroghe" onclick="App.mostraDeroghe()" title="Allergeni ammessi per riserva della cella">
-          🔓 ${deroghe} in deroga</button>`
+          ${this._ico('lock-open')} ${deroghe} in deroga</button>`
       : '';
 
     if (!righe.length && deroghe) {
       return `<div class="conf-bar conf-bar--muta">
-        <span>✓ Nessuna giacenza fuori posto in questa zona</span>${nastroDeroghe}
+        <span>${this._ico('check')} Nessuna giacenza fuori posto in questa zona</span>${nastroDeroghe}
         ${senzaAttributi ? `<span class="conf-bar-nota">${senzaAttributi} articoli non ancora classificati, non verificati</span>` : ''}
       </div>`;
     }
@@ -121,7 +121,7 @@ export const VistaMappa = {
          non c'e' ancora niente da verificare? Sono due cose diverse. */
       if (!conf.verificabili && senzaAttributi) {
         return `<div class="conf-bar conf-bar--muta">
-          🧭 Verifica di stoccaggio inattiva — <strong>${senzaAttributi}</strong> articoli
+          ${this._ico('compass')} Verifica di stoccaggio inattiva — <strong>${senzaAttributi}</strong> articoli
           senza classe di temperatura, allergeni né pericolosità. Si popolano da Configurazione → Articoli → Export/Import Excel.
         </div>`;
       }
@@ -130,7 +130,7 @@ export const VistaMappa = {
 
     const alte = righe.filter((n: NonConformita) => n.gravita === 'alta').length;
     return `<div class="conf-bar ${alte ? 'conf-bar--alta' : 'conf-bar--media'}">
-      <span>⚠️ <strong>${righe.length}</strong> ${righe.length === 1 ? 'giacenza fuori posto' : 'giacenze fuori posto'} in questa zona${alte ? ` — <strong>${alte}</strong> ${alte === 1 ? 'grave' : 'gravi'}` : ''}</span>
+      <span>${this._ico('alert-triangle')} <strong>${righe.length}</strong> ${righe.length === 1 ? 'giacenza fuori posto' : 'giacenze fuori posto'} in questa zona${alte ? ` — <strong>${alte}</strong> ${alte === 1 ? 'grave' : 'gravi'}` : ''}</span>
       <button class="btn btn-sm" onclick="App.mostraNonConformita()">Vedi elenco</button>
       ${nastroDeroghe}
       ${senzaAttributi ? `<span class="conf-bar-nota">${senzaAttributi} articoli non ancora classificati, non verificati</span>` : ''}
@@ -194,7 +194,7 @@ export const VistaMappa = {
         : null;
       return `
       <tr class="${n.gravita === 'alta' ? 'conf-riga-alta' : ''}">
-        <td class="text-center">${n.gravita === 'alta' ? '⛔' : '⚠️'}</td>
+        <td class="text-center">${n.gravita === 'alta' ? this._ico('alert-octagon', 'Grave') : this._ico('alert-triangle', 'Avviso')}</td>
         <td><button class="conf-vai mono" onclick="App.closeModal();App.goToLocation('${this._esc(n.location_code)}')">${this._esc(n.location_code)}</button></td>
         <td>
           <div class="mono font-bold nc-una-riga">${this._esc(n.article_code)}</div>
@@ -208,7 +208,7 @@ export const VistaMappa = {
         <td class="text-right">${n.item_key
           ? `<button class="btn btn-sm btn-primary whitespace-nowrap" title="${
               dove ? `Rimetti a posto in ${this._esc(dove.location_code)}` : 'Scegli la destinazione'
-            }" onclick="App._trasferisciDaElenco('${this._esc(n.location_code)}','${this._esc(n.item_key)}','${this._esc(dove?.location_code || '')}')">🔀<span class="nc-tasto-testo"> Trasferisci</span></button>`
+            }" onclick="App._trasferisciDaElenco('${this._esc(n.location_code)}','${this._esc(n.item_key)}','${this._esc(dove?.location_code || '')}')">${this._ico('arrows-shuffle')}<span class="nc-tasto-testo"> Trasferisci</span></button>`
           : ''}</td>
       </tr>`;
     }).join('');
@@ -217,7 +217,7 @@ export const VistaMappa = {
       <div class="conf-riepilogo">
         ${[...perTipo].map(([t, n]) => `<span class="conf-chip">${this._esc(this._etichettaTipoNC(t))}: <strong>${n}</strong></span>`).join('')}
         <span class="conf-chip conf-chip--muta">verificate ${conf.verificabili} di ${conf.righe} giacenze</span>
-        ${conf.deroghe.length ? `<button class="conf-deroghe" onclick="App.mostraDeroghe()">🔓 ${conf.deroghe.length} in deroga su celle riservate</button>` : ''}
+        ${conf.deroghe.length ? `<button class="conf-deroghe" onclick="App.mostraDeroghe()">${this._ico('lock-open')} ${conf.deroghe.length} in deroga su celle riservate</button>` : ''}
       </div>
       <div class="overflow-x-auto max-h-[62vh]">
         <table class="sx-table sx-table-nc">
@@ -231,7 +231,7 @@ export const VistaMappa = {
       </div>
       ${conf.nonConformita.length > 300 ? `<div class="dlg-nota">Mostrate le prime 300 di ${conf.nonConformita.length}. L'export Excel le porta tutte.</div>` : ''}
     `, `<button class="btn" onclick="App.closeModal()">Chiudi</button>
-        <button class="btn btn-accent" onclick="App.esportaNonConformita()">📊 Esporta Excel</button>`,
+        <button class="btn btn-accent" onclick="App.esportaNonConformita()">${this._ico('chart-bar')} Esporta Excel</button>`,
         'modal-larga');
   },
 
@@ -264,7 +264,7 @@ export const VistaMappa = {
         </table>
       </div>
     `, `<button class="btn" onclick="App.closeModal()">Chiudi</button>
-        <button class="btn btn-accent" onclick="App.esportaDeroghe()">📊 Esporta Excel</button>`);
+        <button class="btn btn-accent" onclick="App.esportaDeroghe()">${this._ico('chart-bar')} Esporta Excel</button>`);
   },
 
   /* QUANTA MERCE È FUORI POSTO, non solo quante righe.
@@ -303,7 +303,7 @@ export const VistaMappa = {
       };
     })), 'Deroghe');
     XLSX.writeFile(wb, `allergeni-in-deroga-${new Date().toISOString().slice(0,10)}.xlsx`);
-    this.toast('✓ Excel esportato', 'success');
+    this.toast('Excel esportato', 'success');
   },
 
   _etichettaTipoNC(tipo: string) {
@@ -339,7 +339,7 @@ export const VistaMappa = {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(data), 'Fuori posto');
     XLSX.writeFile(wb, `giacenze-fuori-posto-${new Date().toISOString().slice(0,10)}.xlsx`);
-    this.toast('✓ Excel esportato', 'success');
+    this.toast('Excel esportato', 'success');
   },
 
   setMapView(mode) { this.mapViewMode = mode; this.renderMap(); },
@@ -424,7 +424,7 @@ export const VistaMappa = {
     if (!nc) return { cls: '', title: '', badge: '' };
     return {
       cls: nc.gravita === 'alta' ? ' conf-ko' : ' conf-warn',
-      title: ` · ⚠️ ${nc.n} fuori posto`,
+      title: ` · ${nc.n} fuori posto`,
       badge: '<span class="conf-mark">!</span>',
     };
   },
@@ -578,7 +578,7 @@ export const VistaMappa = {
       if (this.selectedLocation) this.renderDetail(this.selectedLocation);
       this.updateSyncIndicator();
       this._refreshSessionLog?.();
-      this.toast(`🔀 ${id}: ${da} → ${code} · ${esito?.righe ?? 0} righe`, 'success');
+      this.toast(`${id}: ${da} → ${code} · ${esito?.righe ?? 0} righe`, 'success');
     } catch (e) {
       this.toast((e as Error).message, 'error');
     }
@@ -589,7 +589,7 @@ export const VistaMappa = {
     if (zone.type === 'RACK') {
       const mirrored = zone.mirror_frontal === true;
       const dirLabel = mirrored ? ' <span class="text-label-small text-sx-warning font-semibold normal-case">← specchiata (dx→sx)</span>' : '';
-      html += `<div class="front-section"><div class="front-section-title">🏗️ Rack — Vista Frontale${dirLabel}</div>`;
+      html += `<div class="front-section"><div class="front-section-title">${this._ico('forklift')} Rack — Vista Frontale${dirLabel}</div>`;
       const levels = [...(zone.levels || ['T'])].reverse();
       const bays = zone.bays_per_aisle || 1;
       const aisles = zone.aisles || 1;
@@ -631,7 +631,7 @@ export const VistaMappa = {
     } else if (zone.type === 'FLOOR') {
       const cols = zone.positions_per_row || 1;
       const rows = zone.rows || 1;
-      html += `<div class="front-section"><div class="front-section-title">📦 Floor — Stoccaggio a terra</div>
+      html += `<div class="front-section"><div class="front-section-title">${this._ico('package')} Floor — Stoccaggio a terra</div>
         <div class="floor-zone-vis" style="grid-template-columns:28px repeat(${cols}, 1fr)">`;
       for (let r = 1; r <= rows; r++) {
         html += `<div class="floor-row-label">F${String(r).padStart(2,'0')}</div>`;
@@ -661,7 +661,7 @@ export const VistaMappa = {
       html += '</div></div>';
     } else if (zone.type === 'BULK') {
       const cols = zone.grid_cols || Math.ceil(Math.sqrt(zone.positions || 1));
-      html += `<div class="front-section"><div class="front-section-title">📋 Bulk — Area libera</div>
+      html += `<div class="front-section"><div class="front-section-title">${this._ico('clipboard-text')} Bulk — Area libera</div>
         <div class="bulk-zone-vis" style="grid-template-columns:repeat(${cols}, 56px)">`;
       for (const loc of locs) {
         const status = Store.getLocationStatus(loc.code);

@@ -11,6 +11,20 @@ type MovInAttesa = Movimento & { _failedAt: number };
 import { ScanGuard } from '../../modules/scanGuard';
 import { Dialog } from '../dialog';
 import { Tabs } from '../tabs';
+import type { Icona } from '../icone';
+
+/** I MODI CHE `startMov` SA APRIRE.
+
+    Sta qui e non dentro `startMov` perché serve a qualcun altro: le
+    scorciatoie del cruscotto puntano a un modo, e fino alla 2.22 tre di loro
+    puntavano a un nome che non esisteva — `quar` invece di `quarantine`,
+    `camp` invece di `sampling`, `ship` invece di `shipping`. Non davano
+    errore: `forms[mode]` era `undefined`, l'optional chaining lo ingoiava, e
+    il pulsante restava un pulsante che non fa niente.
+
+    Da qui in poi un modo sbagliato NON COMPILA. */
+export type ModoMovimenta =
+  | 'io' | 'pick' | 'inv' | 'quarantine' | 'shipping' | 'sampling' | 'udc' | 'pf';
 
 export const VistaMovimenta = {
   renderMovimenta() {
@@ -21,34 +35,37 @@ export const VistaMovimenta = {
     const pendShip = Store.getPendingOutbound('SHIP').length;
     el.innerHTML = `<div class="mov-container">
       <div class="mov-header">
-        <div class="mov-header-icon">📦</div>
+        <div class="mov-header-icon">${this._ico('package', '', 'ico-xl')}</div>
         <div class="mov-header-text">
           <h2>Movimentazione Magazzino</h2>
           <p class="text-body-small text-sx-text-secondary">Scansiona con lettore barcode · ${logCount ? `<span class="text-sx-success font-semibold">${logCount} operazioni in sessione</span>` : 'Nessuna operazione'}${(pendRes+pendShip) > 0 ? ` · <span class="text-sx-warning font-semibold">${pendRes+pendShip} DDT pendenti</span>` : ''}</p>
         </div>
       </div>
       <div class="mov-actions">
-        ${this._movCard('io', 'c-green', '📦', 'Carico / Scarico', 'Posiziona e smaltisci · F2 / F6', 'var(--sx-success)')}
-        ${this._movCard('pick', 'c-blue', '🏗️', 'Prelievo', 'Cambio ubicazione · Produzione · F3', 'var(--sx-accent)')}
-        ${this._movCard('inv', 'c-amber', '📋', 'Inventario', 'Verifica e rettifica · F4', 'var(--sx-warning)')}
-        ${this._movCard('quarantine', 'c-purple', '🚫', 'Quarantena', 'Blocco qualità · NC · F7', 'var(--sx-purple)', Store.getActiveQuarantine().length)}
-        ${this._movCard('shipping', 'c-orange', '🚚', 'Spedizioni', 'DDT · Resi e spedizioni · F8', 'var(--sx-orange)', pendRes + pendShip)}
+        ${this._movCard('io', 'c-green', 'package', 'Carico / Scarico', 'Posiziona e smaltisci · F2 / F6', 'var(--sx-success)')}
+        ${this._movCard('pick', 'c-blue', 'forklift', 'Prelievo', 'Cambio ubicazione · Produzione · F3', 'var(--sx-accent)')}
+        ${this._movCard('inv', 'c-amber', 'clipboard-text', 'Inventario', 'Verifica e rettifica · F4', 'var(--sx-warning)')}
+        ${this._movCard('quarantine', 'c-purple', 'ban', 'Quarantena', 'Blocco qualità · NC · F7', 'var(--sx-purple)', Store.getActiveQuarantine().length)}
+        ${/* 2.23 — IL CARICO DEL CAMION È ENTRATO QUI DENTRO. Erano due
+             tessere, ed erano due momenti dello stesso mestiere: si
+             compone il documento, si va a prendere i bancali, si
+             evade. Il contatore somma i DDT pendenti e il carico in
+             corso, perché sono la stessa domanda — quanto è rimasto
+             aperto di là. */
+          this._movCard('shipping', 'c-orange', 'truck', 'Spedizioni',
+            'DDT · Carico camion · Resi · F8', 'var(--sx-orange)',
+            pendRes + pendShip + (Store.getCaricoInCorso() ? 1 : 0))}
         ${/* 1.4.2.1 — l'ottava operazione, che prima non c'era. Compare con lo
              schedulatore perché è lui che l'ha fatta nascere; quanto cala lo
              decide la maschera, guardando l'unità di misura dell'articolo. */
-          this._movCard('sampling', 'c-teal', '🧪', 'Campionamento', 'Il collo resta, cala ciò che c\'è dentro', 'var(--sx-teal)')}
+          this._movCard('sampling', 'c-teal', 'flask', 'Campionamento', 'Il collo resta, cala ciò che c\'è dentro', 'var(--sx-teal)')}
         ${/* 1.12 — la nona. Gli interruttori sono spariti con la 2.0: la
              tessera c'è sempre. */
-          this._movCard('udc', 'c-indigo', '📦', 'Unità di carico', 'Il pallet porta con sé quello che ha sopra', 'var(--sx-primary)', Store.getUdcAperte().length)}
+          this._movCard('udc', 'c-indigo', 'stack', 'Unità di carico', 'Il pallet porta con sé quello che ha sopra', 'var(--sx-primary)', Store.getUdcAperte().length)}
         ${/* 2.20 — la decima. Stesso colore dell'unità di carico, e non è una
              svista: un bancale di prodotto finito È un'unità di carico, con
              tre campi in più. Due tessere della stessa famiglia. */
-          this._movCard('pf', 'c-pf', this.MARCHIO_BANCALE, 'Prodotto finito', 'Bancali imballati, etichettati, pronti a partire', 'var(--sx-primary)')}
-        ${/* 2.21 — l'undicesima. È il giro di prelievo di chi carica il
-             camion: le tappe sono bancali, e alla fine i DDT si evadono. */
-          this._movCard('load', 'c-load', '🚛', 'Carico spedizioni',
-            'Un DDT per volta, bancali scansionati in baia', 'var(--sx-orange)',
-            Store.getCaricoInCorso() ? 1 : 0)}
+          this._movCard('pf', 'c-pf', { marchio: this.MARCHIO_BANCALE }, 'Prodotto finito', 'Bancali imballati, etichettati, pronti a partire', 'var(--sx-primary)')}
       </div>
       <div id="undoBarArea">${this._undoBarHTML()}</div>
       <div id="taskRunBanner"></div>
@@ -64,14 +81,24 @@ export const VistaMovimenta = {
      con `currentColor`. */
   MARCHIO_BANCALE: '<svg class="mov-icon-svg" viewBox="0 0 48 48" role="img" aria-label="Bancale di prodotto finito"><use href="#pfIconBancale"/></svg>',
 
-  _movCard(mode: string, cls: string, icon: string, title: string, sub: string,
-           color: string, badgeCount = 0) {
+  /* 2.23 — L'ICONA DELLA TESSERA È UN NOME, salvo il bancale che è un marchio
+     di casa e resta un SVG scritto qui. Il tipo separa i due casi invece di
+     annusare la stringa: una `Icona` non comincia con `<`, ma affidarsi a
+     questo vorrebbe dire che il giorno che qualcuno passa un nome sbagliato
+     esce del markup a video invece di un errore.
+
+     E IL COLORE DELLA TESSERA ADESSO TINGE ANCHE IL DISEGNO. Prima stava solo
+     sul titolo, perché un'emoji il colore se lo porta da sé e lo ignora: 🚫
+     restava rossa dentro la tessera viola della quarantena. */
+  _movCard(mode: string, cls: string, icona: Icona | { marchio: string },
+           title: string, sub: string, color: string, badgeCount = 0) {
     const active = this._movMode === mode ? 'active' : '';
     // v2.1.0 — badge portato a dimensione leggibile e spostato su classe dedicata
     const badge = badgeCount > 0 ? `<span class="mov-badge" style="background:${color}">${badgeCount}</span>` : '';
+    const disegno = typeof icona === 'string' ? this._ico(icona) : icona.marchio;
     return `<div class="mov-action-card ${cls} ${active} relative" onclick="App.startMov('${mode}')">
       ${badge}
-      <div class="mov-action-icon">${icon}</div>
+      <div class="mov-action-icon" style="color:${color}">${disegno}</div>
       <h3 style="color:${color}">${title}</h3>
       <p>${sub}</p>
     </div>`;
@@ -81,10 +108,14 @@ export const VistaMovimenta = {
     if (mode === 'in')  { dir = 'in';  mode = 'io'; }
     if (mode === 'out') { dir = 'out'; mode = 'io'; }
     if (mode === 'returns') mode = 'shipping';
+    /* `load` era una tessera sua fino alla 2.22: adesso è una scheda di
+       Spedizioni. Il nome vecchio resta buono — lo usano la scorciatoia
+       del cruscotto e chiunque abbia scritto `startMov('load')`. */
+    if (mode === 'load') { this._shipSubMode = 'carico'; mode = 'shipping'; }
     if (mode === 'io' && dir && dir !== this._ioMode) { this._ioMode = dir; this._dispReset(); }
     this._movMode = mode;
     document.querySelectorAll('.mov-action-card').forEach(c => c.classList.remove('active'));
-    const map: Record<string, string> = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal', udc: 'c-indigo', pf: 'c-pf', load: 'c-load' };
+    const map: Record<string, string> = { io: 'c-green', pick: 'c-blue', inv: 'c-amber', quarantine: 'c-purple', shipping: 'c-orange', sampling: 'c-teal', udc: 'c-indigo', pf: 'c-pf' };
     document.querySelector(`.mov-action-card.${map[mode]}`)?.classList.add('active');
     const fa = $('movFormArea');
     /* Ogni maschera si disegna dentro la stessa area, e `call` le passa il
@@ -92,8 +123,7 @@ export const VistaMovimenta = {
     const forms: Record<string, ((el: HTMLElement) => void) | undefined> = {
       io: this._formCaricoScarico, pick: this._formPrelievo, inv: this._formInventario,
       quarantine: this._formQuarantena, shipping: this._formSpedizioni, sampling: this._formCampionamento,
-      udc: this._formUdc, pf: this._formProdottoFinito,
-      load: this._formCaricoSpedizione };
+      udc: this._formUdc, pf: this._formProdottoFinito };
     forms[mode]?.call(this, fa);
   },
 
@@ -109,6 +139,7 @@ export const VistaMovimenta = {
     this._qStage = 'search';          // v1.1.0 [N4] — tappa di quarantena a metà: non sopravvive
     this._campReset();                // 1.4.2.1 — e nemmeno un campione a metà
     this._shipResetHeader();
+    this._shipSubMode = 'documenti';
     /* 1.4.2.1 — chiudere la maschera senza aver confermato niente non e' una
        lavorazione: il compito torna in carico. Se invece qualcosa si e'
        mosso, `abandonTask` lo lascia dov'e' — decisione 46. */
@@ -174,7 +205,7 @@ export const VistaMovimenta = {
     }
     const spazio = Persistence.diskFull;
     Dialog.confirm({
-      title: '⚠️ MOVIMENTO NON REGISTRATO A REGISTRO',
+      title: 'MOVIMENTO NON REGISTRATO A REGISTRO',
       message: (spazio
         ? 'Lo spazio di archiviazione è esaurito. '
         : 'La scrittura nel database non è riuscita. ') +
@@ -188,7 +219,7 @@ export const VistaMovimenta = {
         ['Ubicazione', entry.dest_location ? `${entry.location_code} → ${entry.dest_location}` : (entry.location_code || '—')],
         ['Operatore', entry.user || '—']
       ]),
-      confirmLabel: 'Ho annotato', danger: true, icon: '⚠️'
+      confirmLabel: 'Ho annotato', danger: true, icon: 'alert-triangle'
     });
     this._renderRecoveryBanner();
   },
@@ -202,7 +233,7 @@ export const VistaMovimenta = {
       el.className = 'readonly-banner';
       document.body.appendChild(el);
     }
-    el.innerHTML = `<span>👁 <strong>Sola lettura</strong> — l’applicativo è già aperto in un’altra finestra, che è quella che sta scrivendo. I dati qui possono non essere aggiornati.</span>
+    el.innerHTML = `<span>${this._ico('eye')} <strong>Sola lettura</strong> — l’applicativo è già aperto in un’altra finestra, che è quella che sta scrivendo. I dati qui possono non essere aggiornati.</span>
       <button class="btn btn-sm btn-warning" onclick="App.takeOverTab()">Lavora da qui</button>`;
   },
 
@@ -252,8 +283,8 @@ export const VistaMovimenta = {
       if (rimasti.length) localStorage.setItem(this._MOVQUEUE_KEY, JSON.stringify(rimasti));
       else localStorage.removeItem(this._MOVQUEUE_KEY);
     } catch {}
-    if (scritti) this.toast(`✓ ${scritti} movimento/i in attesa recuperato/i e scritto/i a registro`, 'success');
-    if (rimasti.length) this.toast(`⚠️ ${rimasti.length} movimento/i non ancora recuperabile/i — liberare spazio`, 'error');
+    if (scritti) this.toast(`${scritti} movimento/i in attesa recuperato/i e scritto/i a registro`, 'success');
+    if (rimasti.length) this.toast(`${rimasti.length} movimento/i non ancora recuperabile/i — liberare spazio`, 'error');
     this._renderRecoveryBanner();
   },
 
@@ -269,7 +300,7 @@ export const VistaMovimenta = {
       el.className = 'recovery-banner';
       document.body.appendChild(el);
     }
-    el.innerHTML = `<span>⚠️ <strong>${n}</strong> movimento/i eseguito/i ma NON ancora scritto/i a registro.</span>
+    el.innerHTML = `<span>${this._ico('alert-triangle')} <strong>${n}</strong> movimento/i eseguito/i ma NON ancora scritto/i a registro.</span>
       <button class="btn btn-sm btn-warning" onclick="App._flushRecoveryQueue()">Riprova ora</button>
       <button class="btn btn-sm" onclick="App._showRecoveryQueue()">Vedi elenco</button>`;
   },
@@ -286,7 +317,7 @@ export const VistaMovimenta = {
       <td>${this._esc(e.user || '—')}</td>
     </tr>`).join('');
     this.showModal(
-      `⚠️ Movimenti in attesa di registrazione (${coda.length})`,
+      `Movimenti in attesa di registrazione (${coda.length})`,
       `<p class="text-body-small text-sx-text-secondary mb-6">
         Queste operazioni <strong>sono state eseguite sulla giacenza</strong> ma non è stato possibile scriverle
         nel registro movimenti. Restano in coda e vengono ritentate a ogni avvio e a ogni click su “Riprova”.
@@ -306,29 +337,36 @@ export const VistaMovimenta = {
 
   _renderSessionLog() {
     if (!this._movSessionLog.length) {
-      return `<div class="mov-recent"><h3>📋 Registro Sessione
-        <button class="btn btn-sm ml-auto text-label-small" onclick="App.exportMovLogExcel()">📊 Excel completo</button></h3>
+      return `<div class="mov-recent"><h3>${this._ico('clipboard-text')} Registro Sessione
+        <button class="btn btn-sm ml-auto text-label-small" onclick="App.exportMovLogExcel()">${this._ico('chart-bar')} Excel completo</button></h3>
         <div class="p-3 text-body-small text-sx-text-muted">Nessuna operazione in sessione</div></div>`;
     }
+    /* 2.23 — LE CAUSALI PORTANO UN NOME DI ICONA, NON UN GLIFO. Il segno di
+       `FIX+` e `FIX-` resta accanto e non dentro: è l'unica cosa che
+       distingue le due righe, e un'icona uguale con un segno diverso si
+       legge meglio di due disegni che si somigliano. */
     const icons = {
-      IN: { cls: 'mov-log-in', ico: '📦' },
-      OUT: { cls: 'mov-log-out', ico: '🗑️' },
-      MOVE: { cls: 'mov-log-move', ico: '🔄' },
-      PICK: { cls: 'mov-log-out', ico: '🏭' },
-      REPOS: { cls: 'mov-log-in', ico: '📦' },
-      'FIX+': { cls: 'mov-log-fix', ico: '📋+' },
-      'FIX-': { cls: 'mov-log-fix', ico: '📋−' },
-      QUAR: { cls: 'mov-log-quar', ico: '🚫' },
-      QREL: { cls: 'mov-log-in', ico: '✅' },
-      EDIT: { cls: 'mov-log-fix', ico: '✏️' },         // v2.0
-      RET: { cls: 'mov-log-out', ico: '↩️' },           // v2.0 — Reso ritirato (uscita)
-      SHIP: { cls: 'mov-log-out', ico: '🚚' },          // v2.0 — Spedizione (uscita)
-      PINRESET: { cls: 'mov-log-fix', ico: '🔑' }       // v2.7.0 [G6] — evento di audit, non merce
+      IN:       { cls: 'mov-log-in',   ico: 'package' as const,          segno: '' },
+      OUT:      { cls: 'mov-log-out',  ico: 'trash' as const,            segno: '' },
+      MOVE:     { cls: 'mov-log-move', ico: 'refresh' as const,          segno: '' },
+      PICK:     { cls: 'mov-log-out',  ico: 'building-factory' as const, segno: '' },
+      REPOS:    { cls: 'mov-log-in',   ico: 'package' as const,          segno: '' },
+      'FIX+':   { cls: 'mov-log-fix',  ico: 'clipboard-text' as const,   segno: '+' },
+      'FIX-':   { cls: 'mov-log-fix',  ico: 'clipboard-text' as const,   segno: '−' },
+      QUAR:     { cls: 'mov-log-quar', ico: 'ban' as const,              segno: '' },
+      QREL:     { cls: 'mov-log-in',   ico: 'circle-check' as const,     segno: '' },
+      EDIT:     { cls: 'mov-log-fix',  ico: 'pencil' as const,           segno: '' },  // v2.0
+      /* La freccia resta testo: marca una riga in un elenco denso, e da
+         icona peserebbe più della causale che accompagna. */
+      RET:      { cls: 'mov-log-out',  ico: null,                        segno: '↩' }, // v2.0 — Reso ritirato (uscita)
+      SHIP:     { cls: 'mov-log-out',  ico: 'truck' as const,            segno: '' },  // v2.0 — Spedizione (uscita)
+      PINRESET: { cls: 'mov-log-fix',  ico: 'key' as const,              segno: '' }   // v2.7.0 [G6] — evento di audit, non merce
     };
-    let html = `<div class="mov-recent"><h3>📋 Registro Sessione (${this._movSessionLog.length})
-      <button class="btn btn-sm ml-auto text-label-small" onclick="App.exportMovLogExcel()">📊 Excel completo</button></h3>`;
+    let html = `<div class="mov-recent"><h3>${this._ico('clipboard-text')} Registro Sessione (${this._movSessionLog.length})
+      <button class="btn btn-sm ml-auto text-label-small" onclick="App.exportMovLogExcel()">${this._ico('chart-bar')} Excel completo</button></h3>`;
     for (const m of (this._movSessionLog as Movimento[]).slice(0, 20)) {
-      const c = (icons as Partial<Record<TipoMovimento, { cls: string; ico: string }>>)[m.type] || icons.IN;
+      const c = (icons as Partial<Record<TipoMovimento,
+        { cls: string; ico: Icona | null; segno: string }>>)[m.type] || icons.IN;
       const loc = (m.type === 'MOVE' || m.type === 'QUAR') && m.dest_location ? `${m.location_code} → ${m.dest_location}` : m.location_code;
       // v1.7.0: indicatore qty se presente
       let qtyInfo = '';
@@ -338,10 +376,10 @@ export const VistaMovimenta = {
         if (typeof m.qty_after === 'number') qtyInfo += ` (saldo: ${m.qty_after})`;
       }
       html += `<div class="mov-log-item">
-        <div class="mov-log-icon ${c.cls}">${c.ico}</div>
+        <div class="mov-log-icon ${c.cls}">${c.ico ? this._ico(c.ico) : ''}${c.segno}</div>
         <div class="mov-log-info">
           <div class="mov-log-primary">${this._esc(MOV_LABELS[m.type] || m.type)} · ${this._esc(m.article_code)}${qtyInfo}</div>
-          <div class="mov-log-secondary">L:${this._esc(m.lot_code)} · 📍${this._esc(loc)} · ${new Date(m.ts).toLocaleTimeString('it-IT')}</div>
+          <div class="mov-log-secondary">L:${this._esc(m.lot_code)} · ${this._ico('map-pin')}${this._esc(loc)} · ${new Date(m.ts).toLocaleTimeString('it-IT')}</div>
         </div>
       </div>`;
     }
@@ -352,7 +390,7 @@ export const VistaMovimenta = {
   _formCaricoScarico(el) {
     const isOut = this._ioMode === 'out';
     el.innerHTML = `<div class="mov-form-card">
-      <h3>📦 <span style="color:${isOut ? 'var(--sx-danger)' : 'var(--sx-success)'}">Carico / Scarico</span></h3>
+      <h3>${this._ico('package')} <span style="color:${isOut ? 'var(--sx-danger)' : 'var(--sx-success)'}">Carico / Scarico</span></h3>
 
       <div class="io-toggle" role="tablist" aria-label="Direzione del movimento">
         <button class="io-tab ${isOut ? '' : 'active'} io-tab--in" role="tab" aria-selected="${!isOut}"
@@ -369,7 +407,7 @@ export const VistaMovimenta = {
 
       <div id="ioSubForm"></div>
 
-      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">${this._ico('x')} Chiudi</button></div>
     </div>`;
     this._renderIoSub();
   },

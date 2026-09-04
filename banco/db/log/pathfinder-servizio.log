@@ -1,8 +1,0 @@
-2026-09-02T22:27:24.092Z  ERRORE  servizio.avvio  database non aperto: il database rifiuta la connessione, e aspettare non serve: il database "pathfinder_prova" non esiste
-2026-09-02T22:27:42.556Z  INFO    servizio.avvio  versione 2.19.0 — porta 4199 — SQLite — C:/Users/sacch/OneDrive/Desktop/PROGETTI E CODING/MAPPER/banco/db/ui.db
-2026-09-02T22:28:22.393Z  AVVISO  auth.401  GET /api/events — sessione assente o scaduta
-2026-09-02T22:29:54.167Z  AVVISO  auth.401  POST /api/c/meta/bulk — sessione assente o scaduta
-2026-09-02T22:30:09.024Z  AVVISO  auth.401  GET /api/events — sessione assente o scaduta
-2026-09-02T22:51:14.546Z  INFO    servizio.avvio  versione 2.19.0 — porta 4199 — SQLite — C:/Users/sacch/OneDrive/Desktop/PROGETTI E CODING/MAPPER/banco/db/ui.db
-2026-09-02T22:51:23.674Z  AVVISO  auth.401  GET /api/events — sessione assente o scaduta
-2026-09-03T02:52:21.289Z  INFO    servizio.avvio  versione 2.19.0 — porta 4199 — SQLite — C:\Users\sacch\OneDrive\Desktop\PROGETTI E CODING\MAPPER\banco\db\ciclo.db

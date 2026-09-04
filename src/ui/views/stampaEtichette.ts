@@ -77,15 +77,15 @@ export const VistaStampaEtichette = {
        foglio, che è quel che l'applicativo faceva ieri. */
     if (!servito || !stampanti.length) {
       return this.showModal(
-        `🏷 ${this._esc(richiesta.titolo)}`,
-        `<div class="mov-preview mov-preview-warn mb-7 leading-[1.6]">
+        `${this._ico('tag')} ${this._esc(richiesta.titolo)}`,
+        `<div class="mov-preview mov-preview-warn mb-7 leading-larga">
           ${!servito
             ? '<strong>Questa macchina lavora da file.</strong> La stampa in rete la fa il servizio: senza, non c’è nessuno che possa parlare alla stampante.'
             : '<strong>Nessuna stampante configurata.</strong> Le Zebra in rete si aggiungono in <strong>Configurazione → Stampanti</strong>.'}
           <br>L’etichetta esce su <strong>A4 dal browser</strong>, come è sempre uscita.
         </div>`,
         `<button class="btn" onclick="App.closeModal()">Annulla</button>
-         <button class="btn btn-primary" onclick="App.closeModal();${richiesta.suA4}">🖨 Stampa su A4</button>`
+         <button class="btn btn-primary" onclick="App.closeModal();${richiesta.suA4}">${this._ico('printer')} Stampa su A4</button>`
       );
     }
 
@@ -100,7 +100,7 @@ export const VistaStampaEtichette = {
     }).replace(/"/g, '&quot;');
 
     this.showModal(
-      `🏷 ${this._esc(richiesta.titolo)}`,
+      `${this._ico('tag')} ${this._esc(richiesta.titolo)}`,
       `<div class="form-group mb-6">
         <label>Stampante <span class="req">*</span></label>
         <select class="input select" id="stpQuale">
@@ -122,8 +122,8 @@ export const VistaStampaEtichette = {
         </div>
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
-       <button class="btn" onclick="App.closeModal();${richiesta.suA4}">🖨 Su A4</button>
-       <button class="btn btn-success" onclick="App._eseguiStampaEtichetta(${carico})">🏷 Stampa</button>`
+       <button class="btn" onclick="App.closeModal();${richiesta.suA4}">${this._ico('printer')} Su A4</button>
+       <button class="btn btn-success" onclick="App._eseguiStampaEtichetta(${carico})">${this._ico('tag')} Stampa</button>`
     );
     /* Il campo delle copie si prende il fuoco e si seleziona: chi ne vuole
        tre digita «3» e basta, senza prima cancellare l'uno. */
@@ -168,14 +168,14 @@ export const VistaStampaEtichette = {
     const quante = copie === 1 ? '1 etichetta' : `${copie} etichette`;
     if (esito.stato?.noto && esito.stato.errori) {
       return this.toast(
-        `⚠️ ${esito.stampante}: inviata, ma la stampante segnala ${esito.stato.dettagli.join(', ')} — l’etichetta NON è uscita`,
+        `${this._ico('alert-triangle')} ${esito.stampante}: inviata, ma la stampante segnala ${esito.stato.dettagli.join(', ')} — l’etichetta NON è uscita`,
         'error');
     }
     if (esito.stato?.noto) {
-      return this.toast(`🏷 ${quante} da ${esito.stampante}`, 'success');
+      return this.toast(`${quante} da ${esito.stampante}`, 'success');
     }
     return this.toast(
-      `🏷 ${quante} inviate a ${esito.stampante} — la stampante non dichiara il proprio stato: va guardata`,
+      `${this._ico('tag')} ${quante} inviate a ${esito.stampante} — la stampante non dichiara il proprio stato: va guardata`,
       'warning');
   },
 
@@ -187,11 +187,11 @@ export const VistaStampaEtichette = {
       const esito = await Store.provaStampante(printerId);
       if (esito.stato?.noto && esito.stato.errori) {
         return this.toast(
-          `⚠️ ${esito.stampante} (${esito.host}:${esito.porta}): ${esito.stato.dettagli.join(', ')}`,
+          `${this._ico('alert-triangle')} ${esito.stampante} (${esito.host}:${esito.porta}): ${esito.stato.dettagli.join(', ')}`,
           'error');
       }
       if (esito.stato?.noto) {
-        return this.toast(`✓ ${esito.stampante} risponde e sta bene — l’etichetta di prova è uscita`, 'success');
+        return this.toast(`${esito.stampante} risponde e sta bene — l’etichetta di prova è uscita`, 'success');
       }
       return this.toast(
         `${esito.stampante}: il collegamento c’è, la prova è partita. La macchina non dichiara il proprio stato — va guardata`,

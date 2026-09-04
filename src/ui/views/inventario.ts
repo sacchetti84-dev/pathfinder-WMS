@@ -46,14 +46,14 @@ export const VistaInventario = {
        mestiere a due granularità, nella stessa voce di Movimenta: chi lavora
        non deve sapere in anticipo quale delle due gli serve. */
     el.innerHTML = `<div class="mov-form-card">
-      <h3>📋 <span class="text-sx-warning">Inventario</span></h3>
+      <h3>${this._ico('clipboard-text')} <span class="text-sx-warning">Inventario</span></h3>
       <div class="prel-tabs">
-        <button class="prel-tab ${this._invSubMode === 'vano' ? 'active' : ''}" onclick="App._invSub('vano')"><span class="prel-tab-icon">📍</span>Per vano</button>
-        <button class="prel-tab ${this._invSubMode === 'articolo' ? 'active' : ''}" onclick="App._invSub('articolo')"><span class="prel-tab-icon">📦</span>Per articolo</button>
-        <button class="prel-tab ${this._invSubMode === 'udc' ? 'active' : ''}" onclick="App._invSub('udc')"><span class="prel-tab-icon">🔀</span>Per unità</button>
+        <button class="prel-tab ${this._invSubMode === 'vano' ? 'active' : ''}" onclick="App._invSub('vano')"><span class="prel-tab-icon">${this._ico('map-pin')}</span>Per vano</button>
+        <button class="prel-tab ${this._invSubMode === 'articolo' ? 'active' : ''}" onclick="App._invSub('articolo')"><span class="prel-tab-icon">${this._ico('package')}</span>Per articolo</button>
+        <button class="prel-tab ${this._invSubMode === 'udc' ? 'active' : ''}" onclick="App._invSub('udc')"><span class="prel-tab-icon">${this._ico('arrows-shuffle')}</span>Per unità</button>
       </div>
       <div id="invSubForm"></div>
-      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">${this._ico('x')} Chiudi</button></div>
     </div>`;
     this._renderInvSub();
   },
@@ -160,7 +160,7 @@ export const VistaInventario = {
     const colli = righe.reduce((t: number, r: Giacenza) => t + (r.qty || 0), 0);
     let html = `<div class="mov-preview mov-preview-ok mb-5">
       <strong class="mono">${this._esc(st.udc_id)}</strong> · ${this._esc(u?.type || 'pallet')}
-      · 📍 <strong>${this._esc(u?.location_code || '— senza ubicazione')}</strong><br>
+      · ${this._ico('map-pin')} <strong>${this._esc(u?.location_code || '— senza ubicazione')}</strong><br>
       <strong>${righe.length} rig${righe.length === 1 ? 'a' : 'he'}</strong> · ${colli} Coll. dichiarati a sistema
     </div>`;
 
@@ -173,7 +173,7 @@ export const VistaInventario = {
             <span class="font-normal text-body-small text-sx-text-secondary">${this._esc(r.article_description || '')}</span></div>
           <div class="inv-lot">Lotto ${this._esc(r.lot_code)}
             ${r.expiry_date ? ` · ⏱ ${this._esc(this._dateISOtoIT(r.expiry_date))}` : ''}
-            · 📍 ${this._esc(r.location_code)}</div>
+            · ${this._ico('map-pin')} ${this._esc(r.location_code)}</div>
         </div>
       </div>`;
     }
@@ -183,8 +183,8 @@ export const VistaInventario = {
         <button class="btn btn-sm" onclick="App._invUdcTutti(true)">Seleziona tutto</button>
         <button class="btn btn-sm" onclick="App._invUdcTutti(false)">Nessuno</button>
       </div>
-      <button class="btn btn-primary w-full p-5.5 font-bold" ${n ? '' : 'disabled'} onclick="App._invUdcConta()">
-        🔢 CONTA ${n ? `${n} rig${n === 1 ? 'a' : 'he'}` : '— spunta almeno una riga'}
+      <button class="btn btn-primary btn-conferma" ${n ? '' : 'disabled'} onclick="App._invUdcConta()">
+        ${this._ico('list-numbers')} CONTA ${n ? `${n} rig${n === 1 ? 'a' : 'he'}` : '— spunta almeno una riga'}
       </button>`;
     box.innerHTML = html;
   },
@@ -218,7 +218,7 @@ export const VistaInventario = {
   _invFormVano(el) {
     el.innerHTML = `<div>
       <div class="wf-instructions">
-        <strong>Flusso:</strong> <span class="wf-step">① UBICAZIONE</span> → INVIO per caricare → <span class="wf-step">② ✓/✗</span> per ogni item → aggiungi <strong>extra</strong> trovati → <span class="wf-step">③ APPLICA</span>.
+        <strong>Flusso:</strong> <span class="wf-step">① UBICAZIONE</span> → INVIO per caricare → <span class="wf-step">② ${this._ico('check')}/${this._ico('circle-x')}</span> per ogni item → aggiungi <strong>extra</strong> trovati → <span class="wf-step">③ APPLICA</span>.
       </div>
       <div class="form-group mb-5">
         <label>Ubicazione da verificare</label>
@@ -226,7 +226,7 @@ export const VistaInventario = {
           <input class="input input-mono flex-1" id="mInvLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('mInvLoc');App._previewLoc('mInvLoc','mInvLocPrev')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('mInvLoc');App._loadInv();}">
-          <button class="btn btn-sm" onclick="App._pickLoc('mInvLoc','_cbPickInv')">📍</button>
+          <button class="btn btn-sm" onclick="App._pickLoc('mInvLoc','_cbPickInv')">${this._ico('map-pin')}</button>
           <button class="btn btn-sm btn-primary" onclick="App._loadInv()">Carica</button>
         </div>
         <div id="mInvLocPrev"></div>
@@ -246,7 +246,7 @@ export const VistaInventario = {
     // v1.7.0 — counted_qty: null = non ancora contato. confirmed/missing semantica preservata per compatibilità.
     this._invState = { loc, items: items.map(i => ({ ...i, confirmed: false, missing: false, checked: false, counted_qty: null, colli_dopo: null, uom_dopo: null })), extras: [] };
     let html = '<div class="mt-7.5">';
-    html += `<p class="text-body-small text-sx-text-secondary mb-5">Sistema: <strong>${items.length}</strong> lotti registrati. Verifica ciascuno: <strong class="text-sx-success">✓</strong> conferma giacenza · <strong class="text-sx-danger">✗</strong> mancante totale · <strong class="text-sx-warning">📋</strong> conta fisica diversa.</p>`;
+    html += `<p class="text-body-small text-sx-text-secondary mb-5">Sistema: <strong>${items.length}</strong> lotti registrati. Verifica ciascuno: <strong class="text-sx-success">${this._ico('check')}</strong> conferma giacenza · <strong class="text-sx-danger">${this._ico('circle-x')}</strong> mancante totale · <strong class="text-sx-warning">${this._ico('clipboard-text')}</strong> conta fisica diversa.</p>`;
     if (!items.length) html += '<div class="text-body-small text-sx-text-muted p-3">Nessun item registrato</div>';
     else {
       html += '<div>';
@@ -258,9 +258,9 @@ export const VistaInventario = {
             <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · Sistema: <strong class="text-sx-accent">${sysQty} Coll.</strong> <span class="text-label-small" id="invCountInfo${idx}"></span></div>
           </div>
           <div class="inv-actions-row">
-            <button class="inv-btn" onclick="App._invConfirm(${idx},true)" id="invOk${idx}" title="Conferma quantità di sistema">✓</button>
-            <button class="inv-btn" onclick="App._invConfirm(${idx},false)" id="invMiss${idx}" title="Mancante totale (rimuovi tutto)">✗</button>
-            <button class="inv-btn text-body-medium" onclick="App._invCount(${idx})" id="invCnt${idx}" title="Conta fisica diversa">📋</button>
+            <button class="inv-btn" onclick="App._invConfirm(${idx},true)" id="invOk${idx}" title="Conferma quantità di sistema">${this._ico('check')}</button>
+            <button class="inv-btn" onclick="App._invConfirm(${idx},false)" id="invMiss${idx}" title="Mancante totale (rimuovi tutto)">${this._ico('circle-x')}</button>
+            <button class="inv-btn text-body-medium" onclick="App._invCount(${idx})" id="invCnt${idx}" title="Conta fisica diversa">${this._ico('clipboard-text')}</button>
           </div>
         </div>`;
       });
@@ -272,13 +272,13 @@ export const VistaInventario = {
       <div class="flex gap-3 mb-6">
         <input class="input input-mono uppercase flex-1" id="mInvExtraArt" placeholder="Cod. Articolo" maxlength="${Validate.MAX.ARTICLE_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('mInvExtraLot').focus();}">
-        <input class="input input-mono" id="mInvExtraLot" placeholder="Lotto" maxlength="${Validate.MAX.LOT_CODE}" class="flex-[0.8]"
+        <input class="input input-mono flex-[0.8]" id="mInvExtraLot" placeholder="Lotto" maxlength="${Validate.MAX.LOT_CODE}"
           onkeydown="if(event.key==='Enter'){event.preventDefault();$('mInvExtraQty').focus();}">
         <input class="input input-mono w-[70px] text-center" id="mInvExtraQty" type="number" min="1" step="1" value="1" placeholder="Coll."
           onkeydown="if(event.key==='Enter'){event.preventDefault();App._invAddExtra();}">
         <button class="btn btn-sm btn-success" onclick="App._invAddExtra()">+</button>
       </div>
-      <button class="btn btn-primary w-full p-5.5 font-bold" onclick="App._execInventario()">📋 APPLICA CORREZIONI</button>
+      <button class="btn btn-primary btn-conferma" onclick="App._execInventario()">${this._ico('clipboard-text')} APPLICA CORREZIONI</button>
     </div>`;
     el.innerHTML = html;
   },
@@ -403,7 +403,7 @@ export const VistaInventario = {
           <div class="inv-code text-sx-warning">${this._esc(ex.article_code)} <span class="font-normal">${this._esc(ex.article_description || '')}</span></div>
           <div class="inv-lot">Lotto: ${this._esc(ex.lot_code)} · <strong class="text-sx-warning">${exQty} Coll.</strong></div>
         </div>
-        <button class="btn btn-sm btn-danger btn-icon" onclick="App._invRemoveExtra(${idx})">✕</button>
+        <button class="btn btn-sm btn-danger btn-icon" onclick="App._invRemoveExtra(${idx})">${this._ico('x')}</button>
       </div>`;
     });
     el.innerHTML = html;
@@ -419,7 +419,7 @@ export const VistaInventario = {
     const { loc, items, extras } = this._invState as StatoInventario;
     const unchecked = items.filter((i) => !i.checked);
     if (unchecked.length > 0) {
-      const msg = `⚠️ ${unchecked.length} item non verificati.\n\nOK = considera quantità di sistema CORRETTE (nessuna azione)\nAnnulla = torna alla verifica`;
+      const msg = `${this._ico('alert-triangle')} ${unchecked.length} item non verificati.\n\nOK = considera quantità di sistema CORRETTE (nessuna azione)\nAnnulla = torna alla verifica`;
       if (!await Dialog.confirm({
         title: 'Item non verificati',
         message: msg,
@@ -520,8 +520,8 @@ export const VistaInventario = {
         corrections++;
       }
     }
-    if (corrections === 0) this.toast('Nessuna correzione — inventario confermato ✓', 'info');
-    else this.toast(`✓ ${corrections} correzion${corrections === 1 ? 'e applicata' : 'i applicate'}`, 'success');
+    if (corrections === 0) this.toast('Nessuna correzione — inventario confermato', 'info');
+    else this.toast(`${corrections} correzion${corrections === 1 ? 'e applicata' : 'i applicate'}`, 'success');
     this.updateSyncIndicator();
     /* 1.4.4 — QUI NON SI CHIUDE NESSUN COMPITO. L'inventario di vano è una
        funzione di magazzino che esiste da sempre e non nasce mai da
@@ -610,7 +610,7 @@ export const VistaInventario = {
     this._contaFatte = 0;
     this._contaTotale = 0;
     this._contaState = null;
-    if (totale > 1) this.toast(`✓ Giro di conte concluso: ${fatte} rig${fatte === 1 ? 'a contata' : 'he contate'} su ${totale}`, 'success');
+    if (totale > 1) this.toast(`Giro di conte concluso: ${fatte} rig${fatte === 1 ? 'a contata' : 'he contate'} su ${totale}`, 'success');
     this._formInventario($('movFormArea'));
   },
 
@@ -656,7 +656,7 @@ export const VistaInventario = {
           ${this._contaCoda.length ? `Dopo questa ne restano ${this._contaCoda.length}.` : 'È l\'ultima.'}
         </div>` : ''}
         <header class="route-stop-head">
-          <span class="route-stop-seq">🔢</span>
+          <span class="route-stop-seq">${this._ico('list-numbers')}</span>
           <div class="route-stop-title">
             <div class="route-stop-loc mono">${this._esc(d.location_code)}</div>
             <div class="route-stop-site">${this._esc([dove?.siteName, dove?.zoneName].filter(Boolean).join(' · ') || 'Raggiungi questa ubicazione')}</div>
@@ -685,7 +685,7 @@ export const VistaInventario = {
             <input class="input input-mono" id="cnLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
               oninput="App._normScan('cnLoc')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('cnLoc');App._contaCheckLoc();}">
-            <button class="btn btn-sm" type="button" onclick="App._pickLoc('cnLoc','_contaCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
+            <button class="btn btn-sm" type="button" onclick="App._pickLoc('cnLoc','_contaCheckLoc')" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
           </div>
         </div>
         <div class="form-group mb-4">
@@ -715,10 +715,10 @@ export const VistaInventario = {
         </div>
 
         <div class="flex gap-5 mt-7 flex-wrap">
-          <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
-            onclick="App._execConta()">🔢 CONFERMA CONTEGGIO</button>
-          ${this._contaCoda.length ? `<button class="btn min-h-[var(--md-touch)]" onclick="App._contaSalta()" title="Passa alla riga successiva senza contare questa">↷ Salta</button>` : ''}
-          <button class="btn min-h-[var(--md-touch)]" onclick="App._contaBack()">← Lascia</button>
+          <button class="btn btn-primary btn-conferma"
+            onclick="App._execConta()">${this._ico('list-numbers')} CONFERMA CONTEGGIO</button>
+          ${this._contaCoda.length ? `<button class="btn min-h-touch" onclick="App._contaSalta()" title="Passa alla riga successiva senza contare questa">↷ Salta</button>` : ''}
+          <button class="btn min-h-touch" onclick="App._contaBack()">← Lascia</button>
         </div>
       </article>`;
     this._contaState.scan = { loc: '', art: '', lot: '' };
@@ -737,12 +737,12 @@ export const VistaInventario = {
     if (!Number.isFinite(contati) || contati < 0) { box.innerHTML = ''; return; }
     const delta = contati - d.qty_system;
     if (delta === 0) {
-      box.innerHTML = `<div class="mov-preview mov-preview-ok mb-5"><strong>✓ Torna.</strong> A sistema ci sono ${d.qty_system} Coll., e ne hai contati altrettanti.</div>`;
+      box.innerHTML = `<div class="mov-preview mov-preview-ok mb-5"><strong>${this._ico('check')} Torna.</strong> A sistema ci sono ${d.qty_system} Coll., e ne hai contati altrettanti.</div>`;
       return;
     }
     const segno = delta > 0 ? '+' : '';
     box.innerHTML = `<div class="mov-preview mov-preview-warn mb-5">
-      <strong>⚠️ Non torna: ${segno}${delta} Coll.</strong>
+      <strong>${this._ico('alert-triangle')} Non torna: ${segno}${delta} Coll.</strong>
       A sistema ${d.qty_system}, contati ${contati}. Confermando, la giacenza viene rettificata a <strong>${contati}</strong> e il movimento resta a registro con la tua sigla.
     </div>`;
   },
@@ -909,8 +909,8 @@ export const VistaInventario = {
       return this.toast(`Rettifica non riuscita: ${(err as Error).message || 'errore'}`, 'error');
     }
 
-    if (delta === 0) this.toast(`✓ Conta confermata: ${contati} Coll., come a sistema`, 'success');
-    else this.toast(`✓ Giacenza rettificata a ${contati} Coll. (${delta > 0 ? '+' : ''}${delta})`, 'success');
+    if (delta === 0) this.toast(`Conta confermata: ${contati} Coll., come a sistema`, 'success');
+    else this.toast(`Giacenza rettificata a ${contati} Coll. (${delta > 0 ? '+' : ''}${delta})`, 'success');
     this.updateSyncIndicator();
     this._refreshSessionLog();
 
@@ -955,7 +955,7 @@ export const VistaInventario = {
     const st = this._gaState;
     el.innerHTML = `<div>
       <div class="wf-instructions">
-        <strong>Flusso:</strong> <span class="wf-step">① ARTICOLO</span> → INVIO per cercare → <span class="wf-step">② spunta i lotti</span> da verificare → <span class="wf-step">③ CONTA</span> o <span class="wf-step">🖨 STAMPA</span>.
+        <strong>Flusso:</strong> <span class="wf-step">① ARTICOLO</span> → INVIO per cercare → <span class="wf-step">② spunta i lotti</span> da verificare → <span class="wf-step">③ CONTA</span> o <span class="wf-step">${this._ico('printer')} STAMPA</span>.
       </div>
       <div class="form-group mb-5">
         <label>Articolo — codice o descrizione</label>
@@ -998,7 +998,7 @@ export const VistaInventario = {
       return `<div class="inv-item-row" onclick="App._invArtApri('${this._esc(a.code)}')">
         <div class="inv-info">
           <div class="inv-code">${this._esc(a.code)} <span class="font-normal text-sx-text-secondary text-body-small">${this._esc(a.description || '')}</span></div>
-          <div class="inv-lot">${dove.length ? `📍 ${dove.length} ubicazion${dove.length === 1 ? 'e' : 'i'}` : 'non a magazzino'}</div>
+          <div class="inv-lot">${dove.length ? `${this._ico('map-pin')} ${dove.length} ubicazion${dove.length === 1 ? 'e' : 'i'}` : 'non a magazzino'}</div>
         </div>
         <div class="inv-actions-row"><span class="text-sx-text-muted">→</span></div>
       </div>`;
@@ -1046,7 +1046,7 @@ export const VistaInventario = {
       <strong class="mono">${this._esc(st.code)}</strong> ${this._esc(st.desc || '')}<br>
       <strong>${r.colli} Coll.</strong>${uom ? ` · <strong>${uom}</strong>` : ''} —
       ${r.lotti.length} lott${r.lotti.length === 1 ? 'o' : 'i'} su ${r.ubicazioni} ubicazion${r.ubicazioni === 1 ? 'e' : 'i'}
-      ${r.senzaUnita ? `<br><span class="text-sx-warning">⚠️ ${r.senzaUnita} righe senza unità: il totale in UM non racconta tutta la giacenza</span>` : ''}
+      ${r.senzaUnita ? `<br><span class="text-sx-warning">${this._ico('alert-triangle')} ${r.senzaUnita} righe senza unità: il totale in UM non racconta tutta la giacenza</span>` : ''}
     </div>`;
 
     for (const g of r.lotti) {
@@ -1068,12 +1068,12 @@ export const VistaInventario = {
           <div class="inv-info flex items-center gap-3">
             <input type="checkbox" ${st.sel.includes(k) ? 'checked' : ''} onchange="App._invArtToggle('${this._esc(k)}')">
             <div>
-              <div class="inv-code">📍 ${this._esc(riga.location_code)}</div>
-              <div class="inv-lot">${riga.colli} Coll.${riga.descrizione && riga.descrizione !== '—' ? ` · ⚖ ${this._esc(riga.descrizione)}` : ''}</div>
+              <div class="inv-code">${this._ico('map-pin')} ${this._esc(riga.location_code)}</div>
+              <div class="inv-lot">${riga.colli} Coll.${riga.descrizione && riga.descrizione !== '—' ? ` · ${this._ico('scale')} ${this._esc(riga.descrizione)}` : ''}</div>
             </div>
           </div>
           <div class="inv-actions-row">
-            <button class="inv-btn" title="Apri l'ubicazione sulla mappa" onclick="App.goToLocation('${this._esc(riga.location_code)}')">🗺</button>
+            <button class="inv-btn" title="Apri l'ubicazione sulla mappa" onclick="App.goToLocation('${this._esc(riga.location_code)}')">${this._ico('map')}</button>
           </div>
         </div>`;
       }
@@ -1085,10 +1085,10 @@ export const VistaInventario = {
       <div class="flex gap-3 flex-wrap mb-5">
         <button class="btn btn-sm" onclick="App._invArtTutti(true)">Seleziona tutto</button>
         <button class="btn btn-sm" onclick="App._invArtTutti(false)">Nessuno</button>
-        <button class="btn btn-sm" onclick="App._invArtStampa()">🖨 Stampa riepilogo</button>
+        <button class="btn btn-sm" onclick="App._invArtStampa()">${this._ico('printer')} Stampa riepilogo</button>
       </div>
-      <button class="btn btn-primary w-full p-5.5 font-bold" ${n ? '' : 'disabled'} onclick="App._invArtConta()">
-        🔢 CONTA ${n ? `${n} rig${n === 1 ? 'a' : 'he'}` : '— spunta almeno una riga'}
+      <button class="btn btn-primary btn-conferma" ${n ? '' : 'disabled'} onclick="App._invArtConta()">
+        ${this._ico('list-numbers')} CONTA ${n ? `${n} rig${n === 1 ? 'a' : 'he'}` : '— spunta almeno una riga'}
       </button>`;
     box.innerHTML = html;
   },
@@ -1179,7 +1179,7 @@ export const VistaInventario = {
           <td class="td-num"></td>
         </tr></tfoot>
       </table>
-      ${r.senzaUnita ? `<p class="text-body-small">⚠️ ${r.senzaUnita} righe senza unità di misura: il totale in quantità non copre tutta la giacenza.</p>` : ''}`;
+      ${r.senzaUnita ? `<p class="text-body-small">${this._ico('alert-triangle')} ${r.senzaUnita} righe senza unità di misura: il totale in quantità non copre tutta la giacenza.</p>` : ''}`;
 
     this._docPrint(this._docPageHTML({
       kind: 'RIEPILOGO DI GIACENZA',

@@ -3,6 +3,9 @@
    `scan` non e' un esito: e' il tono corto del lettore, e per questo ha il
    suono e la vibrazione ma non la finestra ne' il lampo. Le altre quattro
    fanno il giro intero. */
+/* Rinominata all'import: qui `ico` e' gia' il nodo del riscontro. */
+import { ico as disegna } from './icone';
+
 type Preferenze = { audio: boolean; vibration: boolean; flash: boolean; volume: number };
 type Riscontro = 'ok' | 'info' | 'warn' | 'error';
 type Suono = Riscontro | 'scan';
@@ -130,10 +133,10 @@ const Feedback = {
     const host = document.getElementById('fbCenter');
     if (!host) return;
     const map = {
-      ok:    { cls: 'fb-ok',   ico: '✓' },
-      error: { cls: 'fb-err',  ico: '✕' },
-      warn:  { cls: 'fb-warn', ico: '⚠️' },
-      info:  { cls: 'fb-info', ico: 'ℹ️' }
+      ok:    { cls: 'fb-ok',   ico: 'circle-check' as const },
+      error: { cls: 'fb-err',  ico: 'circle-x' as const },
+      warn:  { cls: 'fb-warn', ico: 'alert-triangle' as const },
+      info:  { cls: 'fb-info', ico: 'info-circle' as const }
     };
     const cfg = map[kind] || map.info;
     const dur = ms || this.DURATIONS[kind] || this.DURATIONS.info;
@@ -147,7 +150,7 @@ const Feedback = {
 
     const ico = document.createElement('div');
     ico.className = 'fb-ico';
-    ico.textContent = cfg.ico;
+    ico.innerHTML = disegna(cfg.ico);
 
     const txt = document.createElement('div');
     txt.className = 'fb-txt';

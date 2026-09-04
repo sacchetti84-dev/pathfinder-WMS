@@ -5,6 +5,7 @@ import { validaVoce, normalizzaCodice, etichettaDi } from '../../modules/paramet
 import type { Voce, ParametriArticolo } from '../../modules/parametri';
 import { validaModello, colliAttesi, descriviModello } from '../../modules/imballo';
 import type { ModelloImballo } from '../../modules/imballo';
+import type { Icona } from '../icone';
 
 /* UNA SCHEDA È UNA TENDINA DELL'ANAGRAFICA.
 
@@ -19,7 +20,7 @@ type ElencoVoci = 'getUnitaAmmesse' | 'getAllergeniAmmessi' | 'getClassiConserva
 type SchedaParam = {
   chiave: ChiaveParam;
   titolo: string;
-  icona: string;
+  icona: Icona;
   nota: string;
   elenco: ElencoVoci;
 };
@@ -35,16 +36,16 @@ export const VistaParametri = {
      Sopra si aggiunge. Il lucchetto che si vede su quelle righe è la resa
      di `Voce.fissa`, non una regola scritta due volte — D18. */
   _PARAM_SCHEDE: [
-    { chiave: 'unita', titolo: 'Unità di misura', icona: '⚖',
+    { chiave: 'unita', titolo: 'Unità di misura', icona: 'scale',
       nota: 'Le cinque che il motore sa dividere sono fisse. Ciò che si aggiunge qui compare fra i suggerimenti dell\'anagrafica, ma resta «non gestita»: il motore non la divide.',
       elenco: 'getUnitaAmmesse' },
-    { chiave: 'allergeni', titolo: 'Allergeni', icona: '⚠️',
+    { chiave: 'allergeni', titolo: 'Allergeni', icona: 'alert-triangle',
       nota: 'I 14 dell\'Allegato II del Reg. UE 1169/2011 sono una norma e non si tolgono. Le voci aziendali — il lattosio, che non è il latte — si aggiungono accanto.',
       elenco: 'getAllergeniAmmessi' },
-    { chiave: 'conservazione', titolo: 'Modalità di conservazione', icona: '🌡',
+    { chiave: 'conservazione', titolo: 'Modalità di conservazione', icona: 'temperature',
       nota: 'Le tre classi della logistica del freddo sono fisse. Una quarta modalità si aggiunge qui.',
       elenco: 'getClassiConservazione' },
-    { chiave: 'pericoli', titolo: 'Pericolosità', icona: '☣',
+    { chiave: 'pericoli', titolo: 'Pericolosità', icona: 'biohazard',
       nota: 'Configurabile per intero: non è una norma di etichettatura ma una politica di magazzino — dice dove una cosa non si può mettere, e quel «dove» cambia con le zone.',
       elenco: 'getPericoli' },
   ] as SchedaParam[],
@@ -57,13 +58,13 @@ export const VistaParametri = {
           <td class="mono font-bold">${this._esc(v.code)}</td>
           <td>${this._esc(v.label)}</td>
           <td class="td-center">${v.fissa
-            ? '<span class="badge badge-muted" title="Valore di legge o di sistema: non si toglie">🔒 fisso</span>'
+            ? `<span class="badge badge-muted" title="Valore di legge o di sistema: non si toglie">${this._ico('lock')} fisso</span>`
             : `<button class="btn btn-sm btn-danger" onclick="App.doRimuoviParam('${s.chiave}','${this._esc(v.code)}')">Togli</button>`}</td>
         </tr>`).join('')
         : `<tr><td colspan="3" class="text-sx-text-muted">Nessuna voce.</td></tr>`;
       return `
       <div class="mb-9">
-        <h3 class="m-0 mb-2.5">${s.icona} ${this._esc(s.titolo)}</h3>
+        <h3 class="m-0 mb-2.5">${this._ico(s.icona)} ${this._esc(s.titolo)}</h3>
         <div class="text-label-small text-sx-text-muted mb-5">${this._esc(s.nota)}</div>
         <table><thead><tr>
           <th class="w-[170px]">Codice</th><th>Etichetta</th><th class="w-[110px]"></th>
@@ -107,7 +108,7 @@ export const VistaParametri = {
         <td class="mono td-right">${m.colli_strato} × ${m.strati} = <strong>${colliAttesi(m)}</strong></td>
         <td class="mono td-right">${m.tara_kg == null ? '—' : `${m.tara_kg} KG`}</td>
         <td class="whitespace-nowrap">
-          <button class="btn btn-sm" onclick="App._imballoModifica('${this._esc(m.code)}')">✏️ Modifica</button>
+          <button class="btn btn-sm" onclick="App._imballoModifica('${this._esc(m.code)}')">${this._ico('pencil')} Modifica</button>
           <button class="btn btn-sm btn-danger" onclick="App._imballoTogli('${this._esc(m.code)}')">Togli</button>
         </td>
       </tr>`).join('')
@@ -116,7 +117,7 @@ export const VistaParametri = {
     return `
       <div class="mb-9">
         <div class="flex justify-between items-center flex-wrap gap-4">
-          <h3 class="m-0">📦 Modelli di imballo (${modelli.length})</h3>
+          <h3 class="m-0">${this._ico('package')} Modelli di imballo (${modelli.length})</h3>
           <button class="btn btn-sm btn-primary" onclick="App._imballoModifica('')">+ Aggiungi modello</button>
         </div>
         <div class="text-label-small text-sx-text-muted mb-5 mt-2.5">
@@ -140,7 +141,7 @@ export const VistaParametri = {
     const nuovo = !m.code;
 
     this.showModal(
-      nuovo ? '📦 Nuovo modello di imballo' : `📦 ${this._esc(m.label)}`,
+      nuovo ? `${this._ico('package')} Nuovo modello di imballo` : `${this._ico('package')} ${this._esc(m.label)}`,
       `<div class="flex gap-3 flex-wrap">
         <div class="form-group mb-6 w-[170px]">
           <label>Codice <span class="req">*</span></label>
@@ -180,7 +181,7 @@ export const VistaParametri = {
                  value="${m.altezza_max_mm == null ? '' : m.altezza_max_mm}" placeholder="1800">
         </div>
       </div>
-      <div class="text-body-small text-sx-text-secondary leading-[1.6]">
+      <div class="text-body-small text-sx-text-secondary leading-larga">
         Colli per strato e strati fanno il <strong>numero atteso</strong>, e nient'altro:
         chi imballa lo trova già scritto e lo cambia senza dover dire perché.
         <strong>Tara e altezza sono facoltative</strong> — lasciate in bianco restano
@@ -223,7 +224,7 @@ export const VistaParametri = {
     this.closeModal();
     this.renderConfig();
     this.updateSyncIndicator();
-    this.toast(`📦 ${descriviModello(rec)}`, 'success');
+    this.toast(`${descriviModello(rec)}`, 'success');
   },
 
   async _imballoTogli(code: string) {
@@ -263,7 +264,7 @@ export const VistaParametri = {
     await Store.saveArticleParams({ [chiave]: [...attuali, { code: codeN, label: String(label).trim() }] });
     this.renderConfig();
     this.updateSyncIndicator();
-    this.toast(`✓ ${codeN} aggiunto`, 'success');
+    this.toast(`${codeN} aggiunto`, 'success');
   },
 
   async doRimuoviParam(chiave: ChiaveParam, code: string) {

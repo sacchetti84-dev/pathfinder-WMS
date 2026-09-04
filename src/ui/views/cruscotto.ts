@@ -8,12 +8,21 @@ import {
   componiLayout, sposta, commuta, ridimensiona, scorciatoieDaMostrare, daSalvare,
 } from '../../modules/cruscotto';
 import type { Disponibile, Layout, Riquadro } from '../../modules/cruscotto';
+import type { Icona } from '../icone';
+import type { ModoMovimenta } from './movimenta';
 
 /* Una scorciatoia del cruscotto: quel che serve a disegnare il pulsante e a
-   sapere quale maschera apre. */
+   sapere quale maschera apre.
+
+   2.23 — `mode` NON è una stringa qualunque: è uno dei modi che `startMov`
+   sa aprire. Fino alla 2.22 lo era, e tre scorciatoie su sette puntavano a
+   un nome che non esisteva — `quar` invece di `quarantine`, `camp` invece di
+   `sampling`, `ship` invece di `shipping`. Non davano errore da nessuna
+   parte: `forms[mode]` tornava `undefined`, l'optional chaining lo ingoiava,
+   e restavano tre pulsanti che non facevano niente. Adesso non compilano. */
 type Scorciatoia = {
-  id: string; mode: string; sub: string | null; color: string;
-  icon: string; label: string; sub_txt: string; key: string;
+  id: string; mode: ModoMovimenta; sub: string | null; color: string;
+  icon: Icona; label: string; sub_txt: string; key: string;
 };
 
 /* LE FORME DEI GRAFICI. Non sono dati del magazzino: sono quel che i
@@ -81,8 +90,8 @@ export const VistaCruscotto = {
           <!-- v2.7.0 [G3] — "Salva ora" ed "Export JSON" sono usciti di qui:
                il primo e' diventato l'indicatore in barra, il secondo vive in
                Configurazione -> Dati insieme agli altri comandi di esportazione. -->
-          <button class="btn btn-sm" onclick="App._personalizzaCruscotto()">🧩 Personalizza</button>
-          <button class="btn btn-sm" onclick="App._showRegistry=true;App.renderDashboard()">📋 Registro Movimenti</button>
+          <button class="btn btn-sm" onclick="App._personalizzaCruscotto()">${this._ico('puzzle')} Personalizza</button>
+          <button class="btn btn-sm" onclick="App._showRegistry=true;App.renderDashboard()">${this._ico('clipboard-text')} Registro Movimenti</button>
         </div>
       </div>
 
@@ -220,14 +229,16 @@ export const VistaCruscotto = {
       <label class="dash-cfg-short">
         <input type="checkbox" ${scelte.includes(s.id) ? 'checked' : ''}
           onchange="App._dashCommutaScorciatoia('${this._esc(s.id)}')">
-        <span>${s.icon} ${this._esc(s.label)}</span>
+        <span>${this._ico(s.icon)} ${this._esc(s.label)}</span>
       </label>`).join('');
 
     this.showModal(
-      '🧩 Personalizza il cruscotto',
+      `${this._ico('puzzle')} Personalizza il cruscotto`,
       `<p class="text-body-small text-sx-text-secondary mb-6">
         Trascina per riordinare, spunta per accendere, scegli quanto spazio prende.
-        Le modifiche si scrivono subito e valgono per tutti i terminali.
+        Le modifiche si scrivono subito e sono <strong>tue</strong>: valgono su
+        ogni terminale dove entri con la tua sigla, e non cambiano il cruscotto
+        agli altri.
       </p>
       <div class="dash-cfg">${righe}</div>
       <div class="detail-section-title mt-7">Scorciatoie a Movimenta</div>
@@ -330,12 +341,21 @@ export const VistaCruscotto = {
       </div>`;
   },
 
+  /* 2.23 — LA SOTTOSCHEDA NON E' SEMPRE QUELLA DEL PRELIEVO. Fino alla 2.22
+     `sub` finiva dritto in `_pickSub`, perché il prelievo era l'unica maschera
+     con delle schede. Adesso ne ha anche Spedizioni — documenti e carico
+     camion — e una scorciatoia che dicesse `_pickSub('carico')` aprirebbe il
+     prelievo su una scheda che non esiste, lasciando la schermata vuota.
+     Chi sa aprire la scheda è la maschera stessa. */
+  _SOTTOSCHEDE: { pick: '_pickSub', shipping: '_shipSub' } as Record<string, string>,
+
   _goOp(mode, sub = null) {
     this.switchView('movimenta');
     const run = () => {
       if (mode === 'io') { this.startMov('io', sub || 'in'); return; }
       this.startMov(mode);
-      if (sub) this._pickSub(sub);
+      const apri = sub && this._SOTTOSCHEDE[mode];
+      if (apri) this[apri](sub);
     };
     if ($('movFormArea')) run();
     else setTimeout(run, 50);
@@ -351,20 +371,25 @@ export const VistaCruscotto = {
      titolo è testo, e può cambiare quando serve. */
   _scorciatoieDisponibili(): Scorciatoia[] {
     return [
-      { id: 'io-in',         mode: 'io',   sub: 'in',         color: 'var(--ct-cat-in)',   icon: '\u{1F4E6}',
+      { id: 'io-in',         mode: 'io',   sub: 'in',         color: 'var(--ct-cat-in)',   icon: 'package',
         label: 'Carico / Scarico', sub_txt: 'Posiziona e smaltisci', key: 'F2' },
-      { id: 'pick-cambio',   mode: 'pick', sub: 'cambio',     color: 'var(--ct-cat-move)', icon: '\u{1F504}',
+      { id: 'pick-cambio',   mode: 'pick', sub: 'cambio',     color: 'var(--ct-cat-move)', icon: 'refresh',
         label: 'Trasferimento',    sub_txt: 'Cambio ubicazione',     key: 'F3' },
-      { id: 'pick-prod',     mode: 'pick', sub: 'produzione', color: 'var(--ct-cat-pick)', icon: '\u{1F3ED}',
+      { id: 'pick-prod',     mode: 'pick', sub: 'produzione', color: 'var(--ct-cat-pick)', icon: 'building-factory',
         label: 'Prelievo ordini',  sub_txt: 'Prelievo produzione',   key: 'F3' },
-      { id: 'inventario',    mode: 'inv',  sub: null,         color: 'var(--sx-warning)',  icon: '\u{1F4CB}',
+      { id: 'inventario',    mode: 'inv',  sub: null,         color: 'var(--sx-warning)',  icon: 'clipboard-text',
         label: 'Inventario',       sub_txt: 'Vano, articolo o unità', key: '' },
-      { id: 'quarantena',    mode: 'quar', sub: null,         color: 'var(--sx-purple)',   icon: '\u{1F512}',
+      { id: 'quarantena',    mode: 'quarantine', sub: null,         color: 'var(--sx-purple)',   icon: 'lock',
         label: 'Quarantena',       sub_txt: 'Blocco qualità',        key: '' },
-      { id: 'campionamento', mode: 'camp', sub: null,         color: 'var(--sx-teal)',     icon: '\u{1F9EA}',
+      { id: 'campionamento', mode: 'sampling', sub: null,         color: 'var(--sx-teal)',     icon: 'flask',
         label: 'Campionamento',    sub_txt: 'Presa per la qualità',  key: '' },
-      { id: 'spedizioni',    mode: 'ship', sub: null,         color: 'var(--ct-cat-out)',  icon: '\u{1F69A}',
+      { id: 'spedizioni',    mode: 'shipping', sub: 'documenti',  color: 'var(--ct-cat-out)',  icon: 'truck',
         label: 'Spedizioni',       sub_txt: 'DDT e uscite',          key: '' },
+      /* 2.23 — Il carico del camion era una tessera di Movimenta e non aveva
+         una scorciatoia; adesso è una scheda di Spedizioni, e chi carica ci
+         va venti volte al giorno. */
+      { id: 'carico-camion', mode: 'shipping', sub: 'carico',     color: 'var(--ct-cat-out)',  icon: 'tir',
+        label: 'Carico camion',    sub_txt: 'Bancali in baia',       key: '' },
     ];
   },
 
@@ -376,7 +401,7 @@ export const VistaCruscotto = {
     const btns = ops.map((o) => `<button type="button" class="qa-btn" style="--qa-c:${o.color}"
         onclick="App._goOp('${o.mode}'${o.sub ? `,'${o.sub}'` : ''})"
         aria-label="${this._esc(o.label)} — ${this._esc(o.sub_txt)}">
-        <span class="qa-ico" aria-hidden="true">${o.icon}</span>
+        <span class="qa-ico">${this._ico(o.icon)}</span>
         <span class="qa-txt">
           <span class="qa-title">${this._esc(o.label)}</span>
           <span class="qa-sub">${this._esc(o.sub_txt)}</span>
@@ -465,14 +490,14 @@ export const VistaCruscotto = {
       const sameDay = new Date(g.first).toDateString() === new Date(g.last).toDateString();
       const when = sameDay ? this._fmtDateTime(g.last) : `${this._fmtDateTime(g.first)} — ${this._fmtDateTime(g.last)}`;
       return `<div class="dl-row" title="Ordine ${this._esc(g.ref)}: ${g.rows} lotti, ${g.colli} colli, ${g.articles.size} articoli">
-        <span class="dl-tag" class="[border-left-color:var(--ct-cat-pick)]">ORDINE</span>
+        <span class="dl-tag [border-left-color:var(--ct-cat-pick)]">ORDINE</span>
         <div class="dl-main">
           <div class="dl-p"><span class="mono">${this._esc(g.ref)}</span></div>
           <div class="dl-s">${g.rows} lotti · ${g.articles.size} articoli · ${this._esc(users)} · ${this._esc(when)}</div>
         </div>
         <div class="dl-end"><span class="dl-qty">${g.colli}</span>&nbsp;Coll.</div>
         <button class="dl-btn" title="Stampa il report di prelievo dell'ordine ${this._esc(g.ref)}"
-          onclick="App._printProdOrderFromLog('${encodeURIComponent(g.ref)}')">&#128424;</button>
+          onclick="App._printProdOrderFromLog('${encodeURIComponent(g.ref)}')">${this._ico('printer', 'Stampa')}</button>
       </div>`;
     }).join('');
     const foot = all.length > limit
@@ -521,7 +546,7 @@ export const VistaCruscotto = {
         </div>
         <span class="dl-chip" style="color:${a.color}">${this._esc(a.shortLabel)}</span>
         <button class="dl-btn" title="Stampa il documento ${this._esc(d.ddt_num || d.doc_id)}"
-          onclick="App._printDDT('${this._esc(d.doc_id)}')">&#128424;</button>
+          onclick="App._printDDT('${this._esc(d.doc_id)}')">${this._ico('printer', 'Stampa')}</button>
       </div>`;
     }).join('');
     return `<div class="card">${head}<div class="dl-list">${rows}</div></div>`;
@@ -538,7 +563,7 @@ export const VistaCruscotto = {
       return `<div class="card">${head}<div class="dl-empty">Nessuno smaltimento registrato. I verbali compaiono qui appena emessi e restano ristampabili.</div></div>`;
     }
     const rows = list.map(v => `<div class="dl-row" title="${this._esc(v.reason || '')}">
-        <span class="dl-tag" class="[border-left-color:var(--ct-cat-out)]">SMALT.</span>
+        <span class="dl-tag [border-left-color:var(--ct-cat-out)]">SMALT.</span>
         <div class="dl-main">
           <div class="dl-p"><span class="mono">${this._esc(v.article_code)}</span> · lotto <span class="mono">${this._esc(v.lot_code)}</span></div>
           <div class="dl-s"><span class="mono">${this._esc(v.doc_id)}</span> · ${this._esc(v.location_code)} · ${this._esc(v.reason || 'motivo n.d.')} · ${this._esc(v.operator || 'n.d.')}</div>
@@ -548,7 +573,7 @@ export const VistaCruscotto = {
           <span>${this._esc(this._fmtDateTime(v.created_at))}</span>
         </div>
         <button class="dl-btn" title="Ristampa il verbale ${this._esc(v.doc_id)}"
-          onclick="App._printDisposal('${this._esc(v.doc_id)}')">&#128424;</button>
+          onclick="App._printDisposal('${this._esc(v.doc_id)}')">${this._ico('printer', 'Stampa')}</button>
       </div>`).join('');
     return `<div class="card">${head}<div class="dl-list">${rows}</div></div>`;
   },
@@ -584,14 +609,14 @@ export const VistaCruscotto = {
       const aging = days === 0 ? 'oggi' : days === 1 ? '1 giorno' : `${days} giorni`;
       const who = [q.reference_dept, q.reference_person].filter(Boolean).join(' / ') || 'reparto n.d.';
       return `<div class="dl-row" title="${this._esc(q.reason || 'motivo non indicato')}">
-        <span class="dl-tag" class="[border-left-color:var(--ct-cat-quar)]">NC</span>
+        <span class="dl-tag [border-left-color:var(--ct-cat-quar)]">NC</span>
         <div class="dl-main">
           <div class="dl-p"><span class="mono">${this._esc(q.article_code)}</span> · lotto <span class="mono">${this._esc(q.lot_code)}</span></div>
           <div class="dl-s">${this._esc(q.blocked_location || '—')} · ${this._esc(who)} · ${this._esc(q.reason || 'motivo non indicato')}</div>
         </div>
         <div class="dl-end"><span class="dl-qty">${aging}</span></div>
         <button class="dl-btn" title="Stampa il cartello di non conformità ${this._esc(q.q_id)}"
-          onclick="App._printNCCard('${this._esc(q.q_id)}')">&#128424;</button>
+          onclick="App._printNCCard('${this._esc(q.q_id)}')">${this._ico('printer', 'Stampa')}</button>
       </div>`;
     }).join('');
     return `<div class="card">${head}<div class="dl-list">${rows}</div></div>`;
@@ -824,8 +849,8 @@ export const VistaCruscotto = {
       return `<div class="ct-bar-row" title="${this._esc(tip)}">
         <div class="ct-bar-head">
           <span class="ct-bar-rank">${i + 1}</span>
-          <span class="mono truncate" class="flex-[1_1_auto] font-bold text-[var(--md-sys-color-on-surface)]">${this._esc(art.code)}</span>
-          <span class="ct-legend-val whitespace-nowrap">${art.count} <span class="font-normal text-[var(--md-sys-color-on-surface-variant)]">mov.</span></span>
+          <span class="mono truncate flex-[1_1_auto] font-bold text-sx-text">${this._esc(art.code)}</span>
+          <span class="ct-legend-val whitespace-nowrap">${art.count} <span class="font-normal text-sx-text-secondary">mov.</span></span>
         </div>
         <div class="ct-bar-track"><div class="ct-bar-fill" style="width:${pct}%"></div></div>
       </div>`;
@@ -863,7 +888,7 @@ export const VistaCruscotto = {
     else if (none > 0 && ok === 0) cls = '';
     // Composizione sub-label sintetica
     const subParts = [];
-    if (overdue > 0) subParts.push(`<span class="text-sx-danger font-bold">⚠️ ${overdue} scaduti</span>`);
+    if (overdue > 0) subParts.push(`<span class="text-sx-danger font-bold">${this._ico('alert-triangle')} ${overdue} scaduti</span>`);
     if (today > 0) subParts.push(`<span class="text-sx-danger font-bold">${today} oggi</span>`);
     if (tomorrow > 0) subParts.push(`<span class="text-sx-warning font-semibold">${tomorrow} domani</span>`);
     if (soon > 0) subParts.push(`<span class="text-sx-warning">${soon} a breve</span>`);
@@ -871,9 +896,9 @@ export const VistaCruscotto = {
     if (subParts.length === 0 && ok > 0) subParts.push(`<span class="text-sx-success">${ok} programmati</span>`);
     const sub = subParts.join(' · ') || `${total} aperti`;
     return `<div class="kpi-card ${cls} cursor-pointer" onclick="App.switchView('movimenta');setTimeout(()=>App.startMov('returns'),50)" title="Vai a Resi/Spedizioni">
-      <div class="kpi-label">📋 DDT Pendenti Uscita</div>
+      <div class="kpi-label">${this._ico('clipboard-text')} DDT Pendenti Uscita</div>
       <div class="kpi-value">${total}</div>
-      <div class="kpi-sub leading-[1.3]">${sub}</div>
+      <div class="kpi-sub leading-stretta">${sub}</div>
     </div>`;
   },
 
@@ -898,13 +923,13 @@ export const VistaCruscotto = {
     const rows = broken.map(({ doc, integrity }) => {
       const kindLabel = doc.kind === 'SHIP' ? 'Spedizione' : 'Reso';
       const detail = integrity.issues
-        .map(i => `<div class="text-[var(--dash-fs-meta)] text-sx-danger pl-9">• ${this._esc(i.message)}</div>`)
+        .map(i => `<div class="text-label-small text-sx-danger pl-9">• ${this._esc(i.message)}</div>`)
         .join('');
       return `<div class="py-4 px-5.5 border-b border-b-sx-border">
         <div class="flex justify-between items-center gap-5 flex-wrap">
-          <span class="text-[var(--dash-fs-body)]"><strong>DDT ${this._esc(doc.ddt_num)}</strong>
+          <span class="text-body-small"><strong>DDT ${this._esc(doc.ddt_num)}</strong>
             <span class="text-sx-text-muted">· ${kindLabel} · ${this._esc(doc.destination)}</span>
-            <span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3">⚠️ ${integrity.issues.length}</span>
+            <span class="badge bg-sx-danger-soft text-sx-danger border-sx-danger ml-3">${this._ico('alert-triangle')} ${integrity.issues.length}</span>
           </span>
           <button class="btn btn-sm" onclick="App._gotoPendingDoc('${this._esc(doc.doc_id)}','${this._esc(doc.kind)}')" title="Vai al DDT">→ Apri</button>
         </div>
@@ -912,8 +937,8 @@ export const VistaCruscotto = {
       </div>`;
     }).join('');
     return `<section class="card mb-6 border-l-[3px] border-l-sx-danger">
-      <div class="card-title text-sx-danger">⚠️ DDT non allineati alla giacenza (${broken.length})</div>
-      <div class="text-[var(--dash-fs-meta)] text-sx-text-secondary pt-0 px-5.5 pb-4">
+      <div class="card-title text-sx-danger">${this._ico('alert-triangle')} DDT non allineati alla giacenza (${broken.length})</div>
+      <div class="text-label-small text-sx-text-secondary pt-0 px-5.5 pb-4">
         Documenti registrati le cui righe non trovano più riscontro in magazzino: la merce è stata spostata,
         prelevata o rettificata dopo la registrazione. Vanno modificati o annullati prima dell'evasione.
       </div>
@@ -941,27 +966,27 @@ export const VistaCruscotto = {
       // v3.0.0 [M3] — la natura del documento viene dalla causale
       const isRes = this._docIsReturn(d);
       const themeColor = isRes ? 'var(--sx-teal)' : 'var(--sx-orange)';
-      const themeIcon = isRes ? '↩️' : '🚚';
+      const themeIcon = this._ico(isRes ? 'arrow-back-up' : 'truck');
       const totalColli = d.lines.reduce((s, l) => s + (l.qty || 1), 0);
       const targetLabel = 'Destinatario';
       return `<div style="display:flex;align-items:center;gap:0.5rem;padding:0.5rem 0.6rem;background:${alert.bg};border:1px solid ${alert.color};border-radius:var(--radius);margin-bottom:0.3rem">
-        <div class="text-[var(--dash-fs-head)]">${themeIcon}</div>
+        <div class="text-title-small">${themeIcon}</div>
         <div class="flex-1 min-w-0">
           <div style="font-size:var(--dash-fs-body);font-weight:700;color:${alert.color}">${this._esc(alert.shortLabel)} · DDT ${this._esc(d.ddt_num)}</div>
-          <div class="text-[var(--dash-fs-meta)] text-sx-text-secondary truncate">
+          <div class="text-label-small text-sx-text-secondary truncate">
             ${targetLabel}: <strong>${this._esc(d.destination)}</strong>${d.carrier ? ' · ' + this._esc(d.carrier) : ''} · ${d.lines.length} righe · ${totalColli} Coll.
           </div>
         </div>
         <div class="flex gap-3 shrink-0">
           <button class="btn btn-sm" style="background:${themeColor};color:#fff;border-color:${themeColor};font-weight:700" onclick="App.switchView('movimenta');setTimeout(()=>{App.startMov('shipping');setTimeout(()=>{const det=document.querySelector('details[data-doc-id=\\'${this._esc(d.doc_id)}\\']');if(det){det.open=true;det.scrollIntoView({behavior:'smooth',block:'center'});}},80);},50)" title="Vai al DDT">→ Apri</button>
-          <button class="btn btn-sm" style="background:${themeColor};color:#fff;border-color:${themeColor};font-weight:700" onclick="App._evadiSpedizione('${this._esc(d.doc_id)}')" title="Evadi DDT">✓ EVADI</button>
-          <button class="btn btn-sm btn-ghost" onclick="App._printDDT('${this._esc(d.doc_id)}')" title="Stampa">🖨</button>
+          <button class="btn btn-sm" style="background:${themeColor};color:#fff;border-color:${themeColor};font-weight:700" onclick="App._evadiSpedizione('${this._esc(d.doc_id)}')" title="Evadi DDT">${this._ico('check')} EVADI</button>
+          <button class="btn btn-sm btn-ghost" onclick="App._printDDT('${this._esc(d.doc_id)}')" title="Stampa">${this._ico('printer')}</button>
         </div>
       </div>`;
     }).join('');
-    return `<div class="card mb-10 border-l-[3px] border-l-sx-danger bg-[var(--grad-soft-red)]">
-      <div class="card-title text-sx-danger">🔔 DDT in Scadenza <span class="badge bg-sx-danger text-white border-sx-danger ml-4">${urgent.length}</span></div>
-      <div class="text-[var(--dash-fs-meta)] text-sx-text-secondary mb-5">Documenti pendenti il cui ritiro è scaduto, oggi o domani — verificare disponibilità giacenza e contattare vettore.</div>
+    return `<div class="card mb-10 border-l-[3px] border-l-sx-danger bg-sx-danger-soft">
+      <div class="card-title text-sx-danger">${this._ico('bell')} DDT in Scadenza <span class="badge bg-sx-danger text-white border-sx-danger ml-4">${urgent.length}</span></div>
+      <div class="text-label-small text-sx-text-secondary mb-5">Documenti pendenti il cui ritiro è scaduto, oggi o domani — verificare disponibilità giacenza e contattare vettore.</div>
       ${rows}
     </div>`;
   },

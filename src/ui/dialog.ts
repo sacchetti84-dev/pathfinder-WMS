@@ -1,4 +1,5 @@
 import { Feedback } from './feedback';
+import { ico, type Icona } from './icone';
 
 /* QUEL CHE UN DIALOGO PUO' RESTITUIRE, E CHI GLIELO CHIEDE.
 
@@ -19,7 +20,7 @@ type Azione = {
 };
 
 type Apertura = {
-  icon?: string;
+  icon?: Icona;
   title: string;
   bodyNode?: Node | null;
   actions: Azione[];
@@ -111,7 +112,7 @@ const Dialog = {
   },
 
   /* Costruisce e apre il dialogo. Ritorna una Promise risolta alla chiusura. */
-  _open<T extends Esito>({ icon = 'ℹ️', title, bodyNode, actions, danger = false, kind = 'confirm',
+  _open<T extends Esito>({ icon = 'info-circle', title, bodyNode, actions, danger = false, kind = 'confirm',
           guardMs = null, focusTarget = null }: Apertura): Promise<T | null> {
     const overlay = this._overlay();
     if (this.isOpen) this._finish(null);   // un dialogo per volta
@@ -130,7 +131,11 @@ const Dialog = {
     head.className = 'dlg-head';
     const ic = document.createElement('span');
     ic.className = 'dlg-ico';
-    ic.textContent = icon;
+    /* 2.23 — L'ICONA E' MARKUP, IL TESTO NO. Il titolo resta su
+       `textContent` perche' puo' portare un codice arrivato da un campo; il
+       nome dell'icona invece e' un `Icona`, cioe' una delle ottanta scritte
+       nel vocabolario, e non c'e' niente da iniettare. */
+    ic.innerHTML = ico(icon);
     const h2 = document.createElement('h2');
     h2.id = 'dlgTitle';
     h2.textContent = title;
@@ -298,10 +303,10 @@ const Dialog = {
             danger = false, icon = null,
             guardMs = null, focusTarget = null }: {
     title: string; message?: string; details?: Node | null; confirmLabel?: string; cancelLabel?: string;
-    danger?: boolean; icon?: string | null; guardMs?: number | null; focusTarget?: string | null;
+    danger?: boolean; icon?: Icona | null; guardMs?: number | null; focusTarget?: string | null;
   }): Promise<boolean | null> {
     return this._open<boolean>({
-      icon: icon || (danger ? '⚠️' : '❓'),
+      icon: icon || (danger ? 'alert-triangle' : 'help'),
       title,
       bodyNode: this._mkBody(message, details),
       danger,
@@ -315,8 +320,8 @@ const Dialog = {
     });
   },
 
-  alert({ title, message = '', details = null, icon = 'ℹ️', okLabel = 'Ho capito' }: {
-    title: string; message?: string; details?: Node | null; icon?: string; okLabel?: string;
+  alert({ title, message = '', details = null, icon = 'info-circle', okLabel = 'Ho capito' }: {
+    title: string; message?: string; details?: Node | null; icon?: Icona; okLabel?: string;
   }): Promise<boolean | null> {
     return this._open<boolean>({
       icon, title,
@@ -327,9 +332,9 @@ const Dialog = {
   },
 
   reason({ title, message = '', details = null, placeholder = 'Motivazione…',
-           minLen = 5, icon = '\u270E', confirmLabel = 'Conferma', danger = false }: {
+           minLen = 5, icon = 'pencil', confirmLabel = 'Conferma', danger = false }: {
     title: string; message?: string; details?: Node | null; placeholder?: string;
-    minLen?: number; icon?: string; confirmLabel?: string; danger?: boolean;
+    minLen?: number; icon?: Icona; confirmLabel?: string; danger?: boolean;
   }): Promise<string | null> {
     const wrap = document.createElement('div');
     if (details) wrap.appendChild(details);
@@ -384,10 +389,10 @@ const Dialog = {
      Il lettore barcode ci spara dentro come in ogni campo di Pathfinder, e
      INVIO conferma: è il gesto che l'operatore fa già dappertutto. */
   testo({ title, message = '', details = null, placeholder = '', valore = '',
-          maiuscolo = false, minLen = 1, icon = '✎', confirmLabel = 'Conferma',
+          maiuscolo = false, minLen = 1, icon = 'pencil', confirmLabel = 'Conferma',
           nota = '' }: {
     title: string; message?: string; details?: Node | null; placeholder?: string;
-    valore?: string; maiuscolo?: boolean; minLen?: number; icon?: string;
+    valore?: string; maiuscolo?: boolean; minLen?: number; icon?: Icona;
     confirmLabel?: string; nota?: string;
   }): Promise<string | null> {
     const wrap = document.createElement('div');
@@ -517,7 +522,7 @@ const Dialog = {
 
     this._qtyBounds = { min, max };
     return this._open<number>({
-      icon: '\u{1F522}', title,
+      icon: 'list-numbers', title,
       bodyNode: this._mkBody(message, wrap),
       kind: 'qty',
       focusTarget: 'dlgQtyInput',

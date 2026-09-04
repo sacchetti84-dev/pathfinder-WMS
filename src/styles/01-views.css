@@ -35,7 +35,6 @@
 .map-vt-btn { background: var(--sx-card); border: none; padding: 0.35rem 0.75rem; font-size: var(--md-sys-typescale-body-small-size); cursor: pointer; color: var(--sx-text-secondary); font-family: var(--font); }
 .map-vt-btn.active { background: var(--sx-accent); color: #fff; font-weight: 600; }
 .map-vt-btn:hover:not(.active) { background: var(--sx-bg-alt); }
-.level-selector { display: flex; gap: 0.2rem; }
 .level-btn {
   background: var(--sx-card);
   border: 1px solid var(--sx-border);
@@ -226,7 +225,7 @@
    il numero dice «quante», e sono due domande diverse. */
 .conf-mark {
   position: absolute; top: -2px; left: 2px;
-  font-weight: 900; font-size: 0.7rem; line-height: 1;
+  font-weight: 900; font-size: var(--md-sys-typescale-label-small-size); line-height: 1;
   color: var(--sx-danger); pointer-events: none;
 }
 
@@ -300,10 +299,6 @@
 .avv-riga--all  { background: var(--sx-danger-soft);  border-left-color: var(--sx-danger); }
 .avv-riga--temp { background: var(--sx-warning-soft); border-left-color: var(--sx-warning); }
 .avv-riga--cert { background: var(--sx-bg-alt);       border-left-color: var(--sx-accent); }
-.avv-stampa {
-  font-size: 7pt; line-height: 1.25; margin-top: 1px;
-  color: #7f1d1d; font-weight: 600;
-}
 
 /* ════ Detail panel (destra) ════ */
 
@@ -413,7 +408,7 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   cursor: grab;
 }
 .dash-cfg-row:active { cursor: grabbing; }
-.dash-cfg-grip { color: var(--sx-text-muted); font-size: 1.1em; line-height: 1; }
+.dash-cfg-grip { color: var(--sx-text-muted); line-height: 1; }
 .dash-cfg-nome { display: flex; align-items: center; gap: 0.4rem; margin: 0; cursor: pointer; }
 .dash-cfg-nota {
   grid-column: 2 / -1;
@@ -445,7 +440,6 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
 }
 .mov-action-card:hover { background: var(--grad-card-hover); border-color: var(--sx-border-strong); }
 .mov-action-card.c-green { border-top-color: var(--sx-success); }
-.mov-action-card.c-red { border-top-color: var(--sx-danger); }
 .mov-action-card.c-blue { border-top-color: var(--sx-accent); }
 .mov-action-card.c-amber { border-top-color: var(--sx-warning); }
 .mov-action-card.c-purple { border-top-color: var(--sx-purple); }
@@ -692,7 +686,6 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   outline: 2px solid transparent;
 }
 .mov-action-card.c-green.active  { background: var(--sx-success-soft); border-color: var(--sx-success); }
-.mov-action-card.c-red.active    { background: var(--sx-danger-soft);  border-color: var(--sx-danger); }
 .mov-action-card.c-blue.active   { background: var(--sx-accent-soft);  border-color: var(--sx-accent); }
 .mov-action-card.c-amber.active  { background: var(--sx-warning-soft); border-color: var(--sx-warning); }
 .mov-action-card.c-purple.active { background: var(--sx-purple-soft);  border-color: var(--sx-purple); }
@@ -762,7 +755,7 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   transition: background var(--md-sys-motion-duration-short2) var(--md-sys-motion-easing-standard);
 }
 .map-vt-btn:last-child { border-right: none; }
-.map-vt-btn:hover:not(.active) { background: rgba(23,29,26, var(--md-sys-state-hover-opacity)); }
+.map-vt-btn:hover:not(.active) { background: color-mix(in srgb, var(--md-sys-color-on-surface) calc(var(--md-sys-state-hover-opacity) * 100%), transparent); }
 .map-vt-btn.active { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); font-weight: 700; }
 
 .level-btn {
@@ -775,11 +768,11 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   font-size: var(--md-sys-typescale-label-medium-size);
   letter-spacing: var(--md-sys-typescale-label-medium-tracking);
 }
-.level-btn:hover { background: rgba(23,29,26, var(--md-sys-state-hover-opacity)); }
+.level-btn:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) calc(var(--md-sys-state-hover-opacity) * 100%), transparent); }
 .level-btn.active { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); border-color: transparent; font-weight: 700; }
 
 .inv-btn { border-radius: var(--md-sys-shape-corner-full); border-color: var(--md-sys-color-outline); background: transparent; color: var(--md-sys-color-on-surface-variant); }
-.inv-btn:hover { background: rgba(23,29,26, var(--md-sys-state-hover-opacity)); }
+.inv-btn:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) calc(var(--md-sys-state-hover-opacity) * 100%), transparent); }
 .inv-btn.inv-ok  { background: var(--md-ext-success); color: var(--md-ext-on-success); border-color: transparent; }
 .inv-btn.inv-miss { background: var(--md-sys-color-error); color: var(--md-sys-color-on-error); border-color: transparent; }
 
@@ -845,6 +838,16 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
 /* ════════════ Print (Report PDF / DDT) ════════════ */
 #printReport { display: none; }
 @media print {
+
+  /* 2.23 — STAVA FUORI DA QUI, e per questo era l'unico `pt` dello schermo.
+     La usano solo il rapporto di prelievo e il DDT: e' CSS di stampa, e la
+     carta si misura in punti. Spostata dentro, a video non cambia niente
+     perche' a video non compariva. */
+  .avv-stampa {
+    font-size: 7pt; line-height: 1.25; margin-top: 1px;
+    color: #7f1d1d; font-weight: 600;
+  }
+
   body, html { background: #fff; overflow: visible; height: auto; }
   .app, .app-header, .app-sidebar, .app-main, .app-footer, .mob-tabs, .detail-panel, .modal-overlay, #pfLogoSprite { display: none !important; }
   #fbCenter, #dlgOverlay, #undoBarArea { display: none !important; }
@@ -1038,11 +1041,9 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
    con la stessa classe accendono sempre la prima delle due. */
 .mov-action-card.c-pf { border-top-color: var(--sx-primary); }
 .mov-action-card.c-pf.active { background: var(--sx-primary-soft); border-color: var(--sx-primary); }
-/* 2.21 — il carico delle spedizioni. Arancione come le spedizioni, che e'
-   dove i suoi documenti nascono e dove si evadono: due tessere della stessa
-   famiglia, come prodotto finito e unita' di carico. */
-.mov-action-card.c-load { border-top-color: var(--sx-orange); }
-.mov-action-card.c-load.active { background: var(--sx-orange-soft); border-color: var(--sx-orange); }
+/* 2.23 — la tessera `c-load` non c'e' piu': il carico del camion e' una
+   SCHEDA di Spedizioni, non un'operazione a se'. Le sue due regole sono
+   uscite di qui insieme alla tessera. */
 
 /* ════ 2.9 — L'ELENCO DELLE GIACENZE FUORI POSTO ════
    © Andrea Sacchetti — Dietopack S.r.l.

@@ -17,10 +17,11 @@ import {
   descriviColli as descriviElenco, verificaColli as verificaElenco,
 } from '../../modules/colli';
 import { Dialog } from '../dialog';
+import type { Icona } from '../icone';
 
 /* L avviso che un articolo si porta dietro: allergeni, temperatura,
    pericolosita. Nasce in un punto solo e si stampa in due. */
-type AvvisoArticolo = { tipo: string; icona: string; et: string; testo: string };
+type AvvisoArticolo = { tipo: string; icona: Icona; et: string; testo: string };
 
 export const VistaConfigArticoli = {
   _onArtFilterInput(value) {
@@ -53,13 +54,13 @@ export const VistaConfigArticoli = {
         ${Object.entries(catCounts).sort().map(([c,n]) => `<span class="badge badge-muted">${this._esc(c)}: ${n}</span>`).join('')}
       </div>
       <div class="flex gap-4 mb-5 flex-wrap">
-        <button class="btn btn-sm btn-success" onclick="App.importArticlesExcel()">📥 Import Excel</button>
-        <button class="btn btn-sm btn-accent" onclick="App.exportArticlesExcel()">📊 Export Excel</button>
+        <button class="btn btn-sm btn-success" onclick="App.importArticlesExcel()">${this._ico('download')} Import Excel</button>
+        <button class="btn btn-sm btn-accent" onclick="App.exportArticlesExcel()">${this._ico('chart-bar')} Export Excel</button>
       </div>
       <div class="flex gap-4 mb-5 flex-wrap">
-        <input class="input flex-1 min-w-[140px]" id="artFilterInput" value="${this._esc(this._artFilter)}" placeholder="🔍 Filtra... (debounce 300ms)"
+        <input class="input flex-1 min-w-[140px]" id="artFilterInput" value="${this._esc(this._artFilter)}" placeholder="${this._ico('search')} Filtra... (debounce 300ms)"
           oninput="App._onArtFilterInput(this.value)">
-        <select class="select" class="w-auto min-w-[140px]" onchange="App._artSort=this.value;App._renderConfigArticles($('configContent'))">
+        <select class="select w-auto min-w-[140px]" onchange="App._artSort=this.value;App._renderConfigArticles($('configContent'))">
           <option value="code_asc" ${this._artSort==='code_asc'?'selected':''}>Codice A→Z</option>
           <option value="code_desc" ${this._artSort==='code_desc'?'selected':''}>Codice Z→A</option>
           <option value="desc_asc" ${this._artSort==='desc_asc'?'selected':''}>Descrizione A→Z</option>
@@ -73,7 +74,7 @@ export const VistaConfigArticoli = {
           <h3>Import da CSV</h3>
           <p class="text-body-small text-sx-text-secondary mb-3">Formato: <span class="mono">codice;descrizione;categoria</span></p>
           <textarea class="textarea" id="csvImportArea" placeholder="MP-001234;Vitamina C 500mg;MP&#10;PF-005678;Omega 3 60cps;PF" rows="3"></textarea>
-          <button class="btn btn-sm btn-success mt-3" onclick="App.importArticlesCSV()">📥 Importa CSV</button>
+          <button class="btn btn-sm btn-success mt-3" onclick="App.importArticlesCSV()">${this._ico('download')} Importa CSV</button>
         </div>`;
       el.innerHTML = html;
       return;
@@ -86,7 +87,7 @@ export const VistaConfigArticoli = {
         <h3>Import da CSV</h3>
         <p class="text-body-small text-sx-text-secondary mb-3">Formato: <span class="mono">codice;descrizione;categoria</span></p>
         <textarea class="textarea" id="csvImportArea" placeholder="MP-001234;Vitamina C 500mg;MP&#10;PF-005678;Omega 3 60cps;PF" rows="3"></textarea>
-        <button class="btn btn-sm btn-success mt-3" onclick="App.importArticlesCSV()">📥 Importa CSV</button>
+        <button class="btn btn-sm btn-success mt-3" onclick="App.importArticlesCSV()">${this._ico('download')} Importa CSV</button>
       </div>`;
     el.innerHTML = html;
     // Costruisco le righe in un DocumentFragment (singolo reflow finale)
@@ -106,12 +107,12 @@ export const VistaConfigArticoli = {
           _h('button', {
             class: 'btn btn-sm',
             onclick: () => this.showEditArticleModal(code)
-          }, ['✏️']),
+          }, [this._ico('pencil', 'Modifica')]),
           ' ',
           _h('button', {
             class: 'btn btn-sm btn-danger',
             onclick: () => this.confirmDeleteArticle(code)
-          }, ['🗑'])
+          }, [this._ico('trash', 'Elimina')])
         ])
       ]);
       frag.appendChild(tr);
@@ -151,7 +152,7 @@ export const VistaConfigArticoli = {
         <div class="form-group"><label>Stock Max</label><input class="input" id="artMaxStock" type="number" step="1" min="0" value="0"></div>
       </div>
       <div class="text-label-small text-sx-text-muted mb-6">
-        📄 La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
+        ${this._ico('file-text')} La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
       </div>
       ${this._notaUM('art')}
       ${this._campoImballo(null, 'art')}
@@ -200,7 +201,7 @@ export const VistaConfigArticoli = {
     this.closeModal();
     this.renderConfig();
     this.updateSyncIndicator();
-    this.toast(`✓ Articolo ${code} creato`, 'success');
+    this.toast(`Articolo ${code} creato`, 'success');
   },
 
   /* ═══ AVVISI MERCEOLOGICI ═══════════════════════════════════════════
@@ -222,20 +223,20 @@ export const VistaConfigArticoli = {
     if (!a) return [];
     const out: AvvisoArticolo[] = [];
     if (a.temp_class) {
-      out.push({ tipo: 'temp', icona: '🌡', et: 'Conservazione', testo: etichettaClasse(a.temp_class) });
+      out.push({ tipo: 'temp', icona: 'temperature', et: 'Conservazione', testo: etichettaClasse(a.temp_class) });
     }
     if (a.allergens?.length) {
-      out.push({ tipo: 'all', icona: '⚠️', et: 'Allergeni', testo: a.allergens.map(c => this._etAllergene(c)).join(', ') });
+      out.push({ tipo: 'all', icona: 'alert-triangle', et: 'Allergeni', testo: a.allergens.map(c => this._etAllergene(c)).join(', ') });
     }
     if (a.certifications?.length) {
-      out.push({ tipo: 'cert', icona: '✓', et: 'Certificazioni', testo: a.certifications.map(etichettaCertificazione).join(', ') });
+      out.push({ tipo: 'cert', icona: 'check', et: 'Certificazioni', testo: a.certifications.map(etichettaCertificazione).join(', ') });
     }
     /* 1.6 — la pericolosità viaggia come gli altri due: davanti allo
        scaffale, sul report e sul DDT. Chi ha in mano un collo di
        infiammabile deve saperlo lì, non in Configurazione. */
     if (a.hazards?.length) {
       const ammessi = Store.getPericoli();
-      out.push({ tipo: 'haz', icona: '☣', et: 'Pericolosità',
+      out.push({ tipo: 'haz', icona: 'biohazard', et: 'Pericolosità',
                  testo: a.hazards.map(h => etichettaDi(ammessi, h)).join(', ') });
     }
     return out;
@@ -247,7 +248,7 @@ export const VistaConfigArticoli = {
     if (!av.length) return '';
     return `<div class="avv-banda">${av.map((x) => `
       <div class="avv-riga avv-riga--${x.tipo}">
-        <span class="avv-ico">${x.icona}</span>
+        <span class="avv-ico">${this._ico(x.icona)}</span>
         <span class="avv-et">${this._esc(x.et)}</span>
         <b>${this._esc(x.testo)}</b>
       </div>`).join('')}</div>`;
@@ -258,7 +259,7 @@ export const VistaConfigArticoli = {
     const av: AvvisoArticolo[] = this._avvisiArticolo(code);
     if (!av.length) return '';
     return `<div class="avv-stampa">${
-      av.map((x) => `${x.icona} ${this._esc(x.testo)}`).join(' · ')}</div>`;
+      av.map((x) => `${this._ico(x.icona)} ${this._esc(x.testo)}`).join(' · ')}</div>`;
   },
 
   /* 1.4.0 — i due attributi che il motore di stoccaggio usera' come vincoli
@@ -293,15 +294,15 @@ export const VistaConfigArticoli = {
     const per = $(`${p}PiecesPack`)?.value || '';
     const errori = validaConfigurazione(um, per);
     if (errori.length) {
-      box.textContent = '⚖ ' + errori.join(' · ');
+      box.textContent = errori.join(' · ');
       box.style.color = 'var(--sx-warning)';
       return;
     }
     const n = Number(String(per).replace(',', '.'));
     box.style.color = 'var(--sx-text-muted)';
     box.textContent = n > 0
-      ? `⚖ Un collo pieno contiene ${formattaQuantita(n, um)} ${um} — ${etichettaUnita(um)}. Il collo incompleto si calcola.`
-      : '⚖ Nessuna unità: l\'articolo si gestisce a soli colli, come prima.';
+      ? `${this._ico('scale')} Un collo pieno contiene ${formattaQuantita(n, um)} ${um} — ${etichettaUnita(um)}. Il collo incompleto si calcola.`
+      : 'Nessuna unità: l\'articolo si gestisce a soli colli, come prima.';
   },
 
   /* COME SI LEGGE UNA RIGA DI GIACENZA DALLA 1.4.2: «10 × 1.000 + 1 × 100 PZ».
@@ -319,9 +320,9 @@ export const VistaConfigArticoli = {
       if (elenco) {
         const v = verificaElenco(item.qty, item.qty_uom, elenco, cfg.uom);
         const scarto = v && !v.ok
-          ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono all'elenco: ne risulterebbero ${v.colliAttesi}">⚠️ ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
+          ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono all'elenco: ne risulterebbero ${v.colliAttesi}">${this._ico('alert-triangle')} ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
           : '';
-        return `<div class="item-meta">⚖ ${this._esc(descriviElenco(elenco, cfg.uom))}${scarto}</div>`;
+        return `<div class="item-meta">${this._ico('scale')} ${this._esc(descriviElenco(elenco, cfg.uom))}${scarto}</div>`;
       }
     }
     if (!cfg?.per_collo) return '';
@@ -333,12 +334,12 @@ export const VistaConfigArticoli = {
        precisamente il modo di scriverne uno sbagliato ma plausibile. */
     const v = Store.verificaUom(item);
     const avviso = v && !v.ok
-      ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono alle UM: ne risulterebbero ${v.colliAttesi}">⚠️ ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
+      ? ` <span class="badge badge-amber" title="I colli dichiarati non corrispondono alle UM: ne risulterebbero ${v.colliAttesi}">${this._ico('alert-triangle')} ${v.scarto > 0 ? '+' : ''}${v.scarto} coll.</span>`
       : '';
     const incompleto = s.incompleto
       ? ' <span class="badge badge-muted" title="L\'ultimo collo non è pieno">collo incompleto</span>'
       : '';
-    return `<div class="item-meta">⚖ ${this._esc(descriviColli(totale, cfg.per_collo, cfg.uom))}${incompleto}${avviso}</div>`;
+    return `<div class="item-meta">${this._ico('scale')} ${this._esc(descriviColli(totale, cfg.per_collo, cfg.uom))}${incompleto}${avviso}</div>`;
   },
 
   /* 1.6 — LE TENDINE NON SONO PIÙ NEL SORGENTE. Classi, allergeni e
@@ -400,7 +401,7 @@ export const VistaConfigArticoli = {
       <div class="form-group mb-3"><label>Certificazioni</label>
         <div class="all-grid">${certificati}</div></div>
       <div class="text-label-small text-sx-text-muted mb-6">
-        🧭 Con questi la <strong>mappa</strong> segnala la merce fuori posto, e prelievo e DDT
+        ${this._ico('compass')} Con questi la <strong>mappa</strong> segnala la merce fuori posto, e prelievo e DDT
         avvisano l'operatore. Lasciati vuoti, l'articolo non viene verificato.
       </div>`;
   },
@@ -480,7 +481,7 @@ export const VistaConfigArticoli = {
         <div class="form-group"><label>Stock Max</label><input class="input" id="eaMaxStock" type="number" step="1" min="0" value="${art.max_stock || 0}"></div>
       </div>
       <div class="text-label-small text-sx-text-muted mb-6">
-        📄 La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
+        ${this._ico('file-text')} La quantità per collo è la riga che decide se l'articolo è gestito a unità di misura. A zero, resta a soli colli.
       </div>
       ${this._notaUM('ea')}
       ${this._campoImballo(art, 'ea')}
@@ -511,7 +512,7 @@ export const VistaConfigArticoli = {
     this.closeModal();
     this.renderConfig();
     this.updateSyncIndicator();
-    this.toast(`✓ ${code} aggiornato`, 'success');
+    this.toast(`${code} aggiornato`, 'success');
   },
 
   async confirmDeleteArticle(code) {

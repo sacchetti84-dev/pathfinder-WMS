@@ -5,82 +5,48 @@
 
 :root {
 
-  /* ── Chrome applicativo (barra superiore, sidebar) ── */
-  --sx-primary: #1b3a4b;          /* petrolio scuro desaturato — upper bar */
-  --sx-primary-hover: #244a5e;
-  --sx-primary-light: #2e5a70;
+  /* ══ 2.23 · QUI I COLORI NON CI SONO PIÙ ════════════════════════════
+     Fino alla 2.22 questo era il primo di DUE elenchi. Qui stavano i valori
+     — `--sx-danger: #a82c26` — e più sotto, in fondo al file, stavano gli
+     stessi nomi come RIMANDI ai ruoli M3: `--sx-danger: var(--md-sys-color-
+     error)`, che è `#BA1A1A`. Vinceva il secondo, perché veniva dopo.
 
-  /* ── Accento interattivo unico ── */
-  --sx-accent: #00745a;           /* verde-petrolio sobrio: richiamo Sage senza usarne il marchio */
-  --sx-accent-hover: #005f4a;
-  --sx-accent-soft: #e6f2ef;
+     Quindi i colori scritti qui erano MORTI da tempo: nessuno li vedeva a
+     video, e chiunque aprisse il file per cambiare una tinta cambiava quelli.
+     Le due tavolozze non erano una scelta — erano una svista lunga un file.
 
-  /* ── Colori di stato (desaturati per griglie dense) ── */
-  --sx-success: #1f7a4d;
-  --sx-success-soft: #e6f2eb;
-  --sx-warning: #a8620a;
-  --sx-warning-soft: #fbf0dc;
-  --sx-danger: #a82c26;
-  --sx-danger-soft: #f8e6e5;
-  --sx-purple: #55458c;           /* Quarantena */
-  --sx-purple-soft: #ecebf5;
-  --sx-teal: #0f6b66;             /* Resi */
-  --sx-teal-soft: #e2f0ef;
-  --sx-orange: #b4531b;           /* Spedizioni */
-  --sx-orange-soft: #fbeade;
+     I rimandi sono rimasti, e stanno DOPO i ruoli M3, che è il posto giusto:
+     un rimando si legge dopo la cosa a cui rimanda. Il colore si cambia fra i
+     ruoli, in un posto solo. */
 
-  /* ── Superfici ── */
-  --sx-bg: #eff1f3;               /* area di lavoro */
-  --sx-bg-alt: #e3e7ea;           /* fasce alternate, hover */
-  --sx-card: #ffffff;
-  --sx-card-alt: #f6f8f9;         /* intestazioni griglia, zebra */
-  --sx-input: #ffffff;
+  /* Geometria, elevazione e state layer stavano QUI con dei valori, ed erano
+     morti come i colori: gli stessi nomi tornano più in basso come rimandi ai
+     token M3, e vince chi viene dopo. `--radius` non valeva i 2px scritti
+     qui, ne valeva 4. Tolti nella 2.23 — a video non è cambiato niente,
+     perché non disegnavano niente. */
 
-  /* ── Bordi: la gerarchia dell'interfaccia passa da qui ── */
-  --sx-border: #ccd4d9;           /* filetto standard */
-  --sx-border-strong: #9aa8b0;    /* bordo marcato, campi attivi */
+  /* ── 2.23 · GLI STATI SULLA BARRA SCURA ──
+     Non sono quelli dell'applicativo, e non è una svista. `--sx-success` è
+     tarato per stare su una superficie chiara: messo sul petrolio della barra
+     si spegne. Questi quattro sono gli stessi stati, schiariti per leggersi
+     su `--md-ext-chrome`. Stavano scritti a mano dentro `01-layout.css`, dove
+     nessuno li avrebbe trovati cercando una tinta.
 
-  /* ── Testo ── */
-  --sx-text: #182830;
-  --sx-text-secondary: #43555f;
-  --sx-text-muted: #6d7f89;
-  --sx-disabled: #c4ced4;
+     Stanno fra le estensioni e non fra i ruoli M3 perché M3 non ha una
+     superficie «barra applicativa»: è la stessa ragione per cui esiste
+     `--md-ext-chrome`. */
+  --md-ext-on-chrome-ok:      #5fbf94;   /* scritto e a posto */
+  --md-ext-on-chrome-attesa:  #e0a63a;   /* c'è qualcosa da scrivere */
+  --md-ext-on-chrome-errore:  #d9756e;   /* il servizio non risponde */
+  --md-ext-on-chrome-lavoro:  #7dc4e8;   /* sta scrivendo adesso */
 
-  /* ── Geometria: angoli quasi vivi, ombre minime ── */
-  --radius: 2px;
-  --radius-md: 3px;
-  --shadow-sm: 0 1px 1px rgba(24,40,48,0.05);
-  --shadow: 0 1px 3px rgba(24,40,48,0.10);
-  --shadow-lg: 0 3px 10px rgba(24,40,48,0.16);
-  --transition: 0.12s ease;
-
-  /* Scala di forma M3 */
-  --md-shape-xs: 4px;
-  --md-shape-sm: 8px;
-  --md-shape-md: 12px;
-  --md-shape-lg: 16px;
-  --md-shape-xl: 28px;
-  --md-shape-full: 999px;
-
-  /* Elevazione M3 (livelli 0-4) — discreta, non "app consumer" */
-  --md-elev-1: 0 1px 2px rgba(24,40,48,0.16), 0 1px 3px 1px rgba(24,40,48,0.07);
-  --md-elev-2: 0 1px 2px rgba(24,40,48,0.16), 0 2px 6px 2px rgba(24,40,48,0.08);
-  --md-elev-3: 0 4px 8px 3px rgba(24,40,48,0.10), 0 1px 3px rgba(24,40,48,0.16);
-  --md-elev-4: 0 6px 10px 4px rgba(24,40,48,0.12), 0 2px 3px rgba(24,40,48,0.18);
-
-  /* State layer M3 (opacita' standard) */
-  --md-state-hover: 0.08;
-  --md-state-focus: 0.10;
-  --md-state-press: 0.12;
+  /* Il verde del nodo nel marchio Pathfinder. È un MARCHIO: non segue il tema
+     e non si armonizza, come il verde e il blu Naturacare di §8. */
+  --pf-verde-nodo: #4ade80;
 
   /* Target tattili — tablet con guanti da magazzino */
   --md-touch: 48px;
   --md-touch-sm: 40px;
-
-  /* Motion M3 */
-  --md-motion-short: 150ms cubic-bezier(0.2, 0, 0, 1);
-  --md-motion-med: 250ms cubic-bezier(0.2, 0, 0, 1);
-  --md-motion-emph: 350ms cubic-bezier(0.05, 0.7, 0.1, 1);
 
   --font: 'Segoe UI', 'Noto Sans', Arial, -apple-system, BlinkMacSystemFont, sans-serif;
   --mono: 'Consolas', 'SF Mono', 'Courier New', monospace;

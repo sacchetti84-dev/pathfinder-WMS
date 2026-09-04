@@ -66,8 +66,8 @@ export const VistaPosiziona = {
           <input class="input input-mono flex-1" id="mInLoc" placeholder="Scansiona ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('mInLoc');App._previewLoc('mInLoc','mInLocPrev')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('mInLoc');App._previewLoc('mInLoc','mInLocPrev');App._scanAvanti('loc');}">
-          <button class="btn btn-sm" onclick="App._pickLoc('mInLoc','_cbPickIn')" title="Sfoglia le ubicazioni">📍</button>
-          <button class="btn btn-sm" onclick="App._pickUdcIn()" title="Scegli un'unità di carico aperta">🔀</button>
+          <button class="btn btn-sm" onclick="App._pickLoc('mInLoc','_cbPickIn')" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
+          <button class="btn btn-sm" onclick="App._pickUdcIn()" title="Scegli un'unità di carico aperta">${this._ico('arrows-shuffle')}</button>
         </div>
         <div id="mInLocPrev"></div>
       </div>
@@ -104,7 +104,7 @@ export const VistaPosiziona = {
         </div>
       </details>
       <div class="flex gap-4">
-        <button class="btn btn-success flex-1 p-5.5 font-bold" onclick="App._execPosiziona()">✓ CONFERMA POSIZIONAMENTO</button>
+        <button class="btn btn-success btn-conferma" onclick="App._execPosiziona()">${this._ico('check')} CONFERMA POSIZIONAMENTO</button>
       </div>
       <div class="mt-4" id="mInFeedback"></div>
       <div class="kbd-hint">
@@ -208,7 +208,7 @@ export const VistaPosiziona = {
         <span class="text-sx-text-muted">×</span>
         <input class="input input-mono max-w-[130px] text-center" type="number" min="0" step="${passo}" value="${this._esc(String(r.per ?? ''))}" placeholder="dentro"
           oninput="App._colliRigaSet(${i},'per',this.value)">
-        <button class="btn btn-sm" title="Togli questa misura" onclick="App._colliRigaDel(${i})">✕</button>
+        <button class="btn btn-sm" title="Togli questa misura" onclick="App._colliRigaDel(${i})">${this._ico('x')}</button>
       </div>`).join('');
     this._bloccaCampoColli(this._colliIn.length > 1);
     this._anteprimaColliIn();
@@ -264,7 +264,7 @@ export const VistaPosiziona = {
       box.hidden = true;
       this._bloccaCampoColli(false);
       this._notaColliIn(art
-        ? `⚖ ${art}: nessuna unità di misura in anagrafica — si carica a soli colli. Si compila in Configurazione → Articoli.`
+        ? `${this._ico('scale')} ${art}: nessuna unità di misura in anagrafica — si carica a soli colli. Si compila in Configurazione → Articoli.`
         : '');
       return;
     }
@@ -291,13 +291,13 @@ export const VistaPosiziona = {
     const prev = $('mInColliPrev');
     const errori = validaDichiarazione(this._colliIn, cfg.uom);
     if (errori.length) {
-      prev.textContent = '⚖ ' + errori.join(' · ');
+      prev.textContent = errori.join(' · ');
       prev.style.color = 'var(--sx-warning)';
       return;
     }
     const elenco = espandiColli(this._colliIn, cfg.uom);
     prev.style.color = 'var(--sx-text-muted)';
-    prev.textContent = `⚖ ${descriviElenco(elenco!, cfg.uom)} — ${formattaQuantita(totaleUomElenco(elenco!, cfg.uom), cfg.uom)} ${cfg.uom} in ${elenco!.length} coll.`;
+    prev.textContent = `${descriviElenco(elenco!, cfg.uom)} — ${formattaQuantita(totaleUomElenco(elenco!, cfg.uom), cfg.uom)} ${cfg.uom} in ${elenco!.length} coll.`;
     /* I colli li conta la dichiarazione, e il campo ④ li rispecchia. Si
        riscrive solo se e' diverso: assegnare `value` mentre qualcuno sta
        digitando gli sposta il cursore in fondo. */
@@ -389,7 +389,7 @@ export const VistaPosiziona = {
     overlay.id = 'colliOverlay';
     overlay.innerHTML = `
       <div class="modal max-w-[460px]">
-        <div class="modal-header"><h2>📦 ${this._esc(titolo)}</h2></div>
+        <div class="modal-header"><h2>${this._ico('package')} ${this._esc(titolo)}</h2></div>
         <div class="modal-body">
           <div class="text-body-small text-sx-text-secondary mb-6">
             <strong class="mono">${this._esc(item.article_code)}#${this._esc(item.lot_code)}</strong> in <strong class="mono">${this._esc(item.location_code)}</strong>
@@ -411,7 +411,7 @@ export const VistaPosiziona = {
         </div>
         <div class="modal-footer">
           <button class="btn" onclick="App._colliSelAnnulla()">Annulla</button>
-          <button class="btn btn-success" onclick="App._colliSelOk()">✓ Conferma i colli</button>
+          <button class="btn btn-success" onclick="App._colliSelOk()">${this._ico('check')} Conferma i colli</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -532,7 +532,7 @@ export const VistaPosiziona = {
       prev.textContent = `Escono ${esito.usciti.length} coll. · ${formattaQuantita(esito.uom, s.uom)} ${s.uom}${coda} — restano ${descriviElenco(esito.rimasti, s.uom)}`;
     } catch (err) {
       prev.style.color = 'var(--sx-warning)';
-      prev.textContent = '⚠️ ' + ((err as Error).message || 'scelta non valida');
+      prev.textContent = (err as Error).message || 'scelta non valida';
     }
   },
 
@@ -613,7 +613,7 @@ export const VistaPosiziona = {
     overlay.id = 'ridichOverlay';
     overlay.innerHTML = `
       <div class="modal max-w-[460px]">
-        <div class="modal-header"><h2>📦 ${this._esc(titolo)}</h2></div>
+        <div class="modal-header"><h2>${this._ico('package')} ${this._esc(titolo)}</h2></div>
         <div class="modal-body">
           <div class="text-body-small text-sx-text-secondary mb-6">
             <strong class="mono">${this._esc(item.article_code)}#${this._esc(item.lot_code)}</strong> in <strong class="mono">${this._esc(item.location_code)}</strong>${opzioni.daZero ? '' : ` — a sistema ${this._esc(descriviElenco(elenco, cfg.uom))}`}
@@ -624,7 +624,7 @@ export const VistaPosiziona = {
         </div>
         <div class="modal-footer">
           <button class="btn" onclick="App._ridichAnnulla()">Annulla</button>
-          <button class="btn btn-success" onclick="App._ridichOk()">✓ È così</button>
+          <button class="btn btn-success" onclick="App._ridichOk()">${this._ico('check')} È così</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
@@ -674,7 +674,7 @@ export const VistaPosiziona = {
         <input class="input input-mono max-w-[130px] text-center" type="number" min="0" step="0.001" value="${this._esc(String(r.per ?? ''))}" placeholder="dentro"
           oninput="App._ridichSet(${i},'per',this.value)">
         <span class="text-sx-text-muted text-label-small">${this._esc(s.uom)}</span>
-        <button class="btn btn-sm" title="Togli questa misura" onclick="App._ridichRigaDel(${i})">✕</button>
+        <button class="btn btn-sm" title="Togli questa misura" onclick="App._ridichRigaDel(${i})">${this._ico('x')}</button>
       </div>`).join('');
     this._ridichPrev();
   },
@@ -703,7 +703,7 @@ export const VistaPosiziona = {
         : 'Vano vuoto: la riga sparisce dalla giacenza';
     } catch (err) {
       prev.style.color = 'var(--sx-warning)';
-      prev.textContent = '⚠️ ' + ((err as Error).message || 'dichiarazione non valida');
+      prev.textContent = (err as Error).message || 'dichiarazione non valida';
     }
   },
 
@@ -782,11 +782,11 @@ export const VistaPosiziona = {
     const info = $(infoId);
     const descEl = descId ? $(descId) : null;
     if (art) {
-      info.innerHTML = `<span class="text-sx-success">✓</span> <strong>${this._esc(art.description)}</strong> <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
+      info.innerHTML = `<span class="text-sx-success">${this._ico('check')}</span> <strong>${this._esc(art.description)}</strong> <span class="badge badge-muted">${this._esc(art.category || '')}</span>`;
       /* Vedi `giacenze.ts`: senza descrizione il campo resta vuoto. */
       if (descEl) descEl.value = art.description ?? '';
     } else {
-      info.innerHTML = `<span class="text-sx-warning">⚠️ Nuovo articolo — compilare descrizione (obbligatoria)</span>`;
+      info.innerHTML = `<span class="text-sx-warning">${this._ico('alert-triangle')} Nuovo articolo — compilare descrizione (obbligatoria)</span>`;
       if (descEl) descEl.value = '';
       // espandi details per forzare compilazione
       $('mInDetails')?.setAttribute('open', '');
@@ -928,7 +928,7 @@ export const VistaPosiziona = {
         </div>`
       : verdetto.esito === 'estensione'
         ? `<div class="mov-preview mov-preview-warn mb-5">
-            <strong>⚠️ Il lotto si estende su un secondo vano.</strong>
+            <strong>${this._ico('alert-triangle')} Il lotto si estende su un secondo vano.</strong>
             ${this._esc(verdetto.messaggio)}<br>
             Finché dura, la mappa lo segnala come lotto sparso.
           </div>`
@@ -939,7 +939,7 @@ export const VistaPosiziona = {
     const propostaUdc = Store.proponiUdc(art, lot);
     const udcHtml = propostaUdc && propostaUdc.udc_id !== scelto
       ? `<div class="mov-preview mb-5">
-          <strong>📦 Unità di carico consigliata: <span class="mono">${this._esc(propostaUdc.udc_id)}</span></strong><br>
+          <strong>${this._ico('package')} Unità di carico consigliata: <span class="mono">${this._esc(propostaUdc.udc_id)}</span></strong><br>
           ${this._esc(propostaUdc.perche)}
           <div class="flex gap-3 mt-4 flex-wrap">
             <button class="btn btn-sm" type="button"
@@ -953,7 +953,7 @@ export const VistaPosiziona = {
        ubicazione mappata la accoglierebbe. */
     if (!primo) {
       box.innerHTML = casaHtml + udcHtml + `<div class="mov-preview mov-preview-warn mb-5">
-        <strong>🎯 Nessuna ubicazione soddisfa i vincoli</strong> per questa merce.
+        <strong>${this._ico('target')} Nessuna ubicazione soddisfa i vincoli</strong> per questa merce.
         ${esito.esclusi.length ? `Il primo motivo: ${this._esc(esito.esclusi[0]!.messaggio)}.` : ''}
         Si può posizionare comunque: il motivo resta a registro.
       </div>`;
@@ -965,7 +965,7 @@ export const VistaPosiziona = {
        smette di leggere. */
     if (scelto && scelto === primo.location_code) {
       box.innerHTML = casaHtml + udcHtml + `<div class="mov-preview mov-preview-ok mb-5">
-        <strong>🎯 ${this._esc(scelto)}</strong> è anche quella che il motore propone.
+        <strong>${this._ico('target')} ${this._esc(scelto)}</strong> è anche quella che il motore propone.
       </div>`;
       return;
     }
@@ -977,9 +977,9 @@ export const VistaPosiziona = {
 
     box.innerHTML = casaHtml + udcHtml + `<div class="mov-preview ${escluso ? 'mov-preview-err' : ''} mb-5">
       ${escluso
-        ? `<strong>⛔ ${this._esc(scelto)} non va bene:</strong> ${this._esc(escluso.messaggio)}.<br>`
+        ? `<strong>${this._ico('alert-octagon')} ${this._esc(scelto)} non va bene:</strong> ${this._esc(escluso.messaggio)}.<br>`
         : ''}
-      <strong>🎯 Proposta: <span class="mono">${this._esc(primo.location_code)}</span></strong>
+      <strong>${this._ico('target')} Proposta: <span class="mono">${this._esc(primo.location_code)}</span></strong>
       ${perche}
       <div class="flex gap-3 mt-4 flex-wrap">
         <button class="btn btn-sm btn-primary" type="button" onclick="App._usaVanoProposto()">Usa ${this._esc(primo.location_code)}</button>
@@ -1018,7 +1018,7 @@ export const VistaPosiziona = {
   _altreProposte() {
     const p = this._propostaCorrente?.proposte || [];
     if (p.length < 2) return;
-    this.showModal('🎯 Le altre ubicazioni possibili',
+    this.showModal(`${this._ico('target')} Le altre ubicazioni possibili`,
       p.slice(1, 21).map((x: { location_code: string; punteggio: number; perche: string[] }) => `
         <div class="inv-item-row">
           <div class="inv-info">
@@ -1033,7 +1033,7 @@ export const VistaPosiziona = {
   _perchePropostaEsclusi() {
     const e = this._propostaCorrente?.esclusi || [];
     if (!e.length) return;
-    this.showModal(`⛔ Perché queste ubicazioni no (${e.length})`,
+    this.showModal(`${this._ico('alert-octagon')} Perché queste ubicazioni no (${e.length})`,
       e.slice(0, 40).map((x: { location_code: string; messaggio: string }) => `
         <div class="inv-item-row">
           <div class="inv-info">
@@ -1099,14 +1099,14 @@ export const VistaPosiziona = {
     const aperte = Store.getUdcAperte().filter(u => u.location_code);
     if (!aperte.length) return this.toast('Nessuna unità di carico aperta con un’ubicazione', 'info');
     this.showModal(
-      '🔀 Carica su un’unità di carico',
+      `${this._ico('arrows-shuffle')} Carica su un’unità di carico`,
       `<p class="text-body-small text-sx-text-secondary mb-6">
         La merce si posiziona nel vano dell’unità e le resta sopra: spostando l’unità, si sposta anche lei.
       </p>
       <div class="form-group">
         <label>Unità aperte</label>
         <select class="input select" id="mInUdcPick">
-          ${aperte.map(u => `<option value="${this._esc(u.udc_id)}">${this._esc(u.udc_id)} — 📍 ${this._esc(u.location_code)} · ${Store.righeDiUdc(u.udc_id).length} righe</option>`).join('')}
+          ${aperte.map(u => `<option value="${this._esc(u.udc_id)}">${this._esc(u.udc_id)} — ${this._ico('map-pin')} ${this._esc(u.location_code)} · ${Store.righeDiUdc(u.udc_id).length} righe</option>`).join('')}
         </select>
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
@@ -1124,8 +1124,52 @@ export const VistaPosiziona = {
     $('mInArtCode')?.focus();
   },
 
+  /* ── IL MODULO SI CHIUDE MENTRE LA SCRITTURA È IN VOLO — 04/09 ────────
+     Fra il momento in cui la riga entra in giacenza e quello in cui i campi
+     si azzerano passano due scritture: il movimento nel registro e, quando
+     la merce sale su un bancale, l'assegnazione all'unità. Su questa
+     macchina, con il database sul disco accanto, sono uno-tre secondi; sul
+     terminale, con la rete del magazzino in mezzo, di più.
+
+     In quei secondi la maschera restava scrivibile, e il lettore è più
+     veloce di una persona: chi sparava il codice dell'articolo successivo
+     se lo vedeva ATTACCARE a quello di prima — «6000366» più «7000924»
+     diventava `60003667000924` — e un istante dopo sparire, azzerato dal
+     posizionamento che finiva. L'operatore non ha modo di capire cosa sia
+     successo: rilegge, e il magazzino perde una scansione buona ogni volta
+     che due merci si susseguono in fretta.
+
+     E poteva andare peggio del nulla. Il lettore chiude la lettura con un
+     Invio, e su questa maschera l'Invio avanza di campo fino a chiamare il
+     posizionamento: il codice fuso arrivava alla validazione, che non lo
+     trova in anagrafica e APRE il pannello chiedendo una descrizione. Da lì
+     a battezzare un articolo che non esiste c'è un tasto.
+
+     Adesso la maschera si chiude per la durata della scrittura e lo dice.
+     Chi spara nel frattempo non scrive niente — meglio un campo che non
+     accetta di un campo che accetta e butta — e appena la riga è a posto il
+     fuoco torna sull'articolo, pronto per la scansione dopo. */
+  _posInVolo: false,
+
+  _posCampiAperti(aperti) {
+    for (const id of ['mInLoc', 'mInArtCode', 'mInArtDesc', 'mInLot', 'mInExp', 'mInNotes', 'mInQty']) {
+      const e = $(id); if (e) e.disabled = !aperti;
+    }
+    for (const e of document.querySelectorAll('#mInColliRighe input, #mInColliRighe button')) {
+      (e as HTMLInputElement).disabled = !aperti;
+    }
+    const conferma = document.querySelector('#movFormArea .btn-conferma') as HTMLButtonElement | null;
+    if (conferma) conferma.disabled = !aperti;
+  },
+
   async _execPosiziona() {
     if (!this._requireOperator('il posizionamento')) return;   // v2.0.1 [B7]
+    /* Un secondo posizionamento mentre il primo è in volo NON si ignora in
+       silenzio: chi ha premuto due volte deve sapere perché la seconda non
+       ha fatto niente. */
+    if (this._posInVolo) {
+      return this.toast('Posizionamento in corso — un attimo e la maschera torna libera', 'warning');
+    }
     const scritto = Validate.clean($('mInLoc')?.value, true).replace(/'/g, '-');
     const versoUdc = this._udcDestinazione(scritto);
     if (versoUdc && !versoUdc.location_code) {
@@ -1168,7 +1212,7 @@ export const VistaPosiziona = {
     const elapsed = ScanGuard.check(signature);
     if (elapsed !== null) {
       const proceed = await Dialog.confirm({
-        title: '⚠️ Scansione ripetuta',
+        title: 'Scansione ripetuta', icon: 'alert-triangle',
         message: `La stessa riga è già stata posizionata ${Math.round(elapsed / 1000)} secondi fa. Confermare solo se si tratta di colli realmente diversi: in caso contrario la giacenza verrebbe raddoppiata.`,
         details: Dialog.kv([
           ['Articolo', art], ['Lotto', lot], ['Ubicazione', loc], ['Colli da aggiungere', qty]
@@ -1198,61 +1242,79 @@ export const VistaPosiziona = {
     } catch (err) {
       return this.toast((err as Error).message || 'Suddivisione dei colli incompleta', 'error');
     }
+    /* LA SERRATURA: da qui la maschera non accetta piu' niente, e lo dice.
+       Il `finally` la riapre comunque, anche se la scrittura finisce male:
+       una maschera che resta chiusa dopo un errore e' un terminale morto. */
+    this._posInVolo = true;
+    this._posCampiAperti(false);
+    const fbVolo = $('mInFeedback');
+    if (fbVolo) {
+      fbVolo.innerHTML = `<div class="mov-preview">${this._ico('device-floppy')}`
+        + ' Registrazione in corso — attendere prima di scansionare</div>';
+    }
     try {
-      res = await Store.addItem(loc, art, effectiveDesc, lot, exp, notes, qty, qtyUom, elenco);
-    } catch (err) {
-      return this.toast((err as Error).message || 'Errore posizionamento', 'error');
-    }
-    if (!res.ok) return this.toast('Errore posizionamento', 'error');
-    // v1.7.0 — log con qty info
-    /* 1.13 — se il motore proponeva un altro vano, il motivo entra nel
-       movimento: è l'unico dato che dirà se le regole valgono. */
-    const scavalcato = this._notaScavalco(loc);
-    await this._logMov(MOV.IN, art, effectiveDesc, lot, loc, null, '',
-      scavalcato + (versoUdc ? `${scavalcato ? ' · ' : ''}su unità ${versoUdc.udc.udc_id}` : ''),
-      '', res.qty_before, qty, res.qty_after, res.qty_uom_delta);
-
-    /* La riga sale sull'unità DOPO che è entrata in giacenza: prima non
-       esiste ancora niente da caricare. Se l'assegnazione non riesce, il
-       posizionamento resta — la merce è a scaffale davvero — e chi legge
-       lo sa dal messaggio invece che dal pallet sbagliato la settimana
-       dopo. */
-    if (versoUdc) {
       try {
-        const ok = await Store.assegnaAUdc(loc, `${art}#${lot}`, versoUdc.udc.udc_id);
-        if (!ok) throw new Error('assegnazione non riuscita');
-      } catch (e) {
-        this.toast(`Merce posizionata in ${loc}, ma NON caricata su ${versoUdc.udc.udc_id}: ${(e as Error).message}`, 'error');
+        res = await Store.addItem(loc, art, effectiveDesc, lot, exp, notes, qty, qtyUom, elenco);
+      } catch (err) {
+        return this.toast((err as Error).message || 'Errore posizionamento', 'error');
       }
-    }
+      if (!res.ok) return this.toast('Errore posizionamento', 'error');
+      // v1.7.0 — log con qty info
+      /* 1.13 — se il motore proponeva un altro vano, il motivo entra nel
+         movimento: è l'unico dato che dirà se le regole valgono. */
+      const scavalcato = this._notaScavalco(loc);
+      await this._logMov(MOV.IN, art, effectiveDesc, lot, loc, null, '',
+        scavalcato + (versoUdc ? `${scavalcato ? ' · ' : ''}su unità ${versoUdc.udc.udc_id}` : ''),
+        '', res.qty_before, qty, res.qty_after, res.qty_uom_delta);
 
-    const fb = $('mInFeedback');
-    const modeLabel = res.mode === 'incremented' ? `<span class="text-sx-warning">⊕ INCREMENTATO</span>` : '';
-    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><span class="font-bold">✓ ${this._esc(art)}#${this._esc(lot)} → ${this._esc(loc)}</span> · <strong>+${qty} Coll.</strong> (saldo: ${res.qty_after}) ${modeLabel}</div>`;
-    const incrSuffix = res.mode === 'incremented' ? ` (saldo: ${res.qty_after})` : '';
-    this.toast(`✓ Posizionato: ${art}#${lot} → ${loc} · +${qty} Coll.${incrSuffix}`, 'success');
-    this.updateSyncIndicator();
-    // Reset campi articolo ma lascia loc; reset qty al default 1
-    for (const id of ['mInArtCode','mInArtDesc','mInLot','mInExp','mInNotes']) { const e = $(id); if (e) e.value = ''; }
-    const qtyEl = $('mInQty'); if (qtyEl) qtyEl.value = '1';
-    /* 1.8 — la dichiarazione appartiene al collo che si e' appena posizionato:
-       la prossima merce la dichiara chi ce l'ha in mano, da zero. */
-    this._colliIn = [];
-    this._colliInChiave = '';
-    this._anteprimaUmIn();
-    $('mInArtInfo').innerHTML = '';
-    $('mInDetails')?.removeAttribute('open');
-    this._previewLoc('mInLoc','mInLocPrev');
-    this._refreshSessionLog();
-    // v2.1.0 — storno disponibile per 120 secondi
-    /* 1.8 — lo storno di un posizionamento dichiarato toglie ESATTAMENTE i
-       colli che erano entrati: senza l'elenco toglierebbe «tre colli», e su
-       una riga imballata in due misure non sarebbero gli stessi tre. */
-    this._pushUndo(`Posizionamento ${art}#${lot} → ${loc} (${qty} Coll.)`,
-      [{ op: 'remove', loc, art, desc: effectiveDesc, lot, qty, qty_uom: res.qty_uom_delta ?? null, packs: elenco }]);
-    /* 1.4.4 — nessun aggancio: il Posizionamento non è più un tipo di
-       attività. Questa maschera resta quella di sempre per chi posiziona
-       merce a mano, e non ha nessun compito da far avanzare. */
-    this.setPrimaryScanField('mInArtCode');
+      /* La riga sale sull'unità DOPO che è entrata in giacenza: prima non
+         esiste ancora niente da caricare. Se l'assegnazione non riesce, il
+         posizionamento resta — la merce è a scaffale davvero — e chi legge
+         lo sa dal messaggio invece che dal pallet sbagliato la settimana
+         dopo. */
+      if (versoUdc) {
+        try {
+          const ok = await Store.assegnaAUdc(loc, `${art}#${lot}`, versoUdc.udc.udc_id);
+          if (!ok) throw new Error('assegnazione non riuscita');
+        } catch (e) {
+          this.toast(`Merce posizionata in ${loc}, ma NON caricata su ${versoUdc.udc.udc_id}: ${(e as Error).message}`, 'error');
+        }
+      }
+
+      const fb = $('mInFeedback');
+      const modeLabel = res.mode === 'incremented' ? `<span class="text-sx-warning">⊕ INCREMENTATO</span>` : '';
+      if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><span class="font-bold">${this._ico('check')} ${this._esc(art)}#${this._esc(lot)} → ${this._esc(loc)}</span> · <strong>+${qty} Coll.</strong> (saldo: ${res.qty_after}) ${modeLabel}</div>`;
+      const incrSuffix = res.mode === 'incremented' ? ` (saldo: ${res.qty_after})` : '';
+      this.toast(`Posizionato: ${art}#${lot} → ${loc} · +${qty} Coll.${incrSuffix}`, 'success');
+      this.updateSyncIndicator();
+      // Reset campi articolo ma lascia loc; reset qty al default 1
+      for (const id of ['mInArtCode','mInArtDesc','mInLot','mInExp','mInNotes']) { const e = $(id); if (e) e.value = ''; }
+      const qtyEl = $('mInQty'); if (qtyEl) qtyEl.value = '1';
+      /* 1.8 — la dichiarazione appartiene al collo che si e' appena posizionato:
+         la prossima merce la dichiara chi ce l'ha in mano, da zero. */
+      this._colliIn = [];
+      this._colliInChiave = '';
+      this._anteprimaUmIn();
+      $('mInArtInfo').innerHTML = '';
+      $('mInDetails')?.removeAttribute('open');
+      this._previewLoc('mInLoc','mInLocPrev');
+      this._refreshSessionLog();
+      // v2.1.0 — storno disponibile per 120 secondi
+      /* 1.8 — lo storno di un posizionamento dichiarato toglie ESATTAMENTE i
+         colli che erano entrati: senza l'elenco toglierebbe «tre colli», e su
+         una riga imballata in due misure non sarebbero gli stessi tre. */
+      this._pushUndo(`Posizionamento ${art}#${lot} → ${loc} (${qty} Coll.)`,
+        [{ op: 'remove', loc, art, desc: effectiveDesc, lot, qty, qty_uom: res.qty_uom_delta ?? null, packs: elenco }]);
+      /* 1.4.4 — nessun aggancio: il Posizionamento non è più un tipo di
+         attività. Questa maschera resta quella di sempre per chi posiziona
+         merce a mano, e non ha nessun compito da far avanzare. */
+    } finally {
+      this._posInVolo = false;
+      this._posCampiAperti(true);
+      /* Il fuoco torna sull'articolo DOPO la riapertura: su un campo
+         disabilitato non ci va, e l'operatore si troverebbe a scansionare
+         nel vuoto. */
+      this.setPrimaryScanField('mInArtCode');
+    }
   },
 } satisfies Vista;

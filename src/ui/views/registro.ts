@@ -24,12 +24,12 @@ export const VistaRegistro = {
     return `<div>
       <div class="flex items-center justify-between mb-7.5 flex-wrap gap-5">
         <div>
-          <h1 class="text-title-large text-sx-primary font-bold">📋 Registro Movimentazioni</h1>
+          <h1 class="text-title-large text-sx-primary font-bold">${this._ico('clipboard-text')} Registro Movimentazioni</h1>
           <p class="text-body-small text-sx-text-muted">${info.total.toLocaleString('it-IT')} movimentazioni in archivio · nessuna viene mai cancellata</p>
         </div>
         <div class="flex gap-4 items-center flex-wrap">
-          <button class="btn btn-sm btn-accent" onclick="App.exportMovLogExcel()">📊 Excel Movimenti</button>
-          <button class="btn btn-sm btn-accent" onclick="App.exportGiacenzeExcel()" title="Export Giacenze per Area">📦 Excel Giacenze</button>
+          <button class="btn btn-sm btn-accent" onclick="App.exportMovLogExcel()">${this._ico('chart-bar')} Excel Movimenti</button>
+          <button class="btn btn-sm btn-accent" onclick="App.exportGiacenzeExcel()" title="Export Giacenze per Area">${this._ico('package')} Excel Giacenze</button>
           <button class="btn btn-sm" onclick="App._showRegistry=false;App.renderDashboard()">← Dashboard</button>
         </div>
       </div>
@@ -45,7 +45,7 @@ export const VistaRegistro = {
           </div>
           <div class="form-group m-0 flex-[1_1_200px]">
             <label class="text-label-small">Filtro testo</label>
-            <input class="input" id="regFilterText" placeholder="🔍 Articolo, lotto, ubicazione, operatore, documento…" oninput="App._filterRegistryDebounced()">
+            <input class="input" id="regFilterText" placeholder="${this._ico('search')} Articolo, lotto, ubicazione, operatore, documento…" oninput="App._filterRegistryDebounced()">
           </div>
           <div class="form-group m-0">
             <label class="text-label-small">Tipo</label>
@@ -172,7 +172,7 @@ export const VistaRegistro = {
               style: { marginLeft: '0.35rem', padding: '0 0.3rem' },
               title: 'Ristampa il verbale di campionamento',
               onclick: () => this._ristampaVerbaleCampione(m._id),
-            }, ['🖨'])
+            }, [this._ico('printer', 'Stampa')])
           ] : [])
         ]),
         _h('td', {}, [

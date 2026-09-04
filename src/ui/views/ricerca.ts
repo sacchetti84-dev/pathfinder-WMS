@@ -141,7 +141,7 @@ export const VistaRicerca = {
       itemsHtml += `<div class="search-hit" role="option" data-idx="${i}" onclick="App._openSearchHit(${i})">
         <div class="search-hit-main">
           <div><span class="search-hit-code">${this._esc(it.article_code)}</span> <span class="search-hit-desc">${this._esc(it.article_description || '')}</span></div>
-          <div class="search-hit-sub">Lotto <strong>${this._esc(it.lot_code)}</strong> · 📍 <span class="search-hit-loc">${this._esc(it.location_code)}</span>${it.expiry_date ? ` · Scad. ${this._esc(it.expiry_date)}` : ''}</div>
+          <div class="search-hit-sub">Lotto <strong>${this._esc(it.lot_code)}</strong> · ${this._ico('map-pin')} <span class="search-hit-loc">${this._esc(it.location_code)}</span>${it.expiry_date ? ` · Scad. ${this._esc(it.expiry_date)}` : ''}</div>
         </div>
         <span class="search-hit-qty">${qty} Coll.</span>
         <span class="search-hit-go">→</span>
@@ -177,8 +177,8 @@ export const VistaRicerca = {
       const stock = where.length === 0
         ? '<span class="search-pop-empty p-0">non a magazzino</span>'
         : where.length === 1
-          ? `📍 <span class="search-hit-loc">${this._esc(where[0]!.location_code)}</span>`
-          : `📍 ${where.length} ubicazioni`;
+          ? `${this._ico('map-pin')} <span class="search-hit-loc">${this._esc(where[0]!.location_code)}</span>`
+          : `${this._ico('map-pin')} ${where.length} ubicazioni`;
       artsHtml += `<div class="search-hit" role="option" data-idx="${i}" onclick="App._openSearchHit(${i})">
         <div class="search-hit-main">
           <div><span class="search-hit-code">${this._esc(a.code)}</span> <span class="search-hit-desc">${this._esc(a.description)}</span></div>
@@ -191,9 +191,9 @@ export const VistaRicerca = {
     if (!artsHtml) artsHtml = '<div class="search-pop-empty">Nessun articolo in anagrafica</div>';
 
     pop.innerHTML =
-      section('📦', 'Item a magazzino', items.length, Math.min(items.length, L.items), itemsHtml) +
-      section('📍', 'Ubicazioni', locs.length, Math.min(locs.length, L.locs), locsHtml) +
-      section('📘', 'Articoli in anagrafica', arts.length, Math.min(arts.length, L.arts), artsHtml);
+      section(this._ico('package'), 'Item a magazzino', items.length, Math.min(items.length, L.items), itemsHtml) +
+      section(this._ico('map-pin'), 'Ubicazioni', locs.length, Math.min(locs.length, L.locs), locsHtml) +
+      section(this._ico('book-2'), 'Articoli in anagrafica', arts.length, Math.min(arts.length, L.arts), artsHtml);
     pop.hidden = false;
     pop.scrollTop = 0;
     input.setAttribute('aria-expanded', 'true');

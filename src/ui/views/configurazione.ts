@@ -43,7 +43,7 @@ export const VistaConfigurazione = {
        linguetta che c'è e non si apre è una domanda in più a ogni turno. */
     if (!comanda && Store.vedeGliOperatori(io)) {
       el.innerHTML = `<div class="config-container">
-        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙️ Configurazione</h1>
+        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">${this._ico('settings')} Configurazione</h1>
         <div id="configContent"></div>
       </div>`;
       this._renderConfigOperators($('configContent'));
@@ -52,10 +52,10 @@ export const VistaConfigurazione = {
 
     if (!comanda) {
       el.innerHTML = `<div class="config-container">
-        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙️ Configurazione</h1>
+        <h1 class="text-title-large text-sx-primary font-bold mb-7.5">${this._ico('settings')} Configurazione</h1>
         <div class="config-card">
-          <h3>🛡 Riservata all'Admin</h3>
-          <p class="text-body-small text-sx-text-secondary leading-[1.6] mt-4">
+          <h3>${this._ico('shield-check')} Riservata all'Admin</h3>
+          <p class="text-body-small text-sx-text-secondary leading-larga mt-4">
             Le schede di configurazione e il reset dei dati sono aperti al solo ruolo <strong>Admin</strong>.
             ${io
               ? `Sei collegato come <span class="mono">${this._esc(io.initials)}</span> — ${io.role === 'leader' ? 'Team Leader' : 'Operatore'}.`
@@ -67,7 +67,7 @@ export const VistaConfigurazione = {
       return;
     }
     el.innerHTML = `<div class="config-container">
-      <h1 class="text-title-large text-sx-primary font-bold mb-7.5">⚙️ Configurazione</h1>
+      <h1 class="text-title-large text-sx-primary font-bold mb-7.5">${this._ico('settings')} Configurazione</h1>
       <div class="config-tabs">
         <button class="config-tab ${this._configTab === 'sites' ? 'active' : ''}" onclick="App._configTab='sites';App.renderConfig()">Siti e Zone</button>
         <button class="config-tab ${this._configTab === 'articles' ? 'active' : ''}" onclick="App._configTab='articles';App.renderConfig()">Anagrafica Articoli</button>
@@ -106,7 +106,7 @@ export const VistaConfigurazione = {
      sulle etichette. */
   _renderConfigFeatures(el: HTMLElement) {
     el.innerHTML = `
-      <div class="mov-preview mb-8 leading-[1.6]">
+      <div class="mov-preview mb-8 leading-larga">
         Due impostazioni, e nessuna delle due si cambia a cuor leggero:
         l'<strong>area WIP</strong> è il vano dove la produzione tiene quello
         che sta lavorando, e il <strong>prefisso GS1</strong> decide se le
@@ -135,14 +135,14 @@ export const VistaConfigurazione = {
     const stampanti = Store.getStampanti() as Stampante[];
     const servito = Store.eServito();
     el.innerHTML = `
-      <div class="mov-preview mb-8 leading-[1.6]">
+      <div class="mov-preview mb-8 leading-larga">
         Le <strong>Zebra in rete</strong> stampano le etichette della merce e delle unità di
         carico. A parlarci è il <strong>servizio</strong>, non il browser: un browser non apre
         un socket TCP, e la porta 9100 di una Zebra vuole esattamente quello.
         <br><strong>La stampa su A4 resta</strong>: se una stampante è spenta o il rotolo è
         finito, l'etichetta esce sul foglio come è sempre uscita.
       </div>
-      ${!servito ? `<div class="mov-preview mov-preview-warn mb-8 leading-[1.6]">
+      ${!servito ? `<div class="mov-preview mov-preview-warn mb-8 leading-larga">
         <strong>Questa macchina lavora da file.</strong> Le stampanti si configurano lo stesso
         e il dato si conserva, ma finché non c'è un servizio nessuno può parlare alla stampante.
       </div>` : ''}
@@ -150,8 +150,8 @@ export const VistaConfigurazione = {
       ${this._layoutEtichettaHTML(stampanti, 'merce')}
       ${this._layoutEtichettaHTML(stampanti, 'bancale')}
       <div class="config-card mt-8">
-        <strong>🏷 L'etichetta dell'unità di carico non ha un layout</strong>
-        <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+        <strong>${this._ico('tag')} L'etichetta dell'unità di carico non ha un layout</strong>
+        <div class="text-body-small text-sx-text-secondary leading-larga mt-3">
           E non è una funzione mancante. Un pallet porta N righe di N articoli diversi:
           descrizione, scadenza e peso non sono nemmeno <em>definiti</em> per un'unità di carico,
           e la prima volta che qualcuno ci carica sopra una seconda partita quel che c'è scritto
@@ -170,8 +170,8 @@ export const VistaConfigurazione = {
       <td class="whitespace-nowrap">${s.dpi} dpi · ${s.larghezza_mm}×${s.altezza_mm} mm</td>
       <td class="mono">${this._esc(s.site_id || '—')}</td>
       <td class="whitespace-nowrap">
-        <button class="btn btn-sm" onclick="App._stampanteModifica('${this._esc(s.printer_id)}')">✏️ Modifica</button>
-        <button class="btn btn-sm btn-accent" onclick="App._provaStampante('${this._esc(s.printer_id)}')">🏷 Prova</button>
+        <button class="btn btn-sm" onclick="App._stampanteModifica('${this._esc(s.printer_id)}')">${this._ico('pencil')} Modifica</button>
+        <button class="btn btn-sm btn-accent" onclick="App._provaStampante('${this._esc(s.printer_id)}')">${this._ico('tag')} Prova</button>
         <button class="btn btn-sm btn-danger" onclick="App._stampanteTogli('${this._esc(s.printer_id)}')">Togli</button>
       </td>
     </tr>`).join('');
@@ -181,7 +181,7 @@ export const VistaConfigurazione = {
         <strong>Stampanti configurate (${stampanti.length})</strong>
         <button class="btn btn-sm btn-primary" onclick="App._stampanteModifica('')">+ Aggiungi stampante</button>
       </div>
-      <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+      <div class="text-body-small text-sx-text-secondary leading-larga mt-3">
         Il <strong>sito</strong> è facoltativo e serve a una cosa sola: proporre la stampante
         giusta. Quella di MAG1 è quella vicina a MAG1, e mandare un'etichetta di MAG1 sulla
         stampante di MAG2 vuol dire un operatore che attraversa il magazzino per raccogliere
@@ -204,7 +204,7 @@ export const VistaConfigurazione = {
     const nuova = !s.printer_id;
 
     this.showModal(
-      nuova ? '🖨 Nuova stampante Zebra' : `🖨 ${this._esc(s.nome)}`,
+      nuova ? `${this._ico('printer')} Nuova stampante Zebra` : `${this._ico('printer')} ${this._esc(s.nome)}`,
       `<div class="form-group mb-6">
         <label>Nome <span class="req">*</span></label>
         <input class="input" id="stpNome" maxlength="60" value="${this._esc(s.nome)}"
@@ -224,7 +224,7 @@ export const VistaConfigurazione = {
           </select>
         </div>
       </div>
-      <div class="mov-preview mb-6 text-body-small leading-[1.6]">
+      <div class="mov-preview mb-6 text-body-small leading-larga">
         L'indirizzo dev'essere sulla <strong>rete interna</strong> — 10.x, 172.16-31.x, 192.168.x —
         e la porta una <strong>porta di stampa Zebra</strong>. Il servizio rifiuta il resto:
         senza quei due cancelli, questa scheda diventa il modo di far parlare il servizio
@@ -250,7 +250,7 @@ export const VistaConfigurazione = {
           <input class="input input-mono uppercase" id="stpSito" maxlength="4" value="${this._esc(s.site_id)}" placeholder="MAG1">
         </div>
       </div>
-      <div class="text-body-small text-sx-text-secondary leading-[1.6] mb-6">
+      <div class="text-body-small text-sx-text-secondary leading-larga mb-6">
         Le misure sono quelle del <strong>rotolo montato</strong>, in millimetri. Non si mandano
         alla stampante il tipo di supporto, il calore e lo spellicolatore: sono la configurazione
         della macchina, si fanno una volta col pannello e valgono per tutti.
@@ -299,10 +299,10 @@ export const VistaConfigurazione = {
     }
     this.closeModal();
     this.renderConfig();
-    this.toast(`🖨 ${rec.nome} — ${rec.host}:${rec.porta}`, 'success');
+    this.toast(`${rec.nome} — ${rec.host}:${rec.porta}`, 'success');
     if (!posa.ci_sta) {
       this.toast(
-        `⚠️ Il layout dell'etichetta merce occupa ${posa.usato_mm} mm e questo supporto è alto ${rec.altezza_mm}: su questa stampante la merce non si stampa finché non si spegne un campo`,
+        `${this._ico('alert-triangle')} Il layout dell'etichetta merce occupa ${posa.usato_mm} mm e questo supporto è alto ${rec.altezza_mm}: su questa stampante la merce non si stampa finché non si spegne un campo`,
         'warning');
     }
   },
@@ -356,7 +356,7 @@ export const VistaConfigurazione = {
       return `<tr class="${r.attivo ? '' : 'opacity-60'}">
         <td><label class="flex items-center gap-3">
           <input type="checkbox" id="${pre}_${c.campo}_on" ${r.attivo ? 'checked' : ''}>
-          <strong>${this._esc(c.nome)}</strong>${c.invecchia ? ' ⚠️' : ''}
+          <strong>${this._esc(c.nome)}</strong>${c.invecchia ? ` ${this._ico('alert-triangle', 'Invecchia')}` : ''}
         </label>
         <div class="text-label-small text-sx-text-muted mt-1">${c.nota}</div></td>
         <td><input class="input" id="${pre}_${c.campo}_h" type="number" step="0.1" min="1" max="60"
@@ -372,7 +372,7 @@ export const VistaConfigurazione = {
 
     return `<div class="config-card mt-8">
       <strong>Layout dell'etichetta ${bancale ? 'del bancale di prodotto finito' : 'della merce'}</strong>
-      <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+      <div class="text-body-small text-sx-text-secondary leading-larga mt-3">
         I campi si impilano <strong>dall'alto, in quest'ordine</strong>. L'altezza è quella del
         carattere in millimetri; sotto le barre la testina scrive da sé il codice in chiaro —
         non è un dato in più, è la rappresentazione leggibile che lo standard chiede, e lascia
@@ -381,7 +381,7 @@ export const VistaConfigurazione = {
       <div class="overflow-x-auto mt-6"><table class="sx-table">
         <thead><tr><th>Campo</th><th class="w-[110px]">Altezza mm</th><th class="w-[140px]">Allineamento</th><th class="w-[100px]">Righe</th></tr></thead>
         <tbody>${righe}</tbody></table></div>
-      <div class="mov-preview ${posa.ci_sta ? '' : 'mov-preview-err'} mt-6 leading-[1.6]">
+      <div class="mov-preview ${posa.ci_sta ? '' : 'mov-preview-err'} mt-6 leading-larga">
         Occupa <strong>${posa.usato_mm} mm</strong>
         ${rif
           ? `su un supporto di <strong>${altezza} mm</strong> — «${this._esc(rif.nome)}».`
@@ -492,15 +492,15 @@ export const VistaConfigurazione = {
           </div>
         </div>
         <div class="inv-actions-row">
-          <button class="inv-btn" title="${r.attiva === false ? 'Riaccendi' : 'Spegni'} la regola" onclick="App._toggleRegola('${this._esc(r.rule_id)}')">${r.attiva === false ? '✓' : '⊘'}</button>
-          <button class="inv-btn" title="Elimina la regola" onclick="App._eliminaRegola('${this._esc(r.rule_id)}')">🗑</button>
+          <button class="inv-btn" title="${r.attiva === false ? 'Riaccendi' : 'Spegni'} la regola" onclick="App._toggleRegola('${this._esc(r.rule_id)}')">${r.attiva === false ? this._ico('check', 'Riaccendi') : this._ico('ban', 'Spegni')}</button>
+          <button class="inv-btn" title="Elimina la regola" onclick="App._eliminaRegola('${this._esc(r.rule_id)}')">${this._ico('trash')}</button>
         </div>
       </div>`).join('')
       : '<div class="empty-state p-7.5"><p>Nessuna regola. Valgono i soli vincoli: allergeni, temperatura, stato del vano, capienza.</p></div>';
 
     el.innerHTML = `
       ${this._regoleBaseHtml()}
-      <div class="mov-preview mb-8 leading-[1.6]">
+      <div class="mov-preview mb-8 leading-larga">
         Una regola dice <strong>su quali articoli</strong> vale e <strong>dove</strong> devono andare.
         <strong>Impone</strong> è un vincolo: fuori da lì il motore non propone niente, e lo dice.
         <strong>Preferisce</strong> alza il punteggio e non esclude nessuno.<br>
@@ -683,7 +683,7 @@ export const VistaConfigurazione = {
     const p = Store.getPrefissoGS1();
     return `<div class="config-card mt-8">
       <strong>Prefisso GS1 per le unità di carico</strong>
-      <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+      <div class="text-body-small text-sx-text-secondary leading-larga mt-3">
         Vuoto: i codici sono <strong>interni</strong> — <span class="mono">UDC-000001</span>.
         Compilato: sono <strong>SSCC</strong> a 18 cifre con la cifra di controllo, leggibili da chiunque.
         Cambia le etichette <strong>nuove</strong>: quelle già stampate restano valide.
@@ -714,7 +714,7 @@ export const VistaConfigurazione = {
     const a = Store.getAreaWip();
     return `<div class="config-card mt-8">
       <strong>Area del conto di produzione (WIP)</strong>
-      <div class="text-body-small text-sx-text-secondary leading-[1.6] mt-3">
+      <div class="text-body-small text-sx-text-secondary leading-larga mt-3">
         <strong>Un'ubicazione mappata</strong>, dove la merce sta mentre la produzione la lavora.
         A tenere distinti i conti dei vari ordini sono le righe, che portano il numero d'ordine:
         un vano per ordine vorrebbe dire mapparne uno nuovo a ogni ordine.
@@ -790,14 +790,14 @@ export const VistaConfigurazione = {
         </td>
         <td class="w-[190px]">
           <label class="flex items-center gap-3 cursor-pointer normal-case text-body-small">
-            <input class="w-[16px] h-[16px] cursor-pointer" type="checkbox" ${c.trasferimento ? 'checked' : ''}
+            <input class="w-casella h-casella cursor-pointer" type="checkbox" ${c.trasferimento ? 'checked' : ''}
               onchange="App._docCausaleEdit(${i},'trasferimento',this.checked)">
             <span>La merce si sposta</span>
           </label>
         </td>
         <td class="w-[44px] text-center">
           <button class="btn btn-sm btn-ghost text-sx-danger"
-            onclick="App._docCausaleRemove(${i})" title="Rimuovi la causale">✕</button>
+            onclick="App._docCausaleRemove(${i})" title="Rimuovi la causale">${this._ico('x')}</button>
         </td>
       </tr>`).join('');
 
@@ -807,7 +807,7 @@ export const VistaConfigurazione = {
               onchange="App._docReasonEdit(${i},this.value)"></td>
         <td class="w-[44px] text-center">
           <button class="btn btn-sm btn-ghost text-sx-danger"
-            onclick="App._docReasonRemove(${i})" title="Rimuovi la motivazione">✕</button>
+            onclick="App._docReasonRemove(${i})" title="Rimuovi la motivazione">${this._ico('x')}</button>
         </td>
       </tr>`).join('');
 
@@ -822,15 +822,15 @@ export const VistaConfigurazione = {
 
     el.innerHTML = `
       ${gaps.length ? `<div class="mov-preview mov-preview-err mb-7">
-        ⚠️ <strong>Il mittente è incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.<br>
+        ${this._ico('alert-triangle')} <strong>Il mittente è incompleto</strong> — manca: ${this._esc(gaps.join(', '))}.<br>
         <span class="text-body-small">Finché questi campi restano vuoti i DDT si stampano, ma escono con l'avviso che il documento non è conforme.</span>
       </div>` : `<div class="mov-preview mov-preview-ok mb-7">
-        ✓ <strong>Mittente configurato</strong> — i DDT possono essere emessi.
+        ${this._ico('check')} <strong>Mittente configurato</strong> — i DDT possono essere emessi.
       </div>`}
 
       <!-- ══ MITTENTE ══ -->
       <div class="config-card">
-        <h3 class="text-body-medium font-bold text-sx-primary mb-2">🏢 Mittente</h3>
+        <h3 class="text-body-medium font-bold text-sx-primary mb-2">${this._ico('building-community')} Mittente</h3>
         <p class="text-body-small text-sx-text-muted mb-6">
           In alto a sinistra su ogni documento, accanto al logo. Si scrivono una volta.
         </p>
@@ -859,14 +859,14 @@ export const VistaConfigurazione = {
           ${fld('dcWarehouse', 'Indirizzo del magazzino', s.warehouse_address, { max: 140, ph: 'Solo se la merce parte da un indirizzo diverso dalla sede legale' })}
         </div>
         <div class="text-label-small text-sx-text-muted mt-1 mx-0 mb-6">
-          💡 Il luogo di partenza compare sul DDT solo se questo campo è compilato. Lasciandolo vuoto si intende la sede legale.
+          ${this._ico('bulb')} Il luogo di partenza compare sul DDT solo se questo campo è compilato. Lasciandolo vuoto si intende la sede legale.
         </div>
-        <button class="btn btn-primary font-bold" onclick="App._docSaveSender()">✓ Salva i dati del mittente</button>
+        <button class="btn btn-primary font-bold" onclick="App._docSaveSender()">${this._ico('check')} Salva i dati del mittente</button>
       </div>
 
       <!-- ══ CAUSALI ══ -->
       <div class="config-card mt-10">
-        <h3 class="text-body-medium font-bold text-sx-primary mb-2">🚚 Causali di trasporto</h3>
+        <h3 class="text-body-medium font-bold text-sx-primary mb-2">${this._ico('truck')} Causali di trasporto</h3>
         <p class="text-body-small text-sx-text-muted mb-6">
           La causale compare sul DDT e <strong>decide il tipo di movimento a registro</strong>: le causali marcate
           <em>Reso</em> scrivono un movimento di reso, tutte le altre una spedizione. È così che il cruscotto continua
@@ -891,7 +891,7 @@ export const VistaConfigurazione = {
 
       <!-- ══ MOTIVAZIONI SMALTIMENTO ══ -->
       <div class="config-card mt-10">
-        <h3 class="text-body-medium font-bold text-sx-primary mb-2">🗑️ Motivazioni di smaltimento</h3>
+        <h3 class="text-body-medium font-bold text-sx-primary mb-2">${this._ico('trash')} Motivazioni di smaltimento</h3>
         <p class="text-body-small text-sx-text-muted mb-6">
           Compaiono come pulsanti nel modulo di scarico. Una motivazione è <strong>sempre obbligatoria</strong>:
           l'operatore sceglie fra queste oppure scrive un motivo esteso.
@@ -908,7 +908,7 @@ export const VistaConfigurazione = {
 
       <!-- ══ NUMERAZIONE ══ -->
       <div class="config-card mt-10">
-        <h3 class="text-body-medium font-bold text-sx-primary mb-2">🔢 Numerazione e valori predefiniti</h3>
+        <h3 class="text-body-medium font-bold text-sx-primary mb-2">${this._ico('list-numbers')} Numerazione e valori predefiniti</h3>
         <p class="text-body-small text-sx-text-muted mb-6">
           Il numero del DDT resta <strong>a compilazione libera</strong>: qui si tiene solo l'ultimo emesso, per
           proporre il successivo. Nessun contatore, nessun numero prenotato da un documento poi annullato.
@@ -937,7 +937,7 @@ export const VistaConfigurazione = {
             </select>
           </div>
         </div>
-        <button class="btn btn-primary font-bold" onclick="App._docSaveNumbering()">✓ Salva numerazione</button>
+        <button class="btn btn-primary font-bold" onclick="App._docSaveNumbering()">${this._ico('check')} Salva numerazione</button>
       </div>`;
   },
 
@@ -955,7 +955,7 @@ export const VistaConfigurazione = {
     const gaps = this._docSenderGaps(sender);
     this.toast(gaps.length
       ? `Salvato, ma resta da compilare: ${gaps.join(', ')}`
-      : '✓ Mittente salvato — i DDT sono emettibili', gaps.length ? 'info' : 'success');
+      : 'Mittente salvato — i DDT sono emettibili', gaps.length ? 'info' : 'success');
     this.updateSyncIndicator();
     this.renderConfig();
   },
@@ -970,7 +970,7 @@ export const VistaConfigurazione = {
         default_trasporto: $('dcTrasporto')?.value || 'Vettore'
       }
     });
-    this.toast('✓ Numerazione salvata', 'success');
+    this.toast('Numerazione salvata', 'success');
     this.updateSyncIndicator();
     this.renderConfig();
   },
@@ -1053,7 +1053,7 @@ export const VistaConfigurazione = {
       confirmLabel: 'Ripristina', danger: true
     })) return;
     await Store.saveDocConfig({ [which]: Store.DOC_CONFIG_DEFAULTS[which].slice() });
-    this.toast(`✓ Ripristinate ${label}`, 'success');
+    this.toast(`Ripristinate ${label}`, 'success');
     this.renderConfig();
   },
 } satisfies Vista;

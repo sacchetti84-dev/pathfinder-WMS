@@ -113,7 +113,20 @@
    chiede la campata a `modules/colonna.ts`), `_routeColonnaHTML` (il
    disegno), `_routeRischioLottoHTML` (la banda dello stesso articolo con
    un altro lotto, un altro livello) e `_COL_STATI`, le cinque etichette di
-   stato scritte con le stesse parole della mappa. */
+   stato scritte con le stesse parole della mappa.
+   2.23: e' entrato `_ico`, uno solo, e sostituisce 68 emoji. Sta accanto a
+   `_esc` perche' fa lo stesso mestiere — un pezzo di markup che le viste
+   chiedono da dentro una stringa. Ed e' entrato `_carTappaHTML`: la tappa
+   del carico camion era una riga di tabella in mezzo a quelle gia' fatte,
+   adesso e' la scheda che hanno le altre quattro schermate a scaffale.
+   2.23: il CARICO DEL CAMION e' entrato dentro Spedizioni come scheda, e la
+   dodicesima tessera di Movimenta e' sparita — comporre un DDT e andare a
+   prendere i bancali che ci vanno sopra sono due momenti dello stesso
+   mestiere. Sono entrati `_shipSub` e `_renderShipSub` (le due schede, come
+   `_pickSub` per il prelievo), `_formDocumenti` (quel che la schermata
+   faceva prima, dentro la sua scheda) e `_carRidisegna`, il punto unico da
+   cui il carico si ridisegna: prima erano sette richiami a `movFormArea`,
+   che adesso non e' piu' il posto giusto. */
 export const SUPERFICIE = [
   'MARCHIO_BANCALE',
   '_campoImballo', '_imballiHTML', '_imballoModifica', '_imballoSalva', '_imballoTogli',
@@ -135,7 +148,7 @@ export const SUPERFICIE = [
   '_pfArticoloCella', '_pfFiltroStato', '_pfFiltrati', '_pfStato',
   '_pfScaricoManuale', '_pfCausaleUscita', '_shipRigheDaBancali',
   '_formCaricoSpedizione', '_carEsito', '_carDocumentiCaricabili', '_carAvvioHTML',
-  '_carAvvia', '_carDocDelCarico', '_carTappeDaDoc', '_carDocCorrente', '_carGiroHTML',
+  '_carAvvia', '_carDocDelCarico', '_carTappeDaDoc', '_carDocCorrente', '_carGiroHTML', '_carTappaHTML', '_carRidisegna',
   '_carScansiona', '_carRiallineaDoc', '_carVanoLibero', '_carFeedback', '_carRiscontro',
   '_carSalta', '_carAltroDdt', '_carScegliDdt', '_carChiudi', '_carAbbandona',
   '_chiediStampaEtichetta', '_eseguiStampaEtichetta', '_layoutEtichettaDiSerie', '_layoutEtichettaHTML', '_layoutEtichettaLetto', '_layoutEtichettaSalva', '_provaStampante', '_renderConfigStampanti', '_riscontroStampa', '_sitoDiUbicazione', '_stampaEtichettaItemA4', '_stampanteModifica', '_stampanteSalva', '_stampanteTogli', '_stampantiElencoHTML', '_udcEtichettaA4',
@@ -214,9 +227,15 @@ export const SUPERFICIE = [
   '_moveItemDestPreview', '_moveSelection', '_normScan', '_notaColliIn', '_notaUM', '_ntCercaArticolo',
   '_ntConferma', '_ntScegli', '_ntTypeChanged', '_onArtFilterInput', '_onReadOnlyChange',
   '_onSearchFocus', '_onSearchInput', '_onSearchKeydown', '_onSessionExpired',
+  '_ico',
   '_openIdentityGate', '_openSearchHit', '_payload', '_persistShipHeader', '_pickCart',
   '_pickDocId', '_pickLoc', '_pickSnapFromCart', '_pickSnapFromLog',
-  '_pickSnapFromSession', '_pickSub', '_pickSubMode', '_populateRegistryRows',
+  '_pickSnapFromSession', '_pickSub', '_pickSubMode',
+  /* 2.23 — la serratura del posizionamento: la maschera si chiude mentre
+     la scrittura e' in volo, cosi' il lettore non attacca il codice dopo
+     a quello prima. Vedi `posiziona.ts`. */
+  '_posInVolo', '_posCampiAperti',
+  '_populateRegistryRows',
   '_precompilaCategoria', '_previewLoc', '_previewReleaseDest', '_primaryScanField',
   '_printDDT', '_printDisposal', '_printNCCard', '_printNCCardFromRecord',
   '_printPickArchive', '_printProdOrderFromLog', '_printProdReport', '_printRouteReport',
@@ -268,7 +287,7 @@ export const SUPERFICIE = [
   '_scheduleResync', '_searchAll', '_searchDebounced',
   '_searchHits', '_searchLimits', '_searchOut', '_searchOutsideHandler', '_searchQuar',
   '_searchSel', '_segnoConformita', '_selectLoginOp', '_setFeedbackPref',
-  '_setScannerLayoutFix', '_shipAddToCart', '_shipAspetto', '_shipCarrier', '_shipCart',
+  '_setScannerLayoutFix', '_shipAddToCart', '_shipAspetto', '_shipSub', '_shipSubMode', '_renderShipSub', '_formDocumenti', '_SOTTOSCHEDE', '_shipCarrier', '_shipCart',
   '_shipCartZoneHTML', '_shipCausale', '_shipClearCart', '_shipColliLiberi',
   '_shipCustomer', '_shipDdtNum', '_shipDestAddress', '_shipDestCity', '_shipDestProvince',
   '_shipDestVat', '_shipDestZip', '_shipDocDate', '_shipDocNotes', '_shipExpectedDate',

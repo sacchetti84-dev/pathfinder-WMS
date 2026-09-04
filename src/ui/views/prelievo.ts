@@ -17,15 +17,15 @@ export const VistaPrelievo = {
   // ═══ 3. PRELIEVO (3 sub-flussi) ═══
   _formPrelievo(el) {
     el.innerHTML = `<div class="mov-form-card">
-      <h3>🏗️ <span class="text-sx-accent">Prelievo</span></h3>
+      <h3>${this._ico('forklift')} <span class="text-sx-accent">Prelievo</span></h3>
       <div class="prel-tabs">
-        <button class="prel-tab ${this._pickSubMode === 'cambio' ? 'active' : ''}" onclick="App._pickSub('cambio')"><span class="prel-tab-icon">🔄</span>Trasferimento</button>
-        <button class="prel-tab ${this._pickSubMode === 'produzione' ? 'active' : ''}" onclick="App._pickSub('produzione')"><span class="prel-tab-icon">🏭</span>Prelievo Produzione</button>
-        <button class="prel-tab ${this._pickSubMode === 'ordine' ? 'active' : ''}" onclick="App._pickSub('ordine')"><span class="prel-tab-icon">🧭</span>Prelievo automatico</button>
-        <button class="prel-tab ${this._pickSubMode === 'wip' ? 'active' : ''}" onclick="App._pickSub('wip')"><span class="prel-tab-icon">🏗</span>WIP</button>
+        <button class="prel-tab ${this._pickSubMode === 'cambio' ? 'active' : ''}" onclick="App._pickSub('cambio')"><span class="prel-tab-icon">${this._ico('refresh')}</span>Trasferimento</button>
+        <button class="prel-tab ${this._pickSubMode === 'produzione' ? 'active' : ''}" onclick="App._pickSub('produzione')"><span class="prel-tab-icon">${this._ico('building-factory')}</span>Prelievo Produzione</button>
+        <button class="prel-tab ${this._pickSubMode === 'ordine' ? 'active' : ''}" onclick="App._pickSub('ordine')"><span class="prel-tab-icon">${this._ico('compass')}</span>Prelievo automatico</button>
+        <button class="prel-tab ${this._pickSubMode === 'wip' ? 'active' : ''}" onclick="App._pickSub('wip')"><span class="prel-tab-icon">${this._ico('forklift')}</span>WIP</button>
       </div>
       <div id="pickSubForm"></div>
-      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">${this._ico('x')} Chiudi</button></div>
     </div>`;
     this._renderPickSub();
   },
@@ -75,7 +75,7 @@ export const VistaPrelievo = {
             <input class="input input-mono flex-1" id="pCambioDest" placeholder="Scansiona destinazione" maxlength="${Validate.MAX.LOC_CODE}"
               oninput="App._normScan('pCambioDest');App._previewLoc('pCambioDest','pCambioDestPrev')"
               onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('pCambioDest');App._execCambio();}">
-            <button class="btn btn-sm" onclick="App._pickLoc('pCambioDest','_cbPickCambio')">📍</button>
+            <button class="btn btn-sm" onclick="App._pickLoc('pCambioDest','_cbPickCambio')">${this._ico('map-pin')}</button>
           </div>
           <div id="pCambioDestPrev"></div>
         </div>
@@ -89,7 +89,7 @@ export const VistaPrelievo = {
           <input class="input input-mono max-w-[120px] text-center font-bold" id="pCambioQty" type="number" min="1" step="1">
           <div class="text-label-small text-sx-text-muted mt-1.5">Spostarne meno lascia il resto in attività.</div>
         </div>` : ''}
-        <button class="btn btn-primary w-full p-5.5 font-bold" onclick="App._execCambio()">🔄 CONFERMA CAMBIO</button>
+        <button class="btn btn-primary btn-conferma" onclick="App._execCambio()">${this._ico('refresh')} CONFERMA CAMBIO</button>
       </div>
       <div class="mt-4" id="pCambioFeedback"></div>`;
     $('pCambioArt')?.focus();
@@ -103,19 +103,19 @@ export const VistaPrelievo = {
     const lot = Validate.clean($('pCambioLot')?.value);
     const info = $('pCambioInfo');
     if (!art) {
-      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">✗ Scansiona prima il codice articolo</div>`;
+      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">${this._ico('circle-x')} Scansiona prima il codice articolo</div>`;
       $('pCambioArt')?.focus();
       return;
     }
     if (!lot) {
-      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
+      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">${this._ico('circle-x')} Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
       $('pCambioLot')?.focus();
       return;
     }
     const itemKey = `${art}#${lot}`;
     if (Store.isItemQuarantined(itemKey)) {
       info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">
-        🚫 <strong>Item in QUARANTENA</strong> — spostamento non consentito.<br>
+        ${this._ico('ban')} <strong>Item in QUARANTENA</strong> — spostamento non consentito.<br>
         <span class="text-label-small">Per rimetterlo in circolo usare <strong>Quarantena → Rilascio</strong>, che registra operatore, responsabile e ubicazione di destinazione conforme.</span>
       </div>`;
       return;
@@ -123,7 +123,7 @@ export const VistaPrelievo = {
     const allItems = Store.findItemLocations(art);
     const matched = allItems.filter(it => it.lot_code === lot);
     if (!matched.length) {
-      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">✗ Item ${this._esc(art)}#${this._esc(lot)} non trovato in nessuna ubicazione</div>`;
+      info.innerHTML = `<div class="mov-preview mov-preview-err mt-3">${this._ico('circle-x')} Item ${this._esc(art)}#${this._esc(lot)} non trovato in nessuna ubicazione</div>`;
       return;
     }
     if (matched.length === 1) { this._cambioSelect(matched[0]); return; }
@@ -134,7 +134,7 @@ export const VistaPrelievo = {
       html += `<div class="inv-item-row cursor-pointer" onclick="App._cambioSelectEnc('${payload}')">
         <div class="inv-info">
           <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${it.qty || 1} Coll.</strong></div>
+          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · ${this._ico('map-pin')} <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${it.qty || 1} Coll.</strong></div>
         </div>
         <span class="text-sx-accent">→</span>
       </div>`;
@@ -152,7 +152,7 @@ export const VistaPrelievo = {
     this._moveSelection = full;
     $('pCambioInfo').innerHTML = `<div class="mov-preview mov-preview-ok mt-3">
       <span class="mono font-bold">${this._esc(full.article_code)}</span> — ${this._esc(full.article_description || '')}
-      <div class="mono" class="text-body-small mt-[2px]">Lotto: ${this._esc(full.lot_code)} · DA: <strong>${this._esc(full.location_code)}</strong></div>
+      <div class="mono text-body-small mt-[2px]">Lotto: ${this._esc(full.lot_code)} · DA: <strong>${this._esc(full.location_code)}</strong></div>
     </div>`;
     $('pCambioDestArea')?.classList.remove('hidden');
     $('pCambioDest')?.focus();
@@ -178,7 +178,7 @@ export const VistaPrelievo = {
       const elenco = impactedDocs
         .map(d => `  • ${d.kind === 'SHIP' ? 'Spedizione' : 'Reso'} DDT ${d.ddt_num} → ${d.destination}`)
         .join('\n');
-      const msg = `⚠️ MERCE IMPEGNATA SU DDT PENDENTI\n\n` +
+      const msg = `${this._ico('alert-triangle')} MERCE IMPEGNATA SU DDT PENDENTI\n\n` +
         `${item.article_code} lotto ${item.lot_code} risulta impegnato sui seguenti documenti:\n${elenco}\n\n` +
         `Spostando la merce in ${dest} le righe di questi DDT continueranno a indicare ` +
         `${item.location_code} e verranno segnalate come NON ALLINEATE.\n\n` +
@@ -226,9 +226,9 @@ export const VistaPrelievo = {
     const parzialeVero = colliMossi ? removed._mode === 'partial' : partial;
     await this._logMov(MOV.MOVE, item.article_code, item.article_description, item.lot_code, item.location_code, dest, Store.getCurrentIdentity().initials, impactNote, '', qtyAvail, parzialeVero ? -nMossi : 0, parzialeVero ? removed._qty_after : nMossi, this._umMossa(removed));
     const mergeMsg = res.mode === 'incremented' ? ` (sommato: saldo ${res.qty_after} Coll. in ${dest})` : '';
-    this.toast(`✓ ${item.article_code}#${item.lot_code}: ${item.location_code} → ${dest} · ${nMossi} Coll.${mergeMsg}`, 'success');
+    this.toast(`${item.article_code}#${item.lot_code}: ${item.location_code} → ${dest} · ${nMossi} Coll.${mergeMsg}`, 'success');
     if (impactedDocs.length) {
-      this.toast(`⚠️ ${impactedDocs.length} DDT pendente/i ora disallineato/i — verificare in Movimenta`, 'warning');
+      this.toast(`${impactedDocs.length} DDT pendente/i ora disallineato/i — verificare in Movimenta`, 'warning');
     }
     this.updateSyncIndicator();
     this._refreshSessionLog();
@@ -251,7 +251,7 @@ export const VistaPrelievo = {
     if (!out.ok) return;
 
     const fb = $('pCambioFeedback');
-    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><span class="font-bold">✓ Trasferimento completato — ${out.qtyMoved} Coll.${out.mergeMsg}</span></div>`;
+    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><span class="font-bold">${this._ico('check')} Trasferimento completato — ${out.qtyMoved} Coll.${out.mergeMsg}</span></div>`;
     this._moveSelection = null;
     $('pCambioArt').value = '';
     $('pCambioLot').value = '';
@@ -303,13 +303,13 @@ export const VistaPrelievo = {
     const n = this._pickCart.length;
     const totalColli = (this._pickCart as VoceCarrelloProd[]).reduce((s, it) => s + (it.qty_pick || 1), 0);
     return `<div class="flex justify-between items-center mt-7 mx-0 mb-3.5">
-        <strong class="text-body-large">🛒 Carrello Prelievo <span class="text-sx-accent">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>` : ''}</strong>
+        <strong class="text-body-large">${this._ico('shopping-cart')} Carrello Prelievo <span class="text-sx-accent">(${n})</span>${n ? ` <span class="dlg-chip">${totalColli} Coll.</span>` : ''}</strong>
         ${n ? '<button class="btn btn-sm btn-ghost" onclick="App._prodClearCart()">Svuota</button>' : ''}
       </div>
       <div class="pick-cart">${this._renderPickCart()}</div>
       ${n ? `<div class="flex gap-5 mt-6">
-        <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]" onclick="App._execProduzione()">🏭 CONFERMA PRELIEVO (${n})</button>
-        <button class="btn min-h-[var(--md-touch)]" onclick="App._printProdReport()" title="Stampa report">🖨</button>
+        <button class="btn btn-primary btn-conferma" onclick="App._execProduzione()">${this._ico('building-factory')} CONFERMA PRELIEVO (${n})</button>
+        <button class="btn min-h-touch" onclick="App._printProdReport()" title="Stampa report">${this._ico('printer')}</button>
       </div>` : ''}`;
   },
 
@@ -325,12 +325,12 @@ export const VistaPrelievo = {
     const lot = Validate.clean($('pProdLot')?.value);
     const info = $('pProdInfo');
     if (!art) {
-      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona prima il codice articolo</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} Scansiona prima il codice articolo</div>`;
       $('pProdArt')?.focus();
       return;
     }
     if (!lot) {
-      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} Scansiona il codice lotto — entrambi i campi sono obbligatori</div>`;
       $('pProdLot')?.focus();
       return;
     }
@@ -347,12 +347,12 @@ export const VistaPrelievo = {
         allForLot.every(it => Store.getAvailableQty(it.location_code, it.item_key) === 0);
       if (allReserved) {
         info.innerHTML = `<div class="text-body-small text-sx-orange mt-2">
-          ⚠️ ${this._esc(art)}#${this._esc(lot)} è <strong>interamente impegnato su DDT pendenti</strong> — non prelevabile.<br>
+          ${this._ico('alert-triangle')} ${this._esc(art)}#${this._esc(lot)} è <strong>interamente impegnato su DDT pendenti</strong> — non prelevabile.<br>
           <span class="text-label-small text-sx-text-muted">Modificare o annullare il DDT in Movimenta → Resi / Spedizioni.</span>
         </div>`;
         return;
       }
-      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">✗ Item ${this._esc(art)}#${this._esc(lot)} non disponibile${inQuar ? ' <span class="text-sx-purple">(in quarantena)</span>' : !allForLot.length ? ' — non trovato in magazzino' : ''}</div>`;
+      info.innerHTML = `<div class="text-body-small text-sx-danger mt-2">${this._ico('circle-x')} Item ${this._esc(art)}#${this._esc(lot)} non disponibile${inQuar ? ' <span class="text-sx-purple">(in quarantena)</span>' : !allForLot.length ? ' — non trovato in magazzino' : ''}</div>`;
       return;
     }
     if (itemsRaw.length === 1) { this._prodAddToCart(itemsRaw[0]); return; }
@@ -369,9 +369,9 @@ export const VistaPrelievo = {
       html += `<div class="inv-item-row" style="cursor:pointer;${inCart ? 'opacity:0.4' : ''}" onclick="App._prodAddEnc('${payload}')">
         <div class="inv-info">
           <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">L:${this._esc(it.lot_code)} · 📍 <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${qtyAvail} Coll. disp.</strong>${reservedLbl}</div>
+          <div class="inv-lot">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${qtyAvail} Coll. disp.</strong>${reservedLbl}</div>
         </div>
-        ${inCart ? '<span class="text-sx-text-muted text-body-small">✓ In carrello</span>' : '<span class="text-sx-success">+ Aggiungi</span>'}
+        ${inCart ? `<span class="text-sx-text-muted text-body-small">${this._ico('check')} In carrello</span>` : '<span class="text-sx-success">+ Aggiungi</span>'}
       </div>`;
     }
     info.innerHTML = html + '</div>';
@@ -387,7 +387,7 @@ export const VistaPrelievo = {
     if (!Store.isFEFOItem(item)) {
       const fefo = Store.getFEFOItemForArticle(item.article_code);
       if (fefo && fefo.expiry_date && (!item.expiry_date || item.expiry_date > fefo.expiry_date)) {
-        const msg = `⚠️ NON-FEFO\n\nStai per prelevare ${item.article_code}#${item.lot_code}` +
+        const msg = `${this._ico('alert-triangle')} NON-FEFO\n\nStai per prelevare ${item.article_code}#${item.lot_code}` +
           (item.expiry_date ? ` (scad. ${item.expiry_date})` : ' (senza scadenza)') +
           `\n\nIl lotto FEFO consigliato è: ${fefo.lot_code}` +
           (fefo.expiry_date ? ` (scad. ${fefo.expiry_date})` : '') +
@@ -411,7 +411,7 @@ export const VistaPrelievo = {
       this.toast(`${item.article_code}#${item.lot_code}: nessun collo disponibile (fisici ${qtyPhys}, impegnati su DDT ${qtyReserved})`, 'error');
       return;
     }
-    const reservedInfo = qtyReserved > 0 ? `\n⚠️ ${qtyReserved} Coll. impegnati su DDT pendenti (non prelevabili)` : '';
+    const reservedInfo = qtyReserved > 0 ? `\n${this._ico('alert-triangle')} ${qtyReserved} Coll. impegnati su DDT pendenti (non prelevabili)` : '';
     const qtyInput = await Dialog.qty({
       title: 'Colli da prelevare',
       message: reservedInfo ? reservedInfo.trim() : 'Impostare il numero di colli da portare in produzione.',
@@ -472,9 +472,9 @@ export const VistaPrelievo = {
       <div class="pci-num">${i+1}</div>
       <div class="pci-info">
         <div class="pci-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(it.article_description || '')}</span></div>
-        <div class="pci-loc">L:${this._esc(it.lot_code)} · 📍 ${this._esc(it.location_code)} · <strong class="text-sx-accent">${qtyPick} Coll.</strong>${partialBadge}</div>
+        <div class="pci-loc">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} ${this._esc(it.location_code)} · <strong class="text-sx-accent">${qtyPick} Coll.</strong>${partialBadge}</div>
       </div>
-      <button class="btn btn-sm btn-ghost text-sx-danger" onclick="App._prodRemoveFromCart(${i})">✕</button>
+      <button class="btn btn-sm btn-ghost text-sx-danger" onclick="App._prodRemoveFromCart(${i})">${this._ico('x')}</button>
     </div>`;
     }).join('');
   },
@@ -509,7 +509,7 @@ export const VistaPrelievo = {
         ['Prelievi parziali', partialCount > 0 ? partialCount : null]
       ]),
       confirmLabel: `Preleva ${totalColli} Coll.`,
-      icon: '\u{1F3ED}'
+      icon: 'building-factory'
     })) return;
 
     // Batch atomico: rimuoviamo tutto, teniamo backup per rollback
@@ -631,7 +631,7 @@ export const VistaPrelievo = {
         packs: it._packs_out ?? null,
         packs_prima: it._packs_before ?? null,
       })));
-    this.toast(`✓ Prelevati ${results.length} lotti (${totalColli} Coll.) per ord. ${this._prodOrderNum}`, 'success');
+    this.toast(`Prelevati ${results.length} lotti (${totalColli} Coll.) per ord. ${this._prodOrderNum}`, 'success');
     this.updateSyncIndicator();
 
     const prodSnap  = this._prodCartSnapshot(results, { partial: false });
@@ -639,7 +639,7 @@ export const VistaPrelievo = {
     if (await Dialog.confirm({
       title: 'Stampare il report di prelievo?',
       message: 'Il report riporta righe, lotti, ubicazioni, quantit\u00e0 e tempi di prelievo dell\u2019ordine di produzione. Resta ristampabile dal registro degli ordini prelevati.',
-      confirmLabel: 'Stampa', cancelLabel: 'Non ora', icon: '\u{1F5A8}'
+      confirmLabel: 'Stampa', cancelLabel: 'Non ora', icon: 'printer'
     })) this._emitPickReport(prodSnap, { reprint: false });
     if (!prodSaved) this.toast('Report non archiviato: la ristampa conforme non sar\u00e0 disponibile', 'error');
     // Reset carrello + timer

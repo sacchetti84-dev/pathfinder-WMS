@@ -8,7 +8,7 @@ const http = require('http');
 const crypto = require('crypto');   // 2.11 — il guardiano lo usa prima del PIN
 const https = require('https');
 const { apriDatabase } = require('./lib/db');
-const { NAMES } = require('./lib/schema');
+const { NAMES, normalizzaCampo } = require('./lib/schema');
 const registro = require('./lib/registro-servizio');   // 2.18 — il servizio lascia traccia
 const zebra = require('./lib/stampa-zebra');           // 2.19 — le etichette sulle Zebra in rete
 
@@ -64,7 +64,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.22.0';
+const VERSION = '2.23.0';
 
 /* ── 2.10 · SU QUALE INTERFACCIA SI ASCOLTA ───────────────────────────────
    Fino alla 2.9 `listen` non diceva su quale, e Node in quel caso le prende
@@ -923,8 +923,41 @@ app.post('/api/tx', wrap(async (req, res) => {
   res.json({ ok: true, results });
 }));
 
+/* ── I CODICI CHE ARRIVANO NEL CORPO DI UN'OPERAZIONE ──────────────────
+
+   Un codice scritto DENTRO UN RECORD viene maiuscolato prima di essere
+   salvato (`normalizza`, in `lib/schema.js`), e un codice messo IN FONDO A
+   UN PERCORSO viene maiuscolato prima di cercare la riga (`_legame`, in
+   `lib/driver-base.js`). Un codice che arriva nel CORPO di una POST non
+   passava da nessuna delle due, e qui sotto le righe si cercano con `===`:
+   `123456#qwert` non trova `123456#QWERT`.
+
+   COSA COSTAVA. Bastava una riga di merce scritta prima che la
+   normalizzazione esistesse — in `pristino.db` ce n'e' una — e da quel
+   momento quella riga non si poteva piu' ne' prelevare, ne' smaltire, ne'
+   campionare: l'applicativo rispondeva «123456#qwert non e' piu' in
+   MAG-ACC-03» di una riga che stava li'. E' la frase peggiore che potesse
+   dire, perche' manda a cercare a scaffale una cosa che e' al suo posto.
+
+   SI CONFRONTA NORMALIZZATO CON NORMALIZZATO. Non basta maiuscolare quel
+   che arriva: un database che non e' mai stato riscritto da questa
+   versione tiene ancora la chiave com'era, e maiuscolare solo un lato
+   sposterebbe il buco dall'altra parte.
+
+   Trovato il 04/09 dal banco a video, flusso `chiaviNonMaiuscole`. */
+const codiceDalCorpo = (collezione, campo, valore) =>
+  normalizzaCampo(collezione, campo, String(valore ?? '').trim());
+
+/** La riga di giacenza con quella chiave, guardando i due lati con lo
+    stesso metro. */
+const rigaConChiave = (righe, item_key) =>
+  righe.find((r) => r.item_key === item_key)
+  || righe.find((r) => codiceDalCorpo('inventory', 'item_key', r.item_key) === item_key);
+
 app.post('/api/op/removeItem', wrap(async (req, res) => {
-  const { location_code, item_key, qty, qty_uom, qty_uom_before, packs_out, packs_before } = req.body || {};
+  const { qty, qty_uom, qty_uom_before, packs_out, packs_before } = req.body || {};
+  const location_code = codiceDalCorpo('inventory', 'location_code', req.body?.location_code);
+  const item_key = codiceDalCorpo('inventory', 'item_key', req.body?.item_key);
   const n = Number(qty);
   assertPacksOut(packs_out);
   /* 1.8 — con l'elenco la quantita' in colli e' una conseguenza, e puo' essere
@@ -934,7 +967,7 @@ app.post('/api/op/removeItem', wrap(async (req, res) => {
 
   const out = await db.transaction(['inventory'], async () => {
     const rows = await db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
-    const item = rows.find(r => r.item_key === item_key);
+    const item = rigaConChiave(rows, item_key);
     if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
 
     const colli = uscitaColli(item, packs_out, packs_before);
@@ -975,7 +1008,9 @@ app.post('/api/op/removeItem', wrap(async (req, res) => {
    Come ovunque, il saldo di partenza si legge dalla RIGA: `qty_uom_before`
    e' solo il seme per la riga che un `qty_uom` non lo ha mai avuto. */
 app.post('/api/op/sampleItem', wrap(async (req, res) => {
-  const { location_code, item_key, qty_uom, qty_uom_before, packs_out } = req.body || {};
+  const { qty_uom, qty_uom_before, packs_out } = req.body || {};
+  const location_code = codiceDalCorpo('inventory', 'location_code', req.body?.location_code);
+  const item_key = codiceDalCorpo('inventory', 'item_key', req.body?.item_key);
   const n = arrotondaUom(qty_uom);
 
   /* 1.8.4 — DA QUALE COLLO ESCE IL CAMPIONE.
@@ -997,7 +1032,7 @@ app.post('/api/op/sampleItem', wrap(async (req, res) => {
 
   const out = await db.transaction(['inventory'], async () => {
     const rows = await db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
-    const item = rows.find(r => r.item_key === item_key);
+    const item = rigaConChiave(rows, item_key);
     if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
 
     if (campione) {
@@ -1058,7 +1093,9 @@ app.post('/api/op/sampleItem', wrap(async (req, res) => {
    Chiederla al client vorrebbe dire fidarsi di due dati che possono
    divergere, e sceglierne uno a caso quando divergono. */
 app.post('/api/op/moveUdc', wrap(async (req, res) => {
-  const { udc_id, to, movement } = req.body || {};
+  const { movement } = req.body || {};
+  const udc_id = codiceDalCorpo('udc', 'udc_id', req.body?.udc_id);
+  const to = codiceDalCorpo('udc', 'location_code', req.body?.to);
   if (!udc_id || !to)
     throw Object.assign(new Error('servono udc_id e l\'ubicazione di destinazione'), { status: 400 });
 
@@ -1162,7 +1199,9 @@ app.post('/api/op/moveUdc', wrap(async (req, res) => {
 }));
 
 app.post('/api/op/commitPickStop', wrap(async (req, res) => {
-  const { location_code, item_key, qty, qty_uom, qty_uom_before, packs_out, packs_before, movement, session } = req.body || {};
+  const { qty, qty_uom, qty_uom_before, packs_out, packs_before, movement, session } = req.body || {};
+  const location_code = codiceDalCorpo('inventory', 'location_code', req.body?.location_code);
+  const item_key = codiceDalCorpo('inventory', 'item_key', req.body?.item_key);
   const n = Number(qty);
   assertPacksOut(packs_out);
   if (!location_code || !item_key || !session?.session_id
@@ -1171,7 +1210,7 @@ app.post('/api/op/commitPickStop', wrap(async (req, res) => {
 
   const out = await db.transaction(['inventory', 'mov_log', 'pick_session', 'meta'], async () => {
     const rows = await db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: location_code } });
-    const item = rows.find(r => r.item_key === item_key);
+    const item = rigaConChiave(rows, item_key);
     if (!item) throw Object.assign(new Error(`${item_key} non e' piu' in ${location_code}`), { status: 409 });
     const colli = uscitaColli(item, packs_out, packs_before);
     const have = colli ? colli.qtyBefore : (item.qty || 1);
@@ -1381,7 +1420,7 @@ app.post('/api/op/stampaEtichetta', wrap(async (req, res) => {
     inviata = await zebra.stampaUdc(rec, udc, quante);
 
   } else if (tipo === 'item') {
-    const chiave = String(item_key ?? '').trim();
+    const chiave = codiceDalCorpo('inventory', 'item_key', item_key);
     const dove = String(location_code ?? '').trim().toUpperCase();
     if (!chiave || !dove) {
       throw Object.assign(new Error('Per l\'etichetta della merce servono item_key e location_code'),

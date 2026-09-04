@@ -99,7 +99,7 @@ export const VistaPercorso = {
         <div>Ordine ${this._esc(session.odp_num)} — ${(session.stops || []).filter((s) => s.status !== 'pending').length} di ${(session.stops || []).length} tappe completate.</div>
         <div class="flex gap-5 mt-6 flex-wrap">
           <button class="btn btn-accent" onclick="App._routeResume()">▶ Riprendi</button>
-          <button class="btn btn-danger" onclick="App._routeAbandon()">✕ Chiudi percorso</button>
+          <button class="btn btn-danger" onclick="App._routeAbandon()">${this._ico('x')} Chiudi percorso</button>
         </div>
         <div class="text-body-small mt-5 opacity-85">
           Caricando un nuovo ordine questo percorso verr&agrave; chiuso.
@@ -113,8 +113,8 @@ export const VistaPercorso = {
       </div>
 
       <div class="flex gap-5 flex-wrap mb-7">
-        <button class="btn btn-primary min-h-[var(--md-touch)]"
-          onclick="$('fileImportOdp').click()">📄 ${parsed ? 'Aggiungi un altro ordine' : 'Carica ordine'} (.xlsx)</button>
+        <button class="btn btn-primary min-h-touch"
+          onclick="$('fileImportOdp').click()">${this._ico('file-text')} ${parsed ? 'Aggiungi un altro ordine' : 'Carica ordine'} (.xlsx)</button>
         ${parsed ? '<button class="btn btn-ghost" onclick="App._routeClearImport()">Scarta tutto</button>' : ''}
       </div>
 
@@ -306,7 +306,7 @@ export const VistaPercorso = {
           ${soli ? '' : `
             ${capo ? '<span class="badge badge-green">capofila &mdash; tiene il conto</span>'
               : `<button class="btn btn-sm" onclick="App._routeSetCapofila('${this._esc(o.odp_num)}')">Fallo capofila</button>`}
-            <button class="btn btn-sm btn-ghost" onclick="App._routeTogliOrdine('${this._esc(o.odp_num)}')">✕ Togli</button>`}
+            <button class="btn btn-sm btn-ghost" onclick="App._routeTogliOrdine('${this._esc(o.odp_num)}')">${this._ico('x')} Togli</button>`}
         </div>
       </div>`;
   },
@@ -371,7 +371,7 @@ export const VistaPercorso = {
        che indicano un dato mancante, non differenze di arrotondamento. */
     const warnHTML = p.warnings.length ? `
       <div class="route-warn">
-        <strong>⚠️ ${p.warnings.length} avviso/i sui dati dell'ordine</strong>
+        <strong>${this._ico('alert-triangle')} ${p.warnings.length} avviso/i sui dati dell'ordine</strong>
         <ul class="mt-4 mr-0 mb-0 ml-10 p-0">
           ${(p.warnings || []).map((w) => `<li class="mb-2.5">${this._esc(w)}</li>`).join('')}
         </ul>
@@ -394,7 +394,7 @@ export const VistaPercorso = {
       ${ordini.map((o, i) => this._routeOrdineCardHTML(o, soli, i === 0)).join('')}
 
       ${soli ? '' : `<div class="route-warn mb-5">
-        <strong>🔗 Giro di ${ordini.length} ordini</strong> &mdash; stesso articolo e stesso lotto fanno
+        <strong>${this._ico('link')} Giro di ${ordini.length} ordini</strong> &mdash; stesso articolo e stesso lotto fanno
         <strong>una tappa sola</strong>. Il conto lo intesta <strong class="mono">${this._esc(this._routeCapofila)}</strong>,
         e la ripartizione si dichiara alla chiusura.
       </div>`}
@@ -413,9 +413,9 @@ export const VistaPercorso = {
       ${this._routeSiteOrderHTML()}
 
       ${(p.stops || []).length ? `<div class="route-preview">
-        <strong class="text-body-medium">🧭 Anteprima percorso</strong>
+        <strong class="text-body-medium">${this._ico('compass')} Anteprima percorso</strong>
         ${lontane.length ? `<div class="text-body-small opacity-85 mt-2 mb-3">
-          🏭 <strong>${lontane.length} tapp${lontane.length === 1 ? 'a sta' : 'e stanno'} in un altro magazzino.</strong>
+          ${this._ico('building-factory')} <strong>${lontane.length} tapp${lontane.length === 1 ? 'a sta' : 'e stanno'} in un altro magazzino.</strong>
           Chiedere il trasferimento mette la merce in coda allo schedulatore e sposta la tappa sull'ubicazione in cui la si riceve.
         </div>` : ''}
         ${(p.stops || []).map((s) => `<div class="route-prev-row">
@@ -432,8 +432,8 @@ export const VistaPercorso = {
       ${notesHTML}
 
       <div class="flex gap-5 mt-8">
-        <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
-          onclick="App._routeStart()" ${(p.stops || []).length ? '' : 'disabled'}>🧭 AVVIA PERCORSO (${(p.stops || []).length})</button>
+        <button class="btn btn-primary btn-conferma"
+          onclick="App._routeStart()" ${(p.stops || []).length ? '' : 'disabled'}>${this._ico('compass')} AVVIA PERCORSO (${(p.stops || []).length})</button>
       </div>`;
   },
 
@@ -468,7 +468,7 @@ export const VistaPercorso = {
     }
     const f = altrove.get(s.location_code + '|' + s.item_key);
     if (!f) return '';
-    const badge = `<span class="badge badge-amber" title="Questa merce sta in un altro magazzino">🏭 ${this._esc(f.site_name)}</span>`;
+    const badge = `<span class="badge badge-amber" title="Questa merce sta in un altro magazzino">${this._ico('building-factory')} ${this._esc(f.site_name)}</span>`;
     return `${badge}<button class="btn btn-sm" title="Chiedi che la merce venga trasferita qui" onclick="App._routeChiediTrasf('${this._esc(s.item_key)}','${this._esc(s.location_code)}')">↔ Trasferisci</button>`;
   },
 
@@ -479,7 +479,7 @@ export const VistaPercorso = {
     const sito = Store.getSite(s.site_id);
     this.showModal(
       '↔ Trasferimento richiesto dall’ordine',
-      `<div class="bg-sx-bg-alt border border-sx-border rounded-[var(--radius-md)] py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
+      `<div class="bg-sx-bg-alt border border-sx-border rounded-5 py-5.5 px-7.5 mb-8.5 text-body-small text-sx-text-secondary">
         <span class="mono font-bold text-sx-primary">${this._esc(s.article_code)}</span>
         ${this._esc(s.article_description || '')}<br>
         Lotto <strong>${this._esc(s.lot_code)}</strong> · <strong>${this._qtaOrdine(s.kg_required, s.um)} ${this._esc(s.um)}</strong> richiesti dall’ordine<br>
@@ -491,7 +491,7 @@ export const VistaPercorso = {
           <input class="input input-mono uppercase flex-1" id="trfTo" placeholder="Scansiona o digita" autofocus maxlength="${Validate.MAX.LOC_CODE}"
             oninput="this.value=this.value.toUpperCase();App._previewLoc('trfTo','trfToPrev')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._routeCreaTrasf('${this._esc(itemKey)}','${this._esc(fromLoc)}')}">
-          <button class="btn btn-sm" type="button" onclick="App._pickLoc('trfTo',null)" title="Sfoglia le ubicazioni">📍</button>
+          <button class="btn btn-sm" type="button" onclick="App._pickLoc('trfTo',null)" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
         </div>
         <div id="trfToPrev"></div>
       </div>
@@ -581,7 +581,7 @@ export const VistaPercorso = {
     const order = PickRoute.getSiteOrder();
     if (order.length < 2) return '';
     return `<div class="route-siteorder">
-      <strong class="text-body-medium">🏭 Ordine di visita dei siti</strong>
+      <strong class="text-body-medium">${this._ico('building-factory')} Ordine di visita dei siti</strong>
       <div class="text-body-small opacity-80 mt-2 mx-0 mb-4">
         Il percorso &egrave; costruito un sito per volta, in questa sequenza.
       </div>
@@ -648,7 +648,7 @@ export const VistaPercorso = {
           ['Tappe completate', `${(existing.stops || []).filter(s => s.status !== 'pending').length} di ${(existing.stops || []).length}`],
           ['Nuovo ordine', ordini.map((o) => o.odp_num).join(' · ')]
         ]),
-        confirmLabel: 'Chiudi e avvia il nuovo', danger: true, icon: '\u26A0'
+        confirmLabel: 'Chiudi e avvia il nuovo', danger: true, icon: 'alert-triangle'
       });
       if (!ok) return;
       /* I movimenti gi\u00e0 registrati restano: sono su mov_log, non qui. */
@@ -824,7 +824,7 @@ export const VistaPercorso = {
         <strong>Prelievo in pausa</strong>
         <div>Dalle ${this._esc(this._fmtClock(aperta.from))}${aperta.by ? ' · ' + this._esc(aperta.by) : ''}. Il tempo fermo non entra nel tempo medio di prelievo.</div>
       </div>
-      <button class="btn btn-success min-h-[var(--md-touch)]" onclick="App._routeRiprendi()">▶ Riprendi</button>
+      <button class="btn btn-success min-h-touch" onclick="App._routeRiprendi()">▶ Riprendi</button>
     </div>`;
   },
 
@@ -841,7 +841,7 @@ export const VistaPercorso = {
         ['Tappe confermate', done],
         ['Tappe non percorse', left]
       ]),
-      confirmLabel: 'Chiudi percorso', danger: true, icon: '\u26A0'
+      confirmLabel: 'Chiudi percorso', danger: true, icon: 'alert-triangle'
     });
     if (!ok) return;
     if (done) await this._emitFinalPickReport(s);
@@ -875,13 +875,13 @@ export const VistaPercorso = {
       <div class="route-runbar">
         <div class="route-runbar-top">
           <span class="mono route-runbar-odp">${this._esc(s.odp_num)}</span>
-          ${(s.odps || []).length > 1 ? `<span class="badge badge-muted" title="${this._esc((this._giroDellaSessione(s) || []).join(' · '))}">🔗 giro di ${(s.odps || []).length} ordini</span>` : ''}
+          ${(s.odps || []).length > 1 ? `<span class="badge badge-muted" title="${this._esc((this._giroDellaSessione(s) || []).join(' · '))}">${this._ico('link')} giro di ${(s.odps || []).length} ordini</span>` : ''}
           <span class="route-runbar-count">${done + missing} / ${(s.stops || []).length}</span>
         </div>
         <div class="route-progress"><i style="width:${pct}%"></i></div>
         <div class="route-runbar-legend">
-          <span>✓ ${done} prelevate</span>
-          <span>✗ ${missing} non trovate</span>
+          <span>${this._ico('check')} ${done} prelevate</span>
+          <span>${this._ico('circle-x')} ${missing} non trovate</span>
           <span>◻ ${pending.length} da fare</span>
           ${this._routeFermoHTML(s)}
         </div>
@@ -900,9 +900,9 @@ export const VistaPercorso = {
       </details>
 
       <div class="flex gap-5 mt-7 flex-wrap">
-        ${current && !inPausa ? `<button class="btn btn-sm btn-warning min-h-[var(--md-touch)]" onclick="App._routePausa()">⏸ Pausa</button>` : ''}
-        <button class="btn btn-sm" onclick="App._printRouteReport()">🖨 Report parziale</button>
-        <button class="btn btn-sm btn-danger" onclick="App._routeAbandon()">✕ Chiudi percorso</button>
+        ${current && !inPausa ? `<button class="btn btn-sm btn-warning min-h-touch" onclick="App._routePausa()">⏸ Pausa</button>` : ''}
+        <button class="btn btn-sm" onclick="App._printRouteReport()">${this._ico('printer')} Report parziale</button>
+        <button class="btn btn-sm btn-danger" onclick="App._routeAbandon()">${this._ico('x')} Chiudi percorso</button>
       </div>`;
 
     /* 2.5 — LA SCANSIONE SI RIFÀ A OGNI VANO E A OGNI APERTURA, e la chiave
@@ -1063,7 +1063,7 @@ export const VistaPercorso = {
   _routeSostaHTML(st, sosta) {
     if ((sosta || []).length < 2) return '';
     return `<div class="route-sosta">
-      <strong>📦 In questo vano ci sono ${sosta.length} righe da prelevare</strong>
+      <strong>${this._ico('package')} In questo vano ci sono ${sosta.length} righe da prelevare</strong>
       <div class="text-body-small opacity-85 mt-2 mb-3">
         L&rsquo;ubicazione si conferma una volta sola: da qui in avanti si scansionano
         articolo e lotto di ciascuna riga, senza tornare sul codice a terra.
@@ -1215,7 +1215,7 @@ export const VistaPercorso = {
         </div>` : ''}
 
         ${vanoOk ? `<div class="route-vano-ok">
-          <strong>✓ Ubicazione <span class="mono">${this._esc(st.location_code)}</span> confermata</strong>
+          <strong>${this._ico('check')} Ubicazione <span class="mono">${this._esc(st.location_code)}</span> confermata</strong>
           <div class="text-body-small opacity-85">
             Vale per tutte le righe di questo vano, fino a quando il giro non si sposta.
           </div>
@@ -1226,7 +1226,7 @@ export const VistaPercorso = {
           <input class="input input-mono" id="rLoc" placeholder="Scansiona o digita ubicazione" maxlength="${Validate.MAX.LOC_CODE}"
             oninput="App._normScan('rLoc')"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._normScan('rLoc');App._routeCheckLoc();}">
-          <button class="btn btn-sm" type="button" onclick="App._pickLoc('rLoc','_routeCheckLoc')" title="Sfoglia le ubicazioni">📍</button>
+          <button class="btn btn-sm" type="button" onclick="App._pickLoc('rLoc','_routeCheckLoc')" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
           </div>
         </div>`}
         <div class="form-group mb-4">
@@ -1243,17 +1243,19 @@ export const VistaPercorso = {
         <div id="rFeedback"></div>
 
         <div class="flex gap-5 mt-6 flex-wrap">
-          <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
-            onclick="App._routeConfirmStop()">✓ CONFERMA PRELIEVO</button>
-          <button class="btn btn-warning min-h-[var(--md-touch)]"
-            onclick="App._routeMarkMissing()">✗ Non trovato</button>
+          <button class="btn btn-primary btn-conferma"
+            onclick="App._routeConfirmStop()">${this._ico('check')} CONFERMA PRELIEVO</button>
+          <button class="btn btn-warning min-h-touch"
+            onclick="App._routeMarkMissing()">${this._ico('circle-x')} Non trovato</button>
         </div>
       </article>`;
   },
 
   _routeListRowHTML(st, current) {
     const isCur = current && st.seq === current.seq;
-    const icon = st.status === 'done' ? '✓' : st.status === 'missing' ? '✗' : isCur ? '▶' : '◻';
+    const icon = st.status === 'done' ? this._ico('check')
+      : st.status === 'missing' ? this._ico('circle-x')
+      : isCur ? '▶' : '◻';
     const cls  = st.status === 'done' ? 'ok' : st.status === 'missing' ? 'ko' : isCur ? 'cur' : '';
     const fatta = st.status === 'done';
     /* 2.5 — UNA TAPPA GIÀ PRELEVATA SI RIAPRE. Chi si accorge di aver preso
@@ -1277,7 +1279,7 @@ export const VistaPercorso = {
     return `<button type="button" class="route-list-row route-list-row--btn ${cls}"
       title="Correggi i colli prelevati su questa tappa"
       onclick="App._routeRettifica(${Number(st.seq)})">${dentro}
-      <span class="route-list-edit">✏️</span>
+      <span class="route-list-edit">${this._ico('pencil')}</span>
     </button>`;
   },
 
@@ -1329,7 +1331,7 @@ export const VistaPercorso = {
       title: 'Motivo della rettifica',
       message: 'Il testo va nelle note del movimento e compare sul report di prelievo.',
       placeholder: 'Es. collo di troppo, ordine cambiato, errore di conta…',
-      minLen: 5, confirmLabel: 'Rettifica', icon: '✏️',
+      minLen: 5, confirmLabel: 'Rettifica', icon: 'pencil',
     });
     if (!nota) return;
 
@@ -1558,14 +1560,14 @@ export const VistaPercorso = {
       title,
       message: message + '\n\nCorreggere la scansione, oppure sbloccare motivando.',
       confirmLabel: 'Sblocca motivando', cancelLabel: 'Correggo la scansione',
-      danger: true, icon: '⛔'
+      danger: true, icon: 'alert-octagon'
     });
     if (!proceed) { el?.focus(); el?.select(); return; }
     const note = await Dialog.reason({
       title: 'Motivazione dello sblocco',
       message: 'Il testo viene registrato nelle note del movimento e compare sul documento.',
       placeholder: 'Es. etichetta danneggiata, verificato su Sage con CQ…',
-      minLen: 8, confirmLabel: 'Sblocca', danger: true, icon: '⚠️'
+      minLen: 8, confirmLabel: 'Sblocca', danger: true, icon: 'alert-triangle'
     });
     if (!note) { el?.focus(); return; }
     const ok = await onForce(note);
@@ -1816,7 +1818,7 @@ export const VistaPercorso = {
       title: 'Merce non trovata',
       message: `Tappa ${st.seq} — ${st.article_code}#${st.lot_code} in ${st.location_code}.\nLa tappa viene marcata e il percorso prosegue.`,
       placeholder: 'Es. ubicazione vuota, pallet non reperibile, bancale spostato…',
-      minLen: 5, confirmLabel: 'Marca non trovato', icon: '\u2717'
+      minLen: 5, confirmLabel: 'Marca non trovato', icon: 'circle-x'
     });
     if (!note) return;
     st.status = 'missing';
@@ -1847,7 +1849,7 @@ export const VistaPercorso = {
     ];
     return `
       <div class="route-done">
-        <div class="route-done-ico">✓</div>
+        <div class="route-done-ico">${this._ico('check')}</div>
         <strong>Percorso completato</strong>
         <div>${done.length} tappe prelevate su ${(s.stops || []).length} per l'ordine ${this._esc(s.odp_num)}.</div>
         ${(s.odps || []).length > 1 ? `<div class="text-body-small mt-2 opacity-85">
@@ -1857,7 +1859,7 @@ export const VistaPercorso = {
       </div>
 
       ${tail.length ? `<div class="route-tail">
-        <strong class="text-body-medium">📋 Da recuperare fuori percorso (${tail.length})</strong>
+        <strong class="text-body-medium">${this._ico('clipboard-text')} Da recuperare fuori percorso (${tail.length})</strong>
         <div class="text-body-small opacity-85 mt-2 mx-0 mb-4">
           Righe non prelevabili dalle aree mappate: materiale stoccato fuori mappatura,
           lotti assenti o merce non reperita.
@@ -1875,8 +1877,8 @@ export const VistaPercorso = {
       </div>` : ''}
 
       <div class="flex gap-5 mt-8 flex-wrap">
-        <button class="btn btn-primary flex-1 font-extrabold min-h-[var(--md-touch)]"
-          onclick="App._routeClose()">✓ CHIUDI E STAMPA REPORT</button>
+        <button class="btn btn-primary btn-conferma"
+          onclick="App._routeClose()">${this._ico('check')} CHIUDI E STAMPA REPORT</button>
       </div>`;
   },
 
@@ -1912,7 +1914,7 @@ export const VistaPercorso = {
         ['Non trovate', missing || null],
         ['Ancora da fare', left]
       ]),
-      confirmLabel: 'Riprendi', cancelLabel: 'Non ora', icon: '\u23F8'
+      confirmLabel: 'Riprendi', cancelLabel: 'Non ora', icon: 'player-pause'
     });
     if (!resume) return;
     this._routeStage = 'run';

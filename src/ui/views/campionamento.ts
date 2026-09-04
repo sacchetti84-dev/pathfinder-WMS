@@ -46,7 +46,7 @@ export const VistaCampionamento = {
 
   _formCampionamento(el) {
     el.innerHTML = `<div class="mov-form-card">
-      <h3>🧪 <span class="text-sx-teal">Campionamento</span></h3>
+      <h3>${this._ico('flask')} <span class="text-sx-teal">Campionamento</span></h3>
       <div class="wf-instructions">
         <strong>Flusso:</strong> <span class="wf-step">① CERCA la merce</span> → <span class="wf-step">② scegli la riga</span> →
         <span class="wf-step">③ quantità prelevata e per chi</span> → CONFERMA.
@@ -60,7 +60,7 @@ export const VistaCampionamento = {
       </div>
       <div class="mb-5" id="cpList"></div>
       <div id="cpDetails"></div>
-      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">✕ Chiudi</button></div>
+      <div class="mt-6"><button class="btn" onclick="App.cancelMov()">${this._ico('x')} Chiudi</button></div>
     </div>`;
     if (this._campState) this._campRenderDettaglio();
     else $('cpQuery')?.focus();
@@ -75,13 +75,13 @@ export const VistaCampionamento = {
     if (q.length < 2) { box.innerHTML = ''; return; }
     const righe = Store.findItemLocations(q).filter(it => (it.qty || 0) > 0);
     if (!righe.length) {
-      box.innerHTML = `<div class="text-label-small text-sx-warning">⚠️ Nessuna giacenza per «${this._esc(q)}»</div>`;
+      box.innerHTML = `<div class="text-label-small text-sx-warning">${this._ico('alert-triangle')} Nessuna giacenza per «${this._esc(q)}»</div>`;
       return;
     }
     /* FEFO come ovunque: il campione si prende dal lotto che scade prima,
        se non c'è una ragione per prenderne un altro. */
     const ordinate = Store.sortByFEFO(righe).slice(0, 12);
-    box.innerHTML = `<div class="max-h-[190px] overflow-y-auto border border-sx-border rounded-[var(--radius-md)]">${
+    box.innerHTML = `<div class="max-h-[190px] overflow-y-auto border border-sx-border rounded-5">${
       ordinate.map(it => `<div class="search-result-item" onclick="App._campSelect('${this._esc(it.location_code)}','${this._esc(it.item_key)}')">
           <span class="mono font-bold">${this._esc(it.article_code)}</span>
           <span class="mono text-sx-text-secondary">${this._esc(it.lot_code)}</span>
@@ -93,7 +93,7 @@ export const VistaCampionamento = {
   _campSelect(loc, itemKey) {
     const it = Store.getItemsAtLocation(loc).find(i => i.item_key === itemKey);
     if (!it) return this.toast('Quella riga non è più a magazzino', 'warning');
-    if (Store.isItemQuarantined(itemKey, loc)) return this.toast('🚫 Item in quarantena: il campione si preleva dal flusso di qualità', 'error');
+    if (Store.isItemQuarantined(itemKey, loc)) return this.toast('Item in quarantena: il campione si preleva dal flusso di qualità', 'error');
     this._campState = { location_code: loc, item_key: itemKey, article_code: it.article_code, lot_code: it.lot_code };
     const box = $('cpList'); if (box) box.innerHTML = '';
     const q = $('cpQuery'); if (q) q.value = it.article_code;
@@ -115,12 +115,12 @@ export const VistaCampionamento = {
     const dentro = (um && cfg?.per_collo) ? um.pieni * cfg.per_collo + um.resto : (elenco ? 1 : null);
 
     el.innerHTML = `
-      <div class="mov-preview bg-[var(--grad-soft-teal)] border-sx-teal mb-5">
+      <div class="mov-preview bg-sx-teal-soft border-sx-teal mb-5">
         <strong class="mono text-sx-teal">${this._esc(it.article_code)}</strong>
         <span class="text-sx-text-muted">${this._esc(it.article_description || '')}</span><br>
         <span class="text-body-small text-sx-text-muted">
           Lotto <strong>${this._esc(it.lot_code)}</strong> · Ubic. <strong class="mono">${this._esc(it.location_code)}</strong> ·
-          <strong>${it.qty || 0} Coll.</strong>${dentro !== null ? ` · ⚖ ${this._esc(Store.descriviRiga(it))}` : ''}</span>
+          <strong>${it.qty || 0} Coll.</strong>${dentro !== null ? ` · ${this._ico('scale')} ${this._esc(Store.descriviRiga(it))}` : ''}</span>
       </div>
       ${scalabile ? `
       <div class="form-group mb-5">
@@ -142,7 +142,7 @@ export const VistaCampionamento = {
           per prendere tutto il collo serve un prelievo.</div>
       </div>` : ''}`
       : `<div class="mov-preview mov-preview-warn mb-5">
-          ⚠️ <strong>${this._esc(it.article_code)} non ha una quantità per collo</strong>:
+          ${this._ico('alert-triangle')} <strong>${this._esc(it.article_code)} non ha una quantità per collo</strong>:
           il prelievo si registra a registro, ma nessuna quantità cala.
           Si scioglie da sé compilando <span class="mono">Pezzi_Per_Collo</span> in anagrafica.
         </div>`}
@@ -153,8 +153,8 @@ export const VistaCampionamento = {
       ${this._campBloccoPulizia(it)}
       <div class="form-group mb-5"><label>Note</label>
         <input class="input" id="cpNotes" maxlength="${Validate.MAX.NOTES}" placeholder="Opzionale"></div>
-      <button class="btn btn-primary w-full p-5.5 font-bold bg-sx-teal border-sx-teal"
-        onclick="App._execCampione()">🧪 REGISTRA IL CAMPIONE</button>
+      <button class="btn btn-conferma bg-sx-teal text-white border-sx-teal"
+        onclick="App._execCampione()">${this._ico('flask')} REGISTRA IL CAMPIONE</button>
       <div class="mt-4" id="cpFeedback"></div>`;
     $(scalabile ? 'cpQty' : 'cpFor')?.focus();
   },
@@ -176,7 +176,7 @@ export const VistaCampionamento = {
       <input type="hidden" id="cpCleanAuto" value="${auto ? '1' : '0'}">
       ${auto ? `
       <div class="mov-preview mov-preview-warn mb-5">
-        <strong>⚠️ ${this._esc(it.article_code)} porta allergeni: ${this._esc(nomi)}</strong><br>
+        <strong>${this._ico('alert-triangle')} ${this._esc(it.article_code)} porta allergeni: ${this._esc(nomi)}</strong><br>
         <span class="text-body-small">
           Pulire la zona di prelievo a campionamento terminato. La pulizia è
           <strong>obbligatoria</strong> e viene registrata da sé nel registro attività.</span>
@@ -185,7 +185,7 @@ export const VistaCampionamento = {
         <label style="display:flex;align-items:center;gap:0.45rem;font-weight:600;text-transform:none;cursor:${auto ? 'default' : 'pointer'}">
           <input class="w-[17px] h-[17px]" type="checkbox" id="cpClean"
             ${auto ? 'checked disabled' : ''}>
-          <span>🧽 Ho pulito l'area di campionamento${auto ? ' — obbligatorio' : ''}</span>
+          <span>${this._ico('spray')} Ho pulito l'area di campionamento${auto ? ' — obbligatorio' : ''}</span>
         </label>
         <div class="text-label-small text-sx-text-muted mt-1.5">
           Spuntata, la pulizia finisce nel registro attività col riferimento a questo campionamento — è richiesto dalla GMP.</div>
@@ -266,9 +266,9 @@ export const VistaCampionamento = {
     }
 
     const quanto = esito ? `${formattaQuantita(-esito.qty_uom_delta, esito.uom)} ${esito.uom}` : 'quantità non scalata';
-    this.toast(`🧪 Campione registrato: ${it.article_code}#${it.lot_code} — ${quanto}`, 'success');
+    this.toast(`Campione registrato: ${it.article_code}#${it.lot_code} — ${quanto}`, 'success');
     const fb = $('cpFeedback');
-    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><strong>✓ ${this._esc(it.article_code)}#${this._esc(it.lot_code)}</strong> — ${this._esc(quanto)}, per ${this._esc(perChi)}. I colli restano ${it.qty || 0}.${pulito ? ' Pulizia registrata.' : ''}</div>`;
+    if (fb) fb.innerHTML = `<div class="mov-preview mov-preview-ok"><strong>${this._ico('check')} ${this._esc(it.article_code)}#${this._esc(it.lot_code)}</strong> — ${this._esc(quanto)}, per ${this._esc(perChi)}. I colli restano ${it.qty || 0}.${pulito ? ' Pulizia registrata.' : ''}</div>`;
     this.updateSyncIndicator();
     this._refreshSessionLog();
     /* Un campione è UN gesto: vale un collo di residuo. Chi ne ha chiesti

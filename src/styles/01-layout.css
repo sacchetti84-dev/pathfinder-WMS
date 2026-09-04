@@ -31,7 +31,7 @@ body.sidebar-collapsed .app { --sidebar-w: 0px; }
 .pf-logo { display: block; width: auto; flex: 0 0 auto; }
 .pf-logo-symbol { height: 32px; }
 .pf-logo-word { height: 30px; }
-.pf-logo--light { --pf-word: #ffffff; --pf-word-sub: rgba(255,255,255,0.80); --pf-mark: #ffffff; --pf-node: #4ade80; }
+.pf-logo--light { --pf-word: #ffffff; --pf-word-sub: rgba(255,255,255,0.80); --pf-mark: #ffffff; --pf-node: var(--pf-verde-nodo); }
 
 .app-version { font-size: var(--md-sys-typescale-label-small-size); opacity: 0.6; font-family: var(--mono); align-self: flex-end; padding-bottom: 2px; }
 
@@ -161,10 +161,10 @@ body.sidebar-collapsed .app { --sidebar-w: 0px; }
 }
 .sync-indicator:hover { background: rgba(255,255,255,0.22); border-color: rgba(255,255,255,0.38); }
 .sync-indicator:disabled { cursor: progress; opacity: 0.75; }
-.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: #5fbf94; flex: 0 0 auto; }
-.sync-dot.unsaved { background: #e0a63a; }
-.sync-dot.error { background: #d9756e; }
-.sync-dot.saving { background: #7dc4e8; animation: syncPulse 0.9s ease-in-out infinite; }
+.sync-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--md-ext-on-chrome-ok); flex: 0 0 auto; }
+.sync-dot.unsaved { background: var(--md-ext-on-chrome-attesa); }
+.sync-dot.error { background: var(--md-ext-on-chrome-errore); }
+.sync-dot.saving { background: var(--md-ext-on-chrome-lavoro); animation: syncPulse 0.9s ease-in-out infinite; }
 @keyframes syncPulse { 0%,100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.45; transform: scale(0.7); } }
 
 /* ════ Operatore e Gate ════ */
@@ -182,8 +182,8 @@ body.sidebar-collapsed .app { --sidebar-w: 0px; }
   letter-spacing: 0.03em;
 }
 .op-badge:hover { background: rgba(255,255,255,0.28); border-color: rgba(255,255,255,0.4); }
-.op-badge-empty { background: rgba(220,38,38,0.35); border-color: rgba(220,38,38,0.6); }
-.op-badge-empty:hover { background: rgba(220,38,38,0.5); }
+.op-badge-empty { background: color-mix(in srgb, var(--md-sys-color-error) 35%, transparent); border-color: color-mix(in srgb, var(--md-sys-color-error) 60%, transparent); }
+.op-badge-empty:hover { background: color-mix(in srgb, var(--md-sys-color-error) 50%, transparent); }
 .op-pill {
   background: var(--sx-card-alt);
   border: 1px solid var(--sx-border);
@@ -200,7 +200,7 @@ body.sidebar-collapsed .app { --sidebar-w: 0px; }
 .op-pill.active { background: var(--sx-accent); color: #fff; border-color: var(--sx-accent); }
 
 .modal-overlay.gate-overlay {
-  background: rgba(15, 32, 39, 0.82) !important;
+  background: color-mix(in srgb, var(--md-sys-color-scrim) 82%, transparent) !important;
   backdrop-filter: blur(3px) !important;
   z-index: 200 !important;
 }
@@ -220,7 +220,7 @@ body.sidebar-collapsed .app { --sidebar-w: 0px; }
   box-shadow: 0 -2px 12px rgba(0,0,0,0.25);
 }
 .recovery-banner { background: var(--sx-danger); color: #fff; }
-.readonly-banner { background: var(--sx-warning); color: #23201a; }
+.readonly-banner { background: var(--sx-warning); color: var(--md-ext-on-warning-container); }
 .recovery-banner .btn, .readonly-banner .btn { margin-left: auto; }
 .recovery-banner .btn + .btn, .readonly-banner .btn + .btn { margin-left: 0; }
 
@@ -494,7 +494,7 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
 }
 .mob-tab.active { background: transparent; color: var(--md-sys-color-on-surface); font-weight: 700; }
 .mob-tab.active span { background: var(--md-sys-color-secondary-container); }
-.mob-tab:hover span { background: rgba(23,29,26, var(--md-sys-state-hover-opacity)); }
+.mob-tab:hover span { background: color-mix(in srgb, var(--md-sys-color-on-surface) calc(var(--md-sys-state-hover-opacity) * 100%), transparent); }
 .mob-tab.active:hover span { background: var(--md-sys-color-secondary-container); }
 .mob-tab::after { display: none; }
 
@@ -505,7 +505,7 @@ body.sidebar-collapsed .app-main > .view { padding-left: 26px; }
   min-height: 32px;
   color: var(--md-sys-color-on-surface-variant);
 }
-.op-pill:hover { background: rgba(23,29,26, var(--md-sys-state-hover-opacity)); border-color: var(--md-sys-color-outline); }
+.op-pill:hover { background: color-mix(in srgb, var(--md-sys-color-on-surface) calc(var(--md-sys-state-hover-opacity) * 100%), transparent); border-color: var(--md-sys-color-outline); }
 .op-pill.active { background: var(--md-sys-color-secondary-container); color: var(--md-sys-color-on-secondary-container); border-color: transparent; }
 
 /* ════ 1.11 — IL TERMINALE ════
@@ -557,5 +557,4 @@ body.dispositivo-terminale {
 
   /* Le tabelle larghe scorrono invece di stringere le colonne fino a
      spezzare un codice a meta'. */
-  .table-wrap, .tbl-scroll { overflow-x: auto; }
 }

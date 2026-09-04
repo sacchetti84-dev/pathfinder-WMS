@@ -44,7 +44,7 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 /* ════ Schermata blocco: Servizio Non Raggiungibile ════ */
 .svc-down {
   position: fixed; inset: 0; z-index: 99999;
-  background: rgba(23, 29, 26, 0.92);
+  background: color-mix(in srgb, var(--md-sys-color-scrim) 92%, transparent);
   display: flex; align-items: center; justify-content: center; padding: 1.5rem;
   backdrop-filter: blur(3px);
 }
@@ -89,8 +89,8 @@ button, input, select, textarea { font-family: inherit; font-size: inherit; line
 @keyframes spin { to { transform: rotate(360deg); } }
 
 @keyframes pendingPulse {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.5); }
-  50% { box-shadow: 0 0 0 4px rgba(220, 38, 38, 0); }
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--md-sys-color-error) 50%, transparent); }
+  50% { box-shadow: 0 0 0 4px color-mix(in srgb, var(--md-sys-color-error) 0%, transparent); }
 }
 
 .boot-text {
