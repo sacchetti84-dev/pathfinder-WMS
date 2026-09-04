@@ -114,6 +114,14 @@ function preparaApp() {
   const odp = path.join(RADICE, 'banco', 'odp-2.12', 'ODP2612010-sosta-tre-righe.xlsx');
   if (existsSync(odp)) copyFileSync(odp, path.join(APP, 'assets', 'ordine.xlsx'));
 
+  /* E IL RILIEVO DELLO STILE: l'elenco dei selettori dichiarati piu' volte in
+     `01-components.css` e delle proprieta' che toccano, piu' la misura di
+     prima quando c'e'. Sta in un file e non nel codice del banco perche' lo
+     genera il foglio di stile: tenerlo qui dentro vorrebbe dire una seconda
+     copia da riallineare a mano. */
+  const rilievo = path.join(__dirname, 'rilievo-stile.json');
+  if (existsSync(rilievo)) copyFileSync(rilievo, path.join(APP, 'assets', 'rilievo.json'));
+
   console.log(`· applicativo ${consegne[0]} copiato in ${path.relative(RADICE, APP)}`);
 }
 

@@ -2254,6 +2254,174 @@ flusso('percorso', 'Il percorso: dall’ordine alle tappe, e la tappa cala la gi
   App.cancelMov();
 });
 
+/* ── IL RILIEVO DELLO STILE ───────────────────────────────────────────────
+   LA RETE SOTTO UNA FUSIONE CHE NON SI PUÒ FARE A OCCHIO.
+
+   `01-components.css` dichiara 70 selettori più di una volta, per 143 regole
+   su 253: quasi tutta la pulsantiera è scritta due volte, una nel blocco di
+   base e una in «MD3 STATE LAYER & REFINEMENTS». `.btn` compare quattro
+   volte, e la quarta rimette il colore che la terza aveva tolto — stessa
+   specificità, decide l'ordine. Fondere quelle regole in una sola per
+   selettore toglie 143 righe e cambia l'aspetto dell'applicativo se una sola
+   proprietà finisce nell'ordine sbagliato.
+
+   NON SI GUARDA IL CSS, SI GUARDA IL RISULTATO. Questo flusso apre le
+   maschere una per una, cerca gli elementi che quei selettori nominano e
+   scrive che cosa il browser CALCOLA per le 62 proprietà che quelle regole
+   toccano. Prima della fusione il rilievo si salva; dopo si rimisura, e le
+   due misure devono dire la stessa cosa fino all'ultimo pixel. Se una
+   differisce, il verbale dice quale elemento, quale proprietà, da cosa a
+   cosa.
+
+   L'elenco dei selettori e delle proprietà NON sta qui dentro: sta in
+   `banco/video/rilievo-stile.json`, generato dal foglio di stile. Tenerlo
+   nel codice del banco vorrebbe dire una seconda copia da riallineare a
+   mano il giorno che il CSS cambia. */
+
+/** Le proprietà che contano, allargate ai loro pezzi: il browser non
+    risponde a `border`, risponde a `border-top-color`. */
+function proprietaDaGuardare(dichiarate, stile) {
+  const prefissi = dichiarate.map((p) => p + '-');
+  const fuori = [];
+  for (const nome of stile) {
+    if (dichiarate.includes(nome) || prefissi.some((p) => nome.startsWith(p))) fuori.push(nome);
+  }
+  return fuori;
+}
+
+/** Il nome di un elemento che resta valido dopo la fusione: il DOM non
+    cambia, cambia solo il foglio di stile. Tag, classi e posizione fra i
+    fratelli — abbastanza per ritrovarlo, abbastanza corto da leggerlo. */
+function nomeElemento(el) {
+  const classi = [...el.classList].sort().join('.');
+  const fratelli = el.parentElement ? [...el.parentElement.children] : [el];
+  return `${el.tagName.toLowerCase()}${classi ? '.' + classi : ''}#${fratelli.indexOf(el)}`;
+}
+
+export function rilievoDiQuesto(selettori, dichiarate) {
+  const fuori = {};
+  for (const sel of selettori) {
+    let nodi;
+    try { nodi = [...document.querySelectorAll(sel)]; } catch { continue; }
+    for (const el of nodi) {
+      const s = getComputedStyle(el);
+      if (s.display === 'none') continue;
+      const chiave = `${sel} → ${nomeElemento(el)}`;
+      if (fuori[chiave]) continue;            // il primo di una schiera basta
+      const valori = {};
+      for (const p of proprietaDaGuardare(dichiarate, s)) valori[p] = s.getPropertyValue(p);
+      fuori[chiave] = valori;
+    }
+  }
+  return fuori;
+}
+
+flusso('rilievoStile', 'Il rilievo dello stile: quel che il browser calcola, prima e dopo', async () => {
+  await entra();
+
+  /* CON LA DOMANDA CHE CAMBIA A OGNI GIRO: `/assets/` viaggia con
+     `immutable`, ed e' giusto — i nomi portano l'impronta e non tornano
+     mai indietro. Questo file pero' ha sempre lo stesso nome e cambia:
+     senza la coda, il browser continua a servire la misura di ieri e il
+     confronto non parte mai. Costato un giro a capirlo. */
+  const risposta = await fetch('/assets/rilievo.json?v=' + Date.now());
+  if (!vero(risposta.ok, 'il banco serve l’elenco dei selettori e delle proprietà')) return;
+  const foglio = await risposta.json();
+  vero(foglio.selettori?.length > 0, `i selettori da interrogare sono ${foglio.selettori?.length}`);
+  vero(foglio.proprieta?.length > 0, `le proprietà da guardare sono ${foglio.proprieta?.length}`);
+
+  /* LA FINESTRA DEVE ESSERE QUELLA DI PRIMA, e non è pignoleria: fra le
+     proprietà misurate ce ne sono di geometriche — larghezze, origini di
+     trasformazione — che dipendono da come il testo va a capo. Cambiata la
+     finestra cambiano quelle, e il verbale accuserebbe la fusione di un
+     difetto che è solo una riga andata a capo. */
+  const finestra = `${window.innerWidth}x${window.innerHeight}`;
+  if (foglio.misure?.finestra) {
+    uguale(finestra, foglio.misure.finestra,
+      'la finestra è larga come quando si è presa la misura di prima');
+  } else {
+    vero(true, `la misura si prende a finestra ${finestra}: annotata`);
+  }
+
+  /* LE MASCHERE SI APRONO TUTTE, e non solo il cruscotto: i pulsanti che
+     quelle regole vestono stanno dentro le maschere operative, e un rilievo
+     fatto sulla sola pagina d'ingresso non vedrebbe nessuno di loro. */
+  const rilievo = {};
+  const misura = async (dove) => {
+    await respira(250);
+    const parte = rilievoDiQuesto(foglio.selettori, foglio.proprieta);
+    for (const [k, v] of Object.entries(parte)) rilievo[`${dove} | ${k}`] = v;
+  };
+
+  for (const vista of ['dashboard', 'movimenta', 'mappa', 'giacenze', 'registro', 'ricerca', 'config']) {
+    App.cancelMov();
+    App.switchView(vista);
+    await finoA(() => !!document.querySelector(`#view${vista[0].toUpperCase()}${vista.slice(1)}`)
+      || !!document.getElementById('movFormArea') || true, `la vista ${vista} si apre`, 3000);
+    await misura(vista);
+  }
+
+  for (const s of App._scorciatoieDisponibili()) {
+    App.cancelMov();
+    App.switchView('dashboard');
+    await respira(120);
+    App._goOp(s.mode, s.sub);
+    await finoA(() => (document.getElementById('movFormArea')?.textContent || '').trim().length > 0,
+      `la maschera «${s.label}» si apre`, 3000);
+    await misura('op:' + s.id);
+  }
+  App.cancelMov();
+
+  const quanti = Object.keys(rilievo).length;
+  vero(quanti > 0, `il rilievo ha ${quanti} elementi, ${foglio.proprieta.length} proprietà ciascuno`);
+  globalThis.__rilievoStile = rilievo;
+  globalThis.__rilievoFinestra = finestra;
+
+  /* ① SENZA UNA MISURA DI PRIMA non c'è niente da confrontare: il flusso
+     misura e basta, e dice come si mette da parte. */
+  if (!foglio.misure) {
+    vero(true, 'nessuna misura di prima: questo giro È la misura di prima');
+    vero(true, 'si salva da `globalThis.__rilievoStile` in banco/video/rilievo-stile.json');
+    return;
+  }
+
+  /* ② CON UNA MISURA DI PRIMA si confronta, e si dice cosa è cambiato. */
+  /* La misura di prima sta compressa: le proprieta' che valgono lo stesso
+     ovunque scritte una volta, i gruppi di valori distinti una volta per
+     gruppo. Si rimette in piano qui, che e' l'unico posto che deve
+     conoscerne la forma. */
+  const prima = {};
+  for (const [k, forma] of Object.entries(foglio.misure.elementi || {})) {
+    prima[k] = { ...(foglio.misure.costanti || {}), ...(foglio.misure.forme?.[forma] || {}) };
+  }
+  /* SI CONFRONTA QUEL CHE C'E' IN TUTTI E DUE, e non si pretende lo stesso
+     elenco: quali elementi esistano dipende dai DATI — un badge in piu' sul
+     cruscotto, una riga in piu' in tabella — e questo flusso guarda il
+     FOGLIO DI STILE, non il magazzino. Pretendere lo stesso elenco vorrebbe
+     dire un rosso a ogni giro per una ragione che non c'entra.
+
+     Quel che invece si pretende e' la COPERTURA: se il rilievo ritrova solo
+     una manciata degli elementi di prima, la rete non sta reggendo niente e
+     deve dirlo invece di passare. */
+  const comuni = Object.keys(prima).filter((k) => rilievo[k]);
+  const copertura = Math.round((comuni.length / Object.keys(prima).length) * 100);
+  vero(copertura >= 80,
+    `si ritrova ${copertura}% degli elementi misurati prima (${comuni.length} su ${Object.keys(prima).length})`);
+
+  const cambiati = [];
+  for (const k of comuni) {
+    const valori = prima[k], adesso = rilievo[k];
+    for (const [p, v] of Object.entries(valori)) {
+      if (adesso[p] !== v) cambiati.push(`${k} · ${p}: «${v}» → «${adesso[p]}»`);
+    }
+  }
+  uguale(cambiati.slice(0, 12), [],
+    `IL RILIEVO: quel che il browser calcola non è cambiato (${comuni.length} elementi)`);
+  if (cambiati.length > 12) {
+    vero(false, `…e altre ${cambiati.length - 12} differenze: guarda \`globalThis.__rilievoStile\``);
+  }
+});
+
 /* ═══ La corsa ═══════════════════════════════════════════════════════════ */
 
 export async function gira(chiave, solo = null) {
