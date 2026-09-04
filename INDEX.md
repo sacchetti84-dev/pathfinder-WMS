@@ -302,8 +302,9 @@ lo schermo — quindici flussi, 355 controlli — e ha trovato due cose vere.
 |---|---|
 | pacchetto | `consegna\Pathfinder 2.23.0\` |
 | impronta | `f9d4e0121b73390b896ff72fa735864d81e36e0f9190f9dd5f2f9b33dda2a17f` |
-| byte | **2.082.616** in **4 file**, `costruita 2026-09-04T13:43:54Z` |
-| riproducibile | **sì, verificata**: due build di fila danno la stessa impronta |
+| byte | **2.082.616** in **4 file**, `costruita 2026-09-04T16:13:20Z` |
+| riproducibile | **sì, verificata**: **tre** build di fila danno la stessa impronta — cambia solo `costruita`, che è un’ora e non un byte servito |
+| archiviata | `ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.23.0\` — pacchetto intero, installer compreso |
 | numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
 | collaudi | **1.375 in 52 file** (una saltata) · banco del ciclo **47 su 47** · banco a video **355 su 355** · `servizio\test\collaudo-installazione.js` girato **dentro** il pacchetto: **43 su 43** |
 | cosa cambia dalla 2.22.0 | cinque rotte del servizio normalizzano i codici che arrivano nel corpo; una serratura sulla maschera di posizionamento; il resto è banco, che non entra nel pacchetto |
