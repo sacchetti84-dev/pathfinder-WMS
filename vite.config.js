@@ -22,7 +22,7 @@ import zlib from 'node:zlib';
    `index.html` e sta in `consegna/`: una build a file singolo e' una cartella
    con dentro solo l'indice, e il servizio non deve sapere che e' diversa. */
 const CONSEGNA = 'consegna';
-const VERSIONE = '2.25.0';
+const VERSIONE = '2.26.0';
 const UNICO = process.env.SINGLE_FILE === '1';
 
 const DAL_SERVIZIO = [
@@ -31,6 +31,7 @@ const DAL_SERVIZIO = [
   'installa-servizio.ps1',  // l'installazione, in un comando
   'installa-versione.ps1',  // lo scambio di giunzione, senza amministratore
   'prepara-postgres.ps1',   // 2.7 — controlla PostgreSQL e prepara ruolo e database
+  'crea-certificato.ps1',   // 2.26 — il certificato della macchina, senza scaricare niente
   'migrazione',             // 2.7 — il passaggio da SQLite a PostgreSQL, e l'audit
   'torna-indietro.ps1',     // il ritorno indietro, un comando
   'backup-serale.ps1',      // il backup che l'installazione registra

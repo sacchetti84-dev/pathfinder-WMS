@@ -396,7 +396,8 @@ $aggiornamento = $vivo -and $varApp
 # macchina che al prossimo giro riparte su un database che non c'e' piu'.
 $VARIABILI = @('PATHFINDER_DB', 'PATHFINDER_PORT', 'PATHFINDER_APP',
                'PATHFINDER_APP_DIR', 'PATHFINDER_PG', 'PATHFINDER_TOKEN',
-               'PATHFINDER_HOST', 'PATHFINDER_TLS_CERT', 'PATHFINDER_TLS_KEY')
+               'PATHFINDER_HOST', 'PATHFINDER_TLS_CERT', 'PATHFINDER_TLS_KEY',
+               'PATHFINDER_TLS_PFX', 'PATHFINDER_TLS_PFX_PASSWORD')
 
 # ── DISINSTALLAZIONE COMPLETA ──────────────────────────────────────────────
 #

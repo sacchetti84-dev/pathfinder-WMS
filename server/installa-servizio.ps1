@@ -532,13 +532,26 @@ try {
         }
     }
     Write-Host ""
-    Write-Host "  Su questa macchina:  http://localhost:$Porta/"
+    # 2.26 — LO SCHEMA LO DICE IL CERTIFICATO, non questo script. Scrivere
+    # `http://` su una macchina che parla in HTTPS manda a mettere il
+    # collegamento sbagliato su ogni terminale.
+    $schema = if ([Environment]::GetEnvironmentVariable('PATHFINDER_TLS_PFX', 'Machine') -or
+                  [Environment]::GetEnvironmentVariable('PATHFINDER_TLS_CERT', 'Machine')) { 'https' } else { 'http' }
+    Write-Host "  Su questa macchina:  ${schema}://localhost:$Porta/"
     $ip = (Get-NetIPAddress -AddressFamily IPv4 |
            Where-Object { $_.IPAddress -notlike '127.*' -and $_.IPAddress -notlike '169.254.*' } |
            Select-Object -First 1).IPAddress
-    if ($ip) { Write-Host "  Dagli altri terminali:  http://${ip}:$Porta/" }
+    if ($ip) { Write-Host "  Dagli altri terminali:  ${schema}://${ip}:$Porta/" }
     Write-Host ""
     Write-Host "  Metti quell'indirizzo come pagina iniziale sui terminali." -ForegroundColor Cyan
+    if ($schema -eq 'http') {
+        Write-Host ""
+        Write-Host "  IL SERVIZIO PARLA IN CHIARO: il PIN dell'operatore viaggia leggibile" -ForegroundColor Yellow
+        Write-Host "  sulla rete, e nessun browser installa Pathfinder come applicazione" -ForegroundColor Yellow
+        Write-Host "  (il chiosco della 2.25). Per il certificato, una volta sola:"
+        Write-Host "       .\crea-certificato.ps1" -ForegroundColor Cyan
+        Write-Host "  La porta resta la stessa: chi apre http:// riceve un 301 verso https://."
+    }
 } catch {
     # ── 2.10 · DUE GUASTI DIVERSI NON SI RACCONTANO ALLO STESSO MODO ────────
     #

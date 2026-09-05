@@ -7,10 +7,12 @@ const os = require('os');
 const http = require('http');
 const crypto = require('crypto');   // 2.11 — il guardiano lo usa prima del PIN
 const https = require('https');
+const net = require('net');                            // 2.26 — la porta sola: si guarda il primo byte
 const { apriDatabase } = require('./lib/db');
 const { NAMES, normalizzaCampo } = require('./lib/schema');
 const registro = require('./lib/registro-servizio');   // 2.18 — il servizio lascia traccia
 const zebra = require('./lib/stampa-zebra');           // 2.19 — le etichette sulle Zebra in rete
+const { decidiTls, eSalutoTLS } = require('./lib/tls');// 2.26 — il certificato, e chi bussa in chiaro
 
 const PORT = Number(process.env.PATHFINDER_PORT || 4173);
 const ROOT = path.resolve(__dirname, '..');
@@ -64,7 +66,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.25.0';
+const VERSION = '2.26.0';
 
 /* ── 2.10 · SU QUALE INTERFACCIA SI ASCOLTA ───────────────────────────────
    Fino alla 2.9 `listen` non diceva su quale, e Node in quel caso le prende
@@ -78,8 +80,11 @@ const VERSION = '2.25.0';
    locale, `PATHFINDER_HOST=127.0.0.1` chiude tutto il resto. */
 const HOST = process.env.PATHFINDER_HOST || null;
 
-const TLS_CERT = process.env.PATHFINDER_TLS_CERT || null;
-const TLS_KEY  = process.env.PATHFINDER_TLS_KEY  || null;
+/* 2.26 — IL CERTIFICATO. Tre strade e una porta sola: il PFX che
+   `crea-certificato.ps1` genera con gli strumenti di Windows, la coppia PEM
+   per un certificato che arriva dall'IT, e il chiaro — che resta possibile
+   ma si annuncia come un difetto. La regola sta in `lib/tls.js`, pura. */
+const TLS = decidiTls(process.env);
 
 /* IL DATABASE SI APRE PRIMA DI ASCOLTARE — 2.6.
    Con SQLite l'apertura e' immediata; con PostgreSQL e' un giro di rete,
@@ -476,7 +481,7 @@ const leggiCookie = (req, nome) => {
    terminale — un modo perfetto per non capirci niente. */
 const scriviCookie = (res, token) => {
   const parti = [`${NOME_COOKIE}=${token}`, 'Path=/', 'HttpOnly', 'SameSite=Strict'];
-  if (TLS_CERT && TLS_KEY) parti.push('Secure');
+  if (TLS.modo !== 'chiaro') parti.push('Secure');
   res.set('Set-Cookie', parti.join('; '));
 };
 
@@ -2127,26 +2132,72 @@ app.get('/api/app-info', wrap(async (req, res) => {
 
 app.use((req, res) => res.status(404).json({ error: 'endpoint inesistente' }));
 
-const creaServer = () => {
-  if (!TLS_CERT && !TLS_KEY) return { srv: http.createServer(app), schema: 'http' };
+/* ── 2.26 · UNA PORTA SOLA, E CHI ARRIVA IN CHIARO NON SBATTE ─────────────
+   Davanti ai due server sta un `net.Server` che guarda il PRIMO byte e poi
+   si toglie di mezzo: `0x16` e' un saluto TLS e il socket va al server
+   cifrato, qualunque altra cosa e' HTTP in chiaro e va a quello che risponde
+   `301`. Il byte si rimette al suo posto con `unshift`, quindi il server che
+   riceve il socket lo legge dall'inizio come se niente fosse.
 
-  if (!TLS_CERT || !TLS_KEY) {
-    console.error('\n  Certificato incompleto: servono PATHFINDER_TLS_CERT e PATHFINDER_TLS_KEY.');
-    console.error(`  cert: ${TLS_CERT || '(mancante)'}`);
-    console.error(`  key:  ${TLS_KEY  || '(mancante)'}`);
+   PERCHE'. La 2.25 e prima ascoltavano in chiaro sulla 4173, e ogni
+   terminale ha quel collegamento salvato. Passando a HTTPS sulla stessa
+   porta, senza questo, chi apre il collegamento vecchio riceve
+   `ERR_EMPTY_RESPONSE` — un errore che non dice niente e manda a chiamare
+   l'assistenza. Cosi' invece riceve un `301` verso `https://` sullo stesso
+   host e sulla stessa porta, e il collegamento si aggiorna da solo.
+
+   Il socket che non manda niente non resta appeso: quindici secondi e si
+   chiude. Un client che apre e tace non e' un terminale al lavoro. */
+const creaServer = () => {
+  if (TLS.modo === 'errore') {
+    console.error(`\n  ${TLS.motivo}`);
     console.error('  Il servizio non parte in chiaro per errore.\n');
     process.exit(1);
   }
+  if (TLS.modo === 'chiaro') return { srv: http.createServer(app), schema: 'http' };
 
+  let opzioni;
   try {
-    const opzioni = { cert: fs.readFileSync(TLS_CERT), key: fs.readFileSync(TLS_KEY) };
-    return { srv: https.createServer(opzioni, app), schema: 'https' };
+    opzioni = TLS.modo === 'pfx'
+      ? { pfx: fs.readFileSync(TLS.pfx), passphrase: TLS.password }
+      : { cert: fs.readFileSync(TLS.cert), key: fs.readFileSync(TLS.key) };
   } catch (err) {
     console.error(`\n  Certificato illeggibile: ${err.message}`);
     console.error('  Controllare percorsi e permessi. Il servizio gira come SYSTEM:');
     console.error('  la chiave privata deve essere leggibile da SYSTEM, non solo dall\'utente.\n');
     process.exit(1);
   }
+
+  let cifrato;
+  try { cifrato = https.createServer(opzioni, app); }
+  catch (err) {
+    console.error(`\n  Certificato rifiutato: ${err.message}`);
+    console.error('  Se e\' un PFX, la password e\' in PATHFINDER_TLS_PFX_PASSWORD.\n');
+    process.exit(1);
+  }
+
+  /* Il `301` lo scrive un server HTTP vero e non due righe a mano: cosi'
+     porta le intestazioni giuste e chiude la connessione come si deve. */
+  const inChiaro = http.createServer((req, res) => {
+    const host = String(req.headers.host || `localhost:${PORT}`);
+    res.writeHead(301, { Location: `https://${host}${req.url}`, 'Cache-Control': 'no-store' });
+    res.end('Pathfinder parla in HTTPS su questa stessa porta.\n');
+  });
+
+  const davanti = net.createServer((socket) => {
+    socket.setTimeout(15000, () => socket.destroy());
+    socket.once('data', (primo) => {
+      socket.setTimeout(0);
+      socket.pause();
+      socket.unshift(primo);
+      (eSalutoTLS(primo) ? cifrato : inChiaro).emit('connection', socket);
+      process.nextTick(() => socket.resume());
+    });
+    /* Un socket che muore prima di parlare non e' un guasto del servizio. */
+    socket.on('error', () => socket.destroy());
+  });
+
+  return { srv: davanti, schema: 'https' };
 };
 
 const { srv, schema } = creaServer();
@@ -2164,11 +2215,16 @@ async function annuncia() {
   console.log(`  database    ${db.descrizione}`);
   console.log(`  applicativo ${schema}://localhost:${PORT}/`);
   for (const ip of lan) console.log(`  in rete     ${schema}://${ip}:${PORT}/`);
-  if (schema === 'http') console.log('  ATTENZIONE  senza certificato il PIN viaggia in chiaro');
+
   /* 2.10 — LE DUE RIGHE CHE DESCRIVONO LA SUPERFICIE. Chi legge questo
      annuncio deve sapere a chi sta rispondendo il servizio: le rotte `/api`
      non chiedono credenziali, e finche' e' cosi' «da chi e' raggiungibile»
      e' l'unica difesa che c'e'. */
+  if (schema === 'http') console.log('  ATTENZIONE  senza certificato il PIN viaggia in chiaro');
+  else {
+    console.log(`  certificato ${TLS.modo === 'pfx' ? TLS.pfx : TLS.cert}`);
+    console.log('  in chiaro   chi arriva in http su questa stessa porta riceve un 301');
+  }
   console.log(`  ascolta su  ${HOST || 'tutte le interfacce'}`);
 
   /* 2.11 — CHI PUO' ENTRARE, detto all'avvio. Dalla 2.11 le rotte `/api`

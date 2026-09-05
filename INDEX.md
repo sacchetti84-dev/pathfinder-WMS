@@ -7,7 +7,42 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **04/09/2026 notte** — **l'interfaccia stava più larga dello
+Aggiornato: **05/09/2026 notte** — **il servizio parla HTTPS, e il chiosco
+smette di essere una promessa.** La **2.26** chiude quello che la 2.25 aveva
+lasciato aperto per iscritto: nessun browser installa una pagina servita in
+chiaro, quindi finché Pathfinder rispondeva su `http://` la modalità chiosco
+era una scheda che spiegava perché non funzionava. Adesso il certificato c'è, e
+lo fa **Windows**: `crea-certificato.ps1` usa `New-SelfSignedCertificate` e
+`Export-PfxCertificate`, che sono già dentro il sistema — nessun `openssl` da
+scaricare su un PC di magazzino, per la stessa ragione per cui il servizio è
+un'attività pianificata e non un servizio nativo con un wrapper preso da
+internet.
+
+**Due certificati e non uno, ed è la parte che conta.** Si crea
+un'**autorità locale** e con quella si firma il certificato del servizio. Sui
+terminali si installa **solo l'autorità**, una volta: quando il certificato
+scade lo si rifà con `-Rinnova` e in corsia non si tocca niente. Con un
+autofirmato solo bisognerebbe rifare il giro dei terminali a ogni scadenza. Il
+certificato dichiara **nome macchina, nome completo di dominio e tutti gli
+IPv4**, perché un browser che apre `https://10.0.0.12:4173` non accetta un
+certificato che parla solo del nome: gli indirizzi vogliono `IPAddress=` dentro
+il SAN, e `-DnsName` li scriverebbe come nomi.
+
+**UNA PORTA SOLA, E I COLLEGAMENTI SALVATI NON SI ROMPONO.** Il servizio resta
+sulla **4173** — la superficie di rete dichiarata a REP-IT-001 non cambia — e
+davanti ai due server sta un `net.Server` che guarda il **primo byte**: `0x16`
+è un saluto TLS e va al server cifrato, qualunque altra cosa è HTTP e va a uno
+che risponde **301** verso `https://` sullo stesso host e sulla stessa porta.
+Senza, chi apre il collegamento vecchio riceverebbe `ERR_EMPTY_RESPONSE` — un
+errore che non dice niente e manda a chiamare l'assistenza. Il cookie di
+sessione prende `Secure` da sé, come faceva già.
+
+**Quel che resta da fare è umano e va detto:** finché `pathfinder-ca.cer` non è
+installato **come autorità** su ogni terminale, il browser mostra l'avviso
+rosso e il chiosco non si installa. È il browser che rifiuta, non Pathfinder, e
+lo script stampa l'impronta SHA-256 del file da confrontare prima di fidarsi.
+
+Prima di questo — **l'interfaccia stava più larga dello
 schermo, e adesso ci sta dentro.** La **2.25** chiude il difetto per cui su un
 telefono e su una tavoletta *«non si vedevano tutti i tasti della barra
 superiore»*: non era la testata. Una casella di griglia parte da `min-width:
@@ -123,7 +158,7 @@ un **marchio suo**: un pallet coi suoi colli, non una fabbrica.
 voce **87**. **In servizio su questa macchina c'è la 2.23.0**, impronta
 `f9d4e012…` — misurata da `/api/app-info` il 04/09 sera, non dedotta: §0 punto
 2. Accanto ci sono la **2.24.0** e la **2.25.0**, tutte e due **costruite e non
-installate** (`39c2ecce…` e `9b2fecb6…`). Il numero è nei quattro posti di §7.
+installate**, e con la 2.26.0 sono tre. Il numero è nei quattro posti di §7.
 
 > **E QUESTA È LA QUINTA VOLTA.** Fino al 04/09 sera questo documento diceva
 > che in servizio c'era la **2.21.0** e che la **2.23.0** era «costruita, non
@@ -366,6 +401,45 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.26.0 — costruita, non installata
+
+**Il servizio parla HTTPS.** Certificato creato dagli strumenti di Windows —
+autorità locale più certificato del servizio firmato da lei — porta sempre la
+**4173**, e chi arriva in chiaro su quella porta riceve un `301` invece di un
+errore di protocollo. Il chiosco della 2.25 diventa installabile appena
+l'autorità è sui terminali. Nessun campo nuovo a database, nessuna migrazione.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.26.0\` |
+| impronta | `05880f1528669358ff9866b6793c7ab68324640e16a86ef4280f36360a2e64d0` |
+| byte | **2.160.022** in **8 file**, `costruita 2026-09-05T00:18:40Z` |
+| riproducibile | **sì, verificata**: due build di fila danno la stessa impronta |
+| archiviata | **non ancora** |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.408 in 54 file** (una saltata) · `npm run check` pulito · i tre `.ps1` toccati passano il parser di PowerShell |
+| provata | **a caldo, non solo da ferma**: certificato di prova in `Cert:\CurrentUser\My`, servizio avviato sulla 4499 col PFX. `https://` risponde `200` sull'applicativo, sul manifesto del chiosco (`application/manifest+json`) e su `/api/app-info`; `http://` sulla **stessa porta** risponde `301` con `Location: https://127.0.0.1:4499/…`, host e porta conservati, e `curl -L` arriva alla pagina in un salto. Riuso della connessione TLS verificato |
+| installata | **no.** §0: installare è un atto umano |
+
+> **QUEL CHE RESTA È UMANO, E VA FATTO PRIMA DI DIRE CHE IL CHIOSCO
+> FUNZIONA.** `crea-certificato.ps1` va lanciato **come amministratore sulla
+> macchina che serve** — scrive in `Cert:\LocalMachine\My`, e l'archivio
+> dell'utente il servizio che gira come SYSTEM non lo vede — e poi
+> `C:\Pathfinder\tls\pathfinder-ca.cer` va installato **come autorità** su ogni
+> terminale: Android lo chiede sotto «Certificato CA», Windows sotto «Autorità
+> di certificazione radice attendibili», iPad vuole in più il passaggio in
+> Generali → Info → Attendibilità certificati. Finché quel giro non è fatto il
+> browser mostra l'avviso rosso e **non installa il chiosco**: è il browser che
+> rifiuta. Lo script stampa l'impronta SHA-256 del file da confrontare prima di
+> fidarsi — un `.cer` che arriva da un'altra parte è un'autorità che firma
+> qualunque cosa.
+
+> **LA SCHEDA TECNICA VA AGGIORNATA.** REP-IT-001 rev. 05 dichiara «TCP 4173»
+> e non dice lo schema. La porta non cambia — è tutto il senso di averlo fatto
+> sulla stessa — ma quel che ci viaggia sopra sì: da qui è TLS, e il PIN
+> dell'operatore smette di essere leggibile sulla rete di reparto. Va scritto
+> nella prossima revisione, insieme al certificato da distribuire.
+
 ### La 2.25.0 — costruita, non installata
 
 **L'interfaccia sta dentro lo schermo, e l'applicativo si installa.** Tre
@@ -397,6 +471,10 @@ database, nessuna migrazione, niente che scriva.
 > diventi un'applicazione vera serve **HTTPS sulla macchina che serve
 > Pathfinder**, ed è una decisione di rete, non di codice. Fino ad allora lo
 > stato che si legge è `non-sicuro`, e dice esattamente questo.
+>
+> **RISOLTO DALLA 2.26**, che fa il certificato con gli strumenti di Windows e
+> lascia la porta dov'è. Resta il gesto umano: l'autorità va installata sui
+> terminali, uno per uno.
 
 ### La 2.24.0 — costruita, non installata
 
@@ -825,6 +903,7 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
+| **2.26.0** | **COSTRUITA, NON INSTALLATA** — 05/09 notte | `05880f15…` | **Il servizio parla HTTPS, sulla stessa porta.** Certificato fatto con gli strumenti di Windows — autorità locale più certificato del servizio firmato da lei, così alla scadenza non si rifà il giro dei terminali — con nomi e **tutti gli IPv4** dentro il SAN. Resta la 4173: davanti ai due server un `net.Server` guarda il primo byte e manda chi arriva in chiaro a un `301` verso `https://`, quindi i collegamenti salvati non si rompono. Il chiosco della 2.25 diventa installabile appena l'autorità è sui terminali |
 | **2.25.0** | **COSTRUITA, NON INSTALLATA** — 04/09 notte | `9b2fecb6…` | **L'interfaccia sta dentro lo schermo, e si installa.** Il telaio non supera più la larghezza della finestra (`min-width: 0` sulle caselle di griglia: era la testata a spingerlo a 459px su uno schermo da 375), le **undici linguette** di Configurazione vanno a capo invece di essere tagliate, lo zoom torna libero e la sua causa — i campi sotto i 16px — sparisce sotto `pointer: coarse`, dove i bersagli sono 48px. `dispositivo-tavoletta` ha finalmente delle regole. Più la **modalità chiosco**: manifesto web e tre icone, Pathfinder si apre dalla sua icona. **Vuole HTTPS** |
 | **2.24.0** | costruita, non installata — 04/09 sera | `39c2ecce…` | **I due fogli che escono dal magazzino, rifatti.** DDT a sei colonne (quantità e unità in due celle), packing list per **articolo → lotto → bancale** con un totale per livello. Tre difetti chiusi: la colonna da 13 mm con `nowrap`, il secondo foglio senza testata, le firme senza etichetta. Il foglio diventa una funzione del documento, e il banco ne compone due da un carico pieno |
 | **2.23.0** | **IN SERVIZIO su questa macchina dal 04/09 sera** | `f9d4e012…` | **Il banco guarda lo schermo.** Quindici flussi e 355 controlli sul DOM in `banco/video/`: ogni prova confronta quel che si vede, il conto rifatto a parte e quel che è finito a database. Ha trovato due difetti invisibili a una prova via `fetch` |
@@ -886,6 +965,56 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.26 — il servizio parla HTTPS, sulla stessa porta
+
+**IL CHIOSCO ERA UNA SCHEDA CHE SPIEGAVA PERCHÉ NON FUNZIONAVA.** La 2.25
+aveva manifesto, icone e stato leggibile, e uno stato che diceva sempre la
+stessa cosa: `non-sicuro`. Nessun browser installa una pagina servita in
+chiaro, quindi finché il servizio rispondeva su `http://` non c'era niente da
+installare. La 2.26 toglie la causa.
+
+**IL CERTIFICATO LO FA WINDOWS.** `crea-certificato.ps1` usa
+`New-SelfSignedCertificate` ed `Export-PfxCertificate`, che sono già nel
+sistema. Arrivare da lì a una coppia PEM vorrebbe dire `openssl`, cioè un
+eseguibile scaricato su un PC di magazzino — l'antivirus lo blocca, l'IT chiede
+conto, ed è la stessa ragione per cui il servizio è un'attività pianificata e
+non un servizio nativo con NSSM. Node legge il **PFX** direttamente, quindi la
+conversione non serve a nessuno: `PATHFINDER_TLS_PFX` più la sua password, che
+nasce a caso e finisce in una variabile di macchina. Le due variabili PEM
+restano, e sono la strada per un certificato che arriva dall'IT;
+`lib/tls.js` si rifiuta di scegliere se sono accese tutte e due.
+
+**DUE CERTIFICATI, E IL SECONDO È QUELLO CHE FA RISPARMIARE IL GIRO DEI
+TERMINALI.** Un'autorità locale — `CN=Pathfinder CA - <macchina>`, quindici
+anni, chiave non esportabile — firma il certificato del servizio, che dura
+cinque anni. Sui terminali si installa solo l'autorità. Alla scadenza si rifà
+il secondo con `-Rinnova` e in corsia non si tocca niente; con un autofirmato
+solo, ogni scadenza sarebbe un giro di tutti i terminali. La regola dei 398
+giorni non morde: vale per i certificati che risalgono a un'autorità pubblica.
+
+**GLI INDIRIZZI VOGLIONO `IPAddress=`, NON `DNS=`.** `-DnsName` scrive gli IP
+come se fossero nomi, e un browser che apre `https://10.0.0.12:4173` non
+accetta quella corrispondenza: lo script compone il SAN a mano — `2.5.29.17`
+con nome macchina, nome completo di dominio, `localhost` e **tutti gli IPv4**
+della macchina, più quelli passati con `-Nomi`. Un nome mancante qui è un
+avviso rosso in corsia, cioè un chiosco che non si installa.
+
+**UNA PORTA SOLA.** Il servizio resta sulla 4173: la superficie di rete
+dichiarata a REP-IT-001 non cambia, e non cambia nemmeno il collegamento
+salvato su ogni terminale. Davanti ai due server sta un `net.Server` che guarda
+il **primo byte** e poi si toglie di mezzo — `0x16` è un saluto TLS, tutto il
+resto è HTTP — e rimette il byte al suo posto con `unshift`, così il server che
+riceve il socket legge dall'inizio come se niente fosse. Chi arriva in chiaro
+non riceve `ERR_EMPTY_RESPONSE`, che non dice niente e manda a chiamare
+l'assistenza: riceve un `301` verso `https://` sullo stesso host e sulla stessa
+porta. Un socket che si apre e non parla si chiude da solo dopo quindici
+secondi.
+
+**QUEL CHE IL CODICE NON PUÒ FARE.** L'autorità va installata a mano su ogni
+terminale, ed è un gesto umano come l'installazione (§0). Lo script stampa
+l'impronta SHA-256 del `.cer` perché la si confronti prima di fidarsi: un file
+di autorità che arriva da un'altra parte firma qualunque cosa.
 
 ### 2.25 — l'interfaccia sta dentro lo schermo, e si installa
 
@@ -3731,6 +3860,8 @@ farlo tacere**: se suona, un metodo non è rientrato.
 | `lib/zpl.js` | 638 | **2.19 — l'etichetta.** Entrano un record, una stampante e un layout; esce una stringa ZPL. Nessun socket, nessun database, nessuno stato: si collauda senza avere una stampante sotto. Le barre le disegna `^BC` (il firmware), non `code128.ts` — la cifra di controllo non si riscrive due volte. **Non manda mai `^MN` `^MM` `^MD` `^JUS`**: sono la configurazione della macchina. Un layout più alto del supporto lo **rifiuta**, non lo tronca. **2.20**: i cataloghi di campi sono due — merce e bancale — e `disponi` prende il catalogo come parametro; `etichettaBancale` sta accanto alle altre due |
 | `lib/stampa-zebra.js` | 431 | **2.19 — il socket**, ed è il solo posto del servizio che ne apra uno verso l'esterno. Porta in un elenco chiuso, indirizzo **risolto prima** e privato per forza, attesa di 3 s (senza, una stampante spenta blocca venti secondi), **una connessione per volta per stampante**. `statoStampante` chiede `~HQES`, perché la 9100 accetta i byte anche a carta finita |
 | `lib/schema.js` · `lib/schema-postgres.js` | 297 · 133 | Tabelle e indici in **due funzioni separate**, con la migrazione in mezzo, più **`MAIUSCOLE`** · il DDL PostgreSQL dalla **stessa** dichiarazione, con `COLLATE "C"` su ogni colonna di testo (senza, `ORDER BY location_code` rimescola le corsie) |
+| `lib/tls.js` | 60 | **2.26 — quale certificato, e chi bussa alla porta.** `decidiTls` legge l'ambiente e dice quale delle tre strade è dichiarata: PFX, coppia PEM, chiaro. Una dichiarazione a metà — `CERT` senza `KEY`, o le due strade accese insieme — è un **errore** e non un ripiego in chiaro: un servizio che parte in chiaro «perché il certificato non si leggeva» è il modo in cui un PIN finisce sulla rete senza che nessuno se ne accorga. `eSalutoTLS` guarda il primo byte, `0x16`, ed è quel che permette a HTTPS e al `301` di stare **sulla stessa porta**. Puro: non apre un socket, e si collauda da fermo |
+| `crea-certificato.ps1` | — | **2.26 — il certificato, senza scaricare niente.** `New-SelfSignedCertificate` ed `Export-PfxCertificate`, che Windows ha già. Crea un'**autorità locale** e con quella firma il certificato del servizio: sui terminali si installa solo l'autorità, e alla scadenza `-Rinnova` non li tocca. Il SAN lo compone a mano — `2.5.29.17` con nomi **e IPv4**, perché `-DnsName` scriverebbe gli indirizzi come nomi e un browser che apre un indirizzo non accetta quella corrispondenza. Password del PFX a caso in una variabile di macchina, cartella leggibile da SYSTEM e amministratori soli, impronta SHA-256 del `.cer` stampata perché la si confronti prima di fidarsi |
 | `installa-pathfinder.ps1` | — | **L'installer.** Nel pacchetto diventa `installa.ps1`. `-NonChiedere`, **`-Prova`**, `-Database`, `-SenzaMigrazione` |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate e le variabili, `PATHFINDER_PG` compresa. Da amministratore, **una volta**, dal sorgente o da `C:\Pathfinder\servizio` |
 | `prepara-postgres.ps1` | — | Controlla PostgreSQL e prepara ruolo e database. **Il motore non lo installa e non lo scarica.** `-Prova` guarda e non tocca |
