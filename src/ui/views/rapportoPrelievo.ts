@@ -344,7 +344,7 @@ export const VistaRapportoPrelievo = {
     const uomCell = (v: number | null | undefined, um: string | undefined) => {
       if (typeof v !== 'number') return '<span class="text-sx-text-muted">—</span>';
       const u = String(um || '').trim().toUpperCase();
-      return `${E(formattaQuantita(v, u || null))}${u ? ` <span style="font-size:7pt;color:#666">${E(u)}</span>` : ''}`;
+      return `${E(formattaQuantita(v, u || null))}${u ? ` <span style="font-size:6.5pt;color:#666">${E(u)}</span>` : ''}`;
     };
 
     /* 2.5 — E LA COLONNA DEGLI ORDINATI SI SCRIVE ALLO STESSO MODO.
@@ -356,7 +356,7 @@ export const VistaRapportoPrelievo = {
     const kgCell = (kg: number | string | null | undefined, um: string | undefined) => {
       if (kg == null || kg === '') return '<span class="text-sx-text-muted">—</span>';
       const u = String(um || '').trim().toUpperCase();
-      const suffix = (u && u !== 'KG') ? ` <span style="font-size:7pt;color:#666">${E(um)}</span>` : '';
+      const suffix = (u && u !== 'KG') ? ` <span style="font-size:6.5pt;color:#666">${E(um)}</span>` : '';
       return `${E(formattaQuantita(kg, u || null))}${suffix}`;
     };
 
@@ -381,7 +381,7 @@ export const VistaRapportoPrelievo = {
       <td class="td-lot">${E(t.lot_code || '—')}</td>
       <td class="td-num">${kgCell(t.kg_required, t.um)}</td>
       <td class="font-semibold">${E(t.label)}</td>
-      <td style="font-size:7.5pt">${E(t.detail)}</td>
+      <td style="font-size:6.75pt">${E(t.detail)}</td>
       <td class="pr-check-col"><span class="pr-box"></span></td>
     </tr>`).join('');
 
@@ -463,7 +463,7 @@ export const VistaRapportoPrelievo = {
 
       <div class="pr-summary">
         <div class="pr-summary-item">
-          <div class="pr-summary-val">${nRows}${snap.stops_total > nRows ? `<span style="font-size:9pt;color:#666">/${snap.stops_total}</span>` : ''}</div>
+          <div class="pr-summary-val">${nRows}${snap.stops_total > nRows ? `<span style="font-size:8.25pt;color:#666">/${snap.stops_total}</span>` : ''}</div>
           <div class="pr-summary-lbl">Righe Prelevate</div></div>
         <div class="pr-summary-item"><div class="pr-summary-val">${totColli}</div><div class="pr-summary-lbl">Colli Prelevati</div></div>
         <div class="pr-summary-item"><div class="pr-summary-val pr-summary-val--txt">${E(totUomTxt)}</div>

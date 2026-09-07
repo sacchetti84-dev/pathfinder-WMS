@@ -810,10 +810,10 @@ export const VistaWip = {
           <td class="td-num"><b>${E(um(q.qty, q.uom))}</b></td>
         </tr>`).join('')}</tbody>
       </table>
-      <p class="text-body-small">La merce e' scesa dallo scaffale <b>una volta sola</b>, sotto
+      <p class="doc-note">La merce e' scesa dallo scaffale <b>una volta sola</b>, sotto
       l'ordine ${E(odp)}. Le quote qui sopra ripartiscono il consumo dichiarato in proporzione a
       quanto ciascun ordine aveva chiesto: la loro somma, riga per riga, e' il consumo della riga.</p>`
-      : (giro.length ? `<p class="text-body-small"><b>${this._ico('link')} Giro di ${giro.length + 1} ordini</b> —
+      : (giro.length ? `<p class="doc-note"><b>${this._ico('link')} Giro di ${giro.length + 1} ordini</b> —
         ${E([odp, ...giro].join(' · '))}. La ripartizione del consumo fra gli ordini si scrive
         alla chiusura: finche' il conto e' aperto non c'e' consumo da ripartire.</p>` : '');
 
@@ -842,12 +842,12 @@ export const VistaWip = {
           <td></td>
         </tr></tfoot>
       </table>
-      <p class="text-body-small">Il consumo è la <b>differenza fra quanto è sceso in lavorazione e
+      <p class="doc-note">Il consumo è la <b>differenza fra quanto è sceso in lavorazione e
       quanto è risalito a magazzino</b>. Le quantità non si sommano fra articoli: un lotto a
       chili e uno a pezzi non fanno un totale.</p>
       ${r.chiuso
-        ? '<p class="text-body-small">Ogni riga di questo ordine è stata dichiarata: il foglio è un <b>consuntivo</b>.</p>'
-        : `<p class="text-body-small"><b>${this._ico('alert-triangle')} Ordine ancora aperto.</b> Le righe segnate «ancora in lavorazione» portano merce che sta sul bancone: quel delta non è consumo finché non viene dichiarato.</p>`}
+        ? '<p class="doc-note">Ogni riga di questo ordine è stata dichiarata: il foglio è un <b>consuntivo</b>.</p>'
+        : `<p class="doc-note"><b>${this._ico('alert-triangle')} Ordine ancora aperto.</b> Le righe segnate «ancora in lavorazione» portano merce che sta sul bancone: quel delta non è consumo finché non viene dichiarato.</p>`}
       ${bloccoGiro}`;
 
     this._docPrint(this._docPageHTML({

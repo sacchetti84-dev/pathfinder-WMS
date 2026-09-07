@@ -7,7 +7,64 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **05/09/2026 notte** — **il servizio parla HTTPS, e il chiosco
+Aggiornato: **07/09/2026 sera** — **il piede sta in fondo al foglio, il campione
+si pesa in grammi, e due campi di ricerca tornano a cercare.** La **2.27** chiude
+tre difetti che non c'entrano niente fra loro se non che si pagavano tutti in
+corsia.
+
+**IL PIEDE GALLEGGIAVA A META' DELL'ULTIMA PAGINA, e non era un difetto di
+gusto.** Nei cinque documenti che scorrono — DDT, packing list, rapporto di
+prelievo, riepilogo di giacenza, rendiconto WIP — il piede stava in un `<tfoot>`
+con `table-footer-group`, e quella dichiarazione **non vuol dire «in fondo alla
+pagina»**: vuol dire «ripetuto alla fine di ogni frammento della tabella». Su
+una pagina piena le due cose coincidono per caso; sull'ultima, e su un documento
+che sta in un foglio solo, il frammento finisce dove finiscono le righe. Adesso
+il `tfoot` fa il mestiere che sa fare — **riservare** la sua banda su ogni
+foglio, ultimo compreso, così nessuna riga può finirci dentro — e il piede lo
+**dipinge** lo stesso elemento, fuori dal flusso, inchiodato al fondo dell'area
+di pagina. È la strada che la filigrana percorre dalla 2.1: Chrome ridisegna gli
+elementi `fixed` su ogni foglio. Riserva e banda leggono **una sola variabile**,
+`--doc-piede`, perché due numeri scritti due volte divergono, e il giorno che
+divergono il piede copre l'ultima riga.
+
+**E LA BANDA È DIECI MILLIMETRI PERCHÉ SONO STATI MISURATI.** A dodici, un DDT
+a carico pieno perdeva **tre righe sulla prima pagina** — quella con la testata
+alta, dove l'avanzo era già poco — mentre dalla seconda in poi non cambiava
+niente. A dieci le tre righe tornano e restano due millimetri di franco.
+
+**IL TESTO DEI DOCUMENTI SCENDE DEL 10%, e un DDT da novanta partite passa da
+nove fogli a otto.** Arrotondamento a 0,25 pt — a 0,5 pt il fattore reale
+sbanda del ±3% proprio sui corpi piccoli, che sono i due terzi delle
+dichiarazioni — e **pavimento a 6,5 pt**, che è il più piccolo che questo
+progetto avesse già scelto due volte. Sotto, un foglio in mano davanti a uno
+scaffale sotto un neon non si legge. Non scendono le **etichette adesive**
+(supporto a misura fissa: rimpicciolire non recupera un millimetro), la
+filigrana, il numero di pagina e la fascia del cartellino di non conformità, che
+è un segnale e non un testo. La scala non sta in una variabile CSS ma in una
+**misura di collaudo** nuova, `scalaDiStampa`: in stampa il numero *è*
+l'argomento, e `var(--doc-fs-xs)` lo nasconderebbe dove serve.
+
+**IL CAMPIONE SI PESA NELL'UNITÀ IN CUI LO SI PESA.** Cinquanta grammi presi da
+un sacco da venticinque chili si digitavano `0,05`, ed è il numero che si
+sbaglia: adesso sugli articoli a peso c'è un selettore **KG/GR** accanto alla
+quantità. A magazzino cala sempre l'unità dell'articolo — la conversione finisce
+nella maschera, e sotto non ne sa niente né Store, né il servizio, né il
+registro. **Una conversione che non torna esatta viene rifiutata**, non
+arrotondata: mezzo grammo su un articolo che si conta a grammi interi non è né
+zero né uno, è una quantità che il magazzino non sa scrivere.
+
+**E I DUE CAMPI DI RICERCA ERANO ROTTI DALLA 2.23.** Registro movimenti e
+anagrafica articoli mostravano nel campo la scritta `<svg class=` e non
+filtravano niente. La migrazione emoji → sprite aveva messo `_ico('search')`
+**dentro l'attributo `placeholder`**: `_ico()` restituisce markup con le
+virgolette doppie, il parser chiude l'attributo alla prima e il tag `<input>` al
+primo `>`, e l'`oninput` non viene mai applicato. Un campo che non filtra sembra
+un campo vuoto, ed è per questo che è rimasto rotto per quattro versioni. Ne è
+stata trovata **una terza** mai segnalata, in Prodotto Finito, e una prova nuova
+in `test/icone.test.js` impedisce alla prossima sostituzione di massa di rifare
+il danno.
+
+Prima di questo — **il servizio parla HTTPS, e il chiosco
 smette di essere una promessa.** La **2.26** chiude quello che la 2.25 aveva
 lasciato aperto per iscritto: nessun browser installa una pagina servita in
 chiaro, quindi finché Pathfinder rispondeva su `http://` la modalità chiosco
@@ -158,7 +215,8 @@ un **marchio suo**: un pallet coi suoi colli, non una fabbrica.
 voce **87**. **In servizio su questa macchina c'è la 2.23.0**, impronta
 `f9d4e012…` — misurata da `/api/app-info` il 04/09 sera, non dedotta: §0 punto
 2. Accanto ci sono la **2.24.0** e la **2.25.0**, tutte e due **costruite e non
-installate**, e con la 2.26.0 sono tre. Il numero è nei quattro posti di §7.
+installate**, e con la 2.26.0 e la 2.27.0 sono quattro. Il numero è nei quattro
+posti di §7.
 
 > **E QUESTA È LA QUINTA VOLTA.** Fino al 04/09 sera questo documento diceva
 > che in servizio c'era la **2.21.0** e che la **2.23.0** era «costruita, non
@@ -401,7 +459,35 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.26.0 — costruita, non installata
+### La 2.27.0 — costruita, non installata
+
+**Il piede sta in fondo al foglio, il testo dei documenti scende del 10%, il
+campione si pesa in KG o in GR, e due campi di ricerca tornano a cercare.**
+Nessun campo nuovo a database, nessuna migrazione, il servizio non è stato
+toccato.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.27.0\` |
+| impronta | `1486602a13662ed0f2d3b70214cb9721d597272d19012c1c32caa6a3efaa4c60` |
+| byte | **2.162.320** in **8 file**, `costruita 2026-09-07T17:51:01Z` |
+| riproducibile | **sì, verificata**: due build di fila danno la stessa impronta |
+| archiviata | **non ancora** |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.417 in 54 file** (una saltata) · `npm run check` pulito |
+| provata | **su carta, non solo da ferma.** Il piede non si può misurare a video — il banco `impaginazione` non ha pagine, non ha `@page` e non ripete niente — quindi si è stampato in PDF con Edge senza finestra (`--headless --print-to-pdf`) e si sono lette le quote del testo foglio per foglio. Su un DDT da 90 partite: **8 pagine** dove la 2.26 ne faceva **9**, piede a **13,1 mm** dal bordo inferiore su **tutte e otto**, ultima compresa (dove il contenuto finisce a 105 mm), contenuto mai sotto **26,6 mm** contro una banda che arriva a 22, numero di pagina a 4,9 mm su ogni foglio. Su un documento che scorre ma sta in un foglio solo: piede in fondo lo stesso. Il verbale a pagina sola: una pagina, invariato nella struttura. Il controllo è stato fatto **anche al contrario** — stesso foglio, sola regola del piede riportata a com'era — e lì il piede sull'ultima pagina risale a metà foglio |
+| installata | **no.** §0: installare è un atto umano |
+
+> **LA PROVA SU CARTA NON È AUTOMATICA, E VA DETTO.** Le prove di
+> `test/stampa.test.js` guardano le stringhe del CSS: sorvegliano che la banda
+> non si sfasci, non che il piede esca in fondo. Quella la dice solo una stampa,
+> e la stampa la si è fatta a mano — con uno strumento usa e getta, fuori dal
+> repo. Se un giorno il piede sparisse dalle pagine 2..N (Firefox dipinge gli
+> elementi `fixed` solo sul primo foglio: il bersaglio dichiarato è
+> **Chrome/Edge**, e la filigrana ha lo stesso limite dalla 2.1), lo si vede
+> stampando, non lanciando `npm test`.
+
+### La 2.26.0 — costruita, non installata, **superata dalla 2.27.0**
 
 **Il servizio parla HTTPS.** Certificato creato dagli strumenti di Windows —
 autorità locale più certificato del servizio firmato da lei — porta sempre la
@@ -903,7 +989,8 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.26.0** | **COSTRUITA, NON INSTALLATA** — 05/09 notte | `05880f15…` | **Il servizio parla HTTPS, sulla stessa porta.** Certificato fatto con gli strumenti di Windows — autorità locale più certificato del servizio firmato da lei, così alla scadenza non si rifà il giro dei terminali — con nomi e **tutti gli IPv4** dentro il SAN. Resta la 4173: davanti ai due server un `net.Server` guarda il primo byte e manda chi arriva in chiaro a un `301` verso `https://`, quindi i collegamenti salvati non si rompono. Il chiosco della 2.25 diventa installabile appena l'autorità è sui terminali |
+| **2.27.0** | **COSTRUITA, NON INSTALLATA** — 07/09 sera | `1486602a…` | **Il piede sta in fondo al foglio, e il testo dei documenti scende del 10%.** `table-footer-group` non vuol dire «in fondo alla pagina» ma «alla fine di ogni frammento»: sull'ultima il piede galleggiava a metà. Adesso il `tfoot` **riserva** la banda e un elemento fuori dal flusso la **dipinge**, con un numero solo — `--doc-piede: 10mm`, misurato. Col corpo ridotto (arrotondamento 0,25 pt, pavimento 6,5 pt, etichette escluse) un DDT da 90 partite passa da **9 fogli a 8**, provato stampando in PDF. Più: il **campione si pesa in KG o in GR** sugli articoli a peso, con rifiuto se la conversione non torna esatta; e i campi di ricerca di **registro** e **anagrafica articoli** tornano a filtrare — dalla 2.23 mostravano `<svg class=` e avevano perso l'`oninput` |
+| **2.26.0** | costruita, non installata, **superata dalla 2.27.0** — 05/09 notte | `05880f15…` | **Il servizio parla HTTPS, sulla stessa porta.** Certificato fatto con gli strumenti di Windows — autorità locale più certificato del servizio firmato da lei, così alla scadenza non si rifà il giro dei terminali — con nomi e **tutti gli IPv4** dentro il SAN. Resta la 4173: davanti ai due server un `net.Server` guarda il primo byte e manda chi arriva in chiaro a un `301` verso `https://`, quindi i collegamenti salvati non si rompono. Il chiosco della 2.25 diventa installabile appena l'autorità è sui terminali |
 | **2.25.0** | **COSTRUITA, NON INSTALLATA** — 04/09 notte | `9b2fecb6…` | **L'interfaccia sta dentro lo schermo, e si installa.** Il telaio non supera più la larghezza della finestra (`min-width: 0` sulle caselle di griglia: era la testata a spingerlo a 459px su uno schermo da 375), le **undici linguette** di Configurazione vanno a capo invece di essere tagliate, lo zoom torna libero e la sua causa — i campi sotto i 16px — sparisce sotto `pointer: coarse`, dove i bersagli sono 48px. `dispositivo-tavoletta` ha finalmente delle regole. Più la **modalità chiosco**: manifesto web e tre icone, Pathfinder si apre dalla sua icona. **Vuole HTTPS** |
 | **2.24.0** | costruita, non installata — 04/09 sera | `39c2ecce…` | **I due fogli che escono dal magazzino, rifatti.** DDT a sei colonne (quantità e unità in due celle), packing list per **articolo → lotto → bancale** con un totale per livello. Tre difetti chiusi: la colonna da 13 mm con `nowrap`, il secondo foglio senza testata, le firme senza etichetta. Il foglio diventa una funzione del documento, e il banco ne compone due da un carico pieno |
 | **2.23.0** | **IN SERVIZIO su questa macchina dal 04/09 sera** | `f9d4e012…` | **Il banco guarda lo schermo.** Quindici flussi e 355 controlli sul DOM in `banco/video/`: ogni prova confronta quel che si vede, il conto rifatto a parte e quel che è finito a database. Ha trovato due difetti invisibili a una prova via `fetch` |
@@ -965,6 +1052,88 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.27 — il piede in fondo al foglio, e il campione a peso
+
+**UN PIEDE RIPETUTO NON È UN PIEDE ANCORATO.** `display: table-footer-group` è
+la sola dichiarazione che faccia tornare un blocco su ogni pagina stampata, e
+per questo dalla 2.1 il piede dei documenti che scorrono sta in un `<tfoot>`.
+Ma quella dichiarazione dice **«alla fine di ogni frammento della tabella»**,
+non «in fondo al foglio»: su una pagina piena il frammento arriva a filo del
+bordo e le due cose coincidono *per caso*, sull'ultima il frammento finisce dove
+finiscono le righe. Un DDT corto usciva col piede a metà pagina.
+
+**LE ALTRE TRE STRADE SONO STATE PROVATE E SCARTATE, ED È PARTE DELLA
+DECISIONE.** Un `height: 100%` sulla cella del corpo si risolve contro la
+tabella, che è alta tre pagine: in paged media **non esiste** un modo di
+chiedere «quanto spazio resta su QUESTA pagina», né un'unità né una funzione.
+Uno spaziatore che riempia l'ultima pagina avrebbe bisogno dello stesso numero
+che non c'è, e a misura fissa genera un foglio bianco. Le **page margin box**
+(`@bottom-center`) stanno in fondo per costruzione — ed è da lì che esce il
+numero di pagina — ma `content:` accetta stringhe e contatori, non HTML: metà
+del piede è dinamica, e servirebbe una regola CSS generata a ogni stampa, più
+otto millimetri di margine tolti a ogni pagina di ogni documento.
+
+**QUINDI IL `tfoot` CAMBIA MESTIERE.** Resta `table-footer-group` e continua a
+**riservare** la sua altezza in fondo a ogni frammento — ultimo compreso — così
+nessuna riga può entrare nella banda. Il piede lo **dipinge** lo stesso
+elemento, tolto dal flusso e inchiodato a `bottom: 0`: è la strada della
+filigrana `.doc-draft`, che Chrome ridisegna su ogni foglio, ed è già dichiarata
+nei collaudi da due versioni. Riserva e banda leggono `--doc-piede`, dichiarata
+**una volta sola** e sorvegliata da una prova: due numeri scritti due volte
+divergono, e il giorno che divergono il piede copre una riga.
+
+**IL NUMERO È DIECI E NON DODICI, E LA DIFFERENZA SI MISURA IN RIGHE.** Il piede
+dipinto è il filetto più 1,5 mm d'aria più una riga da 7 pt: circa 5 mm, circa 8
+se il riferimento va a capo. A 12 mm il DDT a carico pieno perdeva tre righe
+sulla **prima** pagina, quella con la testata alta dove l'avanzo era già poco,
+mentre dalla seconda in poi non cambiava niente; a 10 mm tornano, con due
+millimetri di franco.
+
+**IL -10% SUL TESTO NON HA UNA VARIABILE, E NON PER PIGRIZIA.** Il progetto
+aveva già deciso il contrario per iscritto: la misura `testoAMano` esclude
+apposta i blocchi di stampa dalla regola «nessun `font-size` fuori dai token»,
+perché sulla carta si ragiona per **soglia fisica** — sotto i 6,5 pt, in
+corsia, con un foglio in mano, non si legge — e `var(--doc-fs-xs)` nasconderebbe
+il dato proprio dove il dato è l'argomento. Il prezzo di scrivere i punti a mano
+è che fra sei mesi nessuno sappia più che una scala esiste: lo paga una **misura
+nuova**, `scalaDiStampa`, che conta i corpi dei due fogli e delle viste e li
+dichiara in `stileCoerente.dati.js`. Da lì in poi un gradino che si muove suona.
+Il pavimento costa un gradino — 7 e 6,5 atterrano tutti e due su 6,5 — ed è
+accettato: l'alternativa, 6,25, sfonda la soglia.
+
+**LE QUATTRO ESCLUSIONI SONO QUELLE CHE NON RECUPERANO NIENTE.** Le etichette
+adesive stanno su 100×80 e 100×60 mm di supporto fisso: rimpicciolirle non
+libera un millimetro e allontana il codice a barre dal lettore. La filigrana è
+un velo tarato sulla diagonale del foglio. Il numero di pagina vive nel margine.
+La fascia del cartellino di non conformità si legge da due metri su un bancale
+in quarantena: è un segnale, non un testo.
+
+**CINQUANTA GRAMMI SI DIGITANO «50».** Il campionamento accettava la quantità
+solo nell'unità dell'articolo, e su un sacco da 25 KG quei cinquanta grammi
+erano `0,05`. Adesso sugli articoli a peso c'è un selettore KG/GR, e il passo
+del campo lo segue — i grammi si contano interi, i chili portano tre decimali.
+**Il numero già battuto non si riconverte da sé**: riscrivere sotto le dita una
+quantità appena digitata è il modo di farne confermare una che nessuno ha
+riletto. A magazzino cala sempre l'unità dell'articolo: la conversione finisce
+nella maschera, e `sampleItem`, il servizio e il registro non ne sanno niente.
+
+**E LA CONVERSIONE DEVE ESSERE ESATTA.** `convertiPeso` torna `null` quando
+passare di scala farebbe sparire o comparire quantità — mezzo grammo su un
+articolo che si conta a grammi interi non è né zero né uno — e la maschera
+rifiuta nominando i due numeri. È l'unica eccezione al divieto di convertire le
+unità, e sta in un punto solo: KG e GR non sono due unità diverse, sono la
+stessa grandezza in due scale, e il fattore è esatto.
+
+**IL CAMPO DI RICERCA CHE MOSTRAVA `<svg class=`.** `_ico()` restituisce markup
+con le virgolette doppie; dentro `placeholder="…"` il parser chiude l'attributo
+alla prima virgoletta di `class="ico"` e il tag `<input>` al primo `>`, che è
+quello di `<use href="#i-search"/>`. Tutto ciò che veniva dopo — l'`oninput` —
+non veniva mai applicato. Erano tre, non due: registro, anagrafica articoli e
+Prodotto Finito, quest'ultima mai segnalata perché un campo che non filtra
+sembra un campo vuoto. La correzione è togliere l'icona dal placeholder, come
+fanno già i quattro campi ricerca sani; la garanzia che non torni è una prova
+che fallisce se un `_ico(` compare dentro il valore di un attributo.
 
 ### 2.26 — il servizio parla HTTPS, sulla stessa porta
 

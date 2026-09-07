@@ -3,7 +3,8 @@ import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { ALLERGENI, etichettaClasse } from '../../modules/anagrafica';
-import { formattaQuantita } from '../../modules/misure';
+import { formattaQuantita, decimali as decimaliUnita,
+         UNITA_PESO, eUnitaDiPeso, convertiPeso } from '../../modules/misure';
 import { raggruppa as raggruppaColli } from '../../modules/colli';
 
 /* IL VERBALE DEL CAMPIONE: non e' un record del database, e' cio' che si
@@ -113,6 +114,9 @@ export const VistaCampionamento = {
     const scalabile = !!cfg?.per_collo || !!elenco;
     const um = (scalabile && cfg?.per_collo) ? Store.suddivisioneDi(it) : null;
     const dentro = (um && cfg?.per_collo) ? um.pieni * cfg.per_collo + um.resto : (elenco ? 1 : null);
+    /* 2.27 — solo il peso ha due scale: sulle altre unita' il selettore non
+       compare, e la maschera resta quella di prima. */
+    const aPeso = scalabile && eUnitaDiPeso(cfg?.uom);
 
     el.innerHTML = `
       <div class="mov-preview bg-sx-teal-soft border-sx-teal mb-5">
@@ -124,11 +128,23 @@ export const VistaCampionamento = {
       </div>
       ${scalabile ? `
       <div class="form-group mb-5">
-        <label>② Quantità prelevata in <span class="mono">${this._esc(cfg!.uom)}</span> <span class="req">*</span></label>
-        <input class="input input-mono max-w-[180px] text-center font-bold" id="cpQty" type="number" min="0" step="0.001"
-          onkeydown="if(event.key==='Enter'){event.preventDefault();$('cpFor')?.focus();}">
+        <label>② Quantità prelevata${aPeso ? '' : ` in <span class="mono">${this._esc(cfg!.uom)}</span>`} <span class="req">*</span></label>
+        <div class="flex gap-3 items-center">
+          <input class="input input-mono max-w-[180px] text-center font-bold" id="cpQty" type="number" min="0"
+            step="${decimaliUnita(cfg!.uom) ? '0.001' : '1'}"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();$('cpFor')?.focus();}">
+          ${/* 2.27 — CINQUANTA GRAMMI SI DIGITANO «50», ANCHE SE IL SACCO E' IN
+                CHILI. Il selettore compare solo dove le due scale esistono
+                davvero — KG e GR — e non trasforma da se' il numero gia'
+                battuto: riscrivere sotto le dita una quantita' appena digitata
+                e' il modo di farne confermare una che nessuno ha riletto.
+                A magazzino cala sempre l'unita' dell'articolo. */''}
+          ${aPeso ? `<select class="select w-auto" id="cpUnita" onchange="App._campUnitaCambiata()">
+            ${UNITA_PESO.map(u => `<option value="${u}" ${u === cfg!.uom ? 'selected' : ''}>${u}</option>`).join('')}
+          </select>` : ''}
+        </div>
         <div class="text-label-small text-sx-text-muted mt-1.5">
-          I colli restano ${it.qty || 0}. Cala solo la quantità dentro.</div>
+          I colli restano ${it.qty || 0}. Cala solo la quantità dentro${aPeso ? `, in <span class="mono">${this._esc(cfg!.uom)}</span>` : ''}.</div>
       </div>
       ${elenco ? `
       <div class="form-group mb-5">
@@ -157,6 +173,14 @@ export const VistaCampionamento = {
         onclick="App._execCampione()">${this._ico('flask')} REGISTRA IL CAMPIONE</button>
       <div class="mt-4" id="cpFeedback"></div>`;
     $(scalabile ? 'cpQty' : 'cpFor')?.focus();
+  },
+
+  /* Il passo del campo segue l'unità scelta e nient'altro: i grammi si
+     contano interi, i chili portano tre decimali. Il numero già battuto NON
+     si tocca — vedi il commento della maschera. */
+  _campUnitaCambiata() {
+    const q = $('cpQty'); const u = $('cpUnita');
+    if (q && u) q.step = decimaliUnita(u.value) ? '0.001' : '1';
   },
 
   /* 1.5 — LA PULIZIA DELL'AREA DI PRELIEVO, CHE LA GMP PRETENDE.
@@ -215,8 +239,23 @@ export const VistaCampionamento = {
     let esito = null;
     if (scalabile) {
       const raw = $('cpQty')?.value;
-      const qta = Number(String(raw ?? '').replace(',', '.'));
-      if (!(qta > 0)) { $('cpQty')?.focus(); return this.toast(`Quantità del campione in ${cfg.uom}: deve essere maggiore di zero`, 'error'); }
+      const digitata = Number(String(raw ?? '').replace(',', '.'));
+      /* 2.27 — L'UNITÀ IN CUI SI DIGITA NON È SEMPRE QUELLA IN CUI CALA.
+         Il selettore c'è solo sul peso; dove non c'è, le due coincidono e
+         questo blocco non fa niente. Al magazzino arriva sempre l'unità
+         dell'articolo: la conversione finisce QUI, e sotto non se ne sa
+         niente — né Store, né il servizio, né il registro. */
+      const grezza = $('cpUnita')?.value;
+      const scelta = eUnitaDiPeso(grezza) ? grezza : cfg.uom;
+      if (!(digitata > 0)) { $('cpQty')?.focus(); return this.toast(`Quantità del campione in ${scelta}: deve essere maggiore di zero`, 'error'); }
+      const qta = scelta === cfg.uom ? digitata : convertiPeso(digitata, scelta, cfg.uom);
+      /* Una conversione che non torna esatta non si arrotonda in silenzio:
+         mezzo grammo su un articolo che si conta a grammi interi sposterebbe
+         un saldo senza che nessuno lo veda. */
+      if (qta === null || !(qta > 0)) {
+        $('cpQty')?.focus();
+        return this.toast(`${formattaQuantita(digitata, scelta)} ${scelta} non si scrivono in ${cfg.uom}: ${cfg.uom === 'GR' ? 'l\'articolo si conta a grammi interi' : 'servono più decimali di quanti ne porta il chilogrammo'}`, 'error');
+      }
       /* Da quale collo esce: sulla riga senza elenco non c'e' niente da
          chiedere, e Store se ne accorge da solo. */
       const daCollo = $('cpCollo') ? Number($('cpCollo').value) : null;

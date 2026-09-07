@@ -1179,7 +1179,7 @@ export const VistaInventario = {
           <td class="td-num"></td>
         </tr></tfoot>
       </table>
-      ${r.senzaUnita ? `<p class="text-body-small">${this._ico('alert-triangle')} ${r.senzaUnita} righe senza unità di misura: il totale in quantità non copre tutta la giacenza.</p>` : ''}`;
+      ${r.senzaUnita ? `<p class="doc-note">${this._ico('alert-triangle')} ${r.senzaUnita} righe senza unità di misura: il totale in quantità non copre tutta la giacenza.</p>` : ''}`;
 
     this._docPrint(this._docPageHTML({
       kind: 'RIEPILOGO DI GIACENZA',

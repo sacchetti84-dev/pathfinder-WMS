@@ -135,6 +135,54 @@ export function sottraiUom(a: unknown, b: unknown, uom?: string | null): number 
   return r;
 }
 
+/* ── Il peso, che è l'unica grandezza scritta in due scale ───────────── */
+
+/* 2.27 — LE UNITÀ NON SI CONVERTONO, TRANNE QUESTE DUE, E VA DETTO PERCHÉ.
+
+   Il divieto sta scritto in `bancale.ts` — «300 KG più 40 PZ fanno 340 di
+   niente» — e in `store.ts`, dove il per-collo si presta solo a unità uguale.
+   Resta in piedi: KG e GR non sono due unità diverse, sono la STESSA
+   grandezza in due scale, e il fattore è esatto — mille, non una stima.
+   Nessun'altra coppia entra qui: PZ, MT e LT non hanno una gemella, e
+   inventargliene una vorrebbe dire indovinare una quantità.
+
+   Serve al campionamento: cinquanta grammi presi da un sacco da venticinque
+   chili si digitano `0,05` finché l'unità è quella dell'articolo, e `0,05` è
+   il numero che si sbaglia. La conversione sta QUI e non nella maschera
+   perché un fattore scritto in una vista è un fattore che la prossima vista
+   riscrive. */
+export const UNITA_PESO = ['KG', 'GR'] as const;
+
+export function eUnitaDiPeso(code: unknown): code is 'KG' | 'GR' {
+  return code === 'KG' || code === 'GR';
+}
+
+/** Da una scala all'altra, con la precisione dell'unità d'arrivo.
+
+    `null` quando la conversione NON È ESATTA — cioè quando passare di scala
+    farebbe sparire o comparire quantità. Mezzo grammo su un articolo che si
+    conta a grammi interi non è né zero né uno: è una quantità che il
+    magazzino non sa scrivere, e chi chiama lo deve dire. Arrotondare in
+    silenzio sposterebbe un saldo senza che nessuno lo veda, che è il difetto
+    per cui esiste `arrotonda`.
+
+    Quando le due unità sono la stessa non c'è nessuna conversione da
+    pretendere esatta, e il numero prende l'arrotondamento normale della sua
+    unità — lo stesso che fanno `sommaUom` e `sottraiUom`. */
+export function convertiPeso(valore: number, da: UnitaMisura, a: UnitaMisura): number | null {
+  if (!eUnitaDiPeso(da) || !eUnitaDiPeso(a)) return null;
+  const dec = decimali(a);
+  if (da === a) return arrotonda(valore, dec);
+
+  const grezzo = da === 'KG' ? valore * 1000 : valore / 1000;
+  const r = arrotonda(grezzo, dec);
+  /* `pieno` è lo stesso numero alla precisione più larga del magazzino: se i
+     due non coincidono, l'unità d'arrivo non sa scrivere quel che è uscito. */
+  const pieno = arrotonda(grezzo, DECIMALI_MAX);
+  if (r === null || r !== pieno) return null;
+  return (valore > 0 && r === 0) ? null : r;
+}
+
 /* ── La configurazione: dell'articolo, e poi del lotto ───────────────── */
 
 export interface Configurazione {

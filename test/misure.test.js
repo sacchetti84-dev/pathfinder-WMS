@@ -3,6 +3,7 @@ import {
   UNITA_MISURA, DECIMALI_MAX,
   etichettaUnita, unitaValida, decimali, leggiUnita,
   arrotonda, sommaUom, sottraiUom,
+  UNITA_PESO, eUnitaDiPeso, convertiPeso,
   configurazione, gestitaAUM, validaConfigurazione, congela, daLotto,
   suddividi, uomDaColli, verifica,
   formattaQuantita, descrivi, valoriAmmessi,
@@ -96,6 +97,48 @@ describe('somma e sottrazione', () => {
 
   it('a zero ci si arriva: e\' l\'ultimo collo che esce', () => {
     expect(sottraiUom(100, 100, 'PZ')).toBe(0);
+  });
+});
+
+/* ── Il peso, l'unica coppia che si converte ────────────────────────── */
+
+describe('convertiPeso', () => {
+  it('sono due, e nessun\'altra si aggiunge per previdenza', () => {
+    expect([...UNITA_PESO]).toEqual(['KG', 'GR']);
+    expect(eUnitaDiPeso('KG')).toBe(true);
+    expect(eUnitaDiPeso('GR')).toBe(true);
+    expect(eUnitaDiPeso('PZ')).toBe(false);
+    expect(eUnitaDiPeso('LT')).toBe(false);
+  });
+
+  it('cinquanta grammi da un sacco da venticinque chili fanno 0,05 KG', () => {
+    expect(convertiPeso(50, 'GR', 'KG')).toBe(0.05);
+    expect(convertiPeso(1, 'GR', 'KG')).toBe(0.001);
+  });
+
+  it('e nell\'altro verso, senza code di virgola mobile', () => {
+    expect(convertiPeso(0.05, 'KG', 'GR')).toBe(50);
+    expect(convertiPeso(2.001, 'KG', 'GR')).toBe(2001);
+  });
+
+  it('la stessa unita\' torna il numero, arrotondato dalla sua precisione', () => {
+    expect(convertiPeso(0.0504, 'KG', 'KG')).toBe(0.05);
+    expect(convertiPeso(50.4, 'GR', 'GR')).toBe(50);
+  });
+
+  /* Mezzo grammo su un articolo che si conta a grammi interi non e' ne' zero
+     ne' uno: e' una quantita' che il magazzino non sa scrivere, e chi chiama
+     lo deve dire. Arrotondare in silenzio sposterebbe un saldo. */
+  it('una conversione che non e\' esatta non passa', () => {
+    expect(convertiPeso(0.0005, 'KG', 'GR')).toBeNull();   // mezzo grammo
+    expect(convertiPeso(2.0005, 'KG', 'GR')).toBeNull();
+    expect(convertiPeso(0.0004, 'GR', 'KG')).toBeNull();   // si azzererebbe
+  });
+
+  it('lo zero resta zero, e un\'unita\' che non pesa non si converte', () => {
+    expect(convertiPeso(0, 'KG', 'GR')).toBe(0);
+    expect(convertiPeso(10, 'PZ', 'KG')).toBeNull();
+    expect(convertiPeso(10, 'KG', 'LT')).toBeNull();
   });
 });
 

@@ -45,7 +45,7 @@ export const VistaRegistro = {
           </div>
           <div class="form-group m-0 flex-[1_1_200px]">
             <label class="text-label-small">Filtro testo</label>
-            <input class="input" id="regFilterText" placeholder="${this._ico('search')} Articolo, lotto, ubicazione, operatore, documento…" oninput="App._filterRegistryDebounced()">
+            <input class="input" id="regFilterText" placeholder="Articolo, lotto, ubicazione, operatore, documento…" oninput="App._filterRegistryDebounced()">
           </div>
           <div class="form-group m-0">
             <label class="text-label-small">Tipo</label>

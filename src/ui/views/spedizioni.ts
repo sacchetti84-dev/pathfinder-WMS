@@ -1781,7 +1781,13 @@ export const VistaSpedizioni = {
           <tbody>${rows}</tbody>
         </table>
 
-        <div class="doc-fill"></div>
+        <!-- 2.27 — QUI STAVA UN doc-fill, ED ERA UNA MOLLA CHE NON MOLLAVA.
+             .doc-fill e' flex: 1 1 auto — spinge in fondo solo dentro una
+             colonna flex, e il corpo di un documento che scorre e' display:
+             block. Restava un separatore da 4 mm travestito da molla, e il
+             separatore adesso e' dichiarato: margin-top su .ddt-totals.
+             La regola .doc-fill resta, perche' i tre documenti a pagina sola
+             la usano davvero, e li' spinge sul serio. -->
 
         <!-- Riepilogo su tre righe da sei unita'. L'ordine NON e' estetico:
              le voci con etichetta corta stanno nelle celle strette, quelle

@@ -213,3 +213,52 @@ test('ogni nome citato nelle viste esiste', () => {
   }
   expect(sconosciuti).toEqual([]);
 });
+
+/* UN'ICONA DENTRO UN ATTRIBUTO SPEZZA IL TAG, E IL CAMPO SMETTE DI FUNZIONARE.
+
+   `_ico()` restituisce markup con le virgolette doppie. Interpolato dentro
+   `placeholder="…"` il parser chiude l'attributo alla PRIMA virgoletta che
+   incontra — quella di `class="ico"` — e chiude il tag `<input>` al primo
+   `>`, che e' quello di `<use href="#i-search"/>`. Cio' che veniva dopo, cioe'
+   l'`oninput`, non viene mai applicato: il campo mostra la scritta
+   `<svg class=` e non filtra piu' niente.
+
+   Ne sono uscite tre dalla migrazione delle emoji della 2.23 — registro,
+   anagrafica articoli, prodotto finito — e sono rimaste rotte per quattro
+   versioni, perche' un campo che non filtra sembra un campo vuoto. E' lo
+   stesso difetto di `nessuna icona finisce dove si scrive testo`, con l'altra
+   destinazione: li' l'icona esce come testo, qui si porta via il tag.
+
+   Si distingue il caso vero dai settanta innocui guardando DOVE cade il
+   `_ico(`: dentro il valore di un attributo e' un difetto, nel corpo del tag
+   e' l'uso normale. */
+test('nessuna icona finisce dentro il valore di un attributo', () => {
+  const sorgenti = [path.join(RADICE, 'index.html')];
+  (function raccogli(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) raccogli(p);
+      else if (/\.(ts|js)$/.test(e.name)) sorgenti.push(p);
+    }
+  })(path.join(RADICE, 'src'));
+
+  const guai = [];
+  for (const file of sorgenti) {
+    const testo = fs.readFileSync(file, 'utf8');
+    /* Un attributo si apre con `nome="` preceduto da spazio, e si chiude
+       alla virgoletta dopo: fra le due non ci va nessuna icona. */
+    const apre = /\s([a-zA-Z-]+)="/g;
+    let m;
+    while ((m = apre.exec(testo))) {
+      const dopo = m.index + m[0].length;
+      const chiude = testo.indexOf('"', dopo);
+      const valore = testo.slice(dopo, chiude === -1 ? testo.length : chiude);
+      if (/ico\(/.test(valore)) {
+        const riga = testo.slice(0, m.index).split('\n').length;
+        guai.push(`${path.relative(RADICE, file).split(path.sep).join('/')}:${riga} — ${m[1]}`);
+      }
+      if (chiude !== -1) apre.lastIndex = chiude + 1;
+    }
+  }
+  expect(guai).toEqual([]);
+});

@@ -15,6 +15,70 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.27.0 — 2026-09-07
+
+**The footer of a flowing document now sits at the bottom of every sheet, and
+document text is 10% smaller: a 90-line delivery note went from nine pages to
+eight.**
+
+`display: table-footer-group` is the only declaration that repeats a block on
+every printed page, which is why the footer has lived in a `<tfoot>` since 2.1.
+But it means *"at the end of every fragment of the table"*, not *"at the bottom
+of the page"*: on a full page the two coincide by accident, on the last page the
+fragment ends where the rows end. Short documents printed with the footer
+floating mid-sheet.
+
+The three alternatives were tried and rejected. `height: 100%` on the body cell
+resolves against a table three pages tall — paged media exposes no way to ask
+how much room is left on *this* page. A spacer filling the last page needs that
+same missing number, and at a fixed size it produces a blank sheet. Page margin
+boxes sit at the bottom by construction — that is where the page number comes
+from — but `content:` takes strings and counters, not markup, and half the
+footer is dynamic.
+
+So the `<tfoot>` changed job. It still **reserves** its height at the end of
+every fragment, last one included, so no row can land in the band; the footer
+itself is **painted** by the same element taken out of flow and pinned to
+`bottom: 0` — the route the draft watermark has used since 2.1, which Chrome
+repaints on every sheet. Reservation and painted band read one variable,
+`--doc-piede: 10mm`, guarded by a test: two numbers written twice diverge, and
+the day they diverge the footer covers a row. Ten millimetres, not twelve,
+because at twelve a full delivery note lost three rows on its first page.
+
+Verified on paper, not just in the abstract: printed to PDF with headless Edge
+and the text positions read sheet by sheet. Footer at 13.1 mm from the bottom
+edge on all eight pages, content never below 26.6 mm against a band ending at
+22, page number at 4.9 mm. The same sheet with only the old footer rule
+restored puts the last page's footer back in the middle.
+
+The 10% reduction rounds to 0.25 pt — at 0.5 pt the real factor swings ±3% on
+the small sizes, which are two thirds of the declarations — with a floor at
+6.5 pt, the smallest this project had already chosen twice. Adhesive labels are
+excluded: they sit on fixed 100×80 and 100×60 mm stock, where shrinking
+recovers nothing and moves the barcode away from the scanner. The watermark,
+the page number and the non-conformity banner are excluded too. The scale is
+not a CSS variable but a declared test measurement, `scalaDiStampa`: on paper
+the number *is* the argument.
+
+**Sampling now accepts kilograms or grams on weight-managed items.** Fifty
+grams taken from a 25 kg sack had to be typed as `0.05`, which is the number
+people get wrong. The stock movement is still recorded in the item's own unit —
+the conversion ends in the form, and neither the store, the service nor the log
+knows about it. A conversion that is not exact is **refused**, not rounded: half
+a gram on an item counted in whole grams is a quantity the warehouse cannot
+write.
+
+**Two search fields work again — they had been broken since 2.23.** The movement
+log and the item master showed the literal text `<svg class=` and filtered
+nothing. The emoji-to-sprite migration had placed the icon helper inside the
+`placeholder` attribute; the helper returns markup with double quotes, so the
+parser closed the attribute at the first one and the `<input>` tag at the first
+`>`, and the `oninput` handler was never applied. A third instance, never
+reported, was found in the finished-goods view. A new test fails if an icon call
+appears inside an attribute value.
+
+---
+
 ## 2.19.0 — 2026-09-02
 
 **Item and load-unit labels now print on networked Zebra printers. The service

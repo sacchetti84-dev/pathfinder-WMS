@@ -852,7 +852,7 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
      carta si misura in punti. Spostata dentro, a video non cambia niente
      perche' a video non compariva. */
   .avv-stampa {
-    font-size: 7pt; line-height: 1.25; margin-top: 1px;
+    font-size: 6.5pt; line-height: 1.25; margin-top: 1px;
     color: #7f1d1d; font-weight: 600;
   }
 
@@ -866,23 +866,23 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
      `@page { margin: 12mm }` lo da' a ogni foglio. Le misure non cambiano di
      un millimetro — 297 − 24 = 273 mm di altezza utile, 210 − 24 = 186 mm di
      larghezza — sono gli stessi numeri su cui sono tarate le colonne. */
-  #printReport { display: block; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; color: #000; font-size: 10pt; }
+  #printReport { display: block; padding: 0; font-family: 'Segoe UI', Arial, sans-serif; color: #000; font-size: 9pt; }
   .pr-summary { display: flex; gap: 12px; background: #eff1f3; padding: 8px; border-radius: 3px; margin-bottom: 12px; border: 1px solid #ccd4d9; }
   .pr-summary-item { flex: 1; text-align: center; }
-  .pr-summary-val { font-size: 14pt; font-weight: 700; color: #1b3a4b; }
-  .pr-summary-lbl { font-size: 7.5pt; color: #666; text-transform: uppercase; }
+  .pr-summary-val { font-size: 12.5pt; font-weight: 700; color: #1b3a4b; }
+  .pr-summary-lbl { font-size: 6.75pt; color: #666; text-transform: uppercase; }
   /* 2.12 — il titolo di un secondo blocco nello stesso foglio: la
      ripartizione fra gli ordini di un giro sta sotto il conto, e senza un
      titolo le due tabelle si leggono come una sola spezzata. */
   .pr-h3 {
-    font-size: 10pt; font-weight: 700; color: #1b3a4b;
+    font-size: 9pt; font-weight: 700; color: #1b3a4b;
     text-transform: uppercase; letter-spacing: 0.04em;
     margin: 14px 0 5px; padding-bottom: 3px;
     border-bottom: 1px solid #ccd4d9;
     break-after: avoid; page-break-after: avoid;
   }
-  .pr-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 9pt; }
-  .pr-table th { background: #1b3a4b; color: #fff; padding: 5px 6px; text-align: left; font-size: 8pt; font-weight: 600; text-transform: uppercase; }
+  .pr-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 8.25pt; }
+  .pr-table th { background: #1b3a4b; color: #fff; padding: 5px 6px; text-align: left; font-size: 7.25pt; font-weight: 600; text-transform: uppercase; }
   .pr-table td { padding: 4px 6px; border-bottom: 1px solid #ddd; }
   .pr-table .td-code, .pr-table .td-lot, .pr-table .td-loc { white-space: nowrap; }
   .pr-table tr:nth-child(even) td { background: #eff1f3; }
@@ -896,14 +896,14 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   #ncLogoSprite { position: absolute; width: 0; height: 0; overflow: hidden; }
 
   .doc-warn { border: 2px solid #b45309; background: #fef3c7; color: #7c2d12;
-              padding: 6px 9px; font-size: 8pt; margin-bottom: 10px; border-radius: 3px; }
-  .doc-warn b { display: block; font-size: 9pt; margin-bottom: 1px; }
+              padding: 6px 9px; font-size: 7.25pt; margin-bottom: 10px; border-radius: 3px; }
+  .doc-warn b { display: block; font-size: 8.25pt; margin-bottom: 1px; }
 
   .doc-draft { position: fixed; top: 42%; left: 50%; transform: translate(-50%, -50%) rotate(-28deg);
                font-size: 46pt; font-weight: 800; letter-spacing: 0.08em;
                color: rgba(180, 83, 9, 0.16); border: 5px solid rgba(180, 83, 9, 0.16);
                padding: 10px 26px; white-space: nowrap; z-index: 0; pointer-events: none; }
-  .doc-draft-note { text-align: center; font-size: 8pt; color: #b45309; font-weight: 700;
+  .doc-draft-note { text-align: center; font-size: 7.25pt; color: #b45309; font-weight: 700;
                     border: 1px dashed #b45309; padding: 4px; margin-bottom: 10px; }
 
   .doc-empty { color: #999; font-style: italic; font-weight: 400; }
@@ -935,34 +935,44 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   .pk-r-art td { border-top: 1.2pt solid #21305A; border-bottom: none;
                  padding-top: 2mm; background: none; }
   .pk-r-art td.c-cod { font-family: Consolas, "Courier New", monospace;
-                       font-size: 11pt; font-weight: 700; color: #21305A; }
-  .pk-r-art td.c-desc { font-weight: 700; font-size: 9.5pt; }
-  .pk-sub { font-size: 7pt; font-weight: 400; color: #666;
+                       font-size: 10pt; font-weight: 700; color: #21305A; }
+  .pk-r-art td.c-desc { font-weight: 700; font-size: 8.5pt; }
+  .pk-sub { font-size: 6.5pt; font-weight: 400; color: #666;
             font-family: 'Segoe UI', Arial, sans-serif; margin-top: 0.3mm; }
 
   .pk-r-lot td { background: #eef1f5; border-bottom: none; padding-top: 1mm; }
   .pk-r-lot td.c-cod { padding-left: 6mm; font-family: Consolas, "Courier New", monospace;
                        font-weight: 700; color: #21305A; }
-  .pk-r-lot td.c-desc { font-size: 8pt; color: #444; }
+  .pk-r-lot td.c-desc { font-size: 7.25pt; color: #444; }
   .pk-r-lot { break-after: avoid; page-break-after: avoid; }
 
-  .pk-r-udc td { font-size: 8.5pt; border-bottom: 1px solid #dfe3e8; }
+  .pk-r-udc td { font-size: 7.75pt; border-bottom: 1px solid #dfe3e8; }
   .pk-r-udc td.c-cod { padding-left: 12mm; font-family: Consolas, "Courier New", monospace;
                        color: #333; }
-  .pk-r-udc td.c-desc { font-size: 7.5pt; color: #666; }
+  .pk-r-udc td.c-desc { font-size: 6.75pt; color: #666; }
 
   .ddt-table--pk td.c-qty { font-weight: 700; }
   .ddt-table--pk td.c-num { font-family: Consolas, monospace; font-weight: 700; }
   .ddt-table--pk td.c-uom { font-family: Consolas, monospace; color: #444; }
   .ddt-table--pk .pk-r-udc td.c-qty,
   .ddt-table--pk .pk-r-udc td.c-num { font-weight: 400; }
-  .doc-note-small { font-size: 7.5pt; color: #666; margin-top: 3mm; line-height: 1.4; }
+  .doc-note-small { font-size: 6.75pt; color: #666; margin-top: 3mm; line-height: 1.4; }
 
   .doc-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 10px; }
   .doc-cell { border: 1px solid #ccc; padding: 4px 8px; border-radius: 3px; }
   .doc-cell--wide { grid-column: span 2; }
-  .doc-cell-lbl { font-size: 7pt; text-transform: uppercase; color: #666; letter-spacing: 0.03em; font-weight: 600; }
-  .doc-cell-val { font-size: 9.5pt; font-weight: 600; color: #000; min-height: 12pt; }
+  .doc-cell-lbl { font-size: 6.5pt; text-transform: uppercase; color: #666; letter-spacing: 0.03em; font-weight: 600; }
+  /* Il minimo scende col corpo, e per la ragione per cui esiste: una cella
+     etichettata deve restare alta come una riga di valore anche quando il
+     valore e' un trattino, altrimenti la griglia della testata si scompone. */
+  .doc-cell-val { font-size: 8.5pt; font-weight: 600; color: #000; min-height: 10.75pt; }
+
+  /* 2.27 — LA PROSA CHE SPIEGA IL FOGLIO, DENTRO LA SCALA IN PUNTI. Portava
+     `text-body-small`, cioe' 0,75rem: dodici pixel, che in stampa fanno 9 pt
+     arrivati per caso e fuori dalla scala. Quelle righe vivono solo dentro
+     `#printReport`, che a video e' `display: none`: non c'era nessun motivo
+     perche' portassero un'utility da schermo. */
+  .doc-note { font-size: 8.25pt; line-height: 1.35; color: #333; }
 
   @page {
     size: A4; margin: 12mm;
@@ -977,6 +987,21 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
     }
   }
 
+  /* 2.27 — LA BANDA DEL PIEDE, IN UN NUMERO SOLO. Nei documenti che scorrono
+     il `tfoot` riserva questa altezza in fondo a ogni pagina e il piede — che
+     e' fuori dal flusso — ci si dipinge dentro: se i due numeri fossero due,
+     il giorno che divergono il piede coprirebbe una riga.
+
+     DIECI MILLIMETRI, E IL NUMERO E' MISURATO, NON STIMATO. Il piede dipinto
+     e' il filetto piu' 1,5 mm di aria piu' una riga da 7 pt: circa 5 mm, e
+     circa 8 se il riferimento va a capo. A 12 mm un DDT a carico pieno
+     perdeva TRE RIGHE sulla prima pagina — quella con la testata alta, dove
+     l'avanzo era gia' poco — mentre dalla seconda in poi non cambiava
+     niente; a 10 mm le tre righe tornano e restano due millimetri di
+     franco. Il regolamento sta in `05-pick-report.css`, col resto del
+     documento che scorre. */
+  :root { --doc-piede: 10mm; }
+
   .doc-page { display: flex; flex-direction: column; min-height: 273mm; line-height: 1.25; }
   .doc-zone-head { flex: 0 0 54.6mm; height: 54.6mm; display: flex; flex-direction: column; gap: 1.5mm; overflow: hidden; }
   .doc-zone-body { flex: 1 1 auto; min-height: 191.1mm; display: flex; flex-direction: column; }
@@ -986,13 +1011,13 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   .doc-ident { flex: 0 0 auto; display: flex; justify-content: space-between; align-items: center; gap: 6mm; }
   .doc-brand { display: flex; flex-direction: row; align-items: center; gap: 4mm; flex: 1 1 auto; min-width: 0; }
   .doc-logo { width: 42mm; height: auto; display: block; flex-shrink: 0; }
-  .doc-sender { font-size: 7pt; color: #444; line-height: 1.3; }
-  .doc-sender-name { font-size: 9.5pt; font-weight: 700; color: #21305A; line-height: 1.2; }
+  .doc-sender { font-size: 6.5pt; color: #444; line-height: 1.3; }
+  .doc-sender-name { font-size: 8.5pt; font-weight: 700; color: #21305A; line-height: 1.2; }
   .doc-title { text-align: right; flex-shrink: 0; }
-  .doc-title-main { font-size: 13pt; font-weight: 700; color: #21305A; letter-spacing: 0.02em; line-height: 1.1; }
-  .doc-title-sub { font-size: 7pt; color: #666; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.5mm; }
-  .doc-title-num { margin-top: 1.5mm; font-size: 8.5pt; color: #444; white-space: nowrap; }
-  .doc-title-num b { font-family: Consolas, monospace; font-size: 12.5pt; color: #21305A; }
+  .doc-title-main { font-size: 11.75pt; font-weight: 700; color: #21305A; letter-spacing: 0.02em; line-height: 1.1; }
+  .doc-title-sub { font-size: 6.5pt; color: #666; text-transform: uppercase; letter-spacing: 0.06em; margin-top: 0.5mm; }
+  .doc-title-num { margin-top: 1.5mm; font-size: 7.75pt; color: #444; white-space: nowrap; }
+  .doc-title-num b { font-family: Consolas, monospace; font-size: 11.25pt; color: #21305A; }
   /* 2.1 — il riferimento in barre, sotto il riferimento in cifre. Allineato
      a destra come il resto della testata; l'altezza la decide il modulo. */
   .doc-title-barcode { margin-top: 1.5mm; display: flex; justify-content: flex-end; }
@@ -1009,23 +1034,23 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   .ddt-box-lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.06em;
                  color: #fff; background: #21305A; align-self: flex-start;
                  padding: 0.4mm 2mm; border-radius: 2px; font-weight: 700; line-height: 1.2; }
-  .ddt-box-name { font-size: 10.5pt; font-weight: 700; color: #000; line-height: 1.12; }
-  .ddt-box-row { font-size: 8.5pt; color: #222; line-height: 1.2; }
-  .ddt-box-vat { font-family: Consolas, monospace; font-size: 8pt; color: #333; line-height: 1.2; }
-  .ddt-box-foot { margin-top: auto; font-size: 7.5pt; color: #555; line-height: 1.2;
+  .ddt-box-name { font-size: 9.5pt; font-weight: 700; color: #000; line-height: 1.12; }
+  .ddt-box-row { font-size: 7.75pt; color: #222; line-height: 1.2; }
+  .ddt-box-vat { font-family: Consolas, monospace; font-size: 7.25pt; color: #333; line-height: 1.2; }
+  .ddt-box-foot { margin-top: auto; font-size: 6.75pt; color: #555; line-height: 1.2;
                   border-top: 1px dotted #bbb; padding-top: 0.6mm; }
 
   .ddt-strip { flex: 0 0 7mm; display: flex; align-items: center; gap: 5mm;
                border: 1px solid #8a8a8a; border-left: 4px solid #94BC47;
                padding: 0 3mm; border-radius: 3px; }
-  .ddt-strip-lbl { font-size: 7pt; text-transform: uppercase; letter-spacing: 0.06em; color: #666; font-weight: 700; }
-  .ddt-strip-val { font-size: 12pt; font-weight: 700; color: #21305A; line-height: 1; }
-  .ddt-strip-ref { margin-left: auto; font-size: 8.5pt; color: #444; white-space: nowrap; }
+  .ddt-strip-lbl { font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.06em; color: #666; font-weight: 700; }
+  .ddt-strip-val { font-size: 10.75pt; font-weight: 700; color: #21305A; line-height: 1; }
+  .ddt-strip-ref { margin-left: auto; font-size: 7.75pt; color: #444; white-space: nowrap; }
 
-  .ddt-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 9pt; }
+  .ddt-table { width: 100%; table-layout: fixed; border-collapse: collapse; font-size: 8.25pt; }
   .ddt-table thead { display: table-header-group; }
   .ddt-table th { background: #21305A; color: #fff; padding: 1.6mm 2mm; text-align: left;
-                  font-size: 7.5pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
+                  font-size: 6.75pt; font-weight: 700; text-transform: uppercase; letter-spacing: 0.02em; }
   .ddt-table td { padding: 1.2mm 2mm; border-bottom: 1px solid #ccc; vertical-align: top;
                   word-wrap: break-word; overflow-wrap: anywhere; }
   .ddt-table tr:nth-child(even) td { background: #f2f4f6; }
@@ -1052,48 +1077,48 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   .ddt-table .c-uom  { width: 14mm; }
 
   .ddt-table td.c-art  { font-family: Consolas, monospace; font-weight: 700; color: #21305A; }
-  .ddt-table td.c-lot  { font-family: Consolas, monospace; font-weight: 600; font-size: 9.5pt; }
+  .ddt-table td.c-lot  { font-family: Consolas, monospace; font-weight: 600; font-size: 8.5pt; }
   .ddt-table td.c-exp  { font-family: Consolas, monospace; }
   .ddt-table td.c-qty  { font-weight: 700; }
   .ddt-table td.c-num  { font-family: Consolas, monospace; font-weight: 700; }
   .ddt-table td.c-uom  { font-family: Consolas, monospace; color: #444; }
   /* Le note della riga, sotto la descrizione: hanno il foglio per larghezza
      e non alzano le altre colonne. */
-  .ddt-sub { font-size: 7.5pt; color: #555; line-height: 1.25; margin-top: 0.4mm; }
+  .ddt-sub { font-size: 6.75pt; color: #555; line-height: 1.25; margin-top: 0.4mm; }
 
   .doc-fill { flex: 1 1 auto; min-height: 4mm; }
 
-  .ddt-totals { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2mm; margin-bottom: 2mm; }
+  .ddt-totals { display: grid; grid-template-columns: repeat(6, 1fr); gap: 2mm; margin: 4mm 0 2mm; }
   .ddt-totals .doc-cell--wide { grid-column: span 2; }
   .ddt-totals .doc-cell--rest { grid-column: span 4; }
   .ddt-totals .doc-cell-lbl { line-height: 1.2; }
-  .ddt-notes-val { font-size: 9pt; color: #000; white-space: pre-wrap; min-height: 8mm; }
+  .ddt-notes-val { font-size: 8.25pt; color: #000; white-space: pre-wrap; min-height: 8mm; }
 
   .doc-zone-foot .doc-signs { margin-top: 0; gap: 10mm; }
   .doc-zone-foot .doc-sign-hint { margin-bottom: 12mm; }
   .doc-zone-foot .pr-footer { margin-top: 3mm; padding-top: 1.5mm; }
 
   .doc-signs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin-top: 16px; }
-  .doc-sign-role { font-size: 7.5pt; text-transform: uppercase; color: #444; font-weight: 700; letter-spacing: 0.03em; }
+  .doc-sign-role { font-size: 6.75pt; text-transform: uppercase; color: #444; font-weight: 700; letter-spacing: 0.03em; }
   .doc-sign-hint { font-size: 6.5pt; color: #888; margin-bottom: 20px; }
   .doc-sign-line { border-bottom: 1px solid #000; height: 1px; }
 
-  .vb-strip { background: #7f1d1d; color: #fff; text-align: center; font-size: 11pt;
+  .vb-strip { background: #7f1d1d; color: #fff; text-align: center; font-size: 10pt;
               font-weight: 700; letter-spacing: 0.08em; padding: 6px; margin-bottom: 10px; }
   .vb-reason { border: 2px solid #7f1d1d; padding: 8px 12px; margin-bottom: 10px; border-radius: 3px; }
-  .vb-reason-lbl { font-size: 7.5pt; text-transform: uppercase; color: #7f1d1d; font-weight: 700; letter-spacing: 0.06em; }
-  .vb-reason-val { font-size: 14pt; font-weight: 700; color: #7f1d1d; }
-  .vb-forced { font-size: 8pt; color: #92400e; margin-top: 4px; font-style: italic; }
+  .vb-reason-lbl { font-size: 6.75pt; text-transform: uppercase; color: #7f1d1d; font-weight: 700; letter-spacing: 0.06em; }
+  .vb-reason-val { font-size: 12.5pt; font-weight: 700; color: #7f1d1d; }
+  .vb-forced { font-size: 7.25pt; color: #92400e; margin-top: 4px; font-style: italic; }
 
   .nc-alert-strip { background: #fef3c7; border: 3px solid #dc2626; padding: 6mm 4mm;
                     text-align: center; font-size: 20pt; font-weight: 800; color: #991b1b;
                     letter-spacing: 0.04em; line-height: 1.25; margin-bottom: 6mm; border-radius: 3px; }
   .nc-reason { border: 2px solid #dc2626; border-radius: 3px; padding: 3mm 4mm; margin-bottom: 4mm; }
-  .nc-reason-lbl { font-size: 7.5pt; text-transform: uppercase; color: #991b1b;
+  .nc-reason-lbl { font-size: 6.75pt; text-transform: uppercase; color: #991b1b;
                    font-weight: 700; letter-spacing: 0.06em; }
-  .nc-reason-val { font-size: 15pt; font-weight: 700; color: #7f1d1d; line-height: 1.25; }
+  .nc-reason-val { font-size: 13.5pt; font-weight: 700; color: #7f1d1d; line-height: 1.25; }
   .nc-instructions { background: #fef3c7; border: 1px solid #fcd34d; padding: 3mm 4mm;
-                     font-size: 9pt; color: #92400e; margin-bottom: 3mm; border-radius: 3px; }
+                     font-size: 8.25pt; color: #92400e; margin-bottom: 3mm; border-radius: 3px; }
   .doc-page--nc .doc-idblock { border-color: #dc2626; }
 }
 

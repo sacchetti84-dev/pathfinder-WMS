@@ -99,6 +99,24 @@ describe('il foglio di stile dichiara i due gruppi', () => {
     expect(css).toMatch(/\.doc-page--flow > tfoot\s*\{[^}]*table-footer-group/);
   });
 
+  /* 2.27 — LA BANDA DEL PIEDE, E I DUE NUMERI CHE DEVONO ESSERE UNO SOLO.
+
+     `table-footer-group` ripete il piede alla fine di ogni FRAMMENTO, non in
+     fondo alla pagina: sull'ultimo foglio galleggiava a meta'. Adesso il
+     `tfoot` riserva la banda e un elemento fuori dal flusso la dipinge — e la
+     riserva e il dipinto leggono la STESSA variabile. Scritti due volte
+     divergono, e il giorno che divergono il piede copre l'ultima riga di ogni
+     pagina piena: e' quello che questa prova sorveglia. */
+  it('IL PIEDE E\' ANCORATO AL FONDO, E LA SUA BANDA E\' RISERVATA', () => {
+    expect(css).toMatch(/\.doc-page--flow \.doc-zone-foot\s*\{[^}]*position: fixed/);
+    expect(css).toMatch(/\.doc-page--flow \.doc-zone-foot\s*\{[^}]*bottom: 0/);
+    expect(css).toMatch(/\.doc-page--flow \.doc-zone-foot\s*\{[^}]*height: var\(--doc-piede\)/);
+    expect(css).toMatch(/\.doc-page--flow \.doc-flow-cell--foot\s*\{[^}]*height: var\(--doc-piede\)/);
+    /* Dichiarata una volta sola, e in `01-views.css` insieme a `@page`. */
+    expect(viste.match(/--doc-piede:/g) || []).toHaveLength(1);
+    expect(css).not.toMatch(/--doc-piede:/);
+  });
+
   /* Una riga tagliata a meta' fra due fogli non si rilegge, e una
      schiacciata mente sull'altezza di tutte le altre. */
   it('una riga non si spezza e tiene la sua altezza', () => {
@@ -119,6 +137,11 @@ describe('il foglio di stile dichiara i due gruppi', () => {
     expect(css).toMatch(/\.doc-flow-cell\s*\{[^}]*padding: 0;/);
     expect(css).not.toMatch(/\.doc-flow-cell[^{]*\{[^}]*padding: 0 12mm/);
     expect(css).not.toMatch(/#printReport:has\(\.doc-page--flow\)\s*\{/);
+    /* 2.27 — e nemmeno il piede se lo prende. La variante «`bottom` negativo
+       piu' `margin-bottom` allargato» sembra equivalente a quella scelta e
+       rimetterebbe il margine in due posti: la banda si riserva col `tfoot`,
+       non allargando la pagina. */
+    expect(viste).not.toMatch(/@page\s*\{[^}]*margin-bottom/);
   });
 
   /* Il numero di pagina si puo' scrivere solo da qui: un documento che scorre

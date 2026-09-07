@@ -1052,7 +1052,7 @@ export const VistaProdottoFinito = {
       </div>
       <div class="form-group mb-5">
         <input class="input" id="pfCerca" value="${this._esc(this._pfTabella.cerca)}"
-               placeholder="${this._ico('search')} Filtra per bancale, articolo, lotto, ubicazione, ordine, DDT…"
+               placeholder="Filtra per bancale, articolo, lotto, ubicazione, ordine, DDT…"
                oninput="App._pfCerca(this.value)">
       </div>
       <div id="pfElencoTabella">${this._pfTabellaHTML()}</div>`;

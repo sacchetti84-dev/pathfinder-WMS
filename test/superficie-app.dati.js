@@ -180,7 +180,7 @@ export const SUPERFICIE = [
   '_autoLookupArticle', '_avvisiArticolo', '_avvisiBanda', '_avvisiRigaStampa',
   '_blockedByReadOnly', '_bloccaCampoColli', '_buildPickReportHTML', '_buildRegistryTable', '_cambioLookup',
   '_cambioSelect', '_cambioSelectEnc', '_campBloccoPulizia', '_campCerca',
-  '_campRenderDettaglio', '_campReset', '_campSelect', '_campState',
+  '_campRenderDettaglio', '_campReset', '_campSelect', '_campState', '_campUnitaCambiata',
   '_campiAttributiArticolo', '_campiDestinazioneZona', '_campoColliIngresso',
   '_campoUmIngresso', '_cancelPendingShip', '_causaliDDT', '_cbPickCambio', '_cbPickIn',
   '_cbPickInv', '_cbPickReleaseDest', '_checkPendingPickSession', '_checkStorageQuota',

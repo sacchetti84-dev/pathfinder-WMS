@@ -1563,9 +1563,31 @@ export function misuraFoglio(nome, html) {
     .filter((el) => el.getBoundingClientRect().right > limite + 1)
     .map((el) => `«${primoTesto(el)}» sborda di ${Math.round(el.getBoundingClientRect().right - limite)}px`);
 
+  /* 2.27 — IL PIEDE ESCE DAL FLUSSO, E QUESTA PROVA SMETTEREBBE DI GUARDARLO.
+
+     Dalla 2.27 il piede dei documenti che scorrono è `position: fixed`, per
+     stare in fondo al foglio e non sotto l'ultima riga. `fuoriDalFlusso()` lo
+     esclude dalla misura — è la riga che salva la filigrana dai falsi
+     allarmi, e da oggi salverebbe anche il piede: fino a ieri il banco
+     controllava che non si sovrapponesse e non sbordasse, da domani non lo
+     guarderebbe più, in silenzio.
+
+     Qui non serve cercarlo: si sa dov'è. Il banco non ha `@page` né pagine,
+     quindi la quota non si può misurare — quella la dice una stampa vera —
+     ma le due cose che a video restano vere si controllano lo stesso: che il
+     piede porti testo, e che stia dentro i 186 mm della carta. */
+  const piedi = [...foglio.querySelectorAll('.doc-zone-foot')];
+  const piedeMuto = piedi.length && !piedi.some((p) => p.textContent.trim());
+  const piedeSborda = piedi
+    .filter((p) => p.getBoundingClientRect().right > limite + 1)
+    .map((p) => `il piede sborda di ${Math.round(p.getBoundingClientRect().right - limite)}px`);
+
   stile.remove();
   foglio.innerHTML = '';
-  return { nome, elementi: portanoTesto.length, sovrapposti, sbordati };
+  return {
+    nome, elementi: portanoTesto.length, sovrapposti,
+    sbordati: [...sbordati, ...piedeSborda, ...(piedeMuto ? ['il piede è vuoto'] : [])],
+  };
 }
 
 /** UN CARICO PIENO, e non un documento a caso: dieci partite su ventisei

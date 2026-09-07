@@ -4,9 +4,9 @@
   .pr-reprint {
     border: 1.5pt solid #1b3a4b; background: #eff1f3;
     padding: 5px 10px; margin-bottom: 10px; border-radius: 3px;
-    font-size: 8.5pt; line-height: 1.35; color: #1b3a4b;
+    font-size: 7.75pt; line-height: 1.35; color: #1b3a4b;
   }
-  .pr-reprint strong { display: block; font-size: 10pt; letter-spacing: 0.04em; }
+  .pr-reprint strong { display: block; font-size: 9pt; letter-spacing: 0.04em; }
   .pr-reprint.pr-reprint-warn { border-color: #92400e; background: #fef3c7; color: #92400e; }
 
   /* ── Banda dei tempi ── */
@@ -20,14 +20,14 @@
   }
   .pr-time-cell:first-child { border-left: 0; }
   .pr-time-lbl {
-    font-size: 7pt; text-transform: uppercase; letter-spacing: 0.05em;
+    font-size: 6.5pt; text-transform: uppercase; letter-spacing: 0.05em;
     color: #666; font-weight: 700;
   }
   .pr-time-val {
-    font-size: 15pt; font-weight: 700; color: #1b3a4b;
+    font-size: 13.5pt; font-weight: 700; color: #1b3a4b;
     font-family: Consolas, monospace; line-height: 1.2;
   }
-  .pr-time-sub { font-size: 7pt; color: #777; }
+  .pr-time-sub { font-size: 6.5pt; color: #777; }
   /* La media e' il dato che si va a cercare: sta in negativo. */
   .pr-time-cell.pr-time-key { background: #1b3a4b; }
   .pr-time-cell.pr-time-key .pr-time-lbl,
@@ -36,12 +36,12 @@
 
   /* ── Titoli di sezione ── */
   .pr-sec {
-    font-size: 9pt; font-weight: 700; color: #1b3a4b;
+    font-size: 8.25pt; font-weight: 700; color: #1b3a4b;
     text-transform: uppercase; letter-spacing: 0.04em;
     margin: 12px 0 4px; padding-bottom: 2px;
     border-bottom: 1.2pt solid #1b3a4b;
   }
-  .pr-sec-note { font-size: 7.5pt; color: #666; font-weight: 500; text-transform: none; letter-spacing: 0; }
+  .pr-sec-note { font-size: 6.75pt; color: #666; font-weight: 500; text-transform: none; letter-spacing: 0; }
   /* La stessa nota, quando sta sotto una tabella invece che dentro un titolo. */
   .pr-sec-note--block {
     display: block; margin: 3px 0 10px; padding: 4px 8px;
@@ -79,7 +79,7 @@
   .pr-table thead th:nth-child(4) { min-width: 150px; }
   /* Il totale prelevato e' un testo — «1.250 KG · 40 PZ» — non un numero:
      a 14pt sfondava la colonna. */
-  .pr-summary-val--txt { font-size: 10.5pt; line-height: 1.25; overflow-wrap: anywhere; }
+  .pr-summary-val--txt { font-size: 9.5pt; line-height: 1.25; overflow-wrap: anywhere; }
 
   /* ── Casella di conferma recupero ── */
   .pr-check-col { width: 58px; text-align: center; }
@@ -89,7 +89,7 @@
   }
 
   /* ── Elenco avvisi ── */
-  .pr-warn-list { margin: 0 0 10px 0; padding: 6px 10px 6px 24px; font-size: 8.5pt;
+  .pr-warn-list { margin: 0 0 10px 0; padding: 6px 10px 6px 24px; font-size: 7.75pt;
     background: #fef3c7; border: 1px solid #fcd34d; border-radius: 3px; color: #92400e; }
   .pr-warn-list li { margin-bottom: 2px; }
 
@@ -259,9 +259,35 @@
     padding-bottom: 3mm;
   }
   .doc-page--flow .doc-zone-body { display: block; min-height: 0; }
+
+  /* 2.27 — IL PIEDE STA IN FONDO AL FOGLIO, NON SOTTO L'ULTIMA RIGA.
+
+     `table-footer-group` non vuol dire «in fondo alla pagina»: vuol dire
+     «ripetuto alla fine di ogni FRAMMENTO della tabella». Su una pagina piena
+     le due cose coincidono per caso; sull'ultima — e su un documento che sta
+     in un foglio solo — il frammento finisce dove finiscono le righe, e li'
+     finiva anche il piede, a meta' foglio.
+
+     Adesso il `tfoot` fa il mestiere che sa fare davvero: RISERVARE la sua
+     altezza in fondo a ogni frammento, ultimo compreso, cosi' nessuna riga
+     puo' entrare nella banda. Il piede lo DIPINGE lo stesso elemento, tolto
+     dal flusso e inchiodato al fondo dell'area di pagina: e' la strada che
+     la filigrana `.doc-draft` percorre dalla 2.1, e Chrome ridisegna gli
+     elementi `fixed` su ogni foglio. Firefox li dipinge solo sul primo — il
+     bersaglio dichiarato e' Chrome/Edge, e la filigrana ha gia' lo stesso
+     limite.
+
+     RISERVA E BANDA SONO LO STESSO NUMERO, scritto una volta sola: due
+     valori scritti due volte divergono, e il giorno che divergono il piede
+     copre l'ultima riga di ogni pagina piena. Niente fondo bianco sotto:
+     se un giorno la riserva smettesse di funzionare, la sovrapposizione si
+     deve VEDERE sul foglio, non sparire sotto una toppa. */
+  .doc-page--flow .doc-flow-cell--foot { height: var(--doc-piede); }
   .doc-page--flow .doc-zone-foot {
-    flex: none; max-height: none; overflow: visible;
-    display: block; padding-top: 3mm;
+    position: fixed; left: 0; right: 0; bottom: 0;
+    height: var(--doc-piede); max-height: none; overflow: hidden;
+    display: flex; flex-direction: column; justify-content: flex-end;
+    padding-top: 0;
   }
   .doc-page--flow .doc-idblock { flex: none; }
 

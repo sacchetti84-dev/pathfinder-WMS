@@ -58,7 +58,7 @@ export const VistaConfigArticoli = {
         <button class="btn btn-sm btn-accent" onclick="App.exportArticlesExcel()">${this._ico('chart-bar')} Export Excel</button>
       </div>
       <div class="flex gap-4 mb-5 flex-wrap">
-        <input class="input flex-1 min-w-[140px]" id="artFilterInput" value="${this._esc(this._artFilter)}" placeholder="${this._ico('search')} Filtra... (debounce 300ms)"
+        <input class="input flex-1 min-w-[140px]" id="artFilterInput" value="${this._esc(this._artFilter)}" placeholder="Filtra... (debounce 300ms)"
           oninput="App._onArtFilterInput(this.value)">
         <select class="select w-auto min-w-[140px]" onchange="App._artSort=this.value;App._renderConfigArticles($('configContent'))">
           <option value="code_asc" ${this._artSort==='code_asc'?'selected':''}>Codice A→Z</option>

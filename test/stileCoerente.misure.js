@@ -335,6 +335,39 @@ function senzaAtRule(t, prova) {
   return out;
 }
 
+/* ═══ 12 · La scala tipografica della stampa ═══════════════════════════
+   2.27 — L'ALTRA META' DELLA MISURA 11.
+
+   `testoAMano` esclude apposta i blocchi `print` e tutto `05-pick-report`: in
+   stampa la carta si misura in punti, e un `var(--doc-fs-xs)` nasconderebbe
+   il dato proprio dove il dato E' l'argomento — «sotto i 6,5 pt, in corsia,
+   con un foglio in mano sotto un neon, non si legge». Quindi i punti si
+   scrivono a mano, e restano a mano.
+
+   Il prezzo di quella scelta e' che fra sei mesi nessuno sappia piu' che una
+   scala esiste. Lo paga questa misura, non una variabile CSS: i gradini sono
+   DICHIARATI in `stileCoerente.dati.js`, e uno nuovo — o uno che si muove —
+   fa suonare `npm test` col messaggio gia' scritto. Le quattro dichiarazioni
+   in linea nelle viste entrano nel conto per la stessa ragione: un punto
+   scritto dentro un `style=` e' un gradino che la prossima scala si scorda.
+
+   Il conto e' piatto — valore → quante volte — e non per file: e' la SCALA a
+   essere un oggetto solo, e spezzarla per file la renderebbe illeggibile. */
+export function scalaDiStampa() {
+  const conti = {};
+  const fonti = [...FOGLI(), ...VISTE()];
+  for (const f of fonti) {
+    const t = leggi(f).replace(/\/\*[\s\S]*?\*\//g, '');
+    for (const m of t.matchAll(/font-size:\s*([\d.]+)pt/g)) {
+      const k = `${m[1]}pt`;
+      conti[k] = (conti[k] || 0) + 1;
+    }
+  }
+  /* In ordine di corpo: una scala si legge dal basso, non in ordine
+     alfabetico, dove «10pt» verrebbe prima di «6.5pt». */
+  return Object.fromEntries(Object.entries(conti).sort((a, b) => parseFloat(a[0]) - parseFloat(b[0])));
+}
+
 export const MISURE = {
   variantiFantasma,
   emojiNelMarkup,
@@ -347,4 +380,5 @@ export const MISURE = {
   soglieNonDichiarate,
   coloriFuoriTavolozza,
   testoAMano,
+  scalaDiStampa,
 };

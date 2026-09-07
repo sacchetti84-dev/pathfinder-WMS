@@ -110,4 +110,36 @@ export const TOLLERATO = {
   /* `font-size` fuori dai token MD3, §8. Il testo dentro un SVG col
      `viewBox` non conta: e' geometria, non tipografia. */
   testoAMano: {},
+
+  /* 2.27 — LA SCALA DELLA STAMPA, DICHIARATA. Non e' un difetto da portare a
+     zero come le altre: e' un OGGETTO, l'elenco dei corpi che i documenti
+     usano sulla carta, e sta qui perche' in stampa i punti si scrivono a mano
+     (vedi la misura 12) e senza un posto in cui leggerli la scala si
+     dimentica. Se un numero cambia, il collaudo suona: e' il solo modo di
+     accorgersi che un corpo nuovo e' entrato di straforo.
+
+     LA 2.27 L'HA ABBASSATA DEL 10%, arrotondando a 0,25 pt — a 0,5 pt il
+     fattore reale sbanda del ±3% proprio sui corpi piccoli, che sono i due
+     terzi — con PAVIMENTO a 6,5 pt, che e' il piu' piccolo che questo
+     progetto avesse gia' scelto due volte. Sotto, un foglio in mano davanti a
+     uno scaffale non si legge. Il pavimento costa un gradino: 7 e 6,5
+     atterrano tutti e due su 6,5, e due gerarchie collassano. Accettato.
+
+     QUATTRO ESCLUSIONI, e sono le voci alte che restano qui sopra:
+       · 22, 20, 16, 15, 14, 9, 8, 7,5 e uno dei 7 pt — le ETICHETTE adesive
+         100x80 e 100x60 mm: supporto a misura fissa, rimpicciolire non
+         recupera un millimetro e allontana il codice a barre dal lettore;
+       · 46 pt — la filigrana BOZZA, che e' un velo tarato sulla diagonale
+         del foglio, non un testo;
+       · 20 pt — la fascia del cartellino di non conformita', che si legge da
+         due metri su un bancale in quarantena: e' un segnale;
+       · 7 pt — il numero di pagina, che vive nel margine e non toglie spazio
+         a nessuno. */
+  scalaDiStampa: {
+    '6.5pt': 12, '6.75pt': 11, '6.8pt': 1, '7pt': 3, '7.25pt': 6,
+    '7.5pt': 1, '7.75pt': 6, '8pt': 1, '8.25pt': 8, '8.5pt': 4,
+    '9pt': 6, '9.5pt': 2, '10pt': 3, '10.75pt': 1, '11.25pt': 1,
+    '11.75pt': 1, '12.5pt': 2, '13.5pt': 2, '14pt': 1, '15pt': 1,
+    '16pt': 1, '20pt': 2, '22pt': 1, '46pt': 1,
+  },
 };
