@@ -107,14 +107,24 @@ describe('il foglio di stile dichiara i due gruppi', () => {
      riserva e il dipinto leggono la STESSA variabile. Scritti due volte
      divergono, e il giorno che divergono il piede copre l'ultima riga di ogni
      pagina piena: e' quello che questa prova sorveglia. */
-  it('IL PIEDE E\' ANCORATO AL FONDO, E LA SUA BANDA E\' RISERVATA', () => {
-    expect(css).toMatch(/\.doc-page--flow \.doc-zone-foot\s*\{[^}]*position: fixed/);
-    expect(css).toMatch(/\.doc-page--flow \.doc-zone-foot\s*\{[^}]*bottom: 0/);
-    expect(css).toMatch(/\.doc-page--flow \.doc-zone-foot\s*\{[^}]*height: var\(--doc-piede\)/);
+  it('LA CODA E\' ANCORATA AL FONDO, E LA SUA BANDA E\' RISERVATA', () => {
+    expect(css).toMatch(/\.doc-coda-ancorata \.doc-zone-foot\s*\{[^}]*position: fixed/);
+    expect(css).toMatch(/\.doc-coda-ancorata \.doc-zone-foot\s*\{[^}]*bottom: 0/);
+    /* La riserva di partenza sta nel foglio; l'altezza vera la scrive la
+       misura, sulla cella, un istante prima di stampare. */
     expect(css).toMatch(/\.doc-page--flow \.doc-flow-cell--foot\s*\{[^}]*height: var\(--doc-piede\)/);
-    /* Dichiarata una volta sola, e in `01-views.css` insieme a `@page`. */
     expect(viste.match(/--doc-piede:/g) || []).toHaveLength(1);
     expect(css).not.toMatch(/--doc-piede:/);
+
+    /* 2.28 — SENZA LA MISURA NON SI ROMPE NIENTE. La fascia esce dal flusso
+       solo con la classe che la misura aggiunge: se lo script non gira, resta
+       dov'era e il foglio e' quello della 2.27. Se un giorno il `fixed`
+       finisse fuori dalla classe, questa prova suona. */
+    expect(css).not.toMatch(/\.doc-page--flow \.doc-zone-foot\s*\{[^}]*position: fixed/);
+
+    const motore = fs.readFileSync('src/ui/views/smaltimento.ts', 'utf8');
+    expect(motore).toMatch(/classList\.add\('doc-coda-ancorata'\)/);
+    expect(motore).toMatch(/_ancoraLaCoda\(\)/);
   });
 
   /* Una riga tagliata a meta' fra due fogli non si rilegge, e una
@@ -200,19 +210,25 @@ describe('chi scorre e chi no', () => {
   });
 });
 
-/* 2.24 — LE FIRME SI FIRMANO UNA VOLTA. In un documento che scorre il piede
-   sta nel `tfoot`, che e' il gruppo che il browser ristampa su OGNI pagina:
-   le tre righe da firmare uscivano su tutte, e chi firma non sa quale valga.
-   Vanno in coda al corpo, che finisce una volta sola. */
+/* 2.28 — LE FIRME STANNO NELLA CODA, E LA CODA E' SU OGNI PAGINA.
+
+   La 2.24 le aveva tolte dal piede ripetuto con questa ragione: «le tre righe
+   da firmare uscivano su tutte, e chi firma non sa quale valga». La 2.28
+   ribalta la decisione, e non per svista. Un foglio di magazzino ha due fasce
+   fisse — testata in alto, coda in basso — e in mezzo la merce che scorre:
+   chi controlla in banchina cerca totali e firme sempre alla stessa quota, e
+   un foglio in cui la coda sta a meta' pagina va riletto invece che guardato.
+   La coda e' la fascia bassa del FOGLIO, non la fine del documento.
+
+   Questa prova sorveglia il ribaltamento, cosi' che nessuno lo disfi per
+   errore leggendo il commento della 2.24. */
 describe('le firme, e dove finiscono', () => {
-  it('nel documento che scorre stanno col corpo, non nel piede ripetuto', () => {
+  it('nel documento che scorre stanno nella coda, ripetuta a ogni foglio', () => {
     const html = doc({ flow: true });
-    /* `dentro` non serve qui: il corpo porta una tabella sua, e il primo
-       `</tbody>` che si incontra e' quello di dentro. Si guarda l'ordine. */
-    expect(dentro(html, 'tfoot')).not.toContain('doc-signs');
-    expect(html.indexOf('doc-flow-cell--body')).toBeLessThan(html.indexOf('doc-signs'));
-    /* Nel piede ripetuto resta cio' che ha senso ripetere. */
+    expect(dentro(html, 'tfoot')).toContain('doc-signs');
     expect(dentro(html, 'tfoot')).toContain('Pathfinder');
+    /* E il corpo porta solo la merce: nessuna firma fra le righe. */
+    expect(dentro(html, 'tbody')).not.toContain('doc-signs');
   });
 
   it('nel documento a pagina sola restano dove sono sempre state', () => {

@@ -1781,19 +1781,20 @@ export const VistaSpedizioni = {
           <tbody>${rows}</tbody>
         </table>
 
-        <!-- 2.27 — QUI STAVA UN doc-fill, ED ERA UNA MOLLA CHE NON MOLLAVA.
-             .doc-fill e' flex: 1 1 auto — spinge in fondo solo dentro una
-             colonna flex, e il corpo di un documento che scorre e' display:
-             block. Restava un separatore da 4 mm travestito da molla, e il
-             separatore adesso e' dichiarato: margin-top su .ddt-totals.
-             La regola .doc-fill resta, perche' i tre documenti a pagina sola
-             la usano davvero, e li' spinge sul serio. -->
+        `,
 
-        <!-- Riepilogo su tre righe da sei unita'. L'ordine NON e' estetico:
-             le voci con etichetta corta stanno nelle celle strette, quelle
-             con etichetta lunga prendono due unita'. Una cella troppo
-             stretta manda a capo l'etichetta E il valore, e alza l'intera
-             riga della griglia. -->
+      /* 2.28 — I CAMPI A PIE' DI PAGINA STANNO NELLA CODA, non in fondo al
+         corpo, ed e' la differenza fra un foglio che si guarda e uno che si
+         rilegge. Fino alla 2.27 questo riepilogo seguiva l'ultima riga della
+         merce: su un DDT da due partite finiva a meta' pagina, su uno da
+         venti in fondo, e chi controlla in banchina doveva cercarlo. Adesso
+         e' `coda`, e il motore la porta al fondo dell'ultima pagina.
+
+         Riepilogo su tre righe da sei unita'. L'ordine NON e' estetico: le
+         voci con etichetta corta stanno nelle celle strette, quelle con
+         etichetta lunga prendono due unita'. Una cella troppo stretta manda a
+         capo l'etichetta E il valore, e alza l'intera riga della griglia. */
+      coda: `
         <div class="ddt-totals">
           ${this._docCell('Numero colli', String(totalColli))}
           ${this._docCell('Quantità totale', totaliUom)}

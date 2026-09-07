@@ -614,7 +614,7 @@ export const VistaSmaltimento = {
      sbagliato e' un difetto, e index.html aveva gia' smesso di scriverlo a
      mano il 18/08. */
   _docPageHTML({ kind, kindSub, numLabel, num, dateLabel, dateVal, sender = null,
-                 headExtra = '', body = '', signs = [], docId = '',
+                 headExtra = '', body = '', coda = '', signs = [], docId = '',
                  watermark = '', pageClass = '', printedLabel = 'stampato il',
                  flow = false, footNote = '' }) {
     const fmt = new Date().toLocaleString('it-IT',
@@ -669,12 +669,33 @@ export const VistaSmaltimento = {
         <thead><tr><td class="doc-flow-cell doc-flow-cell--head">
           <header class="doc-zone-head">${testata}</header>
         </td></tr></thead>
+        ${/* 2.28 — LA CODA STA IN OGNI PAGINA, COME LA TESTATA.
+
+              Un foglio di magazzino ha due fasce fisse e una che scorre: in
+              alto chi manda e chi riceve, in basso i totali, il vettore, le
+              date e le firme, e in mezzo la merce. Chi controlla in banchina
+              li cerca sempre nello stesso punto del foglio — se la coda
+              seguisse l'ultima riga starebbe a meta' pagina su un DDT da due
+              partite e in fondo su uno da venti, e il foglio andrebbe riletto
+              invece che guardato.
+
+              QUINDI LA CODA STA DOVE STA IL PIEDE: nel `tfoot`, che e' il
+              gruppo che il browser ripete su ogni foglio, e dipinta fuori dal
+              flusso a `bottom: 0` come la filigrana. Il `tfoot` riserva la
+              banda — l'altezza gliela scrive `_ancoraLaCoda`, che la misura
+              una volta sola — e nessuna riga di merce puo' finirci dentro.
+
+              CAMBIA UNA DECISIONE DELLA 2.24, e va detto: allora le firme
+              erano state tolte dal piede perche' uscivano su ogni pagina e
+              «chi firma non sa quale valga». Adesso escono su ogni pagina di
+              proposito: la coda e' la fascia bassa del foglio, non la fine
+              del documento, ed e' cosi' che il DDT si legge in banchina. */''}
         <tfoot><tr><td class="doc-flow-cell doc-flow-cell--foot">
-          <footer class="doc-zone-foot">${piede}</footer>
+          <footer class="doc-zone-foot">${coda}${firme}${piede}</footer>
         </td></tr></tfoot>
         <tbody><tr><td class="doc-flow-cell doc-flow-cell--body">
           ${filigrana}
-          <section class="doc-zone-body">${body}${firme}</section>
+          <section class="doc-zone-body">${body}</section>
         </td></tr></tbody>
       </table>`;
     }
@@ -684,7 +705,7 @@ export const VistaSmaltimento = {
 
       <header class="doc-zone-head">${testata}</header>
 
-      <section class="doc-zone-body">${body}</section>
+      <section class="doc-zone-body">${body}${coda}</section>
 
       <footer class="doc-zone-foot">${piede}</footer>
     </div>`;
@@ -695,8 +716,88 @@ export const VistaSmaltimento = {
   _docPrint(html) {
     Feedback.clear();
     $('printReport').innerHTML = html;
+    this._ancoraLaCoda();
     window.print();
     setTimeout(() => { $('printReport').innerHTML = ''; }, 1500);
+  },
+
+  /* ═══ 2.28 · LA BANDA DELLA CODA ════════════════════════════
+     © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+     La coda sta nel `tfoot` e il browser la ripete su ogni foglio, come la
+     testata. Manca un numero solo: QUANTO ALTA è, perché il `tfoot` deve
+     riservare in fondo a ogni pagina esattamente la banda che la coda
+     dipinge. Riserva e disegno sono lo stesso numero — la regola della 2.27,
+     estesa dal piede a tutta la fascia bassa — e se divergono la coda copre
+     l'ultima riga di merce.
+
+     IL NUMERO NON SI PUÒ SCRIVERE NEL FOGLIO DI STILE: la coda è alta quanto
+     il documento la fa: un DDT con le annotazioni lunghe ha una fascia più
+     alta di uno senza. Si misura, e si misura UNA volta: niente impaginazione
+     rifatta a mano, nessun conto di righe. È la differenza fra questa versione
+     e il primo tentativo, che provava a indovinare dove cadessero le pagine
+     per mettere la coda in fondo all'ultima — e sbagliava di una riga.
+
+     SI MISURA CON LE REGOLE DELLA CARTA. Vivono dentro `@media print`, che a
+     video non si applica mai: senza tirarle fuori si misurerebbe un documento
+     in rem al posto di uno in punti. Si rimettono fuori dal loro involucro per
+     il tempo della misura — la stessa strada del banco a video — e si tolgono
+     subito, dentro un giro solo: nessun disegno in mezzo, nessuno vede niente.
+
+     SE LA MISURA NON SI PUÒ FARE non si rompe niente: senza la classe
+     `doc-coda-ancorata` la fascia resta nel flusso del `tfoot`, cioè dove
+     stava fino alla 2.27 — in fondo alle pagine piene e sotto l'ultima riga
+     sull'ultima. Peggio, non rotto. */
+  _ancoraLaCoda() {
+    const foglio = $('printReport');
+    const tabella = foglio?.querySelector('.doc-page--flow');
+    const cella = tabella?.querySelector('.doc-flow-cell--foot') as HTMLElement | null;
+    const fascia = tabella?.querySelector('.doc-zone-foot') as HTMLElement | null;
+    /* Solo i documenti che scorrono: a pagina sola la colonna è flex, e la
+       fascia bassa sta già in fondo per costruzione. */
+    if (!foglio || !tabella || !cella || !fascia) return;
+
+    const stile = document.createElement('style');
+    stile.textContent = this._regoleDellaCarta()
+      + '\n#printReport{display:block!important;position:absolute;left:-10000px;top:0;'
+      + 'width:186mm;padding:0;box-sizing:border-box;}';
+    document.head.appendChild(stile);
+    try {
+      /* Si misura la fascia PRIMA di toglierla dal flusso: un elemento
+         `position: fixed` non ha più la larghezza della colonna, e le righe
+         che porta si conterebbero sbagliate. */
+      const alta = fascia.getBoundingClientRect().height;
+      if (!(alta > 0)) return;
+      cella.style.height = `${alta}px`;
+      tabella.classList.add('doc-coda-ancorata');
+    } finally {
+      stile.remove();
+    }
+  },
+
+  /* Le regole di stampa, fuori dal loro `@media`. Si scende dentro gli
+     involucri — in questo applicativo i fogli stanno in `@layer app`, e un
+     giro che guarda solo il primo livello non trova una sola regola di
+     stampa. Rimesse fuori vincono su quelle dentro il layer, che e' lo stesso
+     rapporto che hanno sulla carta. */
+  _regoleDellaCarta() {
+    const fuori: string[] = [];
+    const scendi = (regole: CSSRuleList) => {
+      for (const r of Array.from(regole)) {
+        if (r instanceof CSSMediaRule) {
+          if (/print/.test(r.conditionText || '')) {
+            for (const d of Array.from(r.cssRules)) fuori.push(d.cssText);
+          }
+          continue;
+        }
+        const dentro = (r as CSSGroupingRule).cssRules;
+        if (dentro && !(r instanceof CSSStyleRule)) scendi(dentro);
+      }
+    };
+    for (const f of Array.from(document.styleSheets)) {
+      try { scendi(f.cssRules); } catch { /* foglio di un'altra origine */ }
+    }
+    return fuori.join('\n');
   },
 
   _docWarnHTML() {

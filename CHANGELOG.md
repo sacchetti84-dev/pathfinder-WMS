@@ -15,6 +15,59 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.28.0 — 2026-09-08
+
+**Every sheet carries its own header and its own tail; the middle holds the
+goods and nothing else.**
+
+A warehouse sheet has two fixed bands and one that flows: sender and consignee
+at the top, totals, carrier, dates and signatures at the bottom, the goods in
+between — the rows that fit, with the rest moving to the next sheet, which
+carries an identical header and an identical tail. Until 2.27 the tail followed
+the last row of goods: on a two-line delivery note it sat halfway down the page,
+on a twenty-line one at the foot, and whoever checks the load at the dock had to
+hunt for it.
+
+The tail now lives where the header lives: in a table group. `<thead>` and
+`<tfoot>` are the two groups a browser repeats on every printed page, so the
+tail moved into the second one, taking the footer with it. The band is painted
+out of flow at `bottom: 0` and the `<tfoot>` reserves it, so no row of goods can
+end up underneath — the 2.27 rule, extended from the footer alone to the whole
+bottom band.
+
+Exactly one number has to be measured: how tall the tail is, because the
+document decides it — a delivery note with long remarks has a taller band than
+one without. It is measured once, immediately before printing, with the print
+rules lifted out of `@media print` (they never apply on screen, and measuring
+without them would measure a document in rem instead of one in points). If the
+measurement fails, nothing breaks: the class is not applied, the band stays in
+flow, and the sheet is the 2.27 one.
+
+A pagination model was written and thrown away, which is worth recording. To
+place the tail at the bottom of the *last* page it counted rows sheet by sheet
+to work out the leftover space. It was off by one row — heights measured
+off-screen and heights after pagination never agree to the tenth — and there was
+no making it converge. The rule was not "at the bottom of the last page" but "on
+every page", and with that the model is unnecessary: five lines of CSS and one
+`getBoundingClientRect`.
+
+Measured on paper: a 40-line delivery note prints on **4 sheets** where it took
+5, rows 11+11+11+7, tail at the same height on all four — signatures 33.2 mm
+from the bottom edge, footer 13.1 mm, page number 4.9 mm — with the goods rows
+stopping at 87.2 mm against a band that reaches 79.5. The first delivery note
+printed after installation reports the same figures.
+
+Delivery-note rows no longer split across sheets. That rule held for pick-report
+rows since 2.24 and not for the delivery note, and the difference was never a
+decision — it was a line nobody had written.
+
+Signatures now print on every page, reversing 2.24. They had been taken out of
+the repeated footer because "whoever signs cannot tell which one counts"; they
+return because the bottom band belongs to the sheet, not to the document. It is
+a decision, not an oversight, and a test guards it.
+
+---
+
 ## 2.27.0 — 2026-09-07
 
 **The footer of a flowing document now sits at the bottom of every sheet, and

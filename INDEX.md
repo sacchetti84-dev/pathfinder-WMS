@@ -7,7 +7,49 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **07/09/2026 sera** — **il piede sta in fondo al foglio, il campione
+Aggiornato: **08/09/2026** — **ogni foglio ha la sua testata e la sua coda, e in
+mezzo solo la merce.** La **2.28** è installata e in servizio.
+
+**UN FOGLIO DI MAGAZZINO HA DUE FASCE FISSE E UNA CHE SCORRE.** In alto chi
+manda e chi riceve, in basso totali, vettore, date e firme, in mezzo le righe:
+quelle che ci stanno, e le altre passano al foglio dopo — che ha testata e coda
+IDENTICHE. Fino alla 2.27 la coda seguiva l'ultima riga della merce: su un DDT
+da due partite finiva a metà pagina, su uno da venti in fondo, e chi controlla
+in banchina doveva cercarla.
+
+**LA CODA STA DOVE STA LA TESTATA: in un gruppo di tabella.** `<thead>` e
+`<tfoot>` sono i due gruppi che il browser ripete su ogni pagina, e la coda è
+passata nel secondo — col piede dentro, che ci stava già. La fascia si dipinge
+fuori dal flusso a `bottom: 0` e il `tfoot` ne riserva la banda, così nessuna
+riga di merce può finirci sotto: è la regola della 2.27, estesa dal solo piede
+a tutta la fascia bassa.
+
+**UN NUMERO SOLO SI MISURA: quanto è alta la coda**, perché la fa il documento
+— un DDT con le annotazioni lunghe ha la fascia più alta di uno senza.
+`_ancoraLaCoda` la misura una volta, con le regole della carta tirate fuori da
+`@media print`, e la scrive sulla cella del `tfoot`. Se la misura non riesce non
+si rompe niente: senza la classe la fascia resta nel flusso, cioè il foglio
+della 2.27.
+
+**LA STRADA SBAGLIATA, perché non venga ripercorsa.** Il primo tentativo metteva
+la coda in fondo all'ULTIMA pagina, e per farlo rifaceva a mano l'impaginazione
+del browser — quante righe stanno su un foglio, quanto vuoto resta. Sbagliava di
+una riga e non c'era modo di farlo tornare. La regola vera non era «in fondo
+all'ultima»: era «su ogni pagina», e allora il modello non serve.
+
+**Misurato su carta**, DDT da 40 partite: **4 fogli** dove prima ne servivano 5,
+11+11+11+7 righe, coda alla **stessa quota su tutti e quattro** — firme a
+33,2 mm dal bordo inferiore, piede a 13,1 mm, numero di pagina a 4,9 mm — e le
+righe della merce che si fermano a 87,2 mm contro una banda che arriva a 79,5.
+Nessuna sovrapposizione. Le stesse quote sul primo DDT stampato dal servizio
+dopo l'installazione.
+
+**Cambia una decisione della 2.24**, che aveva tolto le firme dal piede perché
+uscivano su ogni pagina. Adesso ci escono di proposito: la coda è la fascia
+bassa del FOGLIO, non la fine del documento. Sta scritto nel motore e in una
+prova, così nessuno la disfa leggendo il commento vecchio.
+
+Prima di questo — **il piede sta in fondo al foglio, il campione
 si pesa in grammi, e due campi di ricerca tornano a cercare.** La **2.27** chiude
 tre difetti che non c'entrano niente fra loro se non che si pagavano tutti in
 corsia.
@@ -215,7 +257,7 @@ un **marchio suo**: un pallet coi suoi colli, non una fabbrica.
 voce **87**. **In servizio su questa macchina c'è la 2.23.0**, impronta
 `f9d4e012…` — misurata da `/api/app-info` il 04/09 sera, non dedotta: §0 punto
 2. Accanto ci sono la **2.24.0** e la **2.25.0**, tutte e due **costruite e non
-installate**, e con la 2.26.0 e la 2.27.0 sono quattro. Il numero è nei quattro
+installate**; la **2.28.0 è installata e in servizio** dall'08/09. Il numero è nei quattro
 posti di §7.
 
 > **E QUESTA È LA QUINTA VOLTA.** Fino al 04/09 sera questo documento diceva
@@ -459,7 +501,22 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.27.0 — costruita, non installata
+### La 2.28.0 — IN SERVIZIO su questa macchina
+
+**Ogni foglio ha la sua testata e la sua coda.** Nessun campo nuovo a database,
+nessuna migrazione, il servizio non è stato toccato.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.28.0\` |
+| impronta | `c722f7da5a95e6354fe9c4e2b9c3b7f13402001501bc03fecdef1d7bbecca86e` |
+| byte | **2.162.684** in **8 file**, `costruita 2026-09-07T23:08:10Z` |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.417 in 54 file** (una saltata) · `npm run check` pulito |
+| provata | **su carta e in servizio.** Il banco `impaginazione` non ha pagine e non può dire niente sulla coda: si stampa in PDF con Edge senza finestra e si leggono le quote foglio per foglio. DDT da 40 partite: 4 pagine, coda alla stessa quota su tutte. Il primo DDT stampato dopo l'installazione porta le stesse quote |
+| installata | **sì**, l'08/09. `/api/app-info` risponde `2.28.0`, impronta `c722f7da…`, che è quella del pacchetto |
+
+### La 2.27.0 — costruita, non installata, **superata dalla 2.28.0**
 
 **Il piede sta in fondo al foglio, il testo dei documenti scende del 10%, il
 campione si pesa in KG o in GR, e due campi di ricerca tornano a cercare.**
@@ -989,7 +1046,8 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
-| **2.27.0** | **COSTRUITA, NON INSTALLATA** — 07/09 sera | `1486602a…` | **Il piede sta in fondo al foglio, e il testo dei documenti scende del 10%.** `table-footer-group` non vuol dire «in fondo alla pagina» ma «alla fine di ogni frammento»: sull'ultima il piede galleggiava a metà. Adesso il `tfoot` **riserva** la banda e un elemento fuori dal flusso la **dipinge**, con un numero solo — `--doc-piede: 10mm`, misurato. Col corpo ridotto (arrotondamento 0,25 pt, pavimento 6,5 pt, etichette escluse) un DDT da 90 partite passa da **9 fogli a 8**, provato stampando in PDF. Più: il **campione si pesa in KG o in GR** sugli articoli a peso, con rifiuto se la conversione non torna esatta; e i campi di ricerca di **registro** e **anagrafica articoli** tornano a filtrare — dalla 2.23 mostravano `<svg class=` e avevano perso l'`oninput` |
+| **2.28.0** | **IN SERVIZIO su questa macchina dall'08/09** | `c722f7da…` | **Ogni foglio ha la sua testata e la sua coda, e in mezzo solo la merce.** La coda — totali, vettore, date, firme, piede — è passata nel `<tfoot>`, che è il gruppo che il browser ripete su ogni pagina, e si dipinge fuori dal flusso a `bottom: 0` con la banda riservata dal `tfoot`. Un numero solo si misura, l'altezza della fascia, perché la fa il documento. Un DDT da 40 partite passa da 5 fogli a **4**, con la coda alla stessa quota su tutti. Ribalta la 2.24 sulle firme, di proposito |
+| **2.27.0** | costruita, non installata, **superata dalla 2.28.0** — 07/09 sera | `1486602a…` | **Il piede sta in fondo al foglio, e il testo dei documenti scende del 10%.** `table-footer-group` non vuol dire «in fondo alla pagina» ma «alla fine di ogni frammento»: sull'ultima il piede galleggiava a metà. Adesso il `tfoot` **riserva** la banda e un elemento fuori dal flusso la **dipinge**, con un numero solo — `--doc-piede: 10mm`, misurato. Col corpo ridotto (arrotondamento 0,25 pt, pavimento 6,5 pt, etichette escluse) un DDT da 90 partite passa da **9 fogli a 8**, provato stampando in PDF. Più: il **campione si pesa in KG o in GR** sugli articoli a peso, con rifiuto se la conversione non torna esatta; e i campi di ricerca di **registro** e **anagrafica articoli** tornano a filtrare — dalla 2.23 mostravano `<svg class=` e avevano perso l'`oninput` |
 | **2.26.0** | costruita, non installata, **superata dalla 2.27.0** — 05/09 notte | `05880f15…` | **Il servizio parla HTTPS, sulla stessa porta.** Certificato fatto con gli strumenti di Windows — autorità locale più certificato del servizio firmato da lei, così alla scadenza non si rifà il giro dei terminali — con nomi e **tutti gli IPv4** dentro il SAN. Resta la 4173: davanti ai due server un `net.Server` guarda il primo byte e manda chi arriva in chiaro a un `301` verso `https://`, quindi i collegamenti salvati non si rompono. Il chiosco della 2.25 diventa installabile appena l'autorità è sui terminali |
 | **2.25.0** | **COSTRUITA, NON INSTALLATA** — 04/09 notte | `9b2fecb6…` | **L'interfaccia sta dentro lo schermo, e si installa.** Il telaio non supera più la larghezza della finestra (`min-width: 0` sulle caselle di griglia: era la testata a spingerlo a 459px su uno schermo da 375), le **undici linguette** di Configurazione vanno a capo invece di essere tagliate, lo zoom torna libero e la sua causa — i campi sotto i 16px — sparisce sotto `pointer: coarse`, dove i bersagli sono 48px. `dispositivo-tavoletta` ha finalmente delle regole. Più la **modalità chiosco**: manifesto web e tre icone, Pathfinder si apre dalla sua icona. **Vuole HTTPS** |
 | **2.24.0** | costruita, non installata — 04/09 sera | `39c2ecce…` | **I due fogli che escono dal magazzino, rifatti.** DDT a sei colonne (quantità e unità in due celle), packing list per **articolo → lotto → bancale** con un totale per livello. Tre difetti chiusi: la colonna da 13 mm con `nowrap`, il secondo foglio senza testata, le firme senza etichetta. Il foglio diventa una funzione del documento, e il banco ne compone due da un carico pieno |
@@ -1052,6 +1110,48 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.28 — ogni foglio, la sua testata e la sua coda
+
+**LA COSA DA SAPERE PRIMA DELLE ALTRE: la coda non è la fine del documento, è
+la fascia bassa del FOGLIO.** Ne segue tutto il resto. Se fosse la fine del
+documento uscirebbe una volta sola, in fondo all'ultima pagina — e allora
+servirebbe sapere quanto vuoto resta su quel foglio, che in CSS non si chiede e
+in JS si può solo indovinare rifacendo l'impaginazione del browser. Se invece è
+la fascia bassa del foglio esce su OGNI pagina, e allora è lo stesso mestiere
+della testata: un gruppo di tabella che il browser ripete.
+
+`<thead>` e `<tfoot>` sono quei due gruppi. La coda è passata nel `tfoot`, col
+piede dentro. Il `tfoot` riserva la banda su ogni foglio — nessuna riga di merce
+può finirci sotto — e la fascia si dipinge fuori dal flusso a `bottom: 0`, dove
+Chrome la ridisegna a ogni pagina: la strada della filigrana, collaudata dalla
+2.1 e già usata dal piede nella 2.27.
+
+**RISERVA E DISEGNO DEVONO ESSERE LO STESSO NUMERO**, e quel numero lo fa il
+documento: un DDT con le annotazioni lunghe ha la fascia più alta di uno senza.
+Si misura una volta sola, prima di stampare, con le regole della carta tirate
+fuori da `@media print` — a video non si applicano, e misurare senza vorrebbe
+dire misurare un documento in rem al posto di uno in punti. Poi si scrive
+l'altezza sulla cella del `tfoot` e si accende la classe che porta la fascia
+fuori dal flusso. Se la misura non riesce la classe non si accende e la fascia
+resta nel flusso: il foglio della 2.27, peggio ma non rotto.
+
+**IL MODELLO DI IMPAGINAZIONE È STATO SCRITTO E BUTTATO, e vale la pena dirlo.**
+Per mettere la coda in fondo all'ULTIMA pagina si erano contate a mano le righe,
+foglio per foglio, per sapere quanto vuoto restava. Sbagliava di una riga — le
+altezze misurate fuori schermo e quelle impaginate non coincidono al decimo — e
+non c'era verso di farlo tornare. La regola vera era un'altra, e con quella il
+modello non serve: cinque righe di CSS e una `getBoundingClientRect`.
+
+**Le righe del DDT adesso non si spezzano** (`break-inside: avoid` su
+`.ddt-table tr`): valeva per `.pr-table` dalla 2.24 e per il DDT no, e non era
+una scelta — era una riga mai scritta. Una partita tagliata fra due fogli ha il
+codice su una pagina e la quantità sull'altra.
+
+**E le firme escono su ogni pagina**, che ribalta la 2.24. Allora erano state
+tolte dal piede perché «chi firma non sa quale valga»; adesso ci tornano perché
+la fascia bassa è del foglio. È una decisione, non una svista, e una prova la
+sorveglia.
 
 ### 2.27 — il piede in fondo al foglio, e il campione a peso
 

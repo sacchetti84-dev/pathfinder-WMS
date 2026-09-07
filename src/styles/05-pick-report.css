@@ -282,12 +282,25 @@
      copre l'ultima riga di ogni pagina piena. Niente fondo bianco sotto:
      se un giorno la riserva smettesse di funzionare, la sovrapposizione si
      deve VEDERE sul foglio, non sparire sotto una toppa. */
+  /* 2.28 — LA FASCIA BASSA E' TUTTA LA CODA, non piu' il solo piede: totali,
+     vettore, date, firme e in fondo la riga della versione. Sta nel `tfoot`,
+     che il browser ripete su OGNI foglio come fa con la testata, e chi
+     controlla in banchina la trova sempre alla stessa quota.
+
+     L'ALTEZZA LA SCRIVE `_ancoraLaCoda`, sulla cella, un istante prima di
+     stampare: e' quanto misura la fascia, e la riserva del `tfoot` deve
+     essere quel numero esatto. Senza la classe — misura non riuscita, oppure
+     stampa da un browser che non esegue lo script — la fascia resta nel
+     flusso: in fondo alle pagine piene, sotto l'ultima riga sull'ultima.
+     Peggio, non rotto. */
   .doc-page--flow .doc-flow-cell--foot { height: var(--doc-piede); }
   .doc-page--flow .doc-zone-foot {
-    position: fixed; left: 0; right: 0; bottom: 0;
-    height: var(--doc-piede); max-height: none; overflow: hidden;
+    max-height: none; overflow: hidden;
     display: flex; flex-direction: column; justify-content: flex-end;
     padding-top: 0;
+  }
+  .doc-page--flow.doc-coda-ancorata .doc-zone-foot {
+    position: fixed; left: 0; right: 0; bottom: 0;
   }
   .doc-page--flow .doc-idblock { flex: none; }
 
@@ -305,6 +318,16 @@
     height: 7mm; box-sizing: border-box; vertical-align: middle;
   }
   .doc-page--flow .pr-table th { vertical-align: middle; }
+
+  /* 2.28 — NEMMENO LE RIGHE DEL DDT SI SPEZZANO, ed e' la stessa ragione del
+     rapporto di prelievo: una partita tagliata a meta' fra due fogli non si
+     rilegge — il codice sta su una pagina e la quantita' sull'altra. Fino a
+     qui la regola valeva per `.pr-table` e non per `.ddt-table`, e la
+     differenza non era una scelta: era una riga che non era mai stata
+     scritta. La pretende anche `_ancoraLaCoda`, che impagina a mano per
+     sapere quanto vuoto resta sull'ultima pagina: se una riga si spezza il
+     conto non torna, e la coda si ferma a mezz'aria. */
+  .doc-page--flow .ddt-table tr { page-break-inside: avoid; break-inside: avoid; }
 
   /* Le firme non si spezzano, e non restano sole in fondo a una pagina. */
   .doc-page--flow .doc-signs { page-break-inside: avoid; break-inside: avoid; }
