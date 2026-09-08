@@ -128,13 +128,13 @@ export const VistaPrelievo = {
     }
     if (matched.length === 1) { this._cambioSelect(matched[0]); return; }
     // Multipli (stesso lotto in ubicazioni diverse)
-    let html = '<div class="max-h-[180px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Stesso lotto presente in più ubicazioni — seleziona la partenza:</div>';
+    let html = '<div class="max-h-[180px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Stesso lotto su più righe — seleziona la partenza (il vano, e su quale bancale):</div>';
     for (const it of matched) {
       const payload = App._payload({ loc: it.location_code, key: it.item_key, art: it.article_code, lot: it.lot_code, desc: it.article_description || '' });
       html += `<div class="inv-item-row cursor-pointer" onclick="App._cambioSelectEnc('${payload}')">
         <div class="inv-info">
           <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · ${this._ico('map-pin')} <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${it.qty || 1} Coll.</strong></div>
+          <div class="inv-lot">Lotto: ${this._esc(it.lot_code)} · ${this._ico('map-pin')} <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${it.qty || 1} Coll.</strong>${this._badgeUdc(it)}</div>
         </div>
         <span class="text-sx-accent">→</span>
       </div>`;
@@ -429,7 +429,7 @@ export const VistaPrelievo = {
     }
     if (itemsRaw.length === 1) { this._prodAddToCart(itemsRaw[0]); return; }
     // Stesso lotto in più ubicazioni → mostra selezione
-    let html = '<div class="max-h-[200px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Stesso lotto in più ubicazioni — seleziona:</div>';
+    let html = '<div class="max-h-[200px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Stesso lotto su più righe — seleziona (il vano, e su quale bancale):</div>';
     for (const it of itemsRaw) {
       const inCart = (this._pickCart as VoceCarrelloProd[]).some((c) => c.item_key === it.item_key && c.location_code === it.location_code);
       // v2.0.1 [A1] — si espone il DISPONIBILE, non la giacenza fisica
@@ -441,7 +441,7 @@ export const VistaPrelievo = {
       html += `<div class="inv-item-row" style="cursor:pointer;${inCart ? 'opacity:0.4' : ''}" onclick="App._prodAddEnc('${payload}')">
         <div class="inv-info">
           <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${qtyAvail} Coll. disp.</strong>${reservedLbl}</div>
+          <div class="inv-lot">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} <strong>${this._esc(it.location_code)}</strong> · <strong class="text-sx-accent">${qtyAvail} Coll. disp.</strong>${this._badgeUdc(it)}${reservedLbl}</div>
         </div>
         ${inCart ? `<span class="text-sx-text-muted text-body-small">${this._ico('check')} In carrello</span>` : '<span class="text-sx-success">+ Aggiungi</span>'}
       </div>`;

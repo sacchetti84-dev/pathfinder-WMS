@@ -295,8 +295,19 @@ describe('il doppio contesto dei gestori inline', () => {
    imballato l'unica etichetta leggibile è quella dell'unità. Le righe qui
    sono solo il collegamento fra le due domande che servono — «è
    un'ubicazione?» e «è un'unità, e dove sta?»: la regola vera, compreso
-   quale dei due vince, sta in `modules/vano.ts` ed è provata da ferma. */
-const TETTO_STORE = 4928;
+   quale dei due vince, sta in `modules/vano.ts` ed è provata da ferma.
+
+   2.37 — +24, e quasi tutte sono la spiegazione di un rifiuto TOLTO.
+
+   Un vano poteva portare più bancali, ma non due bancali della STESSA merce:
+   `moveUdc` rifiutava, e tre pallet dello stesso prodotto su una campata
+   sono la cosa più normale che ci sia. Il rifiuto difendeva da un problema
+   vero — due righe con la stessa chiave lette con `find` danno un saldo che
+   dipende dall'ordine di caricamento — ma difendeva vietando la realtà. Le
+   tre domande che ne discendono (quanta ce n'è, dove si somma, da dove si
+   toglie) stanno in `modules/righeVano.ts` e sono provate da ferme; qui c'è
+   solo chi le chiama, più il perché, che è la parte che serve fra un anno. */
+const TETTO_STORE = 4952;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

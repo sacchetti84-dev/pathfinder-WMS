@@ -66,7 +66,7 @@ const APP_FILE = process.env.PATHFINDER_APP || null;
    prova che il servizio riavviato e' quello nuovo. Lasciarlo indietro
    perche' "il contratto non e' cambiato" fa fallire l'installazione con
    un messaggio che parla di riavvii. */
-const VERSION = '2.36.0';
+const VERSION = '2.37.0';
 
 /* ── 2.10 · SU QUALE INTERFACCIA SI ASCOLTA ───────────────────────────────
    Fino alla 2.9 `listen` non diceva su quale, e Node in quel caso le prende
@@ -959,10 +959,23 @@ const codiceDalCorpo = (collezione, campo, valore) =>
   normalizzaCampo(collezione, campo, String(valore ?? '').trim());
 
 /** La riga di giacenza con quella chiave, guardando i due lati con lo
-    stesso metro. */
-const rigaConChiave = (righe, item_key) =>
-  righe.find((r) => r.item_key === item_key)
-  || righe.find((r) => codiceDalCorpo('inventory', 'item_key', r.item_key) === item_key);
+    stesso metro.
+
+    2.37 — E FRA PIU' RIGHE, PRIMA QUELLA SCIOLTA.
+
+    Un vano puo' portare tre bancali dello stesso lotto piu' dei colli a
+    terra: quattro righe con la stessa chiave, e finche' qui si prendeva la
+    prima, quale fosse dipendeva dall'ordine di caricamento del database. La
+    regola e' quella degli spaiati applicata ai contenitori — si consuma quel
+    che e' gia' aperto prima di aprire un imballo — ed e' la STESSA che
+    applica il client in `modules/righeVano.ts`. Se divergessero, quale
+    bancale cala dipenderebbe da chi ha risposto per primo. */
+const sciolta = (r) => !String(r?.udc_id ?? '').trim();
+const rigaConChiave = (righe, item_key) => {
+  const mie = righe.filter((r) => r.item_key === item_key
+    || codiceDalCorpo('inventory', 'item_key', r.item_key) === item_key);
+  return mie.find(sciolta) || mie[0] || undefined;
+};
 
 app.post('/api/op/removeItem', wrap(async (req, res) => {
   const { qty, qty_uom, qty_uom_before, packs_out, packs_before } = req.body || {};
@@ -1123,26 +1136,21 @@ app.post('/api/op/moveUdc', wrap(async (req, res) => {
        quella che deve raggiungere le altre. */
     const righe = await db.query('inventory', { criteria: { field: 'udc_id', op: 'equals', value: udc_id } });
 
-    /* DUE RIGHE CON LA STESSA CHIAVE NELLO STESSO VANO NON DEVONO NASCERE.
-       L'indice [location_code+item_key] e' di ricerca, non unico: il
-       database accetterebbe il doppione senza dire niente, e il client, che
-       cerca con `find`, ne leggerebbe UNA — quale, dipende dall'ordine di
-       caricamento. Sarebbe un saldo che cambia da solo.
+    /* 2.37 — IL RIFIUTO CHE VIETAVA UNO SCAFFALE VERO SE N'E' ANDATO.
 
-       Non si fondono: unire una riga che sta su un pallet con una che sta
-       sciolta nel vano vuol dire decidere al posto di chi lavora se quella
-       merce sale sul pallet. Si rifiuta e si dice quale lotto e' di mezzo —
-       chi ha la merce davanti sposta prima l'altra riga, o carica anche
-       quella sull'unita'. Trovato al banco il 19/08, alla prima prova. */
-    const gia = await db.query('inventory', { criteria: { field: 'location_code', op: 'equals', value: to } });
-    const nostre = new Set(righe.map(r => r._id));
-    const scontro = gia.filter(r => !nostre.has(r._id) && righe.some(n => n.item_key === r.item_key));
-    if (scontro.length) {
-      const quali = [...new Set(scontro.map(r => r.item_key))].join(', ');
-      throw Object.assign(
-        new Error(`In ${to} c'e' gia' ${quali} fuori da questa unita': spostare quella riga prima, o caricarla sull'unita'`),
-        { status: 409 });
-    }
+       Fin qui: portare un bancale in un vano dove la stessa merce sta gia'
+       su un ALTRO bancale rispondeva 409. Tre pallet dello stesso prodotto
+       su una campata sono la cosa piu' normale che ci sia, e il sistema li
+       rifiutava. Andrea, il 09/09: «non dare un limite di UDC in una
+       ubicazione, quel limite lo da' la realta'».
+
+       Il problema che il rifiuto difendeva era vero — due righe con la
+       stessa chiave lette con `find` danno un saldo che dipende dall'ordine
+       di caricamento — ma la difesa vietava la realta'. Quel che identifica
+       una riga non e' `(vano, merce)`: e' `(vano, merce, unita')`, dove
+       «nessuna unita'» e' la merce sciolta a terra. Con `rigaConChiave` che
+       sceglie per davvero e il client che somma tutte le righe
+       (`modules/righeVano.ts`), l'ambiguita' non c'e' piu'. */
     const ora = Date.now();
     for (const r of righe) {
       r.location_code = to;

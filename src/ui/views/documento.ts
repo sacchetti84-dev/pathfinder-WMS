@@ -297,13 +297,13 @@ export const VistaDocumento = {
     }
     if (usable.length === 1) { this._editSelectNewLineItem(usable[0]); return; }
     // Più ubicazioni: mostra elenco
-    let html = '<div class="max-h-[160px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-2">Item presente in più ubicazioni:</div>';
+    let html = '<div class="max-h-[160px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-2">Questa merce sta su più righe — vano e bancale:</div>';
     for (const it of usable) {
       const p = App._payload(it);
       html += `<div class="inv-item-row cursor-pointer text-label-small" onclick="App._editSelectNewLineEnc('${p}')">
         <div class="inv-info">
           <div class="inv-code">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-label-small">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong></div>
+          <div class="inv-lot">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong>${this._badgeUdc(it)}</div>
         </div>
       </div>`;
     }

@@ -504,7 +504,26 @@ export const VistaMappa = {
        il numero, che è il dato che comunque serviva. */
     const perLarghezza = Math.floor((size - 6) / dentro.length) - 1;
     const lato = Math.min(perLarghezza, Math.floor(size * 0.34));
-    if (lato < 5) return `<span class="cell-udc-many" title="${dentro.length} unità di carico">▣${dentro.length}</span>`;
+    /* 2.37 — CHE COSA PORTA OGNI BANCALE, e non quante righe ha.
+
+       Tre pallet dello stesso lotto su una campata si somigliano: sono tre
+       quadratini identici, e «2 righe» non ne distingue nessuno. Il titolo
+       dice il codice, che cosa porta e quanti colli — che è la sola cosa che
+       li distingue quando si sta cercando quello giusto. */
+    const cosaPorta = (id: string) => {
+      const righe = Store.righeDiUdc(id);
+      const capo = righe[0];
+      if (!capo) return 'vuota';
+      const colli = righe.reduce((n, r) => n + (Number(r.qty) || 0), 0);
+      const prima = `${capo.article_code}#${capo.lot_code}`;
+      return righe.length === 1
+        ? `${prima} · ${colli} Coll.`
+        : `${prima} e altre ${righe.length - 1} · ${colli} Coll.`;
+    };
+    if (lato < 5) {
+      return `<span class="cell-udc-many" title="${this._esc(dentro.length + ' unità di carico: '
+        + dentro.map((u) => `${u.udc_id} (${cosaPorta(u.udc_id)})`).join(' · '))}">▣${dentro.length}</span>`;
+    }
     /* Il colore dice lo stato SOLO col filtro acceso, e mai da solo: il
        titolo lo scrive, perché un magazzino ha daltonici come qualunque
        altro posto e un quadratino di sei pixel non ha spazio per un'icona. */
@@ -512,15 +531,19 @@ export const VistaMappa = {
       ? this._pfStatiBancali() as Map<string, StatoBancale> : null;
     return `<span class="cell-udc-box">${dentro.map((u) => {
       const stato = stati?.get(u.udc_id) || null;
-      return `<i class="cell-udc${stato ? ` pf-${stato}` : ''}"
+      const inMano = this._udcInMano === u.udc_id;
+      /* 2.37 — E SI PRENDE TOCCANDOLO. Era solo trascinabile, e trascinare
+         non porta in un'altra zona (§ prendi-e-posa). `stopPropagation`
+         perché il tocco sulla CELLA, con qualcosa in mano, posa: senza,
+         toccare un bancale per prenderlo lo poserebbe dov'è già. */
+      return `<i class="cell-udc${stato ? ` pf-${stato}` : ''}${inMano ? ' cell-udc--mano' : ''}"
       style="--lato:${lato}px"
       draggable="true"
       data-udc="${this._esc(u.udc_id)}"
       ondragstart="App._udcDragStart(event,'${this._esc(u.udc_id)}')"
-      title="${this._esc(u.udc_id)}${stato ? ` — ${ETICHETTE_STATO[stato]}` : ''} — ${(() => {
-        const n = Store.righeDiUdc(u.udc_id).length;
-        return `${n} ${n === 1 ? 'riga' : 'righe'}`;
-      })()} · trascina per spostarla"></i>`;
+      onclick="event.stopPropagation();App._udcPrendi('${this._esc(u.udc_id)}')"
+      title="${this._esc(u.udc_id)}${stato ? ` — ${ETICHETTE_STATO[stato]}` : ''} — ${this._esc(cosaPorta(u.udc_id))}${
+        inMano ? ' · IN MANO — tocca un vano per posarla' : ' · tocca per prenderla, o trascinala'}"></i>`;
     }).join('')}</span>`;
   },
 

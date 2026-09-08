@@ -179,6 +179,9 @@
   cursor: grab;
 }
 .cell-udc:active { cursor: grabbing; }
+/* 2.37 — il bancale che si ha in mano si vede anche nel vano da cui
+   viene: senza, si cambia zona e non si sa piu' quale si sta portando. */
+.cell-udc--mano { outline: 2px solid var(--sx-warning); outline-offset: 1px; }
 /* 2.20 — I BANCALI DI PRODOTTO FINITO, COL FILTRO ACCESO. Il colore porta
    uno stato — pronto, impegnato su un DDT, spedito — e non decora niente:
    col filtro spento restano del colore di ogni altra unita' di carico. Non

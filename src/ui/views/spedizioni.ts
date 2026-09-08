@@ -598,14 +598,14 @@ export const VistaSpedizioni = {
     const usable = enriched.filter(it => it._availableQty > 0);
     if (!usable.length) { info.innerHTML = `<div class="text-body-small text-sx-warning mt-2">${this._ico('alert-triangle')} Tutta la giacenza di ${this._esc(art)}#${this._esc(lot)} è impegnata</div>`; details.classList.add('hidden'); return; }
     if (usable.length === 1) { this._shipSelectItem(usable[0]); return; }
-    let html = '<div class="max-h-[200px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Item presente in più ubicazioni — seleziona da quale prelevare:</div>';
+    let html = '<div class="max-h-[200px] overflow-y-auto mt-3"><div class="text-label-small text-sx-text-muted mb-3">Questa merce sta su più righe — seleziona da quale prelevare (il vano, e su quale bancale):</div>';
     for (const it of usable) {
       const p = App._payload(it);
       const pendBadge = it._pendingQty > 0 ? ` <span class="badge badge-amber">${it._pendingQty} prenotati</span>` : '';
       html += `<div class="inv-item-row cursor-pointer" onclick="App._shipSelectEnc('${p}')">
         <div class="inv-info">
           <div class="inv-code text-sx-orange">${this._esc(it.article_code)} <span class="text-sx-text-muted font-normal text-body-small">${this._esc(it.article_description || '')}</span></div>
-          <div class="inv-lot">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong>${pendBadge}${it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : ''}</div>
+          <div class="inv-lot">L:${this._esc(it.lot_code)} · ${this._ico('map-pin')} ${this._esc(it.location_code)} · <strong>${it._availableQty}/${it._totalQty} Coll.</strong>${this._badgeUdc(it)}${pendBadge}${it.expiry_date ? ` · scad. ${this._esc(it.expiry_date)}` : ''}</div>
         </div>
         <span class="text-sx-orange text-body-small">${this._ico('truck')} Seleziona</span>
       </div>`;

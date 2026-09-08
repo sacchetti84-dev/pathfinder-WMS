@@ -97,6 +97,7 @@ import { statoUbicazione, contaStati, calcolaKPI } from './statistiche';
 import { sessioneDi, sessioneDiCompito, altriInPrelievo } from '../modules/sessioni';
 import { verificaConformita } from '../modules/conformita';
 import { risolviVano } from '../modules/vano';
+import { colliDiMerce, rigaDoveSommare, rigaDaCuiTogliere } from '../modules/righeVano';
 import type { VanoRisolto } from '../modules/vano';
 import { App } from '../ui/app.js';
 
@@ -1127,7 +1128,15 @@ const Store = {
   async addItem(locationCode: string, articleCode: string, articleDescription: string, lotCode: string, expiryDate: string = '', notes: string = '', qty: number = 1, qtyUom: number | null = null, packsIn: number[] | null = null, opzioni: { regolaBase?: boolean } = {}) {
     const itemKey = `${articleCode}#${lotCode}`;
     const bucket = this._invByLoc.get(locationCode) || [];
-    const existing = bucket.find(i => i.item_key === itemKey);
+    /* 2.37 — SI SOMMA ALLA MERCE SCIOLTA, NON AL PRIMO CHE CAPITA.
+
+       Qui si cercava la prima riga con quella chiave, e in un vano dove il
+       lotto sta su un bancale quella riga è la riga DEL BANCALE: posizionare
+       dei colli glieli sommava sopra. Nessuno li aveva caricati, e il pallet
+       cresceva da solo. `addItem` porta merce sciolta — chi la carica su
+       un'unità è `assegnaAUdc`, con un gesto suo — quindi cerca una riga
+       sciolta e, se non c'è, ne fa una nuova accanto ai bancali. */
+    const existing = rigaDoveSommare(bucket, itemKey, null);
     const now = Date.now();
 
     /* 1.4.2 — la confezione si congela QUI, al primo posizionamento: da
@@ -1317,9 +1326,13 @@ const Store = {
   async removeItem(locationCode: string, itemKey: string, qtyRemove: number | null = null, qtyUomRemove: number | null = null, scelte: Scelta[] | null = null) {
     if (qtyRemove !== null) qtyRemove = Store._assertPositiveInt(qtyRemove, 'Quantità da prelevare');
     const bucket = this._invByLoc.get(locationCode) || [];
-    const idx = bucket.findIndex(i => i.item_key === itemKey);
-    if (idx === -1) return null;
-    const item = bucket[idx]!;
+    /* 2.37 — PRIMA LO SCIOLTO, POI I BANCALI. La regola degli spaiati
+       applicata ai contenitori: aprire un imballo mentre a terra c'è merce
+       già aperta è lavoro in più e un pallet rotto per niente. Sta in
+       `modules/righeVano` perché la applica anche il servizio. */
+    const item = rigaDaCuiTogliere(bucket, itemKey);
+    if (!item) return null;
+    const idx = bucket.indexOf(item);
     const qtyBefore = item.qty || 1;
     /* 2.0 — L'UNITÀ DI CARICO MUORE QUANDO ESCE L'ULTIMA RIGA, e l'ultima
        riga esce da qui: prelievo, spedizione, smaltimento, quarantena
@@ -3371,18 +3384,23 @@ const Store = {
     if (!this.locationExists(dest)) throw new Error(`Ubicazione ${dest} inesistente`);
 
     const righe = this.righeDiUdc(id);
-    /* La stessa guardia del servizio, davanti invece che dietro: qui c'è la
-       cache e si può dire di no PRIMA di far partire una transazione. Il
-       perché — due righe con la stessa chiave nello stesso vano, e un saldo
-       che dipende dall'ordine di caricamento — sta in `/api/op/moveUdc`, e
-       lì resta anche se questa sparisse. */
-    const gia = this._invByLoc.get(dest) || [];
-    const scontro = [...new Set(
-      gia.filter(r => r.udc_id !== id && righe.some(n => n.item_key === r.item_key))
-         .map(r => r.item_key))];
-    if (scontro.length) {
-      throw new Error(`In ${dest} c'è già ${scontro.join(', ')} fuori da questa unità: sposta prima quella riga, o caricala sull'unità`);
-    }
+    /* 2.37 — IL RIFIUTO CHE VIETAVA UNO SCAFFALE VERO SE N'È ANDATO.
+
+       Fin qui: portare un bancale in un vano dove la stessa merce sta già su
+       un ALTRO bancale rispondeva «c'è già 6001418#261571 fuori da questa
+       unità». Tre pallet dello stesso prodotto su una campata sono la cosa
+       più normale che ci sia, e il sistema li rifiutava. Andrea, il 09/09:
+       «non dare un limite di UDC in una ubicazione, quel limite lo dà la
+       realtà».
+
+       Il rifiuto difendeva da un problema vero — due righe con la stessa
+       chiave nello stesso vano, lette con `find`, danno un saldo che dipende
+       dall'ordine di caricamento — ma difendeva vietando la realtà. Quel che
+       identifica una riga non è `(vano, merce)`: è `(vano, merce, unità)`,
+       dove «nessuna unità» è la merce sciolta a terra. Con le tre regole di
+       `modules/righeVano` applicate qui e sul servizio — la somma, la riga
+       su cui sommare, la riga da cui togliere — l'ambiguità non c'è più, e
+       non c'è più niente da vietare. */
 
     if (Persistence.supportsRemoteOps) {
       const esito = await Persistence.op!<{ ok: boolean; from: string; to: string; righe: number }>(
@@ -3870,10 +3888,16 @@ const Store = {
     return total;
   },
 
+  /* 2.37 — LA SOMMA DI TUTTE LE RIGHE, NON LA PRIMA.
+
+     Qui si leggeva `find`, e su una campata con tre bancali dello stesso
+     lotto il saldo ne contava uno: un terzo del vero, con l'aria di un
+     saldo. Non era un difetto nuovo della 2.37 — l'indice
+     `[location_code + item_key]` è di ricerca e non unico dalla voce 98, e
+     due righe potevano nascere lo stesso — ma finché `moveUdc` rifiutava il
+     secondo bancale non si vedeva quasi mai. */
   getPhysicalQty(location_code: string, item_key: string) {
-    const item = (this._invByLoc.get(location_code) || []).find(i => i.item_key === item_key);
-    if (!item) return 0;
-    return item.qty || 1;
+    return colliDiMerce(this._invByLoc.get(location_code) || [], item_key);
   },
 
   getAvailableQty(location_code: string, item_key: string, excludeDocId: string | null = null) {

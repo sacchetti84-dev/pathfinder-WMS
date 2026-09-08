@@ -888,25 +888,69 @@ const call = async (metodo, url, corpo, cliente = 'T1', { senzaChiave = false } 
   const senzaDove = await call('POST', '/api/op/moveUdc', { udc_id: 'UDC-000001' });
   ok('senza destinazione non si sposta niente', senzaDove.stato === 400, 'stato ' + senzaDove.stato);
 
-  /* IL DOPPIONE DI CHIAVE. L'indice [location_code+item_key] e' di ricerca,
-     non unico: senza questa guardia il database accetterebbe due righe
-     uguali nello stesso vano, e il client ne leggerebbe una a caso.
-     Trovato al banco il 19/08, alla prima prova dello spostamento. */
+  /* 2.37 — TRE BANCALI DELLA STESSA MERCE IN UN VANO SONO UNO SCAFFALE.
+
+     Fin qui questo blocco provava il RIFIUTO: portare un pallet in un vano
+     dove la stessa chiave stava gia' fuori dall'unita' dava 409. Difendeva
+     da un problema vero — due righe con la stessa chiave lette con `find`
+     danno un saldo che dipende dall'ordine di caricamento — ma vietava una
+     campata normale, e Andrea l'ha segnalato il 09/09: «se nella realta'
+     l'ubicazione di uno scaffale porta 3 bancali il sistema deve essere in
+     grado di fare lo stesso».
+
+     Adesso lo spostamento riesce, e la prova guarda che le DUE righe
+     coesistano davvero: a distinguerle e' `udc_id`, ed e' la terna
+     `(vano, merce, unita')` a identificare una riga. La riga sciolta di
+     prima resta dov'e' e resta sciolta: non si fonde con quella del pallet
+     — caricarla sarebbe una decisione di chi lavora, non del sistema. */
   await call('POST', '/api/c/inventory/bulk', [
     { location_code: 'DP-U-20', item_key: 'MP-9#U1', article_code: 'MP-9', lot_code: 'U1', qty: 3 }
   ]);
-  const scontro = await call('POST', '/api/op/moveUdc', { udc_id: 'UDC-000001', to: 'DP-U-20' });
-  const restata = await leggiRiga('MP-9#U1');
-  ok("non si sposta dove la stessa chiave sta gia fuori dall unita",
-     scontro.stato === 409 && restata.location_code === 'DP-U-09',
-     scontro.dati.error);
+  const insieme = await call('POST', '/api/op/moveUdc', { udc_id: 'UDC-000001', to: 'DP-U-20' });
+  const nelVano = (await call('GET', '/api/c/inventory')).dati
+    .filter(r => r.location_code === 'DP-U-20' && r.item_key === 'MP-9#U1');
+  ok('un bancale entra dove la stessa merce sta gia sciolta',
+     insieme.stato === 200 && nelVano.length === 2,
+     `stato ${insieme.stato} · ${nelVano.length} righe in DP-U-20`);
 
-  ok("e il rifiuto dice QUALE lotto e di mezzo",
-     String(scontro.dati.error || '').includes('MP-9#U1'), scontro.dati.error);
+  ok('e le due righe si distinguono per unita: una sul pallet, una sciolta',
+     nelVano.some(r => r.udc_id === 'UDC-000001') && nelVano.some(r => !r.udc_id),
+     nelVano.map(r => `${r.item_key}@${r.udc_id || 'sciolta'}:${r.qty}`).join(' · '));
+
+  ok('la riga sciolta non si e fusa con quella del pallet',
+     nelVano.find(r => !r.udc_id)?.qty === 3,
+     String(nelVano.find(r => !r.udc_id)?.qty));
+
+  /* 2.37 — E DA QUALE DELLE DUE SI PRELEVA: dalla sciolta.
+
+     Con un pallet e dei colli a terra della stessa merce nello stesso vano,
+     `removeItem` riceve solo `(vano, chiave)` e deve scegliere. La regola e'
+     quella degli spaiati applicata ai contenitori — si consuma quel che e'
+     gia' aperto prima di aprire un imballo — ed e' la stessa che applica il
+     client in `modules/righeVano.ts`. Se divergessero, quale bancale cala
+     dipenderebbe da chi ha risposto per primo.
+
+     Prendendone 2 su 3: la riga sciolta scende a 1 e il pallet non si tocca. */
+  const preso = await call('POST', '/api/op/removeItem',
+    { location_code: 'DP-U-20', item_key: 'MP-9#U1', qty: 2 });
+  const dueRighe = (await call('GET', '/api/c/inventory')).dati
+    .filter(r => r.location_code === 'DP-U-20' && r.item_key === 'MP-9#U1');
+  const sciolta = dueRighe.find(r => !r.udc_id);
+  const sulPallet = dueRighe.find(r => r.udc_id === 'UDC-000001');
+  ok('si preleva dalla merce sciolta, non dal bancale',
+     preso.stato === 200 && sciolta?.qty === 1,
+     `sciolta ${sciolta?.qty} · pallet ${sulPallet?.qty}`);
+
+  ok('e il bancale resta intero',
+     sulPallet && sulPallet.qty > 0,
+     `pallet ${sulPallet?.qty}`);
 
   const conMov = await call('POST', '/api/op/moveUdc',
     { udc_id: 'UDC-000001', to: 'DP-U-10',
-      movement: { type: 'MOVE', article_code: 'MP-9', location_code: 'DP-U-09', dest_location: 'DP-U-10', user: 'ANDS' } });
+      /* 2.37 — parte da DP-U-20, dove il pallet e' appena entrato accanto
+         alla riga sciolta: prima quello spostamento era rifiutato e il
+         pallet era rimasto in DP-U-09. */
+      movement: { type: 'MOVE', article_code: 'MP-9', location_code: 'DP-U-20', dest_location: 'DP-U-10', user: 'ANDS' } });
   const registro = (await call('GET', '/api/c/mov_log')).dati.filter(m => m.dest_location === 'DP-U-10');
   ok('il movimento entra a registro dentro la stessa transazione',
      conMov.stato === 200 && registro.length > 0, `${registro.length} righe a registro`);
@@ -923,7 +967,7 @@ const call = async (metodo, url, corpo, cliente = 'T1', { senzaChiave = false } 
      `${merce.length} righe di merce su ${righeUdc.length} partite`);
 
   ok('ognuna dice da dove a dove, quanti colli e chi ha firmato',
-     merce.every(m => m.location_code === 'DP-U-09' && m.dest_location === 'DP-U-10'
+     merce.every(m => m.location_code === 'DP-U-20' && m.dest_location === 'DP-U-10'
                    && typeof m.qty_before === 'number' && m.user === 'ANDS'),
      merce.map(m => `${m.article_code}#${m.lot_code}:${m.qty_before}`).join(' · ') || '(nessuna)');
 

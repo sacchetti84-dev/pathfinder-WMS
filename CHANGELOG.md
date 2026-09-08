@@ -15,6 +15,54 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.37.0 — 2026-09-09
+
+**A bin holds as many pallets as fit, and reality decides how many.**
+
+The limit existed, but not where it looked. Several units in one bin were
+already drawn on the map and listed in the panel; what refused was the move:
+bringing a pallet into a bin where the **same goods** already sat on another
+pallet answered "that lot is already here outside this unit". Three pallets of
+the same product on one rack bay is the most ordinary thing there is.
+
+The refusal defended a real problem. The `[location + item_key]` index is for
+searching and is not unique, so the database accepts the duplicate and anyone
+reading with `find` gets one of them — which one depends on load order. Three
+pallets of one lot gave a balance that counted one.
+
+But it defended by forbidding reality. The pair `(bin, goods)` identifies
+nothing, because goods sit **on** something: what identifies a row is the
+triple `(bin, goods, unit)`, where "no unit" is a value like any other and
+means loose goods on the floor. With the wrong constraint gone, three
+questions remain, and they live in one module, tested cold:
+
+- **how much is there** — the sum of all rows, not the first. This was already
+  wrong before this release; the refusal simply kept it out of sight;
+- **where does it get added** — to the row with the same unit. Loose goods add
+  to loose goods: adding them to a pallet's row means loading them onto it
+  without anyone having done so;
+- **which row does it come out of** — loose goods first. That is the
+  broken-pack rule applied to containers: you use up what is already open
+  before opening a wrapped one.
+
+The service applies the same three, because if they diverged, which pallet
+goes down would depend on who answered first.
+
+**And every list that makes you choose now names the pallet.** Choosing a
+source showed three identical lines — same bin, same quantity — and the choice
+was blind. Four lists now carry the unit, and only on rows that have one. On
+the map each square's tooltip says what that pallet carries and how many
+packs, instead of "2 rows": three identical pallets can be told apart only
+that way.
+
+Three service tests defended the refusal; they were rewritten on the new rule
+rather than deleted, and now require the two rows to coexist, to be told apart
+by unit, and the loose row not to merge into the pallet's. A fourth is new.
+
+1,723 client tests in 67 files; 325 on the service; 101 on the benches.
+
+---
+
 ## 2.36.0 — 2026-09-09
 
 **Load units are handled from where the warehouse is looked at.**

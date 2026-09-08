@@ -699,8 +699,8 @@ Aprendo `MAPPER` si vedono tre cose diverse, e non vanno confuse.
 | `npm run dev` | Sviluppo con ricarica automatica su `localhost:5173` |
 | `npm run build` | Rifà `consegna/`: l'applicativo, il manifesto e una copia di queste istruzioni. **Non è la cartella che il servizio serve** |
 | `npm run check` | Controllo dei tipi, client **e** servizio |
-| `npm test` | **1.703 collaudi in 66 file**, senza servizio — ~5 secondi |
-| `cd server && node --test` | **171 prove sul servizio**, con database usa-e-getta |
+| `npm test` | **1.723 collaudi in 67 file**, senza servizio — ~5 secondi |
+| `cd server && node --test` | **174 prove sul servizio**, con database usa-e-getta |
 | `node banco/ciclo/gira.cjs` | **47 passi** del ciclo intero, dal carico al consumo: rifà il database, accende il banco sulla 4199, spegne |
 | `node banco/gerarchia.cjs` | **40 prove sui ruoli**, dove i ruoli valgono davvero: sul servizio |
 | `node banco/migrazione/dalla-1.4.cjs` | **14 prove** sul salto dalla 1.4 a questa |

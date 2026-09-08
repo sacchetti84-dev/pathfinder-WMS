@@ -135,7 +135,7 @@ network.
 ```bash
 npm ci                 # exact dependency set from package-lock.json
 npm run check          # TypeScript, application and service, must be clean
-npm test               # 1,703 checks in 66 files
+npm test               # 1,723 checks in 67 files
 npm run build          # produces consegna/Pathfinder <version>/
 ```
 
@@ -186,7 +186,7 @@ server/        the data service — Node + Express, two database drivers
   lib/         all service logic once, for both databases; all SQL in one file
   migrazione/  SQLite → PostgreSQL migration and its audit
   test/        service checks, schema migration, installation scripts
-test/          1,703 checks that run without a service
+test/          1,723 checks that run without a service
 banco/         benches that need a running service (not part of `npm test`)
   gerarchia    roles, enforced where they are enforced: on the service
   ciclo/       a whole cycle from goods-in to consumption
@@ -514,9 +514,9 @@ From the package, in an administrator window:
 
 | Suite | Checks | Command |
 |---|---|---|
-| Application | **1,703** in 66 files | `npm test` |
+| Application | **1,723** in 67 files | `npm test` |
 | Types | application and service | `npm run check` |
-| Service | **171** | `node server/test/collaudo.js` |
+| Service | **174** | `node server/test/collaudo.js` |
 | **Zebra label printing** | **100** | `node server/test/collaudo-stampa.js` |
 | Installation scripts | **43** | `node server/test/collaudo-installazione.js` |
 | Schema migration | **8** | `node server/test/collaudo-migrazione-1.4.js` |

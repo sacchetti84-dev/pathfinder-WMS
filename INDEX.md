@@ -545,6 +545,65 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.37.0 — costruita, non installata
+
+**UN VANO PORTA I BANCALI CHE CI STANNO, E A DIRE QUANTI È LA REALTÀ.**
+Andrea, il 09/09: «una ubicazione può portare al suo interno più di una UDC.
+Se nella realtà l'ubicazione di uno scaffale porta 3 bancali il sistema deve
+essere in grado di fare lo stesso: non dare un limite di UDC in una
+ubicazione, quel limite lo dà la realtà».
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.37.0\` |
+| impronta | `71e15cda2a4784e74ac73b62c8f7ac5ce8c8133a34285c919c4fd721945e31a4` |
+| byte | **2.222.122** in **8 file**, `costruita 2026-09-08T22:39:29Z` |
+| collaudi | **1.723 in 67 file** (una saltata) · `npm run check` pulito · **174** + 100 + 43 + 8 sul servizio · 40 + 47 + 14 sui banchi |
+| provata | **a video**: tre bancali dello stesso lotto portati in `MAG-ACC-11`, saldo 11 colli, tre blocchi nel pannello, tre quadratini in mappa ognuno col suo contenuto, e l'elenco di scelta che nomina il bancale |
+
+**IL LIMITE C'ERA, MA NON DOVE SEMBRAVA.** Le unità in un vano erano già più
+d'una — la mappa ne disegna i quadratini dalla 2.1, il pannello le elenca
+dalla 2.36 — e a rifiutare era `moveUdc`: portare un bancale in un vano dove
+la **stessa merce** sta già su un altro bancale rispondeva «c'è già
+6001418#261571 fuori da questa unità». Tre pallet dello stesso prodotto su una
+campata sono la cosa più normale che ci sia.
+
+**E IL RIFIUTO DIFENDEVA DA UN PROBLEMA VERO.** L'indice
+`[location_code + item_key]` è di ricerca e **non unico** — voce 98 — quindi
+il database accetta il doppione e chi legge con `find` ne trova UNA: quale,
+dipende dall'ordine di caricamento. Tre bancali dello stesso lotto davano un
+saldo che ne contava uno.
+
+**MA SI DIFENDEVA VIETANDO LA REALTÀ.** La coppia `(vano, merce)` non
+identifica niente, perché la merce sta SU QUALCOSA: a identificare una riga è
+la **terna `(vano, merce, unità)`**, dove «nessuna unità» è un valore come gli
+altri ed è la merce sciolta a terra. Tolto il vincolo sbagliato, le domande
+che restano sono tre, e stanno in `modules/righeVano.ts`, provate da ferme:
+
+| | |
+|---|---|
+| **quanta ce n'è** | la SOMMA di tutte le righe. Era già sbagliato prima della 2.37 — due righe potevano nascere lo stesso — ma finché il rifiuto c'era non si vedeva quasi mai |
+| **dove si aggiunge** | sulla riga con la STESSA unità. Merce sciolta si somma a merce sciolta: sommarla alla riga di un bancale vuol dire caricarcela sopra senza che nessuno l'abbia fatto |
+| **da dove si toglie** | dalla merce sciolta per prima. È la regola degli spaiati applicata ai contenitori: si consuma quel che è aperto prima di aprire un imballo |
+
+Le stesse tre le applica il **servizio** — `rigaConChiave` sceglie invece di
+prendere la prima — perché se divergessero quale bancale cala dipenderebbe da
+chi ha risposto per primo.
+
+**E OGNI ELENCO CHE FA SCEGLIERE ORA DICE QUALE BANCALE.** Provato a video: la
+scelta della partenza mostrava tre voci identiche — «MAG-ACC-11 · 4 Coll.» tre
+volte — e chi sceglie sceglieva alla cieca. Quattro elenchi (spedizioni,
+trasferimento, prelievo produzione, riga di documento) portano il distintivo
+dell'unità, e solo sulle righe che ne hanno una. **In mappa** ogni quadratino
+dice nel titolo che cosa porta quel bancale e quanti colli, invece di «2
+righe»: tre pallet identici si distinguono solo così.
+
+**TRE PROVE DEL SERVIZIO DIFENDEVANO IL RIFIUTO**, e sono state riscritte
+sulla regola nuova invece che cancellate: adesso pretendono che le due righe
+COESISTANO e che si distinguano per unità, e che la riga sciolta non si fonda
+con quella del pallet. Più una quarta, nuova, sul prelievo che parte dallo
+sciolto — verificata rimettendo il difetto: senza la regola prende dal bancale.
+
 ### La 2.36.0 — costruita, non installata
 
 **LE UNITÀ DI CARICO SI GESTISCONO DA DOVE SI GUARDA IL MAGAZZINO.** Chiesto

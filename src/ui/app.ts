@@ -1575,6 +1575,23 @@ const App = monolite({
   /** L'ultimo «unità → vano» annunciato. Vedi `_vanoDaCampo`. */
   _vanoDetto: '',
 
+  /* ═══ 2.37 · SU QUALE BANCALE STA QUESTA RIGA ════════════════════════
+
+     Dalla 2.37 un vano porta più bancali della STESSA merce, e gli elenchi
+     che fanno scegliere fra le righe si trovavano davanti tre voci
+     identiche: «MAG-ACC-11 · 4 Coll.» tre volte. Chi sceglie, sceglie alla
+     cieca — e la riga che prende decide quale pallet cala.
+
+     Il distintivo si mette DOVE SI SCEGLIE. Sulle righe che stanno sciolte
+     non si scrive niente: un contrassegno su tutto non distingue niente, ed
+     è la stessa regola del chip «fuori posto». */
+  _badgeUdc(riga: { udc_id?: string | null } | null | undefined): string {
+    const id = String(riga?.udc_id ?? '').trim();
+    if (!id) return '';
+    return ` <span class="badge badge-muted" title="Questa riga sta sull’unità di carico ${this._esc(id)}">`
+      + `${this._ico('stack')} ${this._esc(id)}</span>`;
+  },
+
   /* ═══════════════════════════════════════════════════════════════════
      2.9 — IL CAMPO SCANSIONATO BENE SI VEDE DA LONTANO
      © Andrea Sacchetti — Dietopack S.r.l.
