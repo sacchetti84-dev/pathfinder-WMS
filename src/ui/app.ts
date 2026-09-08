@@ -124,6 +124,7 @@ interface DalleViste {
   exportData(): Promise<void>;
   startMov(mode: string, dir?: string | null): void;
   _goOp(mode: string, sub?: string | null): void;
+  _prepAvvia(t: unknown): Promise<void>;
   _formSpedizioni(el: HTMLElement): void;
   _checkPendingPickSession(): Promise<void>;
   _flushRecoveryQueue(): Promise<void>;

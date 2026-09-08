@@ -787,6 +787,11 @@ export const VistaCompiti = {
      scaffale, quindi le verifiche di scansione NON si saltano — quello che
      si salta e' la ricerca, non il controllo. */
   _taskLancia(t, op) {
+    /* 2.31 — LA PREPARAZIONE NON PRECOMPILA UNA MASCHERA: COSTRUISCE UN
+       PERCORSO. Gli altri sei tipi aprono Movimenta e riempiono dei campi;
+       questo rilegge il documento, ne ricava le tappe e apre il giro. Esce
+       prima, quindi, e non passa da `startMov`. */
+    if (t?.type === 'PREP_SHIP') { void this._prepAvvia(t); return; }
     this.switchView('movimenta');
     this.startMov(op.modo, op.dir || null);
     const p = ((t.payload && typeof t.payload === 'object') ? t.payload : {}) as PayloadCompito;

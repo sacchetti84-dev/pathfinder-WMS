@@ -4030,6 +4030,89 @@ const Store = {
     return removed;
   },
 
+  /* ═══ 2.31 · UNA TAPPA DI PREPARAZIONE SPOSTA, NON SCARICA ═══════════════
+     È la differenza che regge tutto il flusso nuovo, e non è una scelta di
+     comodo: discende da due regole che c'erano già.
+
+     · Un DDT pendente PRENOTA la merce — `getPendingQtyForItem`. Finché non
+       è evaso, quei colli esistono in giacenza e nessun altro può prenderli.
+     · L'EVASIONE la scarica — `_evadiSpedizione` chiama `removeItem`.
+
+     Se la tappa scaricasse (come fa `commitPickStop` per il conto di
+     produzione), l'evasione troverebbe il vano vuoto e direbbe «non è più
+     presente»: il documento resterebbe pendente per sempre, con la merce già
+     fisicamente partita. Due scarichi della stessa merce non tornano.
+
+     Quindi la merce si SPOSTA, dallo scaffale alla zona di imballaggio, e
+     resta in giacenza fino al camion. È esattamente quel che fa già il
+     carico del camion coi bancali dalla 2.21 — `_carRiallineaDoc` — e questa
+     è la stessa cosa applicata alla merce sciolta.
+
+     IL DOCUMENTO VA RIALLINEATO, e lo fa chi chiama: la riga del DDT dice da
+     quale vano esce la merce, e dopo lo spostamento quel vano è un altro.
+     Un documento che nomina il vano di prima manda l'evasione a cercare
+     dove non c'è più niente. */
+  async commitPreparazioneStop({ session, stop, qty, verso, movement, scelte = null }: {
+    session: SessionePrelievo; stop: Record<string, any>; qty: number; verso: string;
+    movement: Partial<Movimento> & { type: MovTipo }; scelte?: Scelta[] | null;
+  }) {
+    if (!session?.session_id) throw new Error('Sessione di prelievo priva di identificativo');
+    if (!stop) throw new Error('Tappa non identificata');
+    if (!verso) throw new Error('Nessuna zona di imballaggio: la merce non ha dove andare');
+    if (String(verso).toUpperCase() === String(stop.location_code).toUpperCase()) {
+      throw new Error('La merce è già nella zona di imballaggio');
+    }
+
+    let mosso: Record<string, any> | null = null;
+    try {
+      await Persistence.transaction(['inventory', 'mov_log', 'pick_session', 'meta'], async () => {
+        mosso = await this.removeItem(stop.location_code, stop.item_key, qty, null, scelte);
+        if (!mosso) throw new Error('Spostamento non riuscito: la merce non è più nel vano');
+
+        const cfg = this.getUomConfig(mosso.article_code, mosso.lot_code);
+        const colli = mosso._packs_out ? mosso._packs_out.length : qty;
+        /* LE UM CHE ARRIVANO SONO QUELLE CHE SONO USCITE, col segno girato.
+           `_qty_uom_delta` è negativo perché la merce è uscita dal vano di
+           partenza; qui entra, e vale lo stesso numero. Ricavarlo da
+           `cfg.per_collo × colli` sarebbe l'unità inventata della voce 19
+           applicata a un trasferimento: su colli di misura diversa i due
+           conti non tornano. */
+        await this.addItem(
+          verso, mosso.article_code, mosso.article_description || '', mosso.lot_code,
+          mosso.expiry_date || '', mosso.notes || '', colli,
+          typeof mosso._qty_uom_delta === 'number' ? Math.abs(mosso._qty_uom_delta) : null,
+          mosso._packs_out ?? null,
+        );
+
+        await this.logMovement({
+          ...movement,
+          qty_before: mosso._qty_before,
+          qty_delta: mosso._qty_delta,
+          qty_after: mosso._qty_after,
+          qty_uom_delta: mosso._qty_uom_delta ?? null,
+          ...(cfg ? { uom: cfg.uom } : {}),
+        });
+
+        stop.status = 'done';
+        stop.qty_picked = colli;
+        if (mosso._packs_out) stop.packs_picked = mosso._packs_out;
+        stop.uom_picked = typeof mosso._qty_uom_delta === 'number'
+          ? Math.abs(mosso._qty_uom_delta) : null;
+        /* Dove la merce è finita: serve a riallineare la riga del documento,
+           e a dirlo nel report senza doverlo ricavare dalla zona. */
+        stop.moved_to = verso;
+        stop.done_at = Date.now();
+        session.updated_at = Date.now();
+        await Persistence.put('pick_session', session);
+        this._applyToCache('pick_session', 'put', session);
+      });
+    } catch (err) {
+      try { await this.reloadCache(); } catch (e2) { console.error('[WM] commitPreparazioneStop — riallineamento cache:', e2); }
+      throw err;
+    }
+    return mosso;
+  },
+
   async archivePickReport(snap: Partial<ReportPrelievo> & { doc_id: string }) {
     if (!snap?.doc_id) return null;
     try {

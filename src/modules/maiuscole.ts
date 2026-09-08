@@ -38,7 +38,7 @@ const CAMPI_CODICE: ReadonlySet<string> = new Set([
   'ntLot', 'ntFrom', 'ntTo',
   /* Prelievo e trasferimenti */
   'pCambioArt', 'pCambioDest', 'pCambioLot', 'pProdArt', 'pProdLot', 'pProdOrder',
-  'rArt', 'rLoc', 'rLot', 'trfTo',
+  'rArt', 'rLoc', 'rLot', 'rUdc', 'trfTo',
   /* Documenti e spedizioni */
   'pEditArt', 'pEditDdt', 'pEditLot', 'pShipArt', 'pShipLot', 'pShipDdt',
   'pShipDestProvince', 'pShipDestVat',

@@ -29,6 +29,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   daPreparare, scansioniRichieste, motivoNonPreparabile, richiestaPreparazione,
+  daImballare, unitaGiaPronte, motivoNonChiudibile,
 } from '../src/modules/preparazione';
 
 const riga = (extra = {}) => ({
@@ -353,5 +354,117 @@ describe('richiestaPreparazione', () => {
     const prima = JSON.stringify(d);
     richiestaPreparazione(d, 'AS');
     expect(JSON.stringify(d)).toBe(prima);
+  });
+});
+
+/* LA CHIUSURA: CHE COSA RESTA DA IMBALLARE — 2.31
+
+   Il percorso finisce quando l'ultima tappa e' confermata; il LAVORO no. La
+   merce sciolta raccolta in corsia e' ancora un mucchio di colli sul
+   carrello, e quel che sale sul camion e' un'unita' imballata ed
+   etichettata. E' per questo che `PREP_SHIP` chiude al gesto e non a
+   residuo: un conto sui colli direbbe «fatto» a meta' lavoro.
+
+   Le prove cercano di far sbagliare in tre modi: contando una tappa non
+   trovata come merce in mano, rifacendo un'unita' che c'e' gia', e
+   dichiarando finito un lavoro che ha ancora tappe aperte. */
+const tappa = (extra = {}) => ({
+  status: 'done', udc_id: null, item_key: 'A#L1',
+  article_code: 'A', lot_code: 'L1', qty_picked: 5, kg_required: 5, um: 'KG',
+  ...extra,
+});
+
+describe('daImballare', () => {
+  it('la merce sciolta confermata e quel che va composto in unita', () => {
+    const d = daImballare([tappa()]);
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ item_key: 'A#L1', colli: 5, um: 'KG' });
+  });
+
+  /* UNA TAPPA NON TROVATA NON E' SUL CARRELLO. Metterla nell'elenco vorrebbe
+     dire chiedere di imballare qualcosa che l'operatore non ha in mano. */
+  it('una tappa non trovata non entra in quel che c e da imballare', () => {
+    expect(daImballare([tappa({ status: 'missing' })])).toEqual([]);
+    expect(daImballare([tappa({ status: 'pending' })])).toEqual([]);
+  });
+
+  /* UN PALLET PRESO INTERO E' GIA' UN'UNITA': ha codice, etichetta e
+     contenuto. Rifarne una attorno vorrebbe dire un secondo codice sullo
+     stesso legno, e un'etichetta che ne contraddice un'altra. */
+  it('un unita gia presa non si rifa', () => {
+    expect(daImballare([tappa({ udc_id: 'UDC-1' })])).toEqual([]);
+  });
+
+  it('due tappe dello stesso lotto si sommano in una riga sola', () => {
+    const d = daImballare([tappa({ qty_picked: 4 }), tappa({ qty_picked: 6 })]);
+    expect(d).toHaveLength(1);
+    expect(d[0].colli).toBe(10);
+  });
+
+  /* Il PRELEVATO vince sul CHIESTO: un prelievo parziale mette sul carrello
+     quel che e' sceso, non quel che era stato chiesto. */
+  it('conta quel che e stato prelevato, non quel che era stato chiesto', () => {
+    expect(daImballare([tappa({ qty_picked: 3, kg_required: 10 })])[0].colli).toBe(3);
+  });
+
+  it('ma senza il prelevato ripiega sul chiesto', () => {
+    expect(daImballare([tappa({ qty_picked: 0, kg_required: 10 })])[0].colli).toBe(10);
+  });
+
+  it('una tappa a zero da tutte e due le parti resta fuori', () => {
+    expect(daImballare([tappa({ qty_picked: 0, kg_required: 0 })])).toEqual([]);
+  });
+
+  it('senza tappe non esplode', () => {
+    expect(daImballare(null)).toEqual([]);
+    expect(daImballare([null, undefined])).toEqual([]);
+  });
+});
+
+describe('unitaGiaPronte', () => {
+  it('elenca i pallet presi interi, una volta ciascuno', () => {
+    const u = unitaGiaPronte([
+      tappa({ udc_id: 'UDC-1' }), tappa({ udc_id: 'UDC-1' }), tappa({ udc_id: 'UDC-2' }), tappa(),
+    ]);
+    expect(u).toEqual(['UDC-1', 'UDC-2']);
+  });
+
+  it('un pallet non trovato non e pronto', () => {
+    expect(unitaGiaPronte([tappa({ udc_id: 'UDC-1', status: 'missing' })])).toEqual([]);
+  });
+});
+
+describe('motivoNonChiudibile', () => {
+  it('con tappe ancora aperte non si chiude, e dice quante', () => {
+    const m = motivoNonChiudibile([tappa(), tappa({ status: 'pending' })], []);
+    expect(m).toMatch(/1 tappe/);
+  });
+
+  /* IL CASO CHE CONTA: percorso finito, ma la merce sciolta e' ancora un
+     mucchio di colli. Chiudere qui vorrebbe dire dichiarare pronto per il
+     camion qualcosa che non ha ne' imballo ne' etichetta. */
+  it('percorso finito ma merce sciolta senza unita: non si chiude', () => {
+    expect(motivoNonChiudibile([tappa()], [])).toMatch(/unit/i);
+  });
+
+  it('composta l unita, si chiude', () => {
+    expect(motivoNonChiudibile([tappa()], ['UDC-9'])).toBeNull();
+  });
+
+  /* Un giro di soli pallet non ha niente da imballare: i pallet sono gia'
+     unita', e pretendere una composizione bloccherebbe un lavoro finito. */
+  it('un giro di soli pallet si chiude senza comporre niente', () => {
+    expect(motivoNonChiudibile([tappa({ udc_id: 'UDC-1' })], [])).toBeNull();
+  });
+
+  /* UNA TAPPA NON TROVATA NON IMPEDISCE LA CHIUSURA: se la merce non c'e',
+     tenere aperta l'attivita' non la fa comparire. A rifiutare il documento
+     incompleto e' l'evasione, che e' il posto giusto. */
+  it('una tappa non trovata non tiene in ostaggio l attivita', () => {
+    expect(motivoNonChiudibile([tappa({ status: 'missing' })], [])).toBeNull();
+  });
+
+  it('senza tappe non esplode', () => {
+    expect(motivoNonChiudibile(null, null)).toBeNull();
   });
 });

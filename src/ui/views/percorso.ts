@@ -5,6 +5,8 @@ import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { OdpParser } from '../../modules/odpParser';
 import { PickRoute } from '../../modules/pickRoute';
+import { daPreparare, motivoNonPreparabile, daImballare, unitaGiaPronte, motivoNonChiudibile } from '../../modules/preparazione';
+import { zonaImballoDi, zoneImballo } from '../../modules/bancale';
 import { tappeAltrove, richiestaTrasferimento, tappaInAttesa, sitoDiCasa } from '../../modules/trasferimentiOdp';
 import { etichettaTipo } from '../../modules/compiti';
 import { descriviColli as descriviElencoColli, eccedenza as eccedenzaColli } from '../../modules/colli';
@@ -51,7 +53,9 @@ export const VistaPercorso = {
      primo e' il capofila finche' non si sceglie altrimenti. */
   _routeOrdini: [],
   _routeCapofila: '',
-  _routeScan: { loc: '', art: '', lot: '' },
+  /* 2.31 — `udc` accanto alle tre. Su una tappa di unità di carico è
+     l'UNICA che si chiede: articolo e lotto stanno sotto il cellophane. */
+  _routeScan: { loc: '', art: '', lot: '', udc: '' },
   /* 2.5 — PER QUALE TAPPA VALE LA SCANSIONE QUI SOPRA.
 
      `_routeScan` era azzerato dal render, e il render non è l'unico modo di
@@ -809,7 +813,7 @@ export const VistaPercorso = {
      scansione fatta nell'apertura precedente non vale più. */
   _routeNuovaApertura() {
     this._routeApertura = Date.now();
-    this._routeScan = { loc: '', art: '', lot: '' };
+    this._routeScan = { loc: '', art: '', lot: '', udc: '' };
     this._routeScanChiave = '';
   },
 
@@ -946,8 +950,8 @@ export const VistaPercorso = {
        mostra il campo ① oppure la banda verde a seconda di questa, e
        calcolarla dopo vorrebbe dire disegnare col valore di prima. */
     const vanoOk  = !!current && !inPausa && this._routeScanValida(current) && !!this._routeScan.loc;
-    if (!vanoOk) { this._routeScan = { loc: '', art: '', lot: '' }; this._routeScanChiave = ''; }
-    else this._routeScan = { loc: this._routeScan.loc, art: '', lot: '' };
+    if (!vanoOk) { this._routeScan = { loc: '', art: '', lot: '', udc: '' }; this._routeScanChiave = ''; }
+    else this._routeScan = { loc: this._routeScan.loc, art: '', lot: '', udc: '' };
 
     el.innerHTML = `
       <div class="route-runbar">
@@ -1017,6 +1021,39 @@ export const VistaPercorso = {
     return `${st?.location_code ?? ''}@${this._routeApertura}`;
   },
 
+  /* 2.31 — LA SCANSIONE DI UN'UNITÀ DI CARICO, ed è una sola.
+
+     Su un pallet imballato articolo e lotto stanno sotto il cellophane:
+     chiederli vorrebbe dire chiedere all'operatore di aprire l'imballo per
+     confermare di non doverlo aprire. Il codice dell'unità è sull'etichetta,
+     ed è il solo dato che non invecchia — §8.
+
+     SI CONFRONTA COL CODICE CHE LA TAPPA NOMINA, non con «un'unità
+     qualunque»: due bancali dello stesso articolo in baia si somigliano, e
+     confermare quello sbagliato manda via merce impegnata su un altro
+     documento. */
+  _routeCheckUdc() {
+    const st = this._routeCurrentStop();
+    if (!st?.udc_id) return;
+    const letto = String(($('rUdc') as HTMLInputElement | null)?.value || '').trim().toUpperCase();
+    if (!letto) return;
+    if (letto !== String(st.udc_id).trim().toUpperCase()) {
+      this._routeScan.udc = '';
+      Feedback.signal('error', 'Unità sbagliata',
+        `Questa tappa chiede ${st.udc_id}. Letto ${letto}.`);
+      return;
+    }
+    this._routeScan.udc = letto;
+    this._routeScanChiave = this._routeChiaveScan(st);
+    Feedback.signal('ok', 'Unità confermata', String(st.udc_id));
+    this._renderRouteRun($('pickSubForm'));
+  },
+
+  /** 2.31 — questa tappa è un pallet intero? */
+  _routeTappaEUdc(st) {
+    return !!st?.udc_id;
+  },
+
   _routeScanValida(st) {
     return !!this._routeScanChiave && this._routeScanChiave === this._routeChiaveScan(st);
   },
@@ -1048,7 +1085,7 @@ export const VistaPercorso = {
   /* Rifare la verifica del vano è sempre possibile, e non chiede un motivo:
      chi si è allontanato e torna vuole poterlo dire. */
   _routeRiscansionaVano() {
-    this._routeScan = { loc: '', art: '', lot: '' };
+    this._routeScan = { loc: '', art: '', lot: '', udc: '' };
     this._routeScanChiave = '';
     this._renderRouteRun($('pickSubForm'));
     this._routeFb('warn', 'Riscansiona l’ubicazione per confermare di essere davanti al vano');
@@ -1292,6 +1329,20 @@ export const VistaPercorso = {
           <div class="text-label-small mt-2.5 opacity-80">Scansionandone una, la tappa si sposta l&agrave;.</div>
         </div>` : ''}
 
+        ${this._routeTappaEUdc(st) ? `<div class="form-group mt-6 mx-0 mb-4">
+          <label>Scansiona il CODICE DELL&rsquo;UNIT&Agrave; <span class="req">*</span></label>
+          <input class="input input-mono uppercase" id="rUdc" value="${this._esc(this._routeScan.udc)}"
+            placeholder="Scansiona l&rsquo;etichetta del bancale" maxlength="40"
+            onkeydown="if(event.key==='Enter'){event.preventDefault();App._routeCheckUdc();}">
+          <div class="text-label-small text-sx-text-muted mt-2">
+            Il bancale si prende intero. Articolo e lotto stanno sotto il cellophane:
+            a garantirli &egrave; l&rsquo;etichetta, e basta quella.
+          </div>
+        </div>
+        ${(st.contenuto || []).length ? `<div class="route-alt">
+          <strong>Che cosa porta sopra:</strong>
+          ${(st.contenuto || []).map((c: { article_code: string; lot_code: string; colli: number }) => `<span class="badge badge-muted mono">${this._esc(c.article_code)}#${this._esc(c.lot_code)} · ${c.colli} Coll.</span>`).join(' ')}
+        </div>` : ''}` : `
         ${vanoOk ? `<div class="route-vano-ok">
           <strong>${this._ico('check')} Ubicazione <span class="mono">${this._esc(st.location_code)}</span> confermata</strong>
           <div class="text-body-small opacity-85">
@@ -1316,7 +1367,7 @@ export const VistaPercorso = {
           <label>③ Scansiona LOTTO <span class="req">*</span></label>
           <input class="input input-mono" id="rLot" placeholder="Scansiona o digita lotto" maxlength="${Validate.MAX.LOT_CODE}"
             onkeydown="if(event.key==='Enter'){event.preventDefault();App._routeCheckLot();}">
-        </div>
+        </div>`}
 
         <div id="rFeedback"></div>
 
@@ -1561,7 +1612,7 @@ export const VistaPercorso = {
     const st = this._routeCurrentStop();
     if (!st) return;
     if (!this._routeScan.loc || !this._routeScanValida(st)) {
-      this._routeScan = { loc: '', art: '', lot: '' };
+      this._routeScan = { loc: '', art: '', lot: '', udc: '' };
       this._routeScanChiave = '';
       /* 2.12 \u2014 si ridisegna, perch\u00e9 senza spunta la scheda deve tornare a
          mostrare il campo dell'ubicazione: lasciarla con la banda verde
@@ -1699,7 +1750,15 @@ export const VistaPercorso = {
     if (this._routePausaAperta(session)) {
       return this.toast('Prelievo in pausa: premi ▶ Riprendi prima di confermare', 'warning');
     }
-    if (!this._routeScan.loc || !this._routeScan.art || !this._routeScan.lot) {
+    /* 2.31 — QUANTE SCANSIONI SERVONO LO DICE LA TAPPA. Una sull'unità di
+       carico, tre sulla merce sciolta: `PickRoute.scansioniDiTappa`. */
+    if (this._routeTappaEUdc(st)) {
+      if (!this._routeScan.udc) {
+        Feedback.signal('error', 'Scansione mancante',
+          `Serve il codice dell'unità ${st.udc_id} prima di confermare.`);
+        return;
+      }
+    } else if (!this._routeScan.loc || !this._routeScan.art || !this._routeScan.lot) {
       Feedback.signal('error', 'Scansioni incomplete',
         'Servono ubicazione, articolo e lotto prima di confermare.');
       return;
@@ -1707,7 +1766,7 @@ export const VistaPercorso = {
     /* E le tre scansioni devono essere di QUESTA tappa e di QUESTA apertura:
        una spunta ereditata è un prelievo confermato senza passare dal vano. */
     if (!this._routeScanValida(st)) {
-      this._routeScan = { loc: '', art: '', lot: '' };
+      this._routeScan = { loc: '', art: '', lot: '', udc: '' };
       this._routeScanChiave = '';
       this._renderRouteRun($('pickSubForm'));
       return this.toast('Scansione non più valida per questa tappa: riscansiona l’ubicazione', 'warning');
@@ -1780,6 +1839,39 @@ export const VistaPercorso = {
     let removed = null;
 
     try {
+      /* ═══ 2.31 · LA PREPARAZIONE SPOSTA, IL CONTO DI PRODUZIONE SCARICA ══
+         Due gesti diversi sulla stessa scheda, e la differenza non è di
+         forma. Un prelievo per la produzione porta la merce fuori dal
+         magazzino: si scarica. Una preparazione la porta al banco d'imballo
+         e da lì sul camion: resta in giacenza, prenotata dal DDT, e a
+         scaricarla è l'evasione. Scaricare qui vorrebbe dire scaricarla due
+         volte, e la seconda troverebbe il vano vuoto. */
+      if ((session as Record<string, unknown>).prep_doc_id) {
+        const zona = zonaImballoDi(Store.getSites(), st.site_id)
+                  || zoneImballo(Store.getSites())[0];
+        if (!zona) {
+          return this.toast(
+            'Nessuna zona di imballaggio dichiarata: si marca in Configurazione → Siti e Zone.',
+            'error');
+        }
+        const verso = this._prepVanoImballo(zona);
+        removed = await Store.commitPreparazioneStop({
+          session, stop: st, qty, verso, scelte: scelteColli,
+          movement: {
+            type: MOV.MOVE,
+            article_code: st.article_code,
+            article_description: st.article_description,
+            lot_code: st.lot_code,
+            location_code: st.location_code,
+            dest_location: verso,
+            user: effectiveUser,
+            notes,
+            doc_ref: session.odp_num,
+            ts: Date.now(),
+          },
+        });
+        await this._prepRiallineaDoc(session, st, verso);
+      } else {
       removed = await Store.commitPickStop({
         session,
         stop: st,
@@ -1798,6 +1890,7 @@ export const VistaPercorso = {
           ts: Date.now()
         }
       });
+      }
     } catch (err) {
       console.error('[WM] _routeConfirmStop:', err);
       st.status = 'pending'; st.qty_picked = 0; st.done_at = null;
@@ -1820,7 +1913,18 @@ export const VistaPercorso = {
        fuori dallo scaffale, e rimetterla dentro per un problema di
        contabilità sarebbe muovere merce vera per un numero. Stessa regola
        del carrello, e sta scritta in tutti e due i posti. */
-    if (session.odp_num) {
+    /* 2.31 — UNA PREPARAZIONE NON ENTRA IN REPARTO, e va detto qui perché
+       qui il codice non poteva saperlo: `session.odp_num` porta il numero
+       del DDT, che è vero e non nullo, e fino alla 2.30 «c'è un numero
+       d'ordine» voleva dire «c'è un conto di produzione da tenere».
+
+       Trovato a video il 21/09: la prima preparazione ha scritto DUE
+       movimenti invece di uno — il trasferimento giusto in zona
+       imballaggio, e un ingresso nel vano di lavorazione che non c'entra
+       niente. Quella merce va sul camion, non in impasto: aprirle un conto
+       di produzione vorrebbe dire che qualcuno, guardando il conto di quel
+       numero, ci troverebbe dentro della merce spedita. */
+    if (session.odp_num && !(session as Record<string, unknown>).prep_doc_id) {
       try {
         const entrata = await Store.entraInWip(session.odp_num, {
           item_key: st.item_key,
@@ -1963,12 +2067,208 @@ export const VistaPercorso = {
   async _routeClose() {
     const s = Store.getActivePickSession();
     if (!s) return;
+
+    /* ═══ 2.31 · UNA PREPARAZIONE NON FINISCE COL PERCORSO ═══════════════
+       L'ultima tappa confermata vuol dire che la merce è sul carrello, non
+       che è pronta a partire: quel che sale sul camion è un'unità di carico
+       imballata ed etichettata. È la ragione per cui `PREP_SHIP` chiude al
+       GESTO e non a residuo — un conto sui colli direbbe «fatto» qui.
+
+       I pallet presi interi non si rifanno: hanno già codice, etichetta e
+       contenuto. Quel che va composto è la sola merce sciolta. */
+    if ((s as Record<string, unknown>).prep_doc_id) {
+      const motivo = motivoNonChiudibile(s.stops, this._prepUdcComposte);
+      if (motivo) {
+        this.toast(motivo, 'warning');
+        if (/unit/i.test(motivo)) await this._prepComponiUdc(s);
+        return;
+      }
+    }
+
     await this._emitFinalPickReport(s);
     await Store.endPickSession();
     this._routeStage = 'import';
     this._routeStartTime = null;
     this._formOrdine($('pickSubForm'));
     this.toast(`Percorso ${s.odp_num} chiuso`, 'success');
+
+    /* 2.31 — e se era una preparazione, l'attività si chiude qui: le unità
+       sono composte, etichettate e in zona imballaggio. `_taskAvanza` è
+       l'unico modo in cui un compito si chiude — §8. */
+    if ((s as Record<string, unknown>).prep_doc_id) {
+      const composte = this._prepUdcComposte.length;
+      this._prepUdcComposte = [];
+      await this._taskAvanza(composte || 1, ['PREP_SHIP']);
+    }
+  },
+
+  /* Le unità composte in questa chiusura. Vive quanto la chiusura: si azzera
+     appena il compito avanza. Non sta nella sessione perché non è storia del
+     percorso — è lo stato di un gesto che dura un minuto. */
+  _prepUdcComposte: [] as string[],
+
+  /* ═══ 2.31 · COMPORRE L'UNITÀ IN ZONA IMBALLAGGIO ═════════════════════
+     La merce sciolta raccolta in corsia diventa una o più unità di carico.
+     Quante, lo decide chi imballa guardando il bancale: qui si compone
+     quella che l'operatore chiede, e si può ripetere.
+
+     L'UNITÀ NASCE NELLA ZONA DI IMBALLAGGIO DEL SITO, e da lì passa in baia
+     con un normale trasferimento. È la ragione per cui `pack_zone` esiste, e
+     senza il lavoro non si chiude: non è un vincolo formale, è che non c'è
+     un posto dove mettere quel che si è preso.
+
+     L'ETICHETTA PORTA IL CONTENUTO, NON L'UBICAZIONE — §8: sull'unità il
+     solo dato che non invecchia è il numero, e l'ubicazione cambierà appena
+     il pallet passa in baia. Quel che mancava all'etichetta non era il vano:
+     era sapere che cosa c'è sopra, e ubicando l'unità adesso lo si sa. */
+  /* Il vano dove posare l'unità appena composta.
+
+     LO SPAZIO NON SI CONTA — è la regola della `pack_zone`: il banco è
+     piccolo davvero, ma il limite lo governa a vista chi ci lavora. Quindi
+     un vano già occupato non è un errore: si preferisce uno libero perché
+     la mappa resti leggibile, e se non ce n'è si usa il primo utilizzabile.
+     Stessa scelta del prodotto finito — `_pfProponiUbicazione`. */
+  _prepVanoImballo(zona) {
+    let ripiego = '';
+    for (const u of Store.generateLocations(zona.sito.id, zona.zona.id)) {
+      const stato = Store.getLocationStatus(u.code);
+      if (stato === 'blocked' || stato === 'disabled') continue;
+      if (!Store.getItemsAtLocation(u.code).length) return u.code;
+      if (!ripiego) ripiego = u.code;
+    }
+    return ripiego;
+  },
+
+  /* 2.31 — LA RIGA DEL DOCUMENTO SEGUE LA MERCE.
+
+     Il DDT dice da quale vano esce ogni riga, e dopo lo spostamento quel
+     vano è un altro: un documento che nomina quello di prima manda
+     l'evasione a cercare dove non c'è più niente. È la stessa cosa che fa
+     `_carRiallineaDoc` per i bancali dalla 2.21, e per la stessa ragione.
+
+     SI RIALLINEA UNA RIGA PER VOLTA, appena la tappa è confermata, e non
+     tutte alla fine: se il turno si interrompe a metà, quel che è stato
+     spostato deve risultare spostato anche sul documento. */
+  async _prepRiallineaDoc(session, st, verso) {
+    const docId = String((session as Record<string, unknown>).prep_doc_id || '');
+    const doc = Store.getAllOutbound().find((d) => d.doc_id === docId);
+    if (!doc) return;
+    const chiave = String(st.item_key || '').toUpperCase();
+    const daDove = String(st.location_code || '').toUpperCase();
+    let toccata = false;
+    const lines = (doc.lines || []).map((l) => {
+      const suo = String(l.item_key || `${l.article_code}#${l.lot_code}`).toUpperCase();
+      if (suo !== chiave || String(l.location_code || '').toUpperCase() !== daDove) return l;
+      toccata = true;
+      return { ...l, location_code: verso };
+    });
+    if (!toccata) return;
+    try { await Store.updatePendingDoc(docId, { lines }); }
+    catch (err) {
+      this.toast(`Il documento non si è riallineato al vano nuovo · ${(err as Error).message}`, 'warning');
+    }
+  },
+
+  async _prepComponiUdc(s) {
+    const sciolte = daImballare(s?.stops);
+    if (!sciolte.length) return;
+
+    const zona = zonaImballoDi(Store.getSites(), s.stops?.[0]?.site_id || '')
+              || zoneImballo(Store.getSites())[0];
+    if (!zona) {
+      return this.toast(
+        'Nessuna zona di imballaggio dichiarata: si marca in Configurazione → Siti e Zone. '
+        + 'Senza, la merce presa non ha dove essere composta.', 'error');
+    }
+    const vano = this._prepVanoImballo(zona);
+
+    const ok = await Dialog.confirm({
+      title: 'Comporre l\u2019unit\u00e0 di carico?',
+      message: 'La merce presa in corsia diventa un\u2019unit\u00e0, etichettata e posata in zona imballaggio. '
+             + 'Da l\u00ec passa in baia con un normale trasferimento.',
+      details: Dialog.kv([
+        ['Zona di imballaggio', `${zona.sito.id} / ${zona.zona.id}`],
+        ['Partite da comporre', sciolte.length],
+        ['Colli totali', sciolte.reduce((n, r) => n + r.colli, 0)],
+        ['Unit\u00e0 gi\u00e0 pronte', unitaGiaPronte(s.stops).join(' \u00b7 ') || null],
+      ]),
+      confirmLabel: 'Componi ed etichetta', icon: 'stack',
+    });
+    if (!ok) return;
+
+    try {
+      const udc = await Store.createUdc({ type: 'pallet', site_id: zona.sito.id, location_code: vano || undefined });
+      /* LE RIGHE SONO GIÀ QUI. Ogni tappa confermata ha SPOSTATO la merce in
+         zona di imballaggio — `commitPreparazioneStop` — quindi assegnarla
+         all'unità è una riga sola per partita, dal vano dove sta adesso.
+         Una che non si trova non ferma le altre: il riscontro lo dice. */
+      const perse: string[] = [];
+      for (const r of sciolte) {
+        try { await Store.assegnaAUdc(vano || '', r.item_key, udc.udc_id); }
+        catch { perse.push(r.item_key); }
+      }
+      if (perse.length) {
+        this.toast(`Non caricate sull'unità: ${perse.join(', ')} — da guardare in ${vano}`, 'warning');
+      }
+      this._prepUdcComposte.push(udc.udc_id);
+      this.toast(`Unit\u00e0 ${udc.udc_id} composta in ${zona.sito.id} / ${zona.zona.id}`, 'success');
+      await this._chiediStampaEtichetta('udc', udc.udc_id);
+      this._renderRouteRun($('pickSubForm'));
+    } catch (err) {
+      this.toast(`L'unit\u00e0 non e' nata \u00b7 ${(err as Error).message}`, 'error');
+    }
+  },
+
+  /* ═══ 2.31 · PRENDERE IN CARICO UNA PREPARAZIONE ══════════════════════
+     Il percorso non si configura: c'è già. Il documento dice articolo,
+     lotto e vano di ogni riga, e li ha scelti chi ha composto il DDT — la
+     merce è prenotata da quel momento. Quel che manca è andarla a prendere.
+
+     PERCHÉ IL DOCUMENTO SI RILEGGE ADESSO E NON DAL PAYLOAD. Il compito
+     porta il RIFERIMENTO, non una copia delle righe: fra la registrazione e
+     la presa in carico possono passare giorni, e `updatePendingDoc` può
+     averle corrette. Una copia congelata manderebbe a prendere merce che il
+     documento non chiede più. */
+  async _prepAvvia(t) {
+    const docId = String((t?.payload as Record<string, unknown> | null)?.doc_id || '');
+    const doc = Store.getAllOutbound().find((d) => d.doc_id === docId);
+    if (!doc) {
+      return this.toast(`Il documento ${docId || '(assente)'} non esiste più: l'attività non ha più merce da nominare.`, 'error');
+    }
+    const motivo = motivoNonPreparabile(doc);
+    if (motivo) return this.toast(`Niente da preparare — ${motivo}`, 'warning');
+
+    const cose = daPreparare(doc.lines);
+    const p = PickRoute.buildPreparazione(cose);
+
+    /* La sessione porta il compito: è così che, rientrando dopo un
+       ricaricamento, si ritrova il lavoro giusto — `modules/sessioni`. */
+    const session = {
+      session_id: `PS-${(doc.ddt_num || 'DDT').replace(/\s/g, '')}-${Date.now().toString(36).toUpperCase().slice(-6)}`,
+      task_id: t.task_id,
+      owner: Store.getCurrentIdentity().initials,
+      operator: this._prodOperator || Store.getCurrentIdentity().initials,
+      status: 'active',
+      created_at: Date.now(),
+      odp_num: doc.ddt_num || doc.doc_id,
+      site_order: PickRoute.getSiteOrder(),
+      stops: p.stops,
+      offroute: [],
+      notes: [],
+      warnings: [],
+      prep_doc_id: doc.doc_id,
+    };
+    try {
+      await Store.startPickSession(session);
+    } catch (err) {
+      return this.toast(`Avvio non riuscito · ${(err as Error).message}`, 'error');
+    }
+    this._routeStage = 'run';
+    this._pickSubMode = 'ordine';
+    this.switchView('movimenta');
+    this.startMov('pick');
+    setTimeout(() => this._pickSub('ordine'), 60);
+    this.toast(`Preparazione del DDT ${doc.ddt_num} · ${p.stops.length} tappe`, 'success');
   },
 
   /* ─── RIPRESA ALL'AVVIO ─────────────────────────────────────────── */

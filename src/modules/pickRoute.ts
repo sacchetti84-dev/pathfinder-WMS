@@ -4,6 +4,8 @@
    non controllato — ed era una promessa scritta a mano, che nessuno
    verificava contro il codice vero. */
 import { Store } from '../core/store';
+import { scansioniRichieste } from './preparazione';
+import type { DaPreparare } from './preparazione';
 import type { Coordinate, Geometria, Giacenza } from '../types/entita.js';
 import type { RigaODP } from './odpParser';
 import { sitoDiCasa } from './trasferimentiOdp';
@@ -73,6 +75,23 @@ export interface Tappa {
      oggi. Assente su un giro di un ordine solo: lì la risposta è il numero
      d'ordine della sessione, e ripeterla su ogni tappa sarebbe rumore. */
   richieste?: Richiesta[];
+  /* 2.31 — L'UNITÀ DI CARICO, quando la tappa è un pallet intero.
+
+     Assente = tappa di merce sciolta, cioè tutto quello che c'era fino alla
+     2.30. Presente, cambiano due cose e nessuna delle due è cosmetica:
+
+     · **SI CONFERMA CON UNA SCANSIONE SOLA.** Su un pallet imballato
+       articolo e lotto stanno sotto il cellophane: chiederli vorrebbe dire
+       chiedere all'operatore di aprire l'imballo per confermare di non
+       doverlo aprire. Il codice dell'unità è sull'etichetta, ed è il solo
+       dato che non invecchia.
+     · **NON SI SCOMPONE.** Un bancale si prende intero, e `kg_required` è il
+       totale di quel che porta. È già la regola del carico del camion dalla
+       2.21, e questa tappa la porta dentro il giro di prelievo. */
+  udc_id?: string | null;
+  /** Le partite che l'unità porta sopra, per dirlo a video senza aprirla.
+      Vuoto su una tappa di merce sciolta. */
+  contenuto?: { article_code: string; lot_code: string; colli: number }[];
 }
 
 export interface Percorso {
@@ -368,6 +387,68 @@ const PickRoute = {
       }
     }
     return percorso;
+  },
+
+  /* ═══ 2.31 · IL PERCORSO DI UNA PREPARAZIONE ══════════════════════════
+     Non è `build` con un ingresso diverso, ed è una decisione.
+
+     `build` risolve una DOMANDA: l'ordine di produzione chiede un articolo e
+     un lotto, e il magazzino risponde da quale vano conviene prenderlo —
+     FEFO, alternative, quarantene, vano di lavorazione. È una ricerca.
+
+     Una preparazione non cerca niente. Il documento dice già articolo, lotto
+     E vano: li ha scelti chi ha composto il DDT, e la merce è prenotata da
+     quel momento (`getPendingQtyForItem`). Cambiarli qui vorrebbe dire
+     prelevare merce diversa da quella che il documento promette, e il
+     documento è già stato stampato.
+
+     QUINDI NIENTE ALTERNATIVE, e non è una mancanza: un'alternativa è
+     un'altra ubicazione dello stesso lotto, e sceglierla scollegherebbe la
+     riga del documento dalla merce che esce. Se il vano è vuoto la tappa non
+     si trova, e quello è un fatto da vedere — non da aggirare in silenzio.
+
+     Quel che resta in comune con `build` è la SERPENTINA: le corsie pari al
+     contrario, i magazzini nell'ordine dichiarato. Quella passa da
+     `ordinaPerCorsia`, che è la stessa che ordina i bancali del carico. */
+  buildPreparazione(cose: readonly DaPreparare[] | null | undefined): Percorso {
+    const geo = Store.buildLocationGeometry();
+    const stops: Tappa[] = (cose || []).map((c) => ({
+      seq: 0,
+      site_id: geo.get(c.location_code)?.site_id || '',
+      location_code: c.location_code,
+      item_key: c.item_key,
+      article_code: c.article_code,
+      article_description: c.article_description,
+      lot_code: c.lot_code,
+      expiry_iso: '',
+      /* I COLLI, NON LE UM. Un documento di uscita conta colli — è così che
+         `_shipAddToCart` riempie il carrello — e la quantità in unità di
+         misura è un di più che spesso non c'è. Mettere `qty_uom` qui
+         farebbe uscire `0` su ogni riga che non la dichiara, e uno zero ha
+         l'aria di un dato vero. */
+      kg_required: c.colli,
+      um: c.uom,
+      alternatives: [],
+      qty_available: 0,
+      status: 'pending',
+      reason: '',
+      forced_note: '',
+      qty_picked: 0,
+      done_at: null,
+      ...(c.tipo === 'udc' ? { udc_id: c.udc_id, contenuto: c.contenuto } : {}),
+    }));
+
+    const ordinate = this.ordinaPerCorsia(stops);
+    ordinate.forEach((s, i) => { s.seq = i + 1; });
+    return { stops: ordinate, offroute: [], notes: [] };
+  },
+
+  /** 2.31 — quante scansioni chiede questa tappa. Una sola sull'unità di
+      carico, tre sulla merce sciolta. La regola sta in `preparazione.ts`;
+      qui c'è il ponte, perché chi ha una `Tappa` in mano non ha una
+      `DaPreparare`. */
+  scansioniDiTappa(t: Tappa | null | undefined): string[] {
+    return scansioniRichieste(t?.udc_id ? { tipo: 'udc' } as DaPreparare : { tipo: 'riga' } as DaPreparare);
   },
 
   /* 1.10 — RIMETTERE IN FILA LE TAPPE dopo che una si e' spostata. La

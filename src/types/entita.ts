@@ -459,6 +459,11 @@ export type Geometria = Map<string, Coordinate>;
    Nasce dalla serpentina, la percorre l'operatore e la rilegge il rapporto:
    tre file la leggono, e per questo il tipo sta qui e non dentro una vista. */
 export interface TappaPrelievo {
+  /** 2.31 — l'unità di carico, quando la tappa è un pallet intero. Assente
+      su una tappa di merce sciolta. Vedi `modules/pickRoute.ts`. */
+  udc_id?: string | null;
+  /** Le partite che l'unità porta, per dirlo a video senza aprirla. */
+  contenuto?: { article_code: string; lot_code: string; colli: number }[];
   seq?: number | null;
   status?: 'pending' | 'done' | 'missing' | string;
   article_code: string;

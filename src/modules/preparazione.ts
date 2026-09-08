@@ -244,6 +244,96 @@ export function richiestaPreparazione(
   };
 }
 
+/* ═══ LA CHIUSURA: CHE COSA RESTA DA IMBALLARE ═══════════════════════════
+
+   Il percorso finisce quando l'ultima tappa è confermata. Ma il LAVORO no:
+   la merce sciolta raccolta in corsia è ancora un mucchio di colli sul
+   carrello, e quel che deve salire sul camion è un'unità di carico
+   imballata ed etichettata. È per questo che `PREP_SHIP` chiude al gesto e
+   non a residuo — un conto sui colli direbbe «fatto» a metà lavoro.
+
+   LE UNITÀ GIÀ PRESE NON SI RIFANNO. Un pallet prelevato intero è già
+   un'unità: ha il suo codice, la sua etichetta e il suo contenuto. Rifarne
+   una attorno vorrebbe dire un secondo codice sullo stesso legno, e
+   un'etichetta che ne contraddice un'altra. Passa in zona imballaggio come
+   sta, e da lì in baia con un normale trasferimento.
+
+   QUEL CHE VA IMBALLATO È SOLO LA MERCE SCIOLTA, e quella sì diventa una o
+   più unità nuove. Quante, lo decide chi imballa guardando il bancale: qui
+   si dice CHE COSA c'è da mettere sopra, non in quanti pezzi dividerlo. */
+
+/** Le tappe confermate che portano merce sciolta, cioè quel che resta da
+    comporre in unità di carico.
+
+    UNA TAPPA NON CONFERMATA NON C'È. Se l'operatore non l'ha trovata, quella
+    merce non è sul carrello: metterla nell'elenco di quel che va imballato
+    vorrebbe dire chiedergli di imballare qualcosa che non ha in mano. */
+export function daImballare(
+  tappe: readonly {
+    status?: string; udc_id?: string | null; item_key?: string;
+    article_code?: string; lot_code?: string; qty_picked?: number;
+    kg_required?: number; um?: string;
+  }[] | null | undefined,
+): { item_key: string; article_code: string; lot_code: string; colli: number; um: string }[] {
+  const out = new Map<string, { item_key: string; article_code: string; lot_code: string; colli: number; um: string }>();
+  for (const t of tappe || []) {
+    if (!t || t.status !== 'done') continue;
+    if (chiave(t.udc_id)) continue;            // già un'unità: non si rifà
+    const colli = numero(t.qty_picked) || numero(t.kg_required);
+    if (colli <= 0) continue;
+    const k = chiave(t.item_key) || `${chiave(t.article_code)}#${chiave(t.lot_code)}`;
+    const gia = out.get(k);
+    if (gia) { gia.colli += colli; continue; }
+    out.set(k, {
+      item_key: k,
+      article_code: testo(t.article_code),
+      lot_code: testo(t.lot_code),
+      colli,
+      um: testo(t.um),
+    });
+  }
+  return [...out.values()];
+}
+
+/** Le unità già prelevate intere: passano in zona imballaggio come stanno.
+
+    Servono a dirlo a chi chiude — «questi tre pallet sono già pronti, non
+    li rifare» — e a contarli nel riscontro finale. */
+export function unitaGiaPronte(
+  tappe: readonly { status?: string; udc_id?: string | null }[] | null | undefined,
+): string[] {
+  const viste = new Set<string>();
+  for (const t of tappe || []) {
+    if (!t || t.status !== 'done') continue;
+    const u = chiave(t.udc_id);
+    if (u) viste.add(u);
+  }
+  return [...viste];
+}
+
+/** Il lavoro di preparazione è finito?
+
+    NON BASTA CHE IL PERCORSO SIA FINITO. Finché resta merce sciolta senza
+    un'unità che la porti, quel che sta sul carrello non può salire sul
+    camion. Torna il motivo, o `null` se si può chiudere.
+
+    UNA TAPPA NON TROVATA NON IMPEDISCE LA CHIUSURA, ed è deliberato: se la
+    merce non c'è, tenere aperta l'attività non la fa comparire. Il documento
+    resterà incompleto, e quello lo vede chi evade — `_evadiSpedizione`
+    rifiuta di evadere un DDT a cui manca merce. */
+export function motivoNonChiudibile(
+  tappe: readonly { status?: string; udc_id?: string | null }[] | null | undefined,
+  udcComposte: readonly string[] | null | undefined,
+): string | null {
+  const pendenti = (tappe || []).filter((t) => t && t.status === 'pending').length;
+  if (pendenti) return `Restano ${pendenti} tappe da fare.`;
+  const sciolte = daImballare(tappe as never);
+  if (sciolte.length && !(udcComposte || []).length) {
+    return 'La merce sciolta non è ancora stata composta in unità di carico.';
+  }
+  return null;
+}
+
 /** Il documento è pronto per diventare un'attività di preparazione?
 
     NON BASTA CHE ESISTA. Un documento già evaso è merce partita; uno

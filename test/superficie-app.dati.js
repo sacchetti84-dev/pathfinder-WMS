@@ -288,6 +288,8 @@ export const SUPERFICIE = [
   '_ridichRigaAdd', '_ridichRigaDel', '_ridichSet', '_ridichiaraColli',
   '_rigaUM', '_ristampaVerbaleCampione',
   '_routeAbandon', '_routeBlock', '_routeCheckArt', '_routeCheckLoc', '_routeCheckLot',
+  '_routeCheckUdc', '_routeTappaEUdc', '_prepAvvia', '_prepComponiUdc',
+  '_prepRiallineaDoc', '_prepVanoImballo', '_prepUdcComposte',
   '_routeClearImport', '_routeClose', '_routeColonna', '_routeColonnaHTML',
   '_routeConfirmStop', '_routeCurrentHTML', '_routeRischioLottoHTML', '_COL_STATI',
   '_routeCoperturaHTML',

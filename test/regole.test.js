@@ -233,7 +233,20 @@ describe('il doppio contesto dei gestori inline', () => {
    prendere l'elenco dalla cache e passarlo — più le spiegazioni, che sono la
    parte lunga: due delle tre funzioni cambiate facevano `clear`, e chi le
    rilegge deve sapere perché non lo fanno più. */
-const TETTO_STORE = 4654;
+/* 2.31 — da 4654 a 4737, e il perché.
+
+   `commitPreparazioneStop`: una tappa di preparazione SPOSTA la merce
+   invece di scaricarla. Non è una variante di comodo di `commitPickStop` —
+   è l'altra metà di una regola che c'era già. Un DDT pendente prenota la
+   merce, e a scaricarla è l'evasione: scaricare anche al prelievo vorrebbe
+   dire scaricarla due volte, e la seconda troverebbe il vano vuoto.
+
+   Sta in `Store` e non in una vista perché è una transazione — togliere,
+   mettere, registrare il movimento e timbrare la tappa devono riuscire
+   insieme o non riuscire — e le transazioni non stanno nelle maschere. La
+   metà lunga sono le spiegazioni: chi rilegge questo file deve trovare
+   scritto perché due prelievi si comportano in modo diverso. */
+const TETTO_STORE = 4737;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {
