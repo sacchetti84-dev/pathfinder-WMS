@@ -242,6 +242,12 @@ export const VistaConfigSiti = {
        perche' sono i due capi dello stesso viaggio: da dove parte un bancale
        e dove aspetta il camion. */
     const baiaCarico = zone?.dock_zone === true;
+    /* 2.30 — la zona di imballaggio. È la terza dello stesso gruppo, e
+       l'unica di cui ne SERVE una per sito: è dove nasce l'unità di carico
+       di una spedizione preparata. L'avviso sui siti scoperti sta in cima
+       alla scheda, non qui: qui si marca una zona, di là si vede se ne
+       manca una. */
+    const imballaggio = zone?.pack_zone === true;
     const pericoli = Store.getPericoli();
     const hazScelti = new Set(zone?.hazards || []);
     const hazCaselle = pericoli.map(h =>
@@ -301,6 +307,19 @@ export const VistaConfigSiti = {
             stesso vano.
           </div>
         </div>
+        <div class="form-group mb-4">
+          <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
+            <input class="w-casella h-casella cursor-pointer" type="checkbox" id="ezPackZone" ${imballaggio ? 'checked' : ''}>
+            <span>Zona di <strong>imballaggio</strong> — qui la merce prelevata diventa un'unità di carico</span>
+          </label>
+          <div class="text-label-small text-sx-text-muted mt-2">
+            Non è un vincolo di stoccaggio. È dove finisce un prelievo di spedizione: la
+            merce raccolta si compone in unità di carico, si imballa e si etichetta, poi
+            passa in baia con un normale trasferimento. <strong>Ne serve una per
+            sito</strong>, e a differenza della baia <strong>lo spazio non si conta</strong>:
+            il banco è piccolo davvero, ma il limite lo governa a vista chi ci lavora.
+          </div>
+        </div>
         <div class="text-label-small text-sx-text-muted mt-3">
           ${this._ico('compass')} Lasciata non caratterizzata, la zona non segnala nulla.<br>
           ${this._ico('lock-open')} Una singola ubicazione marcata <strong>Riservata</strong> ammette allergeni
@@ -327,6 +346,7 @@ export const VistaConfigSiti = {
       hazards: pericolosa && hazards.length ? hazards : undefined,
       pf_zone: $('ezPfZone')?.checked === true,
       dock_zone: $('ezDockZone')?.checked === true,
+      pack_zone: $('ezPackZone')?.checked === true,
     };
   },
 

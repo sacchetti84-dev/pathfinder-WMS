@@ -15,7 +15,7 @@ function magazzino() {
     sites: [], zones: [], articles: [], inventory: [],
     locStatus: new Map(), disabled: new Set(),
     movLog: [], quarantine: [], pendingOut: [],
-    pickSession: null, pickArchive: [], disposalArchive: [], operators: [],
+    pickSessions: [], pickArchive: [], disposalArchive: [], operators: [],
     movLogTotal: 0,
     lots: [], udc: [], tasks: [], wip: [], storageRules: [],
     meta: metaVuota(),

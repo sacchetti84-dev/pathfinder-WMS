@@ -59,6 +59,18 @@ export interface Zona {
       niente: dice dove il carico di un DDT porta i bancali prelevati, e da
       lì li scarica l'evasione. Assente = zona come prima. */
   dock_zone?: boolean;
+  /** 2.30 — la zona è la ZONA DI IMBALLAGGIO: dove la merce prelevata per
+      una spedizione viene composta in unità di carico, imballata ed
+      etichettata prima di passare in baia. Come le altre due non è un
+      vincolo di stoccaggio, ma a differenza delle altre due **ne serve una
+      per sito**: è il posto in cui un'unità di carico nasce, e senza quello
+      una preparazione di spedizione non ha dove finire.
+
+      LO SPAZIO NON SI CONTA. Fisicamente il banco d'imballo è piccolo e si
+      riempie; logicamente non ha un tetto, e lo governa a vista chi ci
+      lavora. Un limite scritto qui verrebbe scavalcato il primo giorno di
+      lavoro vero, e un vincolo che si scavalca è peggio di nessun vincolo. */
+  pack_zone?: boolean;
   /** LA GEOMETRIA DELLA ZONA — da qui `geometria.ts` genera le ubicazioni.
       Una zona a scaffale ha corsie, campate e livelli; una a terra file e
       posizioni; una alla rinfusa posizioni e colonne di griglia. Erano tutte
@@ -520,6 +532,27 @@ export interface SessionePrelievo {
     file_name?: string;
   }[];
   operator?: string;
+  /** 2.30 — CHI HA APERTO LA SESSIONE, che non è sempre chi preleva.
+
+      `operator` è **chi sta prelevando**, ed è modificabile nella maschera:
+      un Team Leader può avviare un giro intestandolo a un altro, e quella
+      sigla finisce sulle righe di registro. `owner` è invece l'identità che
+      ha fatto l'accesso su questo terminale, e serve a una cosa sola —
+      ritrovare il proprio percorso dopo un ricaricamento della pagina.
+
+      Tenerli separati non è pedanteria: con le sessioni multiple della 2.30,
+      cercare la propria per `operator` vorrebbe dire che il leader che ha
+      avviato un giro per un altro non lo ritrova più. Assente = sessione
+      scritta prima della 2.30, e allora vale `operator`. */
+  owner?: string | null;
+  /** 2.30 — L'ATTIVITÀ CHE QUESTA SESSIONE STA SERVENDO, se ne ha una.
+
+      Dalla 2.30 un percorso nasce quasi sempre da un compito preso in
+      carico, e sapere quale permette due cose che prima non si potevano
+      fare: riprendere il lavoro giusto quando l'operatore rientra, e dire a
+      chi guarda la coda che quel compito è già cominciato. Assente = il
+      percorso è nato caricando un file a mano, come faceva la 2.29. */
+  task_id?: string | null;
   offroute?: FuoriPercorso[];
   notes?: FuoriPercorso[];
   warnings?: string[];

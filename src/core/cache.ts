@@ -57,7 +57,12 @@ export const FORMA_CACHE = {
   operators:        { field: 'operators',       kind: 'list',   key: 'op_id',         insert: 'push' },
   loc_status:       { field: 'locStatus',       kind: 'map',    key: 'location_code' },
   disabled:         { field: 'disabled',        kind: 'set',    key: 'location_code' },
-  pick_session:     { field: 'pickSession',     kind: 'single' },
+  /* 2.30 — DA UNA A MOLTE. Fino alla 2.29 di sessione ne viveva una per
+     tutto l'impianto e la cache la teneva come record solo. Adesso il
+     prelievo nasce da un'attività presa in carico, e due operatori possono
+     prenderne due insieme: quale sia «la mia» lo decide `modules/sessioni`,
+     e la cache le tiene tutte. */
+  pick_session:     { field: 'pickSessions',    kind: 'list',   key: 'session_id',    insert: 'push' },
   meta:             { field: 'meta',            kind: 'kv',     key: 'key' },
   /* 1.4.0 — dichiarate, non programmate. */
   lots:             { field: 'lots',            kind: 'list',   key: '_id',      insert: 'push' },
@@ -94,7 +99,7 @@ export interface Cache {
   movLog: Movimento[];
   quarantine: Quarantena[];
   pendingOut: DocumentoUscita[];
-  pickSession: SessionePrelievo | null;
+  pickSessions: SessionePrelievo[];
   pickArchive: ReportPrelievo[];
   disposalArchive: VerbaleSmaltimento[];
   operators: Operatore[];
@@ -218,7 +223,7 @@ export function cacheVuota(): Cache {
     sites: [], zones: [], articles: [], inventory: [],
     locStatus: new Map(), disabled: new Set(),
     movLog: [], quarantine: [], pendingOut: [],
-    pickSession: null, pickArchive: [], disposalArchive: [], operators: [],
+    pickSessions: [], pickArchive: [], disposalArchive: [], operators: [],
     movLogTotal: 0,
     lots: [], udc: [], tasks: [], wip: [], storageRules: [], recipients: [],
     locAttrs: new Map(),

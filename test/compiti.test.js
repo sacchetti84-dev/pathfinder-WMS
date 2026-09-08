@@ -7,6 +7,7 @@ import {
   registroAttivita,
   avanzamento,
   ORE_URGENZA_DEFAULT, OPERAZIONE, prioritaEffettiva, inScadenza,
+  TIPI_SEMPRE_URGENTI,
   operazioneDi, chiudeAlGesto, vuoleColli, vuoleUbicazione,
   vuoleDestinazione, tipiRichiedibili, nasceDalSistema,
   quantitaRichiesta, quantitaFatta, residuo, esaurito,
@@ -432,6 +433,63 @@ describe('prioritaEffettiva', () => {
     const c = conScadenza(1);
     prioritaEffettiva(c, T0);
     expect(c.priority).toBe(1);
+  });
+
+  /* ── 2.30 · I TIPI CHE NON ASPETTANO IL LORO TURNO ─────────────────
+     Una richiesta di quarantena sta in cima sempre: finche' il cartello non
+     e' appeso, il lotto che nomina puo' essere prelevato da chiunque passi.
+     Le prove qui sotto provano a farlo scendere in cinque modi diversi.
+     Verificate rimettendo il difetto: senza la riga in `prioritaEffettiva`
+     diventano rosse. */
+  it('una quarantena e\' urgente anche se chi l\'ha chiesta l\'ha messa bassa', () => {
+    expect(prioritaEffettiva(compito({ type: 'QUARANTINE', priority: 1 }), T0)).toBe(4);
+  });
+
+  it('e lo e\' senza nessuna scadenza: non aspetta di maturare', () => {
+    expect(prioritaEffettiva(compito({ type: 'QUARANTINE', priority: 1, due_at: null }), T0)).toBe(4);
+  });
+
+  it('e lo resta con una scadenza lontanissima', () => {
+    const c = compito({ type: 'QUARANTINE', priority: 1, due_at: T0 + 1000 * ORA });
+    expect(prioritaEffettiva(c, T0)).toBe(4);
+  });
+
+  it('nemmeno una soglia a zero ore la fa scendere', () => {
+    /* La soglia e' un parametro di magazzino: portata a zero, nessuna
+       scadenza matura piu'. La quarantena non passa di li'. */
+    expect(prioritaEffettiva(compito({ type: 'QUARANTINE', priority: 1 }), T0, 0)).toBe(4);
+  });
+
+  it('e nemmeno qui il record viene toccato', () => {
+    const c = compito({ type: 'QUARANTINE', priority: 1 });
+    prioritaEffettiva(c, T0);
+    expect(c.priority).toBe(1);
+  });
+
+  it('gli altri tipi restano come sono: non e\' diventato urgente tutto', () => {
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      if (TIPI_SEMPRE_URGENTI.includes(t)) continue;
+      expect(prioritaEffettiva(compito({ type: t, priority: 1, due_at: null }), T0), t).toBe(1);
+    }
+  });
+
+  it('un tipo che non esiste non diventa urgente per sbaglio', () => {
+    expect(prioritaEffettiva(compito({ type: 'INVENTATO', priority: 1, due_at: null }), T0)).toBe(1);
+  });
+
+  it('l\'elenco ne dichiara uno solo: chi ne aggiunge un secondo lo scrive qui', () => {
+    expect([...TIPI_SEMPRE_URGENTI]).toEqual(['QUARANTINE']);
+  });
+
+  it('in coda una quarantena bassa passa davanti a un\'alta di un altro tipo', () => {
+    const q = compito({ task_id: 'TA-Q', type: 'QUARANTINE', priority: 1, due_at: null });
+    const t = compito({ task_id: 'TA-T', type: 'TRANSFER', priority: 3, due_at: null });
+    expect(ordinaCoda([t, q], T0).map((c) => c.task_id)).toEqual(['TA-Q', 'TA-T']);
+  });
+
+  it('e il riepilogo la conta fra gli urgenti', () => {
+    const q = compito({ task_id: 'TA-Q', type: 'QUARANTINE', priority: 1, due_at: null });
+    expect(riepilogo([q], T0).urgenti).toBe(1);
   });
 
   it('senza scadenza non matura niente', () => {

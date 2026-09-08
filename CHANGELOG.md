@@ -15,6 +15,45 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.30.0 — 2026-09-08
+
+**Foundations: picking sessions stop being a singleton.**
+
+First slice of the work agreed on 8 September, which moves the origin of a
+picking round from a hand-loaded file to a task taken off the queue. Three
+things had to exist first. No migration: the new fields are optional and an
+old record still reads.
+
+`startPickSession` used to `clear` the collection and then `put`: starting a
+route silently closed everyone else's. That held while a round was born from
+a file loaded by one person. With tasks taken by different people it would
+delete a colleague's work. `pick_session` is now a list, and which one is
+*mine* is decided by `modules/sessioni.ts`, which is pure.
+
+That raised a distinction that did not exist before. `operator` is editable
+in the form — a team leader can start a round on someone else's name, and
+that name goes on the movement rows. Looking up your own session by
+`operator` would mean whoever opened it can no longer find it after a page
+reload. So a session also carries `owner`, the identity of the terminal, and
+that is what the lookup uses. Sessions written before 2.30 have no `owner`;
+falling back to `operator` keeps a running route reachable across the upgrade.
+
+**A packing zone** — `pack_zone`, the third zone flag after finished goods
+and loading dock, and the only one of which **each site needs one**: it is
+where a shipment pick ends, where picked goods become a load unit. Capacity
+is not counted. The bench really is small, but the limit is governed by eye
+on the floor, and a constraint that gets stepped over is worse than none.
+
+**Quarantine requests no longer wait their turn** — always maximum urgency,
+computed and not written, for the same reason the due-date rule is computed:
+writing `priority: 4` at creation would make that record claim, a month
+later, an urgency nobody asked for.
+
+1,550 client tests in 61 files, plus 347 on the service and benches. The new
+ones were each verified by putting the defect back.
+
+---
+
 ## 2.29.2 — 2026-09-08
 
 **Four ways an icon comes out as text, and the fourth was on eleven thousand

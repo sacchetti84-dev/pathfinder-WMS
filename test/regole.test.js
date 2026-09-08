@@ -222,7 +222,18 @@ describe('il doppio contesto dei gestori inline', () => {
    dev'essere preceduta dall'ingresso — e chi conosce quell'ordine è chi
    crea il primo Admin, non `Store`. Per questo la scelta sta qui e la
    decisione sta in `ui/app.ts`. */
-const TETTO_STORE = 4606;
+/* 2.30 — da 4606 a 4654, e il perché.
+
+   Le sessioni di prelievo passano da una a molte. In `Store` questo vale
+   quattro lettori nuovi — la propria, quella di un'attività, quelle degli
+   altri, tutte — e due funzioni che smettono di svuotare la collezione per
+   toccare una chiave sola. La LOGICA non è entrata qui: «quale di queste
+   sessioni è la mia» sta in `modules/sessioni.ts`, che è puro e non sa
+   niente né di cache né di `App`. Qui resta il mestiere di `Store` —
+   prendere l'elenco dalla cache e passarlo — più le spiegazioni, che sono la
+   parte lunga: due delle tre funzioni cambiate facevano `clear`, e chi le
+   rilegge deve sapere perché non lo fanno più. */
+const TETTO_STORE = 4654;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

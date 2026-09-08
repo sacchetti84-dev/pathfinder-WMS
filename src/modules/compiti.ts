@@ -64,6 +64,25 @@ export const PRIORITA_URGENTE = 4;
 /* Oltre questa, serve un Team Leader — decisione D4 del 12/08. */
 export const PRIORITA_MAX_OPERATORE = 2;
 
+/* I TIPI CHE NON ASPETTANO IL LORO TURNO — 2.30.
+
+   Una richiesta di quarantena non si mette in fila. Sta in cima perché la
+   merce che nomina è già ferma e sospetta: finché il cartello non è appeso,
+   quel lotto può essere prelevato da chiunque passi di lì. Le altre attività
+   dicono che cosa fare; questa dice che cosa NON si può più toccare.
+
+   STA QUI E NON NEL RECORD, ed è la stessa ragione della scadenza qui sotto:
+   scrivere `priority: 4` alla creazione vorrebbe dire che fra un mese quel
+   compito dichiara un'urgenza che nessuno ha chiesto, e la decisione D4 — «la
+   priorità la alza solo il Team Leader» — diventerebbe «solo il Team Leader,
+   e il sistema». Il numero scritto resta quello di chi ha chiesto; è la coda
+   che sa in che ordine si lavora. Un Team Leader può ancora alzare gli altri
+   fino a qui, non oltre: la quarantena non si scavalca.
+
+   È un elenco e non un `if` perché il giorno che ne arriva un secondo si
+   aggiunge una riga, e la prova che li conta lo dice subito. */
+export const TIPI_SEMPRE_URGENTI: readonly string[] = ['QUARANTINE'];
+
 /* 1.4.2.1 — sotto questa distanza dalla scadenza la coda tratta un compito
    come urgente. È un PARAMETRO e non una costante: quante ore prima una
    cosa diventi urgente è una politica di magazzino, e le politiche
@@ -141,13 +160,16 @@ export function inScadenza(
    vera: il numero scritto è quello di chi l'ha chiesta, l'ordine della coda
    è quello che serve a chi lavora.
 
-   Non ABBASSA mai: un compito nato urgente resta urgente. */
+   Non ABBASSA mai: un compito nato urgente resta urgente.
+
+   2.30 — e alcuni tipi partono di lì: vedi `TIPI_SEMPRE_URGENTI`. */
 export function prioritaEffettiva(
   c: Partial<Compito> | null | undefined,
   adesso: Istante = Date.now(),
   oreSoglia: number = ORE_URGENZA_DEFAULT,
 ): number {
   const p = Number(c?.priority) || PRIORITA_NORMALE;
+  if (TIPI_SEMPRE_URGENTI.includes(String(c?.type))) return PRIORITA_URGENTE;
   return inScadenza(c, adesso, oreSoglia) ? Math.max(p, PRIORITA_URGENTE) : p;
 }
 

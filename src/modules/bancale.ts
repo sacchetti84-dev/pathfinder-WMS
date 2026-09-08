@@ -263,9 +263,50 @@ export function zoneCarico(
   return zoneMarcate(siti, 'dock_zone');
 }
 
+/** 2.30 — LE ZONE DI IMBALLAGGIO: dove la merce prelevata diventa un'unità
+    di carico. Stesso criterio delle altre due, e per la stessa ragione: è un
+    posto, non una regola. Quello che cambia è che di questa **ne serve una
+    per sito** — vedi `sitiSenzaImballo`. */
+export function zoneImballo(
+  siti: readonly Sito[] | null | undefined,
+): { sito: Sito; zona: Zona }[] {
+  return zoneMarcate(siti, 'pack_zone');
+}
+
+/** I siti attivi che una zona di imballaggio non ce l'hanno. Elenco vuoto =
+    configurazione completa.
+
+    PERCHÉ UN ELENCO E NON UN BOOLEANO. Chi legge deve poter dire QUALE sito
+    è scoperto: «manca la zona di imballaggio» davanti a quattro siti manda a
+    cercare in tre posti giusti e uno sbagliato.
+
+    I SITI DISATTIVATI NON CONTANO. Un sito spento non riceve prelievi, e
+    pretendere una zona da lui vorrebbe dire chiedere di configurare un posto
+    dove non si lavora — che è il modo in cui un vincolo diventa un fastidio
+    da aggirare. */
+export function sitiSenzaImballo(
+  siti: readonly Sito[] | null | undefined,
+): Sito[] {
+  const conImballo = new Set(zoneImballo(siti).map((x) => String(x.sito.id).toUpperCase()));
+  return (siti || []).filter((s) => s?.active !== false
+    && !conImballo.has(String(s?.id).toUpperCase()));
+}
+
+/** La zona di imballaggio di UN sito. Più d'una è una configurazione da
+    correggere, non un errore da bloccare: si prende la prima, e chi guarda
+    l'elenco in Configurazione le vede tutte. */
+export function zonaImballoDi(
+  siti: readonly Sito[] | null | undefined,
+  siteId: string,
+): { sito: Sito; zona: Zona } | null {
+  const k = String(siteId || '').trim().toUpperCase();
+  if (!k) return null;
+  return zoneImballo(siti).find((x) => String(x.sito.id).toUpperCase() === k) || null;
+}
+
 function zoneMarcate(
   siti: readonly Sito[] | null | undefined,
-  bandiera: 'pf_zone' | 'dock_zone',
+  bandiera: 'pf_zone' | 'dock_zone' | 'pack_zone',
 ): { sito: Sito; zona: Zona }[] {
   const out: { sito: Sito; zona: Zona }[] = [];
   for (const s of siti || []) {

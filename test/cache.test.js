@@ -23,7 +23,7 @@ function cacheVuota() {
     sites: [], zones: [], articles: [], inventory: [],
     locStatus: new Map(), disabled: new Set(),
     movLog: [], quarantine: [], pendingOut: [],
-    pickSession: null, pickArchive: [], disposalArchive: [], operators: [],
+    pickSessions: [], pickArchive: [], disposalArchive: [], operators: [],
     movLogTotal: 0,
     lots: [], udc: [], tasks: [], wip: [], storageRules: [],
     meta: metaVuota(),
@@ -125,13 +125,30 @@ describe('forma map, set, single, kv', () => {
     expect(C.disabled.size).toBe(0);
   });
 
-  it('single: una sola sessione, e delete la azzera', () => {
-    applica('pick_session', 'put', { session_id: 'S1', status: 'open' });
-    expect(C.pickSession.session_id).toBe('S1');
-    applica('pick_session', 'put', { session_id: 'S2', status: 'open' });
-    expect(C.pickSession.session_id).toBe('S2');
-    applica('pick_session', 'delete', { session_id: 'S2' });
-    expect(C.pickSession).toBeNull();
+  /* 2.30 — LE SESSIONI ERANO UNA SOLA, E QUESTA PROVA LO PRETENDEVA.
+     Fino alla 2.29 `pick_session` era di forma `single`: una seconda `put`
+     sostituiva la prima, e `delete` azzerava il campo. Era il riflesso in
+     cache della regola «un percorso per tutto l'impianto».
+
+     Dalla 2.30 il prelievo nasce da un'attivita' presa in carico e due
+     operatori possono prenderne due insieme: la forma e' `list`, chiave
+     `session_id`. Il caso che conta e' il terzo — chiuderne una lascia
+     l'altra dov'e'. Con la forma vecchia quella riga era impossibile da
+     scrivere, ed e' esattamente il lavoro che si perdeva. */
+  it('list: due sessioni convivono, e chiuderne una non tocca l\'altra', () => {
+    applica('pick_session', 'put', { session_id: 'S1', status: 'active', operator: 'AS' });
+    applica('pick_session', 'put', { session_id: 'S2', status: 'active', operator: 'MR' });
+    expect(C.pickSessions.map(x => x.session_id)).toEqual(['S1', 'S2']);
+
+    applica('pick_session', 'delete', { session_id: 'S1' });
+    expect(C.pickSessions.map(x => x.session_id)).toEqual(['S2']);
+  });
+
+  it('e una put sulla stessa chiave aggiorna, non duplica', () => {
+    applica('pick_session', 'put', { session_id: 'S1', status: 'active' });
+    applica('pick_session', 'put', { session_id: 'S1', status: 'active', odp_num: 'ODP9' });
+    expect(C.pickSessions).toHaveLength(1);
+    expect(C.pickSessions[0].odp_num).toBe('ODP9');
   });
 
   it('kv: scrive il VALORE, non il record', () => {
@@ -159,7 +176,7 @@ describe('clear', () => {
     expect(C.locStatus.size).toBe(0);
     expect(C.disabled).toBeInstanceOf(Set);
     expect(C.disabled.size).toBe(0);
-    expect(C.pickSession).toBeNull();
+    expect(C.pickSessions).toEqual([]);
     expect(C.meta.lastModified).toBeNull();
   });
 

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   ePf, bancaliImpegnati, riepiloga, descriviContenuto, zonePf, zoneCarico,
   spedizioniDiBancale,
+  zoneImballo, sitiSenzaImballo, zonaImballoDi,
 } from '../src/modules/bancale';
 
 const udc = (extra = {}) => ({
@@ -286,5 +287,109 @@ describe('riepiloga con il viaggio', () => {
     const r = riepiloga(udc(), [riga()], null, null, viaggi);
     expect(r.colli).toBe(40);
     expect(r.stato).toBe('pronto');
+  });
+});
+
+/* LA ZONA DI IMBALLAGGIO — 2.30
+   © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+   La terza bandierina di zona, dopo prodotto finito e baia di carico, e
+   l'unica di cui NE SERVE UNA PER SITO: e' dove finisce un prelievo di
+   spedizione, cioe' dove la merce raccolta diventa un'unita' di carico. Un
+   sito senza non ha dove chiudere il lavoro.
+
+   PERCHE' `sitiSenzaImballo` RESTITUISCE UN ELENCO. Un booleano direbbe
+   «manca una zona» davanti a quattro siti, e manderebbe a cercare in tre
+   posti giusti e uno sbagliato. Le prove qui sotto pretendono i nomi.
+
+   I SITI SPENTI NON CONTANO, ed e' la cosa che si prova per prima: chiedere
+   una zona a un sito dove non si lavora e' il modo in cui un vincolo diventa
+   un fastidio da aggirare. */
+describe('le zone di imballaggio', () => {
+  const siti = [
+    { id: 'MAG1', name: 'Magazzino 1', zones: [
+      { site_id: 'MAG1', id: 'IMB', name: 'Imballaggio', pack_zone: true },
+      { site_id: 'MAG1', id: 'RAKA', name: 'Scaffali' },
+    ] },
+    { id: 'MAG2', name: 'Magazzino 2', zones: [
+      { site_id: 'MAG2', id: 'RAKB', name: 'Scaffali' },
+    ] },
+    { id: 'SPENTO', name: 'Chiuso', active: false, zones: [
+      { site_id: 'SPENTO', id: 'X', name: 'X' },
+    ] },
+  ];
+
+  it('elenca solo le zone marcate', () => {
+    expect(zoneImballo(siti).map(z => `${z.sito.id}/${z.zona.id}`)).toEqual(['MAG1/IMB']);
+  });
+
+  it('una zona disattivata non e una zona di imballaggio', () => {
+    const spenta = [{ id: 'M', name: 'M', zones: [
+      { site_id: 'M', id: 'IMB', name: 'I', pack_zone: true, active: false },
+    ] }];
+    expect(zoneImballo(spenta)).toEqual([]);
+    expect(sitiSenzaImballo(spenta).map(s => s.id)).toEqual(['M']);
+  });
+
+  it('dice QUALE sito e scoperto, non che ne manca uno', () => {
+    expect(sitiSenzaImballo(siti).map(s => s.id)).toEqual(['MAG2']);
+  });
+
+  it('un sito spento non si pretende configurato', () => {
+    expect(sitiSenzaImballo(siti).some(s => s.id === 'SPENTO')).toBe(false);
+  });
+
+  it('con tutti i siti coperti l elenco e vuoto', () => {
+    const tutti = [{ id: 'A', name: 'A', zones: [{ site_id: 'A', id: 'I', name: 'I', pack_zone: true }] }];
+    expect(sitiSenzaImballo(tutti)).toEqual([]);
+  });
+
+  it('la ricerca per sito non guarda le maiuscole', () => {
+    expect(zonaImballoDi(siti, 'mag1')?.zona.id).toBe('IMB');
+    expect(zonaImballoDi(siti, ' MAG1 ')?.zona.id).toBe('IMB');
+  });
+
+  it('un sito senza zona di imballaggio risponde null, non la zona di un altro', () => {
+    expect(zonaImballoDi(siti, 'MAG2')).toBeNull();
+  });
+
+  it('un sito che non esiste risponde null', () => {
+    expect(zonaImballoDi(siti, 'INVENTATO')).toBeNull();
+    expect(zonaImballoDi(siti, '')).toBeNull();
+    expect(zonaImballoDi(siti, null)).toBeNull();
+  });
+
+  /* Due zone marcate nello stesso sito sono una configurazione da
+     correggere, non un errore da bloccare: il lavoro non si ferma, e chi
+     guarda l'elenco in Configurazione le vede tutte e due. */
+  it('due zone nello stesso sito non fanno saltare niente: si prende la prima', () => {
+    const doppio = [{ id: 'A', name: 'A', zones: [
+      { site_id: 'A', id: 'I1', name: 'Uno', pack_zone: true },
+      { site_id: 'A', id: 'I2', name: 'Due', pack_zone: true },
+    ] }];
+    expect(zoneImballo(doppio)).toHaveLength(2);
+    expect(zonaImballoDi(doppio, 'A')?.zona.id).toBe('I1');
+    expect(sitiSenzaImballo(doppio)).toEqual([]);
+  });
+
+  it('senza siti non esplode', () => {
+    expect(zoneImballo(null)).toEqual([]);
+    expect(sitiSenzaImballo(null)).toEqual([]);
+    expect(zonaImballoDi(null, 'A')).toBeNull();
+    expect(zoneImballo([{ id: 'X', name: 'X' }])).toEqual([]);
+  });
+
+  /* Le tre bandierine sono ortogonali: una zona puo' essere insieme di
+     imballaggio e di prodotto finito, e nessuna delle tre letture deve
+     rubare le zone dell'altra. */
+  it('non si confonde con le altre due bandierine', () => {
+    const misto = [{ id: 'A', name: 'A', zones: [
+      { site_id: 'A', id: 'PF', name: 'PF', pf_zone: true },
+      { site_id: 'A', id: 'BAIA', name: 'Baia', dock_zone: true },
+      { site_id: 'A', id: 'ENTRAMBE', name: 'Doppia', pack_zone: true, pf_zone: true },
+    ] }];
+    expect(zoneImballo(misto).map(z => z.zona.id)).toEqual(['ENTRAMBE']);
+    expect(zonePf(misto).map(z => z.zona.id)).toEqual(['PF', 'ENTRAMBE']);
+    expect(zoneCarico(misto).map(z => z.zona.id)).toEqual(['BAIA']);
   });
 });

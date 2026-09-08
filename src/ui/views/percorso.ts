@@ -756,6 +756,12 @@ export const VistaPercorso = {
         })),
       } : {}),
       operator: this._prodOperator,
+      /* 2.30 — CHI PRELEVA E CHI HA APERTO SONO DUE COSE. `_prodOperator` è
+         modificabile: un Team Leader può intestare il giro a un altro, e
+         quella sigla va sulle righe di registro. `owner` è chi sta al
+         terminale, ed è con quella che si ritrova il proprio percorso dopo
+         un ricaricamento — vedi `modules/sessioni`. */
+      owner: Store.getCurrentIdentity().initials,
       status: 'active',
       created_at: Date.now(),
       site_order: PickRoute.getSiteOrder(),

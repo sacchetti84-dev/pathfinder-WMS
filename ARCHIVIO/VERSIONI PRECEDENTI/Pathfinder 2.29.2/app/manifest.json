@@ -1,0 +1,48 @@
+{
+  "versione": "2.29.2",
+  "costruita": "2026-09-08T06:49:18.127Z",
+  "byte_totali": 2168868,
+  "file": [
+    {
+      "percorso": "assets/chiosco.webmanifest",
+      "byte": 807,
+      "sha256": "954a045e9b11761ed57ceda4ccd2ad3ceb35bbde636b7d5fe75be43c0cb1d1f3"
+    },
+    {
+      "percorso": "assets/index-917XFQvL.css",
+      "byte": 216329,
+      "sha256": "e58ebb65f2fc8e8887e4f3946c1a8dd934b6eb1467ce33e2d4e8bcbdaf603784"
+    },
+    {
+      "percorso": "assets/index-CKODxCwA.js",
+      "byte": 1236596,
+      "sha256": "ecd30c32706541aeff37474620f8e16f0b03c0b94b648ebfd223bda8228d4c09"
+    },
+    {
+      "percorso": "assets/pathfinder-192.png",
+      "byte": 9656,
+      "sha256": "ece6ed0c9bb957c873d955caab5b499ba020171aae3dddb643e1c5ef56105c2d"
+    },
+    {
+      "percorso": "assets/pathfinder-512.png",
+      "byte": 34698,
+      "sha256": "b813b60ee0b4ed47d0fb3425324d283acce44a57c114e8172ba928b2df602bf0"
+    },
+    {
+      "percorso": "assets/pathfinder-maskable-512.png",
+      "byte": 23559,
+      "sha256": "04f9be7a9bccebd52ec138517133be476becf2b9384e344ca9239b590b224643"
+    },
+    {
+      "percorso": "assets/xlsx-WMlLLxdc.js",
+      "byte": 592924,
+      "sha256": "64b934775e71df3eed6d9590cb8e572001be60c5de92c891ae40d4a2d0c31eba"
+    },
+    {
+      "percorso": "index.html",
+      "byte": 54299,
+      "sha256": "99dc627a7376bb2ed090cc2c80150be4314fc090b884a1be5cc15d22990ec83c"
+    }
+  ],
+  "impronta": "8ef4cd2ebaa0343126134453734376daa7a49568fca53a398dc7f6f0a3180482"
+}

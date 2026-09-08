@@ -545,6 +545,59 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.30.0 — costruita, non installata
+
+**Le fondamenta su cui poggia tutto il resto.** Prima versione del lavoro
+concordato l'08/09: la coda delle attività diventa il posto da cui nasce il
+prelievo, e per farlo servono tre cose che prima non c'erano. Nessuna
+migrazione — i campi nuovi sono facoltativi e un record vecchio si rilegge.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.30.0\` |
+| impronta | `b98104cee7a166caa6e100dcb3360c184bdef3bbe88d0cab38aadd6ac4d0078c` |
+| byte | **2.171.289** in **8 file**, `costruita 2026-09-08T10:14:00Z` |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.550 in 61 file** (una saltata) · `npm run check` pulito · 156 + 8 + 43 + 100 + 40 su servizio e banchi, tutti verdi |
+| cosa resta fuori | il flusso vero: la 2.30 non cambia nessuna maschera operativa. Le sessioni multiple esistono ma nessuno ne apre due finché non arriva la 2.31 |
+
+**LE SESSIONI DI PRELIEVO NON SONO PIÙ UNA SOLA.** `startPickSession` faceva
+`clear` e poi `put`: avviare un percorso chiudeva quello di chiunque altro,
+in silenzio. Reggeva finché il prelievo nasceva da un file caricato a mano da
+una persona sola; con le attività prese in carico da persone diverse, quel
+gesto cancella il lavoro del collega. Adesso `pick_session` è un elenco, e a
+dire quale sia «la mia» è **`modules/sessioni.ts`**, che è puro.
+
+**CHI PRELEVA E CHI HA APERTO SONO DUE COSE, e la distinzione è nata qui.**
+`operator` è modificabile nella maschera — un Team Leader avvia un giro e lo
+intesta a un altro, e quella sigla va sulle righe di registro. Se la propria
+sessione si cercasse per `operator`, chi l'ha aperta non la ritroverebbe più
+dopo un ricaricamento. Quindi la sessione porta anche **`owner`**, che è
+l'identità del terminale, e si cerca per quello. Una sessione scritta prima
+della 2.30 `owner` non ce l'ha: il ripiego su `operator` regge
+l'aggiornamento fatto a percorso aperto.
+
+**LA ZONA DI IMBALLAGGIO — `pack_zone`.** Terza bandierina di zona dopo
+prodotto finito e baia, e l'unica di cui **ne serve una per sito**: è dove un
+prelievo di spedizione finisce, cioè dove la merce raccolta diventa un'unità
+di carico. **Lo spazio non si conta**: il banco è piccolo davvero, ma il
+limite lo governa a vista chi ci lavora — un vincolo che si scavalca è
+peggio di nessun vincolo. `sitiSenzaImballo` dice **quale** sito è scoperto,
+non che ne manca uno.
+
+**LA QUARANTENA NON ASPETTA IL SUO TURNO.** Una richiesta di blocco esce
+sempre alla massima urgenza. Sta in `prioritaEffettiva` e **non nel record**,
+che è la stessa ragione della scadenza: scrivere `priority: 4` alla creazione
+farebbe dire a quel compito, fra un mese, un'urgenza che nessuno ha chiesto,
+e la decisione D4 — «la priorità la alza solo il Team Leader» — diventerebbe
+«solo il Team Leader, e il sistema».
+
+**LE PROVE NUOVE SONO 27 + 10 + 13**, e tutte e tre le famiglie sono state
+verificate rimettendo il difetto: `test/sessioni.test.js` (chi è la mia
+sessione, con nove modi di farle restituire quella sbagliata), le prove sulla
+quarantena in `test/compiti.test.js`, quelle sulla zona di imballaggio in
+`test/bancale.test.js`.
+
 ### La 2.29.2 — costruita, non installata
 
 **Quattro strade per cui un’icona esce come testo, e la quarta si vedeva su

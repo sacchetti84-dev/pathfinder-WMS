@@ -94,6 +94,7 @@ import {
   componi as componiPacchetto, conta as contaPacchetto, verifica as verificaPacchetto,
 } from './pacchetto';
 import { statoUbicazione, contaStati, calcolaKPI } from './statistiche';
+import { sessioneDi, sessioneDiCompito, altriInPrelievo } from '../modules/sessioni';
 import { verificaConformita } from '../modules/conformita';
 import { App } from '../ui/app.js';
 
@@ -477,9 +478,14 @@ const Store = {
     this._cache.movLogTotal = movLogTotal;   // v2.8.0 [H2] — quanti ce ne sono davvero
     this._cache.quarantine = quarantine;
     this._cache.pendingOut = pendingOut; // v2.0.0 — DDT pendenti di uscita
-    this._cache.pickSession = pickSessions.length
-      ? pickSessions.sort((a: SessionePrelievo, b: SessionePrelievo) => (b.created_at || 0) - (a.created_at || 0))[0] ?? null
-      : null;
+    /* 2.30 — SI TENGONO TUTTE. Fino alla 2.29 qui se ne sceglieva una sola,
+       la più recente, e le altre sparivano dalla vista pur restando a
+       database: era la conseguenza di `pick_session` come record unico. Il
+       trasporto un elenco lo portava già; adesso lo porta fino in fondo, e a
+       dire quale sia «la mia» è `modules/sessioni`. */
+    this._cache.pickSessions = (pickSessions || [])
+      .slice()
+      .sort((a: SessionePrelievo, b: SessionePrelievo) => (b.created_at || 0) - (a.created_at || 0));
     this._cache.pickArchive = pickArchive;   // v2.5.1 — già ordinati dal più recente
     this._cache.disposalArchive = disposalArchive || [];   // v3.0.0 [M2] — verbali di smaltimento
     /* 1.4.0 — il `|| []` regge il ritorno indietro: un servizio 1.2 non
@@ -3892,16 +3898,50 @@ const Store = {
     await this._touchMeta();
   },
 
-  getActivePickSession() {
-    return this._cache.pickSession || null;
+  /* 2.30 — «ATTIVA» VUOL DIRE «DI CHI STA GUARDANDO».
+
+     Il nome resta quello, e non è pigrizia: diciannove punti fra percorso,
+     prelievo e rapporto lo chiamano, e tutti intendono la stessa cosa —
+     «il percorso su cui sto lavorando io». Quel che cambia è la risposta,
+     che prima era «l'unica che esiste» e adesso è «la mia».
+
+     LA SIGLA LA DÀ CHI CHIAMA, e se non la dà si prende quella di chi ha
+     fatto l'accesso. Store non deve sapere com'è fatta la maschera; ma
+     `App.currentOperator` è l'unica identità che il client ha, e passarla
+     da diciannove punti sarebbe rumore su ogni riga. */
+  getActivePickSession(operatore?: string | null): SessionePrelievo | null {
+    const chi = operatore ?? App.currentOperator;
+    return sessioneDi(this._cache.pickSessions, chi);
   },
 
+  /** 2.30 — la sessione che serve un'attività, se è già cominciata. */
+  getPickSessionDiCompito(taskId: string | null | undefined): SessionePrelievo | null {
+    return sessioneDiCompito(this._cache.pickSessions, taskId);
+  },
+
+  /** 2.30 — chi altro sta prelevando adesso. Non impedisce niente: si dice a
+      chi apre la maschera, perché due persone nella stessa corsia lo sappiano
+      prima di trovarsi davanti allo stesso vano. */
+  getAltriInPrelievo(operatore?: string | null): SessionePrelievo[] {
+    return altriInPrelievo(this._cache.pickSessions, operatore ?? App.currentOperator);
+  },
+
+  /** 2.30 — tutte, per chi deve contarle o ripulirle. */
+  getPickSessions(): SessionePrelievo[] {
+    return this._cache.pickSessions || [];
+  },
+
+  /* 2.30 — NON SI SVUOTA PIÙ. Fino alla 2.29 questa funzione faceva `clear`
+     e poi `put`: avviare un percorso chiudeva quello di chiunque altro, in
+     silenzio e senza lasciare traccia. Con le attività prese in carico da
+     persone diverse quel gesto cancellerebbe il lavoro del collega.
+
+     A CHIUDERE LA PROPRIA RESTA CHI CHIAMA: `_routeStart` chiede conferma
+     prima di sostituire la sessione dell'operatore che sta avviando, ed è il
+     posto giusto perché è l'unico che ha davanti una persona a cui chiedere. */
   async startPickSession(session: Partial<SessionePrelievo> & { session_id: string }) {
     try {
-      await Persistence.transaction(['pick_session'], async () => {
-        await Persistence.clear('pick_session');
-        await Persistence.put('pick_session', session);
-      });
+      await Persistence.put('pick_session', session);
       this._applyToCache('pick_session', 'put', session);
       await this._touchMeta();
       return session;
@@ -3920,13 +3960,21 @@ const Store = {
     return session;
   },
 
-  async endPickSession() {
+  /* 2.30 — SI CHIUDE UNA SOLA SESSIONE, non tutte.
+
+     Senza argomenti chiude la propria, che è quel che vogliono tutti e sei i
+     punti che la chiamavano prima. `clear` senza chiave sarebbe rimasto
+     corretto finché la sessione era una: adesso porterebbe via il percorso
+     di chi sta lavorando nella corsia accanto. */
+  async endPickSession(sessionId?: string | null) {
+    const id = sessionId || this.getActivePickSession()?.session_id || null;
+    if (!id) return;
     try {
-      await Persistence.clear('pick_session');
+      await Persistence.delete('pick_session', id);
     } catch (err) {
       console.error('[WM] endPickSession:', err);
     }
-    this._applyToCache('pick_session', 'clear');
+    this._applyToCache('pick_session', 'delete', { session_id: id });
     await this._touchMeta();
   },
 
