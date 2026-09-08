@@ -15,6 +15,52 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.35.2 — 2026-09-08
+
+**The system helps; it does not block.**
+
+Closing a picking route early left its activity open in the queue, in
+someone's charge, with nothing to clear it — and reopening the same
+production order was then refused by the guard against picking one order
+twice. Three changes, one principle.
+
+**A closed route closes its activity, always.** Until now it closed only on a
+completed round. That looked prudent — the work is not finished, so the
+activity stays — and on the floor it works the other way: the activity stays
+charged, nobody clears it, and the queue never drains. Closing a route is a
+deliberate act, with a dialog that asks for confirmation and says how many
+stops are left, which is exactly the kind of fact a task closes on. The notice
+now reports how many stops were not walked, and says the same order can be
+reloaded to pick them up. Pausing is unchanged: it holds the round without
+closing it, and the activity is untouched.
+
+**Reloading the same order refreshes it instead of refusing.** "That order is
+already in the round" was a fair defence against loading it twice — which
+would sum its lines and ask for double the goods — but it hit the wrong
+gesture: someone who has just seen a screen that did not change presses again,
+and the second press said "you cannot redo this". The old copy is now replaced
+by the freshly read one: the demand stays single, and the stops are rebuilt
+against the warehouse as it is now.
+
+**A closed production order can be picked again, and the fact is recorded.**
+The guard was right about the risk — reloading after closure sums two runs
+into one account — and wrong about the remedy. It answered "you need a new
+order number", and a warehouse does not issue order numbers: production does.
+Whoever met that refusal had two options, both worse than the problem — invent
+a number, or move the goods without recording them. The guard lived in three
+places; all three are now warnings. What is not lost is the fact: the account
+compares its movements against the closing time and reports `riaperto`, and
+the account panel says so in amber, stating that its figures cover both runs.
+
+The guards that take things *out* of a closed account stay: reversing a
+return, returning goods, writing from the WIP screen. Picking material again
+is a production decision; editing the history of an archived account is not
+the same thing, and nobody asked for it.
+
+1,691 client tests in 65 files; 322 on the service; 101 on the benches.
+
+---
+
 ## 2.35.1 — 2026-09-08
 
 **Two flows that never reached the end, and twelve defects to get there.**

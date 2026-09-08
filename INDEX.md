@@ -545,6 +545,68 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.35.2 — costruita, non installata
+
+**IL SISTEMA AIUTA, NON BLOCCA.** Andrea, l'08/09: «l'ODP non si chiude se
+l'operatore chiude anticipatamente il percorso e l'attività rimane in lista,
+precludendo la possibilità di riaprire l'ODP a causa della guardia sul doppio
+prelievo dello stesso ODP».
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.35.2\` |
+| impronta | `9eaf98c37e934843d4bb581a38a06f323ce6d0caeb056c335af687af714025cc` |
+| byte | **2.210.436** in **8 file**, `costruita 2026-09-08T21:20:56Z` |
+| collaudi | **1.691 in 65 file** (una saltata) · `npm run check` pulito · 171 + 100 + 43 + 8 sul servizio · 40 + 47 + 14 sui banchi |
+| provata | **a video**: percorso chiuso a metà con l'attività che si chiude, ODP ricaricato due volte, conto archiviato riaperto da un prelievo, riquadro del conto in ambra |
+
+**① IL PERCORSO CHIUSO CHIUDE L'ATTIVITÀ, SEMPRE.** Fino alla 2.35.1 si
+chiudeva solo a giro completo. Sembrava prudente — il lavoro non è finito,
+quindi l'attività resta — e in corsia funziona al contrario: l'attività resta
+in carico, nessuno la ripulisce, e la coda non si smaltisce. **Chiudere un
+percorso è un gesto deliberato**, con una finestra che chiede conferma e dice
+quante tappe restano fuori: è esattamente il tipo di fatto su cui un compito
+si chiude. Il riscontro dice quante tappe non sono state percorse — «11 tappe
+non percorse. Per riprenderle si ricarica lo stesso ordine» — perché è quello
+che chi guarda la coda domani vorrà sapere. **La pausa resta com'era**: mette
+il giro in attesa senza chiuderlo, e l'attività non si tocca.
+
+**② LO STESSO ORDINE RICARICATO SI RINFRESCA, NON SI RIFIUTA.** «L'ordine è
+già nel giro» era una difesa giusta contro il caricamento doppio — che
+sommerebbe le righe e chiederebbe il doppio della merce — ma colpiva il gesto
+sbagliato: chi ha appena visto una schermata che non cambia preme di nuovo, e
+al secondo premere si sentiva dire «non si può rifare». Adesso la copia
+vecchia viene sostituita da quella appena letta: il fabbisogno resta uno, e le
+tappe si ricostruiscono **sul magazzino di adesso** — che è quel che serve a
+chi riprende un giro interrotto.
+
+**③ UN ORDINE CHIUSO SI PUÒ RIPRELEVARE, E IL FATTO RESTA SCRITTO.** Era la
+guardia della 2.1, e la ragione era buona: ricaricare lo stesso ordine dopo la
+chiusura sommava due lavorazioni in un conto solo. Il rimedio no. La risposta
+era «serve un numero d'ordine nuovo», e **un numero d'ordine non lo inventa il
+magazzino: lo emette la produzione**. Chi si trovava davanti quel rifiuto
+aveva due strade, tutte e due peggiori del male — scrivere un numero finto, o
+portare via la merce senza registrarla. Andrea: «può capitare che sia
+necessario riprelevare del materiale per motivi legati al reparto produzione
+insondabili dal magazzino».
+
+La guardia stava in **tre posti**: la lettura del file, l'avvio del percorso,
+e `entraInWip`. Tutte e tre diventano avvisi. Quel che NON si perde è il
+fatto: `conto` confronta l'ora dei movimenti con quella della chiusura e alza
+**`riaperto`**, e il riquadro del conto in WIP lo scrive in ambra — «chiuso e
+archiviato il … **e RIAPERTO da un prelievo successivo**: i numeri qui sotto
+comprendono tutte e due le lavorazioni».
+
+**RESTANO INVECE LE GUARDIE CHE TOLGONO DA UN CONTO CHIUSO** — lo storno di un
+reso, il reso, la scrittura dalla schermata WIP. Riprelevare del materiale è
+una decisione di produzione; correggere la storia di un conto archiviato è
+un'altra cosa, e nessuno l'ha chiesta.
+
+**LE RIGHE GIÀ PRELEVATE ERANO GIÀ SEGNALATE.** Il riquadro della copertura
+esiste dalla 2.12 e dice quel che serve, compreso il pezzo che conta: «Le
+tappe restano tutte: saltarle è un gesto dell'operatore». Non c'era niente da
+aggiungere — c'era da smettere di rifiutare il caricamento che lo fa comparire.
+
 ### La 2.35.1 — costruita, non installata
 
 **DUE FLUSSI CHE NON ARRIVAVANO IN FONDO, E DODICI DIFETTI PER ARRIVARCI.**

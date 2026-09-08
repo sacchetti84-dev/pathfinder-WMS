@@ -145,6 +145,16 @@ export interface ContoOrdine {
   chiuso: boolean;
   /** Quando è stato chiuso. `null` se è ancora aperto. */
   chiuso_il: number | null;
+  /** 2.35.2 — DOPO LA CHIUSURA È ENTRATO DELL'ALTRO.
+
+      Dalla 2.35.2 un ordine chiuso si può ripreleva re: il reparto può avere
+      bisogno di altro materiale per ragioni che il magazzino non conosce, e
+      un sistema che risponde «serve un numero d'ordine nuovo» manda a
+      inventare un numero. Ma il fatto che sia successo non si perde: questo
+      campo dice che sul conto ci sono movimenti PIÙ RECENTI della chiusura,
+      e chi legge il conto lo deve vedere scritto invece di ricavarlo
+      confrontando le date a mano. */
+  riaperto: boolean;
 }
 
 function arrotonda(n: number): number {
@@ -194,10 +204,11 @@ export function conto(
   perCollo: PerCollo | null = null,
 ): ContoOrdine {
   const odp = chiave(odpNum);
-  const vuoto: ContoOrdine = { odp_num: odp, righe: [], entrato: 0, tornato: 0, consumato: 0, residuo: 0, incoerente: false, chiuso: false, chiuso_il: null };
+  const vuoto: ContoOrdine = { odp_num: odp, righe: [], entrato: 0, tornato: 0, consumato: 0, residuo: 0, incoerente: false, chiuso: false, chiuso_il: null, riaperto: false };
   if (!movimenti?.length || !odp) return vuoto;
 
   let chiuso_il: number | null = null;
+  let ultimo = 0;
   const per = new Map<string, ContoRiga>();
   for (const m of movimenti) {
     if (!m || chiave(m.odp_num) !== odp) continue;
@@ -209,6 +220,12 @@ export function conto(
       const t = Number(m.ts) || 0;
       if (chiuso_il === null || t > chiuso_il) chiuso_il = t;
       continue;
+    }
+    /* L'istante del movimento più recente che porta merce: serve solo a dire
+       se qualcosa è arrivato DOPO la chiusura. */
+    {
+      const t = Number(m.ts) || 0;
+      if (t > ultimo) ultimo = t;
     }
     if (!m.item_key) continue;
     let r = per.get(m.item_key);
@@ -264,6 +281,7 @@ export function conto(
     incoerente,
     chiuso: chiuso_il !== null,
     chiuso_il,
+    riaperto: chiuso_il !== null && ultimo > chiuso_il,
   };
 }
 

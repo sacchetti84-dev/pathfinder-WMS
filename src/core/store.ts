@@ -2295,13 +2295,28 @@ const Store = {
   }) {
     const dove = this.getAreaWip();
     if (!dove) throw new Error('Area WIP non configurata — si imposta in Configurazione → Funzioni');
-    /* QUI SI FERMA LA RIESUMAZIONE. Ricaricare lo stesso ordine dopo la
+    /* 2.35.2 — UN ORDINE CHIUSO SI PUÒ RIPRELEVARE, E IL FATTO RESTA SCRITTO.
+
+       Qui si fermava la riesumazione: ricaricare lo stesso ordine dopo la
        chiusura scriveva altri movimenti sotto lo stesso numero, e il conto
-       li sommava a quelli di un ciclo già chiuso: due lavorazioni in un
-       conto solo. Un ordine che ricomincia davvero è un ordine nuovo. */
-    if (this.ordineWipArchiviato(odpNum)) {
-      throw new Error(`L'ordine ${odpNum} è stato chiuso e archiviato: non può tornare in lavorazione. Se è una lavorazione nuova, serve un numero d'ordine nuovo.`);
-    }
+       li sommava a quelli di un ciclo già chiuso. La ragione era buona, il
+       rimedio no — perché la risposta era «serve un numero d'ordine nuovo»,
+       e un numero d'ordine non lo inventa il magazzino: lo emette la
+       produzione. Chi si trovava davanti quel rifiuto aveva due strade, e
+       tutte e due peggiori del male: scrivere un numero finto, o portare la
+       merce senza registrarla.
+
+       Andrea, l'08/09: «può capitare che sia necessario riprelevare del
+       materiale per motivi legati al reparto produzione insondabili dal
+       magazzino». Il magazzino non ha gli elementi per dire di no, e un
+       sistema che dice di no senza averli manda a lavorare fuori dal
+       sistema.
+
+       QUEL CHE NON SI PERDE È IL FATTO. `conto` confronta l'istante dei
+       movimenti con quello della chiusura e alza `riaperto`: il conto di un
+       ordine ripreso dopo la chiusura si legge come tale, invece di
+       sembrare una lavorazione sola più lunga. */
+    const riaperto = this.ordineWipArchiviato(odpNum);
     /* 2.8 — L'AREA WIP E' UN CONTO, NON UNO SCAFFALE, e la regola
        dell'ubicazione unica non la riguarda.
 
@@ -2332,7 +2347,9 @@ const Store = {
        lo stesso elenco. */
     const colliMossi = Array.isArray(riga.packs) && riga.packs.length ? riga.packs.length : riga.qty;
     await this._scriviWip(odpNum, { ...riga, qty: colliMossi }, 'in', dove);
-    return { ...res, ok: true, location_code: dove };
+    /* Chi chiama lo dice a video: una riga entrata su un conto già chiuso
+       non deve passare senza che nessuno se ne accorga. */
+    return { ...res, ok: true, location_code: dove, riaperto };
   },
 
   /** Le misure dei colli che un ordine ha ancora nel vano WIP. Vedi
@@ -3566,17 +3583,33 @@ const Store = {
      tappe su vani diversi non ha un residuo a colli da scalare.
 
      LA CONDIZIONE LA VERIFICA QUESTO METODO, non chi chiama: si chiude solo
-     se la sessione e' DAVVERO quella del compito e se non resta nessuna
-     tappa da percorrere. Una tappa segnata «non trovata» e' percorsa —
-     l'operatore c'e' andato e ha risposto; una ancora `pending` no. */
+     se la sessione e' DAVVERO quella del compito.
+
+     2.35.2 — E NON SI GUARDA PIU' QUANTE TAPPE RESTINO.
+
+     Fino alla 2.35.1 si chiudeva soltanto a giro completo, e un percorso
+     chiuso a meta' lasciava l'attivita' in lista. Sembrava prudente: il
+     lavoro non e' finito, quindi l'attivita' resta. In corsia funziona al
+     contrario. Andrea, l'08/09: l'attivita' che resta «preclude la
+     possibilita' di riaprire l'ODP», perche' e' ancora in carico a qualcuno
+     e nessuno la ripulisce; e chi voleva riprendere il giro si trovava
+     davanti una coda che non si smaltiva.
+
+     CHIUDERE UN PERCORSO E' UN GESTO DELIBERATO — c'e' una finestra che
+     chiede conferma e dice quante tappe restano fuori — e un gesto
+     deliberato dell'operatore e' esattamente il tipo di fatto su cui un
+     compito si chiude. Quel che resta da prelevare si ricarica: dalla
+     2.35.2 lo stesso ODP si rilegge quante volte serve, e il riquadro della
+     copertura dice che cosa e' gia' sceso.
+
+     La pausa e' un'altra cosa e resta com'era: mette il giro in attesa senza
+     chiuderlo, e l'attivita' non si tocca. */
   async chiudiCompitoDiPercorso(taskId: string, sessione: SessionePrelievo | null, initials: string = '') {
     const id = String(taskId || '');
     if (!id) throw new Error('Nessun compito da chiudere');
     if (!sessione || String(sessione.task_id || '') !== id) {
       throw new Error(`La sessione non è quella del compito ${id}`);
     }
-    const restano = (sessione.stops || []).filter((s) => s.status === 'pending').length;
-    if (restano) throw new Error(`Restano ${restano} tappe da percorrere`);
     const cur = this.getTask(id);
     if (!cur) throw new Error(`Il compito ${id} non esiste`);
     if (cur.status === 'done' || cur.status === 'cancelled') return cur;

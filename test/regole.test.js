@@ -276,8 +276,19 @@ describe('il doppio contesto dei gestori inline', () => {
    quel vano» — mentre ricaricando la pagina funzionava. Il vano di
    destinazione si rilegge dal servizio, e la riga fantasma si butta prima:
    metterci sopra quella vera non basta, perché senza `_id` non la
-   sostituisce, le sta accanto. */
-const TETTO_STORE = 4879;
+   sostituisce, le sta accanto.
+
+   2.35.2 — +33, e sono quasi tutte spiegazioni di una guardia TOLTA.
+
+   Un ordine di produzione chiuso non si poteva più riprelevare: il conto
+   avrebbe sommato due lavorazioni sotto lo stesso numero, e la risposta era
+   «serve un numero d'ordine nuovo». Ma un numero d'ordine lo emette la
+   produzione, non il magazzino: chi si trovava davanti quel rifiuto poteva
+   solo inventare un numero o portare via la merce senza registrarla. La
+   guardia è caduta, il fatto no — `conto` alza `riaperto` quando ci sono
+   movimenti più recenti della chiusura. Le righe sono il ritorno del valore
+   e il campo; il resto è il perché, che è la parte che serve fra un anno. */
+const TETTO_STORE = 4912;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

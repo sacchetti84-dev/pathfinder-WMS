@@ -556,12 +556,22 @@ export const VistaPrelievo = {
     this._prodOrderNum = Validate.clean($('pProdOrder')?.value, true) || this._prodOrderNum;
     this._prodOperator = Validate.clean($('pProdOperator')?.value) || this._prodOperator;
     if (!this._prodOrderNum) return this.toast('N° ordine produzione obbligatorio', 'error');
-    /* 2.1 — UN ORDINE CHIUSO NON RIPRENDE, e lo si dice PRIMA di scaricare
-       lo scaffale. `entraInWip` lo rifiuta comunque, ma li' la merce e' gia'
-       fuori — e un prelievo non si annulla per un problema di contabilita'.
-       Qui non e' ancora successo niente. */
+    /* 2.35.2 — UN ORDINE CHIUSO RIPRENDE, E LO SI DICE PRIMA di scaricare lo
+       scaffale.
+
+       Qui si rifiutava. La ragione era che il conto avrebbe sommato due
+       lavorazioni sotto lo stesso numero — vera — ma il rimedio mandava a
+       inventare un numero d'ordine, che il magazzino non emette, o a
+       portare via la merce senza registrarla. Adesso si avvisa, il prelievo
+       va avanti, e il conto porta scritto di essere stato riaperto
+       (`riaperto`, in `modules/wip.ts`).
+
+       L'avviso resta QUI e non solo dentro `entraInWip` per la ragione di
+       sempre: li' la merce e' gia' fuori dallo scaffale, e chi legge deve
+       poter decidere prima di muoverla. */
     if (Store.ordineWipArchiviato(this._prodOrderNum)) {
-      return this.toast(`L'ordine ${this._prodOrderNum} e' chiuso e archiviato: non torna in lavorazione. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
+      this.toast(`${this._prodOrderNum} è un conto già CHIUSO: quel che prelevi ci rientra dentro, `
+        + 'e il conto risulterà riaperto.', 'warning');
     }
     const opErr = Validate.operator(this._prodOperator);
     if (opErr) return this.toast(opErr, 'error');

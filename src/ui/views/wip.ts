@@ -315,10 +315,22 @@ export const VistaWip = {
     const um = (n: number | null | undefined, u: string | null | undefined) =>
       (typeof n === 'number' && u) ? ` · ${formattaQuantita(n, u)} ${this._esc(u)}` : '';
 
-    let html = `${archiviato ? `<div class="mov-preview mov-preview-ok mb-5">
+    /* 2.35.2 — E SE DOPO LA CHIUSURA È ENTRATO DELL'ALTRO, LO DICE.
+
+       Fino alla 2.35.1 il riquadro prometteva «non entra merce e non ne esce,
+       nemmeno ricaricando lo stesso ordine», ed era vero perché ricaricare
+       era vietato. Adesso si può — il reparto può aver bisogno di altro
+       materiale per ragioni che il magazzino non conosce — e allora questo
+       riquadro è il posto dove il fatto si legge. Un conto che dice «chiuso»
+       e porta dentro movimenti più recenti della chiusura, senza dirlo,
+       sarebbe la cosa peggiore delle due. */
+    let html = `${archiviato ? `<div class="mov-preview ${c.riaperto ? 'mov-preview-warn' : 'mov-preview-ok'} mb-5">
       <strong>${this._ico('database')} Ordine chiuso e archiviato</strong>${c.chiuso_il ? ` il ${this._fmtStamp(c.chiuso_il)}` : ''} —
-      il conto è storia: non entra merce e non ne esce, nemmeno ricaricando lo stesso ordine.
-      Il rendiconto si stampa.
+      ${c.riaperto
+        ? `<strong>e RIAPERTO da un prelievo successivo.</strong> Dopo la chiusura è stata
+           portata altra merce su questo conto: i numeri qui sotto comprendono tutte e due
+           le lavorazioni, e il rendiconto le stampa insieme.`
+        : 'il conto è storia. Si può ancora riprelevare su questo numero, e se succede il conto risulta riaperto.'}
     </div>` : ''}
     <div class="mov-preview ${c.incoerente ? 'mov-preview-err' : ''} mb-5">
       <strong class="mono">${this._esc(odp)}</strong> — vano <span class="mono">${this._esc(vano)}</span><br>

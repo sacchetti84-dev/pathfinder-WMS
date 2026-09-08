@@ -286,17 +286,45 @@ export const VistaPercorso = {
          percorso chiederebbe il doppio della merce senza che si veda da
          nessuna parte. Chi voleva davvero il doppio lo scrive nella
          quantita', che e' il campo che serve a quello. */
-      if ((this._routeOrdini || []).some((o: OrdineDelGiro) => o.odp_num === odp)) {
-        this.toast(`L'ordine ${odp} è già nel giro · per prelevarne di più, cambia la quantità`, 'warning');
-        return false;
+      /* 2.35.2 — LO STESSO ORDINE RICARICATO SI RINFRESCA, NON SI RIFIUTA.
+
+         Qui si rispondeva «è già nel giro» e non si faceva niente. La difesa
+         era giusta — caricarlo due volte SOMMEREBBE le sue righe, e il
+         percorso chiederebbe il doppio della merce senza che si veda da
+         nessuna parte — ma il rifiuto colpiva il gesto sbagliato.
+
+         Andrea, l'08/09: chiuso il percorso a metà, l'attività resta in
+         lista; l'operatore preme di nuovo Avvia, e chi ha appena visto una
+         schermata che non cambia lo preme due volte. Al secondo premere
+         arrivava «è già nel giro», che a chi sta cercando di riprendere il
+         lavoro suona come «non si può rifare». Il sistema aiuta, non blocca.
+
+         Si sostituisce la copia vecchia con quella appena letta: il
+         fabbisogno resta quello dell'ordine — una volta sola — e le tappe si
+         ricostruiscono sul magazzino di ADESSO, che è quel che serve a chi
+         riprende un giro interrotto. Chi vuole davvero il doppio lo scrive
+         nella quantità, che è il campo che serve a quello. */
+      const gia = (this._routeOrdini || []).findIndex((o: OrdineDelGiro) => o.odp_num === odp);
+      if (gia > -1) {
+        const ordini = [...this._routeOrdini];
+        ordini[gia] = ordineDelGiro(res.header, res.lines, res.warnings, file.name);
+        this._routeOrdini = ordini;
+        this._routeRicostruisci();
+        this._formOrdine($('pickSubForm'));
+        const q: GiroLetto = this._routeParsed;
+        this.toast(`Ordine ${odp} riletto · ${(q.stops || []).length} tappe sul magazzino di adesso`
+          + ' · per prelevarne di più, cambia la quantità', 'info');
+        return true;
       }
-      /* 2.1 — un ordine chiuso non si ricarica, e con piu' file va detto
-         all'ingresso: scoprirlo all'avvio vorrebbe dire aver composto un
-         giro intero attorno a un ordine che non puo' entrarci. */
-      if (Store.ordineWipArchiviato(odp)) {
-        this.toast(`L'ordine ${odp} è chiuso e archiviato: il suo conto di produzione è storia. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
-        return false;
-      }
+      /* 2.35.2 — E UN ORDINE CHIUSO SI PUÒ RIPRENDERE, dicendolo.
+
+         Qui si rifiutava: «serve un numero d'ordine nuovo». Ma un numero
+         d'ordine non lo inventa il magazzino, lo emette la produzione — e
+         chi si trovava davanti quel rifiuto aveva davanti due strade,
+         entrambe peggiori: un numero finto, o la merce portata via senza
+         registrarla. Il conto tiene il fatto (`riaperto`), e chi carica lo
+         legge qui. */
+      const riaperto = Store.ordineWipArchiviato(odp);
       this._routeOrdini = [...(this._routeOrdini || []),
         ordineDelGiro(res.header, res.lines, res.warnings, file.name)];
       this._routeRicostruisci();
@@ -308,6 +336,12 @@ export const VistaPercorso = {
          dell'ordine, e chi carica cinque file non lo vede scorrere. */
       const cop = (p.copertura || []).length;
       this.toast(`Ordine ${odp} letto · ${quanti > 1 ? `${quanti} ordini nel giro · ` : ''}${n} tappe, ${o} righe in coda${cop ? ` · ${cop} già in reparto` : ''}`, n ? 'success' : 'warning');
+      /* Secondo e separato, perché è un fatto sull'ORDINE e non sul giro: chi
+         legge deve poterlo distinguere dal riscontro della lettura. */
+      if (riaperto) {
+        this.toast(`${odp} è un conto già CHIUSO: quel che prelevi adesso ci rientra dentro, e il conto risulterà riaperto. `
+          + 'Le righe già scese stanno nel riquadro qui sopra.', 'warning');
+      }
       return true;
     } catch (err) {
       console.error('[WM] handleImportOdp:', err);
@@ -738,10 +772,18 @@ export const VistaPercorso = {
        2.12 — SI RICONTROLLANO TUTTI, non solo il capofila: l'import lo
        verifica all'ingresso, ma fra il primo file e l'avvio un altro
        terminale puo' aver chiuso uno di questi ordini. */
-    for (const o of ordini) {
-      if (Store.ordineWipArchiviato(o.odp_num)) {
-        return this.toast(`L'ordine ${o.odp_num} e' chiuso e archiviato: il suo conto di produzione e' storia. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
-      }
+    /* 2.35.2 — SI RICONTROLLANO ANCORA, ma per DIRLO, non per fermare.
+
+       Il controllo all'ingresso resta utile per la ragione scritta qui
+       sopra: fra il primo file e l'avvio un altro terminale puo' aver chiuso
+       uno di questi ordini, e chi avvia deve saperlo adesso e non a meta'
+       corsia. Quel che cambia e' la risposta. Fermare voleva dire mandare a
+       inventare un numero d'ordine — che il magazzino non emette — oppure a
+       portare via la merce senza registrarla. */
+    const chiusi = ordini.map((o) => o.odp_num).filter((n) => Store.ordineWipArchiviato(n));
+    if (chiusi.length) {
+      this.toast(`${chiusi.join(', ')} ${chiusi.length === 1 ? 'è un conto già CHIUSO' : 'sono conti già CHIUSI'}: `
+        + 'quel che prelevi rientra in quel conto, che risulterà riaperto.', 'warning');
     }
 
     const existing = Store.getActivePickSession();
@@ -982,7 +1024,7 @@ export const VistaPercorso = {
      il lavoro non è finito e l'attività torna disponibile. */
   async _chiudiCompitoDelPercorso(s, rimaste) {
     const id = String(s?.task_id || '');
-    if (!id || rimaste > 0) return;
+    if (!id) return;
     const t = Store.getTask(id);
     if (!t || t.status === 'done' || t.status === 'cancelled') return;
     try {
@@ -991,7 +1033,14 @@ export const VistaPercorso = {
          la chiusura da movimento, e questa è un'altra strada. */
       if (this._taskRun?.task_id === id) this._taskRun = null;
       this.renderTasks();
-      this.toast(`Attività ${id} chiusa col percorso`, 'success');
+      /* 2.35.2 — QUANTE NE RESTAVANO SI DICE, perché è il fatto che chi
+         guarda la coda domani vorrà sapere: l'attività è chiusa, e non tutto
+         il giro è stato camminato. Quel che manca si riprende ricaricando lo
+         stesso ordine — dalla 2.35.2 si può. */
+      this.toast(rimaste > 0
+        ? `Attività ${id} chiusa col percorso — ${rimaste} tapp${rimaste === 1 ? 'a non percorsa' : 'e non percorse'}. `
+          + 'Per riprenderle si ricarica lo stesso ordine.'
+        : `Attività ${id} chiusa col percorso`, rimaste > 0 ? 'warning' : 'success');
     } catch (err) {
       this.toast(`Il percorso è chiuso, l'attività ${id} no · ${(err as Error).message}`, 'warning');
     }
@@ -2223,7 +2272,14 @@ export const VistaPercorso = {
     }
 
     await this._emitFinalPickReport(s);
-    await Store.endPickSession();
+    /* 2.35.2 — l'attività si chiude PRIMA che la sessione sparisca: il
+       legame fra le due è `session.task_id`, e dopo `endPickSession` non c'è
+       più niente da cui leggerlo. Vale per il prelievo ODP; la preparazione
+       ha la sua strada, più sotto. */
+    if (!(s as Record<string, unknown>).prep_doc_id) {
+      await this._chiudiCompitoDelPercorso(s, (s.stops || []).filter((x) => x.status === 'pending').length);
+    }
+    await Store.endPickSession(s.session_id);
     this._routeStage = 'import';
     this._routeStartTime = null;
     this._formOrdine($('pickSubForm'));

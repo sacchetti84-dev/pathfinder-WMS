@@ -10,6 +10,9 @@ const mov = (odp, key, verso, qty, extra = {}) => ({
   odp_num: odp, item_key: key, verso, qty,
   qty_uom: extra.uom ?? null, uom: extra.unita ?? null,
   article_code: key.split('#')[0], lot_code: key.split('#')[1],
+  /* 2.35.2 — l'ora serve solo a `riaperto`, che confronta i movimenti con la
+     chiusura. Assente vale zero, come prima. */
+  ts: extra.ts ?? 0,
 });
 
 describe('conto', () => {
@@ -401,6 +404,78 @@ describe('archiviato', () => {
 
   it('con la chiusura scritta, lo e', () => {
     expect(archiviato([mov('ODP-1', 'A#L1', 'in', 10), chiusura('ODP-1')], 'ODP-1')).toBe(true);
+  });
+
+  /* 2.35.2 — E RESTA ARCHIVIATO ANCHE DOPO UN RIPRELIEVO.
+
+     Dalla 2.35.2 un ordine chiuso si puo' riprelevare: il reparto puo' aver
+     bisogno di altro materiale per ragioni che il magazzino non conosce, e
+     rispondere «serve un numero d'ordine nuovo» mandava a inventare un
+     numero o a portare via la merce senza registrarla. Quel che NON si
+     perde e' il fatto: la chiusura resta scritta, e il conto dice che dopo
+     e' entrato dell'altro. */
+  it('e resta archiviato anche se dopo la chiusura entra dell altro', () => {
+    const m = [mov('ODP-1', 'A#L1', 'in', 10, { ts: 1000 }), chiusura('ODP-1', 5000),
+               mov('ODP-1', 'A#L1', 'in', 4, { ts: 9000 })];
+    expect(archiviato(m, 'ODP-1')).toBe(true);
+    expect(conto(m, 'ODP-1').entrato).toBe(14);
+  });
+});
+
+describe('riaperto — il conto dice se dopo la chiusura e entrato dell altro', () => {
+  const chiusura = (odp, ts = 5000) => ({ odp_num: odp, verso: 'chiuso', qty: 0, ts });
+
+  it('un ordine mai chiuso non e riaperto', () => {
+    expect(conto([mov('ODP-1', 'A#L1', 'in', 10, { ts: 1000 })], 'ODP-1').riaperto).toBe(false);
+  });
+
+  it('un ordine chiuso e basta non e riaperto', () => {
+    const m = [mov('ODP-1', 'A#L1', 'in', 10, { ts: 1000 }), chiusura('ODP-1', 5000)];
+    const c = conto(m, 'ODP-1');
+    expect(c.chiuso).toBe(true);
+    expect(c.riaperto).toBe(false);
+  });
+
+  it('IL CASO: un movimento DOPO la chiusura lo alza', () => {
+    const m = [mov('ODP-1', 'A#L1', 'in', 10, { ts: 1000 }), chiusura('ODP-1', 5000),
+               mov('ODP-1', 'A#L1', 'in', 4, { ts: 9000 })];
+    const c = conto(m, 'ODP-1');
+    expect(c.riaperto).toBe(true);
+    expect(c.chiuso_il).toBe(5000);
+  });
+
+  /* L'ORDINE IN CUI ARRIVANO NON CONTA. I movimenti si leggono come stanno
+     nella collezione, e nessuno garantisce che siano in ordine di tempo:
+     dedurre la riapertura dalla POSIZIONE invece che dall'ora vorrebbe dire
+     un conto che cambia a seconda di come e' stato letto il database. */
+  it('e non dipende dall ordine in cui si leggono', () => {
+    const m = [mov('ODP-1', 'A#L1', 'in', 4, { ts: 9000 }), chiusura('ODP-1', 5000),
+               mov('ODP-1', 'A#L1', 'in', 10, { ts: 1000 })];
+    expect(conto(m, 'ODP-1').riaperto).toBe(true);
+  });
+
+  /* UN MOVIMENTO PRIMA DELLA CHIUSURA NON RIAPRE NIENTE, ed e' il verso che
+     conta davvero: senza il confronto sull'ora, «c'e' un movimento e c'e'
+     una chiusura» sarebbe vero per ogni ordine chiuso del magazzino. */
+  it('un movimento PRIMA della chiusura non la alza', () => {
+    const m = [mov('ODP-1', 'A#L1', 'in', 10, { ts: 1000 }),
+               mov('ODP-1', 'A#L1', 'out', 2, { ts: 2000 }), chiusura('ODP-1', 5000)];
+    expect(conto(m, 'ODP-1').riaperto).toBe(false);
+  });
+
+  it('un reso dopo la chiusura la alza come un prelievo', () => {
+    /* Anche il verso opposto e' un movimento su un conto chiuso: chi legge
+       deve vederlo, non solo quando entra merce. */
+    const m = [mov('ODP-1', 'A#L1', 'in', 10, { ts: 1000 }), chiusura('ODP-1', 5000),
+               mov('ODP-1', 'A#L1', 'out', 3, { ts: 9000 })];
+    expect(conto(m, 'ODP-1').riaperto).toBe(true);
+  });
+
+  it('la chiusura di un ALTRO ordine non c entra', () => {
+    const m = [mov('ODP-1', 'A#L1', 'in', 10, { ts: 9000 }), chiusura('ODP-2', 5000)];
+    const c = conto(m, 'ODP-1');
+    expect(c.chiuso).toBe(false);
+    expect(c.riaperto).toBe(false);
   });
 
   it('la chiusura di un ALTRO ordine non archivia questo', () => {
