@@ -50,8 +50,12 @@ async function spegniQuelCheCiSta() {
   console.log(`· accendo la beta sulla ${PORTA}, database vuoto`);
   const servizio = spawn(process.execPath, [path.join(RADICE, 'server', 'pathfinder-server.js')], {
     cwd: RADICE, stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, PATHFINDER_PORT: String(PORTA), PATHFINDER_DB: DB,
-           PATHFINDER_PG: '', PATHFINDER_TOKEN: CHIAVE },
+    /* 2.35 — le `PATHFINDER_TLS_*` via: ereditate, la beta parte in HTTPS
+       e questa prova la interroga in chiaro. */
+    env: require('../../server/lib/tls.js').scollegaTls({
+      ...process.env, PATHFINDER_PORT: String(PORTA), PATHFINDER_DB: DB,
+      PATHFINDER_PG: '', PATHFINDER_TOKEN: CHIAVE,
+    }),
   });
   let log = '';
   servizio.stdout.on('data', (d) => { log += d; });

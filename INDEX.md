@@ -545,22 +545,42 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.34.0 — costruita, non installata
+### La 2.35.0 — costruita, non installata
 
 **IL DDT FA NASCERE IL LAVORO, NON LO FINISCE.** È il lavoro concordato con
 Andrea l'08/09 e costruito in cinque tappe (2.30 → 2.34), consegnate insieme
-perché la prima da sola non si vede e l'ultima da sola non sta in piedi. Il
-verbale lungo sta in `documenti\REP-AUDIT-003 - Audit 2.34.0 del 21-09-2026.md`.
+perché la prima da sola non si vede e l'ultima da sola non sta in piedi. La
+2.35 le chiude: il giro dell'ODP provato con un file vero, e i quattro banchi
+in sottocartella che nessuno guardava. Il verbale lungo sta in
+`documenti\REP-AUDIT-003 - Audit 2.34.0 del 08-09-2026.md`.
 
 | | |
 |---|---|
-| pacchetto | `consegna\Pathfinder 2.34.0\` |
-| impronta | `467fbdcfcd27b1164f4173e3998374f421085690571a4563874e8660a064fac5` |
-| byte | **2.201.169** in **8 file**, `costruita 2026-09-08T15:19:38Z` |
+| pacchetto | `consegna\Pathfinder 2.35.0\` |
+| impronta | `634f6452cbcc535baf89bd461ea85a7c002929d0c582adea344e489d065ebb2b` |
+| byte | **2.201.227** in **8 file**, `costruita 2026-09-08T16:11:28Z` |
 | numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
-| collaudi | **1.652 in 68 file** (una saltata) · `npm run check` pulito · 171 + 40 + 100 + 43 + 8 su servizio e banchi, tutti verdi |
-| provata | **a video**: registrazione del DDT e nascita dell'attività, percorso costruito dal documento, tappa che sposta invece di scaricare, calendario del mese, cella selezionata in mappa |
+| collaudi | **1.664 in 63 file** (una saltata) · `npm run check` pulito · 171 + 100 + 43 + 8 sul servizio · 40 + 47 + 14 sui banchi, tutti verdi |
+| provata | **a video**: registrazione del DDT e nascita dell'attività, percorso costruito dal documento, tappa che sposta invece di scaricare, calendario del mese, cella selezionata in mappa, **e il giro dell'ODP intero con `07082026_gluc.xlsx`** |
 | **PRIMA DI INSTALLARE** | **la zona di imballaggio va marcata**, una per sito, in Configurazione → Siti e Zone. Senza, una preparazione non ha dove finire e il prodotto finito torna al giro in due tempi |
+
+**LA 2.35 — IL CICLO DEL BANCO ERA MORTO E NESSUNO SE N'ERA ACCORTO.** Alla
+2.26 si era trovato che i banchi ereditavano le `PATHFINDER_TLS_*` e morivano
+in silenzio; si è corretto in cinque file. **I quattro che stanno in
+sottocartella non sono stati toccati**, perché la rete che li avrebbe visti —
+`test/bancoNonEredita.test.js` — leggeva solo il primo livello di `banco\`. Il
+08/09, lanciando `gira.cjs`, 22 prove su 47 rosse con «non trovato»: il banco
+partiva in HTTPS, il ciclo lo interrogava in chiaro, il servizio rispondeva
+301, `fetch` seguiva il rinvio trasformando la POST in GET, e
+`POST /api/c/meta/bulk` finiva su `GET /api/c/:col/:key` con chiave `bulk` —
+404. **Il peggiore dei quattro è `ciclo\cancello.cjs`**, il comando che
+risponde «la 2.0 è stabile»: non dichiarava nemmeno `PATHFINDER_PG`, quindi
+su questa macchina esercitava il ciclo intero **sul PostgreSQL di lavoro**.
+
+Corretti tutti e quattro; la rete adesso scende nelle sottocartelle e **nomina
+i quattro file**, perché «almeno uno in sottocartella» passava lo stesso —
+`server\test\` è già una sottocartella, e la prima stesura di questa prova ci
+è cascata. Verificata rimettendo il difetto: 4 rosse con i nomi giusti.
 
 **LE CINQUE TAPPE, E PERCHÉ IN QUEST'ORDINE.**
 
@@ -2997,7 +3017,7 @@ scelta e non per dimenticanza (§8).
 ### Aperte — da pianificare
 | # | Cosa | Passo successivo |
 |---|---|---|
-| **103** | **IL PRELIEVO ODP NON È MAI STATO PRESO IN CARICO CON UN ALLEGATO VERO.** La rotta degli allegati ha undici prove sul servizio — salvataggio, rilettura byte per byte, percorsi storti, tetto, porta chiusa — e il modulo che legge la distinta è lo stesso di sempre. Ma il giro intero — allego, metto in coda, un altro prende in carico, il percorso si apre già caricato — è stato provato solo a pezzi | **Un giro al banco con un `.xlsx` vero di `banco\odp-wip\`**: si crea l'attività allegandolo, si guarda che il compito porti l'identificativo e non il file, si prende in carico da un'altra sigla e si verifica che la distinta si apra con le stesse righe |
+| **104** | **NESSUNA PROVA GUARDA CON QUALE DATABASE UN BANCO SI E' ACCESO.** Dalla 2.35 ogni banco dichiara `PATHFINDER_PG: ''` e scollega le `PATHFINDER_TLS_*`, e `test/bancoNonEredita.test.js` lo pretende **leggendo il sorgente**. Ma leggere il sorgente non e' guardare il fatto: se domani `scollegaTls` smettesse di togliere una delle quattro, o `server/lib/db.js` cambiasse la precedenza fra `PATHFINDER_PG` e `PATHFINDER_DB`, la rete resterebbe verde | **Il servizio gia' lo dice all'avvio** — stampa in chiaro quale database ha aperto e con che saluto. Basta che un banco **legga la propria riga d'avvio** e pretenda «SQLite» e il percorso del file usa-e-getta. Costa poco e sposta la prova dal testo del programma a quel che il programma ha fatto |
 | **102** | **`Udc.status: 'closed'` È DICHIARATO E NON LO SCRIVE NESSUNO.** Il tipo elenca quattro stati; il codice ne scrive tre — `open`, `empty`, `shipped`. E `closed_at` nasce `null` e non viene mai aggiornato. Non fa danno: nessuno lo legge. Ma un tipo che dichiara uno stato che non esiste è un tipo che mente a chi lo legge per capire come funziona | **Si guarda con l'elenco delle unità davanti**, e si decide: o lo stato serve — e allora c'è un gesto che manca — o non serve, e si toglie insieme a `closed_at`. Togliere uno stato dichiarato è una decisione sui dati, non sul codice |
 | **101** | **`OPERAZIONE.TRANSFER` DICHIARA `modo: 'move'`, CHE NON È UN MODO.** `ModoMovimenta` conosce `io pick inv quarantine shipping sampling udc pf`; `'move'` non c'è. `startMov('move')` non trova niente in `forms`, l'optional chaining ingoia, e la maschera la disegna la riga DOPO — `_pickSub('cambio')`. Funziona per una coincidenza, non per disegno: il giorno che qualcuno riordina quelle due righe, il Trasferimento si apre vuoto | **Due strade, e la seconda è meglio**: dare a `TRANSFER` il modo vero (`pick`, sottoscheda `cambio`), come fa `PREP_SHIP` dalla 2.31; oppure una prova che pretenda che ogni `modo` di `OPERAZIONE` stia in `ModoMovimenta`. La prova serve comunque — è quella che avrebbe fatto vedere il difetto |
 | **98** | **`(location_code, item_key)` SU `inventory` È UN INDICE, NON UN VINCOLO DI UNICITÀ.** Sta sotto `composite` in `server\lib\schema.js`, che genera un `CREATE INDEX` e non un `CREATE UNIQUE INDEX` — `compositeUnique` esiste ed è usato altrove (`sites`, `lots`). Ma tutto il modello di prelievo tratta quella coppia come **un posto fisico solo**: `getItemByKey` restituisce una riga per ubicazione e chi legge assume che sia LA riga. Due righe dello stesso lotto nello stesso vano ci stanno, e un caricamento di massa le fa — **la migrazione dalla 1.4 (voce 79) è esattamente un caricamento di massa.** Il primo effetto si è già visto: l'avviso del percorso ripeteva la stessa frase una volta per riga, corretto nella 2.29.1. Gli altri non sono stati cercati | **Prima si conta, poi si decide.** Sul magazzino vero: `SELECT location_code, item_key, COUNT(*) FROM inventory GROUP BY 1,2 HAVING COUNT(*) > 1`. Se sono zero, l'indice si può fare unico e la migrazione passa liscia; se non lo sono, va deciso se fondere le righe sommando le quantità o rifiutarle — e fondere è una decisione sui **dati**, che è di Andrea. Finché non è deciso, ogni lettore di `getItemByKey` deve reggere il doppione |
@@ -3070,6 +3090,7 @@ hanno con cosa lavorare.
 ### Chiuse — con la prova
 | # | Cosa | Prova |
 |---|---|---|
+| ~~**103**~~ | **IL PRELIEVO ODP NON ERA MAI STATO PRESO IN CARICO CON UN ALLEGATO VERO.** La rotta degli allegati aveva undici prove sul servizio e il modulo che legge la distinta era lo stesso di sempre, ma il giro intero — allego, metto in coda, un altro prende in carico, il percorso si apre gia' caricato — era stato provato solo a pezzi | **08/09 — giro intero al banco con `ARCHIVIO\BACKUP E FILE DI TEST\07082026_gluc.xlsx`, il file vero.** Il parser legge `ODP2607777` / commessa `ODV260183_1000` / `4060854/01` lotto `26A621`, **15 righe e 0 avvisi**. La maschera rifiuta la creazione senza allegato («Allegare la distinta dell'ordine (.xlsx)…»); creata, il compito `TA-MTSUHCDL-ZURW` porta **solo il riferimento** — `{allegato, allegato_nome}` — e **non** il file ne' le righe gia' lette. Sul disco del banco `2e351edf0f3d102c8e30683f08dbf258.xlsx`, **14.517 byte identici all'originale**. Preso in carico dai tasti veri («Prendo io» → «Avvia»): si apre `movimenta` allo stadio `import`, sottoscheda `ordine`, con `_routeOrdini = ["ODP2607777"]` **gia' caricato**. Percorso costruito: **13 tappe** in serpentina coi KG veri, **2 righe fuori percorso** con ragioni distinte — `not_mapped` per 6000401#262198, `lot_absent_other_lots` per 6001182#233234 che **nomina il lotto alternativo 23367** — 0 note, 0 avvisi. **Un difetto trovato lungo il giro**: `_ntTypeChanged` non ripuliva `#ntError`, e cambiando tipo il rimprovero di prima («Scegliere l'articolo») restava sopra una maschera senza campo articolo. Corretto |
 | ~~**91**~~ | **LA BAIA DI CARICO NON ERA CONFIGURATA DA NESSUNA PARTE, E SENZA NON SI CARICA.** La schermata lo diceva in chiaro, ma nessuna zona portava `dock_zone`: la tessera si apriva su un avviso | **03/09 sera — Andrea ha marcato una zona e ha fatto il giro: tutto a posto.** È la prima prova del carico spedizioni fatta **fuori dal banco**, sull'installazione di questa macchina. Resta aperta la voce **92**, che è un'altra domanda: il banco e questa macchina non sono la banchina, e quel che il carico deve reggere sono venti pallet e un camion che aspetta |
 | ~~**86**~~ | **LE STAMPANTI HANNO LA PRESA DI RETE, E LE INSTALLA L'IT.** Andrea, 02/09: serie **ZD200** o modello precedente simile, **203 dpi**, adesive staccate **100 × 80**, già in rete e gestite dal team IT. Era il rischio che teneva in piedi tutto il resto — le desktop Zebra di quella fascia escono spesso con la sola USB, e senza una porta TCP il servizio non ha nessuno a cui parlare | **Chiusa dal fatto.** Nessun print server esterno serve; la porta 6101 resta nell'elenco ammesso per i casi futuri, e non costa niente |
 | ~~**84**~~ | **LA PORTA 9100 IN USCITA NON ERA NELLO SHEET TECNICO**, che dichiarava una porta sola: la 4173 in ingresso. Dalla 2.19 il servizio apre connessioni **in uscita** verso le stampanti, e quella è una richiesta di autorizzazione al team IT, non un dettaglio di codice | **Scritta il 02/09, in due lingue.** `documenti/IT-TECH-SHEET.md` passa a **rev05**: nuovo **cap. 5.3** coi requisiti di rete (IP fisso o riserva DHCP, 9100 in uscita, ambito privato, porte ammesse, calibrazione e calore), il cap. 3 dichiara le connessioni in uscita, il 5.1 la rete, il 6.3 la configurazione delle stampanti e del layout, e il 12 porta **due richieste nuove all'IT**. Le istruzioni operative stanno in `README.md` §7 e `README.it.md` §6, con la tabella dei messaggi di guasto in §9; il servizio le ha in `server/README.md` e `server/LEGGIMI.md` |

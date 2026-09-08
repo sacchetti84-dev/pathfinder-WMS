@@ -146,11 +146,31 @@ To run the service against a throw-away database, without touching anything:
 
 ```bash
 PATHFINDER_PORT=4174 PATHFINDER_DB=/tmp/prova.db PATHFINDER_PG= \
+  PATHFINDER_TLS_PFX= PATHFINDER_TLS_PFX_PASSWORD= \
+  PATHFINDER_TLS_CERT= PATHFINDER_TLS_KEY= \
   node server/pathfinder-server.js
 ```
 
+**Two families of inherited variables, and each one bites differently.**
+
 `PATHFINDER_PG` **empty** is deliberate: on a machine with PostgreSQL
 configured it stops the trial from running against the real database.
+`PATHFINDER_PG` wins over `PATHFINDER_DB`, so naming a throw-away file is not
+enough — the empty assignment is what makes it a file.
+
+The four `PATHFINDER_TLS_*` are the half that is easy to forget, and its
+failure is worse because it looks like something else. Inherited, the trial
+service starts on **HTTPS** while whoever wrote the trial calls it in the
+clear: the service answers `301`, `fetch` follows the redirect and turns the
+`POST` into a `GET`, and `POST /api/c/meta/bulk` lands on
+`GET /api/c/:col/:key` with the key `bulk` — `404 not found`. The failures
+talk about a missing record, never about a certificate.
+
+Anything that starts the service from a script uses
+`require('server/lib/tls.js').scollegaTls(env)`, which strips those four from
+an environment object. `test/bancoNonEredita.test.js` walks `banco/` and
+`server/test/` — **including subdirectories** — and fails any file that starts
+the service without both declarations.
 
 ---
 
@@ -166,11 +186,12 @@ server/        the data service — Node + Express, two database drivers
   lib/         all service logic once, for both databases; all SQL in one file
   migrazione/  SQLite → PostgreSQL migration and its audit
   test/        service checks, schema migration, installation scripts
-test/          1,258 checks that run without a service
+test/          1,664 checks that run without a service
 banco/         benches that need a running service (not part of `npm test`)
   gerarchia    roles, enforced where they are enforced: on the service
   ciclo/       a whole cycle from goods-in to consumption
   migrazione/  the jump from the 1.4 release to this one
+  video/       the bench a browser opens, for looking at the screen
 ARCHIVIO/      project memory: previous releases, bundles, test files
 INDEX.md       the single working document — Italian
 ```
@@ -263,6 +284,22 @@ everything would work and everyone would believe the PINs were encrypted.
 
 Not in the code: **Configuration → DDT and Documents**. Without company name,
 address, town and **VAT number**, documents come out marked "not compliant".
+
+### The packing zone — from 2.31
+
+**One zone per site must be marked as the packing zone**, in
+**Configuration → Sites and Zones**. It is the only zone class the system
+insists on having, because it is where a shipment preparation ends: the picker
+moves the goods there rather than removing them — a pending delivery note
+already reserves the stock and the dispatch is what removes it — and the
+finished-goods pallet is created inside it, with its contents already on it.
+
+Without the mark a preparation has nowhere to finish, and the finished-goods
+round goes back to labelling a pallet before it holds anything.
+
+The zone is not limited in capacity on purpose: the space is governed by eye
+on the floor, and a system-side limit would only produce a number nobody can
+reconcile with the pallets actually standing there.
 
 ### Label printers — from 2.19
 
@@ -477,10 +514,10 @@ From the package, in an administrator window:
 
 | Suite | Checks | Command |
 |---|---|---|
-| Application | **1,258** in 46 files | `npm test` |
+| Application | **1,664** in 63 files | `npm test` |
 | Types | application and service | `npm run check` |
-| Service | **156** | `node server/test/collaudo.js` |
-| **Zebra label printing** | **78** | `node server/test/collaudo-stampa.js` |
+| Service | **171** | `node server/test/collaudo.js` |
+| **Zebra label printing** | **100** | `node server/test/collaudo-stampa.js` |
 | Installation scripts | **43** | `node server/test/collaudo-installazione.js` |
 | Schema migration | **8** | `node server/test/collaudo-migrazione-1.4.js` |
 | Roles, on the service | **40** | `node banco/gerarchia.cjs` |

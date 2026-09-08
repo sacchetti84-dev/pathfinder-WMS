@@ -75,10 +75,20 @@ function rifaiDatabase() {
     cwd: RADICE, stdio: ['ignore', 'pipe', 'pipe'],
     /* `PATHFINDER_PG` vuota: chi lancia il ciclo su una macchina con un
        Postgres configurato lo eserciterebbe sul magazzino vero invece che
-       su `ciclo.db`, e il giro non sarebbe più riproducibile. */
-    env: { ...process.env, PATHFINDER_PORT: String(PORTA), PATHFINDER_DB: CICLO,
-           PATHFINDER_PG: '', PATHFINDER_TOKEN: CHIAVE,
-           PATHFINDER_APP_DIR: path.join(RADICE, 'consegna', 'Pathfinder 2.0', 'app') },
+       su `ciclo.db`, e il giro non sarebbe più riproducibile.
+
+       2.35 — E LE `PATHFINDER_TLS_*` VIA, che è l'altra metà della stessa
+       dimenticanza. Ereditate, il banco parte in HTTPS mentre il ciclo lo
+       interroga in chiaro sulla 4199: il servizio risponde 301, `fetch`
+       segue il rinvio trasformando la POST in GET, e `POST /api/c/meta/bulk`
+       finisce su `GET /api/c/:col/:key` con chiave `bulk` — 404 «non
+       trovato». Ventidue prove rosse che parlano di un record mancante e
+       non del certificato. */
+    env: require('../../server/lib/tls.js').scollegaTls({
+      ...process.env, PATHFINDER_PORT: String(PORTA), PATHFINDER_DB: CICLO,
+      PATHFINDER_PG: '', PATHFINDER_TOKEN: CHIAVE,
+      PATHFINDER_APP_DIR: path.join(RADICE, 'consegna', 'Pathfinder 2.0', 'app'),
+    }),
   });
   let log = '';
   servizio.stdout.on('data', (d) => { log += d; });

@@ -575,6 +575,13 @@ export const VistaCompiti = {
      spegne ciò che l'operatore vede. */
   _ntTypeChanged() {
     const tipo = $('ntType')?.value || '';
+    /* 2.34 — IL RIMPROVERO DI PRIMA NON VALE PIU'. Cambiando tipo, il
+       messaggio d'errore restava li' a parlare di un campo che nel tipo
+       nuovo non c'e' nemmeno: chi legge «scegliere l'articolo» sopra una
+       maschera senza campo articolo va a cercare un campo che non esiste.
+       Visto a video il 08/09 provando il prelievo ODP. */
+    const errore = $('ntError');
+    if (errore) errore.textContent = '';
     /* SI ACCENDE LA CLASSE, NON SOLO LO STILE. Le due righe che nascono
        nascoste portano `hidden` nel markup, e `display: ''` non batte una
        classe: toglie lo stile in riga e lascia comandare il foglio. Il

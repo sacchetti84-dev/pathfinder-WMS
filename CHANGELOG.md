@@ -15,7 +15,40 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
-## 2.34.0 — 2026-09-21
+## 2.35.0 — 2026-09-08
+
+**The cycle bench had been dead, and the failures talked about something
+else.**
+
+Release 2.26 found that benches inherit the machine's `PATHFINDER_TLS_*` and
+die quietly; five files were fixed. The four benches that live in
+subdirectories were not, because the net meant to catch them —
+`test/bancoNonEredita.test.js` — only read the top level of `banco/`.
+
+Running the full cycle: 22 of 47 red, all saying "not found". The bench had
+started on HTTPS while the cycle called it in the clear; the service answered
+`301`, `fetch` followed the redirect and turned the `POST` into a `GET`, and
+`POST /api/c/meta/bulk` landed on `GET /api/c/:col/:key` with the key `bulk`.
+Not one failure mentioned a certificate.
+
+The worst of the four is `ciclo/cancello.cjs` — the command that answers "2.0
+is stable". It did not declare `PATHFINDER_PG` either, so on a machine with
+PostgreSQL configured it ran the whole cycle **against the working
+warehouse**, not against the throw-away copy.
+
+All four fixed. The net now walks subdirectories and **names the four files**,
+because "at least one in a subdirectory" passes anyway — `server/test/` is
+already a subdirectory, and this test's first draft fell for exactly that.
+
+Also here: the production-picking round proved end to end against a real
+order file, which found one defect — changing the task type left the previous
+error message standing over a form that no longer has the field it names.
+
+1,664 client tests in 63 files; 322 on the service; 101 on the benches.
+
+---
+
+## 2.34.0 — 2026-09-08
 
 **The delivery note starts the work instead of ending it.**
 
@@ -68,7 +101,7 @@ border from its state.
 desk** — including a CSS class referenced since 1.10 and never defined, and a
 document field written since 1.8 and never declared.
 
-1,652 client tests in 68 files, plus 362 on the service and benches.
+1,652 client tests in 63 files, plus 362 on the service and benches.
 
 ---
 

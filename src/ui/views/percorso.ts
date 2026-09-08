@@ -1930,7 +1930,7 @@ export const VistaPercorso = {
        del DDT, che è vero e non nullo, e fino alla 2.30 «c'è un numero
        d'ordine» voleva dire «c'è un conto di produzione da tenere».
 
-       Trovato a video il 21/09: la prima preparazione ha scritto DUE
+       Trovato a video il 08/09: la prima preparazione ha scritto DUE
        movimenti invece di uno — il trasferimento giusto in zona
        imballaggio, e un ingresso nel vano di lavorazione che non c'entra
        niente. Quella merce va sul camion, non in impasto: aprirle un conto

@@ -291,7 +291,7 @@ describe('richiestaPreparazione', () => {
   /* IL CAMPO CHE NESSUNO SCRIVE. Il record scrive `causale_label` dalla 1.8;
      `causale` e' legacy e resta vuoto. Leggere quello sbagliato dava sempre
      stringa vuota, e la vuota aveva l'aria di essere «causale non
-     impostata». Trovato a video il 21/09. */
+     impostata». Trovato a video il 08/09. */
   it('legge l etichetta che il record scrive davvero', () => {
     expect(richiestaPreparazione(doc(), 'AS').payload.causale).toBe('Vendita');
   });

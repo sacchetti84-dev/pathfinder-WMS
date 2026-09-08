@@ -328,7 +328,7 @@ export interface DocumentoUscita {
   /** 2.31 — L'ETICHETTA DELLA CAUSALE, dichiarata con nove versioni di
       ritardo. `savePendingOutbound` la scrive dalla 1.8 (`store.ts`), ma il
       tipo nominava solo `causale` — un campo che nessuno scrive — e chi la
-      voleva passava da un cast. Trovato a video il 21/09 costruendo la
+      voleva passava da un cast. Trovato a video il 08/09 costruendo la
       preparazione: leggere `causale` dava sempre stringa vuota, e la vuota
       aveva l'aria di essere «causale non impostata». */
   causale_label?: string;

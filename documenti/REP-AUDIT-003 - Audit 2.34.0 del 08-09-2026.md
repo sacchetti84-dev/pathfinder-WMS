@@ -1,6 +1,6 @@
 # REP-AUDIT-003 — Audit di Pathfinder 2.34.0
 
-**Data** 21/09/2026 · **Macchina** quella di sviluppo · **Oggetto** il lavoro
+**Data** 08/09/2026 · **Macchina** quella di sviluppo · **Oggetto** il lavoro
 concordato l'08/09: la coda delle attività diventa il posto da cui nasce il
 prelievo, e il DDT fa nascere il lavoro invece di finirlo.
 
@@ -126,7 +126,7 @@ davanti.
 
 | | prima | dopo |
 |---|---|---|
-| client | 1.464 in 56 file | **1.652 in 68 file** |
+| client | 1.464 in 56 file | **1.652 in 63 file** |
 | servizio | 156 | **171** |
 | gerarchia · etichette · installazione · schema | 40 · 100 · 43 · 8 | invariate, tutte verdi |
 
@@ -182,7 +182,7 @@ carico con un allegato vero; la Zebra; il camion.
 ## 7. Consegna
 
 **Pacchetto** `consegna\Pathfinder 2.34.0\`
-impronta `467fbdcfcd27b1164f4173e3998374f421085690571a4563874e8660a064fac5`,
+impronta `70dbb6f1b0d48b0ea3603086663b3058d2d49866ecf3551a8eed16935737ecdb`,
 8 file, 2,10 MB.
 
 **Non installato.** Su `C:\Pathfinder\` gira la 2.29.2: l'installazione si

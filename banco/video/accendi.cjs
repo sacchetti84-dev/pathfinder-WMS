@@ -141,7 +141,9 @@ async function principale() {
 
   const servizio = spawn(process.execPath, [path.join(RADICE, 'server', 'pathfinder-server.js')], {
     cwd: RADICE,
-    env: {
+    /* 2.35 — le `PATHFINDER_TLS_*` via: ereditate, il banco parte in HTTPS
+       e il browser lo apre in chiaro sulla porta di sempre. */
+    env: require('../../server/lib/tls.js').scollegaTls({
       ...process.env,
       PATHFINDER_PORT: String(PORTA),
       PATHFINDER_DB: DB,
@@ -150,7 +152,7 @@ async function principale() {
       /* Il database del banco è SQLite: se la macchina ha PostgreSQL
          configurato, la variabile vuota dice «no, il file». */
       PATHFINDER_PG: '',
-    },
+    }),
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   servizio.stdout.on('data', (d) => process.stdout.write('  ‹servizio› ' + d));

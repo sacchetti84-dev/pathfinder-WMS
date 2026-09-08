@@ -46,7 +46,7 @@ server/
   pathfinder-server.js     il servizio: API, eventi, e serve l'applicativo
   lib/schema.js            le 14 collezioni, con le chiavi e gli indici di prima
   lib/db.js                il contratto di persistenza tradotto su SQLite
-  test/collaudo.js         29 prove, fra cui la contesa fra due terminali
+  test/collaudo.js        171 prove, fra cui la contesa fra due terminali
   data/pathfinder.db       il database
 ```
 

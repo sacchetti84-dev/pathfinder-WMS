@@ -82,15 +82,32 @@ describe('scollegaTls', () => {
 
 /* I file candidati: si cercano, non si elencano. Un banco nuovo che nascesse
    domani senza la riga cadrebbe qui il giorno stesso. */
+/* 2.35 — SI SCENDE NELLE SOTTOCARTELLE, e non e' un dettaglio di ricerca.
+   Fino alla 2.34 questa funzione leggeva solo il primo livello di `banco/`, e
+   i quattro banchi che stanno sotto — `ciclo/gira.cjs`, `ciclo/cancello.cjs`,
+   `migrazione/dalla-1.4.cjs`, `video/accendi.cjs` — non sono mai stati
+   guardati. Nessuno dei quattro scollegava il certificato, e `cancello.cjs`
+   nemmeno `PATHFINDER_PG`: il comando che dichiara stabile la 2.0 esercitava
+   il ciclo sul PostgreSQL di lavoro. Una rete che copre meta' del cortile
+   dice «tutto a posto» con lo stesso verde di una che li copre tutti. */
+function sotto(dir, dentro = []) {
+  if (!fs.existsSync(dir)) return dentro;
+  for (const nome of fs.readdirSync(dir)) {
+    const percorso = path.join(dir, nome);
+    const stat = fs.statSync(percorso);
+    if (stat.isDirectory()) {
+      if (nome === 'node_modules' || nome === 'db') continue;
+      sotto(percorso, dentro);
+    } else if (/\.(cjs|mjs|js)$/.test(nome)) dentro.push(percorso);
+  }
+  return dentro;
+}
+
 function candidati() {
   const dove = [path.join(RADICE, 'banco'), path.join(RADICE, 'server', 'test')];
   const fuori = [];
   for (const dir of dove) {
-    if (!fs.existsSync(dir)) continue;
-    for (const nome of fs.readdirSync(dir)) {
-      if (!/\.(cjs|mjs|js)$/.test(nome)) continue;
-      const percorso = path.join(dir, nome);
-      if (!fs.statSync(percorso).isFile()) continue;
+    for (const percorso of sotto(dir)) {
       const testo = fs.readFileSync(percorso, 'utf8');
       /* Accende il servizio: o lo richiede in questo processo, o lo lancia in
          un figlio. Nominare il file non basta — `collaudo-installazione.js` ne
@@ -109,6 +126,22 @@ describe('i banchi dichiarano il loro ambiente', () => {
 
   test('ce ne sono, altrimenti questa prova non sta guardando niente', () => {
     expect(files.length).toBeGreaterThanOrEqual(3);
+  });
+
+  /* 2.35 — E I BANCHI IN SOTTOCARTELLA CI SONO. Il conto sopra restava verde
+     anche quando la ricerca guardava solo il primo livello di `banco/`: sei
+     file sono piu' di tre. Nemmeno «almeno uno in sottocartella» basta, e la
+     prima stesura di questa prova ci e' cascata — `server/test/` E' gia' una
+     sottocartella, quindi passava comunque. Si nominano i banchi che stanno
+     sotto: sono quattro, e sono esattamente quelli che per otto versioni
+     nessuno ha guardato. */
+  test.each([
+    'banco/ciclo/gira.cjs',
+    'banco/ciclo/cancello.cjs',
+    'banco/migrazione/dalla-1.4.cjs',
+    'banco/video/accendi.cjs',
+  ])('%s e\' fra i banchi guardati', (atteso) => {
+    expect(files.map((f) => f.nome.replace(/\\/g, '/'))).toContain(atteso);
   });
 
   test.each(files.map((f) => [f.nome, f]))('%s scollega il certificato', (_nome, f) => {

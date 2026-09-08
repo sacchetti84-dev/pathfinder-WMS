@@ -295,6 +295,23 @@ Non stanno nel codice: si scrivono in **Configurazione → DDT e Documenti**.
 Senza ragione sociale, indirizzo, comune e **partita IVA** i documenti escono
 con l'avviso «documento non conforme».
 
+### La zona di imballaggio — dalla 2.31
+
+**Una zona per sito va marcata come zona di imballaggio**, in
+**Configurazione → Siti e Zone**. È l'unica classe di zona di cui il sistema
+ne pretende una, perché è il posto dove finisce una preparazione di
+spedizione: la merce prelevata ci viene **spostata**, non scaricata — un DDT
+pendente prenota già i colli e a scaricarli è l'evasione — e il bancale di
+prodotto finito ci nasce dentro, con la merce sopra.
+
+Senza la marcatura una preparazione non ha dove finire, e il giro del prodotto
+finito torna a stampare l'etichetta di un bancale prima che ci sia sopra
+qualcosa.
+
+Lo spazio non è limitato dal sistema, ed è voluto: in zona imballaggi lo
+spazio lo governa l'operatore a vista sul campo, e un tetto scritto
+produrrebbe solo un numero che non torna con i bancali che stanno lì.
+
 ### Stampanti di etichette — dalla 2.19
 
 Le etichette di merce e unità di carico escono su **stampanti Zebra collegate
@@ -682,8 +699,22 @@ Aprendo `MAPPER` si vedono tre cose diverse, e non vanno confuse.
 | `npm run dev` | Sviluppo con ricarica automatica su `localhost:5173` |
 | `npm run build` | Rifà `consegna/`: l'applicativo, il manifesto e una copia di queste istruzioni. **Non è la cartella che il servizio serve** |
 | `npm run check` | Controllo dei tipi, client **e** servizio |
-| `npm test` | Collaudi automatici (serpentina, FEFO, geometria, parser ODP) — ~1 secondo |
-| `cd server && npm test` | 30 prove sul servizio, con database usa-e-getta |
+| `npm test` | **1.664 collaudi in 63 file**, senza servizio — ~5 secondi |
+| `cd server && node --test` | **171 prove sul servizio**, con database usa-e-getta |
+| `node banco/ciclo/gira.cjs` | **47 passi** del ciclo intero, dal carico al consumo: rifà il database, accende il banco sulla 4199, spegne |
+| `node banco/gerarchia.cjs` | **40 prove sui ruoli**, dove i ruoli valgono davvero: sul servizio |
+| `node banco/migrazione/dalla-1.4.cjs` | **14 prove** sul salto dalla 1.4 a questa |
+
+**I BANCHI DICHIARANO IL LORO AMBIENTE, e sono due famiglie di variabili.**
+`PATHFINDER_PG` vuota, perché vince su `PATHFINDER_DB` e su una macchina con
+PostgreSQL configurato manderebbe il banco sul magazzino vero. E le quattro
+`PATHFINDER_TLS_*` scollegate: ereditate, il banco parte in HTTPS mentre lo si
+interroga in chiaro, il servizio risponde `301`, `fetch` segue il rinvio
+trasformando la POST in GET, e le prove falliscono parlando di un record che
+manca invece che di un certificato. A togliere le quattro è
+`server/lib/tls.js → scollegaTls(env)`; a pretenderlo da ogni banco è
+`test/bancoNonEredita.test.js`, che dalla 2.35 scende anche nelle
+sottocartelle.
 
 In sviluppo il rimando alle API va puntato su un'istanza **di prova**:
 

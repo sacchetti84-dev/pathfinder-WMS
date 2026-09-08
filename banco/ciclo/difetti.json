@@ -5,7 +5,7 @@
   "dove": "anagrafica articoli",
   "cosa": "L'ODP2603889 chiede questi componenti in KG, l'anagrafica li dichiara altrimenti: 6001055=PZ. Il magazzino conta pezzi dove la produzione pesa chili, e nessuna delle due parti se ne accorge.",
   "prova": "riga 6001055: 0,468 KG richiesti su un articolo dichiarato PZ",
-  "visto": "2026-09-04T13:06:06.911Z"
+  "visto": "2026-09-08T16:09:46.184Z"
  },
  {
   "id": "K3",
@@ -13,7 +13,7 @@
   "dove": "registro movimenti / anagrafica operatori",
   "cosa": "2 sigle firmano movimenti ma non stanno fra gli operatori: DP (14 mov.), AS (2 mov.). Fra tre anni quella firma non risponde a un nome — o è un operatore cancellato, o è una sigla digitata a mano.",
   "prova": "operatori in anagrafica: EFBR, BABB, ANDS",
-  "visto": "2026-09-04T13:06:13.999Z"
+  "visto": "2026-09-08T16:09:52.963Z"
  },
  {
   "id": "CF3",
@@ -21,7 +21,7 @@
   "dove": "anagrafica articoli e Configurazione → Zone",
   "cosa": "La verifica di conformità copre il 5% delle righe (12 su 230): sul resto non tace perché va bene, tace perché non ha con cosa confrontare. Chi guarda la mappa vede un verde che non significa niente. Si scioglie compilando gli attributi delle zone e degli articoli — §2, voce 5.",
   "prova": "153 articoli senza attributi",
-  "visto": "2026-09-04T13:06:21.024Z"
+  "visto": "2026-09-08T16:10:00.099Z"
  },
  {
   "id": "P3",

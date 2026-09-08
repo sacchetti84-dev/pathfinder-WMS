@@ -97,8 +97,16 @@ function coda(out, righe = 6) {
 
   const servizio = spawn(process.execPath, [path.join(RADICE, 'server', 'pathfinder-server.js')], {
     cwd: RADICE, stdio: ['ignore', 'pipe', 'pipe'],
-    env: { ...process.env, PATHFINDER_PORT: String(PORTA), PATHFINDER_DB: CICLO,
-           PATHFINDER_APP_DIR: path.join(RADICE, 'consegna', 'Pathfinder 2.0', 'app') },
+    /* 2.35 — LE DUE CHE MANCAVANO, e qui mancavano tutte e due. Senza
+       `PATHFINDER_PG` vuota il cancello — il comando che dice «la 2.0 è
+       stabile» — esercitava il ciclo intero sul PostgreSQL di lavoro, non su
+       `ciclo.db`. Senza le `PATHFINDER_TLS_*` scollegate il banco parte in
+       HTTPS e il ciclo lo interroga in chiaro. */
+    env: require('../../server/lib/tls.js').scollegaTls({
+      ...process.env, PATHFINDER_PORT: String(PORTA), PATHFINDER_DB: CICLO,
+      PATHFINDER_PG: '',
+      PATHFINDER_APP_DIR: path.join(RADICE, 'consegna', 'Pathfinder 2.0', 'app'),
+    }),
   });
   let logServizio = '';
   servizio.stdout.on('data', (d) => { logServizio += d; });

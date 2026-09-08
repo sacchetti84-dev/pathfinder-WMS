@@ -122,7 +122,7 @@
    visivo non c'è mai stato, e restava il solo `scrollIntoView`. Chi arrivava
    da «Vedi in mappa» si trovava davanti alla corsia giusta senza sapere
    quale delle quaranta celle fosse la sua. Trovata leggendo la mappa il
-   21/09; ha attraversato ventiquattro versioni. */
+   08/09; ha attraversato ventiquattro versioni. */
 @keyframes loc-cell-flash {
   0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sx-accent) 60%, transparent); }
   50%      { box-shadow: 0 0 0 10px color-mix(in srgb, var(--sx-accent) 0%, transparent); }

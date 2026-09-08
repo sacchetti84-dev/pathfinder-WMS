@@ -109,7 +109,7 @@ not the exception. Different printers stay parallel.
 Printer settings — media type, darkness, peel-off, persistent save — are
 **never sent**. They belong to the machine.
 
-`node test/collaudo-stampa.js` runs 78 checks against a fake printer listening
+`node test/collaudo-stampa.js` runs 100 checks against a fake printer listening
 on 9100. No hardware needed; what hardware *is* needed for is recorded in
 `INDEX.md`, entry 83.
 
@@ -150,7 +150,7 @@ re-checks the counts table by table. See [`migrazione/README.md`](migrazione/REA
 ## Tests
 
 ```bash
-node test/collaudo.js                    # 141 checks on the service
+node test/collaudo.js                    # 171 checks on the service
 node test/collaudo-installazione.js      # 43 on the installation scripts
 node test/collaudo-migrazione-1.4.js     # 8 on the schema change
 ```
