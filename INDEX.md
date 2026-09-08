@@ -486,30 +486,27 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ### In servizio
 
-**La 2.29.0, in servizio** — su questa macchina, che è quella
+**La 2.29.1, in servizio** — su questa macchina, che è quella
 di **sviluppo** (§0): il magazzino vero non è stato toccato, e gira la 1.4
 altrove. Misurato da `/api/app-info` e `/api/health`, non ricopiato:
 
 | | |
 |---|---|
-| applicativo e servizio | **2.29.0** — `versione` e `service_version` dicono lo stesso numero |
-| impronta | `7b8f6ca0625badd50429c47a13ded368233e06e91c78ec561accaae84db21f4d` |
-| byte | **2.168.081** in **8 file**, `costruita 2026-09-08T00:04:19Z` |
-| dove | `C:\Pathfinderpp\corrente`, modo `cartella` |
+| applicativo e servizio | **2.29.1** — `versione` e `service_version` dicono lo stesso numero |
+| impronta | `b64132daf1a9f7d6e40e44409acdd3f2d5e7f1b5adba7d80a5ee88d771e00c96` |
+| byte | **2.168.428** in **8 file**, `costruita 2026-09-08T03:16:34Z` |
+| dove | `C:\Pathfinder\app\corrente`, modo `cartella` |
 | database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 1613` |
+| porta chiusa | **sì** — `GET /api/c/meta` senza sessione risponde **401** |
+| via di ritorno | `C:\Pathfinder\app\precedente` porta la **2.29.0**, impronta `7b8f6ca0…` |
 | dati | 11.197 articoli, **863 giacenze**, 4 siti, 19 zone, **2 operatori**, 15 unità di carico, 7 righe WIP, 37 lotti |
 
-> **QUESTA RIGA DICEVA «2.22.0», ED È LA NONA VOLTA.** Nel frattempo sono
-> passate la 2.23, la 2.24, la 2.25, la 2.26, la 2.27, la 2.28 e la 2.29: il
-> documento non le ha inseguite, e la 2.29.0 era scritta «costruita, non
-> installata» mentre serviva. **Quello che risponde batte quello che c'è
-> scritto qui** — §0 punto 2 — e la tabella qui sopra è stata misurata
-> l'08/09 notte.
->
-> Per memoria, le volte prima: la riga ha detto «2.21.0» quando serviva la
-> 2.22, e «2.17» quando ne erano passate quattro. **La cadenza con cui
-> sbaglia è il motivo per cui §0 punto 2 esiste**: si chiede al servizio,
-> sempre, prima di scrivere.
+> **QUESTA VOLTA LA RIGA È GIUSTA PERCHÉ È STATA MISURATA DOPO.** Andrea ha
+> installato la 2.29.1 l'08/09 e la riga è stata riscritta nello stesso gesto —
+> §0 punto 3. Prima diceva «2.22.0» mentre servivano nell'ordine la 2.23, la
+> 2.24, la 2.25, la 2.26, la 2.27, la 2.28 e la 2.29.0: **nona volta**, e la
+> 2.29.0 era perfino scritta «costruita, non installata» mentre serviva.
+> **Quello che risponde batte quello che c'è scritto qui** — §0 punto 2.
 
 **L'impronta è quella del pacchetto committato, e il bundle servito è quello
 del pacchetto**: i byte che girano sono quelli provati.
@@ -548,7 +545,7 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.29.1 — costruita, non installata
+### La 2.29.1 — IN SERVIZIO su questa macchina
 
 **L'audit dell'08/09**: cinque difetti trovati provando a rompere, cinque
 corretti, ognuno con la prova che lo riprende. Nessun campo nuovo a database,
@@ -562,8 +559,9 @@ nessuna migrazione. Il verbale lungo sta in
 | byte | **2.168.428** in **8 file**, `costruita 2026-09-08T03:02:33Z` |
 | numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
 | collaudi | **1.499 in 59 file** (una saltata) · `npm run check` pulito · e i banchi del servizio TORNANO A GIRARE: 156 + 8 + 43 + 100 + 40, tutti verdi |
-| provata | **al banco e a video**, su copia usa-e-getta di `pristino.db`: primo accesso, cruscotto e scorciatoie, prelievo automatico coi due `.xlsx` veri, esclusione del vano WIP. Poi installata in `bancopp` e servita: `/api/app-info` risponde `2.29.1` con l'impronta del pacchetto |
+| provata | **al banco e a video**, su copia usa-e-getta di `pristino.db`: primo accesso, cruscotto e scorciatoie, prelievo automatico coi due `.xlsx` veri, esclusione del vano WIP. Poi installata in `banco\app` e servita: `/api/app-info` risponde `2.29.1` con l'impronta del pacchetto |
 | cosa resta fuori | la corsia vera con un operatore; la Zebra con la carta montata (voci 83 e 89); il numero di pagina del DDT su carta (voce 97); la maschera a 480 px di questa versione |
+| installata | **sì**, l'08/09, da Andrea. `/api/app-info` risponde `2.29.1`, impronta `b64132da…`, che è quella del pacchetto. `GET /api/c/meta` senza sessione risponde **401**: la porta è chiusa. `app\precedente` porta la **2.29.0**, impronta `7b8f6ca0…`, ed è la via di ritorno intera. Il database non è stato toccato: `revision 1613`, 11.197 articoli, 863 giacenze, gli stessi conteggi di prima |
 
 **I CINQUE, IN UNA RIGA CIASCUNO.**
 
@@ -597,13 +595,15 @@ nessuna migrazione. Il verbale lungo sta in
    davano quattro volte «Già in reparto produzione». Deduplicato per
    `(vano, motivo)` — due vani diversi restano due note.
 
-### La 2.29.0 — in servizio su questa macchina
+### La 2.29.0 — superata dalla 2.29.1, ed è la via di ritorno
 
-> **LA RIGA «IN SERVIZIO» HA SBAGLIATO PER LA NONA VOLTA.** La 2.29.0 era
-> dichiarata «costruita, non installata» e stava servendo: `/api/app-info`
-> rispondeva `2.29.0`, impronta `7b8f6ca0…`, che è quella del pacchetto.
-> Misurato l'08/09 alle 02:15. **Quello che risponde batte quello che c'è
-> scritto qui** — §0 punto 2.
+> **HA SERVITO MENTRE QUESTO DOCUMENTO LA DICEVA «COSTRUITA, NON INSTALLATA»,
+> ED È LA NONA VOLTA.** `/api/app-info` rispondeva `2.29.0`, impronta
+> `7b8f6ca0…`, che è quella del pacchetto — misurato l'08/09 alle 02:15.
+> Adesso sta in `C:\Pathfinder\app\precedente` ed **è la via di ritorno
+> intera**: `torna-indietro.ps1` la rimette al suo posto senza toccare il
+> database. Il pacchetto sta in `ARCHIVIO\VERSIONI PRECEDENTI\Pathfinder 2.29.0\`.
+> **Quello che risponde batte quello che c'è scritto qui** — §0 punto 2.
 
 
 **Quello che è già in reparto non si va a prendere, e dal vano di lavorazione
@@ -797,7 +797,7 @@ lo schermo — quindici flussi, 355 controlli — e ha trovato due cose vere.
 | collaudi | **1.375 in 52 file** (una saltata) · banco del ciclo **47 su 47** · banco a video **355 su 355** · `servizio\test\collaudo-installazione.js` girato **dentro** il pacchetto: **43 su 43** |
 | cosa cambia dalla 2.22.0 | cinque rotte del servizio normalizzano i codici che arrivano nel corpo; una serratura sulla maschera di posizionamento; il resto è banco, che non entra nel pacchetto |
 | database | nessun campo nuovo, nessuna migrazione |
-| **installata** | **sì, su QUESTA macchina** — `/api/app-info` risponde `2.23.0` con l'impronta `f9d4e012…`, e `C:\Pathfinderpp\corrente` porta quella. Misurato il **04/09 sera**; la riga diceva «no», e diceva male — vedi l'avviso in testa a §1 |
+| **installata** | **sì, su QUESTA macchina** — `/api/app-info` risponde `2.23.0` con l'impronta `f9d4e012…`, e `C:\Pathfinder\app\corrente` porta quella. Misurato il **04/09 sera**; la riga diceva «no», e diceva male — vedi l'avviso in testa a §1 |
 
 **I DUE DIFETTI, e come sono venuti fuori.**
 
