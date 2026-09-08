@@ -59,6 +59,41 @@ describe('il vano di lavorazione non è un’ubicazione da cui si preleva', () =
     expect(n.reason).toBe('in_lavorazione');
   });
 
+  /* 2.29.1 — VISTO AL BANCO L'08/09, e non rileggendo il codice.
+     Quattro righe di giacenza dello stesso lotto nello stesso vano WIP
+     davano QUATTRO volte la stessa frase. `(location_code, item_key)` è un
+     indice e non un vincolo di unicità (`server/lib/schema.js`): due righe
+     nello stesso vano ci stanno, e un caricamento di massa le fa — la
+     migrazione dalla 1.4 è esattamente questo. `offroute` era già giusto,
+     una voce sola: si moltiplicava l'avviso, e un avviso ripetuto spinge
+     fuori dallo schermo quelli che l'operatore non ha ancora letto.
+     Verificata rimettendo il difetto: senza la deduplica, esce 4. */
+  it('lo stesso vano ripetuto in giacenza dà UNA nota, non una per riga', () => {
+    magazzino([WIP, WIP, WIP, WIP]);
+    const p = PickRoute.build(RIGA);
+    const wip = p.notes.filter((x) => x.location_code === WIP && x.reason === 'in_lavorazione');
+    expect(wip).toHaveLength(1);
+  });
+
+  it('ma due vani diversi restano due note: si deduplica il doppione, non il fatto', () => {
+    /* Il rischio della deduplica è tacere una segnalazione vera. Qui la
+       merce sta in due posti bloccati per lo stesso motivo, e l'operatore
+       deve saperlo di tutti e due. */
+    magazzino([WIP, WIP]);
+    const ALTRO = 'MAG1-WIP-02';
+    const prima = Store.getItemByKey;
+    Store.getItemByKey = () => [
+      { item_key: 'A#L1', article_code: 'A', lot_code: 'L1', location_code: WIP, qty: 5 },
+      { item_key: 'A#L1', article_code: 'A', lot_code: 'L1', location_code: WIP, qty: 5 },
+      { item_key: 'A#L1', article_code: 'A', lot_code: 'L1', location_code: ALTRO, qty: 5 },
+    ];
+    Store.isItemQuarantined = (_k, loc) => loc === ALTRO;
+    const p = PickRoute.build(RIGA);
+    Store.getItemByKey = prima;
+    expect(p.notes.filter((x) => x.location_code === WIP)).toHaveLength(1);
+    expect(p.notes.filter((x) => x.location_code === ALTRO)).toHaveLength(1);
+  });
+
   it('SE IL VANO WIP È L’UNICA UBICAZIONE, NON NASCE NESSUNA TAPPA', () => {
     magazzino([WIP]);
     const p = PickRoute.build(RIGA);

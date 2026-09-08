@@ -15,6 +15,61 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.29.1 — 2026-09-08
+
+**An audit that tried to break things, and broke five.**
+
+No new database fields, no migration. Five defects found by attacking the
+workflows rather than re-reading the code; five fixed, each with a test that
+was verified by putting the defect back.
+
+**The test benches had been lying since 2.26.** Seven `PATHFINDER_*` variables
+live at machine scope on the development box, and every node process inherits
+them. `server/test/collaudo.js` was written knowing this and neutralised six of
+them — but not the two `PATHFINDER_TLS_*`, which did not exist when that file
+was written: they arrived with 2.26. So the bench started in HTTPS while its
+own tests spoke cleartext on the same port, collected the `301` that 2.26
+answers to cleartext callers, and `fetch` followed the redirect by turning
+every POST into a GET. Every write became a read.
+
+It did not fail. It answered. Read tests passed and write tests failed,
+accusing the service of holes it does not have — including three dead ends in
+the operator hierarchy and one "the door stayed open", all false. 28 tests dead
+in `collaudo.js`, 36 of 40 in `banco/gerarchia.cjs`. Underneath that red, a test
+stale since 2.13 had been hiding, unseen for three versions.
+
+The same inheritance affected `banco/prova-corrente.cjs`, which also inherited
+`PATHFINDER_PG` — and that one wins over `PATHFINDER_DB`. It opened the live
+warehouse database while its header declared that it touched nothing.
+
+Fixed with `scollegaTls` in `server/lib/tls.js`, and with a new
+`banco/servizio-banco.mjs` that declares a bench environment in full, so the
+hand-typed recipe that forgot a variable twice in two weeks is gone.
+
+**The first Admin was created, and the screen said it had failed.** On a fresh
+install the setup wizard wrote the operator, then wrote two bookkeeping keys to
+`meta`. But writing an operator with a PIN is exactly what closes the service's
+first-boot window: the second write arrived without a session and took a 401,
+the call threw, and the login that was meant to follow never ran. The installer
+saw "invalid session" over an Admin that existed with the PIN they had just
+chosen. The session is now taken between the two writes.
+
+**Two dashboard tiles both advertised F3, and F3 did neither.** It opened the
+picking screen on whichever sub-tab was last used. Meanwhile F4, F6, F7 and F8
+existed and no tile said so. The key table and the tile labels were two lists
+of the same thing, and they had already diverged in silence. There is one list
+now, and the tile asks it for its key.
+
+**Route warnings repeated themselves.** One note per stock row instead of one
+per bin and reason, so a lot held in several rows of the same bin repeated the
+same sentence. `(location_code, item_key)` is an index and not a uniqueness
+constraint, so a bulk load can produce exactly that.
+
+1,499 client tests in 59 files, plus 347 on the service and the benches — all
+green, and the service benches run again for the first time since 2.26.
+
+---
+
 ## 2.29.0 — 2026-09-08
 
 **Goods already down in production are not fetched again.**

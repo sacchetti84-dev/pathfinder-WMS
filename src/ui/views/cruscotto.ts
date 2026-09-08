@@ -5,7 +5,7 @@ import { Store } from '../../core/store';
 import type { Sito } from '../../types/entita';
 import { pickupAlertStatus } from '../../modules/pickupAlert';
 import {
-  componiLayout, sposta, commuta, ridimensiona, scorciatoieDaMostrare, daSalvare,
+  componiLayout, sposta, commuta, ridimensiona, scorciatoieDaMostrare, daSalvare, tastoPer,
 } from '../../modules/cruscotto';
 import type { Disponibile, Layout, Riquadro } from '../../modules/cruscotto';
 import type { Icona } from '../icone';
@@ -369,28 +369,33 @@ export const VistaCruscotto = {
 
      L'`id` è quello che finisce nel layout salvato e non cambia mai; il
      titolo è testo, e può cambiare quando serve. */
+  /* 2.29.1 — IL TASTO NON SI SCRIVE QUI. Lo dice `tastoPer`, che legge la
+     stessa tabella che ascolta la tastiera: una scheda non puo' piu'
+     annunciare un tasto che porta da un'altra parte, ne' tacerne uno che
+     porta da lei. Vedi `modules/cruscotto.ts`. */
   _scorciatoieDisponibili(): Scorciatoia[] {
-    return [
+    const catalogo: Omit<Scorciatoia, 'key'>[] = [
       { id: 'io-in',         mode: 'io',   sub: 'in',         color: 'var(--ct-cat-in)',   icon: 'package',
-        label: 'Carico / Scarico', sub_txt: 'Posiziona e smaltisci', key: 'F2' },
+        label: 'Carico / Scarico', sub_txt: 'Posiziona e smaltisci' },
       { id: 'pick-cambio',   mode: 'pick', sub: 'cambio',     color: 'var(--ct-cat-move)', icon: 'refresh',
-        label: 'Trasferimento',    sub_txt: 'Cambio ubicazione',     key: 'F3' },
+        label: 'Trasferimento',    sub_txt: 'Cambio ubicazione' },
       { id: 'pick-prod',     mode: 'pick', sub: 'produzione', color: 'var(--ct-cat-pick)', icon: 'building-factory',
-        label: 'Prelievo ordini',  sub_txt: 'Prelievo produzione',   key: 'F3' },
+        label: 'Prelievo ordini',  sub_txt: 'Prelievo produzione' },
       { id: 'inventario',    mode: 'inv',  sub: null,         color: 'var(--sx-warning)',  icon: 'clipboard-text',
-        label: 'Inventario',       sub_txt: 'Vano, articolo o unità', key: '' },
+        label: 'Inventario',       sub_txt: 'Vano, articolo o unità' },
       { id: 'quarantena',    mode: 'quarantine', sub: null,         color: 'var(--sx-purple)',   icon: 'lock',
-        label: 'Quarantena',       sub_txt: 'Blocco qualità',        key: '' },
+        label: 'Quarantena',       sub_txt: 'Blocco qualità' },
       { id: 'campionamento', mode: 'sampling', sub: null,         color: 'var(--sx-teal)',     icon: 'flask',
-        label: 'Campionamento',    sub_txt: 'Presa per la qualità',  key: '' },
+        label: 'Campionamento',    sub_txt: 'Presa per la qualità' },
       { id: 'spedizioni',    mode: 'shipping', sub: 'documenti',  color: 'var(--ct-cat-out)',  icon: 'truck',
-        label: 'Spedizioni',       sub_txt: 'DDT e uscite',          key: '' },
+        label: 'Spedizioni',       sub_txt: 'DDT e uscite' },
       /* 2.23 — Il carico del camion era una tessera di Movimenta e non aveva
          una scorciatoia; adesso è una scheda di Spedizioni, e chi carica ci
          va venti volte al giorno. */
       { id: 'carico-camion', mode: 'shipping', sub: 'carico',     color: 'var(--ct-cat-out)',  icon: 'tir',
-        label: 'Carico camion',    sub_txt: 'Bancali in baia',       key: '' },
+        label: 'Carico camion',    sub_txt: 'Bancali in baia' },
     ];
+    return catalogo.map((o) => ({ ...o, key: tastoPer(o.mode, o.sub) }));
   },
 
   _renderQuickActions() {

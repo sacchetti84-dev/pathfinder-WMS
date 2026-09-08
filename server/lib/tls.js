@@ -56,4 +56,31 @@ function decidiTls(env) {
   return { modo: 'chiaro' };
 }
 
-module.exports = { eSalutoTLS, decidiTls };
+/* LE VARIABILI CHE UN BANCO NON DEVE EREDITARE — 2.29.1.
+
+   Su una macchina che ha girato `crea-certificato.ps1` le due `PATHFINDER_TLS_*`
+   stanno a livello MACCHINA: le eredita ogni processo node, banchi compresi. Un
+   banco che le eredita parte in HTTPS mentre le sue prove parlano in chiaro sulla
+   stessa porta, riceve il `301` di qui sopra, e `fetch` degrada le POST a GET —
+   ogni scrittura diventa una lettura. Le prove non muoiono: passano quelle in
+   lettura e falliscono le altre accusando il servizio di buchi che non ha.
+   Successo dalla 2.26 alla 2.29 su `test/collaudo.js` (28 prove) e su
+   `banco/gerarchia.cjs` (36, con tre «VICOLO CIECO» e una «LA PORTA E' RESTATA
+   APERTA» tutte false).
+
+   Muta l'oggetto che riceve e lo restituisce: serve tanto su `process.env` quanto
+   su una copia da passare a `spawn`. */
+const VARIABILI_TLS = [
+  'PATHFINDER_TLS_PFX',
+  'PATHFINDER_TLS_PFX_PASSWORD',
+  'PATHFINDER_TLS_CERT',
+  'PATHFINDER_TLS_KEY',
+];
+
+function scollegaTls(env) {
+  const e = env || {};
+  for (const v of VARIABILI_TLS) delete e[v];
+  return e;
+}
+
+module.exports = { eSalutoTLS, decidiTls, scollegaTls, VARIABILI_TLS };

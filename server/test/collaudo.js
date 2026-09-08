@@ -11,6 +11,12 @@ const TMP = path.join(os.tmpdir(), `pathfinder-collaudo-${Date.now()}.db`);
 process.env.PATHFINDER_DB = TMP;
 process.env.PATHFINDER_PORT = '4199';
 
+/* 2.29.1 — IL BANCO PARLA IN CHIARO, E LO IMPONE. Le due `PATHFINDER_TLS_*`
+   stanno a livello macchina su chi ha girato `crea-certificato.ps1`: ereditarle
+   fa partire questo banco in HTTPS mentre `BASE` qui sotto e' `http://`, e il
+   `301` della 2.26 degrada ogni POST a GET. Vedi `lib/tls.js`. */
+require('../lib/tls.js').scollegaTls(process.env);
+
 /* ── 1.7 · UNA CARTELLA-VERSIONE FINTA ────────────────────────────────────
    Il servizio legge le variabili all'avvio, quindi la cartella va costruita
    PRIMA del `require`. Sono due: `corrente`, con l'indice e un asset, e

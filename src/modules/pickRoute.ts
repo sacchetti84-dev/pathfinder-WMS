@@ -240,9 +240,26 @@ const PickRoute = {
         /* Quarantena e impegno su DDT: si escludono dalle ubicazioni
            percorribili, ma si dice all'operatore che la merce esiste. */
         const usable: Giacenza[] = [];
+        /* 2.29.1 — UNA NOTA PER VANO E MOTIVO, NON UNA PER RIGA DI GIACENZA.
+           `(location_code, item_key)` e' un indice, NON un vincolo di
+           unicita' (`server/lib/schema.js`): due righe dello stesso lotto
+           nello stesso vano ci stanno, e un caricamento di massa le fa.
+           Ogni riga scriveva la sua nota, quindi lo stesso vano ripeteva la
+           stessa frase quante volte era duplicato. Visto al banco l'08/09:
+           quattro righe in `M06-COM-01` davano quattro volte «Gia' in
+           reparto produzione». `offroute` era gia' corretto — una voce sola:
+           era solo l'avviso a moltiplicarsi, e un avviso ripetuto spinge
+           fuori dallo schermo quelli che l'operatore non ha ancora letto. */
+        const gia = new Set<string>();
+        const nota = (n: RigaFuoriPercorso) => {
+          const k = `${n.location_code}#${n.reason}`;
+          if (gia.has(k)) return;
+          gia.add(k);
+          notes.push(n);
+        };
         for (const it of found) {
           if (Store.isItemQuarantined(it.item_key, it.location_code)) {
-            notes.push({
+            nota({
               ...base,
               location_code: it.location_code,
               reason: 'quarantine',
@@ -251,7 +268,7 @@ const PickRoute = {
             continue;
           }
           if (vanoWip && it.location_code === vanoWip) {
-            notes.push({
+            nota({
               ...base,
               location_code: it.location_code,
               reason: 'in_lavorazione',
@@ -260,7 +277,7 @@ const PickRoute = {
             continue;
           }
           if (Store.getAvailableQty(it.location_code, it.item_key) <= 0) {
-            notes.push({
+            nota({
               ...base,
               location_code: it.location_code,
               reason: 'pending_outbound',

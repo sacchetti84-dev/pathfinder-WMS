@@ -213,7 +213,16 @@ describe('il doppio contesto dei gestori inline', () => {
    sta tutta in `coperturaInLavorazione` (`modules/wip.ts`), che è pura e non
    sa niente né di cache né di Store. Qui resta il solo mestiere che è di
    `Store` — prendere le righe in lavorazione dalla cache e passarle. */
-const TETTO_STORE = 4596;
+/* 2.29.1 — da 4596 a 4606, e il perché.
+
+   Dieci righe, e nove sono la spiegazione. `addOperator` prende un secondo
+   argomento, `senzaMeta`, e la riga che tocca `meta` diventa condizionata.
+   Non è logica assorbita: è l'ORDINE di due scritture che già c'erano. La
+   prima chiude la finestra di primo avvio del servizio, quindi la seconda
+   dev'essere preceduta dall'ingresso — e chi conosce quell'ordine è chi
+   crea il primo Admin, non `Store`. Per questo la scelta sta qui e la
+   decisione sta in `ui/app.ts`. */
+const TETTO_STORE = 4606;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

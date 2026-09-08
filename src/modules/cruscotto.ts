@@ -155,3 +155,41 @@ export function daSalvare(layout: Layout): Layout {
     scorciatoie: layout.scorciatoie === null ? null : layout.scorciatoie.slice(),
   };
 }
+
+/* I TASTI FUNZIONE, IN UN POSTO SOLO — 2.29.1.
+
+   Fino alla 2.29 il tasto stampato sulla scheda era una stringa scritta a
+   mano accanto alla scheda, e la tabella che ascolta la tastiera stava in
+   `ui/app.ts`. Due elenchi separati divergono, e avevano gia' divergiuto:
+   DUE schede portavano scritto «F3» — Trasferimento e Prelievo ordini — e
+   F3 non faceva ne' l'una ne' l'altra. Apriva il prelievo senza dire su
+   quale scheda, cioe' sull'ULTIMA USATA: `_pickSubMode` e' appiccicoso.
+   Chi aveva prelevato una volta per la produzione, premendo F3 per fare un
+   trasferimento, si ritrovava sul prelievo di produzione. In corsia si
+   guarda lo schermo per un istante e si comincia a battere codici.
+
+   Allo stesso tempo F4, F6, F7 e F8 esistevano e nessuna scheda lo diceva.
+
+   Adesso il tasto della scheda si CHIEDE a questa tabella. Un tasto che non
+   c'e' non si stampa, e una scheda che nessun tasto raggiunge non ne
+   annuncia uno. `sub` fa parte della chiave: e' quello che mancava. */
+export type Combinazione = { readonly mode: string; readonly sub: string | null };
+
+export const TASTI_FUNZIONE: Readonly<Record<string, Combinazione>> = {
+  F2: { mode: 'io',         sub: 'in' },
+  F3: { mode: 'pick',       sub: 'cambio' },
+  F4: { mode: 'inv',        sub: null },
+  F6: { mode: 'io',         sub: 'out' },
+  F7: { mode: 'quarantine', sub: null },
+  F8: { mode: 'shipping',   sub: null },
+};
+
+/** Il tasto che porta esattamente li', o stringa vuota. Confronta anche
+    `sub`: senza, «prelievo» e «prelievo di produzione» sarebbero la stessa
+    cosa, ed e' proprio la confusione da cui nasce questa funzione. */
+export function tastoPer(mode: string, sub: string | null = null): string {
+  for (const [tasto, c] of Object.entries(TASTI_FUNZIONE)) {
+    if (c.mode === mode && (c.sub ?? null) === (sub ?? null)) return tasto;
+  }
+  return '';
+}

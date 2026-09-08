@@ -482,36 +482,34 @@ WIP (voce **15**), se la voce **19** sia chiusa dalla 2.4 o ancora aperta
 
 ---
 
-## 1. Stato, misurato il 04/09/2026 pomeriggio
+## 1. Stato, misurato l'08/09/2026 notte
 
 ### In servizio
 
-**La 2.22.0, in servizio** — su questa macchina, che è quella
+**La 2.29.0, in servizio** — su questa macchina, che è quella
 di **sviluppo** (§0): il magazzino vero non è stato toccato, e gira la 1.4
 altrove. Misurato da `/api/app-info` e `/api/health`, non ricopiato:
 
 | | |
 |---|---|
-| applicativo e servizio | **2.22.0** — `versione` e `service_version` dicono lo stesso numero |
-| impronta | `c5d97b1526eff6eee230c68f1108b7bc59371f2947514a5e34fc98a53ace4d29` |
-| byte | **2.033.787** in **4 file**, `costruita 2026-09-03T21:47:21Z` |
-| dove | `C:\Pathfinder\app\corrente`, modo `cartella` |
-| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 562` |
-| bundle servito | `index-B7Ka2QdK.js` · `index-Cvh18DRV.css` — **gli stessi del pacchetto** |
-| porta chiusa | **sì** — `GET /api/c/meta` senza sessione risponde **401** |
-| via di ritorno | `C:\Pathfinder\app\precedente` porta la **2.20.0**, impronta `d10d7830…` |
-| dati | 11.197 articoli, **883 giacenze**, 4 siti, 20 zone, **1 operatore**, 8 unità di carico, 4 documenti di uscita |
+| applicativo e servizio | **2.29.0** — `versione` e `service_version` dicono lo stesso numero |
+| impronta | `7b8f6ca0625badd50429c47a13ded368233e06e91c78ec561accaae84db21f4d` |
+| byte | **2.168.081** in **8 file**, `costruita 2026-09-08T00:04:19Z` |
+| dove | `C:\Pathfinderpp\corrente`, modo `cartella` |
+| database | **PostgreSQL 17** — `pathfinder` su `127.0.0.1:5432`, 21 collezioni, `revision 1613` |
+| dati | 11.197 articoli, **863 giacenze**, 4 siti, 19 zone, **2 operatori**, 15 unità di carico, 7 righe WIP, 37 lotti |
 
-> **QUESTA RIGA DICEVA «2.21.0», ED È L’OTTAVA VOLTA.** La 2.22.0 era
-> dichiarata «costruita, non installata» e intanto era stata installata:
-> `/api/app-info` risponde `2.22.0`, impronta `c5d97b15…`, che è quella del
-> pacchetto. **Quello che risponde batte quello che c’è scritto qui** — §0
-> punto 2 — e la tabella è stata misurata oggi.
+> **QUESTA RIGA DICEVA «2.22.0», ED È LA NONA VOLTA.** Nel frattempo sono
+> passate la 2.23, la 2.24, la 2.25, la 2.26, la 2.27, la 2.28 e la 2.29: il
+> documento non le ha inseguite, e la 2.29.0 era scritta «costruita, non
+> installata» mentre serviva. **Quello che risponde batte quello che c'è
+> scritto qui** — §0 punto 2 — e la tabella qui sopra è stata misurata
+> l'08/09 notte.
 >
-> Per memoria, la volta prima: **la riga diceva «2.17», ed era la settima.** Nel frattempo sono
-> passate la 2.18, la 2.19, la 2.20 e adesso la 2.21: il documento non le ha
-> inseguite. **Quello che risponde batte quello che c'è scritto qui** — §0
-> punto 2 — e la tabella qui sopra è stata misurata stasera, non ricopiata.
+> Per memoria, le volte prima: la riga ha detto «2.21.0» quando serviva la
+> 2.22, e «2.17» quando ne erano passate quattro. **La cadenza con cui
+> sbaglia è il motivo per cui §0 punto 2 esiste**: si chiede al servizio,
+> sempre, prima di scrivere.
 
 **L'impronta è quella del pacchetto committato, e il bundle servito è quello
 del pacchetto**: i byte che girano sono quelli provati.
@@ -550,7 +548,63 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.29.0 — costruita, non installata
+### La 2.29.1 — costruita, non installata
+
+**L'audit dell'08/09**: cinque difetti trovati provando a rompere, cinque
+corretti, ognuno con la prova che lo riprende. Nessun campo nuovo a database,
+nessuna migrazione. Il verbale lungo sta in
+`documenti\REP-AUDIT-002 - Audit 2.29.1 del 08-09-2026.md`; qui il minimo.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.29.1\` |
+| impronta | `b64132daf1a9f7d6e40e44409acdd3f2d5e7f1b5adba7d80a5ee88d771e00c96` |
+| byte | **2.168.428** in **8 file**, `costruita 2026-09-08T03:02:33Z` |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.499 in 59 file** (una saltata) · `npm run check` pulito · e i banchi del servizio TORNANO A GIRARE: 156 + 8 + 43 + 100 + 40, tutti verdi |
+| provata | **al banco e a video**, su copia usa-e-getta di `pristino.db`: primo accesso, cruscotto e scorciatoie, prelievo automatico coi due `.xlsx` veri, esclusione del vano WIP. Poi installata in `bancopp` e servita: `/api/app-info` risponde `2.29.1` con l'impronta del pacchetto |
+| cosa resta fuori | la corsia vera con un operatore; la Zebra con la carta montata (voci 83 e 89); il numero di pagina del DDT su carta (voce 97); la maschera a 480 px di questa versione |
+
+**I CINQUE, IN UNA RIGA CIASCUNO.**
+
+1. **L'ambiente di macchina entrava nei banchi.** Le due `PATHFINDER_TLS_*`
+   stanno a livello MACCHINA e sono arrivate con la 2.26, dentro file scritti
+   quando non esistevano: il banco partiva in HTTPS, le prove parlavano in
+   chiaro sulla stessa porta, incassavano il `301` e `fetch` degradava ogni POST
+   a GET. **Non falliva: rispondeva.** 28 rosse su `collaudo.js`, 36 su 40 su
+   `gerarchia.cjs`, con tre «VICOLO CIECO» e un «LA PORTA È RESTATA APERTA»
+   tutti falsi. E `banco\prova-corrente.cjs` ereditava anche `PATHFINDER_PG`,
+   che VINCE su `PATHFINDER_DB`: apriva il magazzino vero dichiarando in testata
+   di non toccarlo. È l'incidente del 26/08, lasciato aperto. Corretto con
+   `scollegaTls` in `lib/tls.js` e con **`banco\servizio-banco.mjs`**, che
+   toglie la ricetta a mano — §5.
+2. **Una prova ferma alla 2.13**, rossa dalla 2.18 e invisibile sotto il rosso
+   di sopra: pretendeva `rec_set` da `/api/auth/operatori`, che la 2.18 aveva
+   tolto di proposito. Girata dalla parte giusta.
+3. **Il primo Admin si creava e lo schermo diceva di no.** `addOperator`
+   finiva con `_touchMeta`, ma la scrittura dell'operatore col PIN è il gesto
+   che CHIUDE la finestra di primo avvio: la riga dopo prendeva 401, la
+   funzione lanciava, e `Auth.accedi` non veniva mai eseguita. Wizard aperto,
+   «Sessione non valida», e l'Admin a database col PIN appena scelto.
+   Adesso la sessione si prende **fra** le due scritture.
+4. **Due schede del cruscotto dicevano F3, e F3 non faceva né l'una né
+   l'altra**: apriva il prelievo sull'ULTIMA scheda usata. E F4, F6, F7, F8
+   esistevano senza che nessuna scheda lo dicesse. Erano due elenchi della
+   stessa cosa; adesso è uno, `TASTI_FUNZIONE` in `modules/cruscotto.ts`, e la
+   scheda gli chiede il suo tasto.
+5. **L'avviso del percorso ripeteva la stessa frase** una volta per riga di
+   giacenza invece che per vano e motivo. Quattro righe nello stesso vano WIP
+   davano quattro volte «Già in reparto produzione». Deduplicato per
+   `(vano, motivo)` — due vani diversi restano due note.
+
+### La 2.29.0 — in servizio su questa macchina
+
+> **LA RIGA «IN SERVIZIO» HA SBAGLIATO PER LA NONA VOLTA.** La 2.29.0 era
+> dichiarata «costruita, non installata» e stava servendo: `/api/app-info`
+> rispondeva `2.29.0`, impronta `7b8f6ca0…`, che è quella del pacchetto.
+> Misurato l'08/09 alle 02:15. **Quello che risponde batte quello che c'è
+> scritto qui** — §0 punto 2.
+
 
 **Quello che è già in reparto non si va a prendere, e dal vano di lavorazione
 non si preleva.** Nessun campo nuovo a database, nessuna migrazione, il
@@ -2782,6 +2836,9 @@ scelta e non per dimenticanza (§8).
 ### Aperte — da pianificare
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **98** | **`(location_code, item_key)` SU `inventory` È UN INDICE, NON UN VINCOLO DI UNICITÀ.** Sta sotto `composite` in `server\lib\schema.js`, che genera un `CREATE INDEX` e non un `CREATE UNIQUE INDEX` — `compositeUnique` esiste ed è usato altrove (`sites`, `lots`). Ma tutto il modello di prelievo tratta quella coppia come **un posto fisico solo**: `getItemByKey` restituisce una riga per ubicazione e chi legge assume che sia LA riga. Due righe dello stesso lotto nello stesso vano ci stanno, e un caricamento di massa le fa — **la migrazione dalla 1.4 (voce 79) è esattamente un caricamento di massa.** Il primo effetto si è già visto: l'avviso del percorso ripeteva la stessa frase una volta per riga, corretto nella 2.29.1. Gli altri non sono stati cercati | **Prima si conta, poi si decide.** Sul magazzino vero: `SELECT location_code, item_key, COUNT(*) FROM inventory GROUP BY 1,2 HAVING COUNT(*) > 1`. Se sono zero, l'indice si può fare unico e la migrazione passa liscia; se non lo sono, va deciso se fondere le righe sommando le quantità o rifiutarle — e fondere è una decisione sui **dati**, che è di Andrea. Finché non è deciso, ogni lettore di `getItemByKey` deve reggere il doppione |
+| **99** | **«PRELIEVO ORDINI» NON HA UNA SCORCIATOIA, E F8 NON È ANNUNCIATA DA NESSUNA SCHEDA.** La 2.29.1 ha messo tabella dei tasti e schede in un posto solo (`TASTI_FUNZIONE` in `modules/cruscotto.ts`), e da lì si vede il buco che i due elenchi separati nascondevano: F3 porta a Trasferimento, e il prelievo di produzione — che è quello che si usa tutti i giorni — non ha un tasto. F8 porta a Spedizioni senza sottoscheda, e la scheda «Spedizioni» dice `documenti`: non combaciano, quindi non si annuncia | **È una domanda per chi usa il terminale, non un difetto.** Adesso le etichette dicono il vero, che era la parte urgente. Assegnare F5 alla produzione, o far combaciare F8 con `shipping/documenti`, è una riga per ciascuna in `TASTI_FUNZIONE` — appena Andrea dice quali |
+| **100** | **IL `301` IN CHIARO DELLA 2.26 NON HA UN BANCO.** `decidiTls` ed `eSalutoTLS` sono coperte da ferme (`test/tls.test.js`), e la 2.29.1 ha fissato in prova il **comportamento di `fetch`** davanti a un `301` — che è il modo in cui il difetto si è nascosto per tre versioni. Ma il demultiplatore vero, quello che guarda il primo byte e rimanda il socket all'uno o all'altro server, nessuno lo esercita | **Costa un certificato costruito dalla prova**, e va deciso se vale: la strada c'è (`crea-certificato.ps1` lo fa con i mezzi di Windows, senza `openssl`), ma un banco che genera un PFX a ogni giro è lento e va a toccare il magazzino delle chiavi. L'alternativa onesta è dire che quel percorso si prova a mano, una volta per versione, e scrivere qui quando è stato fatto |
 | **97** | **IL NUMERO DI PAGINA DEL DDT NON È MAI STATO VISTO SU CARTA.** La 2.24 fa scorrere il DDT e chiede a `@page` una *page margin box* — `@bottom-right { content: "pag. " counter(page) " di " counter(pages) }`. È l'unico posto da cui si arriva a `counter(page)`, e **il banco non sa misurarlo**: prende le regole da `@media print` e quelle stanno dentro `@page`. Chromium le sostiene da poco; dove non le sostiene non esce niente e non si rompe niente, ma **nessuno l'ha ancora guardato** | **Un'anteprima di stampa e basta**: si apre un DDT lungo, Ctrl+P, e si guarda l'angolo in basso a destra — ricordandosi di **togliere intestazioni e piè di pagina del browser** dalle opzioni, che altrimenti scrivono i loro sopra i nostri. Se non compare, il ripiego c'è già e funziona ovunque: il piede ripetuto porta «n righe in totale», ed è quello che fa accorgere chi riceve che manca un foglio |
 | **96** | **`01-components.css` DICHIARA 70 SELETTORI PIÙ DI UNA VOLTA, PER 143 REGOLE SU 253.** Quasi tutta la pulsantiera è scritta due volte: una nel blocco di base e una in «MD3 STATE LAYER & REFINEMENTS», che parte a riga 405. `.btn` compare **quattro volte** — righe 15, 406, 431, 446 — e la quarta rimette il colore che la terza aveva tolto: **stessa specificità, decide l’ordine**. Fondere in una regola per selettore toglie 143 righe, e cambia l’aspetto dell’applicativo se una sola proprietà finisce nell’ordine sbagliato. Riordinare conta solo fra regole di **pari specificità che toccano la stessa proprietà** — `.btn:hover` fra due `.btn` non è un problema — ma stabilirlo a occhio su 143 regole non si fa | **LA RETE È PRONTA, LA FUSIONE NO.** Il flusso `rilievoStile` del banco a video apre tutte le maschere, cerca gli elementi che quei 58 selettori nominano e scrive che cosa il browser CALCOLA per le 62 proprietà che quelle regole toccano: **1.129 elementi**, misurati e messi da parte in `banco/video/rilievo-stile.json`. Dopo la fusione si rimisura e le due misure devono coincidere; se una differisce, il verbale dice elemento, proprietà, da cosa a cosa. Provata iniettando `.btn{border-radius:3px}`: l’ha detto. **Il passo successivo è la fusione**, e prima va deciso se è rifattorizzazione pura — stesso rendering, zero pixel spostati — o se si sistema anche quel che MD3 ha sbagliato, che è una domanda per chi usa il terminale col guanto |
 | **94** | **LA CAMPATA DELLA 2.22 PUÒ DIRE ANCHE QUALI ALTRI LIVELLI SONO TAPPE DI QUESTO GIRO.** `_routeSosta` raggruppa già le tappe pendenti contigue nello stesso vano, ma non dice niente sui vani sopra e sotto: chi è salito sul carrello per il livello 2 non sa che il 3 lo aspetta fra quattro tappe | **Si guarda dopo un po' di prelievi veri**: quanto spesso due tappe dello stesso giro cadono nella stessa campata. Se capita di rado non vale il segno in più; se capita spesso, il dato c'è già — basta passare a `colonnaDi` i codici delle tappe pendenti |
@@ -2930,14 +2987,32 @@ caldo del database, porta sua, cartelle sue. Sta in `MAPPER\banco\`.
 $BANCO = "$PWD\banco"
 Invoke-RestMethod -Method Post http://127.0.0.1:4173/api/backup -ContentType 'application/json' -Body (@{dir="$BANCO\db"} | ConvertTo-Json)
 .\server\installa-versione.ps1 -Da ".\consegna\Pathfinder <ver>\app" -Versione <ver> -Casa "$BANCO\app"
-$env:PATHFINDER_PG=''; $env:PATHFINDER_PORT='4199'; $env:PATHFINDER_DB="$BANCO\db\pathfinder-<data>.db"; $env:PATHFINDER_APP_DIR="$BANCO\app\corrente"; node server\pathfinder-server.js
+node banco\servizio-banco.mjs db\<file>.db          # 4199, in chiaro, ambiente dichiarato
 ```
 
-**`PATHFINDER_PG=''` apre la riga e non è un ornamento**: senza, il banco
-eredita dalla macchina la connessione al database **in servizio** e scrive nel
-vero, con la porta e il file di banco che dicono il contrario. Il servizio
-dichiara all'avvio quale database ha aperto: **quella riga si legge prima di
-toccare qualunque cosa.**
+**LA RIGA DI VARIABILI A MANO NON C'È PIÙ, DALLA 2.29.1, E IL PERCHÉ VALE PIÙ
+DEL COMANDO.** Chiedeva di scrivere cinque variabili; chi la scrive vede quel
+che ha scritto, non quel che ha **ereditato**. Su questa macchina sette
+`PATHFINDER_*` stanno a livello MACCHINA, e in due settimane si sono dimenticate
+due volte:
+
+- **`PATHFINDER_PG`**, il 26/08: il banco ha aperto il PostgreSQL di lavoro e un
+  `TRUNCATE` si è preso gli 11.197 articoli appena migrati. Vince su
+  `PATHFINDER_DB`, quindi il nome del file di banco nella riga **non protegge**.
+- **`PATHFINDER_TLS_PFX`**, dalla 2.26 all'08/09: nella ricetta non compariva
+  nemmeno, perché è arrivata dopo. Il banco partiva in HTTPS, le prove parlavano
+  in chiaro sulla stessa porta, e il `301` faceva degradare ogni POST a GET. Non
+  moriva: **rispondeva**, e accusava il servizio di buchi che non ha.
+
+Una riga in più nella ricetta si dimentica una terza volta. `servizio-banco.mjs`
+dichiara l'ambiente per intero, rifiuta un database che non esiste e rifiuta un
+database dentro `C:\Pathfinder\`. Se ne accorge anche `npm test`:
+`test/bancoNonEredita.test.js` **cerca** i file che accendono il servizio invece
+di elencarli, quindi un banco nuovo scritto domani senza la riga cade il giorno
+stesso.
+
+Il servizio dichiara all'avvio quale database ha aperto: **quella riga si legge
+prima di toccare qualunque cosa.**
 
 Per il front end, invece di costruire e installare:
 
@@ -2964,12 +3039,9 @@ Copy-Item banco\db\pristino.db banco\db\ui.db -Force
 # 2 · gli ODP di prova, generati DA QUEL database
 node banco\genera-odp-wip.cjs          # esce in banco\odp-wip\
 
-# 3 · il servizio e il front end
-$env:PATHFINDER_PG=''; $env:PATHFINDER_PORT='4199'
-$env:PATHFINDER_DB="$PWD\banco\db\ui.db"
-$env:PATHFINDER_APP_DIR="$PWD\banco\app\corrente"
-node server\pathfinder-server.js
-node banco\dev-banco.mjs               # 5199, front end di sviluppo
+# 3 · il servizio e il front end — due comandi, nessuna variabile a mano
+node banco\servizio-banco.mjs db\ui.db  # 4199, ambiente dichiarato — §5
+node banco\dev-banco.mjs                # 5199, front end di sviluppo
 ```
 
 **`genera-odp-wip.cjs` LEGGE I LOTTI DAL DATABASE, e non è un dettaglio.**
@@ -3491,6 +3563,47 @@ L'`!important` non è pigrizia: `hidden` non è uno stile, è un fatto sul nodo,
 e nessuna classe deve poterlo smentire.
 
 ### Prove e collaudi
+
+- **UNA PROVA CHE PASSA PUÒ NON AVER PROVATO NIENTE, E UNA CHE FALLISCE PUÒ
+  MENTIRE — 2.29.1.** Le due `PATHFINDER_TLS_*` stanno a livello MACCHINA e sono
+  arrivate con la **2.26**, dentro file scritti quando non esistevano. I banchi
+  le ereditavano: partivano in HTTPS mentre le loro prove parlavano in chiaro
+  sulla stessa porta. La 2.26 risponde `301` a chi bussa in chiaro, e **`fetch`
+  segue il redirect degradando la POST a GET**: ogni scrittura diventava una
+  lettura. Nessun errore di rete, nessuna eccezione — **una risposta, a
+  un'altra domanda**. Passavano le prove in lettura e fallivano le altre
+  accusando il servizio di cose false: «chiave duplicata respinta con 409, non
+  500 — stato 200», tre «VICOLO CIECO» e un «LA PORTA È RESTATA APERTA».
+  Chi le avesse credute avrebbe cercato una falla che non c'è.
+  **Tre cose da portare via:**
+  1. **Un banco rosso non è rumore: è una fila di accuse.** Prima di inseguire
+     la più grave si guarda se ne stanno sbagliando troppe insieme — 28 su 156
+     e 36 su 40 sono un difetto di trasporto, non trentasei difetti.
+  2. **Il rosso copre.** Sotto quelle 36 stava nascosta una prova ferma alla
+     **2.13**, rossa dalla 2.18, che nessuno poteva vedere.
+  3. **Una variabile nuova entra in file vecchi senza bussare.** Chi aggiunge
+     una `PATHFINDER_*` alla macchina guarda anche chi la eredita.
+  La correzione è in `lib/tls.js` (`scollegaTls`), in `banco\servizio-banco.mjs`
+  e in `test/bancoNonEredita.test.js`, che i file li **cerca** invece di
+  elencarli.
+
+- **DUE ELENCHI DELLA STESSA COSA DIVERGONO — 2.29.1.** I tasti funzione erano
+  scritti due volte: uno in `ui/app.ts` per ascoltare la tastiera, uno accanto a
+  ogni scheda del cruscotto per stamparne il nome. Risultato: **due schede
+  dicevano F3** e F3 non faceva né l'una né l'altra, mentre F4, F6, F7 e F8
+  esistevano senza che nessuna scheda lo dicesse. Non è che i due elenchi
+  *potessero* divergere: l'avevano già fatto, in silenzio, perché niente li
+  confrontava. Adesso c'è `TASTI_FUNZIONE` in `modules/cruscotto.ts` e la scheda
+  gli **chiede** il suo tasto. È lo stesso difetto della **voce 95** e delle
+  quattro dichiarazioni del numero di versione: dove la stessa verità è scritta
+  in due posti, o si fondono o si mette una prova che li confronta.
+
+- **UN BANCO ACCESO FA MORIRE IL BANCO DOPO.** `node test/collaudo.js` apre la
+  **4199**, che è la porta del banco: con un banco acceso muore su `EADDRINUSE`
+  — e non con un messaggio, con un `throw` non gestito. È successo l'08/09 con
+  un banco rimasto acceso dalla sessione della notte prima. Prima di lanciare i
+  collaudi del servizio si guarda chi tiene la porta:
+  `Get-NetTCPConnection -LocalPort 4199 -State Listen`.
 
 - **UN BANCO CHE SVUOTA TAVOLI NON DEVE POTER PUNTARE A UN DATABASE DI LAVORO.**
   `test/driver.test.js` e il banco PostgreSQL fanno `TRUNCATE` a ogni corsa: una
@@ -4250,7 +4363,7 @@ in Configurazione → Operatori.
 | File | Righe | Ruolo |
 |---|---:|---|
 | `ui/app.ts` | 1.328 | **Quel che non è una vista**: avvio e riallineamento, identità e sessione, il telaio (`switchView`, sidebar, `showModal`, `toast`, scorciatoie), l'annulla, le utilità comuni (`_esc`, `_requireOperator`, `_pickLoc`). In coda, il rientro delle viste |
-| `core/store.ts` | 2.283 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` |
+| `core/store.ts` | 4.606 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` |
 | `core/cache.ts` | 321 | Punto unico di mutazione della cache: 5 forme, 4 indici derivati |
 | `core/statistiche.ts` · `pacchetto.ts` · `geometria.ts` · `giacenza.ts` | 181 · 154 · 123 · 94 | Stato di una cella e cruscotto · export e `VERSIONE_APP` · le ubicazioni generate dalla zona · FEFO e ricerca |
 | `core/persistence/index.ts` · `remote.ts` · `local.ts` | 15 · 267 · 262 | Sceglie l'adapter: servito → HTTP, da file → Dexie |
@@ -4263,6 +4376,7 @@ in Configurazione → Operatori.
 | `modules/trasferimentiOdp.ts` · `dispositivo.ts` | 142 · 74 | Le tappe in un altro magazzino e il compito che ne nasce · su che cosa sta girando (decide **la larghezza**, non il sistema operativo). Puri |
 | `modules/chiosco.ts` | 93 | **2.25** — dove sta il chiosco su questa macchina: entrano classe di dispositivo, se gira già come applicazione, se l'origine è sicura e se il browser ha offerto l'installazione; esce uno stato fra cinque, con la frase da leggere. `non-sicuro` è distinto da `in-attesa` apposta: senza HTTPS non si installa niente, e dirlo evita di cercare il guasto altrove. Puro, come `dispositivo.ts` |
 | `modules/colonna.ts` | 119 | **2.22 — com'è fatta la campata che contiene un vano**: i livelli dall'alto in basso, ciascuno col **solo stato**, più i livelli che tengono lo stesso articolo con un lotto diverso. Sta da solo perché la domanda la fanno la scheda della tappa e, il giorno che servirà, la mappa. Torna `null` su terra, rinfusa e scaffali a un livello: **una colonna di un rettangolo solo non è una colonna**. I codici dei fratelli li dà `generaUbicazioni`, mai una `split('-')`. Puro |
+| `modules/cruscotto.ts` | 190 | Il layout del cruscotto — riquadri, ordine, larghezza, quali scorciatoie si mostrano — e **dalla 2.29.1 `TASTI_FUNZIONE` e `tastoPer`**: l'unico elenco dei tasti funzione, che la tastiera ascolta e le schede interrogano. `sub` fa parte della chiave, ed è quello che mancava: senza, «prelievo» e «prelievo di produzione» erano la stessa cosa e due schede annunciavano lo stesso F3. Puro |
 | `modules/udc.ts` | 162 | Il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perché **un'etichetta dura**. Dalla 2.20 lo stesso codice identifica anche un **bancale di prodotto finito** — `modules/bancale.ts`. Puro |
 | `modules/imballo.ts` | 199 | **2.20 — com'è fatto un bancale prima che il bancale esista**: i modelli di imballo, la loro convalida, `colliAttesi` e `pesoLordo`. Sta da solo perché la composizione è un DATO e non un campo su 11.197 articoli. **Il modello propone**: chi imballa riscrive il numero senza dover dire perché. **2.21**: `modelloAppreso` e `modelloConColli` — il formato che si IMPARA dal primo bancale invece di essere compilato su 11.197 articoli. Puro |
 | `modules/bancale.ts` | 277 | **2.20 — come si LEGGE un bancale di prodotto finito**, in un posto solo: mono o misto, colli, UM (diverse → MISTA, mai una somma), e i quattro stati — pronto, impegnato su un DDT, spedito, vuoto. La stessa domanda la fanno l'elenco, la mappa, l'etichetta e la packing list: quattro copie sarebbero quattro risposte. `zonePf` elenca le zone dichiarate, terzisti compresi. **2.21**: `zoneCarico` (le baie), `spedizioniDiBancale` — con quale DDT e quando un bancale è partito, **riletto dai documenti evasi** — e un bancale spedito che legge il suo contenuto da quel documento, perché in giacenza non ha più niente. Puro |
@@ -4271,7 +4385,7 @@ in Configurazione → Operatori.
 | `modules/regoleBase.ts` | 448 | **2.8** — le due regole che NON si scrivono, più i tre motivi precompilati dello scavalco. Sta da solo perché quelle di `stoccaggio.ts` sono regole di **politica**, queste sono il modo in cui un magazzino resta leggibile. Puro |
 | `modules/wip.ts` | 1.078 | **Il conto di un ordine**: entrato, tornato, residuo; il consumo si dichiara **a ordine chiuso**. `colliFuori`, `archiviato`, `ordiniArchiviati`, `righeSenzaOrdine`. **2.12**: `giro_odps`, `giro_richieste`, `giro_id` sul movimento, e quattro letture — `contoTenutoDa`, `ordiniServiti`, `richiesteDiRiga`, `consumoPerOrdine` (che legge le quote scritte **alla chiusura**). **2.14**: `inLavorazione` (una riga per ordine × articolo#lotto di quello che è fermo nel vano, senza sapere prima nessun numero), `resi` e `motivoNonStornabile`, più i quattro campi dello storno sul movimento. **2.29**: `coperturaInLavorazione` — quanto di quel che un giro chiede è **già di là**, coi due residui tenuti distinti (del giro, che scala; altrui, che si dice e basta) e il confronto **nell'unità**, mai nei colli. Puro |
 | `modules/giroOdp.ts` | 300 | **2.12 — il giro.** `ricalibra` (riparte sempre da `lines_originali`) e l'unione delle distinte, tenendo da parte **quanto ne vuole ciascun ordine**. `quote` ripartisce quel che è uscito e **l'ultima assorbe l'arrotondamento**. **2.29**: `fabbisogno` — la domanda del giro in forma piatta, per `articolo#lotto`, dalla stessa `unisci` che costruisce il percorso; una riga senza lotto resta fuori. **Non decide niente sul conto di produzione.** Puro |
-| `modules/pickRoute.ts` | 396 | Percorso a serpentina, ordine dei siti, magazzino di casa, `riordina`. **2.12**: `buildGiro` — le distinte si sommano **prima**, in `giroOdp.ts`, e le `richieste` si riattaccano dopo **per chiave**, perché `build` decide ubicazione e alternative ed è già collaudata così. **2.21**: `ordinaPerCorsia` — la stessa serpentina su qualunque cosa abbia un'ubicazione, perché il carico del camion prende bancali e non righe. **2.29**: **il vano WIP non è un'ubicazione da cui si preleva** — `build` lo esclude, e una riga che sta tutta di là esce col motivo `in_lavorazione` |
+| `modules/pickRoute.ts` | 396 | Percorso a serpentina, ordine dei siti, magazzino di casa, `riordina`. **2.12**: `buildGiro` — le distinte si sommano **prima**, in `giroOdp.ts`, e le `richieste` si riattaccano dopo **per chiave**, perché `build` decide ubicazione e alternative ed è già collaudata così. **2.21**: `ordinaPerCorsia` — la stessa serpentina su qualunque cosa abbia un'ubicazione, perché il carico del camion prende bancali e non righe. **2.29**: **il vano WIP non è un'ubicazione da cui si preleva** — `build` lo esclude, e una riga che sta tutta di là esce col motivo `in_lavorazione`. **2.29.1**: gli avvisi si scrivono **uno per vano e motivo**, non uno per riga di giacenza — `(location_code, item_key)` è un indice e non un vincolo (voce 98), quindi due righe nello stesso vano ripetevano la stessa frase |
 | `modules/odpParser.ts` | 286 | Lettura degli ODP da Excel |
 | `modules/kpi.ts` | 330 | I numeri di articoli, movimenti e persone, già a database e mai sommati. `NON_MISURABILE` elenca cosa non si può chiedere e **quale campo servirebbe**. Puro |
 | `modules/code128.ts` | 150 | Il codice a barre, in casa. Solo il sottoinsieme B. **Non è un GS1-128** — manca FNC1 — e sta scritto nel modulo. La tabella dei 107 modelli si collauda con le due invarianti dello standard, non ricopiandola. Puro |
@@ -4340,21 +4454,35 @@ farlo tacere**: se suona, un metodo non è rientrato.
 | `lib/zpl.js` | 638 | **2.19 — l'etichetta.** Entrano un record, una stampante e un layout; esce una stringa ZPL. Nessun socket, nessun database, nessuno stato: si collauda senza avere una stampante sotto. Le barre le disegna `^BC` (il firmware), non `code128.ts` — la cifra di controllo non si riscrive due volte. **Non manda mai `^MN` `^MM` `^MD` `^JUS`**: sono la configurazione della macchina. Un layout più alto del supporto lo **rifiuta**, non lo tronca. **2.20**: i cataloghi di campi sono due — merce e bancale — e `disponi` prende il catalogo come parametro; `etichettaBancale` sta accanto alle altre due |
 | `lib/stampa-zebra.js` | 431 | **2.19 — il socket**, ed è il solo posto del servizio che ne apra uno verso l'esterno. Porta in un elenco chiuso, indirizzo **risolto prima** e privato per forza, attesa di 3 s (senza, una stampante spenta blocca venti secondi), **una connessione per volta per stampante**. `statoStampante` chiede `~HQES`, perché la 9100 accetta i byte anche a carta finita |
 | `lib/schema.js` · `lib/schema-postgres.js` | 297 · 133 | Tabelle e indici in **due funzioni separate**, con la migrazione in mezzo, più **`MAIUSCOLE`** · il DDL PostgreSQL dalla **stessa** dichiarazione, con `COLLATE "C"` su ogni colonna di testo (senza, `ORDER BY location_code` rimescola le corsie) |
-| `lib/tls.js` | 60 | **2.26 — quale certificato, e chi bussa alla porta.** `decidiTls` legge l'ambiente e dice quale delle tre strade è dichiarata: PFX, coppia PEM, chiaro. Una dichiarazione a metà — `CERT` senza `KEY`, o le due strade accese insieme — è un **errore** e non un ripiego in chiaro: un servizio che parte in chiaro «perché il certificato non si leggeva» è il modo in cui un PIN finisce sulla rete senza che nessuno se ne accorga. `eSalutoTLS` guarda il primo byte, `0x16`, ed è quel che permette a HTTPS e al `301` di stare **sulla stessa porta**. Puro: non apre un socket, e si collauda da fermo |
+| `lib/tls.js` | 96 | **2.26 — quale certificato, e chi bussa alla porta.** `decidiTls` legge l'ambiente e dice quale delle tre strade è dichiarata: PFX, coppia PEM, chiaro. Una dichiarazione a metà — `CERT` senza `KEY`, o le due strade accese insieme — è un **errore** e non un ripiego in chiaro: un servizio che parte in chiaro «perché il certificato non si leggeva» è il modo in cui un PIN finisce sulla rete senza che nessuno se ne accorga. `eSalutoTLS` guarda il primo byte, `0x16`, ed è quel che permette a HTTPS e al `301` di stare **sulla stessa porta**. Puro: non apre un socket, e si collauda da fermo. **2.29.1 — `scollegaTls`**: toglie da un ambiente le quattro dichiarazioni del certificato, e serve tanto su `process.env` quanto su una copia per `spawn`. Sta qui perché il difetto è nato qui: le due `PATHFINDER_TLS_*` di macchina, ereditate dai banchi, li facevano partire cifrati contro prove che parlano in chiaro |
 | `crea-certificato.ps1` | — | **2.26 — il certificato, senza scaricare niente.** `New-SelfSignedCertificate` ed `Export-PfxCertificate`, che Windows ha già. Crea un'**autorità locale** e con quella firma il certificato del servizio: sui terminali si installa solo l'autorità, e alla scadenza `-Rinnova` non li tocca. Il SAN lo compone a mano — `2.5.29.17` con nomi **e IPv4**, perché `-DnsName` scriverebbe gli indirizzi come nomi e un browser che apre un indirizzo non accetta quella corrispondenza. Password del PFX a caso in una variabile di macchina, cartella leggibile da SYSTEM e amministratori soli, impronta SHA-256 del `.cer` stampata perché la si confronti prima di fidarsi |
 | `installa-pathfinder.ps1` | — | **L'installer.** Nel pacchetto diventa `installa.ps1`. `-NonChiedere`, **`-Prova`**, `-Database`, `-SenzaMigrazione` |
 | `installa-servizio.ps1` | — | Registra le due attività pianificate e le variabili, `PATHFINDER_PG` compresa. Da amministratore, **una volta**, dal sorgente o da `C:\Pathfinder\servizio` |
 | `prepara-postgres.ps1` | — | Controlla PostgreSQL e prepara ruolo e database. **Il motore non lo installa e non lo scarica.** `-Prova` guarda e non tocca |
 | `installa-versione.ps1` · `torna-indietro.ps1` · `backup-serale.ps1` | — | Disinstalla-reinstalla e materializza · scambia `corrente` e `precedente` (**solo l'applicativo**) · backup a caldo delle 20:00 |
 | `migrazione/` | — | `migra-sqlite-postgres.js`, `audit.js`, `audit-sqlite.js`, `maiuscola-codici.cjs`, `LEGGIMI.md`. **Viaggia nel pacchetto dalla 2.7**: migra una COPIA e ricontrolla i conteggi tavolo per tavolo, e prima di copiare gira l'audit |
-| `test/collaudo.js` · `collaudo-migrazione-1.4.js` · `collaudo-installazione.js` | 586 · 158 · — | **139** prove sul servizio (le ultime dodici sull'attesa dell'avvio di PostgreSQL, con orologio e sonno finti) · 8 sul cambio di schema · 31 sugli script di installazione (incluso l'installer in `-Prova`) |
+| `test/collaudo.js` · `collaudo-migrazione-1.4.js` · `collaudo-installazione.js` | 1.283 · 158 · — | **156** prove sul servizio (le ultime dodici sull'attesa dell'avvio di PostgreSQL, con orologio e sonno finti) · 8 sul cambio di schema · **43** sugli script di installazione (incluso l'installer in `-Prova`). **Dalla 2.29.1 la prima riga scollega le `PATHFINDER_TLS_*`**: senza, questo banco parte cifrato e le sue 156 prove parlano in chiaro — §7 |
 | `test/collaudo-stampa.js` | 449 | **2.19-2.20 — 100 prove sulle etichette**, con una **finta Zebra** che ascolta sulla 9100 e racconta cosa le è arrivato. Le tre che contano: con la carta finita l'invio riesce lo stesso, `~HQES` lo dice, e cinque richieste insieme escono tutte e cinque. **Quel che non può provare** — barre lette da un lettore, etichetta dritta, calore — è la voce 83 |
 
 ### Collaudi — `test/`
 
-**1.464 prove in 56 file** all'08/09 notte (una saltata). Fuori da `npm test`:
-**156** sul servizio, **100** sulle etichette, **43** sull'installazione.
-`ambiente.js` è il preambolo comune.
+**1.499 prove in 59 file** all'08/09 notte (una saltata). Fuori da `npm test`:
+**156** sul servizio, **100** sulle etichette, **43** sull'installazione, **8**
+sul cambio di schema. `ambiente.js` è il preambolo comune.
+
+**Le tre nate dall'audit della 2.29.1**, e tutte e tre sono state verificate
+**rimettendo il difetto**:
+- `bancoNonEredita.test.js` (18) — nessun file che accende `pathfinder-server.js`
+  eredita l'ambiente della macchina. **Cerca i file, non li elenca**: un banco
+  nuovo senza la riga cade il giorno che nasce. Fissa anche perché `fetch`
+  davanti a un `301` risponde 200 a un'altra domanda.
+- `primoAdmin.test.js` (5) — nella creazione del primo Admin la **sessione sta
+  fra** la scrittura dell'operatore e quella di `meta`. Guarda l'ORDINE e non
+  l'esito: un esito si fa tornare verde anche spegnendo la finestra di primo
+  avvio, che è il difetto sotto un'altra forma.
+- `tastiFunzione.test.js` (10) — nessun tasto porta a due posti, nessuna scheda
+  scrive a mano il proprio tasto, e chi ascolta la tastiera apre anche la
+  sottoscheda.
 
 Fuori da `test/` stanno i **tre** banchi automatici, che non girano con
 `npm test`: **`banco/gerarchia.cjs`** (**40**, le cariche sul servizio — §5) e

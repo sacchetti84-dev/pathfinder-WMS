@@ -93,8 +93,11 @@ const scheda = (id, iniziali, ruolo) => ({
     /* `PATHFINDER_PG` vuota di proposito: se la macchina di chi lancia la
        prova ha un Postgres configurato, ereditarla vorrebbe dire esercitare
        la gerarchia sul magazzino vero. */
-    env: { ...process.env, PATHFINDER_PORT: String(PORTA), PATHFINDER_DB: DB,
-           PATHFINDER_TOKEN: '', PATHFINDER_PG: '' },
+    /* `PATHFINDER_TLS_*` scollegate — 2.29.1: ereditarle fa partire il servizio
+       in HTTPS mentre `BASE` e' `http://`, e il `301` degrada le POST a GET. */
+    env: require('../server/lib/tls.js').scollegaTls({
+      ...process.env, PATHFINDER_PORT: String(PORTA), PATHFINDER_DB: DB,
+      PATHFINDER_TOKEN: '', PATHFINDER_PG: '' }),
   });
   let log = '';
   servizio.stdout.on('data', (d) => { log += d; });
@@ -202,9 +205,15 @@ const scheda = (id, iniziali, ruolo) => ({
 
     const perAccesso = await chiama('GET', '/api/auth/operatori');
     const rigaAccesso = (perAccesso.dati || []).find((o) => o.op_id === 'OP-ADMIN');
-    ok('lo dice anche all\'elenco che disegna la schermata di accesso',
-       rigaAccesso?.rec_set === true && rigaAccesso.rec_hash === undefined,
-       'rec_set = ' + String(rigaAccesso?.rec_set));
+    /* 2.29.1 — QUESTA PROVA PRETENDEVA IL CONTRARIO, ED ERA FERMA ALLA 2.13.
+       La 2.18 ha tolto `rec_set` da `/api/auth/operatori` di proposito: quella
+       rotta risponde SENZA sessione, e dire in anticipo quali Admin hanno una
+       via di fuga serve solo a chi cerca il bersaglio. La prova vecchia era
+       rossa dalla 2.18 e nessuno la vedeva, perche' dalla 2.26 era rosso tutto
+       il banco. Adesso chiede la regola che vale. */
+    ok('ma l\'elenco della schermata di accesso non dice chi ha la via di fuga',
+       rigaAccesso && rigaAccesso.rec_set === undefined && rigaAccesso.rec_hash === undefined,
+       rigaAccesso ? 'rec_set = ' + String(rigaAccesso.rec_set) : '(riga non trovata)');
 
     /* ── 8-9 · LA VIA DI FUGA ─────────────────────────────────────────── */
     const storto = await chiama('POST', '/api/auth/recupero',

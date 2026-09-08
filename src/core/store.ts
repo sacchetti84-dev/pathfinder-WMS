@@ -368,7 +368,17 @@ const Store = {
     return this.getActiveAdmins().filter(o => !this.haCodiceRipristino(o));
   },
 
-  async addOperator(rec: Partial<Operatore> & { initials: string }): Promise<Operatore> {
+  /* 2.29.1 — `senzaMeta` ESISTE PER UN CASO SOLO: il primo Admin.
+     Scrivere l'operatore col PIN CHIUDE la finestra di primo avvio del
+     servizio, e la riga dopo — `_touchMeta`, che scrive due chiavi di
+     servizio su `meta` — arrivava senza sessione e si prendeva un 401.
+     `addOperator` lanciava, chi chiamava non arrivava mai ad `accedi`, e il
+     wizard diceva «Sessione non valida: identificarsi» su un Admin che era
+     stato creato davvero. Chi guardava concludeva che non fosse riuscito.
+     Con `senzaMeta` il chiamante prende la sessione fra le due scritture e
+     tocca `meta` dopo: vedi `_confirmFirstLeader` in `ui/app.ts`. */
+  async addOperator(rec: Partial<Operatore> & { initials: string },
+                    { senzaMeta = false }: { senzaMeta?: boolean } = {}): Promise<Operatore> {
     const initials = String(rec.initials ?? '').toUpperCase().trim();
     if (this.getOperatorByInitials(initials)) {
       throw new Error(`Le iniziali ${initials} sono già assegnate a un altro operatore`);
@@ -399,7 +409,7 @@ const Store = {
     };
     await Persistence.add('operators', record);
     this._applyToCache('operators', 'put', record);
-    await this._touchMeta();
+    if (!senzaMeta) await this._touchMeta();
     return record;
   },
 

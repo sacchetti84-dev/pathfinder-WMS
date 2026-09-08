@@ -13,6 +13,7 @@ import { ico, type Icona } from './icone';
 import { classifica, classeCSS, classiPossibili, eAndroid, LARGHEZZA_TERMINALE, LARGHEZZA_TAVOLETTA } from '../modules/dispositivo';
 import type { ClasseDispositivo } from '../modules/dispositivo';
 import { stato as statoChiosco, type StatoChiosco } from '../modules/chiosco';
+import { TASTI_FUNZIONE } from '../modules/cruscotto';
 import { Store } from '../core/store';
 import { rettifica as rettificaColli } from '../modules/colli';
 import { accendi as accendiMaiuscole } from '../modules/maiuscole';
@@ -122,6 +123,7 @@ interface DalleViste {
   closeSearchPop(): void;
   exportData(): Promise<void>;
   startMov(mode: string, dir?: string | null): void;
+  _goOp(mode: string, sub?: string | null): void;
   _formSpedizioni(el: HTMLElement): void;
   _checkPendingPickSession(): Promise<void>;
   _flushRecoveryQueue(): Promise<void>;
@@ -679,11 +681,21 @@ const App = monolite({
          senza nessuno che possa riaprirla. */
       const fuga = Auth.newRecoveryCode();
       const campiFuga = await Auth.buildRecoveryFields(fuga);
-      const rec = await Store.addOperator({ first_name: first, last_name: last, initials: init, role: 'admin', ...fields, ...campiFuga });
+      /* 2.29.1 — `senzaMeta`, E L'ORDINE E' TUTTO. Fino alla 2.29 questa riga
+         scriveva l'operatore E POI toccava `meta`: ma la prima scrittura
+         chiude la finestra di primo avvio, quindi la seconda partiva senza
+         sessione e si prendeva un 401. `addOperator` lanciava e le tre righe
+         qui sotto non venivano mai eseguite — nessuna sessione, wizard
+         aperto, «Sessione non valida: identificarsi» — su un Admin che a
+         database c'era. Chi riprovava incassava «Le iniziali sono gia'
+         assegnate», e non c'era una riga che dicesse di ricaricare ed
+         entrare col PIN appena scelto. Visto al banco l'08/09. */
+      const rec = await Store.addOperator({ first_name: first, last_name: last, initials: init, role: 'admin', ...fields, ...campiFuga }, { senzaMeta: true });
       /* 2.11 — e' il PIN che chiude la finestra di primo avvio: da questo
          istante il servizio chiede una sessione, e chi ha appena creato
          l'Admin deve averla. */
       await Auth.accedi(rec, pin);
+      await Store._touchMeta();
       this._activateOperator(rec);
       this._closeIdentityGate();
       this._identificato();
@@ -1970,16 +1982,19 @@ const App = monolite({
       this.toast('Operazione annullata', 'info');
       return;
     }
-    const fnMap = {
-      F2: ['io', 'in'], F3: ['pick', null], F4: ['inv', null],
-      F6: ['io', 'out'], F7: ['quarantine', null], F8: ['shipping', null]
-    } as const;
-    const combinazione = fnMap[e.key as keyof typeof fnMap];
+    /* 2.29.1 — LA TABELLA STA IN `modules/cruscotto.ts`, non piu' qui.
+       Era scritta due volte — una per ascoltare la tastiera, una per
+       stampare il tasto sulla scheda — e le due copie erano divergiute: due
+       schede dicevano F3 e F3 non portava a nessuna delle due. Adesso c'e'
+       un elenco solo, e la scheda gli chiede il suo tasto.
+
+       E si passa per `_goOp`, non piu' per `startMov`: e' `_goOp` che sa
+       aprire anche la SOTTOSCHEDA. Senza, F3 apriva il prelievo sull'ultima
+       scheda usata invece che sul trasferimento. */
+    const combinazione = TASTI_FUNZIONE[e.key];
     if (combinazione) {
       e.preventDefault();
-      const [mode, dir] = combinazione;
-      if (this.currentView !== 'movimenta') this.switchView('movimenta');
-      setTimeout(() => this.startMov(mode, dir), 60);
+      this._goOp(combinazione.mode, combinazione.sub);
       return;
     }
     if (e.key === 'F9' && !typing && this._undoValid()) {
