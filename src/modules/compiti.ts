@@ -23,6 +23,24 @@ import { quantitaMossa } from './registro.js';
    Movimenta resta dov'è: a sparire è il compito, non l'operazione. */
 export const TIPI_COMPITO = {
   TRANSFER:   { label: 'Trasferimento',   icona: 'arrows-left-right' },
+  /* 2.31 — LA PREPARAZIONE DI UNA SPEDIZIONE, e il verso rovesciato.
+
+     Fino alla 2.30 era il prelievo a far nascere il DDT: l'operatore
+     scansionava la merce, il carrello diventava un documento, e il documento
+     chiudeva il compito. Chi in ufficio sapeva che cosa doveva partire non
+     aveva un modo per dirlo se non scendendo a dirlo a voce.
+
+     Adesso l'impiegato registra il DDT e da quel gesto nasce l'attività:
+     merce e destinatario sono già decisi, e quel che resta è andarla a
+     prendere, comporla in unità di carico, imballarla ed etichettarla.
+
+     UN TIPO SOLO PER SPEDIZIONI E RESI. Erano due — `PICK_SHIP` e
+     `PICK_RET` — ma la maschera è sempre stata la stessa e a distinguerli è
+     sempre stata la CAUSALE del documento, non il lavoro di magazzino: in
+     corsia si va a prendere la stessa merce nello stesso modo. I due vecchi
+     restano dichiarati perché l'archivio li porta — un compito chiuso il
+     mese scorso deve continuare a dire come si chiamava. */
+  PREP_SHIP:  { label: 'Preparazione spedizioni', icona: 'truck' },
   PICK_SHIP:  { label: 'Prelievo spedizione', icona: 'truck' },
   PICK_RET:   { label: 'Prelievo reso',   icona: 'arrow-back-up' },
   QUARANTINE: { label: 'Blocco quarantena', icona: 'ban' },
@@ -49,9 +67,40 @@ export function nasceDalSistema(t: string): boolean {
   return TIPI_SISTEMA.includes(t);
 }
 
+/* 2.31 — I TIPI RITIRATI: si leggono, non si creano più.
+
+   `PICK_SHIP` e `PICK_RET` sono stati sostituiti da `PREP_SHIP`, che li fa
+   tutti e due. Toglierli dall'elenco vorrebbe dire che un compito chiuso il
+   mese scorso, in archivio, perde il proprio nome e compare col codice
+   grezzo: la storia si legge ancora, ma smette di essere leggibile.
+
+   Fuori dalla tendina, quindi, ma dentro alle etichette. È la stessa
+   distinzione di `TIPI_SISTEMA`, con un motivo diverso: quelli non si
+   chiedono perché nascono da soli, questi perché non si usano più.
+
+   E `PREP_SHIP` STA IN QUESTO ELENCO ANCHE LUI. Non si chiede a mano: nasce
+   dalla registrazione di un DDT, ed è quel documento a dire che cosa
+   prendere. Un'attività di preparazione senza documento non saprebbe che
+   merce nominare. */
+export const TIPI_RITIRATI: readonly string[] = ['PICK_SHIP', 'PICK_RET'];
+
+export function eRitirato(t: string): boolean {
+  return TIPI_RITIRATI.includes(t);
+}
+
+/* 2.31 — i tipi che nascono da un documento e non da una tendina. Come
+   `TIPI_SISTEMA` non si chiedono a mano, ma a differenza di quelli NON
+   nascono chiusi: c'è un lavoro vero da fare, e `_taskLancia` lo apre. */
+export const TIPI_DA_DOCUMENTO: readonly string[] = ['PREP_SHIP'];
+
+export function nasceDaDocumento(t: string): boolean {
+  return TIPI_DA_DOCUMENTO.includes(t);
+}
+
 /** I tipi che si possono chiedere a mano — quelli della tendina. */
 export function tipiRichiedibili(): TipoCompito[] {
-  return (Object.keys(TIPI_COMPITO) as TipoCompito[]).filter(t => !nasceDalSistema(t));
+  return (Object.keys(TIPI_COMPITO) as TipoCompito[])
+    .filter(t => !nasceDalSistema(t) && !eRitirato(t) && !nasceDaDocumento(t));
 }
 
 /* Il numero cresce con l'urgenza: «alzare la priorità» è alzare il numero,
@@ -263,6 +312,11 @@ export function ordinaCoda(
    glielo chiede. */
 export const OPERAZIONE = {
   TRANSFER:   { modo: 'move' },
+  /* 2.31 — la preparazione apre il PERCORSO, non la maschera del documento.
+     Il documento c'è già: quel che manca è andare a prendere la merce, e
+     quella è la scheda del prelievo automatico. `sub` la porta sulla scheda
+     giusta senza passare da quella di prima. */
+  PREP_SHIP:  { modo: 'pick', dir: 'preparazione' },
   PICK_SHIP:  { modo: 'shipping', kind: 'shipment' },
   PICK_RET:   { modo: 'shipping', kind: 'return' },
   QUARANTINE: { modo: 'quarantine' },
@@ -322,7 +376,13 @@ export function operazioneDi(t: string): Operazione | null {
    Resta a residuo il solo Smaltimento, che è l'unico in cui «ne restano 7»
    significa davvero che sette colli aspettano ancora. */
 export function chiudeAlGesto(t: string): boolean {
+  /* 2.31 — `PREP_SHIP` chiude al GESTO e non a residuo, ed è una decisione.
+     Il residuo conta i colli mossi; ma il lavoro di una preparazione non
+     finisce quando l'ultimo collo è sceso dallo scaffale: finisce quando le
+     unità di carico sono imballate ed etichettate in zona imballaggio. Un
+     conto sui colli direbbe «fatto» a metà lavoro. */
   return t === 'TRANSFER'
+      || t === 'PREP_SHIP'
       || t === 'PICK_SHIP' || t === 'PICK_RET'
       || t === 'QUARANTINE' || t === 'SAMPLING' || t === 'COUNT'
       || t === 'CLEANING';
@@ -332,7 +392,11 @@ export function chiudeAlGesto(t: string): boolean {
     Conta no: quanti ce ne siano è la domanda, non il dato. La Pulizia
     nemmeno: non tocca merce. */
 export function vuoleColli(t: string): boolean {
-  return t !== 'COUNT' && t !== 'CLEANING';
+  /* 2.31 — la preparazione non li chiede a chi la crea: quanti colli e quali
+     lo dice il DOCUMENTO, riga per riga. Un numero digitato a mano accanto a
+     un documento che ne porta già dodici sarebbe un secondo conto, e due
+     conti della stessa cosa divergono. */
+  return t !== 'COUNT' && t !== 'CLEANING' && t !== 'PREP_SHIP';
 }
 
 /** LA CONTA È UN INVENTARIO MIRATO A UN ARTICOLO E UN LOTTO, non l'apertura

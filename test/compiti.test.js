@@ -10,6 +10,7 @@ import {
   TIPI_SEMPRE_URGENTI,
   operazioneDi, chiudeAlGesto, vuoleColli, vuoleUbicazione,
   vuoleDestinazione, tipiRichiedibili, nasceDalSistema,
+  TIPI_RITIRATI, eRitirato, TIPI_DA_DOCUMENTO, nasceDaDocumento,
   quantitaRichiesta, quantitaFatta, residuo, esaurito,
   avanzamento, avvioRitirabile,
 } from '../src/modules/compiti';
@@ -34,17 +35,49 @@ const compito = (extra = {}) => ({
 /* ── Le tabelle ─────────────────────────────────────────────────────── */
 
 describe('tabelle', () => {
-  /* SETTE RICHIEDIBILI, non gli otto del piano: il Posizionamento e'
-     uscito il 13/08. L'ottavo e' la Pulizia, che nessuno chiede — 1.5. */
-  it('i sette tipi richiedibili, e la Pulizia che nasce dal sistema', () => {
+  /* 2.31 — NOVE DICHIARATI, CINQUE RICHIEDIBILI, e le tre ragioni per cui
+     un tipo esce dalla tendina sono diverse fra loro:
+     · `CLEANING` nasce dal SISTEMA — 1.5, nasce gia' chiusa;
+     · `PICK_SHIP` e `PICK_RET` sono RITIRATI — 2.31, li fa `PREP_SHIP`;
+     · `PREP_SHIP` nasce da un DOCUMENTO — senza DDT non saprebbe che merce
+       nominare.
+     Restano dichiarati tutti e quattro perche' l'archivio li porta: un
+     compito chiuso il mese scorso deve continuare a dire come si chiamava. */
+  it('i nove tipi dichiarati, e i cinque che si possono chiedere', () => {
     expect(Object.keys(TIPI_COMPITO)).toEqual([
-      'TRANSFER', 'PICK_SHIP', 'PICK_RET', 'QUARANTINE',
+      'TRANSFER', 'PREP_SHIP', 'PICK_SHIP', 'PICK_RET', 'QUARANTINE',
       'SAMPLING', 'DISPOSAL', 'COUNT', 'CLEANING',
     ]);
     expect(tipiRichiedibili()).toEqual([
-      'TRANSFER', 'PICK_SHIP', 'PICK_RET', 'QUARANTINE',
-      'SAMPLING', 'DISPOSAL', 'COUNT',
+      'TRANSFER', 'QUARANTINE', 'SAMPLING', 'DISPOSAL', 'COUNT',
     ]);
+  });
+
+  /* I due prelievi vecchi si LEGGONO ancora: toglierli farebbe perdere il
+     nome a quel che sta in archivio, e la storia smetterebbe di essere
+     leggibile pur restando scritta. */
+  it('i due prelievi ritirati non si creano piu, ma si leggono ancora', () => {
+    expect([...TIPI_RITIRATI]).toEqual(['PICK_SHIP', 'PICK_RET']);
+    for (const t of TIPI_RITIRATI) {
+      expect(eRitirato(t), t).toBe(true);
+      expect(tipiRichiedibili(), t).not.toContain(t);
+      expect(TIPI_COMPITO[t]?.label, t).toBeTruthy();
+    }
+  });
+
+  it('la preparazione nasce da un documento, non da una tendina', () => {
+    expect([...TIPI_DA_DOCUMENTO]).toEqual(['PREP_SHIP']);
+    expect(nasceDaDocumento('PREP_SHIP')).toBe(true);
+    expect(tipiRichiedibili()).not.toContain('PREP_SHIP');
+    /* E non nasce chiusa come la Pulizia: c'e' un lavoro vero da fare. */
+    expect(nasceDalSistema('PREP_SHIP')).toBe(false);
+  });
+
+  it('le tre ragioni per stare fuori dalla tendina non si sovrappongono', () => {
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      const fuori = [nasceDalSistema(t), eRitirato(t), nasceDaDocumento(t)].filter(Boolean);
+      expect(fuori.length, t).toBeLessThanOrEqual(1);
+    }
   });
 
   /* 1.5 — LA PULIZIA NON STA IN NESSUNA TENDINA. Nasce dalla conferma di un
@@ -598,7 +631,7 @@ describe('le eccezioni per tipo', () => {
   it('il Posizionamento non e\' piu\' un tipo di attivita\'', () => {
     expect(TIPI_COMPITO.PUTAWAY).toBeUndefined();
     expect(operazioneDi('PUTAWAY')).toBe(null);
-    expect(tipiRichiedibili()).toHaveLength(7);
+    expect(tipiRichiedibili()).toHaveLength(5);
   });
 
   it('i colli servono ovunque si muova una quantita\' decisa prima, non alla Conta', () => {
@@ -679,7 +712,13 @@ describe('chiudeAlGesto', () => {
       expect(typeof chiudeAlGesto(t), t).toBe('boolean');
     }
     const gesto = Object.keys(TIPI_COMPITO).filter(chiudeAlGesto);
-    expect(gesto).toHaveLength(7);
+    expect(gesto).toHaveLength(8);
+    /* 2.31 — LA PREPARAZIONE CHIUDE AL GESTO, non a residuo, ed e' una
+       decisione: il residuo conta i colli mossi, ma il lavoro non finisce
+       quando l'ultimo collo e' sceso dallo scaffale — finisce quando le
+       unita' sono imballate ed etichettate. Un conto sui colli direbbe
+       «fatto» a meta' lavoro. */
+    expect(chiudeAlGesto('PREP_SHIP')).toBe(true);
     /* La Pulizia si chiude al gesto per costruzione: nasce fatta. */
     expect(chiudeAlGesto('CLEANING')).toBe(true);
   });

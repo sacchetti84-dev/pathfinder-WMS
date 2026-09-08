@@ -1,6 +1,7 @@
 import { type Vista, $, $sel } from './vista';
 import { MOV } from '../../core/costanti';
 import { Store } from '../../core/store';
+import { richiestaPreparazione, motivoNonPreparabile } from '../../modules/preparazione';
 import type { DocumentoUscita, Destinatario, RigaDocumento } from '../../types/entita';
 import { Validate } from '../../modules/validate';
 import { pickupAlertStatus } from '../../modules/pickupAlert';
@@ -1140,6 +1141,43 @@ export const VistaSpedizioni = {
          un'attività che non poteva più concludere. */
       const colliDdt = (this._shipCart as VoceCarrelloDDT[]).reduce((s, l) => s + (l.qty || 1), 0);
       await this._taskAvanza(colliDdt, ['PICK_SHIP', 'PICK_RET']);
+
+      /* ═══ 2.31 · IL DOCUMENTO FA NASCERE IL LAVORO ════════════════════
+         Il verso si è rovesciato. Fino alla 2.30 questa riga era la FINE:
+         l'operatore aveva prelevato, il carrello diventava un documento, e
+         il compito si chiudeva. La riga qui sopra fa ancora quel mestiere,
+         e resta per i compiti vecchi rimasti aperti — spariranno da soli.
+
+         Adesso è anche l'INIZIO. L'impiegato registra il DDT: merce e
+         destinatario sono decisi, e quel che manca è andarla a prendere.
+         Nasce un'attività di preparazione, e chi la prende in carico si
+         trova il percorso già costruito da queste righe.
+
+         NON NASCE SE IL DOCUMENTO È NATO GIÀ EVASO. Lo scarico a mano del
+         prodotto finito scrive un documento e lo evade nello stesso gesto:
+         la merce è già partita, e un'attività per andarla a prendere manderebbe
+         qualcuno a cercare quel che non c'è più. Lo dice
+         `motivoNonPreparabile`, che è la stessa funzione che risponde alla
+         domanda «questo documento si può preparare».
+
+         E SE LA CREAZIONE FALLISCE, IL DDT RESTA. Un'attività è lavoro da
+         organizzare; un documento è un fatto registrato. Perdere il secondo
+         perché il primo non è riuscito sarebbe il baratto sbagliato: si
+         avvisa, e l'attività si può sempre rifare a mano dall'elenco. */
+      const motivo = motivoNonPreparabile(doc);
+      if (motivo) {
+        this.toast(`DDT ${doc.ddt_num}: nessuna attività di preparazione — ${motivo}`, 'info');
+      } else {
+        try {
+          const richiesta = richiestaPreparazione(doc, Store.getCurrentIdentity().initials);
+          if (richiesta) {
+            const t = await Store.createTask(richiesta);
+            this.toast(`Attività di preparazione ${t.task_id} aperta per il DDT ${doc.ddt_num}`, 'success');
+          }
+        } catch (err) {
+          this.toast(`DDT ${doc.ddt_num} registrato, ma l'attività non è nata · ${(err as Error).message}`, 'warning');
+        }
+      }
       this._shipResetHeader();
       this._formSpedizioni($('movFormArea'));
     } catch (err) {

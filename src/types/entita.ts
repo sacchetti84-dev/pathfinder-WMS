@@ -325,6 +325,15 @@ export interface DocumentoUscita {
   /** L id della causale scelta: e quello che il registro rilegge per sapere
       se il documento e una spedizione o un reso. */
   causale_id?: string;
+  /** 2.31 — L'ETICHETTA DELLA CAUSALE, dichiarata con nove versioni di
+      ritardo. `savePendingOutbound` la scrive dalla 1.8 (`store.ts`), ma il
+      tipo nominava solo `causale` — un campo che nessuno scrive — e chi la
+      voleva passava da un cast. Trovato a video il 21/09 costruendo la
+      preparazione: leggere `causale` dava sempre stringa vuota, e la vuota
+      aveva l'aria di essere «causale non impostata». */
+  causale_label?: string;
+  /** Il codice di movimento che l'evasione userà. */
+  causale_mov?: string;
   ddt_num?: string;
   destination?: string;
   carrier?: string;
