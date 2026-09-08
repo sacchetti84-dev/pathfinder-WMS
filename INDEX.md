@@ -545,7 +545,51 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
-### La 2.29.1 — IN SERVIZIO su questa macchina
+### La 2.29.2 — costruita, non installata
+
+**Quattro strade per cui un’icona esce come testo, e la quarta si vedeva su
+undicimila righe.** Trovata da Andrea a video l’08/09, nella scheda Archivio.
+Nessun campo nuovo a database, nessuna migrazione, il servizio non è stato
+toccato.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.29.2\` |
+| impronta | `8ef4cd2ebaa0343126134453734376daa7a49568fca53a398dc7f6f0a3180482` |
+| byte | **2.168.868** in **8 file**, `costruita 2026-09-08T06:49:18Z` |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.501 in 59 file** (una saltata) · `npm run check` pulito · 156 + 8 + 43 + 100 + 40 sul servizio e sui banchi, tutti verdi |
+| provata | **a video, 34 schermate**: tutte le viste, tutte le sottoschede di Movimenta, tutte e undici le schede di Configurazione. Zero markup a video, e le 22.402 icone dell’anagrafica adesso sono elementi `svg.ico` nel DOM, non stringhe |
+
+**LE DUE STRADE NUOVE.** La 2.29 ne aveva chiuse due — `toast`, che scrive con
+`textContent`, e l’interno di un `<option>`, che il parser butta via. Ne
+restavano due, e nessuna delle due prove le vedeva.
+
+1. **UNA STRINGA COSTRUITA CON `_ico()` CHE POI PASSA DA `_esc()`.** In
+   `archivio.ts` il campo `sub` di ogni riga si disegna con `_esc(r.sub)`, e
+   due produttori ci mettevano dentro un’icona: **ogni Cartello NC**
+   dell’archivio mostrava `<svg class="ico" aria-hidden="true"...` per esteso.
+   **Il rimedio non è togliere `_esc`**: `sub` porta ubicazione, motivo e
+   operatore, cioè testo che arriva dal database, e costruirlo già scappato
+   vorrebbe dire che ogni produttore si ricorda di scappare i suoi pezzi. Fuori
+   l’icona: il genere ce l’ha già, nella colonna Tipo.
+2. **UN’ICONA PASSATA COME FIGLIO A `_h`**, il costruttore di nodi di
+   `core/utils.ts`. Un figlio stringa lo aggiunge con `createTextNode` — ed è
+   esattamente quel che deve fare, perché di lì passano descrizioni di
+   articolo e motivi di quarantena. **Su Configurazione → Anagrafica Articoli
+   il difetto stava su tutte e 11.181 le righe**, due volte per riga: i
+   pulsanti Modifica ed Elimina mostravano il loro `<svg>` scritto. Lo stesso
+   sul pulsante di stampa del registro. Il rimedio è **`icoNodo`** in
+   `ui/icone.ts`, che l’icona la costruisce come NODO — e un nodo `_h` lo
+   aggiunge come nodo. `createElementNS` e non `createElement`: un `<svg>`
+   costruito nel namespace HTML sta nell’albero e non si disegna, che è lo
+   stesso difetto con un aspetto diverso.
+
+**LE DUE PROVE NUOVE MORDONO**, ed è stato verificato rimettendo i difetti:
+la prima raccoglie i nomi il cui letterale di modello contiene `_ico(` e cerca
+`_esc(quel nome)` nello stesso file; la seconda cerca `_ico(` come primo
+elemento di un elenco di figli. Nominano file, riga e campo.
+### La 2.29.1 — superata dalla 2.29.2, ed è la via di ritorno
 
 **L'audit dell'08/09**: cinque difetti trovati provando a rompere, cinque
 corretti, ognuno con la prova che lo riprende. Nessun campo nuovo a database,
@@ -3561,6 +3605,41 @@ stessa toppa messa per un selettore solo.
 Adesso **`[hidden] { display: none !important }`** sta in `01-base.css`.
 L'`!important` non è pigrizia: `hidden` non è uno stile, è un fatto sul nodo,
 e nessuna classe deve poterlo smentire.
+
+### Un'icona è markup, e quattro posti la trattano come testo
+
+- **QUATTRO STRADE, TROVATE UNA ALLA VOLTA — 2.27, 2.29, 2.29.2.** `ico()`
+  restituisce una stringa di markup, ed è la forma giusta dentro un letterale
+  di modello. In quattro posti quella stringa finisce dove ci si aspetta
+  TESTO, e a video compare `<svg class="ico"…` scritto per esteso:
+
+  | dove | perché | trovata |
+  |---|---|---|
+  | `toast`, `Dialog` (`message:`, `title:`, `kv`) | scrivono con `textContent`, ed è giusto: di lì passa testo che arriva dai campi | 2.27, poi altre quattro nella 2.29 |
+  | dentro un `<option>` | il parser HTML in «in select» butta via i tag che non sono di una tendina: l'`<svg>` sparisce e resta un doppio spazio | 2.29 |
+  | una stringa che poi passa da `_esc()` | `_esc` scappa il markup, ed è giusto: quella stringa porta dati del database | **2.29.2**, su ogni Cartello NC dell'archivio |
+  | un figlio passato a `_h()` | `_h` aggiunge una stringa con `createTextNode`, ed è giusto: è il costruttore sicuro | **2.29.2**, su tutte e 11.181 le righe dell'anagrafica |
+
+  **In tutti e quattro i casi il sink ha ragione.** `textContent`, il parser
+  delle tendine, `_esc` e `createTextNode` fanno esattamente il loro mestiere,
+  e sono le quattro cose che impediscono a un codice articolo di portare
+  markup dentro una schermata di magazzino. Il difetto sta sempre a monte:
+  aver passato markup a chi tratta le stringhe come testo. **Il rimedio non è
+  mai togliere la protezione** — è togliere l'icona, o darla nella forma che
+  quel posto sa trattare. Dalla 2.29.2 quella forma esiste: `icoNodo` in
+  `ui/icone.ts` costruisce l'icona come NODO, e un nodo `_h` lo aggiunge come
+  nodo.
+
+  **E LE PROVE VANNO SCRITTE UNA PER SINK, non una per «icona».** Le due della
+  2.29 guardavano i primi due posti e non vedevano gli altri due: non erano
+  scritte male, guardavano altrove. Le quattro stanno in `test/icone.test.js`,
+  ognuna col suo perché, e ognuna è stata verificata rimettendo il difetto.
+
+  **NESSUNA DELLE QUATTRO È USCITA DAL RILEGGERE IL CODICE.** La prima e la
+  seconda dal provare a rompere la 2.29; la terza e la quarta le ha viste
+  Andrea guardando lo schermo. Una rete che legge i sorgenti prende quel che
+  qualcuno le ha insegnato a cercare — e la quarta stava su undicimila righe
+  da chissà quando.
 
 ### Prove e collaudi
 

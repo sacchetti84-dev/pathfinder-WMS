@@ -1,6 +1,7 @@
 import { type Vista, $ } from './vista';
 import { MOV, MOV_LABELS } from '../../core/costanti';
 import { debounce, _h } from '../../core/utils';
+import { icoNodo } from '../icone';
 import { Store } from '../../core/store';
 import type { Movimento } from '../../types/entita';
 import { ordina, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
@@ -172,7 +173,7 @@ export const VistaRegistro = {
               style: { marginLeft: '0.35rem', padding: '0 0.3rem' },
               title: 'Ristampa il verbale di campionamento',
               onclick: () => this._ristampaVerbaleCampione(m._id),
-            }, [this._ico('printer', 'Stampa')])
+            }, [icoNodo('printer', 'Stampa')])
           ] : [])
         ]),
         _h('td', {}, [

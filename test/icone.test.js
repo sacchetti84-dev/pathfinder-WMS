@@ -347,3 +347,101 @@ test('nessuna icona dentro un <option>: la tendina la butta via', () => {
   }
   expect(guai).toEqual([]);
 });
+
+/* LA TERZA STRADA PER CUI UN'ICONA ESCE COME TESTO — 2.29.2
+   Trovata a video da Andrea nella scheda Archivio, e su OGNI Cartello NC.
+
+   Le due prove qui sopra guardano i punti che scrivono con `textContent` e
+   l'interno degli `<option>`. Questa guarda il terzo: una stringa che si
+   COSTRUISCE con `_ico()` e che poi qualcuno passa a `_esc()`. `_esc` fa
+   esattamente il suo mestiere — scappa il markup perché quella stringa porta
+   testo che arriva dal database — e il risultato a video è
+   `<svg class="ico" aria-hidden="true"...` scritto per esteso.
+
+   NON SI RISOLVE TOGLIENDO `_esc`. In `archivio.ts` il campo `sub` porta
+   ubicazione, motivo e operatore: costruirlo già scappato vorrebbe dire che
+   ogni produttore si ricorda di scappare i suoi pezzi, e il prossimo scritto
+   fra un mese se ne dimentica. L'escape resta in un punto solo. Quel che non
+   ci sta è l'icona.
+
+   COME GUARDA. Raccoglie i nomi — proprietà o variabili — il cui letterale di
+   modello contiene `_ico(`, e poi cerca `_esc(quel nome)` nello stesso file.
+   Segue le parentesi graffe annidate invece di fermarsi al primo backtick,
+   altrimenti un `${a ? `x` : `y`}` dentro il valore chiuderebbe il letterale
+   troppo presto e i nomi lunghi sfuggirebbero.
+
+   Verificata rimettendo il difetto: con l'`_ico('map-pin')` al suo posto
+   dentro `sub`, questa prova diventa rossa e nomina file, riga e campo. */
+/* La barra rovescia scritta col suo codice: un letterale `'\\'` dentro questo
+   file e' passato per troppe mani — script di modifica, heredoc, editor — e
+   ognuna puo' mangiarne una. Il codice 92 non se lo mangia nessuno. */
+const ROVESCIA = String.fromCharCode(92);
+
+function nomiCostruitiConIcona(testo) {
+  const nomi = new Set();
+  const assegna = /(?:(?:const|let|var)\s+([A-Za-z_$][\w$]*)\s*=|([A-Za-z_$][\w$]*)\s*:)\s*`/g;
+  for (const m of testo.matchAll(assegna)) {
+    let i = m.index + m[0].length - 1;   // il backtick di apertura
+    let liv = 0, j = i + 1;
+    while (j < testo.length) {
+      const c = testo[j];
+      if (c === ROVESCIA) { j += 2; continue; }
+      if (c === '`' && liv === 0) break;
+      if (testo.startsWith('${', j)) { liv++; j += 2; continue; }
+      if (c === '}' && liv) liv--;
+      j++;
+    }
+    if (testo.slice(i, j).includes('_ico(')) nomi.add(m[1] || m[2]);
+  }
+  return nomi;
+}
+
+test('nessuna icona in una stringa che poi passa da _esc', () => {
+  const guai = [];
+  for (const file of sorgentiTs(RADICE)) {
+    const testo = fs.readFileSync(file, 'utf8');
+    const nomi = nomiCostruitiConIcona(testo);
+    if (!nomi.size) continue;
+    for (const m of testo.matchAll(/_esc\(\s*([A-Za-z_$][\w$.]*)\s*\)/g)) {
+      const base = m[1].split('.').pop();
+      if (nomi.has(base)) {
+        const rel = path.relative(RADICE, file).split(path.sep).join('/');
+        guai.push(`${rel}:${rigaDi(testo, m.index)} — _esc(${m[1]}), e «${base}» è costruito con _ico()`);
+      }
+    }
+  }
+  expect(guai, guai.join('\n')).toEqual([]);
+});
+
+/* LA QUARTA STRADA — 2.29.2, e la piu' grossa delle quattro.
+   Trovata a video nello stesso giro dell'Archivio, in Configurazione →
+   Anagrafica Articoli: i pulsanti Modifica ed Elimina mostravano
+   `<svg class="ico" role="img" aria-label="Modifica">...` scritto per esteso
+   su TUTTE E 11.181 LE RIGHE. Lo stesso sul pulsante di stampa del registro.
+
+   La causa e' `_h`, il costruttore di nodi di `core/utils.ts`: un figlio
+   stringa lo aggiunge con `createTextNode`, che e' esattamente quel che deve
+   fare — di li' passano descrizioni di articolo e motivi di quarantena, cioe'
+   testo che arriva dal database. Il difetto non e' in `_h`: e' aver passato
+   markup a un costruttore che tratta le stringhe come testo.
+
+   Il rimedio e' `icoNodo` in `ui/icone.ts`, che l'icona la costruisce come
+   NODO — e un nodo `_h` lo aggiunge come nodo.
+
+   Verificata rimettendo il difetto: con `[this._ico('pencil', 'Modifica')]`
+   al suo posto, questa prova diventa rossa e nomina file e riga. */
+test('nessuna icona come stringa dentro _h: la aggiungerebbe come testo', () => {
+  const guai = [];
+  for (const file of sorgentiTs(RADICE)) {
+    const testo = fs.readFileSync(file, 'utf8');
+    /* Il figlio di `_h` e' il terzo argomento, quasi sempre un elenco fra
+       parentesi quadre. Si guarda quello, non tutta la chiamata: `_h('span',
+       { title: qualcosa }, [...])` puo' avere `_ico` in un attributo, e li'
+       il markup non ci arriva mai. */
+    for (const m of testo.matchAll(/\[\s*(?:this\.)?_ico\(/g)) {
+      const rel = path.relative(RADICE, file).split(path.sep).join('/');
+      guai.push(`${rel}:${rigaDi(testo, m.index)} — _ico() come figlio: serve icoNodo()`);
+    }
+  }
+  expect(guai, guai.join('\n')).toEqual([]);
+});

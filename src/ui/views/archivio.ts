@@ -45,6 +45,17 @@ export const VistaArchivio = {
 
   /* Le quattro sorgenti ridotte a una forma sola. Ogni riga sa da dove
      viene, come si chiama e quale funzione la ristampa. */
+  /* 2.29.2 — IN `sub` NON ENTRA UN'ICONA, E NON E' UNA PREFERENZA.
+     La riga si disegna con `${this._esc(r.sub)}`: `_esc` scappa il markup,
+     quindi un `_ico()` interpolato qui esce a video come la sua stringa —
+     `<svg class="ico" aria-hidden="true"...`. Si vedeva su OGNI Cartello NC.
+
+     E il rimedio non e' togliere `_esc`: `sub` porta ubicazione, motivo e
+     operatore, cioe' testo che arriva dal database. Costruirlo gia' scappato
+     vorrebbe dire che ogni produttore si ricorda di scappare i suoi pezzi, e
+     il quinto scritto fra un mese se ne dimentica. L'escape sta in un punto
+     solo, ed e' li' che deve stare: quel che non ci sta e' l'icona. Il
+     genere ce l'ha gia', nella colonna Tipo. */
   _archiveRows() {
     const rows: RigaArchivio[] = [];
     const esc = (v: unknown) => this._esc(String(v ?? ''));
@@ -91,7 +102,7 @@ export const VistaArchivio = {
         ts: q.created_at || 0,
         num: q.q_id,
         title: `${q.article_code} · L:${q.lot_code}`,
-        sub: `${q.qty || 1} Coll.${q.partial ? ' (parziale)' : ''} · ${this._ico('map-pin')} ${q.blocked_location} · ${q.reason || '—'}`,
+        sub: `${q.qty || 1} Coll.${q.partial ? ' (parziale)' : ''} · ${q.blocked_location} · ${q.reason || '—'}`,
         stato: q.status === 'active'
           ? { lbl: 'Attiva', cls: 'badge-amber' }
           : { lbl: 'Rilasciata', cls: 'badge-green' },
@@ -127,7 +138,7 @@ export const VistaArchivio = {
         num: a.odp_num,
         title: `Ordine ${a.odp_num}`,
         sub: `${c.righe.length} rig${c.righe.length === 1 ? 'a' : 'he'} · consumato ${c.consumato} Coll. · reso ${c.tornato}`
-          + (serviti.length ? ` · ${this._ico('link')} giro di ${serviti.length + 1}` : ''),
+          + (serviti.length ? ` · giro di ${serviti.length + 1}` : ''),
         stato: { lbl: 'Chiuso', cls: 'badge-green' },
         search: `${a.odp_num} ${serviti.join(' ')} `
           + c.righe.map((r) => r.article_code + ' ' + r.lot_code).join(' '),

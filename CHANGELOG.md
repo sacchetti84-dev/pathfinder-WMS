@@ -15,6 +15,46 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.29.2 — 2026-09-08
+
+**Four ways an icon comes out as text, and the fourth was on eleven thousand
+rows.**
+
+`ico()` returns a markup string, which is the right shape inside a template
+literal. In four places that string lands where text is expected, and the
+screen shows `<svg class="ico"…` spelled out. Two were closed in 2.27 and
+2.29 — `toast`, which writes with `textContent`, and the inside of an
+`<option>`, which the HTML parser discards. Andrea found the remaining two by
+looking at the screen.
+
+**A string built with an icon and then escaped.** In the Archive tab each
+row's `sub` field is drawn with `_esc(r.sub)`, and two producers put an icon
+inside it: every non-conformance card in the archive showed the raw markup.
+The fix is not to drop `_esc` — `sub` carries location, reason and operator,
+text that comes from the database, and building it pre-escaped would mean
+every producer has to remember to escape its own parts. The icon goes.
+
+**An icon passed as a child to `_h`**, the node builder. A string child is
+appended with `createTextNode`, which is exactly right: article descriptions
+and quarantine reasons go through there. On Configuration → Article Registry
+the defect was on all 11,181 rows, twice per row — the Edit and Delete
+buttons showed their own `<svg>` written out — and on the print button of the
+movement registry. The fix is `icoNodo` in `ui/icone.ts`, which builds the
+icon as a node, because a node is something `_h` already appends as a node.
+`createElementNS`, not `createElement`: an `<svg>` built in the HTML
+namespace sits in the tree and never draws.
+
+In all four cases the sink is right. `textContent`, the select parser, `_esc`
+and `createTextNode` are the four things that stop an article code from
+carrying markup into a warehouse screen. The defect is always upstream.
+
+Two new tests, one per sink, both verified by putting the defect back. 1,501
+client tests in 59 files; 347 on the service and the benches. Verified across
+34 screens in the browser: every view, every Movimenta sub-form, all eleven
+Configuration tabs.
+
+---
+
 ## 2.29.1 — 2026-09-08
 
 **An audit that tried to break things, and broke five.**

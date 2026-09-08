@@ -1,5 +1,6 @@
 import { type Vista, $ } from './vista';
 import { debounce, _h } from '../../core/utils';
+import { icoNodo } from '../icone';
 import { Store } from '../../core/store';
 import { Validate } from '../../modules/validate';
 import { etichettaDi } from '../../modules/parametri';
@@ -107,12 +108,12 @@ export const VistaConfigArticoli = {
           _h('button', {
             class: 'btn btn-sm',
             onclick: () => this.showEditArticleModal(code)
-          }, [this._ico('pencil', 'Modifica')]),
+          }, [icoNodo('pencil', 'Modifica')]),
           ' ',
           _h('button', {
             class: 'btn btn-sm btn-danger',
             onclick: () => this.confirmDeleteArticle(code)
-          }, [this._ico('trash', 'Elimina')])
+          }, [icoNodo('trash', 'Elimina')])
         ])
       ]);
       frag.appendChild(tr);

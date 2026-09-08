@@ -76,3 +76,39 @@ export function ico(nome: Icona, aria = '', classi = ''): string {
     : 'aria-hidden="true" focusable="false"';
   return `<svg class="${cls}" ${acc}><use href="#i-${nome}"/></svg>`;
 }
+
+/** LA STESSA ICONA, MA COME NODO — 2.29.2.
+
+    `ico` restituisce markup, ed e' la forma giusta dentro un letterale di
+    modello. Passata a `_h` non lo e': `_h` aggiunge un figlio stringa come
+    NODO DI TESTO, quindi il markup finisce a video scritto per esteso. E'
+    successo sui pulsanti Modifica ed Elimina dell'anagrafica articoli — su
+    tutte e 11.181 le righe — e sul pulsante di stampa del registro. Trovato
+    a video l'08/09.
+
+    NON SI RISOLVE DENTRO `_h`. Se `_h` interpretasse le stringhe come markup,
+    ogni descrizione di articolo e ogni motivo di quarantena che passa di li'
+    diventerebbe markup a sua volta: e' il costruttore sicuro, e deve restare
+    tale. Quel che mancava e' questa: l'icona nella forma che `_h` sa gia'
+    trattare.
+
+    `createElementNS` e non `createElement`: un `<svg>` costruito nel
+    namespace HTML sta nell'albero e non si disegna, che e' il difetto di
+    prima con un aspetto diverso — un buco bianco invece di una scritta. */
+const NS_SVG = 'http://www.w3.org/2000/svg';
+
+export function icoNodo(nome: Icona, aria = '', classi = ''): SVGSVGElement {
+  const svg = document.createElementNS(NS_SVG, 'svg');
+  svg.setAttribute('class', classi ? `ico ${classi}` : 'ico');
+  if (aria) {
+    svg.setAttribute('role', 'img');
+    svg.setAttribute('aria-label', aria);
+  } else {
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+  }
+  const use = document.createElementNS(NS_SVG, 'use');
+  use.setAttribute('href', '#i-' + nome);
+  svg.appendChild(use);
+  return svg;
+}
