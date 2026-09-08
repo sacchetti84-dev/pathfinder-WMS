@@ -426,6 +426,166 @@ export function inLavorazione(
     || a.item_key.localeCompare(b.item_key));
 }
 
+/** Quel che un giro chiede, riga per riga: la domanda con cui si confronta
+    quello che è già fermo di là. La compone `fabbisogno` in
+    `modules/giroOdp.ts` dalla distinta unita. */
+export interface DomandaRiga {
+  item_key: string;
+  article_code: string;
+  lot_code: string;
+  /** Nell'unità del foglio, che è quella in cui l'ordine chiede. */
+  qty: number;
+  uom: string | null;
+}
+
+/** Quanto, di una riga chiesta, è già in reparto. */
+export interface CoperturaRiga {
+  item_key: string;
+  article_code: string;
+  lot_code: string;
+  uom: string | null;
+  /** Quanto ne chiede il giro. */
+  chiesto: number;
+  /** Quanto ne è fermo sul conto DEGLI ORDINI DEL GIRO: merce già scesa per
+      questo lavoro, che scala il fabbisogno. */
+  suo: number;
+  /** Quanto ne è fermo sul conto di ordini ESTRANEI al giro. Non scala
+      niente: sta su un altro conto, e prenderlo lo sposterebbe. */
+  altrui: number;
+  /** Su quali ordini sta `altrui`, in ordine. */
+  ordini_altrui: string[];
+  /** `chiesto − suo`, mai sotto zero. `null` SOLO quando a non essere
+      contabile è merce degli ordini del giro: è quella che scala, e senza
+      di lei la sottrazione sarebbe un numero inventato. Un residuo
+      altrui non contabile lascia il conto in piedi — non scalava niente. */
+  da_prelevare: number | null;
+  /** Non c'è più niente da prelevare: `da_prelevare` a zero con merce
+      propria di là. Un chiesto a zero conta come coperto, perché zero è
+      quello che resta da andare a prendere. */
+  coperta: boolean;
+  /** C'è merce di là che NON si è potuta contare: unità discorde, oppure
+      un residuo di soli colli senza la sua quantità. Il numero che esce è
+      quindi un MINIMO, e chi legge deve andare a guardare — anche quando
+      `da_prelevare` un numero ce l'ha. */
+  incerta: boolean;
+}
+
+function unita(v: unknown): string {
+  return String(v ?? '').trim().toUpperCase();
+}
+
+/** ══ QUELLO CHE IL GIRO CHIEDE È GIÀ DI LÀ ═════════════════════════════
+    © Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group)
+
+    Un file di produzione si carica e il percorso manda a prendere tutto
+    quello che la distinta dichiara. Ma una parte può essere già scesa: lo
+    stesso ordine prelevato a metà e ricaricato, oppure un fondo che un altro
+    ordine ha lasciato nel vano. Andare a prendere merce che sta già in
+    reparto è un giro fatto per niente, e a scaffale toglie un lotto a chi ne
+    ha bisogno davvero.
+
+    DUE RESIDUI, E NON SI SOMMANO. Quello degli ordini DEL GIRO è merce già
+    scesa per questo lavoro: scala il fabbisogno, e se lo copre tutto la
+    tappa non serve. Quello di ordini ESTRANEI sta su un altro conto — chi lo
+    prende sposta un conto, e questo modulo non lo decide: si dice, e basta.
+
+    SI CONFRONTA NELL'UNITÀ, NON NEI COLLI. L'ordine chiede chili; il vano
+    tiene colli, e la loro quantità la si sa solo quando il lotto dichiara la
+    confezione. Un residuo che quella quantità non ce l'ha, o che la porta in
+    un'unità diversa da quella del foglio, NON entra nella sottrazione: esce
+    `incerta`, e il numero è un minimo. Dedurlo dai colli sarebbe scrivere un
+    fabbisogno su una moltiplicazione che nessuno ha dichiarato.
+
+    UN RESIDUO NEGATIVO NON COPRE NIENTE. È il conto che non sta in piedi
+    (voce 61), e in reparto quella merce non c'è: si guarda dalla schermata
+    WIP, che è la sua.
+
+    Escono solo le righe che hanno qualcosa di là. Puro. */
+export function coperturaInLavorazione(
+  domanda: readonly DomandaRiga[] | null | undefined,
+  righe: readonly RigaInLavorazione[] | null | undefined,
+  odpsDelGiro: readonly string[] | null | undefined,
+): CoperturaRiga[] {
+  if (!domanda?.length || !righe?.length) return [];
+  const delGiro = new Set((odpsDelGiro || []).map((o) => chiave(o)).filter(Boolean));
+
+  const perChiave = new Map<string, RigaInLavorazione[]>();
+  for (const r of righe) {
+    const k = String(r?.item_key ?? '').trim();
+    if (!k) continue;
+    const gia = perChiave.get(k);
+    if (gia) gia.push(r); else perChiave.set(k, [r]);
+  }
+
+  const out: CoperturaRiga[] = [];
+  for (const d of domanda) {
+    const k = String(d?.item_key ?? '').trim();
+    const inVano = k ? perChiave.get(k) : null;
+    if (!inVano?.length) continue;
+
+    /* UNA DOMANDA SENZA UNITÀ NON SI SOTTRAE DA NIENTE. Sommarle un
+       residuo in chili perché tanto «il numero c'è» è l'unità inventata
+       della voce 19, applicata al conto invece che alla tappa. */
+    const u = unita(d.uom);
+    let suo = 0, altrui = 0, incerta = false, incertaSua = !u;
+    const ordini_altrui: string[] = [];
+
+    for (const r of inVano) {
+      const mio = delGiro.has(chiave(r.odp_num));
+      /* Il residuo in colli dice che di là c'è qualcosa; quello in unità è
+         l'unico che si può sottrarre da un fabbisogno scritto in unità. */
+      const q = r.residuo_uom;
+      const contabile = Boolean(u) && typeof q === 'number' && q > 0 && unita(r.uom) === u;
+      if (!contabile) {
+        if (r.residuo > 0 || (typeof q === 'number' && q > 0)) {
+          incerta = true;
+          /* SOLO L'INCERTEZZA SULLA MERCE PROPRIA ROMPE LA SOTTRAZIONE.
+             Quella di un altro ordine non scalava niente, e annullare per
+             causa sua un `60 KG` calcolato bene sulla merce del giro
+             nasconderebbe l'unico numero che l'operatore può usare. */
+          if (mio) incertaSua = true;
+          else if (!ordini_altrui.includes(chiave(r.odp_num))) ordini_altrui.push(chiave(r.odp_num));
+        }
+        continue;
+      }
+      if (mio) suo = arrotonda(suo + q);
+      else {
+        altrui = arrotonda(altrui + q);
+        if (!ordini_altrui.includes(chiave(r.odp_num))) ordini_altrui.push(chiave(r.odp_num));
+      }
+    }
+
+    if (suo <= 0 && altrui <= 0 && !incerta) continue;
+
+    const chiesto = Number(d.qty) || 0;
+    const da_prelevare = incertaSua ? null : arrotonda(Math.max(0, chiesto - suo));
+    out.push({
+      item_key: k,
+      article_code: String(d.article_code ?? '').trim(),
+      lot_code: String(d.lot_code ?? '').trim(),
+      uom: d.uom ?? null,
+      chiesto,
+      suo,
+      altrui,
+      ordini_altrui,
+      da_prelevare,
+      /* COPERTA VUOL DIRE «NON RESTA NIENTE DA ANDARE A PRENDERE», e si
+         legge da `da_prelevare`, non da un secondo confronto: due modi di
+         dire la stessa cosa divergono, e il giorno che divergono la
+         schermata dice di non prelevare una riga che manca. */
+      coperta: da_prelevare === 0 && suo > 0,
+      incerta,
+    });
+  }
+
+  /* Le coperte in cima: sono quelle su cui c'è una decisione da prendere
+     prima di partire. A parità, la chiave, così due letture si confrontano
+     a occhio. */
+  return out.sort((a, b) => Number(b.coperta) - Number(a.coperta)
+    || b.suo - a.suo
+    || a.item_key.localeCompare(b.item_key));
+}
+
 /** Un reso già scritto, come lo si rilegge per poterlo annullare. */
 export interface Reso {
   wip_id: string;

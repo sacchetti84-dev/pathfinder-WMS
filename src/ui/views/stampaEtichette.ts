@@ -168,14 +168,14 @@ export const VistaStampaEtichette = {
     const quante = copie === 1 ? '1 etichetta' : `${copie} etichette`;
     if (esito.stato?.noto && esito.stato.errori) {
       return this.toast(
-        `${this._ico('alert-triangle')} ${esito.stampante}: inviata, ma la stampante segnala ${esito.stato.dettagli.join(', ')} — l’etichetta NON è uscita`,
+        `${esito.stampante}: inviata, ma la stampante segnala ${esito.stato.dettagli.join(', ')} — l’etichetta NON è uscita`,
         'error');
     }
     if (esito.stato?.noto) {
       return this.toast(`${quante} da ${esito.stampante}`, 'success');
     }
     return this.toast(
-      `${this._ico('tag')} ${quante} inviate a ${esito.stampante} — la stampante non dichiara il proprio stato: va guardata`,
+      `${quante} inviate a ${esito.stampante} — la stampante non dichiara il proprio stato: va guardata`,
       'warning');
   },
 
@@ -187,7 +187,7 @@ export const VistaStampaEtichette = {
       const esito = await Store.provaStampante(printerId);
       if (esito.stato?.noto && esito.stato.errori) {
         return this.toast(
-          `${this._ico('alert-triangle')} ${esito.stampante} (${esito.host}:${esito.porta}): ${esito.stato.dettagli.join(', ')}`,
+          `${esito.stampante} (${esito.host}:${esito.porta}): ${esito.stato.dettagli.join(', ')}`,
           'error');
       }
       if (esito.stato?.noto) {

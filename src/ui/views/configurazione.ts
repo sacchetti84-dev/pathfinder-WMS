@@ -302,7 +302,7 @@ export const VistaConfigurazione = {
     this.toast(`${rec.nome} — ${rec.host}:${rec.porta}`, 'success');
     if (!posa.ci_sta) {
       this.toast(
-        `${this._ico('alert-triangle')} Il layout dell'etichetta merce occupa ${posa.usato_mm} mm e questo supporto è alto ${rec.altezza_mm}: su questa stampante la merce non si stampa finché non si spegne un campo`,
+        `Il layout dell'etichetta merce occupa ${posa.usato_mm} mm e questo supporto è alto ${rec.altezza_mm}: su questa stampante la merce non si stampa finché non si spegne un campo`,
         'warning');
     }
   },

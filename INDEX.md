@@ -7,8 +7,57 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **08/09/2026** — **ogni foglio ha la sua testata e la sua coda, e in
-mezzo solo la merce.** La **2.28** è installata e in servizio.
+Aggiornato: **08/09/2026** — **quello che è già in reparto non si va a
+prendere.** La **2.29** è costruita; la **2.28** è installata e in servizio.
+
+**SI CARICA UN ODP E IL PERCORSO MANDAVA A PRENDERE ANCHE QUELLO CHE STAVA
+GIÀ DI LÀ.** Un ordine prelevato a metà e ricaricato, o un fondo lasciato nel
+vano da un altro ordine: la distinta chiede la quantità intera, e nessuno
+diceva che una parte era già scesa. Adesso all'ingresso il sistema confronta
+la domanda del giro con quello che è fermo in lavorazione, e lo scrive in un
+riquadro sopra l'anteprima.
+
+**I DUE RESIDUI NON SI SOMMANO, ED È LA REGOLA.** Quello degli ordini DEL
+GIRO è merce già scesa per questo lavoro: scala il fabbisogno, e dove lo copre
+tutto la tappa non serve. Quello di ordini ESTRANEI sta sul conto di qualcun
+altro — prenderlo sposta un conto — e si dice soltanto, con il numero
+dell'ordine che lo tiene. **Nessuna tappa viene toccata**: la distinta resta
+quella che l'ordine dichiara, e saltare è un gesto dell'operatore.
+
+**SI CONFRONTA NELL'UNITÀ, MAI NEI COLLI.** L'ordine chiede chili; il vano
+tiene colli, e quanto ci sia dentro si sa solo se il lotto dichiara la
+confezione. Un residuo che quella quantità non ce l'ha, o che la porta in
+un'altra unità, **non entra nella sottrazione**: la riga esce «da verificare
+di persona» e il numero è dichiarato un minimo. Dedurlo dai colli sarebbe
+l'unità inventata della voce 19, applicata al conto invece che alla tappa.
+
+**E IL VANO DI LAVORAZIONE NON È PIÙ UN'UBICAZIONE DA CUI SI PRELEVA.** Era
+il buco vero, trovato provando questa funzione al banco: portare in produzione
+è un trasferimento, la merce resta scritta in giacenza NEL VANO WIP, e per
+`getItemByKey` quello è uno scaffale come gli altri. Svuotato il vano vero,
+diventava l'unica ubicazione che portava il lotto, e il percorso mandava a
+prelevare dal vano WIP verso il vano WIP. Adesso `build` lo esclude, e una
+riga che sta tutta di là esce col motivo suo — **`in_lavorazione`**, non
+«in quarantena o impegnata su un DDT», che manderebbe a cercare il guasto
+dove non c'è.
+
+**TRE DIFETTI USCITI DAL PROVARE A ROMPERLA**, non dal leggerla: l'incertezza
+sul residuo di un ALTRO ordine annullava un conto calcolato bene sulla merce
+propria; un chiesto a zero con merce di là scriveva «ne mancano 0»; e una
+domanda senza unità si lasciava sottrarre un residuo in chili. Tutti e tre
+hanno la loro prova.
+
+**E CINQUE ICONE CHE NON SI VEDEVANO, o che si vedevano come non dovevano.**
+Quattro `toast` scritti su più righe portavano un'icona nel messaggio, e
+`toast` scrive con `textContent`: a video usciva la scritta `<svg class="ico"`.
+La rete della 2.27 non li prendeva perché guardava **una riga sola**. La
+quinta stava dentro un `<option>`, dove il parser HTML butta via i tag che non
+sono di una tendina: l'icona non compariva e restava un doppio spazio.
+Verificato in browser, non dedotto. Due prove nuove in `test/icone.test.js`,
+e mordono — provato rimettendo i difetti.
+
+Prima di questo — **ogni foglio ha la sua testata e la sua coda, e in
+mezzo solo la merce.**
 
 **UN FOGLIO DI MAGAZZINO HA DUE FASCE FISSE E UNA CHE SCORRE.** In alto chi
 manda e chi riceve, in basso totali, vettore, date e firme, in mezzo le righe:
@@ -500,6 +549,22 @@ produzione fino all'ultimo giorno.
 > ricostruisce dal commit, e la build è riproducibile (§2) — ma è una domanda
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
+
+### La 2.29.0 — costruita, non installata
+
+**Quello che è già in reparto non si va a prendere, e dal vano di lavorazione
+non si preleva.** Nessun campo nuovo a database, nessuna migrazione, il
+servizio non è stato toccato.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.29.0\` |
+| impronta | `7b8f6ca0625badd50429c47a13ded368233e06e91c78ec561accaae84db21f4d` |
+| byte | **2.168.081** in **8 file**, `costruita 2026-09-07T23:51:47Z` |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.464 in 56 file** (una saltata) · `tsc --noEmit` pulito |
+| provata | **al banco e sui file veri.** Le due funzioni pure hanno **31** prove, fra cui **quattordici** scritte per romperle; `build` si prova con uno Store finto; il riquadro si prova leggendo la stringa che disegna. Sui `.xlsx` veri di `banco\odp-wip\`, letti col parser vero: 20 KG scesi per ODP9611 coprono la domanda di ODP9611 e, visti da ODP9620, sono `altrui: 20` su `ordini_altrui: ['ODP9611']` |
+| cosa resta fuori | la corsia vera, con un operatore, un terminale e un ordine sceso a metà |
 
 ### La 2.28.0 — IN SERVIZIO su questa macchina
 
@@ -1046,6 +1111,7 @@ Numerazione progressiva: una build definitiva porta **due numeri** (`2.12`),
 una di prova ne porta di più (`2.12.1`).
 | Ver. | Stato | Impronta | Cosa porta |
 |---|---|---|---|
+| **2.29.0** | costruita, non installata — 08/09 notte | `7b8f6ca0…` | **Quello che è già in reparto non si va a prendere.** Caricato un ODP, il sistema confronta la domanda del giro con quello che è fermo in lavorazione e lo dice in un riquadro: il residuo degli **ordini del giro** scala il fabbisogno — dove copre tutto, la tappa non serve — quello di ordini **estranei** si nomina soltanto, perché sta sul conto di qualcun altro. Si confronta **nell'unità**, mai nei colli: quel che non si può contare esce «da verificare di persona». **Nessuna tappa viene toccata.** E il **vano di lavorazione smette di essere un'ubicazione da cui si preleva**: era il buco vero — svuotato lo scaffale, il percorso mandava a prelevare dal vano WIP verso il vano WIP. Più **cinque icone**: quattro `toast` scritti su più righe mostravano `<svg class=` a video, una quinta stava in un `<option>` e non si vedeva mai |
 | **2.28.0** | **IN SERVIZIO su questa macchina dall'08/09** | `c722f7da…` | **Ogni foglio ha la sua testata e la sua coda, e in mezzo solo la merce.** La coda — totali, vettore, date, firme, piede — è passata nel `<tfoot>`, che è il gruppo che il browser ripete su ogni pagina, e si dipinge fuori dal flusso a `bottom: 0` con la banda riservata dal `tfoot`. Un numero solo si misura, l'altezza della fascia, perché la fa il documento. Un DDT da 40 partite passa da 5 fogli a **4**, con la coda alla stessa quota su tutti. Ribalta la 2.24 sulle firme, di proposito |
 | **2.27.0** | costruita, non installata, **superata dalla 2.28.0** — 07/09 sera | `1486602a…` | **Il piede sta in fondo al foglio, e il testo dei documenti scende del 10%.** `table-footer-group` non vuol dire «in fondo alla pagina» ma «alla fine di ogni frammento»: sull'ultima il piede galleggiava a metà. Adesso il `tfoot` **riserva** la banda e un elemento fuori dal flusso la **dipinge**, con un numero solo — `--doc-piede: 10mm`, misurato. Col corpo ridotto (arrotondamento 0,25 pt, pavimento 6,5 pt, etichette escluse) un DDT da 90 partite passa da **9 fogli a 8**, provato stampando in PDF. Più: il **campione si pesa in KG o in GR** sugli articoli a peso, con rifiuto se la conversione non torna esatta; e i campi di ricerca di **registro** e **anagrafica articoli** tornano a filtrare — dalla 2.23 mostravano `<svg class=` e avevano perso l'`oninput` |
 | **2.26.0** | costruita, non installata, **superata dalla 2.27.0** — 05/09 notte | `05880f15…` | **Il servizio parla HTTPS, sulla stessa porta.** Certificato fatto con gli strumenti di Windows — autorità locale più certificato del servizio firmato da lei, così alla scadenza non si rifà il giro dei terminali — con nomi e **tutti gli IPv4** dentro il SAN. Resta la 4173: davanti ai due server un `net.Server` guarda il primo byte e manda chi arriva in chiaro a un `301` verso `https://`, quindi i collegamenti salvati non si rompono. Il chiosco della 2.25 diventa installabile appena l'autorità è sui terminali |
@@ -1110,6 +1176,119 @@ attive**, e si torna indietro reinstallando il pacchetto di prima.
 ---
 
 ## 3. Cosa porta ogni versione recente
+
+### 2.29 — quello che è già in reparto non si va a prendere
+
+Nasce da una richiesta di Andrea dell'08/09: quando si carica un `.xlsx`, il
+sistema deve guardare anche il conto di produzione e dire all'operatore quali
+righe sono già in reparto, perché non le vada a prelevare — a meno che quel
+che c'è di là non basti.
+
+**LA DOMANDA È «QUANTO NE DEVO ANCORA PRENDERE», E NON AVEVA UNA RISPOSTA.**
+La distinta di Sage chiede la quantità intera dell'ordine. Un ODP prelevato a
+metà e ricaricato la richiedeva tutta un'altra volta; un fondo lasciato nel
+vano da un altro ordine non lo sapeva nessuno. In corsia si scende, si prende
+e ci si accorge dopo — quando la merce è già fuori dallo scaffale e il conto
+di qualcun altro è stato spostato senza scriverlo.
+
+**I DUE RESIDUI NON SI SOMMANO.** È la sola regola che conta, e sta scritta
+nel modulo. Quello degli **ordini del giro** è merce già scesa per questo
+lavoro: scala il fabbisogno, e dove lo copre tutto la riga esce «già di là —
+non serve prelevarlo». Quello di **ordini estranei** sta sul conto di
+qualcun altro: si nomina, col numero dell'ordine che lo tiene, e non scala
+niente. Prenderlo è una decisione di produzione, non una tappa.
+
+**SI CONFRONTA NELL'UNITÀ, MAI NEI COLLI.** L'ordine chiede chili; il vano
+tiene colli, e quanto ce ne sia dentro si sa solo quando il lotto dichiara la
+confezione — che sulle materie prime è quasi mai. Un residuo senza quella
+quantità, o con un'unità diversa da quella del foglio, **non entra nella
+sottrazione**: la riga esce `incerta`, il numero è dichiarato un minimo e si
+va a guardare. Moltiplicare i colli per un numero che nessuno ha dichiarato è
+l'unità inventata della **voce 19**, applicata al conto invece che alla tappa.
+
+**NESSUNA TAPPA VIENE TOCCATA, ED È UNA DECISIONE.** Il riquadro informa; la
+distinta resta quella che l'ordine dichiara. Scalare da soli un fabbisogno su
+un residuo che nessuno è andato a guardare vuol dire mandare a produrre con
+meno merce di quella che serve, e accorgersene a impasto avviato. Una prova
+legge il sorgente del riquadro e verifica che non ci sia nessun `onclick` e
+nessuna scrittura sulle tappe: informare e agire sono due cose.
+
+**IL BUCO VERO ERA UN ALTRO, ED È USCITO PROVANDO QUESTA.** Portare in
+produzione è un **trasferimento**: la merce esce dallo scaffale e resta
+scritta in giacenza, nel vano WIP. Per `Store.getItemByKey` quello è
+un'ubicazione come le altre, e `pickRoute.ts` non nominava `areaWip` da
+nessuna parte. Svuotato lo scaffale, il vano WIP diventava **l'unica**
+ubicazione che portava il lotto: il percorso mandava a prelevare merce già in
+reparto, dal vano WIP verso il vano WIP. Adesso `build` lo esclude — come già
+lo escludeva `conformita` fra le aree di transito — e una riga che sta tutta
+di là esce col motivo suo, **`in_lavorazione`**. Il motivo lo decide chi ha
+bloccato: dire «in quarantena o impegnata su un DDT» su una riga che sta in
+reparto manda a cercare il guasto dove non c'è.
+
+**TRE DIFETTI USCITI DAL PROVARE A ROMPERLA**, su richiesta di Andrea, e non
+dal rileggere il codice:
+
+1. **L'incertezza di un ALTRO ordine annullava il conto sul proprio.** 40 KG
+   scesi per il giro si contano benissimo; un fondo di ODP9 che la sua
+   quantità non la dichiara cancellava quei 40 e la riga usciva «da
+   verificare». Adesso solo l'incertezza sulla merce **propria** rompe la
+   sottrazione — l'altra non scalava niente — e resta un avviso a parte,
+   «c'è altra merce non conteggiabile».
+2. **Un chiesto a zero con merce di là scriveva «ne mancano 0».** `coperta`
+   si leggeva da un secondo confronto invece che da `da_prelevare`, e due
+   modi di dire la stessa cosa divergono. Adesso ne resta uno.
+3. **Una domanda senza unità si lasciava sottrarre un residuo in chili.** È
+   di nuovo la voce 19: senza unità non si sottrae niente, e la riga esce
+   incerta.
+
+**COM'È FATTA.** Due funzioni pure e un lettore:
+
+- **`coperturaInLavorazione`** — `modules/wip.ts`, che non importa niente.
+  Entrano la domanda, le righe ferme in lavorazione e i numeri d'ordine del
+  giro; esce una riga per articolo#lotto con `chiesto`, `suo`, `altrui`,
+  `ordini_altrui`, `da_prelevare`, `coperta`, `incerta`.
+- **`fabbisogno`** — `modules/giroOdp.ts`. La domanda del giro in forma
+  piatta, dalla stessa `unisci` che costruisce il percorso. Una riga senza
+  lotto resta fuori: il vano tiene lotti, e una chiave monca appaierebbe
+  merce a caso.
+- **`Store.coperturaWip`** — tre righe: prende le righe in lavorazione dalla
+  cache e le passa. Il tetto di `store.ts` è salito da 4587 a 4596, e §7 dice
+  perché.
+
+**SI RICALCOLA A OGNI RICOSTRUZIONE**, non solo all'import: la quantità si
+ricalibra e un ordine si toglie, e con loro cambia il fabbisogno. Un numero
+fermo a com'era al primo file direbbe coperto quel che non lo è più.
+
+**Provata sui file veri**, non solo su dati inventati: i `.xlsx` di
+`banco\odp-wip\` letti col parser vero. 20 KG scesi per ODP9611 coprono la
+domanda di ODP9611 (`coperta: true`, `da_prelevare: 0`); gli stessi 20 KG,
+visti da ODP9620 che ne chiede 60, escono `suo: 0`, `altrui: 20`,
+`ordini_altrui: ['ODP9611']`, `da_prelevare: 60`. **Cosa resta fuori**: la
+corsia vera, con un operatore e un ordine sceso a metà.
+
+### 2.29 — cinque icone che non si vedevano
+
+**QUATTRO `toast` MOSTRAVANO `<svg class=` A VIDEO.** `toast` scrive con
+`textContent` (`ui/feedback.ts`), quindi un'icona nel messaggio esce come la
+sua stringa. È lo stesso difetto della 2.27, e la rete scritta allora non lo
+prendeva per una ragione sola: **guardava una riga**. Scritto
+
+    this.toast(
+      `${this._ico('tag')} …`, 'warning');
+
+il richiamo e il messaggio stanno su due righe, e il controllo passava. Erano
+in Configurazione (una) e in Stampa etichette (tre). L'icona non serviva
+nemmeno: il riscontro ha già la sua, scelta dal genere.
+
+**LA QUINTA STAVA DENTRO UN `<option>`, E NON SI È MAI VISTA.** Il parser HTML
+in «in select» butta via i tag che non sono di una tendina: l'`<svg>` spariva
+e restava un doppio spazio. Verificato in browser, non dedotto — nel DOM
+l'elemento c'è, e il `label` reso è solo testo.
+
+**LE DUE PROVE NUOVE MORDONO**, ed è stato provato rimettendo i difetti: la
+prima legge il **letterale** che segue il richiamo invece della riga, così non
+conta quante volte si va a capo; la seconda guarda dentro ogni
+`<option>…</option>`.
 
 ### 2.28 — ogni foglio, la sua testata e la sua coda
 
@@ -3721,6 +3900,38 @@ e nessuna classe deve poterlo smentire.
 - **UN ORDINE SERVITO DA UN GIRO NON RISPONDE «NESSUN MOVIMENTO»**: dice dove sta
   il suo conto.
 
+### Il conto di produzione — 2.29
+
+- **QUELLO CHE È GIÀ IN REPARTO NON SI VA A PRENDERE.** Caricato un ODP, il
+  sistema confronta la domanda del giro con quello che è fermo in lavorazione
+  e lo dice. La regola è di `coperturaInLavorazione`, `modules/wip.ts`.
+- **I DUE RESIDUI NON SI SOMMANO.** Quello degli ordini **del giro** scala il
+  fabbisogno: dove copre tutto, la tappa non serve. Quello di ordini
+  **estranei** sta sul conto di qualcun altro — prenderlo sposta un conto — e
+  si dice soltanto, col numero dell'ordine che lo tiene.
+- **SI CONFRONTA NELL'UNITÀ, MAI NEI COLLI.** Un residuo che la sua quantità
+  non la dichiara, o che la porta in un'unità diversa da quella del foglio,
+  **non entra nella sottrazione**: la riga esce incerta e il numero è un
+  minimo. Moltiplicare i colli per una confezione che nessuno ha dichiarato è
+  la voce 19 applicata al conto.
+- **SOLO L'INCERTEZZA SULLA MERCE PROPRIA ROMPE LA SOTTRAZIONE.** Quella di un
+  altro ordine non scalava niente, e annullare per causa sua un numero
+  calcolato bene toglierebbe all'operatore l'unico dato che può usare.
+- **`coperta` SI LEGGE DA `da_prelevare`, E DA NIENT'ALTRO.** Due modi di dire
+  la stessa cosa divergono, e il giorno che divergono la schermata dice di non
+  prelevare una riga che manca.
+- **IL RIQUADRO INFORMA, E NON TOCCA NESSUNA TAPPA.** La distinta resta quella
+  che l'ordine dichiara. Scalare da soli un fabbisogno su un residuo che
+  nessuno ha guardato manda a produrre con meno merce di quella che serve.
+- **DAL VANO DI LAVORAZIONE NON SI PRELEVA, MAI.** `build` lo esclude dalle
+  ubicazioni percorribili: quella non è merce disponibile, è merce sul conto
+  di un ordine. Una riga che sta tutta di là esce `in_lavorazione`, che è il
+  suo motivo — non «in quarantena o impegnata su un DDT», che manderebbe a
+  cercare il guasto dove non c'è.
+- **LA COPERTURA SI RICALCOLA A OGNI RICOSTRUZIONE DEL GIRO**, non solo
+  all'import: la quantità si ricalibra e un ordine si toglie, e con loro
+  cambia il fabbisogno.
+
 ### Il conto di produzione — 2.14
 
 - **LA SCHERMATA PARTE DALLA MERCE, NON DAL NUMERO.** Il primo elenco è quello
@@ -4058,9 +4269,9 @@ in Configurazione → Operatori.
 | `modules/stampanti.ts` | 377 | **2.19** — la forma di una stampante Zebra, la sua convalida, e `disponi`: dove finisce ogni riga dell'etichetta in millimetri. `proponiStampante` sceglie quella giusta — l'ultima usata, poi quella del sito. **2.20**: i cataloghi di campi sono **due** — merce e bancale — e il genere è un parametro di `leggiRiga`, `leggiLayout` e `disponi`, non una seconda copia. **Non c'è lo ZPL**: le barre e i comandi li scrive il servizio, perché un'etichetta è un documento e un documento costruito dal browser si falsifica in una console. Puro |
 | `modules/stoccaggio.ts` | 613 | Dove si mette la merce: vincoli **duri**, poi punteggio. Le regole sono un dato di `storage_rules`; ogni proposta dice perché. **2.8**: pericolosità, portata, la casa del lotto in cima, la categoria come terzo bersaglio con **un solo livello**. Puro |
 | `modules/regoleBase.ts` | 448 | **2.8** — le due regole che NON si scrivono, più i tre motivi precompilati dello scavalco. Sta da solo perché quelle di `stoccaggio.ts` sono regole di **politica**, queste sono il modo in cui un magazzino resta leggibile. Puro |
-| `modules/wip.ts` | 918 | **Il conto di un ordine**: entrato, tornato, residuo; il consumo si dichiara **a ordine chiuso**. `colliFuori`, `archiviato`, `ordiniArchiviati`, `righeSenzaOrdine`. **2.12**: `giro_odps`, `giro_richieste`, `giro_id` sul movimento, e quattro letture — `contoTenutoDa`, `ordiniServiti`, `richiesteDiRiga`, `consumoPerOrdine` (che legge le quote scritte **alla chiusura**). **2.14**: `inLavorazione` (una riga per ordine × articolo#lotto di quello che è fermo nel vano, senza sapere prima nessun numero), `resi` e `motivoNonStornabile`, più i quattro campi dello storno sul movimento. Puro |
-| `modules/giroOdp.ts` | 267 | **2.12 — il giro.** `ricalibra` (riparte sempre da `lines_originali`) e l'unione delle distinte, tenendo da parte **quanto ne vuole ciascun ordine**. `quote` ripartisce quel che è uscito e **l'ultima assorbe l'arrotondamento**. **Non decide niente sul conto di produzione.** Puro |
-| `modules/pickRoute.ts` | 366 | Percorso a serpentina, ordine dei siti, magazzino di casa, `riordina`. **2.12**: `buildGiro` — le distinte si sommano **prima**, in `giroOdp.ts`, e le `richieste` si riattaccano dopo **per chiave**, perché `build` decide ubicazione e alternative ed è già collaudata così. **2.21**: `ordinaPerCorsia` — la stessa serpentina su qualunque cosa abbia un'ubicazione, perché il carico del camion prende bancali e non righe |
+| `modules/wip.ts` | 1.078 | **Il conto di un ordine**: entrato, tornato, residuo; il consumo si dichiara **a ordine chiuso**. `colliFuori`, `archiviato`, `ordiniArchiviati`, `righeSenzaOrdine`. **2.12**: `giro_odps`, `giro_richieste`, `giro_id` sul movimento, e quattro letture — `contoTenutoDa`, `ordiniServiti`, `richiesteDiRiga`, `consumoPerOrdine` (che legge le quote scritte **alla chiusura**). **2.14**: `inLavorazione` (una riga per ordine × articolo#lotto di quello che è fermo nel vano, senza sapere prima nessun numero), `resi` e `motivoNonStornabile`, più i quattro campi dello storno sul movimento. **2.29**: `coperturaInLavorazione` — quanto di quel che un giro chiede è **già di là**, coi due residui tenuti distinti (del giro, che scala; altrui, che si dice e basta) e il confronto **nell'unità**, mai nei colli. Puro |
+| `modules/giroOdp.ts` | 300 | **2.12 — il giro.** `ricalibra` (riparte sempre da `lines_originali`) e l'unione delle distinte, tenendo da parte **quanto ne vuole ciascun ordine**. `quote` ripartisce quel che è uscito e **l'ultima assorbe l'arrotondamento**. **2.29**: `fabbisogno` — la domanda del giro in forma piatta, per `articolo#lotto`, dalla stessa `unisci` che costruisce il percorso; una riga senza lotto resta fuori. **Non decide niente sul conto di produzione.** Puro |
+| `modules/pickRoute.ts` | 396 | Percorso a serpentina, ordine dei siti, magazzino di casa, `riordina`. **2.12**: `buildGiro` — le distinte si sommano **prima**, in `giroOdp.ts`, e le `richieste` si riattaccano dopo **per chiave**, perché `build` decide ubicazione e alternative ed è già collaudata così. **2.21**: `ordinaPerCorsia` — la stessa serpentina su qualunque cosa abbia un'ubicazione, perché il carico del camion prende bancali e non righe. **2.29**: **il vano WIP non è un'ubicazione da cui si preleva** — `build` lo esclude, e una riga che sta tutta di là esce col motivo `in_lavorazione` |
 | `modules/odpParser.ts` | 286 | Lettura degli ODP da Excel |
 | `modules/kpi.ts` | 330 | I numeri di articoli, movimenti e persone, già a database e mai sommati. `NON_MISURABILE` elenca cosa non si può chiedere e **quale campo servirebbe**. Puro |
 | `modules/code128.ts` | 150 | Il codice a barre, in casa. Solo il sottoinsieme B. **Non è un GS1-128** — manca FNC1 — e sta scritto nel modulo. La tabella dei 107 modelli si collauda con le due invarianti dello standard, non ricopiandola. Puro |
@@ -4074,7 +4285,7 @@ in Configurazione → Operatori.
 | `styles/*.css` | 4.588 | **10 file**, §8 |
 | `ui/dialog.js` · `feedback.js` · `tabs.js` | 546 · 181 · 59 | Modali · toast e spinner · schede. **2.21**: `Dialog.testo`, una riga sola — un numero di DDT non è una motivazione, e `reason` glielo direbbe a video |
 | `main.js` · `index.html` | 46 · 200 | Avvio e gancio globale · scheletro del DOM e marchi SVG |
-| `ui/views/` | ~18.600 | Le viste, più `vista.ts` e `globale.d.ts` |
+| `ui/views/` | ~18.700 | Le viste, più `vista.ts` e `globale.d.ts` |
 
 ### Le viste — `src/ui/views/`
 
@@ -4085,7 +4296,7 @@ rimette dentro, e **esplode se un metodo è rimasto anche di qua** — estrarre 
 spostare, e un doppione verrebbe sovrascritto in silenzio.
 | File | Righe | Cosa disegna |
 |---|---:|---|
-| `percorso.ts` | 1.924 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano. **2.22**: la **campata vista di fronte** accanto ai dati — `_routeColonna` la chiede a `modules/colonna.ts`, `_routeColonnaHTML` la disegna, `_routeRischioLottoHTML` avvisa dello stesso articolo con un altro lotto. Si guarda e basta: nessun gestore |
+| `percorso.ts` | 1.998 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano. **2.22**: la **campata vista di fronte** accanto ai dati — `_routeColonna` la chiede a `modules/colonna.ts`, `_routeColonnaHTML` la disegna, `_routeRischioLottoHTML` avvisa dello stesso articolo con un altro lotto. Si guarda e basta: nessun gestore. **2.29**: `_routeCoperturaHTML` — il riquadro di quel che è **già in reparto**, sopra gli avvisi. Disegna e basta: nessun `onclick`, nessuna tappa toccata |
 | `spedizioni.ts` | 1.824 | DDT: testata, carrello, documento pendente, evasione, stampa. **2.20**: il carrello si riempie **dai bancali** (`_shipCaricaDaBancali` — sta qui perché il carrello è qui), la **packing list** che raggruppa le righe per bancale, e `_evadiTrasferendo`, l'evasione del **conto terzi** che sposta la merce invece di scaricarla. **2.21**: `_shipRigheDaBancali` — come una riga di DDT nasce da un pallet, in un posto solo, perché la chiedono in due — il DDT che **stampa** una riga per articolo#lotto, e la packing list che dice com'è fatto il collo. **2.24**: il **foglio si separa dalla stampa** — `_ddtFoglioHTML` e `_packingFoglioHTML` compongono, `_printDDT` e `_printPackingList` leggono dallo Store e stampano — perché il banco a video sui documenti a database non misurava mai il caso che rompe un foglio: quello che non ci sta. E la packing list si legge per **articolo → lotto → bancale** (`_packingDistintaHTML`), col numero e la sua unità in due celle (`_packingQta`) |
 | `inventario.ts` | 1.035 | Inventario di vano, conta mirata, ramo «Per articolo» col giro di conte |
 | `configDati.ts` | 975 | Dati, resilienza, i tre fogli Excel, reset (che chiede il PIN dell'Admin) |
@@ -4141,7 +4352,7 @@ farlo tacere**: se suona, un metodo non è rientrato.
 
 ### Collaudi — `test/`
 
-**1.355 prove in 50 file** al 03/09 notte (una saltata). Fuori da `npm test`:
+**1.464 prove in 56 file** all'08/09 notte (una saltata). Fuori da `npm test`:
 **156** sul servizio, **100** sulle etichette, **43** sull'installazione.
 `ambiente.js` è il preambolo comune.
 
@@ -4156,6 +4367,13 @@ beta su un database vuoto — voce 79).
 Il **banco della schermata WIP** (§5) non è automatico: è un magazzino di
 copia, degli ODP generati da lui e tre attrezzi da iniettare nella pagina.
 Serve a guardare, e quel che ne esce si scrive qui.
+
+**Nuovi con la 2.29**: `coperturaWip.test.js` (7, il riquadro letto come
+stringa) e `vanoWipNonSiPreleva.test.js` (7, `build` con uno Store finto — è
+la prima prova che fa girare `build` invece del solo comparatore). In
+`wip.test.js` sono entrate **26** prove sulla copertura, di cui **quattordici
+scritte per romperla**, e in `icone.test.js` le due che chiudono le falle
+della rete della 2.27.
 
 Fra i file: **`imballo` (26)** e **`bancale` (29)**, cresciuti con la 2.21 —
 il modello appreso, le baie, il viaggio riletto dai documenti — e `documenti`,

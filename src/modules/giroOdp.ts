@@ -28,6 +28,7 @@
    PURO: non conosce Store, non conosce il DOM. */
 
 import type { LottoODP, RigaODP, TestataODP } from './odpParser';
+import type { DomandaRiga } from './wip';
 import { arrotonda, decimali, leggiNumero } from './misure';
 
 /** Un ordine che partecipa al giro, come sta in memoria fra l'import e
@@ -258,6 +259,38 @@ export function quote(
     speso = arrotonda(speso + q, dec) ?? speso;
     out.push({ odp_num: r.odp_num, qty: q });
   });
+  return out;
+}
+
+/** LA DOMANDA DEL GIRO, riga per riga — quanto chiede in tutto ogni
+    articolo#lotto, nell'unità in cui lo chiede.
+
+    È la stessa somma che `unisci` fa per costruire il percorso, letta in
+    forma piatta: serve a `coperturaInLavorazione` (`modules/wip.ts`) per
+    dire quanto di questo è già fermo in reparto. Sta qui perché la
+    aggregazione per chiave è di questo modulo, e `wip.ts` non sa niente né
+    di ODP né di fogli.
+
+    UNA RIGA SENZA LOTTO NON HA UNA DOMANDA CONFRONTABILE e resta fuori: il
+    vano tiene lotti, e una chiave monca appaierebbe merce a caso. Quella
+    riga il percorso la manda già in coda — `no_lot_in_odp`. */
+export function fabbisogno(ordini: readonly OrdineDelGiro[] | null | undefined): DomandaRiga[] {
+  const { lines } = unisci(ordini);
+  const out: DomandaRiga[] = [];
+  for (const l of lines) {
+    const art = String(l.article_code ?? '').trim().toUpperCase();
+    for (const lot of l.lots || []) {
+      const lotto = String(lot.lot_code ?? '').trim();
+      if (!art || !lotto) continue;
+      out.push({
+        item_key: chiaveRiga(art, lotto),
+        article_code: art,
+        lot_code: lotto,
+        qty: leggiNumero(lot.qty) ?? 0,
+        uom: lot.um || l.um || null,
+      });
+    }
+  }
   return out;
 }
 

@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import {
   conto, consumo, daRendere, attivo, ubicazioneDi, colliFuori,
   rendiconto, misureDelReso, archiviato, ordiniArchiviati, righeSenzaOrdine,
-  inLavorazione, resi, motivoNonStornabile,
+  inLavorazione, resi, motivoNonStornabile, coperturaInLavorazione,
 } from '../src/modules/wip';
 import { scelteDaMisure } from '../src/modules/colli';
 
@@ -1031,5 +1031,206 @@ describe('motivoNonStornabile', () => {
 
   it('un lotto che i colli non li dichiara si storna a numero, come sempre', () => {
     expect(motivoNonStornabile({ ...pulito, packs: null, packs_rientrati: null })).toBeNull();
+  });
+});
+
+describe('quello che il giro chiede ed e gia in reparto', () => {
+  /* Una riga come la restituisce `inLavorazione`: quel che serve al
+     confronto e il residuo, in colli e nella sua unita. */
+  const fermo = (odp, key, residuo, residuo_uom, uom = 'KG') => ({
+    odp_num: odp, item_key: key,
+    article_code: key.split('#')[0], lot_code: key.split('#')[1],
+    entrato: residuo, tornato: 0, consumato: 0, residuo,
+    entrato_uom: residuo_uom, tornato_uom: 0, consumato_uom: 0, residuo_uom, uom,
+    dal: 1, ultimo: 2, serviti: [],
+  });
+  const chiede = (key, qty, uom = 'KG') => ({
+    item_key: key, article_code: key.split('#')[0], lot_code: key.split('#')[1], qty, uom,
+  });
+
+  it('il residuo di un ordine DEL GIRO scala il fabbisogno', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100)], [fermo('ODP1', 'A#L1', 2, 40)], ['ODP1']);
+    expect(c).toHaveLength(1);
+    expect(c[0]).toMatchObject({ suo: 40, altrui: 0, chiesto: 100, da_prelevare: 60, coperta: false });
+  });
+
+  it('quando copre tutto, la tappa non serve', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 30)], [fermo('ODP1', 'A#L1', 2, 40)], ['ODP1']);
+    expect(c[0]).toMatchObject({ coperta: true, da_prelevare: 0 });
+  });
+
+  it('il residuo di un ordine ESTRANEO non scala niente, e si dice di chi e', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100)], [fermo('ODP9', 'A#L1', 2, 40)], ['ODP1']);
+    expect(c[0]).toMatchObject({
+      suo: 0, altrui: 40, ordini_altrui: ['ODP9'], da_prelevare: 100, coperta: false,
+    });
+  });
+
+  it('i due residui stanno sulla stessa riga e non si sommano', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'A#L1', 1, 30), fermo('ODP9', 'A#L1', 1, 25)], ['ODP1']);
+    expect(c[0]).toMatchObject({ suo: 30, altrui: 25, da_prelevare: 70 });
+  });
+
+  it('un residuo senza la sua quantita non si sottrae: incerta, e da_prelevare null', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'A#L1', 2, null)], ['ODP1']);
+    expect(c[0]).toMatchObject({ incerta: true, da_prelevare: null, coperta: false, suo: 0 });
+  });
+
+  it('un residuo in un ALTRA unita non si sottrae: PZ non sono KG', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100, 'KG')],
+      [fermo('ODP1', 'A#L1', 2, 40, 'PZ')], ['ODP1']);
+    expect(c[0]).toMatchObject({ incerta: true, da_prelevare: null, suo: 0 });
+  });
+
+  it('un residuo negativo non copre niente, e la riga non esce', () => {
+    expect(coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'A#L1', -1, -25)], ['ODP1'])).toEqual([]);
+  });
+
+  it('quello che il giro non chiede non si guarda', () => {
+    expect(coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'B#L2', 2, 40)], ['ODP1'])).toEqual([]);
+  });
+
+  it('un lotto diverso dello stesso articolo e un altro item: non copre', () => {
+    expect(coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'A#L2', 2, 40)], ['ODP1'])).toEqual([]);
+  });
+
+  it('il numero d’ordine si confronta a maiuscole, come ovunque', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100)], [fermo('odp1', 'A#L1', 2, 40)], ['ODP1']);
+    expect(c[0]).toMatchObject({ suo: 40, altrui: 0 });
+  });
+
+  it('le coperte in cima: sono quelle su cui c’e una decisione da prendere', () => {
+    const c = coperturaInLavorazione(
+      [chiede('A#L1', 100), chiede('B#L1', 10)],
+      [fermo('ODP1', 'A#L1', 1, 5), fermo('ODP1', 'B#L1', 1, 10)], ['ODP1']);
+    expect(c.map((r) => r.item_key)).toEqual(['B#L1', 'A#L1']);
+  });
+
+  it('senza domanda o senza righe di la non esce niente', () => {
+    expect(coperturaInLavorazione([], [fermo('ODP1', 'A#L1', 2, 40)], ['ODP1'])).toEqual([]);
+    expect(coperturaInLavorazione([chiede('A#L1', 100)], [], ['ODP1'])).toEqual([]);
+    expect(coperturaInLavorazione(null, null, null)).toEqual([]);
+  });
+});
+
+describe('quello che e gia in reparto — i casi che la romperebbero', () => {
+  const fermo = (odp, key, residuo, residuo_uom, uom = 'KG') => ({
+    odp_num: odp, item_key: key,
+    article_code: key.split('#')[0], lot_code: key.split('#')[1],
+    entrato: residuo, tornato: 0, consumato: 0, residuo,
+    entrato_uom: residuo_uom, tornato_uom: 0, consumato_uom: 0, residuo_uom, uom,
+    dal: 1, ultimo: 2, serviti: [],
+  });
+  const chiede = (key, qty, uom = 'KG') => ({
+    item_key: key, article_code: key.split('#')[0], lot_code: key.split('#')[1], qty, uom,
+  });
+
+  it('l’incertezza di un ALTRO ordine non annulla il conto sul proprio', () => {
+    /* 40 KG scesi per il giro si contano; il fondo di ODP9, che la sua
+       quantita non la dichiara, non puo cancellare quei 40. */
+    const c = coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'A#L1', 2, 40), fermo('ODP9', 'A#L1', 3, null)], ['ODP1']);
+    expect(c[0]).toMatchObject({ suo: 40, da_prelevare: 60, incerta: true });
+  });
+
+  it('l’incertezza sulla merce PROPRIA annulla il conto, e non lo indovina', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'A#L1', 2, 40), fermo('ODP1', 'A#L1', 3, null)], ['ODP1']);
+    expect(c[0].da_prelevare).toBe(null);
+    expect(c[0].coperta).toBe(false);
+  });
+
+  it('una domanda SENZA unita non si sottrae da niente: sarebbe l’unita inventata', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100, null)],
+      [fermo('ODP1', 'A#L1', 2, 40, 'KG')], ['ODP1']);
+    expect(c[0]).toMatchObject({ da_prelevare: null, suo: 0, incerta: true });
+  });
+
+  it('un chiesto a zero con merce propria di la e coperto, non «ne mancano 0»', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 0)],
+      [fermo('ODP1', 'A#L1', 2, 40)], ['ODP1']);
+    expect(c[0]).toMatchObject({ da_prelevare: 0, coperta: true });
+  });
+
+  it('un chiesto a zero con merce SOLO altrui non e coperto: non c’e niente di suo', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 0)],
+      [fermo('ODP9', 'A#L1', 2, 40)], ['ODP1']);
+    expect(c[0]).toMatchObject({ da_prelevare: 0, coperta: false, altrui: 40 });
+  });
+
+  it('coperta e da_prelevare non si contraddicono mai', () => {
+    const casi = [
+      [chiede('A#L1', 100), fermo('ODP1', 'A#L1', 5, 100)],
+      [chiede('A#L1', 100), fermo('ODP1', 'A#L1', 5, 101)],
+      [chiede('A#L1', 100), fermo('ODP1', 'A#L1', 5, 99.999)],
+      [chiede('A#L1', 0.001), fermo('ODP1', 'A#L1', 1, 0.001)],
+    ];
+    for (const [d, r] of casi) {
+      const x = coperturaInLavorazione([d], [r], ['ODP1'])[0];
+      expect(x.coperta, JSON.stringify(x)).toBe(x.da_prelevare === 0 && x.suo > 0);
+    }
+  });
+
+  it('due residui dello stesso ordine sulla stessa riga si sommano', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'A#L1', 1, 30), fermo('ODP1', 'A#L1', 1, 30)], ['ODP1']);
+    expect(c[0]).toMatchObject({ suo: 60, da_prelevare: 40 });
+  });
+
+  it('due ordini del giro con merce di la sommano tutti e due', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'A#L1', 1, 30), fermo('ODP2', 'A#L1', 1, 25)], ['ODP1', 'ODP2']);
+    expect(c[0]).toMatchObject({ suo: 55, altrui: 0, da_prelevare: 45 });
+  });
+
+  it('lo stesso ordine altrui non si nomina due volte', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP9', 'A#L1', 1, 10), fermo('ODP9', 'A#L1', 1, 10)], ['ODP1']);
+    expect(c[0].ordini_altrui).toEqual(['ODP9']);
+    expect(c[0].altrui).toBe(20);
+  });
+
+  it('le unita si confrontano senza badare a maiuscole e spazi', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 100, ' kg ')],
+      [fermo('ODP1', 'A#L1', 2, 40, 'KG')], ['ODP1']);
+    expect(c[0].suo).toBe(40);
+  });
+
+  it('la somma non sbanda sui decimali: 0,1 + 0,2 resta 0,3', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 1)],
+      [fermo('ODP1', 'A#L1', 1, 0.1), fermo('ODP1', 'A#L1', 1, 0.2)], ['ODP1']);
+    expect(c[0].suo).toBe(0.3);
+    expect(c[0].da_prelevare).toBe(0.7);
+  });
+
+  it('piu di quanto chiesto non fa un da_prelevare negativo', () => {
+    const c = coperturaInLavorazione([chiede('A#L1', 10)],
+      [fermo('ODP1', 'A#L1', 5, 200)], ['ODP1']);
+    expect(c[0]).toMatchObject({ da_prelevare: 0, coperta: true, suo: 200 });
+  });
+
+  it('righe senza chiave, e righe nulle, non fanno esplodere niente', () => {
+    expect(coperturaInLavorazione(
+      [{ item_key: '', article_code: '', lot_code: '', qty: 5, uom: 'KG' }],
+      [fermo('ODP1', 'A#L1', 2, 40)], ['ODP1'])).toEqual([]);
+    expect(coperturaInLavorazione([chiede('A#L1', 10)],
+      [fermo('ODP1', '', 2, 40)], ['ODP1'])).toEqual([]);
+    expect(coperturaInLavorazione([chiede('A#L1', 10)],
+      [fermo('ODP1', 'A#L1', 2, 40)], [])).toMatchObject([{ suo: 0, altrui: 40 }]);
+    expect(coperturaInLavorazione([chiede('A#L1', 10)],
+      [fermo('', 'A#L1', 2, 40)], ['ODP1'])[0].altrui).toBe(40);
+  });
+
+  it('non legge il residuo in COLLI come se fosse una quantita', () => {
+    /* 3 colli di cui non si sa quanto contengano non sono 3 KG. */
+    const c = coperturaInLavorazione([chiede('A#L1', 100)],
+      [fermo('ODP1', 'A#L1', 3, null)], ['ODP1']);
+    expect(c[0].suo).toBe(0);
+    expect(c[0].da_prelevare).toBe(null);
   });
 });

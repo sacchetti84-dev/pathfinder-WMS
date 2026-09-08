@@ -15,6 +15,71 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.29.0 — 2026-09-08
+
+**Goods already down in production are not fetched again.**
+
+A production order's bill of materials asks for the full quantity. An order
+picked halfway and reloaded asked for all of it a second time; a remainder left
+in the work-in-progress bin by some other order was known to nobody. The picker
+walks the aisle, takes the goods, and finds out afterwards — once the stock has
+left the rack and somebody else's production account has been moved without a
+record of it.
+
+Loading an `.xlsx` now compares what the round asks for against what is standing
+in the work-in-progress bin, and says so in a panel above the route preview.
+
+**The two remainders are never added together**, and that is the whole rule.
+The remainder held by orders **in this round** is stock that already came down
+for this job: it reduces the requirement, and where it covers the whole line the
+stop is not needed. The remainder held by **other** orders sits on somebody
+else's account — taking it moves that account — so it is named, with the order
+number that holds it, and it reduces nothing.
+
+**The comparison is made in the unit of measure, never in packages.** The order
+asks for kilograms; the bin holds packages, and how much is inside one is known
+only when the lot declares its packaging — which, for raw materials, it almost
+never does. A remainder without that quantity, or carrying a different unit from
+the sheet's, does not enter the subtraction: the line is reported as uncertain,
+the number is stated as a minimum, and somebody goes and looks. Multiplying
+packages by a packaging nobody declared is the invented-unit defect, moved from
+the route onto the account.
+
+**No stop is touched.** The panel informs; the bill of materials stays what the
+order declares. Reducing a requirement on the strength of a remainder nobody has
+inspected means sending a batch into production short of material and finding
+out once mixing has started. A test reads the panel's own source and checks
+there is no `onclick` and no write to any stop.
+
+**And the work-in-progress bin stops being a place goods are picked from.** That
+was the real defect, and it surfaced while testing the feature above. Moving
+goods into production is a *transfer*: the stock leaves the rack and stays
+recorded in inventory, in the WIP bin. To `getItemByKey` that bin is a location
+like any other, and the route builder never mentioned it. Once the rack ran dry,
+the WIP bin became the only location holding the lot, and the route sent a
+picker to fetch goods already in production — from the WIP bin to the WIP bin.
+The builder now excludes it, and a line standing entirely there is reported with
+its own reason, `in_lavorazione`, rather than "quarantined or committed to a
+delivery note", which would send somebody looking for a fault that is not there.
+
+Three further defects came out of deliberately trying to break the new code,
+rather than out of re-reading it: an uncertain remainder belonging to *another*
+order cancelled a figure computed correctly on one's own; a zero requirement
+with stock in the bin printed "0 still needed"; and a request carrying no unit
+of measure was allowed to have kilograms subtracted from it.
+
+Also: five icons that were never seen, or seen as they should not have been.
+Four `toast` calls written across two lines carried an icon in the message, and
+`toast` writes with `textContent` — so the literal string `<svg class="ico"` was
+displayed. The guard written in 2.27 missed them because it examined a single
+line. A fifth sat inside an `<option>`, where the HTML parser discards tags that
+do not belong in a dropdown: the icon never appeared and left a double space.
+Both gaps now have tests, verified by putting the defects back.
+
+No new database fields, no migration, the service was not touched.
+
+---
+
 ## 2.28.0 — 2026-09-08
 
 **Every sheet carries its own header and its own tail; the middle holds the

@@ -142,7 +142,11 @@
    `_pickSub` per il prelievo), `_formDocumenti` (quel che la schermata
    faceva prima, dentro la sua scheda) e `_carRidisegna`, il punto unico da
    cui il carico si ridisegna: prima erano sette richiami a `movFormArea`,
-   che adesso non e' piu' il posto giusto. */
+   che adesso non e' piu' il posto giusto.
+   2.29: e' entrato `_routeCoperturaHTML`, il riquadro che dice quali righe
+   del giro appena caricato sono GIA' ferme nel vano di lavorazione. Uno
+   solo, e disegna e basta: il conto lo fa `coperturaInLavorazione` in
+   `modules/wip.ts`, e nessuna tappa viene toccata. */
 export const SUPERFICIE = [
   'MARCHIO_BANCALE',
   '_campoImballo', '_imballiHTML', '_imballoModifica', '_imballoSalva', '_imballoTogli',
@@ -286,6 +290,7 @@ export const SUPERFICIE = [
   '_routeAbandon', '_routeBlock', '_routeCheckArt', '_routeCheckLoc', '_routeCheckLot',
   '_routeClearImport', '_routeClose', '_routeColonna', '_routeColonnaHTML',
   '_routeConfirmStop', '_routeCurrentHTML', '_routeRischioLottoHTML', '_COL_STATI',
+  '_routeCoperturaHTML',
   '_routeCurrentStop', '_routeFb', '_routeFinishHTML', '_routeImportResultHTML',
   '_routeListRowHTML', '_routeMarkMissing', '_routeMoveSite', '_routeParsed',
   '_routeApertura', '_routeChiaveScan', '_routeDisponibili', '_routeFermoHTML',

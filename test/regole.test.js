@@ -206,7 +206,14 @@ describe('il doppio contesto dei gestori inline', () => {
    Il tetto serve a impedire che il nucleo assorba LOGICA. Ventun righe per
    scegliere una chiave e non perderla non sono logica assorbita — ma se la
    prossima volta si alza di nuovo senza una riga come questa, allora sì. */
-const TETTO_STORE = 4587;
+/* 2.29 — da 4587 a 4596, e il perché.
+
+   `coperturaWip` è il lettore che dice quanto di quel che un giro chiede è
+   già fermo in reparto. Tre righe di codice più la spiegazione: la logica
+   sta tutta in `coperturaInLavorazione` (`modules/wip.ts`), che è pura e non
+   sa niente né di cache né di Store. Qui resta il solo mestiere che è di
+   `Store` — prendere le righe in lavorazione dalla cache e passarle. */
+const TETTO_STORE = 4596;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

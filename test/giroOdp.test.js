@@ -14,7 +14,7 @@
 import { describe, it, expect } from 'vitest';
 import {
   chiaveRiga, qtaPianificata, fattoreDa, scala, ordineDelGiro, ricalibra,
-  unisci, quote, numeriDelGiro,
+  unisci, quote, numeriDelGiro, fabbisogno,
 } from '../src/modules/giroOdp';
 import { contoTenutoDa, ordiniServiti, richiesteDiRiga, consumoPerOrdine } from '../src/modules/wip';
 import { arrotonda } from '../src/modules/misure';
@@ -326,5 +326,37 @@ describe('consumoPerOrdine — quanto ne è finito nel prodotto, per ordine', ()
     const q = consumoPerOrdine(due, 'ODP1');
     expect(q.find((x) => x.odp_num === 'ODP2').qty).toBe(8);
     expect(q.find((x) => x.odp_num === 'ODP1').qty).toBe(20);
+  });
+});
+
+describe('la domanda del giro, per articolo#lotto', () => {
+  it('una riga per lotto, con la quantita che l’ordine chiede', () => {
+    expect(fabbisogno([ORDINE('ODP1', [RIGA('A', 'LA', 10), RIGA('B', 'LB', 4, 'PZ')])]))
+      .toEqual([
+        { item_key: 'A#LA', article_code: 'A', lot_code: 'LA', qty: 10, uom: 'KG' },
+        { item_key: 'B#LB', article_code: 'B', lot_code: 'LB', qty: 4, uom: 'PZ' },
+      ]);
+  });
+
+  it('due ordini che chiedono lo stesso lotto fanno UNA domanda sommata', () => {
+    const d = fabbisogno([ORDINE('ODP1', [RIGA('A', 'LA', 10)]), ORDINE('ODP2', [RIGA('A', 'LA', 5)])]);
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ item_key: 'A#LA', qty: 15 });
+  });
+
+  it('la domanda segue la ricalibrazione: il doppio del prodotto, il doppio della materia', () => {
+    const o = ricalibra(ORDINE('ODP1', [RIGA('A', 'LA', 10)]), 700);
+    expect(fabbisogno([o])[0].qty).toBe(20);
+  });
+
+  it('una riga senza lotto resta fuori: il vano tiene lotti, non articoli', () => {
+    const senza = { ...RIGA('C', 'LC', 3), lots: [] };
+    expect(fabbisogno([ORDINE('ODP1', [RIGA('A', 'LA', 10), senza])]))
+      .toEqual([{ item_key: 'A#LA', article_code: 'A', lot_code: 'LA', qty: 10, uom: 'KG' }]);
+  });
+
+  it('nessun ordine, nessuna domanda', () => {
+    expect(fabbisogno([])).toEqual([]);
+    expect(fabbisogno(null)).toEqual([]);
   });
 });

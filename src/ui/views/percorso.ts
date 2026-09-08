@@ -12,9 +12,11 @@ import { colonnaDi, type Colonna } from '../../modules/colonna';
 import { formattaQuantita } from '../../modules/misure';
 import type { Percorso, Tappa } from '../../modules/pickRoute';
 import {
-  ordineDelGiro, ricalibra, qtaPianificata, normalizzaOdp,
+  ordineDelGiro, ricalibra, qtaPianificata, normalizzaOdp, fabbisogno, numeriDelGiro,
+  chiaveRiga,
   type OrdineDelGiro, type Richiesta,
 } from '../../modules/giroOdp';
+import type { CoperturaRiga } from '../../modules/wip';
 import type { SessionePrelievo } from '../../types/entita';
 import { ScanGuard } from '../../modules/scanGuard';
 import { Dialog } from '../dialog';
@@ -38,6 +40,8 @@ type GiroLetto = Percorso & {
   ordini: OrdineDelGiro[];
   capofila: string;
   warnings: string[];
+  /** Quel che il giro chiede e che è già fermo nel vano di lavorazione. */
+  copertura: CoperturaRiga[];
 };
 
 export const VistaPercorso = {
@@ -173,6 +177,11 @@ export const VistaPercorso = {
          cinque fogli. */
       warnings: ordini.flatMap((o) => (o.warnings || []).map(
         (w) => (ordini.length > 1 ? `${o.odp_num} · ${w}` : w))),
+      /* SI RICALCOLA A OGNI RICOSTRUZIONE, e non solo all'import: la
+         quantità si ricalibra e un ordine si toglie, e con loro cambia il
+         fabbisogno. Un numero fermo a com'era al primo file direbbe che è
+         coperto quello che non lo è più. */
+      copertura: Store.coperturaWip(fabbisogno(ordini), numeriDelGiro(ordini)),
     };
   },
 
@@ -263,7 +272,10 @@ export const VistaPercorso = {
       const p: GiroLetto = this._routeParsed;
       const n = (p.stops || []).length, o = p.offroute.length;
       const quanti = this._routeOrdini.length;
-      this.toast(`Ordine ${odp} letto · ${quanti > 1 ? `${quanti} ordini nel giro · ` : ''}${n} tappe, ${o} righe in coda`, n ? 'success' : 'warning');
+      /* La copertura si dice nel riscontro: il riquadro sta sotto la scheda
+         dell'ordine, e chi carica cinque file non lo vede scorrere. */
+      const cop = (p.copertura || []).length;
+      this.toast(`Ordine ${odp} letto · ${quanti > 1 ? `${quanti} ordini nel giro · ` : ''}${n} tappe, ${o} righe in coda${cop ? ` · ${cop} già in reparto` : ''}`, n ? 'success' : 'warning');
     } catch (err) {
       console.error('[WM] handleImportOdp:', err);
       this._formOrdine($('pickSubForm'));
@@ -311,6 +323,62 @@ export const VistaPercorso = {
       </div>`;
   },
 
+  /* ── QUELLO CHE È GIÀ DI LÀ ────────────────────────────────────────────
+     Il conto lo fa `coperturaInLavorazione` (`modules/wip.ts`); qui si
+     disegna e basta. NON tocca nessuna tappa: la distinta resta quella che
+     l'ordine dichiara, e a decidere se scendere in corsia è l'operatore.
+     Scalare da soli un fabbisogno su un residuo che nessuno è andato a
+     guardare vorrebbe dire mandare a produrre con meno merce di quella che
+     serve, e accorgersene a impasto avviato. */
+  _routeCoperturaHTML() {
+    const p: GiroLetto | null = this._routeParsed;
+    const righe: CoperturaRiga[] = p?.copertura || [];
+    if (!righe.length) return '';
+    const fuoriGiro = new Set((p!.offroute || []).map((o) => chiaveRiga(o.article_code, o.lot_code)));
+    const coperte = righe.filter((r) => r.coperta).length;
+
+    const riga = (r: CoperturaRiga) => {
+      const um = r.uom || '';
+      /* L'ORDINE DELLE DOMANDE È QUELLO CHE FA L'OPERATORE: quanto ne devo
+         ancora prendere? Se il numero non c'è si va a guardare; se è zero
+         non si prende niente; se è meno del chiesto si prende la
+         differenza; se non c'è niente di proprio, la merce è di un altro. */
+      const stato = r.da_prelevare === null
+        ? '<span class="badge badge-amber">da verificare di persona</span>'
+        : r.coperta
+          ? '<span class="badge badge-green">gi&agrave; di l&agrave; &mdash; non serve prelevarlo</span>'
+          : r.suo > 0
+            ? `<span class="badge badge-amber">ne mancano ${this._esc(this._qtaOrdine(r.da_prelevare, um))} ${this._esc(um)}</span>`
+            : '<span class="badge badge-muted">di un altro ordine</span>';
+      /* Il numero resta valido, ma di là c'è dell'altro che non si è
+         potuto contare: è un MINIMO, e dirlo costa una parola. */
+      const minimo = r.incerta && r.da_prelevare !== null
+        ? '<span class="badge badge-amber">c&rsquo;&egrave; altra merce non conteggiabile</span>' : '';
+      return `<div class="route-note-row">
+        ${stato}${minimo}
+        <span class="mono">${this._esc(r.article_code)}#${this._esc(r.lot_code)}</span>
+        <span>chiesti <strong>${this._esc(this._qtaOrdine(r.chiesto, um))} ${this._esc(um)}</strong></span>
+        ${r.suo > 0 ? `<span>gi&agrave; in reparto per il giro <strong>${this._esc(this._qtaOrdine(r.suo, um))} ${this._esc(um)}</strong></span>` : ''}
+        ${r.altrui > 0 ? `<span class="text-sx-text-muted">fermi <strong>${this._esc(this._qtaOrdine(r.altrui, um))} ${this._esc(um)}</strong> sul conto di ${this._esc(r.ordini_altrui.join(', '))}</span>`
+          : (r.ordini_altrui.length ? `<span class="text-sx-text-muted">c&rsquo;&egrave; merce sul conto di ${this._esc(r.ordini_altrui.join(', '))}</span>` : '')}
+        ${fuoriGiro.has(r.item_key) ? '<span class="badge badge-muted">&egrave; anche fra le righe non prelevabili</span>' : ''}
+      </div>`;
+    };
+
+    return `
+      <div class="route-note-box">
+        <strong>${this._ico('alert-triangle')} ${righe.length} rig${righe.length === 1 ? 'a &egrave; gi&agrave;' : 'he sono gi&agrave;'} in reparto produzione${coperte ? ` &mdash; ${coperte} coperte per intero` : ''}</strong>
+        <div class="text-body-small mt-3 opacity-85">
+          Merce di queste righe sta gi&agrave; nel vano di lavorazione. Quella scesa
+          <strong>per gli ordini di questo giro</strong> scala il fabbisogno: dove copre tutto,
+          la tappa non serve. Quella sul conto di <strong>altri ordini</strong> &egrave; solo
+          un&rsquo;informazione &mdash; prenderla sposterebbe un conto, e si decide in produzione.
+          <strong>Le tappe restano tutte:</strong> saltarle &egrave; un gesto dell&rsquo;operatore.
+        </div>
+        ${righe.map(riga).join('')}
+      </div>`;
+  },
+
   /* Chi ha chiesto la merce di una tappa, quando il giro porta più ordini. */
   _routeRichiesteHTML(s: Tappa) {
     const r = (s.richieste || []) as Richiesta[];
@@ -350,7 +418,10 @@ export const VistaPercorso = {
     const lontane = tappeAltrove(p.stops, casa, (id) => Store.getSite(id)?.name || id);
     const altrove = new Map(lontane.map((f) => [f.tappa.location_code + '|' + f.tappa.item_key, f]));
 
-    const SEV = { not_mapped: 0, lot_absent_other_lots: 1, no_lot_in_odp: 2, all_blocked: 3 };
+    /* IN FONDO QUELLO CHE NON E' UN GUASTO. Una riga che sta tutta in
+       reparto e' spiegata dal riquadro della copertura, qui sopra: sta
+       nell'elenco perche' non si preleva, non perche' ci sia da indagare. */
+    const SEV = { not_mapped: 0, lot_absent_other_lots: 1, no_lot_in_odp: 2, all_blocked: 3, in_lavorazione: 4 };
     const blockers = [...p.offroute].sort((a, b) => (SEV[a.reason as keyof typeof SEV] ?? 9) - (SEV[b.reason as keyof typeof SEV] ?? 9));
     const alertHTML = blockers.length ? `
       <div class="route-alert">
@@ -400,6 +471,7 @@ export const VistaPercorso = {
       </div>`}
 
       ${sceltaCasaHTML}
+      ${this._routeCoperturaHTML()}
       ${alertHTML}
       ${warnHTML}
 

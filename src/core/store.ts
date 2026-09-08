@@ -79,7 +79,9 @@ import { conto as contoWip, colliFuori as colliFuoriWip, archiviato as archiviat
          richiesteDiRiga as richiesteDiRigaWip, consumoPerOrdine as consumoPerOrdineWip,
          righeSenzaOrdine as righeSenzaOrdineWip,
          inLavorazione as inLavorazioneWip, resi as resiDiOrdineWip,
+         coperturaInLavorazione as coperturaWipPura,
          motivoNonStornabile } from '../modules/wip';
+import type { DomandaRiga } from '../modules/wip';
 import { registroAttivita as registroAttivitaPuro } from '../modules/compiti';
 import {
   perPersona as kpiPerPersona, perMovimento as kpiPerMovimento, perArticolo as kpiPerArticolo,
@@ -2181,6 +2183,13 @@ const Store = {
   righeInLavorazioneWip() {
     return inLavorazioneWip(this._cache.wip as any[],
       (r) => this.getUomConfig(r.article_code, r.lot_code)?.per_collo ?? null);
+  },
+
+  /** QUANTO DI QUEL CHE UN GIRO CHIEDE È GIÀ FERMO IN REPARTO. Vedi
+      `coperturaInLavorazione` in `modules/wip.ts`: il residuo degli ordini
+      del giro scala il fabbisogno, quello degli altri si dice e basta. */
+  coperturaWip(domanda: readonly DomandaRiga[], odpsDelGiro: readonly string[]) {
+    return coperturaWipPura(domanda, this.righeInLavorazioneWip(), odpsDelGiro);
   },
 
   /** 2.14 — I resi già scritti su un ordine, dal più recente. */

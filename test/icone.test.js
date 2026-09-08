@@ -262,3 +262,88 @@ test('nessuna icona finisce dentro il valore di un attributo', () => {
   }
   expect(guai).toEqual([]);
 });
+
+/* LE DUE FALLE DELLA RETE DELLA 2.27, TROVATE L'08/09.
+
+   1. IL CONTROLLO GUARDAVA UNA RIGA SOLA. `this.toast(` a capo e il
+      messaggio sulla riga dopo passavano: quattro messaggi — uno in
+      Configurazione, tre in Stampa etichette — uscivano con la scritta
+      `<svg class="ico"…>` davanti, perche' `toast` scrive con `textContent`
+      (`ui/feedback.ts`). Quattro versioni, nessuno l'ha segnalato: un
+      riscontro sbagliato si legge di sfuggita.
+
+   2. UN'ICONA DENTRO UN `<option>` NON SI DISEGNA MAI. Il parser HTML in
+      «in select» butta via i tag che non sono di una tendina: l'icona
+      spariva e restava un doppio spazio. Verificato in browser: il DOM
+      tiene l'`<svg>` e il `label` reso e' solo testo.
+
+   Il controllo legge il LETTERALE che segue il richiamo, non la riga: cosi'
+   non conta quante volte si va a capo, e non sbaglia su un `title:` che sta
+   accanto a un campo HTML dove l'icona ci va davvero. */
+
+/** Il letterale di stringa o modello che comincia a `da`, virgolette
+    comprese. Torna '' se li' non ne comincia uno. */
+const BARRA = String.fromCharCode(92);
+
+function letteraleDa(testo, da) {
+  let i = da;
+  while (i < testo.length && /\s/.test(testo[i])) i++;
+  const apre = testo[i];
+  if (apre !== '`' && apre !== "'" && apre !== '"') return '';
+  const inizio = i;
+  let annidati = 0;
+  for (i++; i < testo.length; i++) {
+    const c = testo[i];
+    if (c === BARRA) { i++; continue; }   // la barra rovesciata, che sfugge il carattere dopo
+    if (apre === '`' && c === '$' && testo[i + 1] === '{') { annidati++; i++; continue; }
+    if (apre === '`' && c === '}' && annidati > 0) { annidati--; continue; }
+    if (c === apre && annidati === 0) return testo.slice(inizio, i + 1);
+    if (apre !== '`' && c === '\n') return testo.slice(inizio, i);
+  }
+  return testo.slice(inizio);
+}
+
+function sorgentiTs(radice) {
+  const out = [];
+  (function raccogli(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) raccogli(p);
+      else if (/\.ts$/.test(e.name)) out.push(p);
+    }
+  })(path.join(radice, 'src'));
+  return out;
+}
+
+const rigaDi = (testo, i) => testo.slice(0, i).split('\n').length;
+
+test('nessuna icona nel messaggio di un riscontro, nemmeno se va a capo', () => {
+  /* I punti che scrivono con `textContent`. `Dialog.kv` prende una lista di
+     coppie: li' il letterale che segue e' la prima chiave, e basta. */
+  const scrive = /\.toast\(|\.textContent\s*=\s*|\bmessage:\s*|\btitle:\s*/g;
+  const guai = [];
+  for (const file of sorgentiTs(RADICE)) {
+    const testo = fs.readFileSync(file, 'utf8');
+    for (const m of testo.matchAll(scrive)) {
+      const lett = letteraleDa(testo, m.index + m[0].length);
+      if (/_ico\(/.test(lett)) {
+        guai.push(`${path.relative(RADICE, file).split(path.sep).join('/')}:${rigaDi(testo, m.index)} — ${m[0].trim()}`);
+      }
+    }
+  }
+  expect(guai).toEqual([]);
+});
+
+test('nessuna icona dentro un <option>: la tendina la butta via', () => {
+  const guai = [];
+  for (const file of sorgentiTs(RADICE)) {
+    const testo = fs.readFileSync(file, 'utf8');
+    for (const m of testo.matchAll(/<option\b[\s\S]*?<\/option>/g)) {
+      const corpo = m[0].slice(m[0].indexOf('>') + 1);
+      if (/_ico\(/.test(corpo)) {
+        guai.push(`${path.relative(RADICE, file).split(path.sep).join('/')}:${rigaDi(testo, m.index)}`);
+      }
+    }
+  }
+  expect(guai).toEqual([]);
+});

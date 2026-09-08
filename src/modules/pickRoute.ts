@@ -12,7 +12,7 @@ import { chiaveRiga, unisci, type OrdineDelGiro, type Richiesta } from './giroOd
 /** Perché una riga non è percorribile, o perché lo è ma con un avvertimento. */
 export type MotivoFuoriPercorso =
   | 'not_mapped' | 'lot_absent_other_lots' | 'no_lot_in_odp' | 'all_blocked'
-  | 'quarantine' | 'pending_outbound' | 'marked_missing';
+  | 'quarantine' | 'pending_outbound' | 'marked_missing' | 'in_lavorazione';
 
 export interface RigaFuoriPercorso {
   article_code: string;
@@ -183,6 +183,20 @@ const PickRoute = {
     const stops: Tappa[] = [];
     const offroute: RigaFuoriPercorso[] = [];
     const notes: RigaFuoriPercorso[] = [];
+    /* IL VANO DI LAVORAZIONE NON E' UNO SCAFFALE, E NON SI PRELEVA DA LI'.
+
+       Portare in produzione e' un TRASFERIMENTO: la merce esce dal vano e
+       entra nel conto di un ordine, ma in giacenza resta scritta, nel vano
+       WIP. Per `getItemByKey` quello e' un'ubicazione come le altre, e
+       quando lo scaffale si svuota diventa l'UNICA che porta quel lotto:
+       il percorso mandava a prelevare merce gia' in reparto, dal vano WIP
+       verso il vano WIP.
+
+       Non e' merce disponibile: e' merce di qualcuno, sul conto di un
+       ordine. Quanta ce ne sia e su quale conto lo dice il riquadro della
+       copertura — `coperturaInLavorazione`, `modules/wip.ts` — e prenderla
+       e' una decisione di produzione, non una tappa da camminare. */
+    const vanoWip = Store.getAreaWip();
 
     for (const line of parsedLines) {
       if (!line.lots.length) {
@@ -236,6 +250,15 @@ const PickRoute = {
             });
             continue;
           }
+          if (vanoWip && it.location_code === vanoWip) {
+            notes.push({
+              ...base,
+              location_code: it.location_code,
+              reason: 'in_lavorazione',
+              detail: 'Già in reparto produzione: dal vano di lavorazione non si preleva.'
+            });
+            continue;
+          }
           if (Store.getAvailableQty(it.location_code, it.item_key) <= 0) {
             notes.push({
               ...base,
@@ -249,10 +272,16 @@ const PickRoute = {
         }
 
         if (!usable.length) {
+          /* IL MOTIVO LO DICE CHI HA BLOCCATO. Una riga che sta tutta in
+             reparto non e' «in quarantena o impegnata su un DDT»: scriverlo
+             cosi' manda a cercare il guasto dove non c'e'. */
+          const soloWip = Boolean(vanoWip) && found.every((it) => it.location_code === vanoWip);
           offroute.push({
             ...base,
-            reason: 'all_blocked',
-            detail: 'Tutte le ubicazioni sono in quarantena o impegnate su DDT pendenti.'
+            reason: soloWip ? 'in_lavorazione' : 'all_blocked',
+            detail: soloWip
+              ? 'Tutta la merce di questo lotto è già in reparto produzione.'
+              : 'Tutte le ubicazioni sono in quarantena o impegnate su DDT pendenti.'
           });
           continue;
         }
@@ -359,7 +388,8 @@ const PickRoute = {
     all_blocked:           'Non prelevabile',
     quarantine:            'In quarantena',
     pending_outbound:      'Impegnata su DDT',
-    marked_missing:        'Non trovato dall\u2019operatore'
+    marked_missing:        'Non trovato dall\u2019operatore',
+    in_lavorazione:        'Già in lavorazione'
   }) satisfies Record<MotivoFuoriPercorso, string>
 };
 

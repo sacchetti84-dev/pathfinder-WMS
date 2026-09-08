@@ -1106,7 +1106,7 @@ export const VistaPosiziona = {
       <div class="form-group">
         <label>Unità aperte</label>
         <select class="input select" id="mInUdcPick">
-          ${aperte.map(u => `<option value="${this._esc(u.udc_id)}">${this._esc(u.udc_id)} — ${this._ico('map-pin')} ${this._esc(u.location_code)} · ${Store.righeDiUdc(u.udc_id).length} righe</option>`).join('')}
+          ${aperte.map(u => `<option value="${this._esc(u.udc_id)}">${this._esc(u.udc_id)} — ${this._esc(u.location_code)} · ${Store.righeDiUdc(u.udc_id).length} righe</option>`).join('')}
         </select>
       </div>`,
       `<button class="btn" onclick="App.closeModal()">Annulla</button>
