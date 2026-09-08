@@ -287,8 +287,16 @@ describe('il doppio contesto dei gestori inline', () => {
    solo inventare un numero o portare via la merce senza registrarla. La
    guardia è caduta, il fatto no — `conto` alza `riaperto` quando ci sono
    movimenti più recenti della chiusura. Le righe sono il ritorno del valore
-   e il campo; il resto è il perché, che è la parte che serve fra un anno. */
-const TETTO_STORE = 4912;
+   e il campo; il resto è il perché, che è la parte che serve fra un anno.
+
+   2.36 — +16, e sono il ponte fra un codice e il vano che c'è dietro.
+   `vanoDiCodice` risponde a «quale vano?» sia che gli si dia un'ubicazione
+   sia che gli si dia un'unità di carico, perché davanti a un bancale
+   imballato l'unica etichetta leggibile è quella dell'unità. Le righe qui
+   sono solo il collegamento fra le due domande che servono — «è
+   un'ubicazione?» e «è un'unità, e dove sta?»: la regola vera, compreso
+   quale dei due vince, sta in `modules/vano.ts` ed è provata da ferma. */
+const TETTO_STORE = 4928;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

@@ -96,6 +96,7 @@ import { VistaRegistro } from './views/registro';
 import { VistaArchivio } from './views/archivio';
 import { VistaCalendario } from './views/calendario';
 import { VistaRicerca } from './views/ricerca';
+import { spiegaVano } from '../modules/vano';
 
 /* IL MONOLITE E' PIU' GRANDE DI QUESTO FILE.
 
@@ -1521,6 +1522,58 @@ const App = monolite({
       try { el.setSelectionRange(pos + diff, pos + diff); } catch {}
     }
   },
+
+  /* \u2550\u2550\u2550 2.36 \u00b7 UN CAMPO UBICAZIONE ACCETTA ANCHE UN'UNIT\u00c0 DI CARICO \u2550\u2550\u2550\u2550\u2550
+
+     Davanti a un bancale imballato l'unica etichetta leggibile \u00e8 quella
+     dell'unit\u00e0: il codice del vano sta sul montante dello scaffale, e in
+     banchina o in zona imballaggio spesso non c'\u00e8 proprio. Chiedere
+     \u00abscansiona l'ubicazione\u00bb a chi ha in mano un pallet vuol dire chiedergli
+     di andare a cercare un cartello.
+
+     QUESTO \u00c8 IL PONTE, e sta in un posto solo perch\u00e9 la stessa cosa scritta
+     in quindici maschere diventa quindici comportamenti diversi entro un
+     anno. Chi legge un campo di ubicazione chiama questo prima di leggerlo:
+     se dentro c'\u00e8 un'unit\u00e0, il campo viene RISCRITTO col suo vano \u2014 cos\u00ec
+     quel che l'operatore vede \u00e8 quel che il sistema ha capito, e la
+     convalida che segue non sa nemmeno che ci sia stata un'unit\u00e0 di mezzo.
+
+     La regola \u2014 quale dei due vince, e quando la risposta \u00e8 negativa \u2014 sta
+     in `modules/vano.ts`. Qui c'\u00e8 solo il gesto sul campo. */
+  _vanoDaCampo(fieldId: string, opzioni: { silenzioso?: boolean } = {}): string {
+    const el = campo(fieldId);
+    if (!el) return '';
+    const scritto = String(el.value ?? '').trim();
+    if (!scritto) return '';
+    const r = Store.vanoDiCodice(scritto);
+    /* Non \u00e8 un'unit\u00e0 e non si \u00e8 risolto: si lascia il campo com'\u00e8 e si tace.
+       A dire che quell'ubicazione non esiste ci pensa la convalida di chi
+       chiama, con le parole della sua maschera \u2014 e due messaggi diversi
+       sullo stesso errore sono peggio di uno. */
+    if (!r.vano) {
+      if (r.udc && !opzioni.silenzioso) this.toast(r.motivo, 'error');
+      return r.udc ? '' : scritto.toUpperCase();
+    }
+    if (r.udc) {
+      el.value = r.vano;
+      /* UNA VOLTA SOLA PER LETTURA. Alcune maschere ricalcolano l'anteprima
+         a ogni tasto, e questo ponte sta davanti a tutte: senza la memoria
+         qui sotto, scansionare un pallet farebbe comparire lo stesso
+         riscontro dieci volte di fila, che è il modo di far smettere di
+         leggerli. Si ricorda l'ultima coppia annunciata, non l'ultima
+         vista: rifare la stessa lettura dopo averne fatta un'altra è un
+         gesto nuovo, e va detto di nuovo. */
+      const detto = `${r.udc}>${r.vano}`;
+      if (!opzioni.silenzioso && this._vanoDetto !== detto) {
+        this._vanoDetto = detto;
+        this.toast(spiegaVano(r), 'info');
+      }
+    }
+    return r.vano;
+  },
+
+  /** L'ultimo «unità → vano» annunciato. Vedi `_vanoDaCampo`. */
+  _vanoDetto: '',
 
   /* ═══════════════════════════════════════════════════════════════════
      2.9 — IL CAMPO SCANSIONATO BENE SI VEDE DA LONTANO

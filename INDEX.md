@@ -545,6 +545,75 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.36.0 — costruita, non installata
+
+**LE UNITÀ DI CARICO SI GESTISCONO DA DOVE SI GUARDA IL MAGAZZINO.** Chiesto
+da Andrea il 09/09: strumenti in mappa, il pannello laterale che dica quali
+item stanno su quale bancale, e i campi ubicazione che accettino anche un
+codice UDC. Più una segnalazione arrivata nella stessa conversazione: «al
+momento la funzione di trascinamento funziona solo all'interno della stessa
+zona».
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.36.0\` |
+| impronta | `98e857063f5564198104cf8567c742e99e179c3d747bab423c215abf53394251` |
+| byte | **2.220.478** in **8 file**, `costruita 2026-09-08T22:11:55Z` |
+| collaudi | **1.703 in 66 file** (una saltata) · `npm run check` pulito · 171 + 100 + 43 + 8 sul servizio · 40 + 47 + 14 sui banchi |
+| provata | **a video**: pannello col blocco per bancale, prendi-e-posa da MAG a M03 (due magazzini diversi), conferma che compare, e i quattro esiti del campo ubicazione |
+
+**① UN CAMPO UBICAZIONE ACCETTA ANCHE UN'UNITÀ DI CARICO.** Davanti a un
+bancale imballato l'unica etichetta leggibile è quella dell'unità: il codice
+del vano sta sul montante dello scaffale, e in banchina o in zona imballaggio
+spesso non c'è proprio. Il codice dell'unità si risolve nel vano **dove
+quell'unità sta adesso**, e da lì in poi il campo si comporta come se ci fosse
+scritto quel vano — il campo viene RISCRITTO, così quel che l'operatore vede è
+quel che il sistema ha capito.
+
+**LA RISPOSTA È POSITIVA SOLO SE L'UNITÀ È DAVVERO DA QUALCHE PARTE**, che è
+la condizione posta da Andrea: un'unità appena creata e non ancora posata non
+ha ubicazione, e risolverla vorrebbe dire inventare un vano; una spedita è
+uscita dal magazzino. Due motivi diversi, perché sono due situazioni diverse —
+una si risolve posando il bancale, l'altra no.
+
+**L'ORDINE DI LETTURA È: PRIMA L'UBICAZIONE.** Un codice UDC passa la stessa
+forma di un codice di vano — `^[A-Z0-9]+(-[A-Z0-9]+)+$` li accetta entrambi —
+quindi la forma non distingue niente e la domanda si fa ai dati. Se un vano si
+chiamasse come un'unità, vince il vano: è quello che sta scritto sul montante.
+
+La regola sta in `modules/vano.ts`, provata da ferma; il ponte verso i campi è
+`App._vanoDaCampo`, **uno solo**, perché la stessa cosa scritta in quindici
+maschere diventa quindici comportamenti entro un anno. Agganciato a **dodici**
+campi. **NON al posizionamento**: `mInLoc` accetta un'unità dalla 2.1 con un
+significato SUO — «carica la merce SOPRA quel bancale» — e sovrascriverlo
+avrebbe fatto arrivare la merce sciolta nel vano.
+
+**② IL PANNELLO DICE CHE COSA STA SU QUALE BANCALE.** Elencava gli item di un
+vano tutti allo stesso modo, e in un vano con tre pallet la domanda che ci si
+fa davanti allo scaffale — «che cosa c'è su QUESTO» — non aveva risposta: si
+apriva l'unità da Archivio e si confrontavano due elenchi. Adesso ogni unità è
+un blocco col suo contenuto e i suoi gesti (prendi, sposta in…, etichetta), e
+ogni riga di giacenza porta il chip dell'unità su cui sta, che ci porta.
+
+**③ PRENDI E POSA, PERCHÉ IL TRASCINAMENTO NON CAMBIA ZONA.** La segnalazione
+era esatta, ma la causa non sta nel trascinamento: sta nella mappa, che disegna
+una zona e un livello per volta — un bancale si può lasciar cadere solo su una
+cella che esiste, e le celle dell'altro capannone non sono disegnate. Non è una
+cosa che si aggiusta nel gestore del `drop`: serve un gesto che SOPRAVVIVA al
+cambio di zona, ed è il gesto vero del magazzino — si prende il pallet, si
+cammina, lo si posa.
+
+Il bancale resta «in mano» attraverso zone, livelli e viste; una fascia in cima
+alla mappa dice quale e da dove, con il tasto per lasciarlo, e ogni cella
+posabile porta un bordo tratteggiato — perché qualcosa che sopravvive a un
+cambio schermata e non si vede è una trappola. **Provato spostando un bancale
+da `MAG-SCA-01-01-T` a `M03-STK-02-04-A`**, cioè fra due magazzini diversi.
+
+**E LO SPOSTAMENTO VERO È UNO SOLO** — `_udcPosa` — per tutte e tre le strade:
+trascinamento, prendi-e-posa, campo di testo del pannello. Tre gesti che
+scrivessero tre spostamenti sarebbero tre comportamenti da tenere allineati a
+mano.
+
 ### La 2.35.2 — costruita, non installata
 
 **IL SISTEMA AIUTA, NON BLOCCA.** Andrea, l'08/09: «l'ODP non si chiude se

@@ -564,6 +564,7 @@ export const VistaWip = {
     if (qty > r.residuo) {
       return this.toast(`Quest'ordine ha ${r.residuo} coll. in lavorazione: non ne possono tornare ${qty}`, 'error');
     }
+    this._vanoDaCampo('wipDove');
     const dove = Validate.clean($('wipDove')?.value, true).replace(/'/g, '-');
     if (!dove) return this.toast('Indica dove rientra la merce', 'error');
     if (!Store.locationExists(dove)) return this.toast(`Ubicazione ${dove} inesistente`, 'error');

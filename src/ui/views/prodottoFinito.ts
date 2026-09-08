@@ -662,6 +662,7 @@ export const VistaProdottoFinito = {
     if (!b || b.fase !== 'ubicazione') return;
     if (!this._requireOperator('il posizionamento di un bancale')) return;
 
+    this._vanoDaCampo('pfLoc');
     const loc = Validate.clean($('pfLoc')?.value, true) || b.location_code;
     if (!loc) return this.toast('Manca l’ubicazione dove sta il bancale', 'error');
     if (!Store.locationExists(loc)) return this.toast(`Ubicazione ${loc} non trovata`, 'error');

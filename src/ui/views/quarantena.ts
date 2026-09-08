@@ -269,6 +269,7 @@ export const VistaQuarantena = {
   _qCheckLoc() {
     const d = this._qState;
     if (!d) return;
+    this._vanoDaCampo('qvLoc');
     const val = Validate.clean($('qvLoc')?.value, true).replace(/'/g, '-');
     if (!val) return;
     if (val === d.location_code) {
@@ -620,6 +621,7 @@ export const VistaQuarantena = {
   /* Esegue il rilascio e lo spostamento fisico verso l'ubicazione destinazione conforme. */
   async _execReleaseDest(q_id) {
     if (!this._requireOperator('il rilascio dalla quarantena')) return;   // v2.0.1 [B7]
+    this._vanoDaCampo('releaseDestLoc');
     const dest = Validate.clean($('releaseDestLoc')?.value, true)?.replace(/'/g, '-');
     if (!dest) return this.toast('Scansiona l\'ubicazione di destinazione', 'error');
     const locErr = Validate.location(dest);

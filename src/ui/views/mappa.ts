@@ -67,9 +67,11 @@ export const VistaMappa = {
             ${this._ico('building-factory')} ${this._mapFiltroPf ? 'Prodotto finito: acceso' : 'Prodotto finito'}
           </button>
         </div>
+        ${this._fasciaInMano()}
         ${this._fasciaConformita(locs)}
       </div>`;
     $('mapToolbar').innerHTML = toolbar;
+    document.body.classList.toggle('udc-in-mano', !!this._udcInMano);
 
     if (this.mapViewMode === 'frontal') this._renderMapFrontal(zone, locs);
     else this._renderMapPlan(zone, locs);
@@ -93,6 +95,27 @@ export const VistaMappa = {
      lo legge — ma la disegnata la comanda questa riga. */
   _vistaDiZona(zone) {
     return zone?.type === 'RACK' ? 'frontal' : 'plan';
+  },
+
+  /* 2.36 — QUEL CHE SI HA IN MANO SI VEDE SEMPRE, e da qui si lascia.
+
+     Un bancale «in mano» sopravvive al cambio di zona: è il punto del
+     gesto. Ma qualcosa che sopravvive a un cambio schermata e non si vede
+     è una trappola — si cambia zona per un'altra ragione, si tocca un vano
+     per aprirlo, e si sposta un pallet senza volerlo. La fascia sta in cima
+     alla mappa, dice quale unità e da dove, e ha il tasto per lasciarla. */
+  _fasciaInMano() {
+    const id = this._udcInMano;
+    if (!id) return '';
+    const u = Store.getUdc(id);
+    if (!u) { this._udcInMano = ''; return ''; }
+    const righe = Store.righeDiUdc(id).length;
+    return `<div class="conf-bar conf-bar--mano">
+      <span>${this._ico('forklift')} <strong class="mono">${this._esc(id)}</strong> in mano —
+      ${righe} rig${righe === 1 ? 'a' : 'he'}, da <span class="mono">${this._esc(u.location_code || '—')}</span>.
+      Tocca il vano dove posarla, anche in un'altra zona.</span>
+      <button class="btn btn-sm" onclick="App._udcPrendi('${this._esc(id)}')">${this._ico('x')} Lascia</button>
+    </div>`;
   },
 
   /* La fascia parla solo della zona che si sta guardando: un conteggio di
@@ -509,7 +532,7 @@ export const VistaMappa = {
     const nc = this._segnoConformita(code);
     return `<div class="grid-cell status-${status}${nc.cls} ${selected ? 'selected' : ''}" style="width:${size}px;height:${size}px"
       data-loc="${code}"
-      onclick="App.selectLocation('${code}')"
+      onclick="App._toccaVano('${code}')"
       oncontextmenu="event.preventDefault();App._mapToggleDisable('${code}')"
       ondragover="App._udcDragOver(event,'${code}')"
       ondragleave="App._udcDragLeave(event)"
@@ -517,6 +540,94 @@ export const VistaMappa = {
       title="${code} — ${status}${items.length ? ' · '+items.length+' item' : ''}${nc.title}">
       ${short}${items.length ? `<span class="item-count">${items.length}</span>` : ''}${nc.badge}${this._udcNelVanoHTML(code, size)}
     </div>`;
+  },
+
+  /* ═══ 2.36 · PRENDI E POSA, PERCHÉ IL TRASCINAMENTO NON CAMBIA ZONA ═══
+
+     Segnalato da Andrea l'08/09: «al momento la funzione di trascinamento
+     funziona solo all'interno della stessa zona». Ed è esatto, ma la causa
+     non sta nel trascinamento: sta nella mappa, che disegna una zona e un
+     livello per volta. Un bancale si può lasciar cadere solo su una cella
+     che c'è, e le celle dell'altro capannone non sono disegnate.
+
+     Non è una cosa che si aggiusta nel gestore del `drop`. Serve un gesto
+     che SOPRAVVIVA al cambio di zona, ed è il gesto vero del magazzino: si
+     prende il pallet, si cammina, lo si posa. Il bancale resta «in mano»
+     mentre si cambia zona, livello o vista; al tocco sul vano di arrivo
+     compare la stessa finestra di conferma del trascinamento — unità, da, a,
+     righe — perché è lo stesso spostamento e non deve avere due facce.
+
+     Il trascinamento resta: dentro la stessa zona è più veloce di due
+     tocchi, e chi lo usa non deve cambiare abitudine. */
+  _udcInMano: '',
+
+  /* Il tocco su un vano: con un bancale in mano lo posa, senza apre il
+     pannello. Un gesto solo con due significati è accettabile perché i due
+     non si confondono mai — o si ha qualcosa in mano o non si ha — e
+     l'alternativa sarebbe un secondo modo della mappa da accendere e
+     spegnere, cioè una cosa in più da ricordare in corsia. */
+  _toccaVano(code) {
+    if (this._udcInMano) { void this._udcPosa(this._udcInMano, code); return; }
+    this.selectLocation(code);
+  },
+
+  _udcPrendi(id) {
+    if (!this._requireOperator('lo spostamento di un’unità di carico')) return;
+    if (this._udcInMano === id) {
+      this._udcInMano = '';
+      this.toast('Unità lasciata dov’era', 'info');
+    } else {
+      const u = Store.getUdc(id);
+      if (!u) return this.toast('Unità non trovata', 'error');
+      this._udcInMano = id;
+      this.toast(`${id} in mano — tocca il vano dove posarla, anche in un’altra zona`, 'info');
+    }
+    this.renderMap();
+    if (this.selectedLocation) this.renderDetail(this.selectedLocation);
+  },
+
+  /* Lo spostamento vero, uno solo per tutte e tre le strade — trascinamento,
+     prendi-e-posa, campo di testo nel pannello. Tre gesti diversi che
+     scrivessero tre spostamenti diversi sarebbero tre comportamenti da
+     tenere allineati a mano. */
+  async _udcPosa(id, code) {
+    if (!this._requireOperator('lo spostamento di un’unità di carico')) return false;
+    const u = Store.getUdc(id);
+    if (!u) { this.toast('Unità non trovata', 'error'); return false; }
+    const da = u.location_code || '';
+    if (da === code) { this.toast(`${id} è già in ${code}`, 'warning'); return false; }
+    const stato = Store.getLocationStatus(code);
+    if (stato === 'blocked' || stato === 'disabled') {
+      this.toast(`Ubicazione ${code} ${stato === 'blocked' ? 'BLOCCATA' : 'DISATTIVATA'}`, 'error');
+      return false;
+    }
+
+    const righe = Store.righeDiUdc(id);
+    if (!await Dialog.confirm({
+      title: 'Spostare l’unità di carico?',
+      message: 'L’unità e tutte le sue righe cambiano ubicazione insieme, in una transazione sola. Il contenuto non si tocca.',
+      details: Dialog.kv([['Unità', id], ['Da', da || '—'], ['A', code], ['Righe', righe.length]]),
+      confirmLabel: 'Sposta',
+    })) return false;
+
+    try {
+      const esito = await Store.moveUdc(id, code, {
+        type: MOV.UDC, article_code: '', article_description: '', lot_code: '',
+        location_code: da, dest_location: code,
+        user: Store.getCurrentIdentity().initials, ts: Date.now(),
+        notes: `Unità di carico ${id} — ${righe.length} righe`,
+      });
+      this._udcInMano = '';
+      this.renderMap();
+      if (this.selectedLocation) this.renderDetail(this.selectedLocation);
+      this.updateSyncIndicator();
+      this._refreshSessionLog?.();
+      this.toast(`${id}: ${da || '—'} → ${code} · ${esito?.righe ?? righe.length} righe`, 'success');
+      return true;
+    } catch (e) {
+      this.toast((e as Error).message, 'error');
+      return false;
+    }
   },
 
   /* Il pezzo trascinato si tiene qui e non solo in `dataTransfer`: durante
@@ -553,35 +664,10 @@ export const VistaMappa = {
     const id = this._udcTrascinata || (() => { try { return ev.dataTransfer.getData('text/plain'); } catch { return ''; } })();
     this._udcTrascinata = null;
     if (!id) return;
-    if (!this._requireOperator('lo spostamento di un’unità di carico')) return;
-    const u = Store.getUdc(id);
-    if (!u) return this.toast('Unità non trovata', 'error');
-    const da = u.location_code || '';
-    if (da === code) return;
-
-    const righe = Store.righeDiUdc(id);
-    if (!await Dialog.confirm({
-      title: 'Spostare l’unità di carico?',
-      message: 'L’unità e tutte le sue righe cambiano ubicazione insieme, in una transazione sola. Il contenuto non si tocca.',
-      details: Dialog.kv([['Unità', id], ['Da', da || '—'], ['A', code], ['Righe', righe.length]]),
-      confirmLabel: 'Sposta',
-    })) return;
-
-    try {
-      const esito = await Store.moveUdc(id, code, {
-        type: MOV.UDC, article_code: '', article_description: '', lot_code: '',
-        location_code: da, dest_location: code,
-        user: Store.getCurrentIdentity().initials, ts: Date.now(),
-        notes: `Unità di carico ${id} — ${righe.length} righe · trascinata sulla mappa`,
-      });
-      this.renderMap();
-      if (this.selectedLocation) this.renderDetail(this.selectedLocation);
-      this.updateSyncIndicator();
-      this._refreshSessionLog?.();
-      this.toast(`${id}: ${da} → ${code} · ${esito?.righe ?? 0} righe`, 'success');
-    } catch (e) {
-      this.toast((e as Error).message, 'error');
-    }
+    /* 2.36 — lo spostamento vero sta in `_udcPosa`, ed è lo stesso per il
+       trascinamento, per il prendi-e-posa e per il campo di testo del
+       pannello: tre gesti, uno spostamento. */
+    await this._udcPosa(id, code);
   },
 
   _renderMapFrontal(zone, locs) {
@@ -611,7 +697,7 @@ export const VistaMappa = {
               const nc = this._segnoConformita(loc.code);
               html += `<div class="front-cell s-${status}${nc.cls} ${sel ? 'selected' : ''}"
                 data-loc="${loc.code}"
-                onclick="App.selectLocation('${loc.code}')"
+                onclick="App._toccaVano('${loc.code}')"
                 oncontextmenu="event.preventDefault();App._mapToggleDisable('${loc.code}')"
                 ondragover="App._udcDragOver(event,'${loc.code}')"
                 ondragleave="App._udcDragLeave(event)"
@@ -645,7 +731,7 @@ export const VistaMappa = {
             const nc = this._segnoConformita(loc.code);
             html += `<div class="floor-pallet fp-${status}${nc.cls} ${sel ? 'selected' : ''}"
               data-loc="${loc.code}"
-              onclick="App.selectLocation('${loc.code}')"
+              onclick="App._toccaVano('${loc.code}')"
               oncontextmenu="event.preventDefault();App._mapToggleDisable('${loc.code}')"
               ondragover="App._udcDragOver(event,'${loc.code}')"
               ondragleave="App._udcDragLeave(event)"
@@ -670,7 +756,7 @@ export const VistaMappa = {
         const nc = this._segnoConformita(loc.code);
         html += `<div class="floor-pallet fp-${status}${nc.cls} ${sel ? 'selected' : ''}"
           data-loc="${loc.code}"
-          onclick="App.selectLocation('${loc.code}')"
+          onclick="App._toccaVano('${loc.code}')"
           oncontextmenu="event.preventDefault();App._mapToggleDisable('${loc.code}')"
           title="${loc.code} — ${status}${nc.title}">
           <span class="fp-code">${String(loc.position).padStart(2,'0')}</span>

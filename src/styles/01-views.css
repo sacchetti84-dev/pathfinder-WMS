@@ -298,6 +298,60 @@
 .conf-bar--muta { background: var(--sx-bg-alt); color: var(--sx-text-muted); }
 .conf-bar-nota { margin-left: auto; color: var(--sx-text-muted); font-size: var(--md-sys-typescale-label-small-size); }
 
+/* ═══ 2.36 · LE UNITÀ DI CARICO NEL PANNELLO DEL VANO ═════════════════
+
+   Un blocco per bancale, col suo contenuto e i suoi gesti. Sta sopra
+   l'elenco degli item perché la domanda che ci si fa davanti a uno scaffale
+   con tre pallet è «che cosa c'è su QUESTO», e l'elenco piatto degli item
+   non la sa. */
+.udc-card {
+  background: var(--sx-bg-alt); border: 1px solid var(--sx-border);
+  border-left: 3px solid var(--sx-accent);
+  border-radius: var(--radius); padding: 0.5rem 0.6rem; margin-bottom: 0.5rem;
+}
+.udc-card--presa { border-color: var(--sx-warning); background: var(--sx-warning-soft); }
+/* Il richiamo quando si arriva qui dal chip di una riga: dice «è questo»
+   e si spegne da solo. Fermo per chi ha chiesto meno animazioni. */
+.udc-card--indicata { outline: 2px solid var(--sx-accent); outline-offset: 2px; }
+@media (prefers-reduced-motion: no-preference) {
+  .udc-card--indicata { transition: outline-color 0.2s ease; }
+}
+.udc-card-head { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+.udc-card-id { font-weight: 700; }
+.udc-card-conto { margin-left: auto; color: var(--sx-text-muted); font-size: var(--md-sys-typescale-label-small-size); }
+.udc-card-righe { margin-top: 0.4rem; display: grid; gap: 0.2rem; }
+.udc-card-riga {
+  display: grid; grid-template-columns: auto auto auto 1fr; gap: 0.5rem;
+  align-items: baseline; font-size: var(--md-sys-typescale-body-small-size);
+}
+.udc-card-colli { font-weight: 700; }
+.udc-card-desc { color: var(--sx-text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.udc-card-vuota { margin-top: 0.4rem; color: var(--sx-text-muted); font-size: var(--md-sys-typescale-body-small-size); }
+.udc-card-azioni { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.5rem; }
+
+/* Il chip sulla riga di giacenza: dice su quale bancale sta, e ci porta. */
+.chip-udc {
+  display: inline-flex; align-items: center; gap: 0.25rem;
+  background: var(--sx-accent-soft); color: var(--sx-accent);
+  border: 1px solid color-mix(in srgb, var(--sx-accent) 40%, transparent);
+  border-radius: 99px; padding: 0 0.45rem; cursor: pointer;
+  font-family: inherit;
+  font-size: var(--md-sys-typescale-label-small-size); font-weight: 700;
+  white-space: nowrap;
+}
+.chip-udc:hover { background: color-mix(in srgb, var(--sx-accent) 22%, transparent); }
+
+/* La fascia del bancale in mano, e la mappa che dice dove si può posare.
+   Il bordo tratteggiato su ogni cella libera è l'unica cosa che distingue
+   «sto guardando la mappa» da «sto per posare un pallet»: senza, il tocco
+   successivo sposterebbe merce senza che nessuno l'abbia annunciato. */
+.conf-bar--mano { background: var(--sx-warning-soft); color: var(--sx-warning); }
+body.udc-in-mano .grid-cell:not(.status-blocked):not(.status-disabled) {
+  outline: 1px dashed color-mix(in srgb, var(--sx-warning) 60%, transparent);
+  outline-offset: -2px; cursor: cell;
+}
+
+
 .conf-riepilogo { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.7rem; }
 .conf-chip {
   padding: 0.2rem 0.6rem; border-radius: 99px;

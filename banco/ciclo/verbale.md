@@ -1,6 +1,6 @@
 # Ciclo 2.0 — dal carico al consumo, su copia del magazzino vero
 
-2026-09-08T21:17:51.782Z
+2026-09-08T22:08:46.081Z
 
 ## ⓪ Il banco
 
@@ -188,7 +188,7 @@ Riga dopo la rettifica: 4 colli · 80 KG · [24,25,25,6]
 
 ## DDT — prenotazione ed evasione
 
-Documento `RES-PROVA20-MTT68B58` registrato · giacenza 59 KG (invariata) · fisici 3 coll., disponibili 2
+Documento `RES-PROVA20-MTT81RO7` registrato · giacenza 59 KG (invariata) · fisici 3 coll., disponibili 2
 Alla evasione i colli si ritrovano per misura: [{"indice":0}]
 Evaso: 59 → 34 KG (usciti 25)
 
@@ -202,7 +202,7 @@ Smaltiti 28 KG su 53: resta 25 KG in 2 coll. [22,3]
 
 ## Attività
 
-`TA-MTT68BBD-TVUS` · stato in_progress · preso da ANDS · avviato sì
+`TA-MTT81RUP-YWJI` · stato in_progress · preso da ANDS · avviato sì
 Dopo un movimento da 1 collo su 3 chiesti: stato done, mossi 1
 Smaltimento, 1 collo su 3: stato in_progress, mossi 1
 Dopo i 2 rimanenti: stato done
@@ -279,7 +279,7 @@ Ordine dei magazzini: M03 → MAG → MAG1 · siti distinti 3
 ## Il trasferimento chiesto dall ordine (1.10)
 
 Da `MAG-ACC-01` (mag) a `M03-TRA-01` · payload: `{"article_code":"6000242","lot_code":"260926","qty_uom":6.085,"uom":"KG","from":"MAG-ACC-01","to":"M03-TRA-01","odp_num":"ODP2607777"}`
-Compito `TA-MTT68CK0-1YSG` in coda, stato requested
+Compito `TA-MTT81T7W-8D9U` in coda, stato requested
 La tappa si sposta: `MAG-ACC-01` → `M03-TRA-01` · resta un prelievo: sì
 
 ### La memoria delle richieste
@@ -291,7 +291,7 @@ Ordine di visita rovesciato: 2 tappe erano state spostate, 2 sono tornate dov'er
 
 ## Il pacchetto
 
-`_format` **warehouse-mapper-v1.5** · `_appVersion` **2.35.2** · collezioni previste 19
+`_format` **warehouse-mapper-v1.5** · `_appVersion` **2.36.0** · collezioni previste 19
 Verifica: **passa**
 
 | Collezione | nel pacchetto | in cache |

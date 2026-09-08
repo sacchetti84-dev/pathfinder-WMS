@@ -274,6 +274,7 @@ export const VistaSmaltimento = {
   _dispCheckLoc() {
     const d = this._dispState;
     if (!d) return;
+    this._vanoDaCampo('dLoc');
     const val = Validate.clean($('dLoc')?.value, true).replace(/'/g, '-');
     if (!val) return;
     if (val === d.location_code) {

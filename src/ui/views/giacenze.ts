@@ -54,6 +54,7 @@ export const VistaGiacenze = {
         <button class="btn btn-sm" title="Temperatura, allergeni, pericolosita, capienza e portata di questa sola cella" onclick="App.showCaratterizzaUbicazione('${code}')">${this._ico('target')} Caratterizza</button>
       </div>
     </div>
+    ${this._udcDelVanoHTML(code)}
     <div class="detail-section">
       <div class="detail-section-title">Item presenti (${items.length})</div>
       ${this._rigaTotaleVano(items)}`;
@@ -96,6 +97,14 @@ export const VistaGiacenze = {
           <div class="item-card-header">
             <span class="item-code">${this._esc(item.article_code)}</span>
             <span class="item-lot-inline mono">${this._esc(item.lot_code)}</span>
+            ${/* 2.36 — SU QUALE BANCALE STA QUESTA RIGA. Il pannello elencava
+                  gli item di un vano tutti allo stesso modo, e in un vano con
+                  tre pallet la domanda «questa riga su quale sta?» non aveva
+                  risposta da nessuna parte: si apriva l'unita' da Archivio e
+                  si confrontavano gli elenchi. Il chip porta al blocco qui
+                  sopra, che e' dove ci sono i tasti. */
+              item.udc_id ? `<button type="button" class="chip-udc" title="Sta sull’unità ${this._esc(item.udc_id)} — vai al suo blocco"
+                onclick="App._vaiAUdc('${this._esc(item.udc_id)}')">${this._ico('stack')} ${this._esc(item.udc_id)}</button>` : ''}
             ${quarantined ? `<span class="badge bg-sx-purple-soft text-sx-purple border border-sx-purple" title="Item già in quarantena">${this._ico('lock')} NC</span>` : ''}
             ${sbagliata ? `<span class="chip-fuori-posto" title="${this._esc(sbagliata)}">Fuori posto</span>` : ''}
           </div>
@@ -128,6 +137,91 @@ export const VistaGiacenze = {
         </p>
       </div>`;
     $('detailBody').innerHTML = html;
+  },
+
+  /* ═══ 2.36 · LE UNITÀ DI CARICO DEL VANO, COL LORO CONTENUTO ═════════
+
+     Il pannello elencava gli item di un vano tutti allo stesso modo, e in un
+     vano con tre bancali la domanda che ci si fa davanti allo scaffale —
+     «che cosa c'è SU QUESTO pallet» — non aveva risposta da nessuna parte:
+     bisognava aprire l'unità da Archivio e confrontare due elenchi.
+
+     Qui ogni unità è un blocco: che cosa porta sopra, e i gesti che la
+     riguardano. I gesti sono quattro e nessuno di più — sposta, etichetta,
+     prendi (per posarla altrove sulla mappa), apri il dettaglio — perché un
+     pannello che si apre toccando un vano deve stare in una schermata.
+
+     Chi non è identificato vede il contenuto e non i gesti: leggere che cosa
+     c'è su un bancale non muove niente. */
+  _udcDelVanoHTML(code) {
+    const unita = Store.getUdcInLocation(code);
+    if (!unita.length) return '';
+    const chi = Store.getCurrentIdentity().initials;
+    return `<div class="detail-section">
+      <div class="detail-section-title">Unità di carico (${unita.length})</div>
+      ${unita.map((u) => {
+        const righe = Store.righeDiUdc(u.udc_id);
+        const colli = righe.reduce((n, r) => n + (Number(r.qty) || 0), 0);
+        const presa = this._udcInMano === u.udc_id;
+        return `<div class="udc-card${presa ? ' udc-card--presa' : ''}" id="udc-blocco-${this._esc(u.udc_id)}">
+          <div class="udc-card-head">
+            <span class="mono udc-card-id">${this._ico('stack')} ${this._esc(u.udc_id)}</span>
+            <span class="badge badge-${u.status === 'open' ? 'green' : 'muted'}">${this._esc(u.status || '—')}</span>
+            <span class="udc-card-conto">${righe.length} rig${righe.length === 1 ? 'a' : 'he'} · ${colli} Coll.</span>
+          </div>
+          ${righe.length ? `<div class="udc-card-righe">${righe.map((r) => `<div class="udc-card-riga">
+            <span class="mono">${this._esc(r.article_code)}</span>
+            <span class="mono text-sx-text-muted">${this._esc(r.lot_code)}</span>
+            <span class="udc-card-colli">${r.qty || 0} Coll.${this._umTotaliRiga(r)}</span>
+            <span class="udc-card-desc">${this._esc(r.article_description || '—')}</span>
+          </div>`).join('')}</div>`
+            : '<div class="udc-card-vuota">Vuota — nessuna riga di giacenza sopra.</div>'}
+          ${chi ? `<div class="udc-card-azioni">
+            <button class="btn btn-sm${presa ? ' btn-warning' : ''}" title="${presa
+              ? 'È in mano: tocca un vano sulla mappa per posarla, o premi di nuovo per lasciarla qui'
+              : 'Prendila in mano: poi tocca il vano di destinazione sulla mappa, anche in un’altra zona'}"
+              onclick="App._udcPrendi('${this._esc(u.udc_id)}')">${this._ico('forklift')} ${presa ? 'In mano — lascia' : 'Prendi'}</button>
+            <button class="btn btn-sm" title="Spostala scrivendo il vano, o il codice di un’altra unità"
+              onclick="App._udcSpostaDaPannello('${this._esc(u.udc_id)}')">${this._ico('arrows-shuffle')} Sposta in…</button>
+            <button class="btn btn-sm" title="Ristampa l’etichetta dell’unità"
+              onclick="App._pfEtichetta('${this._esc(u.udc_id)}')">${this._ico('tag')} Etichetta</button>
+          </div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
+  },
+
+  /** Porta il pannello sul blocco di un'unità. Il chip sulla riga di
+      giacenza chiama questo: la risposta a «su quale bancale sta» è il
+      blocco, dove ci sono anche i gesti. */
+  _vaiAUdc(id) {
+    const el = document.getElementById(`udc-blocco-${id}`);
+    if (!el) return this.toast(`${id} non è in questo vano`, 'warning');
+    el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    el.classList.add('udc-card--indicata');
+    setTimeout(() => el.classList.remove('udc-card--indicata'), 1400);
+  },
+
+  /* Lo spostamento scritto: accetta un vano o il codice di un'altra unità —
+     `_vanoDaCampo` fa il resto — e passa dallo stesso `moveUdc` del
+     trascinamento. Serve a chi lavora col lettore e non tocca lo schermo. */
+  async _udcSpostaDaPannello(id) {
+    if (!this._requireOperator('lo spostamento di un’unità di carico')) return;
+    const u = Store.getUdc(id);
+    if (!u) return this.toast('Unità non trovata', 'error');
+    const righe = Store.righeDiUdc(id);
+    const scritto = await Dialog.testo({
+      title: `Sposta ${id}`,
+      message: 'Scrivi o scansiona il vano di destinazione. Vale anche il codice di un’altra unità: '
+             + 'la merce va dove sta quella.',
+      details: Dialog.kv([['Unità', id], ['Ora sta in', u.location_code || '—'], ['Righe a bordo', righe.length]]),
+      placeholder: 'Vano o codice unità', maiuscolo: true,
+      icon: 'arrows-shuffle', confirmLabel: 'Sposta',
+    });
+    if (!scritto) return;
+    const r = Store.vanoDiCodice(scritto);
+    if (!r.vano) return this.toast(r.motivo, 'error');
+    await this._udcPosa(id, r.vano);
   },
 
   /* Le UM totali della riga, accanto ai colli. Vuoto dove la riga è a

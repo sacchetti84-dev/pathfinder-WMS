@@ -310,6 +310,7 @@ export const VistaPrelievo = {
   async _execCambio() {
     if (!this._requireOperator('il cambio ubicazione')) return;   // v2.0.1 [B7]
     if (!this._moveSelection) return this.toast('Scansiona prima un articolo', 'error');
+    this._vanoDaCampo('pCambioDest');
     const dest = Validate.clean($('pCambioDest')?.value, true).replace(/'/g, '-');
 
     /* Il campo esiste solo sotto un'attivita': senza, `null` vuol dire «tutto

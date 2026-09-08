@@ -15,6 +15,55 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.36.0 — 2026-09-09
+
+**Load units are handled from where the warehouse is looked at.**
+
+**A location field now accepts a load-unit code.** In front of a wrapped
+pallet the only legible label is the unit's: the bin code is on the rack
+upright, and on a dock or in the packing zone there often isn't one. Scanning
+a unit into a location field resolves to the bin **where that unit is now**,
+and the field is rewritten so that what the operator sees is what the system
+understood.
+
+The answer is positive only if the unit really is somewhere — a unit just
+created and not yet set down has no location, and resolving it would invent a
+bin; a shipped one has left the warehouse. Two different reasons, because they
+are two different situations: one is fixed by putting the pallet down, the
+other is not.
+
+Location codes and unit codes have the same shape, so the form distinguishes
+nothing and the question goes to the data — and the bin wins: if a bin were
+named like a unit, that code is that bin, which is what is written on the
+upright. The rule lives in one module, tested cold; the bridge to the fields
+is a single method, wired into twelve of them. Not into goods-in, where a unit
+in the location field has meant "load onto that pallet" since 2.1.
+
+**The side panel says what is on which pallet.** It listed a bin's items all
+alike, so in a bin holding three pallets the question you ask standing at the
+rack — what is on *this* one — had no answer short of opening the unit from
+the archive and comparing two lists. Each unit is now a block with its
+contents and its actions, and every stock row carries the chip of the unit it
+sits on.
+
+**Take and place, because dragging cannot change zone.** The report was
+right, but the cause is not in the dragging: the map draws one zone and one
+level at a time, so a pallet can only be dropped on a cell that exists, and
+the cells of the other building are not drawn. That is not fixed in the drop
+handler. It needs a gesture that survives changing zone — which is the real
+warehouse gesture: pick the pallet up, walk, put it down. The pallet stays in
+hand across zones, levels and views; a strip at the top of the map says which
+and from where, with a button to let go, and every placeable cell shows a
+dashed border, because something that survives a screen change and cannot be
+seen is a trap. Proven by moving a pallet between two different warehouses.
+
+And the move itself is one piece of code for all three routes — drag,
+take-and-place, and the panel's text field.
+
+1,703 client tests in 66 files; 322 on the service; 101 on the benches.
+
+---
+
 ## 2.35.2 — 2026-09-08
 
 **The system helps; it does not block.**

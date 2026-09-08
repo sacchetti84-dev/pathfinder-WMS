@@ -651,6 +651,7 @@ export const VistaPercorso = {
     const s = (p?.stops || []).find((x: Tappa) => x.item_key === itemKey && x.location_code === fromLoc);
     if (!s) return this.toast('Tappa non più in anteprima', 'error');
 
+    this._vanoDaCampo('trfTo');
     const dest = Validate.clean($('trfTo')?.value, true).replace(/'/g, '-');
     if (!dest) return this.toast('Indica l’ubicazione in cui ricevere la merce', 'error');
     if (!Store.locationExists(dest)) return this.toast(`Ubicazione ${dest} inesistente`, 'error');
@@ -1682,6 +1683,10 @@ export const VistaPercorso = {
   _routeCheckLoc() {
     const st = this._routeCurrentStop();
     if (!st) return;
+    /* 2.36 — anche qui il codice di un bancale vale come il suo vano: chi
+       arriva davanti a uno scaffale con un pallet davanti scansiona quello
+       che ha sotto gli occhi. */
+    this._vanoDaCampo('rLoc');
     const val = Validate.clean($('rLoc')?.value, true).replace(/'/g, '-');
     if (!val) return;
     if (val === st.location_code) {

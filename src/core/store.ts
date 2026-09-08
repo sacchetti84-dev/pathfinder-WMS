@@ -96,6 +96,8 @@ import {
 import { statoUbicazione, contaStati, calcolaKPI } from './statistiche';
 import { sessioneDi, sessioneDiCompito, altriInPrelievo } from '../modules/sessioni';
 import { verificaConformita } from '../modules/conformita';
+import { risolviVano } from '../modules/vano';
+import type { VanoRisolto } from '../modules/vano';
 import { App } from '../ui/app.js';
 
 /* 2.0 — GLI INTERRUTTORI NON CI SONO PIU'.
@@ -2998,6 +3000,20 @@ const Store = {
   },
   getUdcInLocation(locationCode: string): Udc[] {
     return this.getUdcAperte().filter(u => u.location_code === locationCode);
+  },
+
+  /* 2.36 — IL VANO DIETRO UN CODICE, che sia un vano o un'unità di carico.
+
+     Davanti a un bancale imballato l'unica etichetta leggibile è quella
+     dell'unità: il codice del vano sta sul montante, e in banchina o in zona
+     imballaggio spesso non c'è. Ogni campo «ubicazione» passa di qui, e la
+     regola — quale dei due vince, e quando la risposta è negativa — sta in
+     `modules/vano.ts`, provata da ferma. */
+  vanoDiCodice(scritto: unknown): VanoRisolto {
+    return risolviVano(scritto, {
+      eUbicazione: (c) => this.locationExists(c),
+      udc: (c) => this.getUdc(c),
+    });
   },
   /** Le righe di giacenza che stanno sopra un'unità di carico. */
   righeDiUdc(id: string): Giacenza[] {

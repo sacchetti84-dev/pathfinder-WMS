@@ -159,6 +159,7 @@ export const VistaUdc = {
 
   async _udcCrea() {
     if (!this._requireOperator('la creazione di un’unità di carico')) return;
+    this._vanoDaCampo('udcLoc');
     const loc = Validate.clean($('udcLoc')?.value, true).replace(/'/g, '-');
     if (!loc) return this.toast('Indica l’ubicazione in cui sta l’unità', 'error');
     if (!Store.locationExists(loc)) return this.toast(`Ubicazione ${loc} inesistente`, 'error');
@@ -254,6 +255,7 @@ export const VistaUdc = {
     if (!this._requireOperator('lo spostamento di un’unità di carico')) return;
     const u = Store.getUdc(id);
     if (!u) return this.toast('Unità non trovata', 'error');
+    this._vanoDaCampo('udcDest');
     const dest = Validate.clean($('udcDest')?.value, true).replace(/'/g, '-');
     if (!dest) return this.toast('Indica l’ubicazione di destinazione', 'error');
     const stato = Store.locationExists(dest) ? Store.getLocationStatus(dest) : null;

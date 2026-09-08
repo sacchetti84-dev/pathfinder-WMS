@@ -672,6 +672,7 @@ export const VistaCompiti = {
        credere che la scelta sia andata persa — mentre i campi ce l'hanno
        ancora. Si torna all'elenco solo se si ridigita l'articolo. */
     const lotto = $('ntLot')?.value;
+    this._vanoDaCampo('ntFrom');
     const da = $('ntFrom')?.value;
     if (lotto && da) {
       /* La chiave si compone coi valori COM'ERANO nella giacenza, non

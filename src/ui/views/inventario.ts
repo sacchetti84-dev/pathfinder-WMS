@@ -238,6 +238,7 @@ export const VistaInventario = {
   _cbPickInv() { setTimeout(() => { App._previewLoc('mInvLoc','mInvLocPrev'); App._loadInv(); }, 30); },
 
   _loadInv() {
+    this._vanoDaCampo('mInvLoc');
     const loc = Validate.clean($('mInvLoc')?.value, true).replace(/'/g, '-');
     const el = $('mInvContent');
     if (!loc) return;
@@ -752,6 +753,7 @@ export const VistaInventario = {
   _contaCheckLoc() {
     const d = this._contaState;
     if (!d) return;
+    this._vanoDaCampo('cnLoc');
     const val = Validate.clean($('cnLoc')?.value, true).replace(/'/g, '-');
     if (!val) return;
     if (val !== d.location_code) {
