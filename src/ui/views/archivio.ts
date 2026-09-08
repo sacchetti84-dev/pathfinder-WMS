@@ -1,5 +1,7 @@
 import { type Vista, $ } from './vista';
 import { Store } from '../../core/store';
+import { riepiloga, descriviContenuto, ETICHETTE_STATO, bancaliImpegnati } from '../../modules/bancale';
+import type { Udc } from '../../types/entita';
 import { ordina, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
 import type { Colonna, Stato } from '../../modules/tabella';
 import type { Icona } from '../icone';
@@ -8,7 +10,7 @@ import type { Icona } from '../icone';
 
    DDT, verbali, cartellini e rapporti non hanno niente in comune nel
    database: ce l'hanno in questa tabella, ed è questa riga qui. */
-type GenereArchivio = 'ddt' | 'disposal' | 'nc' | 'pick' | 'odp';
+type GenereArchivio = 'ddt' | 'disposal' | 'nc' | 'pick' | 'odp' | 'udc';
 
 type RigaArchivio = {
   kind: GenereArchivio;
@@ -40,7 +42,13 @@ export const VistaArchivio = {
        ogni giorno e si sfoglia con gli occhi non è un archivio. Qui c'è la
        tabella che si ordina, si filtra e si cerca per data, la stessa degli
        altri quattro generi. */
-    odp:      { label: 'Ordini chiusi',    icon: 'forklift' }
+    odp:      { label: 'Ordini chiusi',    icon: 'forklift' },
+    /* 2.33 — LE UNITÀ DI CARICO. Stavano dietro una tessera di Movimenta,
+       come se crearne una fosse un'operazione di magazzino: non lo è, è il
+       modo in cui la merce viaggia, e nasce sempre dentro un altro lavoro.
+       Qui c'è quel che ne è stato — chi porta ancora merce, chi è partito,
+       chi è rimasto vuoto — con la stessa tabella degli altri cinque generi. */
+    udc:      { label: 'Unità di carico',  icon: 'stack' }
   },
 
   /* Le quattro sorgenti ridotte a una forma sola. Ogni riga sa da dove
@@ -129,6 +137,31 @@ export const VistaArchivio = {
        movimenti del conto ogni volta che si chiede. Per questo la riga porta
        il numero d'ordine e non un `doc_id` — non c'è nessun foglio messo da
        parte, c'è un conto che è storia e si rilegge. */
+    /* 2.33 — le unità di carico, dalla più recente. Non è un documento
+       emesso come gli altri cinque: è un contenitore, e quel che se ne dice
+       è dove sta e che cosa porta. Per questo la data è quella della
+       creazione, che è l'unico istante che un'unità ha sempre. */
+    const impegnati = bancaliImpegnati(Store.getPendingOutbound());
+    const CLASSE_STATO: Record<string, string> = {
+      pronto: 'badge-green', impegnato: 'badge-amber', spedito: 'badge-muted', vuoto: 'badge-muted',
+    };
+    for (const u of (Store.getUdcList() as Udc[])) {
+      const righe = Store.righeDiUdc(u.udc_id);
+      const r = riepiloga(u, righe, impegnati);
+      rows.push({
+        kind: 'udc',
+        ts: u.created_at || 0,
+        num: u.udc_id,
+        title: descriviContenuto(r),
+        sub: `${r.colli} Coll.${u.location_code ? ` · ${u.location_code}` : ' · senza vano'}`
+          + `${u.kind === 'pf' ? ' · prodotto finito' : ''}${u.odp_num ? ` · ordine ${u.odp_num}` : ''}`,
+        stato: { lbl: ETICHETTE_STATO[r.stato] || r.stato, cls: CLASSE_STATO[r.stato] || 'badge-muted' },
+        search: `${u.udc_id} ${u.location_code || ''} ${u.odp_num || ''} `
+          + righe.map((x) => `${x.article_code} ${x.lot_code}`).join(' '),
+        print: `App._udcEtichetta('${esc(u.udc_id)}')`,
+      });
+    }
+
     for (const a of Store.ordiniWipArchiviati()) {
       const c = Store.contoWip(a.odp_num);
       const serviti = Store.ordiniServitiWip(a.odp_num);

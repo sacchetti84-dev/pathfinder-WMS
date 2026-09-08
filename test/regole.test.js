@@ -62,6 +62,9 @@ const AMMESSI = new Map([
   ['printer_id', 'configurazione.ts — 2.19: lo genera `nuovoIdStampante`, che scrive `STP-<n>` e nient\'altro. Non è una cella che qualcuno compila'],
   ['azione',   'archivio.ts — 2.20: non è un campo, è il gestore INTERO della packing list, costruito lì accanto da `esc(doc_id)`. Stesso caso di `print`'],
   ['suA4',     'stampaEtichette.ts — 2.19: non è un campo, è il gestore INTERO, costruito nel sorgente da chi apre la maschera. Stesso caso di `print` in archivio.ts'],
+  ['anno',     'calendario.ts — 2.34: lo produce `mesePrecedente`/`meseSeguente` da due numeri, e non passa da nessun database'],
+  ['mese',     'calendario.ts — 2.34: stesso caso di `anno`, ed `e` sempre 1-12 per costruzione'],
+  ['iso',      'calendario.ts — 2.34: lo compone `isoLocale` da giorno, mese e anno di un `Date`. Non e una cella che qualcuno compila'],
 ]);
 
 function espressioniNeiGestori() {

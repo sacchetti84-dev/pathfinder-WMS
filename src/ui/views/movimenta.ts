@@ -59,9 +59,19 @@ export const VistaMovimenta = {
              schedulatore perché è lui che l'ha fatta nascere; quanto cala lo
              decide la maschera, guardando l'unità di misura dell'articolo. */
           this._movCard('sampling', 'c-teal', 'flask', 'Campionamento', 'Il collo resta, cala ciò che c\'è dentro', 'var(--sx-teal)')}
-        ${/* 1.12 — la nona. Gli interruttori sono spariti con la 2.0: la
-             tessera c'è sempre. */
-          this._movCard('udc', 'c-indigo', 'stack', 'Unità di carico', 'Il pallet porta con sé quello che ha sopra', 'var(--sx-primary)', Store.getUdcAperte().length)}
+        ${/* 2.33 — LA TESSERA «UNITÀ DI CARICO» NON C'È PIÙ, e la maschera sì.
+
+             Un'unità di carico non è un'operazione di magazzino: è il modo in
+             cui la merce viaggia. Nasce quando si preleva per una spedizione,
+             quando si chiude un bancale di prodotto finito, quando si carica
+             un pallet posizionando — cioè sempre DENTRO un altro lavoro. Una
+             tessera a sé chiedeva di andare a crearne una prima di avere una
+             ragione per farlo, e il risultato erano codici stampati che
+             nessuno chiudeva (gli «orfani» che il prodotto finito elenca).
+
+             La maschera resta raggiungibile — `startMov('udc')` funziona, e ci
+             arrivano il Posizionamento e la mappa — e l'ELENCO è passato in
+             Archivio, che è dove si guarda quel che è stato fatto. */ ''}
         ${/* 2.20 — la decima. Stesso colore dell'unità di carico, e non è una
              svista: un bancale di prodotto finito È un'unità di carico, con
              tre campi in più. Due tessere della stessa famiglia. */

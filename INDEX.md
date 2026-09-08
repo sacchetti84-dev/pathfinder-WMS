@@ -545,6 +545,70 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.34.0 — costruita, non installata
+
+**IL DDT FA NASCERE IL LAVORO, NON LO FINISCE.** È il lavoro concordato con
+Andrea l'08/09 e costruito in cinque tappe (2.30 → 2.34), consegnate insieme
+perché la prima da sola non si vede e l'ultima da sola non sta in piedi. Il
+verbale lungo sta in `documenti\REP-AUDIT-003 - Audit 2.34.0 del 21-09-2026.md`.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.34.0\` |
+| impronta | `467fbdcfcd27b1164f4173e3998374f421085690571a4563874e8660a064fac5` |
+| byte | **2.201.169** in **8 file**, `costruita 2026-09-08T15:19:38Z` |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.652 in 68 file** (una saltata) · `npm run check` pulito · 171 + 40 + 100 + 43 + 8 su servizio e banchi, tutti verdi |
+| provata | **a video**: registrazione del DDT e nascita dell'attività, percorso costruito dal documento, tappa che sposta invece di scaricare, calendario del mese, cella selezionata in mappa |
+| **PRIMA DI INSTALLARE** | **la zona di imballaggio va marcata**, una per sito, in Configurazione → Siti e Zone. Senza, una preparazione non ha dove finire e il prodotto finito torna al giro in due tempi |
+
+**LE CINQUE TAPPE, E PERCHÉ IN QUEST'ORDINE.**
+
+**2.30 — le fondamenta.** `startPickSession` faceva `clear` e poi `put`:
+avviare un percorso chiudeva quello di chiunque altro, in silenzio. Reggeva
+finché il prelievo nasceva da un file caricato a mano da una persona sola;
+con le attività prese in carico da persone diverse quel gesto cancella il
+lavoro del collega. `pick_session` è un elenco, e a dire quale sia «la mia» è
+`modules/sessioni.ts`. Da lì è nata una distinzione che prima non serviva:
+**`operator` è chi preleva, `owner` è chi ha aperto** — il primo è
+modificabile, e cercare la propria sessione per quello vorrebbe dire che un
+Team Leader che intesta un giro a un altro non lo ritrova più. Più
+`pack_zone`, una per sito, e la quarantena che non aspetta il suo turno.
+
+**2.31 — preparazione spedizioni.** Una tappa di preparazione **SPOSTA, non
+scarica**, e non è una variante di comodo: un DDT pendente prenota la merce e
+a scaricarla è l'evasione — scaricare anche al prelievo vorrebbe dire
+scaricarla due volte, e la seconda troverebbe il vano vuoto. Una tappa di
+unità di carico si conferma con **una scansione sola**: su un pallet
+imballato articolo e lotto stanno sotto il cellophane. `PREP_SHIP` sostituisce
+`PICK_SHIP` e `PICK_RET`, che restano **dichiarati** perché l'archivio li
+porta.
+
+**2.32 — prelievo ODP.** La distinta si allega alla richiesta e vive sul
+servizio: un ODP grande è centinaia di kilobyte, e `tasks` si rilegge a ogni
+caricamento della coda da ogni terminale. E non si conservano le righe già
+lette, che sarebbe più semplice: quando qualcosa non torna la domanda è «che
+cosa c'era scritto nel file», e le righe lette sono già un'interpretazione.
+
+**2.33 — l'unità di carico diventa contestuale.** L'etichetta del bancale
+**dichiarava il falso**: nasceva senza merce, quindi `riepiloga` leggeva zero
+partite e stampava «LOTTI MULTIPLI — 0 partite» su un pallet che ne portava
+una sola. Adesso nasce in zona imballaggio con la merce sopra. L'ubicazione
+resta fuori dall'etichetta — §8: quel che mancava non era il vano. La tessera
+esce da Movimenta e l'elenco entra in Archivio.
+
+**2.34 — calendario e mappa.** Il calendario sta sulla data di ritiro
+previsto, che è il dato su cui il cruscotto calcola già i suoi avvisi, e ne
+usa i colori. L'evidenziazione della cella era un bordo di due pixel in una
+griglia dove ogni cella ha già un bordo colorato dal suo stato.
+
+**SEI DIFETTI TROVATI LUNGO LA STRADA, E NESSUNO RILEGGENDO IL CODICE A
+TAVOLINO.** `loc-cell--flash` senza CSS (ventiquattro versioni); `modo: 'move'`
+che non è un modo; `causale_label` scritto dalla 1.8 e mai dichiarato; due
+movimenti invece di uno alla prima preparazione; l'etichetta che diceva zero
+partite; `Udc.status: 'closed'` dichiarato e mai scritto. I primi cinque
+corretti, il sesto è la voce **102**.
+
 ### La 2.30.0 — costruita, non installata
 
 **Le fondamenta su cui poggia tutto il resto.** Prima versione del lavoro
@@ -2933,6 +2997,9 @@ scelta e non per dimenticanza (§8).
 ### Aperte — da pianificare
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **103** | **IL PRELIEVO ODP NON È MAI STATO PRESO IN CARICO CON UN ALLEGATO VERO.** La rotta degli allegati ha undici prove sul servizio — salvataggio, rilettura byte per byte, percorsi storti, tetto, porta chiusa — e il modulo che legge la distinta è lo stesso di sempre. Ma il giro intero — allego, metto in coda, un altro prende in carico, il percorso si apre già caricato — è stato provato solo a pezzi | **Un giro al banco con un `.xlsx` vero di `banco\odp-wip\`**: si crea l'attività allegandolo, si guarda che il compito porti l'identificativo e non il file, si prende in carico da un'altra sigla e si verifica che la distinta si apra con le stesse righe |
+| **102** | **`Udc.status: 'closed'` È DICHIARATO E NON LO SCRIVE NESSUNO.** Il tipo elenca quattro stati; il codice ne scrive tre — `open`, `empty`, `shipped`. E `closed_at` nasce `null` e non viene mai aggiornato. Non fa danno: nessuno lo legge. Ma un tipo che dichiara uno stato che non esiste è un tipo che mente a chi lo legge per capire come funziona | **Si guarda con l'elenco delle unità davanti**, e si decide: o lo stato serve — e allora c'è un gesto che manca — o non serve, e si toglie insieme a `closed_at`. Togliere uno stato dichiarato è una decisione sui dati, non sul codice |
+| **101** | **`OPERAZIONE.TRANSFER` DICHIARA `modo: 'move'`, CHE NON È UN MODO.** `ModoMovimenta` conosce `io pick inv quarantine shipping sampling udc pf`; `'move'` non c'è. `startMov('move')` non trova niente in `forms`, l'optional chaining ingoia, e la maschera la disegna la riga DOPO — `_pickSub('cambio')`. Funziona per una coincidenza, non per disegno: il giorno che qualcuno riordina quelle due righe, il Trasferimento si apre vuoto | **Due strade, e la seconda è meglio**: dare a `TRANSFER` il modo vero (`pick`, sottoscheda `cambio`), come fa `PREP_SHIP` dalla 2.31; oppure una prova che pretenda che ogni `modo` di `OPERAZIONE` stia in `ModoMovimenta`. La prova serve comunque — è quella che avrebbe fatto vedere il difetto |
 | **98** | **`(location_code, item_key)` SU `inventory` È UN INDICE, NON UN VINCOLO DI UNICITÀ.** Sta sotto `composite` in `server\lib\schema.js`, che genera un `CREATE INDEX` e non un `CREATE UNIQUE INDEX` — `compositeUnique` esiste ed è usato altrove (`sites`, `lots`). Ma tutto il modello di prelievo tratta quella coppia come **un posto fisico solo**: `getItemByKey` restituisce una riga per ubicazione e chi legge assume che sia LA riga. Due righe dello stesso lotto nello stesso vano ci stanno, e un caricamento di massa le fa — **la migrazione dalla 1.4 (voce 79) è esattamente un caricamento di massa.** Il primo effetto si è già visto: l'avviso del percorso ripeteva la stessa frase una volta per riga, corretto nella 2.29.1. Gli altri non sono stati cercati | **Prima si conta, poi si decide.** Sul magazzino vero: `SELECT location_code, item_key, COUNT(*) FROM inventory GROUP BY 1,2 HAVING COUNT(*) > 1`. Se sono zero, l'indice si può fare unico e la migrazione passa liscia; se non lo sono, va deciso se fondere le righe sommando le quantità o rifiutarle — e fondere è una decisione sui **dati**, che è di Andrea. Finché non è deciso, ogni lettore di `getItemByKey` deve reggere il doppione |
 | **99** | **«PRELIEVO ORDINI» NON HA UNA SCORCIATOIA, E F8 NON È ANNUNCIATA DA NESSUNA SCHEDA.** La 2.29.1 ha messo tabella dei tasti e schede in un posto solo (`TASTI_FUNZIONE` in `modules/cruscotto.ts`), e da lì si vede il buco che i due elenchi separati nascondevano: F3 porta a Trasferimento, e il prelievo di produzione — che è quello che si usa tutti i giorni — non ha un tasto. F8 porta a Spedizioni senza sottoscheda, e la scheda «Spedizioni» dice `documenti`: non combaciano, quindi non si annuncia | **È una domanda per chi usa il terminale, non un difetto.** Adesso le etichette dicono il vero, che era la parte urgente. Assegnare F5 alla produzione, o far combaciare F8 con `shipping/documenti`, è una riga per ciascuna in `TASTI_FUNZIONE` — appena Andrea dice quali |
 | **100** | **IL `301` IN CHIARO DELLA 2.26 NON HA UN BANCO.** `decidiTls` ed `eSalutoTLS` sono coperte da ferme (`test/tls.test.js`), e la 2.29.1 ha fissato in prova il **comportamento di `fetch`** davanti a un `301` — che è il modo in cui il difetto si è nascosto per tre versioni. Ma il demultiplatore vero, quello che guarda il primo byte e rimanda il socket all'uno o all'altro server, nessuno lo esercita | **Costa un certificato costruito dalla prova**, e va deciso se vale: la strada c'è (`crea-certificato.ps1` lo fa con i mezzi di Windows, senza `openssl`), ma un banco che genera un PFX a ogni giro è lento e va a toccare il magazzino delle chiavi. L'alternativa onesta è dire che quel percorso si prova a mano, una volta per versione, e scrivere qui quando è stato fatto |

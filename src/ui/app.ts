@@ -94,6 +94,7 @@ import { VistaConfigurazione } from './views/configurazione';
 import { VistaCruscotto } from './views/cruscotto';
 import { VistaRegistro } from './views/registro';
 import { VistaArchivio } from './views/archivio';
+import { VistaCalendario } from './views/calendario';
 import { VistaRicerca } from './views/ricerca';
 
 /* IL MONOLITE E' PIU' GRANDE DI QUESTO FILE.
@@ -125,6 +126,7 @@ interface DalleViste {
   startMov(mode: string, dir?: string | null): void;
   _goOp(mode: string, sub?: string | null): void;
   _prepAvvia(t: unknown): Promise<void>;
+  renderCalendario(): void;
   _odpAvvia(t: unknown): Promise<void>;
   _routeLeggiFile(file: File): Promise<void>;
   _formSpedizioni(el: HTMLElement): void;
@@ -1291,13 +1293,14 @@ const App = monolite({
     document.querySelectorAll<HTMLElement>('.nav-btn, .mob-tab, .hdr-icon-btn').forEach(b => {
       b.classList.toggle('active', b.dataset.view === view);
     });
-    for (const id of ['Dashboard','Map','Movimenta','Tasks','Archive','Config']) {
+    for (const id of ['Dashboard','Map','Movimenta','Tasks','Archive','Calendar','Config']) {
       document.getElementById('view' + id)?.classList.toggle('hidden', view !== id.toLowerCase());
     }
     if (view === 'dashboard') this.renderDashboard();
     else if (view === 'tasks') this.renderTasks();
     else if (view === 'movimenta') this.renderMovimenta();
     else if (view === 'archive') this.renderArchive();
+    else if (view === 'calendar') this.renderCalendario();
     else if (view === 'config') this.renderConfig();
     else if (view === 'map') {
       if (!this.currentSite) {
@@ -2014,7 +2017,7 @@ const App = monolite({
    serve a una cosa sola — estrarre e' SPOSTARE. Un metodo rimasto anche di
    qua verrebbe sovrascritto in silenzio, e da quel momento girerebbero due
    versioni della stessa maschera con una sola visibile. */
-for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampionamento, VistaMovimenta, VistaPosiziona, VistaSmaltimento, VistaPrelievo, VistaPercorso, VistaRapportoPrelievo, VistaInventario, VistaUdc, VistaProdottoFinito, VistaCaricoSpedizione, VistaWip, VistaQuarantena, VistaSpedizioni, VistaDocumento, VistaMappa, VistaGiacenze, VistaStampaEtichette, VistaConfigOperatori, VistaConfigSiti, VistaConfigArticoli, VistaConfigDati, VistaConfigurazione, VistaCruscotto, VistaRegistro, VistaArchivio, VistaRicerca]) {
+for (const vista of [VistaDestinatari, VistaParametri, VistaCompiti, VistaCampionamento, VistaMovimenta, VistaPosiziona, VistaSmaltimento, VistaPrelievo, VistaPercorso, VistaRapportoPrelievo, VistaInventario, VistaUdc, VistaProdottoFinito, VistaCaricoSpedizione, VistaWip, VistaQuarantena, VistaSpedizioni, VistaDocumento, VistaMappa, VistaGiacenze, VistaStampaEtichette, VistaConfigOperatori, VistaConfigSiti, VistaConfigArticoli, VistaConfigDati, VistaConfigurazione, VistaCruscotto, VistaRegistro, VistaArchivio, VistaCalendario, VistaRicerca]) {
   /* Qui si scrive per nome, e un nome non e' una chiave dichiarata: le due
      letture servono a questo e non aggiungono niente a runtime. */
   const dentro = App as unknown as Record<string, unknown>;

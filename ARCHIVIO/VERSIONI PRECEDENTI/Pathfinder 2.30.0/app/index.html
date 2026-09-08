@@ -13,7 +13,7 @@
      senza la firma un manifesto cambiato non arriverebbe mai al terminale.
      VUOLE HTTPS: su `http://` in LAN nessun browser installa niente, e la
      scheda Configurazione -> Sessione lo dice invece di restare muta. -->
-<link rel="manifest" href="/assets/chiosco.webmanifest?v=__VERSIONE__">
+<link rel="manifest" href="/assets/chiosco.webmanifest?v=2.30.0">
 <link rel="icon" type="image/png" sizes="192x192" href="/assets/pathfinder-192.png">
 <link rel="apple-touch-icon" href="/assets/pathfinder-192.png">
 <meta name="theme-color" content="#274C57">
@@ -21,7 +21,9 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Pathfinder">
-<title>Pathfinder __VERSIONE__ — © Andrea Sacchetti</title>
+<title>Pathfinder 2.30.0 — © Andrea Sacchetti</title>
+  <script type="module" crossorigin src="/assets/index-DEDbciSm.js"></script>
+  <link rel="stylesheet" crossorigin href="/assets/index-917XFQvL.css">
 </head>
 <body>
 <svg id="pfLogoSprite" width="0" height="0" style="position:absolute;overflow:hidden" aria-hidden="true" focusable="false">
@@ -137,7 +139,7 @@
     <div class="app-brand">
       <svg class="pf-logo pf-logo--light pf-logo-symbol" viewBox="0 0 120 120" role="img" aria-label="Pathfinder Warehouse Mapper"><use href="#pfLogoMark"/></svg>
       <svg class="pf-logo pf-logo--light pf-logo-word" viewBox="0 0 400 120" aria-hidden="true" focusable="false"><use href="#pfLogoWord"/></svg>
-      <span class="app-version">__VERSIONE__</span>
+      <span class="app-version">2.30.0</span>
     </div>
     <div class="app-center">
       <nav class="app-nav">
@@ -148,7 +150,6 @@
              -->
         <button class="nav-btn" data-view="tasks" onclick="App.switchView('tasks')" title="Attività"><span><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-list-numbers"/></svg></span><span class="nav-lbl">Attività</span></button>
         <button class="nav-btn" data-view="archive" onclick="App.switchView('archive')" title="Archivio documenti"><span><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-folders"/></svg></span><span class="nav-lbl">Archivio</span></button>
-        <button class="nav-btn" data-view="calendar" onclick="App.switchView('calendar')" title="Calendario delle spedizioni"><span><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-calendar-event"/></svg></span><span class="nav-lbl">Calendario</span></button>
       </nav>
       <!-- v2.7.0 [G2] — Ricerca in barra: il campo resta, i risultati scendono -->
       <div class="hdr-search" id="hdrSearch">
@@ -196,11 +197,6 @@
     <section class="view hidden" id="viewMovimenta"></section>
     <section class="view hidden" id="viewTasks"></section>
     <section class="view hidden" id="viewArchive"></section>
-    <!-- 2.34 — IL CALENDARIO DELLE SPEDIZIONI. Voce sua e non scheda di
-         Spedizioni: chi programma la settimana non sta movimentando merce,
-         e arrivarci passando da Movimenta vorrebbe dire attraversare la
-         maschera del magazzino per guardare un'agenda. -->
-    <section class="view hidden" id="viewCalendar"></section>
     <section class="view hidden" id="viewConfig"></section>
   </main>
 
@@ -211,14 +207,13 @@
     <button class="mob-tab" data-view="movimenta" onclick="App.switchView('movimenta')"><span><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-package"/></svg></span>Movim.</button>
     <button class="mob-tab" data-view="tasks" onclick="App.switchView('tasks')"><span><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-list-numbers"/></svg></span>Attività</button>
     <button class="mob-tab" data-view="archive" onclick="App.switchView('archive')"><span><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-folders"/></svg></span>Archivio</button>
-    <button class="mob-tab" data-view="calendar" onclick="App.switchView('calendar')"><span><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-calendar-event"/></svg></span>Agenda</button>
     <button class="mob-tab" data-view="config" onclick="App.switchView('config')"><span><svg class="ico" aria-hidden="true" focusable="false"><use href="#i-settings"/></svg></span>Conf.</button>
   </nav>
 
   <!-- Footer -->
   <footer class="app-footer">
     <span>© Andrea Sacchetti — Dietopack S.r.l. / Naturacare Group</span>
-    <span>Pathfinder __VERSIONE__</span>
+    <span>Pathfinder 2.30.0</span>
   </footer>
 
   <!-- Detail panel -->
@@ -241,7 +236,6 @@
 <input type="file" id="fileImportExcel" accept=".xlsx,.xls" style="display:none" onchange="App.handleImportExcel(event)">
 <!-- v2.5.0 — Import dell'ordine di produzione Sage X3 per il prelievo guidato -->
 <input type="file" id="fileImportOdp" accept=".xlsx,.xls" style="display:none" onchange="App.handleImportOdp(event)">
-
-<script type="module" src="/src/main.ts"></script>
+
 </body>
 </html>

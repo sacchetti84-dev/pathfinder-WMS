@@ -94,7 +94,51 @@
 .grid-cell.status-reserved:hover { filter: brightness(0.95); }
 .grid-cell.status-disabled { background: var(--sx-bg-alt); border-color: var(--sx-border); color: var(--sx-disabled); opacity: 0.55; cursor: not-allowed; }
 .grid-cell.status-disabled:hover { background: var(--sx-bg-alt); }
-.grid-cell.selected { border: 2px solid var(--sx-accent); box-shadow: 0 0 0 1px var(--sx-accent); z-index: 2; }
+/* ═══ 2.34 · LA CELLA SELEZIONATA SI DEVE LEGGERE DA UN METRO ═══════════
+   L'evidenziazione c'era dalla prima mappa — un bordo di due pixel — e in
+   una griglia dove ogni cella ha già un bordo colorato dal suo stato si
+   perdeva. Chi cliccava una cella e poi guardava il pannello laterale non
+   sapeva più quale aveva aperto, e in vista frontale, dove le celle sono
+   piccole, non si vedeva affatto.
+
+   TRE COSE INSIEME, perché una sola non basta su tutti gli stati: un alone
+   spesso che esce dal bordo (e non lo sostituisce, così lo stato resta
+   leggibile), un rialzo che stacca la cella dal piano, e un `outline` che
+   non partecipa al layout — quindi non sposta di un pixel le celle accanto,
+   che è il difetto per cui un'evidenziazione «più grossa» fa ballare la
+   griglia intera. */
+.grid-cell.selected,
+.front-cell.selected,
+.floor-pallet.selected {
+  outline: 3px solid var(--sx-accent);
+  outline-offset: 1px;
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--sx-accent) 25%, transparent);
+  z-index: 3;
+}
+
+/* IL RICHIAMO DI «VEDI IN MAPPA» — e la classe non esisteva.
+   `App._flashLocation` la aggiunge per 1400 ms su ogni elemento
+   `[data-loc]` dalla 1.10, ma nessun foglio l'ha mai definita: il richiamo
+   visivo non c'è mai stato, e restava il solo `scrollIntoView`. Chi arrivava
+   da «Vedi in mappa» si trovava davanti alla corsia giusta senza sapere
+   quale delle quaranta celle fosse la sua. Trovata leggendo la mappa il
+   21/09; ha attraversato ventiquattro versioni. */
+@keyframes loc-cell-flash {
+  0%, 100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--sx-accent) 60%, transparent); }
+  50%      { box-shadow: 0 0 0 10px color-mix(in srgb, var(--sx-accent) 0%, transparent); }
+}
+.loc-cell--flash {
+  animation: loc-cell-flash 700ms ease-out 2;
+  outline: 3px solid var(--sx-accent);
+  outline-offset: 1px;
+  z-index: 4;
+}
+/* Chi ha chiesto meno animazioni riceve l'evidenziazione ferma, non niente:
+   il richiamo serve a dire QUALE cella, e toglierlo del tutto toglierebbe
+   l'informazione insieme al movimento. */
+@media (prefers-reduced-motion: reduce) {
+  .loc-cell--flash { animation: none; }
+}
 .item-count { position: absolute; top: -5px; right: -5px; background: var(--sx-primary); color: #fff; font-size: var(--md-sys-typescale-label-small-size); padding: 1px 4px; border-radius: 99px; font-weight: 700; }
 
 /* 2.1 — LE UNITÀ DI CARICO DENTRO IL VANO.
@@ -167,7 +211,7 @@
 .front-cell.s-blocked { background: var(--sx-danger-soft); color: var(--sx-danger); border: 1px solid var(--sx-danger); }
 .front-cell.s-reserved { background: var(--sx-warning-soft); color: var(--sx-warning); border: 1px solid var(--sx-warning); }
 .front-cell.s-disabled { background: var(--sx-bg-alt); color: var(--sx-disabled); }
-.front-cell.selected { box-shadow: 0 0 0 2px var(--sx-primary); z-index: 2; }
+/* 2.34 — l'evidenziazione delle tre grammatiche sta in un posto solo, sopra. */
 .fc-badge { position: absolute; top: -4px; right: -4px; background: var(--sx-primary); color: #fff; font-size: var(--md-sys-typescale-label-small-size); padding: 0px 3px; border-radius: 99px; }
 .front-bay-labels { display: flex; padding-left: 18px; gap: 2px; margin-top: 2px; }
 .front-bay-label { flex: 1; font-size: var(--md-sys-typescale-label-small-size); color: var(--sx-text-muted); text-align: center; font-family: var(--mono); }
@@ -190,7 +234,7 @@
 .floor-pallet.fp-blocked { background: var(--sx-danger-soft); border-color: var(--sx-danger); color: var(--sx-danger); }
 .floor-pallet.fp-reserved { background: var(--sx-warning-soft); border-color: var(--sx-warning); color: var(--sx-warning); }
 .floor-pallet.fp-disabled { background: var(--sx-bg-alt); color: var(--sx-disabled); }
-.floor-pallet.selected { box-shadow: 0 0 0 2px var(--sx-primary); z-index: 2; }
+/* 2.34 — vedi sopra: `.grid-cell.selected, .front-cell.selected, .floor-pallet.selected`. */
 .fp-code { font-weight: 700; font-size: var(--md-sys-typescale-label-small-size); }
 .fp-sub { font-size: var(--md-sys-typescale-label-small-size); opacity: 0.85; }
 .fp-badge { position: absolute; top: 2px; right: 2px; background: var(--sx-primary); color: #fff; font-size: var(--md-sys-typescale-label-small-size); padding: 0 3px; border-radius: 99px; }
@@ -1391,3 +1435,48 @@ body.detail-open .app-main { padding-right: var(--detail-w); }
   .wip-cerca > #wipCerca { flex: 1 0 100%; }
   .wip-cerca > #wipOrd { flex: 1 1 auto; width: auto; }
 }
+
+/* ═══ 2.34 · IL CALENDARIO DELLE SPEDIZIONI ═════════════════════════════
+   Sette colonne uguali, e le caselle crescono con la finestra invece di
+   avere un'altezza fissa: su un terminale da 4,3" un mese con altezza fissa
+   esce dallo schermo, e chi programma la settimana lo guarda comunque da un
+   monitor. La griglia si stringe, le caselle no. */
+.cal-griglia {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 4px;
+}
+.cal-testata {
+  text-align: center;
+  font-weight: 700;
+  font-size: var(--md-sys-typescale-label-small-size);
+  color: var(--sx-text-secondary);
+  padding: 4px 0;
+  text-transform: uppercase;
+}
+.cal-casella {
+  min-height: 74px;
+  border: 1px solid var(--sx-border);
+  border-radius: var(--sx-radius-sm);
+  background: var(--sx-card);
+  padding: 4px 5px;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.cal-casella[onclick] { cursor: pointer; }
+.cal-casella[onclick]:hover { border-color: var(--sx-primary); }
+.cal-numero { font-weight: 700; font-size: var(--md-sys-typescale-label-small-size); }
+/* I giorni delle code — mese precedente e seguente — restano leggibili ma
+   arretrano: servono a orientarsi, non a essere letti. */
+.cal-fuori { background: var(--sx-bg-alt); opacity: 0.55; }
+.cal-oggi { border: 2px solid var(--sx-accent); }
+.cal-conto { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; }
+.cal-colli { font-size: var(--md-sys-typescale-label-small-size); color: var(--sx-text-secondary); }
+/* I colori sono quelli degli avvisi del cruscotto, e non un secondo
+   linguaggio: un giorno che lì è «in ritardo» non può essere verde qui. */
+.cal-overdue { background: var(--sx-danger-soft); border-color: var(--sx-danger); }
+.cal-today   { background: var(--sx-danger-soft); border-color: var(--sx-danger); }
+.cal-tomorrow{ background: var(--sx-warning-soft); border-color: var(--sx-warning); }
+.cal-soon    { background: var(--sx-warning-soft); border-color: var(--sx-warning); }
+.cal-ok      { background: var(--sx-success-soft); border-color: var(--sx-success); }

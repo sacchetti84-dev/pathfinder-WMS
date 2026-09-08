@@ -15,6 +15,63 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.34.0 — 2026-09-21
+
+**The delivery note starts the work instead of ending it.**
+
+Five slices (2.30 through 2.34), shipped together because the first alone is
+invisible and the last alone does not stand up.
+
+Until now a picking round created the delivery note: the operator scanned the
+goods, the cart became a document, and the document closed the task. Whoever
+in the office knew what had to ship had no way of saying so except by walking
+down and saying it. Now the clerk registers the note and the task is born from
+that gesture.
+
+**2.30 — foundations.** `startPickSession` used to `clear` the collection and
+then `put`: starting a route silently closed everyone else's. That held while
+a round was born from a file loaded by one person; with tasks taken by
+different people it deletes a colleague's work. `pick_session` is a list now.
+That raised a distinction that did not exist before: `operator` is who picks,
+`owner` is who opened — the first is editable, and looking up your own session
+by it would mean a team leader who starts a round on someone else's name can
+never find it again. Plus `pack_zone`, one per site, and quarantine requests
+that no longer wait their turn.
+
+**2.31 — shipment preparation.** A preparation stop **moves** the goods rather
+than removing them, and that is not a convenience: a pending note reserves the
+stock and the dispatch removes it, so removing at pick time would remove it
+twice and the second attempt would find an empty bin. A load-unit stop is
+confirmed with **a single scan** — on a wrapped pallet the article and lot are
+under the film, and asking for them means asking to open the wrapping to
+confirm you don't have to. `PREP_SHIP` replaces `PICK_SHIP` and `PICK_RET`,
+which stay **declared** because the archive carries them.
+
+**2.32 — production picking as a task.** The bill of materials is attached to
+the request and lives on the service. Not the already-parsed rows, which would
+be simpler: when something doesn't add up the question is always *what did the
+file say*, and parsed rows are already an interpretation.
+
+**2.33 — load units become contextual.** The pallet label **stated the
+opposite of the truth**: the unit was created before the goods, so the summary
+read zero lots and the label printed "MULTIPLE LOTS — 0 lots" on a pallet
+carrying one. An empty label is visible; one that contradicts itself is not.
+The unit is now born inside the packing zone with its goods on it. The
+location stays off the label — what was missing was never the bin.
+
+**2.34 — calendar and map.** A shipping calendar on the expected pickup date,
+using the dashboard's own alert colours. And the selected map cell, which used
+to be a two-pixel border in a grid where every cell already has a coloured
+border from its state.
+
+**Six defects found along the way, none of them by re-reading code at a
+desk** — including a CSS class referenced since 1.10 and never defined, and a
+document field written since 1.8 and never declared.
+
+1,652 client tests in 68 files, plus 362 on the service and benches.
+
+---
+
 ## 2.30.0 — 2026-09-08
 
 **Foundations: picking sessions stop being a singleton.**

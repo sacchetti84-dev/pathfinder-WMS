@@ -13,7 +13,7 @@ import { decimali as decimaliUom, formattaQuantita } from '../../modules/misure'
 import { componi, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
 import type { Colonna, Stato } from '../../modules/tabella';
 import {
-  ePf, riepiloga, bancaliImpegnati, descriviContenuto, ETICHETTE_STATO, zonePf,
+  ePf, riepiloga, bancaliImpegnati, descriviContenuto, ETICHETTE_STATO, zonePf, zoneImballo,
   spedizioniDiBancale,
 } from '../../modules/bancale';
 import type { RiepilogoBancale } from '../../modules/bancale';
@@ -516,38 +516,81 @@ export const VistaProdottoFinito = {
 
   /* ── La chiusura: il bancale nasce, e l'etichetta esce ───────────────── */
 
-  /* IL BANCALE NASCE PRIMA DELL'UBICAZIONE, e non è una svista: l'etichetta
-     deve uscire mentre il pallet è ancora al banco d'imballo, e il vano lo
-     scansiona chi lo posa — un minuto dopo, dall'altra parte del reparto. Il
-     record nasce SENZA ubicazione, che è uno stato che `assegnaAUdc` già
-     conosce dalla 1.12, e la merce entra solo quando il vano si scansiona.
+  /* ═══ 2.33 · IL BANCALE NASCE IN ZONA IMBALLAGGIO, E L'ETICHETTA DICE IL VERO ══
 
-     Abbandonare qui lascia un bancale etichettato e vuoto: si vede in cima
-     all'elenco e si butta con un pulsante. Merce che il sistema non sa di
-     avere non ne lascia. */
+     FINO ALLA 2.32 L'ETICHETTA DICHIARAVA IL FALSO, e non per un campo che
+     mancava. Il bancale nasceva senza ubicazione e senza merce — le righe
+     entravano dopo, alla scansione del vano — quindi `riepiloga` leggeva
+     zero partite e `CAMPI_PF.articolo` stampava letteralmente
+     «LOTTI MULTIPLI — 0 partite» su un pallet che ne portava una sola.
+     Un'etichetta vuota si vede; una che dichiara il contrario del vero no.
+
+     La ragione di allora era buona: l'etichetta deve uscire mentre il pallet
+     è ancora al banco d'imballo, e il vano lo scansiona chi lo posa un
+     minuto dopo. Ma quel «dopo» era un'attesa senza motivo — il banco
+     d'imballo È un posto, e dalla 2.30 il sistema sa quale: `pack_zone`.
+     Il bancale ci nasce dentro, con la merce sopra, e l'etichetta esce
+     completa. Poi in spedizioni ci va con un normale trasferimento.
+
+     L'UBICAZIONE RESTA FUORI DALL'ETICHETTA — §8. Quel che mancava non era
+     il vano: era sapere che cosa c'è sopra, e adesso si sa. Il vano cambierà
+     appena il pallet si sposta, e un'etichetta che lo nomina diventa una
+     bugia incollata al legno.
+
+     SENZA ZONA DI IMBALLAGGIO SI TORNA AL GIRO DI PRIMA, in due tempi.
+     Bloccare la produzione perché una zona non è marcata sarebbe un vincolo
+     formale pagato da chi imballa: si avvisa, e si lascia lavorare. */
   async _pfChiudiBancale() {
     const b = this._pfBozza;
     if (!b || !b.righe.length || b.fase !== 'partite') return;
     if (!this._requireOperator('la chiusura di un bancale')) return;
     b.odp_num = Validate.clean($('pfOdp')?.value, true);
 
+    const zona = zoneImballo(Store.getSites())[0] || null;
+    const vanoImballo = zona ? this._pfVanoDiZona(zona) : '';
+
     let udc: Udc;
     try {
       udc = await Store.createUdc({
         type: 'pallet', kind: 'pf', odp_num: b.odp_num,
         model_code: b.model_code || this._pfModelloDelBancale(b),
+        ...(vanoImballo ? { site_id: zona!.sito.id, location_code: vanoImballo } : {}),
       });
     } catch (e) {
       return this.toast((e as Error).message || 'Non è stato possibile creare il bancale', 'error');
     }
     b.udc_id = udc.udc_id;
-    b.fase = 'ubicazione';
-    b.location_code = this._pfProponiUbicazione();
-    this.updateSyncIndicator();
-    this._formProdottoFinito($('movFormArea'));
-    /* L'etichetta esce SUBITO: un bancale senza etichetta è un bancale che
-       nessuno può scansionare, e il vano si scansiona dopo averlo posato. */
+
+    if (!vanoImballo) {
+      /* La strada di prima: due tempi, e l'etichetta si ristampa dal vano. */
+      b.fase = 'ubicazione';
+      b.location_code = this._pfProponiUbicazione();
+      this.updateSyncIndicator();
+      this._formProdottoFinito($('movFormArea'));
+      this.toast('Nessuna zona di imballaggio dichiarata: si posa il bancale e si ristampa l\'etichetta dal vano.', 'warning');
+      this._pfEtichetta(udc.udc_id);
+      return;
+    }
+
+    /* LA MERCE ENTRA ADESSO, ed è tutta la differenza: `_pfEtichetta` legge
+       `righeDiUdc`, e quelle righe devono esistere PRIMA che la stampa parta. */
+    b.location_code = vanoImballo;
+    await this._pfDeposita(b, vanoImballo);
     this._pfEtichetta(udc.udc_id);
+  },
+
+  /** Il vano dove posare un bancale dentro una zona marcata.
+      Libero se ce n'è uno, altrimenti il primo utilizzabile: lo spazio del
+      banco d'imballo non si conta — §8, `pack_zone`. */
+  _pfVanoDiZona(zona) {
+    let ripiego = '';
+    for (const u of Store.generateLocations(zona.sito.id, zona.zona.id)) {
+      const stato = Store.getLocationStatus(u.code);
+      if (stato === 'blocked' || stato === 'disabled') continue;
+      if (!Store.getItemsAtLocation(u.code).length) return u.code;
+      if (!ripiego) ripiego = u.code;
+    }
+    return ripiego;
   },
 
   /** Il modello che questo bancale porta scritto sopra: quello dell'articolo
@@ -632,6 +675,18 @@ export const VistaProdottoFinito = {
     } catch (e) {
       return this.toast((e as Error).message || `Non è stato possibile posizionare ${b.udc_id}`, 'error');
     }
+    await this._pfDeposita(b, loc);
+  },
+
+  /* ═══ 2.33 · LA MERCE SALE SUL BANCALE, in un posto solo ══════════════
+     Prima stava dentro `_pfPosiziona`, ed era l'unica strada. Dalla 2.33 le
+     strade sono due — la chiusura in zona imballaggio, e il posizionamento a
+     mano quando quella zona non c'è — e devono fare la stessa identica cosa:
+     scrivere le righe, timbrare il versamento di produzione, legarle
+     all'unità, imparare il modello di carico. Due copie di questo ciclo
+     sarebbero due modi di far nascere un bancale, e il secondo dimenticherebbe
+     l'apprendimento del modello il giorno che qualcuno lo tocca. */
+  async _pfDeposita(b, loc) {
     await this._logMov(MOV.UDC, '', '', '', loc, null, '',
       `Bancale di prodotto finito ${b.udc_id}${b.odp_num ? ` — ordine ${b.odp_num}` : ''}`);
 
