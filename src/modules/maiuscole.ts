@@ -87,6 +87,11 @@ const FORME_CODICE: readonly RegExp[] = [
    elenchi con i campi che le viste dichiarano davvero, e un campo nuovo che
    non sta ne' di qua ne' di la' fa suonare il collaudo. */
 const CAMPI_TESTO: ReadonlySet<string> = new Set([
+  /* 2.32 — il campo che sceglie la distinta: e' un <input type="file">, e il
+     suo valore e' un percorso che il browser scrive e nessuno legge.
+     Maiuscolarlo non avrebbe senso, ma la rete pretende una DECISIONE per
+     ogni campo, e «non si tocca» e' una decisione. */
+  'ntOdpFile',
   /* RICERCHE — cercano anche nelle descrizioni, e una descrizione
      maiuscolata non si trova piu'. */
   'arcText', 'artFilterInput', 'cpQuery', 'ntArticle', 'opCerca',

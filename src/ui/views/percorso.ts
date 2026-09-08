@@ -242,6 +242,18 @@ export const VistaPercorso = {
     const file = event.target.files?.[0];
     event.target.value = '';                     // consente di ricaricare lo stesso file
     if (!file) return;
+    await this._routeLeggiFile(file);
+  },
+
+  /* 2.32 — LA LETTURA DI UNA DISTINTA, separata da chi gliela porta.
+     Fino alla 2.31 il file arrivava da un solo posto: l'input della
+     maschera. Dalla 2.32 ne arriva anche un secondo — l'allegato di
+     un'attività, scaricato dal servizio — e le due strade devono finire
+     nello stesso identico posto: stesse convalide, stessi rifiuti, stesso
+     riscontro. Due letture della stessa distinta sono due parser che fra un
+     mese diranno cose diverse. */
+  async _routeLeggiFile(file) {
+    if (!file) return;
     if (!/\.xlsx?$/i.test(file.name)) {
       return this.toast('Formato non valido · Caricare il file .xlsx esportato da Sage X3', 'error');
     }
@@ -2216,6 +2228,49 @@ export const VistaPercorso = {
       this._renderRouteRun($('pickSubForm'));
     } catch (err) {
       this.toast(`L'unit\u00e0 non e' nata \u00b7 ${(err as Error).message}`, 'error');
+    }
+  },
+
+  /* ═══ 2.32 · PRENDERE IN CARICO UN PRELIEVO ODP ═══════════════════════
+     La distinta è già allegata alla richiesta: si scarica dal servizio e si
+     apre nella scheda del prelievo automatico, esattamente come se
+     l'operatore l'avesse appena caricata a mano.
+
+     IL PERCORSO NON SI AVVIA DA SOLO, e non è una dimenticanza. Fra la
+     distinta letta e il giro in corsia c'è la configurazione — quale
+     magazzino è casa, quali ordini stanno insieme, se una quantità va
+     ricalibrata — e quelle decisioni le prende chi scende, guardando il
+     magazzino di adesso e non quello di quando la richiesta è stata scritta.
+     Qui si toglie il passaggio a voce, non il mestiere. */
+  async _odpAvvia(t) {
+    const p = (t?.payload || {}) as Record<string, unknown>;
+    const id = String(p.allegato || '');
+    if (!id) {
+      return this.toast('Questa attività non porta nessuna distinta: chi l\'ha chiesta non l\'ha allegata.', 'error');
+    }
+    this._routeStage = 'import';
+    this._pickSubMode = 'ordine';
+    this.switchView('movimenta');
+    this.startMov('pick');
+    await new Promise((r) => setTimeout(r, 200));
+    this._pickSub('ordine');
+    await new Promise((r) => setTimeout(r, 200));
+
+    try {
+      const risposta = await fetch(`/api/allegati/${encodeURIComponent(id)}`, { credentials: 'same-origin' });
+      if (!risposta.ok) {
+        throw new Error(risposta.status === 404
+          ? 'la distinta non è più sul servizio'
+          : `il servizio ha risposto ${risposta.status}`);
+      }
+      const buf = await risposta.arrayBuffer();
+      const nome = String(p.allegato_nome || 'distinta.xlsx');
+      await this._routeLeggiFile(new File([buf], nome, {
+        type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      }));
+      this.toast(`Distinta ${nome} caricata — configura il percorso e avvia`, 'success');
+    } catch (err) {
+      this.toast(`La distinta non si è aperta · ${(err as Error).message}`, 'error');
     }
   },
 

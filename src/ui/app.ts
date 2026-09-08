@@ -125,6 +125,8 @@ interface DalleViste {
   startMov(mode: string, dir?: string | null): void;
   _goOp(mode: string, sub?: string | null): void;
   _prepAvvia(t: unknown): Promise<void>;
+  _odpAvvia(t: unknown): Promise<void>;
+  _routeLeggiFile(file: File): Promise<void>;
   _formSpedizioni(el: HTMLElement): void;
   _checkPendingPickSession(): Promise<void>;
   _flushRecoveryQueue(): Promise<void>;

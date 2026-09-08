@@ -600,6 +600,11 @@ const ROTTE_DI_IMPORT = [
   '/api/tx',
   '/api/clear',
   '/api/deleteWhere/:col',
+  /* 2.32 — l'allegato di un prelievo ODP viaggia in base64 dentro il JSON:
+     un .xlsx da otto megabyte ne fa undici scritto cosi', e il parser di
+     serie si ferma a due. Il commento qui sopra lo dice: chi aggiunge una
+     rotta che riceve corpi grandi la aggiunge anche qui. */
+  '/api/allegati',
 ];
 app.use(ROTTE_DI_IMPORT, express.json({ limit: '256mb' }));
 app.use(express.json({ limit: '2mb' }));
@@ -2009,6 +2014,70 @@ app.post('/api/backup', wrap(async (req, res) => {
   const byte = fs.statSync(dest).size;
   registro.info('backup.fatto', `${path.basename(dest)} — ${byte} byte`);
   res.json({ ok: true, file: dest, bytes: byte });
+}));
+
+/* ═══ 2.32 · GLI ALLEGATI: L'XLS CHE IL COMPITO NON PUO' PORTARSI ═══════
+   Un'attivita' di prelievo ODP nasce allegando la distinta. Il file non puo'
+   stare dentro il compito: un ODP grande e' centinaia di kilobyte, e un
+   record di `tasks` viene riletto a ogni caricamento della coda da ogni
+   terminale del magazzino. Sta su disco, accanto al database, e il compito
+   ne porta il solo identificativo.
+
+   PERCHE' NON SI CONSERVANO LE RIGHE GIA' LETTE, che sarebbe piu' semplice:
+   quando qualcosa non torna, la domanda e' sempre «che cosa c'era scritto
+   nel file». Le righe lette sono gia' un'interpretazione — il parser sceglie
+   le colonne, converte le date, arrotonda le quantita' — e conservare
+   l'interpretazione al posto della fonte vuol dire non poter piu' rispondere.
+
+   L'IDENTIFICATIVO LO FA IL SERVIZIO, e non arriva dalla richiesta. Un nome
+   scelto dal client e' un percorso scelto dal client: `../../` dentro un
+   nome di file scrive dove non deve. Qui il nome e' esadecimale e nient'altro,
+   e il controllo lo rifa' anche in lettura — chi passa di li' con una chiave
+   inventata riceve un 400, non un file di sistema.
+
+   NIENTE MULTIPART. Il corpo arriva come base64 dentro il JSON che i due
+   parser gia' montati sanno leggere: aggiungere `multer` per una rotta sola
+   vorrebbe dire una dipendenza in piu' su una macchina di magazzino, e
+   questo progetto quella strada non la prende (vedi `crea-certificato.ps1`
+   e il perche' di `openssl`). */
+const DIR_ALLEGATI = path.join(path.dirname(DB_FILE), 'allegati');
+const ALLEGATO_MAX = 8 * 1024 * 1024;
+const NOME_ALLEGATO = /^[0-9a-f]{32}\.xlsx$/;
+
+app.post('/api/allegati', wrap(async (req, res) => {
+  const b64 = String(req.body?.contenuto || '');
+  if (!b64) throw Object.assign(new Error('Nessun contenuto'), { status: 400 });
+  const byte = Buffer.from(b64, 'base64');
+  if (!byte.length) throw Object.assign(new Error('Contenuto illeggibile'), { status: 400 });
+  if (byte.length > ALLEGATO_MAX) {
+    throw Object.assign(new Error(`Il file supera ${Math.round(ALLEGATO_MAX / 1024 / 1024)} MB`), { status: 413 });
+  }
+  /* UN .xlsx E' UNO ZIP, e uno zip comincia per `PK`. Non e' una convalida
+     del formato — quella la fa il parser quando il file si apre — ma
+     impedisce che un allegato che non e' nemmeno un archivio resti li' a
+     far fallire una presa in carico fra tre giorni. */
+  if (byte[0] !== 0x50 || byte[1] !== 0x4b) {
+    throw Object.assign(new Error('Non sembra un file .xlsx'), { status: 400 });
+  }
+  fs.mkdirSync(DIR_ALLEGATI, { recursive: true });
+  const nome = crypto.randomBytes(16).toString('hex') + '.xlsx';
+  fs.writeFileSync(path.join(DIR_ALLEGATI, nome), byte);
+  registro.info('allegato.salvato', `${nome} — ${byte.length} byte`);
+  res.json({ ok: true, id: nome, bytes: byte.length });
+}));
+
+app.get('/api/allegati/:id', wrap(async (req, res) => {
+  const id = String(req.params.id || '');
+  if (!NOME_ALLEGATO.test(id)) {
+    throw Object.assign(new Error('Identificativo non valido'), { status: 400 });
+  }
+  const file = path.join(DIR_ALLEGATI, id);
+  if (!fs.existsSync(file)) {
+    throw Object.assign(new Error('Allegato non trovato'), { status: 404 });
+  }
+  res.set('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+  res.set('Cache-Control', 'no-store');
+  res.send(fs.readFileSync(file));
 }));
 
 const noCache = (res) => res.set('Cache-Control', 'no-cache');

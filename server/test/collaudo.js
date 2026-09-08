@@ -1267,6 +1267,90 @@ const call = async (metodo, url, corpo, cliente = 'T1', { senzaChiave = false } 
      credenziale !== null && /aspettare non serve/.test(credenziale.message),
      credenziale ? credenziale.message : 'non ha lanciato');
 
+  /* ═══ 2.32 · GLI ALLEGATI ════════════════════════════════════════════
+     Un'attivita' di prelievo ODP nasce allegando la distinta: il file sta su
+     disco accanto al database, e il compito ne porta il solo
+     identificativo. Le prove qui sotto provano a farci scrivere dove non
+     deve e a farci leggere quel che non deve.
+
+     LA PRIMA E' QUELLA CHE CONTA. Un nome scelto da chi chiama e' un
+     percorso scelto da chi chiama: `../../qualcosa` dentro un nome di file
+     scrive fuori dalla cartella. Qui l'identificativo lo fa il servizio, ed
+     e' esadecimale e nient'altro — ma il controllo si rifa' anche in
+     lettura, perche' una rotta che si fida della sua stessa convenzione e'
+     una rotta che si fida di chi la chiama. */
+  const PK = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+  const xlsFinto = Buffer.concat([PK, Buffer.from('un finto xlsx di collaudo')]);
+
+  const salvaAllegato = await call('POST', '/api/allegati', { contenuto: xlsFinto.toString('base64') });
+  ok('un allegato si salva e torna il suo identificativo',
+     salvaAllegato.stato === 200 && /^[0-9a-f]{32}\.xlsx$/.test(salvaAllegato.dati?.id || ''),
+     `stato ${salvaAllegato.stato} · id ${salvaAllegato.dati?.id}`);
+  ok('e il servizio dichiara quanti byte ha scritto',
+     salvaAllegato.dati?.bytes === xlsFinto.length, `${salvaAllegato.dati?.bytes} su ${xlsFinto.length}`);
+
+  const riletto = await fetch(BASE + '/api/allegati/' + salvaAllegato.dati.id,
+                              { headers: { 'X-Pathfinder-Token': TOKEN } });
+  const byteRiletti = Buffer.from(await riletto.arrayBuffer());
+  ok('e si rilegge byte per byte, non «piu\' o meno»',
+     riletto.status === 200 && byteRiletti.equals(xlsFinto),
+     `stato ${riletto.status} · ${byteRiletti.length} byte`);
+
+  /* LA PROVA CHE MORDE PUNTA A UN FILE CHE C'E' DAVVERO. Gli allegati
+     stanno in `<cartella del database>/allegati`: un `../` di troppo arriva
+     al DATABASE, che e' li' accanto. Chiedere `../qualcosa-che-non-esiste`
+     darebbe 404 anche senza nessun controllo, e una prova che passa perche'
+     il bersaglio non c'e' non ha provato niente. */
+  const nomeDb = require('path').basename(TMP);
+  const traversate = [
+    `../${nomeDb}`,                        // il database, un livello sopra
+    `..%2f${nomeDb}`,                      // lo stesso, con la barra codificata
+    `..%252f${nomeDb}`,                    // e con la codifica doppia
+    `....//${nomeDb}`,                     // il trucco che sopravvive a un replace ingenuo
+    nomeDb,                                // senza uscire, ma non e' un allegato
+    'ABCDEF.xlsx',                         // forma giusta, caratteri sbagliati
+    '0123456789abcdef0123456789abcdef.db', // nome giusto, estensione sbagliata
+  ];
+  for (const storto of traversate) {
+    const r = await fetch(BASE + '/api/allegati/' + encodeURIComponent(storto),
+                          { headers: { 'X-Pathfinder-Token': TOKEN } });
+    const corpo = r.ok ? Buffer.from(await r.arrayBuffer()) : Buffer.alloc(0);
+    /* Non basta lo stato: si guarda che NON siano usciti byte di database.
+       Un `200` con dentro l'intestazione `SQLite format 3` sarebbe il magazzino
+       intero servito da una rotta di allegati. */
+    const eUnDatabase = corpo.length > 15 && corpo.subarray(0, 15).toString() === 'SQLite format 3';
+    ok(`un identificativo storto non legge niente — ${storto}`,
+       (r.status === 400 || r.status === 404) && !eUnDatabase,
+       `stato ${r.status}${eUnDatabase ? ' — HA SERVITO IL DATABASE' : ''}`);
+  }
+
+  const allegatoAssente = await fetch(BASE + '/api/allegati/' + 'f'.repeat(32) + '.xlsx',
+                               { headers: { 'X-Pathfinder-Token': TOKEN } });
+  ok('un allegato che non c\'e\' risponde 404, non un file vuoto',
+     allegatoAssente.status === 404, `stato ${allegatoAssente.status}`);
+
+  const allegatoVuoto = await call('POST', '/api/allegati', { contenuto: '' });
+  ok('un allegato senza contenuto si rifiuta con 400', allegatoVuoto.stato === 400, `stato ${allegatoVuoto.stato}`);
+
+  /* UN .xlsx E' UNO ZIP, e uno zip comincia per `PK`. Non convalida il
+     formato — quello lo fa il parser — ma impedisce che un file che non e'
+     nemmeno un archivio resti li' a far fallire una presa in carico fra tre
+     giorni, quando nessuno si ricordera' piu' che cosa era stato allegato. */
+  const nonZip = await call('POST', '/api/allegati',
+                            { contenuto: Buffer.from('questo e testo, non uno zip').toString('base64') });
+  ok('quel che non e nemmeno un archivio non si accetta',
+     nonZip.stato === 400, `stato ${nonZip.stato}`);
+
+  const allegatoEnorme = await call('POST', '/api/allegati',
+                            { contenuto: Buffer.concat([PK, Buffer.alloc(9 * 1024 * 1024)]).toString('base64') });
+  ok('un allegato oltre il tetto si rifiuta invece di riempire il disco',
+     allegatoEnorme.stato === 413, `stato ${allegatoEnorme.stato}`);
+
+  const allegatoSenzaChiave = await call('POST', '/api/allegati',
+                                   { contenuto: xlsFinto.toString('base64') }, 'T1', { senzaChiave: true });
+  ok('e la rotta degli allegati sta dietro alla porta come le altre',
+     allegatoSenzaChiave.stato === 401, `stato ${allegatoSenzaChiave.stato}`);
+
   // ── Chiusura ──────────────────────────────────────────────────────
   console.log(`\n  ${passate} passate, ${fallite} fallite\n`);
   server.close();

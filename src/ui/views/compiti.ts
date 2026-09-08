@@ -10,7 +10,7 @@ import {
   TIPI_COMPITO, PRIORITA_NORMALE, PRIORITA_MAX_OPERATORE,
   etichettaTipo, iconaTipo, etichettaPriorita, etichettaStato,
   eAperto, misure, inRitardo, durataUmana,
-  operazioneDi, vuoleColli, vuoleUbicazione, vuoleDestinazione,
+  operazioneDi, vuoleColli, vuoleUbicazione, vuoleDestinazione, vuoleArticolo,
   quantitaRichiesta, quantitaFatta, residuo, tipiRichiedibili,
 } from '../../modules/compiti';
 
@@ -21,6 +21,12 @@ import {
    che le otto maschere usano davvero — tutti facoltativi, perché un
    trasferimento non ha `sample_for` e un campionamento non ha `to`. */
 type PayloadCompito = {
+  /* 2.32 — la distinta allegata a un prelievo ODP: il servizio la tiene, e
+     qui resta il solo identificativo. Il nome originale si conserva accanto
+     perche' chi apre l'attivita' fra tre giorni deve poter dire QUALE file
+     era, e un nome esadecimale non lo dice a nessuno. */
+  allegato?: string;
+  allegato_nome?: string;
   article_code?: string;
   lot_code?: string;
   location_code?: string;
@@ -476,6 +482,7 @@ export const VistaCompiti = {
            chi la prende in mano. Il Posizionamento fa eccezione, e per forza —
            la sua merce a magazzino non c'e' ancora. -->
       <div class="mb-6" id="ntDisp"></div>
+      <div id="ntMerceRow">
       <div class="form-row mb-6">
         <div class="form-group"><label id="ntFromLabel">Da (ubicazione)</label>
           <div class="flex gap-3">
@@ -488,6 +495,7 @@ export const VistaCompiti = {
             <button class="btn btn-sm" type="button" onclick="App._pickLoc('ntTo')" title="Sfoglia le ubicazioni">${this._ico('map-pin')}</button>
           </div></div>
       </div>
+      </div>
       <!-- Il DDT vuole destinatario, vettore e causale, e li sa chi CHIEDE la
            spedizione: l'operatore che preleva non deve indovinarli. Compaiono
            solo per i due prelievi, e per nessun altro tipo.
@@ -496,6 +504,26 @@ export const VistaCompiti = {
            del DOCUMENTO, e il documento lo pretende alla registrazione, che
            e' il momento in cui si sa. Preteso alla richiesta, blocca l'unica
            cosa che a quel punto serve — mettere il lavoro in coda. -->
+      <!-- 2.32 — LA DISTINTA SI ALLEGA ALLA RICHIESTA.
+           Un'attivita' di prelievo ODP che non porta il file direbbe solo un
+           numero d'ordine, e chi la prende in carico dovrebbe andarselo a
+           cercare: e' il passaggio a voce che questa attivita' esiste per
+           togliere. Il file sale al servizio e resta li'; il compito ne porta
+           il riferimento.
+           NASCE NASCOSTA CON LA CLASSE, non con lo stile: uno stile in riga
+           non batte una classe, ed e' il difetto del 24/08 — vedi
+           _ntTypeChanged e test/maschera-attivita.test.js. -->
+      <div class="hidden mb-6" id="ntOdpRow">
+        <div class="form-group">
+          <label>Distinta dell&rsquo;ordine <span class="req">*</span></label>
+          <input class="input" id="ntOdpFile" type="file" accept=".xlsx,.xls">
+          <div class="text-label-small text-sx-text-muted mt-2">
+            Lo stesso file che si caricherebbe in Prelievo automatico. Chi prende in
+            carico l&rsquo;attivit&agrave; se lo ritrova gi&agrave; aperto: la merce la
+            dice la distinta, riga per riga, e non chi chiede.
+          </div>
+        </div>
+      </div>
       <div class="hidden mb-6" id="ntDdtRow">
         <div class="form-row mb-4">
           <div class="form-group"><label>Destinatario</label>
@@ -562,6 +590,10 @@ export const VistaCompiti = {
     };
     mostra('ntSamplingRow', tipo === 'SAMPLING');
     mostra('ntDdtRow', tipo === 'PICK_SHIP' || tipo === 'PICK_RET');
+    /* 2.32 — la distinta si allega qui, e le righe della giacenza spariscono:
+       su un prelievo ODP la merce la dice il file, non chi chiede. */
+    mostra('ntOdpRow', tipo === 'PICK_ODP');
+    mostra('ntMerceRow', vuoleArticolo(tipo));
     /* Lo Smaltimento scarica il magazzino e non porta niente da nessuna
        parte: il campo «A» lì non è di troppo, è fuorviante. Si SVUOTA oltre
        a nascondersi, perché `doCreateTask` legge il campo e non la sua
@@ -676,8 +708,15 @@ export const VistaCompiti = {
        lo si dice PRIMA: un'attività senza articolo o senza colli è un'attività
        che chi la prende in mano non sa eseguire. Le regole per tipo stanno in
        `modules/compiti.ts`. */
-    if (!val('ntArticle')) return err('Scegliere l\'articolo fra le giacenze: l\'attività deve dire su che cosa si lavora.');
-    if (!val('ntLot')) return err('Scegliere una delle disponibilità proposte: lotto e ubicazione di partenza vengono da lì.');
+    if (vuoleArticolo(tipo) && !val('ntArticle')) return err('Scegliere l\'articolo fra le giacenze: l\'attività deve dire su che cosa si lavora.');
+    if (vuoleArticolo(tipo) && !val('ntLot')) return err('Scegliere una delle disponibilità proposte: lotto e ubicazione di partenza vengono da lì.');
+    /* 2.32 — SENZA DISTINTA NON C'È PRELIEVO. Un'attività di prelievo ODP
+       che non porta il file direbbe solo un numero d'ordine, e chi la prende
+       in carico dovrebbe andarselo a cercare — che è esattamente il
+       passaggio a voce che questa attività esiste per togliere. */
+    if (tipo === 'PICK_ODP' && !((($('ntOdpFile') as HTMLInputElement | null)?.files || []).length)) {
+      return err('Allegare la distinta dell\'ordine (.xlsx): senza, chi prende in carico non sa che cosa prelevare.');
+    }
     if (vuoleUbicazione(tipo) && !su('ntFrom')) return err('Quale riga si conta: senza l\'ubicazione non c\'è niente da aprire a chi la prende in mano.');
     if (vuoleColli(tipo) && !(parseInt(val('ntQty'), 10) > 0)) return err('Quanti colli: senza, il movimento non si può preparare e l\'attività non sa quando è finita.');
 
@@ -694,6 +733,40 @@ export const VistaCompiti = {
     if (val('ntQty')) payload.qty = parseInt(val('ntQty'), 10);
     if (su('ntFrom')) payload.from = su('ntFrom');
     if (su('ntTo')) payload.to = su('ntTo');
+    /* 2.32 — LA DISTINTA SALE PRIMA DEL COMPITO, e se non sale il compito
+       non nasce. L'ordine conta: un'attività di prelievo ODP senza allegato
+       è un'attività che chi la prende in carico non può eseguire, e
+       lasciarla in coda vorrebbe dire riempire la coda di lavoro che non si
+       può fare — che è il modo in cui una coda si smette di guardare. */
+    if (tipo === 'PICK_ODP') {
+      const f = (($('ntOdpFile') as HTMLInputElement | null)?.files || [])[0];
+      if (!f) return err('Allegare la distinta dell\'ordine.');
+      try {
+        const buf = await f.arrayBuffer();
+        let bin = '';
+        const byte = new Uint8Array(buf);
+        /* A pezzi da 8 kB: `String.fromCharCode(...tutto)` su un file da
+           qualche megabyte esaurisce lo stack degli argomenti. */
+        for (let i = 0; i < byte.length; i += 8192) {
+          bin += String.fromCharCode(...byte.subarray(i, i + 8192));
+        }
+        const risposta = await fetch('/api/allegati', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'same-origin',
+          body: JSON.stringify({ contenuto: btoa(bin) }),
+        });
+        if (!risposta.ok) {
+          const motivo = await risposta.json().catch(() => ({}));
+          throw new Error(motivo.error || `il servizio ha risposto ${risposta.status}`);
+        }
+        const salito = await risposta.json();
+        payload.allegato = salito.id;
+        payload.allegato_nome = f.name;
+      } catch (e) {
+        return err(`La distinta non è salita al servizio · ${(e as Error).message}`);
+      }
+    }
     if (tipo === 'PICK_SHIP' || tipo === 'PICK_RET') {
       /* Vuoto non si scrive: il payload e' la richiesta, e la testata del
          DDT si compila alla registrazione. */
@@ -792,6 +865,10 @@ export const VistaCompiti = {
        questo rilegge il documento, ne ricava le tappe e apre il giro. Esce
        prima, quindi, e non passa da `startMov`. */
     if (t?.type === 'PREP_SHIP') { void this._prepAvvia(t); return; }
+    /* 2.32 — e il prelievo ODP scarica la distinta allegata e la apre nella
+       scheda del prelievo automatico. Anche lui esce prima: non c'e' nessuna
+       maschera da precompilare, c'e' un file da leggere. */
+    if (t?.type === 'PICK_ODP') { void this._odpAvvia(t); return; }
     this.switchView('movimenta');
     this.startMov(op.modo, op.dir || null);
     const p = ((t.payload && typeof t.payload === 'object') ? t.payload : {}) as PayloadCompito;

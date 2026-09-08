@@ -41,6 +41,20 @@ export const TIPI_COMPITO = {
      restano dichiarati perché l'archivio li porta — un compito chiuso il
      mese scorso deve continuare a dire come si chiamava. */
   PREP_SHIP:  { label: 'Preparazione spedizioni', icona: 'truck' },
+  /* 2.32 — IL PRELIEVO DI UN ORDINE DI PRODUZIONE, chiesto in anticipo.
+
+     Il giro di prelievo da file c'è dalla 2.12 e non cambia: si carica un
+     `.xlsx`, si configura il percorso, si scende in corsia. Quel che
+     mancava era poterlo CHIEDERE — dire «questo ordine serve per le sei di
+     domani» prima che qualcuno scenda, e metterlo in coda come ogni altro
+     lavoro.
+
+     LA DISTINTA SI ALLEGA ALLA RICHIESTA. Senza, l'attività direbbe solo un
+     numero d'ordine, e chi la prende in carico dovrebbe andarsi a cercare
+     il file — che è esattamente il passaggio a voce che questa attività
+     esiste per togliere. Il file sta sul servizio; il compito ne porta il
+     riferimento (`payload.allegato`). */
+  PICK_ODP:   { label: 'Prelievo ODP',    icona: 'building-factory' },
   PICK_SHIP:  { label: 'Prelievo spedizione', icona: 'truck' },
   PICK_RET:   { label: 'Prelievo reso',   icona: 'arrow-back-up' },
   QUARANTINE: { label: 'Blocco quarantena', icona: 'ban' },
@@ -317,6 +331,9 @@ export const OPERAZIONE = {
      quella è la scheda del prelievo automatico. `sub` la porta sulla scheda
      giusta senza passare da quella di prima. */
   PREP_SHIP:  { modo: 'pick', dir: 'preparazione' },
+  /* 2.32 — apre la scheda del prelievo automatico con la distinta già
+     caricata: `_odpAvvia` scarica l'allegato e costruisce il percorso. */
+  PICK_ODP:   { modo: 'pick', dir: 'ordine' },
   PICK_SHIP:  { modo: 'shipping', kind: 'shipment' },
   PICK_RET:   { modo: 'shipping', kind: 'return' },
   QUARANTINE: { modo: 'quarantine' },
@@ -381,8 +398,11 @@ export function chiudeAlGesto(t: string): boolean {
      finisce quando l'ultimo collo è sceso dallo scaffale: finisce quando le
      unità di carico sono imballate ed etichettate in zona imballaggio. Un
      conto sui colli direbbe «fatto» a metà lavoro. */
+  /* 2.32 — anche il prelievo ODP chiude al gesto: quel che conta è che il
+     percorso sia stato chiuso, e i colli di un giro non si sanno in
+     anticipo — la distinta chiede quantità, non colli. */
   return t === 'TRANSFER'
-      || t === 'PREP_SHIP'
+      || t === 'PREP_SHIP' || t === 'PICK_ODP'
       || t === 'PICK_SHIP' || t === 'PICK_RET'
       || t === 'QUARANTINE' || t === 'SAMPLING' || t === 'COUNT'
       || t === 'CLEANING';
@@ -396,13 +416,31 @@ export function vuoleColli(t: string): boolean {
      lo dice il DOCUMENTO, riga per riga. Un numero digitato a mano accanto a
      un documento che ne porta già dodici sarebbe un secondo conto, e due
      conti della stessa cosa divergono. */
-  return t !== 'COUNT' && t !== 'CLEANING' && t !== 'PREP_SHIP';
+  /* Né la preparazione né il prelievo ODP chiedono i colli a chi li crea:
+     li dice il DOCUMENTO o la DISTINTA, riga per riga. Un numero digitato a
+     mano accanto a un file che ne porta dodici sarebbe un secondo conto, e
+     due conti della stessa cosa divergono. */
+  return t !== 'COUNT' && t !== 'CLEANING' && t !== 'PREP_SHIP' && t !== 'PICK_ODP';
 }
 
 /** LA CONTA È UN INVENTARIO MIRATO A UN ARTICOLO E UN LOTTO, non l'apertura
     di un vano intero. L'inventario di tutto il vano esiste già in Movimenta
     e non ha bisogno di un compito; quello che serviva era poter dire «vai a
     contare QUESTO», ed è una riga di giacenza come per ogni altro tipo. */
+/** 2.32 — CHI LEGGE UN FILE NON NOMINA UN ARTICOLO.
+
+    Fino alla 2.30 ogni attività diceva su quale riga di giacenza si lavora:
+    articolo, lotto, e da lì l'ubicazione. È giusto per un trasferimento o
+    una conta — c'è UNA riga, e chi chiede la conosce.
+
+    La preparazione e il prelievo ODP no: la merce la dicono un documento e
+    una distinta, riga per riga, e possono essere dodici. Pretendere «un»
+    articolo vorrebbe dire sceglierne uno a caso fra quelli e scriverlo nella
+    richiesta come se fosse il lavoro — che è peggio di non scriverlo. */
+export function vuoleArticolo(t: string): boolean {
+  return t !== 'PREP_SHIP' && t !== 'PICK_ODP' && t !== 'CLEANING';
+}
+
 export function vuoleUbicazione(t: string): boolean {
   return t === 'COUNT';
 }

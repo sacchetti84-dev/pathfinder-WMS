@@ -43,14 +43,26 @@ describe('tabelle', () => {
        nominare.
      Restano dichiarati tutti e quattro perche' l'archivio li porta: un
      compito chiuso il mese scorso deve continuare a dire come si chiamava. */
-  it('i nove tipi dichiarati, e i cinque che si possono chiedere', () => {
+  it('i dieci tipi dichiarati, e i sei che si possono chiedere', () => {
     expect(Object.keys(TIPI_COMPITO)).toEqual([
-      'TRANSFER', 'PREP_SHIP', 'PICK_SHIP', 'PICK_RET', 'QUARANTINE',
-      'SAMPLING', 'DISPOSAL', 'COUNT', 'CLEANING',
+      'TRANSFER', 'PREP_SHIP', 'PICK_ODP', 'PICK_SHIP', 'PICK_RET',
+      'QUARANTINE', 'SAMPLING', 'DISPOSAL', 'COUNT', 'CLEANING',
     ]);
     expect(tipiRichiedibili()).toEqual([
-      'TRANSFER', 'QUARANTINE', 'SAMPLING', 'DISPOSAL', 'COUNT',
+      'TRANSFER', 'PICK_ODP', 'QUARANTINE', 'SAMPLING', 'DISPOSAL', 'COUNT',
     ]);
+  });
+
+  /* 2.32 — IL PRELIEVO ODP SI CHIEDE, la preparazione no, e la differenza
+     non e' arbitraria: la preparazione nasce da un documento che dice gia'
+     che cosa prendere, il prelievo ODP nasce da una DISTINTA che qualcuno
+     allega. Senza allegato non saprebbe che merce nominare, ma l'allegato
+     lo mette chi chiede — quindi la richiesta esiste. */
+  it('il prelievo ODP sta in tendina, la preparazione no', () => {
+    expect(tipiRichiedibili()).toContain('PICK_ODP');
+    expect(tipiRichiedibili()).not.toContain('PREP_SHIP');
+    expect(nasceDaDocumento('PICK_ODP')).toBe(false);
+    expect(eRitirato('PICK_ODP')).toBe(false);
   });
 
   /* I due prelievi vecchi si LEGGONO ancora: toglierli farebbe perdere il
@@ -631,15 +643,23 @@ describe('le eccezioni per tipo', () => {
   it('il Posizionamento non e\' piu\' un tipo di attivita\'', () => {
     expect(TIPI_COMPITO.PUTAWAY).toBeUndefined();
     expect(operazioneDi('PUTAWAY')).toBe(null);
-    expect(tipiRichiedibili()).toHaveLength(5);
+    expect(tipiRichiedibili()).toHaveLength(6);
   });
 
   it('i colli servono ovunque si muova una quantita\' decisa prima, non alla Conta', () => {
     expect(vuoleColli('COUNT')).toBe(false);
     /* La Pulizia nemmeno: non tocca merce. */
     expect(vuoleColli('CLEANING')).toBe(false);
-    for (const t of tipiRichiedibili()) {
-      if (t !== 'COUNT') expect(vuoleColli(t), t).toBe(true);
+    /* 2.31/2.32 — E NEMMENO I DUE CHE LEGGONO UN FILE. La preparazione
+       prende i colli dal DOCUMENTO, il prelievo ODP dalla DISTINTA: riga per
+       riga, e non un numero solo. Chiederlo a chi crea l'attivita' vorrebbe
+       dire tenere un secondo conto accanto a uno che c'e' gia', e due conti
+       della stessa cosa divergono. */
+    expect(vuoleColli('PREP_SHIP')).toBe(false);
+    expect(vuoleColli('PICK_ODP')).toBe(false);
+    const senzaColli = new Set(['COUNT', 'CLEANING', 'PREP_SHIP', 'PICK_ODP']);
+    for (const t of Object.keys(TIPI_COMPITO)) {
+      if (!senzaColli.has(t)) expect(vuoleColli(t), t).toBe(true);
     }
   });
 
@@ -712,7 +732,7 @@ describe('chiudeAlGesto', () => {
       expect(typeof chiudeAlGesto(t), t).toBe('boolean');
     }
     const gesto = Object.keys(TIPI_COMPITO).filter(chiudeAlGesto);
-    expect(gesto).toHaveLength(8);
+    expect(gesto).toHaveLength(9);
     /* 2.31 — LA PREPARAZIONE CHIUDE AL GESTO, non a residuo, ed e' una
        decisione: il residuo conta i colli mossi, ma il lavoro non finisce
        quando l'ultimo collo e' sceso dallo scaffale — finisce quando le
