@@ -187,6 +187,44 @@ export function scansioniRichieste(d: DaPreparare | null | undefined): string[] 
   return d?.tipo === 'udc' ? ['udc'] : ['ubicazione', 'articolo', 'lotto'];
 }
 
+/** Quel che l'operatore ha in mano: una scansione per casella, vuota finché
+    non l'ha fatta. Sono i nomi che usa la maschera del percorso. */
+export interface ScansioniInMano {
+  loc?: string;
+  art?: string;
+  lot?: string;
+  udc?: string;
+}
+
+const CASELLA: Record<string, keyof ScansioniInMano> = {
+  ubicazione: 'loc', articolo: 'art', lotto: 'lot', udc: 'udc',
+};
+
+/** 2.35.1 — LE SCANSIONI IN MANO BASTANO A QUESTA TAPPA?
+
+    `scansioniRichieste` dice QUALI servono; questa dice se ci sono. Le due
+    stanno insieme perché separate si separano davvero: fino alla 2.35 la
+    maschera del percorso decideva in tre posti diversi, e in uno dei tre —
+    quello che ridisegna la scheda — la condizione era scritta a mano come
+    «c'è l'ubicazione». Su una tappa di unità di carico l'ubicazione non si
+    scansiona mai, quindi quella condizione era falsa per costruzione: il
+    codice del bancale veniva letto, riconosciuto, e cancellato dal ridisegno
+    che seguiva. Il magazzino ha visto «Unità confermata» e subito dopo
+    «Serve il codice dell'unità».
+
+    Il difetto non stava in una riga sbagliata: stava nell'avere la stessa
+    regola scritta tre volte, e in una delle tre in una grammatica sola. */
+export function scansioniBastano(
+  d: DaPreparare | null | undefined,
+  inMano: ScansioniInMano | null | undefined,
+): boolean {
+  const s = inMano || {};
+  return scansioniRichieste(d).every((nome) => {
+    const casella = CASELLA[nome];
+    return !!casella && !!testo(s[casella]);
+  });
+}
+
 /** La richiesta di preparazione che nasce da un documento registrato.
 
     NON CREA NIENTE: compone il record e basta, così si può provare da fermo
@@ -274,8 +312,8 @@ export function daImballare(
     article_code?: string; lot_code?: string; qty_picked?: number;
     kg_required?: number; um?: string;
   }[] | null | undefined,
-): { item_key: string; article_code: string; lot_code: string; colli: number; um: string }[] {
-  const out = new Map<string, { item_key: string; article_code: string; lot_code: string; colli: number; um: string }>();
+): { item_key: string; article_code: string; lot_code: string; colli: number; um: string; da: string }[] {
+  const out = new Map<string, { item_key: string; article_code: string; lot_code: string; colli: number; um: string; da: string }>();
   for (const t of tappe || []) {
     if (!t || t.status !== 'done') continue;
     if (chiave(t.udc_id)) continue;            // già un'unità: non si rifà
@@ -290,6 +328,14 @@ export function daImballare(
       lot_code: testo(t.lot_code),
       colli,
       um: testo(t.um),
+      /* 2.35.1 — DA DOVE SI PRENDE PER COMPORRE, e non è una domanda da
+         rifare. La tappa timbra `moved_to` col vano dove ha davvero posato
+         la merce; chi compone l'unità ricalcolava invece «il primo vano
+         libero della zona d'imballaggio», e quel vano non è più lo stesso —
+         proprio perché la merce ci è appena arrivata e non è più libero.
+         Al banco, l'08/09: la merce era in MAG-ACC-11, l'unità è nata in
+         MAG-ACC-12, e nessuna delle due si è vista l'altra. */
+      da: chiave((t as { moved_to?: string }).moved_to),
     });
   }
   return [...out.values()];

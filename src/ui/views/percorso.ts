@@ -48,6 +48,14 @@ type GiroLetto = Percorso & {
 
 export const VistaPercorso = {
   _routeStage: 'import',        // 'import' | 'run'
+  /* 2.35.1 — L'ATTIVITA' DA CUI VIENE LA DISTINTA, fra la lettura e
+     l'avvio. La sessione di preparazione porta `task_id` dalla 2.31 ed e'
+     cosi' che ritrova il proprio lavoro; quella del prelievo ODP non lo
+     portava, quindi il percorso e l'attivita' erano due cose scollegate:
+     chiudere il percorso lasciava l'attivita' in carico per sempre, e
+     riprenderla non riapriva niente. Vuoto = giro caricato a mano dalla
+     maschera, che di attivita' non ne ha nessuna. */
+  _routeCompito: '',
   _routeParsed: null,           // il giro letto, vivo solo fra import e avvio
   /* 2.12 — GLI ORDINI CARICATI, nell'ordine in cui sono stati letti. Il
      primo e' il capofila finche' non si sceglie altrimenti. */
@@ -252,10 +260,15 @@ export const VistaPercorso = {
      nello stesso identico posto: stesse convalide, stessi rifiuti, stesso
      riscontro. Due letture della stessa distinta sono due parser che fra un
      mese diranno cose diverse. */
-  async _routeLeggiFile(file) {
-    if (!file) return;
+  /* 2.35.1 — RESTITUISCE SE HA LETTO DAVVERO. Ogni rifiuto qui dentro ha
+     il suo riscontro; chi chiama pero' non aveva modo di saperlo, e
+     `_odpAvvia` ne aggiungeva uno verde sopra. Un booleano, e i due
+     riscontri non si contraddicono piu'. */
+  async _routeLeggiFile(file): Promise<boolean> {
+    if (!file) return false;
     if (!/\.xlsx?$/i.test(file.name)) {
-      return this.toast('Formato non valido · Caricare il file .xlsx esportato da Sage X3', 'error');
+      this.toast('Formato non valido · Caricare il file .xlsx esportato da Sage X3', 'error');
+      return false;
     }
     try {
       /* 1.7 — il parser resta sincrono e non importa SheetJS: glielo diamo
@@ -265,7 +278,8 @@ export const VistaPercorso = {
       const res = OdpParser.parse(buf);
       if (!res.ok) {
         this._formOrdine($('pickSubForm'));
-        return this.toast(`Import non riuscito · ${res.error}`, 'error');
+        this.toast(`Import non riuscito · ${res.error}`, 'error');
+        return false;
       }
       const odp = normalizzaOdp(res.header.odp_num);
       /* LO STESSO ORDINE DUE VOLTE RADDOPPIEREBBE LA SUA DISTINTA, e il
@@ -273,13 +287,15 @@ export const VistaPercorso = {
          nessuna parte. Chi voleva davvero il doppio lo scrive nella
          quantita', che e' il campo che serve a quello. */
       if ((this._routeOrdini || []).some((o: OrdineDelGiro) => o.odp_num === odp)) {
-        return this.toast(`L'ordine ${odp} è già nel giro · per prelevarne di più, cambia la quantità`, 'warning');
+        this.toast(`L'ordine ${odp} è già nel giro · per prelevarne di più, cambia la quantità`, 'warning');
+        return false;
       }
       /* 2.1 — un ordine chiuso non si ricarica, e con piu' file va detto
          all'ingresso: scoprirlo all'avvio vorrebbe dire aver composto un
          giro intero attorno a un ordine che non puo' entrarci. */
       if (Store.ordineWipArchiviato(odp)) {
-        return this.toast(`L'ordine ${odp} è chiuso e archiviato: il suo conto di produzione è storia. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
+        this.toast(`L'ordine ${odp} è chiuso e archiviato: il suo conto di produzione è storia. Per una lavorazione nuova serve un numero d'ordine nuovo.`, 'error');
+        return false;
       }
       this._routeOrdini = [...(this._routeOrdini || []),
         ordineDelGiro(res.header, res.lines, res.warnings, file.name)];
@@ -292,10 +308,12 @@ export const VistaPercorso = {
          dell'ordine, e chi carica cinque file non lo vede scorrere. */
       const cop = (p.copertura || []).length;
       this.toast(`Ordine ${odp} letto · ${quanti > 1 ? `${quanti} ordini nel giro · ` : ''}${n} tappe, ${o} righe in coda${cop ? ` · ${cop} già in reparto` : ''}`, n ? 'success' : 'warning');
+      return true;
     } catch (err) {
       console.error('[WM] handleImportOdp:', err);
       this._formOrdine($('pickSubForm'));
       this.toast(`Errore di lettura · ${(err as Error).message}`, 'error');
+      return false;
     }
   },
 
@@ -771,6 +789,7 @@ export const VistaPercorso = {
           file_name: o.file_name,
         })),
       } : {}),
+      ...(this._routeCompito ? { task_id: this._routeCompito } : {}),
       operator: this._prodOperator,
       /* 2.30 — CHI PRELEVA E CHI HA APERTO SONO DUE COSE. `_prodOperator` è
          modificabile: un Team Leader può intestare il giro a un altro, e
@@ -794,6 +813,7 @@ export const VistaPercorso = {
     this._routeParsed = null;
     this._routeOrdini = [];
     this._routeCapofila = '';
+    this._routeCompito = '';
     this._routeStage = 'run';
     this._routeStartTime = Date.now();
     /* 2.12 — UN PERCORSO NUOVO E' UN'APERTURA NUOVA.
@@ -939,11 +959,42 @@ export const VistaPercorso = {
     });
     if (!ok) return;
     if (done) await this._emitFinalPickReport(s);
-    await Store.endPickSession();
+    await this._chiudiCompitoDelPercorso(s, left);
+    await Store.endPickSession(s.session_id);
     this._routeStage = 'import';
     this._routeStartTime = null;
     this._formOrdine($('pickSubForm'));
     this.toast('Percorso chiuso', 'info');
+  },
+
+  /* 2.35.1 — L'ATTIVITÀ SI CHIUDE COL PERCORSO, E SOLO SE È FINITO.
+
+     Era la richiesta scritta: l'attività «si chiude alla chiusura del
+     percorso, se il percorso viene cancellato annullato o messo in pausa
+     l'attività rimane disponibile». Non succedeva né l'una né l'altra cosa,
+     per il motivo più semplice: la sessione del prelievo ODP non portava il
+     numero del compito, quindi non c'era niente da chiudere. A video l'8/09
+     un percorso chiuso lasciava l'attività `in_progress` per sempre.
+
+     LA CONDIZIONE È «NON RESTA NIENTE DA FARE», non «tutte prelevate». Una
+     tappa segnata non trovata è percorsa: l'operatore c'è andato e ha
+     risposto. Restano fuori solo quelle che nessuno ha guardato — e allora
+     il lavoro non è finito e l'attività torna disponibile. */
+  async _chiudiCompitoDelPercorso(s, rimaste) {
+    const id = String(s?.task_id || '');
+    if (!id || rimaste > 0) return;
+    const t = Store.getTask(id);
+    if (!t || t.status === 'done' || t.status === 'cancelled') return;
+    try {
+      await Store.chiudiCompitoDiPercorso(id, s, Store.getCurrentIdentity().initials);
+      /* Il segnalibro in memoria segue la chiusura: `_taskRun` lo cancella
+         la chiusura da movimento, e questa è un'altra strada. */
+      if (this._taskRun?.task_id === id) this._taskRun = null;
+      this.renderTasks();
+      this.toast(`Attività ${id} chiusa col percorso`, 'success');
+    } catch (err) {
+      this.toast(`Il percorso è chiuso, l'attività ${id} no · ${(err as Error).message}`, 'warning');
+    }
   },
 
   /* ─── SCHERMATA 2: ESECUZIONE GUIDATA ───────────────────────────── */
@@ -961,8 +1012,27 @@ export const VistaPercorso = {
     /* 2.12 — la spunta del vano si decide PRIMA di disegnare: la scheda
        mostra il campo ① oppure la banda verde a seconda di questa, e
        calcolarla dopo vorrebbe dire disegnare col valore di prima. */
-    const vanoOk  = !!current && !inPausa && this._routeScanValida(current) && !!this._routeScan.loc;
-    if (!vanoOk) { this._routeScan = { loc: '', art: '', lot: '', udc: '' }; this._routeScanChiave = ''; }
+    /* 2.35.1 — LA SPUNTA CHE SOPRAVVIVE AL RIDISEGNO LA DECIDE LA TAPPA.
+
+       Qui c'era scritto `&& !!this._routeScan.loc`, cioè la grammatica della
+       sola merce sciolta. Su una tappa di unità di carico l'ubicazione non si
+       scansiona MAI — si legge il codice del bancale e basta — quindi quella
+       condizione era falsa per costruzione: `_routeCheckUdc` riconosceva il
+       codice, chiamava questo ridisegno, e il ridisegno cancellava la
+       scansione appena fatta. A video: «Unità confermata», e un istante dopo
+       «Serve il codice dell'unità UDC-000003 prima di confermare», sul
+       bancale giusto. La preparazione di una spedizione non poteva avanzare.
+
+       Adesso a dire che cosa vale è `PickRoute.scansioniBastanoPer`, la
+       stessa che usa la conferma: due letture della stessa regola sono due
+       regole che fra un mese diranno cose diverse. */
+    const spunte = !!current && !inPausa && this._routeScanValida(current)
+      && PickRoute.scansioniBastanoPer(current, this._routeScan);
+    if (!spunte) { this._routeScan = { loc: '', art: '', lot: '', udc: '' }; this._routeScanChiave = ''; }
+    /* Le scansioni della merce sciolta si consumano una tappa per volta —
+       articolo e lotto si rifanno a ogni riga — mentre il vano vale per tutta
+       la sosta. Su un'unità si conserva il codice: è l'unica che c'è. */
+    else if (current?.udc_id) this._routeScan = { loc: '', art: '', lot: '', udc: this._routeScan.udc };
     else this._routeScan = { loc: this._routeScan.loc, art: '', lot: '', udc: '' };
 
     el.innerHTML = `
@@ -1008,7 +1078,9 @@ export const VistaPercorso = {
        render successivo cancellava anche la spunta del vano, e la riga dopo
        ripartiva dal codice a terra: l'azzeramento è deciso sopra, dove si
        guarda se la chiave regge ancora. */
-    this.setPrimaryScanField(current && !inPausa ? (vanoOk ? 'rArt' : 'rLoc') : null);
+    this.setPrimaryScanField(current && !inPausa
+      ? (current.udc_id ? 'rUdc' : (spunte ? 'rArt' : 'rLoc'))
+      : null);
   },
 
   /* 2.5 — LA QUANTITÀ D'ORDINE SI SCRIVE CON I DECIMALI DELLA SUA UNITÀ.
@@ -1097,10 +1169,17 @@ export const VistaPercorso = {
   /* Rifare la verifica del vano è sempre possibile, e non chiede un motivo:
      chi si è allontanato e torna vuole poterlo dire. */
   _routeRiscansionaVano() {
+    /* 2.35.1 — e il rimprovero parla la lingua della tappa. Su un bancale
+       diceva «riscansiona l'ubicazione» sopra una scheda che l'ubicazione
+       non la chiede: manda a cercare un campo che non c'è, ed è lo stesso
+       difetto del messaggio rimasto acceso sulla maschera delle attività. */
+    const st = this._routeCurrentStop();
     this._routeScan = { loc: '', art: '', lot: '', udc: '' };
     this._routeScanChiave = '';
     this._renderRouteRun($('pickSubForm'));
-    this._routeFb('warn', 'Riscansiona l’ubicazione per confermare di essere davanti al vano');
+    this._routeFb('warn', st?.udc_id
+      ? 'Riscansiona il codice dell’unità per confermare di essere davanti al bancale'
+      : 'Riscansiona l’ubicazione per confermare di essere davanti al vano');
   },
 
   /* ─── A) LA MERCE TRASFERITA ────────────────────────────────────────
@@ -1117,7 +1196,11 @@ export const VistaPercorso = {
      Qui si legge la giacenza di ADESSO, ogni volta. */
   _routeDisponibili(st) {
     if (!st?.location_code || !st?.item_key) return 0;
-    return Store.getAvailableQty(st.location_code, st.item_key);
+    /* 2.35.1 — su una preparazione si esclude il documento che la muove, o
+       la scheda scrive «0 colli in ubicazione» in rosso sopra un bancale
+       pieno: quei colli sono impegnati dal DDT che si sta preparando. */
+    const doc = Store.getActivePickSession()?.prep_doc_id || null;
+    return Store.getAvailableQty(st.location_code, st.item_key, doc);
   },
 
   /* Lo stato del trasferimento che ha spostato la tappa, letto dalla coda.
@@ -1763,16 +1846,18 @@ export const VistaPercorso = {
       return this.toast('Prelievo in pausa: premi ▶ Riprendi prima di confermare', 'warning');
     }
     /* 2.31 — QUANTE SCANSIONI SERVONO LO DICE LA TAPPA. Una sull'unità di
-       carico, tre sulla merce sciolta: `PickRoute.scansioniDiTappa`. */
-    if (this._routeTappaEUdc(st)) {
-      if (!this._routeScan.udc) {
+       carico, tre sulla merce sciolta.
+       2.35.1 — e a dirlo è `PickRoute.scansioniBastanoPer`, la stessa che usa
+       il ridisegno. Erano due letture della stessa regola, e una delle due
+       cancellava quel che l'altra aveva appena accettato. */
+    if (!PickRoute.scansioniBastanoPer(st, this._routeScan)) {
+      if (this._routeTappaEUdc(st)) {
         Feedback.signal('error', 'Scansione mancante',
           `Serve il codice dell'unità ${st.udc_id} prima di confermare.`);
-        return;
+      } else {
+        Feedback.signal('error', 'Scansioni incomplete',
+          'Servono ubicazione, articolo e lotto prima di confermare.');
       }
-    } else if (!this._routeScan.loc || !this._routeScan.art || !this._routeScan.lot) {
-      Feedback.signal('error', 'Scansioni incomplete',
-        'Servono ubicazione, articolo e lotto prima di confermare.');
       return;
     }
     /* E le tre scansioni devono essere di QUESTA tappa e di QUESTA apertura:
@@ -1793,7 +1878,20 @@ export const VistaPercorso = {
     if (Store.isItemQuarantined(st.item_key, st.location_code)) {
       return this.toast(`${st.article_code}#${st.lot_code} \u00e8 stato messo in QUARANTENA: prelievo non consentito`, 'error');
     }
-    const avail = Store.getAvailableQty(st.location_code, st.item_key);
+    /* 2.35.1 — LA PRENOTAZIONE DEL PROPRIO DOCUMENTO NON CONTA CONTRO DI SÉ.
+
+       Un DDT pendente prenota la merce: `getAvailableQty` sottrae quel che i
+       documenti aperti hanno impegnato, ed è giusto — nessun altro deve
+       poterla portare via. Ma una preparazione va a prendere ESATTAMENTE la
+       merce che il suo documento ha prenotato, quindi si trovava davanti
+       zero colli disponibili e si fermava con «impegnato su DDT pendente»:
+       il documento diceva all'operatore che la merce era impegnata da lui
+       stesso. Nessuna tappa di preparazione ha mai potuto chiudersi.
+
+       `getAvailableQty` accetta da sempre l'esclusione di un documento — è
+       lo stesso argomento che usa l'evasione. Qui mancava di passarlo. */
+    const proprioDoc = session.prep_doc_id || null;
+    const avail = Store.getAvailableQty(st.location_code, st.item_key, proprioDoc);
     if (avail <= 0) {
       /* 2.5 — se la tappa aspettava un trasferimento, il messaggio lo dice:
          «nessun collo disponibile» su un vano che aspetta merce manda a
@@ -1819,7 +1917,10 @@ export const VistaPercorso = {
        regola di magazzino chiesta da Andrea, e la finestra dice in anteprima
        di quanto si eccede rispetto all'ordine — perché il verso degli spaiati
        eccede più spesso di quello dei pieni, e chi conferma deve vederlo. */
-    const scelteColli = await this._chiediColli(
+    /* 2.35.1 — SU UN'UNITÀ NON SI SCEGLIE NIENTE: si prende intera. Chiedere
+       quali colli portare via da un pallet imballato è la stessa domanda che
+       la scansione unica esiste per non fare. */
+    const scelteColli = this._routeTappaEUdc(st) ? null : await this._chiediColli(
       { article_code: st.article_code, lot_code: st.lot_code, location_code: st.location_code, item_key: st.item_key,
         ...(Store.getItemsAtLocation(st.location_code).find(i => i.item_key === st.item_key) || {}) },
       `Quali colli si prelevano · ordine ${this._qtaOrdine(st.kg_required, st.um)} ${st.um}`,
@@ -1827,7 +1928,10 @@ export const VistaPercorso = {
     if (scelteColli === undefined) return this.toast('Prelievo annullato', 'info');
 
     let qty;
-    if (scelteColli) {
+    if (this._routeTappaEUdc(st)) {
+      /* 2.35.1 — e nemmeno quanti: li conta l'unità. */
+      qty = 0;
+    } else if (scelteColli) {
       /* I colli TOCCATI, quello aperto compreso: e' il numero che la tappa
          segna come prelevato, ed e' la stessa regola del conto WIP. */
       qty = scelteColli.length;
@@ -1867,20 +1971,33 @@ export const VistaPercorso = {
             'error');
         }
         const verso = this._prepVanoImballo(zona);
+        const movimento = {
+          type: MOV.MOVE,
+          article_code: st.article_code,
+          article_description: st.article_description,
+          lot_code: st.lot_code,
+          location_code: st.location_code,
+          dest_location: verso,
+          user: effectiveUser,
+          notes,
+          doc_ref: session.odp_num,
+          ts: Date.now(),
+        };
+        /* 2.35.1 — il bancale si muove intero, o non si muove affatto perché
+           è già al banco d'imballo: `commitPreparazioneUdc`. */
+        if (this._routeTappaEUdc(st)) {
+          const esito = await Store.commitPreparazioneUdc({ session, stop: st, zona, verso, movement: movimento });
+          await this._prepRiallineaDoc(session, st, esito.location_code);
+          this._renderRouteRun($('pickSubForm'));
+          this._refreshSessionLog();
+          this.updateSyncIndicator();
+          Feedback.signal('ok', esito.spostata ? 'Unità portata all’imballo' : 'Unità confermata',
+            `${st.udc_id} · ${esito.colli} Coll. in ${esito.location_code}`);
+          return;
+        }
         removed = await Store.commitPreparazioneStop({
           session, stop: st, qty, verso, scelte: scelteColli,
-          movement: {
-            type: MOV.MOVE,
-            article_code: st.article_code,
-            article_description: st.article_description,
-            lot_code: st.lot_code,
-            location_code: st.location_code,
-            dest_location: verso,
-            user: effectiveUser,
-            notes,
-            doc_ref: session.odp_num,
-            ts: Date.now(),
-          },
+          movement: movimento,
         });
         await this._prepRiallineaDoc(session, st, verso);
       } else {
@@ -1977,9 +2094,17 @@ export const VistaPercorso = {
 
     /* Il registro di sessione a video e la finestra di storno restano
        coerenti con gli altri flussi. */
+    /* 2.35.1 — E DICE QUEL CHE È SUCCESSO. La riga a video era sempre un
+       `PICK`, cioè «Prelievo Produzione», anche quando il movimento scritto
+       a registro era un `MOVE` verso la zona d'imballaggio. Due registri
+       della stessa giornata che si contraddicono, e quello a video è il
+       primo che l'operatore legge. */
+    const prep = (session as Record<string, unknown>).prep_doc_id;
     this._movSessionLog.unshift({
-      type: MOV.PICK, article_code: st.article_code, article_description: st.article_description,
-      lot_code: st.lot_code, location_code: st.location_code, dest_location: null,
+      type: prep ? MOV.MOVE : MOV.PICK,
+      article_code: st.article_code, article_description: st.article_description,
+      lot_code: st.lot_code, location_code: st.location_code,
+      dest_location: prep ? (st.moved_to || null) : null,
       user: effectiveUser, notes, doc_ref: session.odp_num, ts: Date.now(),
       qty_before: removed!._qty_before, qty_delta: removed!._qty_delta, qty_after: removed!._qty_after
     });
@@ -2192,7 +2317,17 @@ export const VistaPercorso = {
         'Nessuna zona di imballaggio dichiarata: si marca in Configurazione → Siti e Zone. '
         + 'Senza, la merce presa non ha dove essere composta.', 'error');
     }
-    const vano = this._prepVanoImballo(zona);
+    /* 2.35.1 \u2014 IL VANO \u00c8 QUELLO DOVE LA MERCE STA GI\u00c0, non uno nuovo.
+       `_prepVanoImballo` risponde \u00abil primo vano libero della zona\u00bb, e dopo
+       che le tappe ci hanno posato la merce quel vano \u00e8 cambiato: l'unit\u00e0
+       nasceva in un vano vuoto e le assegnazioni cercavano la merce l\u00ec
+       dentro, dove non c'era. Le tappe lo sanno gi\u00e0 \u2014 `moved_to`. */
+    const vani = [...new Set(sciolte.map((r) => r.da).filter(Boolean))];
+    const vano = vani[0] || this._prepVanoImballo(zona);
+    if (vani.length > 1) {
+      this.toast(`La merce presa sta in ${vani.length} vani d'imballaggio (${vani.join(', ')}): `
+        + `l'unit\u00e0 nasce in ${vano} e le altre partite vanno portate l\u00ec prima.`, 'warning');
+    }
 
     const ok = await Dialog.confirm({
       title: 'Comporre l\u2019unit\u00e0 di carico?',
@@ -2216,8 +2351,10 @@ export const VistaPercorso = {
          Una che non si trova non ferma le altre: il riscontro lo dice. */
       const perse: string[] = [];
       for (const r of sciolte) {
-        try { await Store.assegnaAUdc(vano || '', r.item_key, udc.udc_id); }
-        catch { perse.push(r.item_key); }
+        /* Ognuna dal vano dove la SUA tappa l'ha posata: se una è finita
+           altrove, il messaggio sotto dice quale e dove. */
+        try { await Store.assegnaAUdc(r.da || vano || '', r.item_key, udc.udc_id); }
+        catch { perse.push(`${r.item_key} (${r.da || vano})`); }
       }
       if (perse.length) {
         this.toast(`Non caricate sull'unità: ${perse.join(', ')} — da guardare in ${vano}`, 'warning');
@@ -2248,6 +2385,51 @@ export const VistaPercorso = {
     if (!id) {
       return this.toast('Questa attività non porta nessuna distinta: chi l\'ha chiesta non l\'ha allegata.', 'error');
     }
+
+    /* ═══ 2.35.1 · UN PERCORSO GIÀ APERTO SI GUARDA PRIMA ════════════════
+       Segnalato dal magazzino l'08/09: «quando l'operatore inizia, il
+       sistema non carica automaticamente il file xls per iniziare la
+       configurazione del percorso».
+
+       La causa non era la lettura del file — quella funzionava. Era che
+       `_pickSub('ordine')` RICALCOLA lo stadio dalla sessione attiva:
+
+           this._routeStage = Store.getActivePickSession() ? 'run' : 'import';
+
+       cioè cancella l'«import» che questa funzione aveva appena scritto. Con
+       un percorso aperto — e ne basta uno lasciato indietro giorni prima —
+       la distinta veniva letta e messa in `_routeOrdini`, ma a video restava
+       il percorso in corso e la maschera di configurazione non compariva
+       mai. Sopra, un riscontro verde che diceva «configura il percorso e
+       avvia»: il sistema annunciava una schermata che non aveva aperto.
+
+       Il rimedio non è forzare `import` dopo `_pickSub` — vorrebbe dire
+       nascondere un giro vivo e lasciarlo orfano. È guardare PRIMA che cosa
+       c'è aperto, e dire quale delle due cose sta succedendo. */
+    const aperta = Store.getActivePickSession();
+    if (aperta) {
+      /* Il proprio percorso di questa stessa attività: non è un ostacolo, è
+         il lavoro di prima. Si riprende da dove era rimasto. */
+      if (aperta.task_id && aperta.task_id === t?.task_id) {
+        this._routeStage = 'run';
+        this._pickSubMode = 'ordine';
+        this.switchView('movimenta');
+        this.startMov('pick');
+        setTimeout(() => { this._pickSub('ordine'); this._routeResume(); }, 60);
+        return this.toast(`Percorso ${aperta.odp_num} ripreso — era già avviato per questa attività`, 'info');
+      }
+      const fatte = (aperta.stops || []).filter((s) => s.status !== 'pending').length;
+      this._routeStage = 'run';
+      this._pickSubMode = 'ordine';
+      this.switchView('movimenta');
+      this.startMov('pick');
+      setTimeout(() => this._pickSub('ordine'), 60);
+      return this.toast(
+        `C'è già un percorso aperto — ${aperta.odp_num}, ${fatte} di ${(aperta.stops || []).length} tappe. `
+        + 'Chiudilo o finiscilo, poi riavvia questa attività: la distinta è ancora allegata.',
+        'warning');
+    }
+
     this._routeStage = 'import';
     this._pickSubMode = 'ordine';
     this.switchView('movimenta');
@@ -2265,10 +2447,20 @@ export const VistaPercorso = {
       }
       const buf = await risposta.arrayBuffer();
       const nome = String(p.allegato_nome || 'distinta.xlsx');
-      await this._routeLeggiFile(new File([buf], nome, {
+      /* 2.35.1 — E SI DICE «CARICATA» SOLO SE LO È. `_routeLeggiFile`
+         rifiuta un ordine già nel giro, uno archiviato, un file illeggibile
+         — e lo dice con un riscontro suo. Qui sopra ne arrivava un secondo,
+         verde, che diceva il contrario: due riscontri opposti sullo stesso
+         gesto, e quello verde era l'ultimo, quindi era quello che restava. */
+      const letta = await this._routeLeggiFile(new File([buf], nome, {
         type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       }));
-      this.toast(`Distinta ${nome} caricata — configura il percorso e avvia`, 'success');
+      if (letta) {
+        /* La sessione che nascerà porta il compito: è così che il percorso e
+           l'attività restano la stessa cosa — `_routeStart` lo raccoglie. */
+        this._routeCompito = String(t?.task_id || '');
+        this.toast(`Distinta ${nome} caricata — configura il percorso e avvia`, 'success');
+      }
     } catch (err) {
       this.toast(`La distinta non si è aperta · ${(err as Error).message}`, 'error');
     }

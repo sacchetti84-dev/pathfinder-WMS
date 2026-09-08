@@ -167,6 +167,77 @@ export const VistaPrelievo = {
     if (destStatus === 'disabled') { this.toast(`Destinazione ${dest} DISATTIVATA`, 'error'); return { ok: false }; }
     if (item.location_code === dest) { this.toast('Origine e destinazione coincidono', 'error'); return { ok: false }; }
 
+    /* ═══ 2.35.1 · UNA RIGA SU UN BANCALE SI SPOSTA COL BANCALE ══════════
+       Segnalato dal magazzino l'08/09: trasferendo un'unità dalla zona
+       imballaggio alla zona spedizioni «viene trasferito solo il contenuto e
+       l'UDC rimane in zona imballaggi sparendo».
+
+       Ed era esatto. Questo trasferimento è un `removeItem` più un
+       `addItem`, e `addItem` non ha nessun argomento per l'unità: la riga
+       arrivava di là SENZA `udc_id`, cioè come merce sciolta, e il
+       contenitore restava indietro nel vano di partenza — vuoto, quindi
+       marcato `empty` e sparito dall'elenco. Un bancale etichettato e
+       imballato diventava merce anonima in banchina, e il carico del camion
+       — che si fa scansionando il codice del pallet — non aveva più niente
+       da scansionare.
+
+       `Store.moveUdc` esiste dalla 1.4 e fa la cosa giusta: righe e
+       contenitore insieme, in una transazione sola sul servizio. Nessuno la
+       chiamava da qui. Adesso sì.
+
+       E UN PARZIALE SU UN'UNITÀ NON È UN TRASFERIMENTO: è aprire il
+       bancale. Si dice, e non si fa di nascosto. */
+    if (item.udc_id) {
+      const u = Store.getUdc(item.udc_id);
+      const parzialeChiesto = qty !== null && Number(qty) < (item.qty || 1);
+      if (parzialeChiesto) {
+        this.toast(`${item.article_code}#${item.lot_code} sta sull'unità ${item.udc_id}: `
+          + 'per portarne via una parte va prima scaricata dall’unità.', 'error');
+        return { ok: false };
+      }
+      const righe = Store.righeDiUdc(item.udc_id);
+      /* I DDT che hanno prenotato quel che sta sopra: le loro righe
+         continueranno a nominare il vano di prima, ed è lo stesso avviso che
+         la merce sciolta riceve più sotto. */
+      const impegni = [...new Set(righe.flatMap((r) =>
+        Store.getPendingDocsForItem(r.location_code, r.item_key).map((d) => d.ddt_num)))];
+      const ok = await Dialog.confirm({
+        title: 'Spostare tutta l’unità?',
+        message: `${item.article_code}#${item.lot_code} sta sull’unità ${item.udc_id}. `
+          + 'Il bancale si sposta intero: contenitore ed etichetta vanno in destinazione con la merce.'
+          + (impegni.length ? '\n\nLe righe dei DDT qui sotto continueranno a indicare il vano di partenza: vanno riallineate.' : ''),
+        details: Dialog.kv([
+          ['Unità', item.udc_id],
+          ['Da', u?.location_code || item.location_code],
+          ['A', dest],
+          ['Partite a bordo', righe.length],
+          ['Colli totali', righe.reduce((s, r) => s + (Number(r.qty) || 0), 0)],
+          ['DDT pendenti', impegni.length ? impegni.join(', ') : null]
+        ]),
+        confirmLabel: 'Sposta l’unità', icon: 'forklift'
+      });
+      if (!ok) { this.toast('Trasferimento annullato', 'info'); return { ok: false }; }
+      const utente = Store.getCurrentIdentity().initials;
+      try {
+        await Store.moveUdc(item.udc_id, dest, {
+          type: MOV.MOVE, article_code: item.article_code,
+          article_description: item.article_description || '', lot_code: item.lot_code,
+          location_code: u?.location_code || item.location_code, dest_location: dest,
+          user: utente, notes: `Unità ${item.udc_id} spostata intera`, ts: Date.now(),
+        });
+      } catch (err) {
+        this.toast(`L’unità non si è spostata · ${(err as Error).message}`, 'error');
+        return { ok: false };
+      }
+      const mossi = righe.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+      this.toast(`${item.udc_id}: ${u?.location_code || item.location_code} → ${dest} · `
+        + `${righe.length} partit${righe.length === 1 ? 'a' : 'e'}, ${mossi} Coll.`, 'success');
+      this.updateSyncIndicator();
+      this._refreshSessionLog();
+      await this._taskAvanza(mossi, ['TRANSFER']);
+      return { ok: true, qtyMoved: mossi, mergeMsg: '', impactedDocs: [], partial: false };
+    }
+
     const qtyAvail = item.qty || 1;
     const qtyToMove = qty === null ? qtyAvail : Number(qty);
     if (!Number.isInteger(qtyToMove) || qtyToMove < 1) { this.toast('Quantità da spostare non valida', 'error'); return { ok: false }; }

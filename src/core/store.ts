@@ -3552,9 +3552,47 @@ const Store = {
     return await this._moveTask(taskId, 'done', { completed_at: Date.now(), completed_by: v || null });
   },
 
-  /* Alzata dalla sola `advanceTask`: e' la chiusura che arriva da un
-     movimento confermato, ed e' l'unica strada per gli altri sette tipi. */
+  /* Alzata da `advanceTask` e da `chiudiCompitoDiPercorso`: e' la chiusura
+     che arriva da un'operazione confermata, e restano le uniche due strade. */
   _chiusuraAmmessa: false,
+
+  /* 2.35.1 — LA CHIUSURA CHE ARRIVA DA UN PERCORSO FINITO.
+
+     `completeTask` rifiuta la chiusura a mano, e fa bene: dichiarare fatto
+     del lavoro che nessuno ha registrato e' un buco nella tracciabilita'.
+     Ma un percorso portato in fondo NON e' lavoro non registrato — e' una
+     tappa confermata per volta, ognuna col suo movimento. Mancava soltanto
+     la strada: `advanceTask` scala un residuo a colli, e un giro di tredici
+     tappe su vani diversi non ha un residuo a colli da scalare.
+
+     LA CONDIZIONE LA VERIFICA QUESTO METODO, non chi chiama: si chiude solo
+     se la sessione e' DAVVERO quella del compito e se non resta nessuna
+     tappa da percorrere. Una tappa segnata «non trovata» e' percorsa —
+     l'operatore c'e' andato e ha risposto; una ancora `pending` no. */
+  async chiudiCompitoDiPercorso(taskId: string, sessione: SessionePrelievo | null, initials: string = '') {
+    const id = String(taskId || '');
+    if (!id) throw new Error('Nessun compito da chiudere');
+    if (!sessione || String(sessione.task_id || '') !== id) {
+      throw new Error(`La sessione non è quella del compito ${id}`);
+    }
+    const restano = (sessione.stops || []).filter((s) => s.status === 'pending').length;
+    if (restano) throw new Error(`Restano ${restano} tappe da percorrere`);
+    const cur = this.getTask(id);
+    if (!cur) throw new Error(`Il compito ${id} non esiste`);
+    if (cur.status === 'done' || cur.status === 'cancelled') return cur;
+    const v = String(initials || this.getCurrentIdentity().initials || '').toUpperCase().trim();
+    this._chiusuraAmmessa = true;
+    try {
+      /* Il legame fra compito e percorso lo tiene la sessione, che porta
+         `task_id`: scriverlo anche di qua sarebbe la stessa cosa detta due
+         volte, e due posti che possono discordare. */
+      return await this._moveTask(id, 'done', {
+        completed_at: Date.now(), completed_by: v || null,
+      });
+    } finally {
+      this._chiusuraAmmessa = false;
+    }
+  },
 
   /* ═══════════════════════════════════════════════════════════════════
      1.4.2.1 — IL MOVIMENTO CONFERMATO SCALA IL RESIDUO
@@ -4052,6 +4090,72 @@ const Store = {
      quale vano esce la merce, e dopo lo spostamento quel vano è un altro.
      Un documento che nomina il vano di prima manda l'evasione a cercare
      dove non c'è più niente. */
+  /* 2.35.1 — UNA TAPPA DI UNITÀ SI PREPARA SPOSTANDO IL BANCALE, NON LA SUA
+     MERCE.
+
+     `commitPreparazioneStop` toglie una riga da un vano e la rimette in un
+     altro. Su un bancale è il gesto sbagliato per due motivi che si vedono
+     entrambi in corsia: le righe arrivano di là **senza `udc_id`** — cioè il
+     pallet si scompone e resta indietro vuoto, che è esattamente il difetto
+     segnalato sul trasferimento — e la merce di un'unità non si sceglie a
+     colli, perché l'unità si prende intera.
+
+     E c'è il caso che capita più spesso di tutti: **il bancale è GIÀ in zona
+     imballaggio.** Dalla 2.33 il prodotto finito ci nasce dentro, quindi la
+     preparazione di un DDT di prodotto finito trova il pallet dove deve
+     andare. Non è un errore ed è il caso normale: non c'è niente da
+     spostare, c'è da confermare che il bancale è quello giusto. Prima si
+     rispondeva «La merce è già nella zona di imballaggio» e la tappa non si
+     chiudeva. */
+  async commitPreparazioneUdc({ session, stop, zona, verso, movement }: {
+    session: SessionePrelievo; stop: Record<string, any>;
+    zona: { sito: { id: string }; zona: { id: string } }; verso: string;
+    movement: Partial<Movimento> & { type: MovTipo };
+  }) {
+    if (!session?.session_id) throw new Error('Sessione di prelievo priva di identificativo');
+    if (!stop?.udc_id) throw new Error('Questa tappa non nomina nessuna unità di carico');
+    const id = String(stop.udc_id);
+    const u = this.getUdc(id);
+    if (!u) throw new Error(`${id} non esiste più`);
+
+    /* SI GUARDA LA ZONA, NON IL VANO. `_prepVanoImballo` propone UN vano
+       della zona d'imballaggio — il primo libero — e quasi mai è quello dove
+       il bancale sta già. Confrontare col vano proposto vorrebbe dire
+       spostare un pallet da un posto giusto a un altro posto giusto, con un
+       movimento a registro che non racconta niente: al banco, l'08/09, un
+       bancale nato in MAG-ACC-11 è stato portato in MAG-ACC-12 per questo.
+       Quel che conta è che sia in zona d'imballaggio, e ci era già. */
+    const dove = String(u.location_code || '').toUpperCase();
+    const suo = this.buildLocationGeometry().get(dove);
+    const giaLi = !!suo
+      && String(suo.site_id).toUpperCase() === String(zona.sito.id).toUpperCase()
+      && String(suo.zone_id).toUpperCase() === String(zona.zona.id).toUpperCase();
+    const meta = String(verso || '').toUpperCase();
+    const daMuovere = !giaLi && !!meta && dove !== meta;
+
+    if (daMuovere) {
+      await this.moveUdc(id, meta, { ...movement, dest_location: meta });
+    }
+
+    /* DOVE STA ADESSO SI RILEGGE, non si deduce. `u` è l'istantanea di
+       prima dello spostamento: usarla per riallineare il documento
+       significava scrivere sulla riga il vano che la merce ha appena
+       lasciato, e l'evasione ci trovava zero colli. Visto a video l'08/09:
+       «Il documento non si è riallineato · disponibili 0». */
+    const adesso = this.getUdc(id)?.location_code || (daMuovere ? meta : dove);
+    const righe = this.righeDiUdc(id);
+    const colli = righe.reduce((s, r) => s + (Number(r.qty) || 0), 0);
+    stop.status = 'done';
+    stop.qty_picked = colli;
+    stop.uom_picked = null;
+    stop.moved_to = adesso;
+    stop.done_at = Date.now();
+    session.updated_at = Date.now();
+    await Persistence.put('pick_session', session);
+    this._applyToCache('pick_session', 'put', session);
+    return { udc_id: id, spostata: daMuovere, colli, location_code: adesso };
+  },
+
   async commitPreparazioneStop({ session, stop, qty, verso, movement, scelte = null }: {
     session: SessionePrelievo; stop: Record<string, any>; qty: number; verso: string;
     movement: Partial<Movimento> & { type: MovTipo }; scelte?: Scelta[] | null;
@@ -4109,6 +4213,44 @@ const Store = {
     } catch (err) {
       try { await this.reloadCache(); } catch (e2) { console.error('[WM] commitPreparazioneStop — riallineamento cache:', e2); }
       throw err;
+    }
+
+    /* 2.35.1 — LA RIGA ARRIVATA AL BANCO D'IMBALLO SI RILEGGE DAL SERVIZIO.
+
+       Dentro una transazione `Persistence.add` NON scrive: accoda l'operazione
+       e restituisce `undefined`. `addItem` mette percio' in cache una riga
+       **senza `_id`**, che e' il campo con cui il servizio la riconosce: da
+       quel momento la copia in memoria e quella sul disco parlano di due
+       cose diverse. Al banco, l'08/09, si vedeva cosi': la merce arrivava in
+       zona d'imballaggio, ma comporre l'unita' subito dopo rispondeva
+       «6001418#261571 non e' in MAG-ACC-11» — e bastava ricaricare la pagina
+       perche' funzionasse, che e' il segno che il difetto e' nella copia e
+       non nei dati.
+
+       Si rilegge il solo vano di destinazione, non tutto: `reloadCache` su un
+       magazzino da undicimila articoli, a ogni tappa, sarebbe un'attesa a
+       ogni gesto. E' la stessa regola di `moveUdc` — la cache si riallinea su
+       cio' che il servizio ha fatto davvero. */
+    if (Persistence.supportsRemoteOps) {
+      try {
+        const arrivate = await Persistence.query<Giacenza>('inventory', {
+          criteria: { field: 'location_code', op: 'equals', value: verso },
+        });
+        /* PRIMA SI BUTTA LA RIGA SENZA `_id`, POI SI METTE QUELLA VERA.
+           Metterla e basta non basta: la cache indicizza per `_id`, e una
+           riga senza non viene sostituita da una che ce l'ha — resta accanto.
+           `getItemsAtLocation` ne restituisce due, la prima e' quella
+           fantasma, e chi la salva scrive `PUT /api/c/inventory/` con
+           l'identificativo vuoto: il servizio risponde 404 e il gesto
+           fallisce dicendo che la merce non c'e'. Visto cosi' l'08/09
+           componendo l'unita' subito dopo il prelievo. */
+        for (const vecchia of this.getItemsAtLocation(verso)) {
+          if (vecchia._id == null) this._applyToCache('inventory', 'delete', vecchia);
+        }
+        for (const r of arrivate) this._applyToCache('inventory', 'put', r);
+      } catch (e) {
+        console.error('[WM] commitPreparazioneStop — rilettura del vano d\'imballo:', e);
+      }
     }
     return mosso;
   },

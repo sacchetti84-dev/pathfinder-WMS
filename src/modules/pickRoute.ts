@@ -4,8 +4,8 @@
    non controllato — ed era una promessa scritta a mano, che nessuno
    verificava contro il codice vero. */
 import { Store } from '../core/store';
-import { scansioniRichieste } from './preparazione';
-import type { DaPreparare } from './preparazione';
+import { scansioniRichieste, scansioniBastano } from './preparazione';
+import type { DaPreparare, ScansioniInMano } from './preparazione';
 import type { Coordinate, Geometria, Giacenza } from '../types/entita.js';
 import type { RigaODP } from './odpParser';
 import { sitoDiCasa } from './trasferimentiOdp';
@@ -102,6 +102,10 @@ export interface Percorso {
 
 /** Al comparatore serve una sola cosa: dove sta la riga. */
 type Ordinabile = { location_code: string };
+
+/** E alla grammatica delle scansioni ne serve un'altra sola: se la tappa
+    nomina un'unità di carico. */
+type ConUdc = { udc_id?: string | null };
 
 const PickRoute = {
 
@@ -447,8 +451,23 @@ const PickRoute = {
       carico, tre sulla merce sciolta. La regola sta in `preparazione.ts`;
       qui c'è il ponte, perché chi ha una `Tappa` in mano non ha una
       `DaPreparare`. */
-  scansioniDiTappa(t: Tappa | null | undefined): string[] {
-    return scansioniRichieste(t?.udc_id ? { tipo: 'udc' } as DaPreparare : { tipo: 'riga' } as DaPreparare);
+  /* 2.35.1 — basta che la tappa dica se ha un'unità: chiedere qui una
+     `Tappa` intera vorrebbe dire che la maschera, che maneggia il tipo
+     salvato nella sessione, deve convertirla per fare una domanda che
+     riguarda un campo solo. */
+  scansioniDiTappa(t: ConUdc | null | undefined): string[] {
+    return scansioniRichieste(this._comeCosa(t));
+  },
+
+  /* E la stessa domanda dall'altro verso: quel che l'operatore ha in mano
+     basta a questa tappa? La maschera lo chiedeva in tre posti, e uno dei
+     tre parlava solo la grammatica della merce sciolta. */
+  scansioniBastanoPer(t: ConUdc | null | undefined, inMano: ScansioniInMano | null | undefined): boolean {
+    return scansioniBastano(this._comeCosa(t), inMano);
+  },
+
+  _comeCosa(t: ConUdc | null | undefined): DaPreparare {
+    return (t?.udc_id ? { tipo: 'udc' } : { tipo: 'riga' }) as DaPreparare;
   },
 
   /* 1.10 — RIMETTERE IN FILA LE TAPPE dopo che una si e' spostata. La

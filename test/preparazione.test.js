@@ -395,6 +395,33 @@ describe('daImballare', () => {
     expect(daImballare([tappa({ udc_id: 'UDC-1' })])).toEqual([]);
   });
 
+  /* 2.35.1 — E OGNI RIGA DICE DA QUALE VANO SI PRENDE.
+
+     Chi compone l'unita' ricalcolava «il primo vano libero della zona
+     d'imballaggio», e dopo che le tappe ci hanno posato la merce quel vano
+     non e' piu' lo stesso — proprio perche' la merce ci e' arrivata. Al
+     banco, l'08/09: merce in MAG-ACC-11, unita' nata in MAG-ACC-12, e
+     nessuna assegnazione riuscita. La tappa lo sa gia': `moved_to`. */
+  it('ogni riga porta il vano dove la tappa ha posato la merce', () => {
+    const d = daImballare([tappa({ moved_to: 'MAG-ACC-11' })]);
+    expect(d[0].da).toBe('MAG-ACC-11');
+  });
+
+  it('e senza `moved_to` il campo resta vuoto invece di inventarsi un vano', () => {
+    /* Vuoto vuol dire «non lo so», e chi compone puo' ripiegare dicendolo.
+       Un vano dedotto sarebbe indistinguibile da uno vero. */
+    expect(daImballare([tappa()])[0].da).toBe('');
+  });
+
+  it('due tappe nello stesso vano restano una riga sola, e il vano e quello', () => {
+    const d = daImballare([
+      tappa({ qty_picked: 4, moved_to: 'MAG-ACC-11' }),
+      tappa({ qty_picked: 6, moved_to: 'MAG-ACC-11' }),
+    ]);
+    expect(d).toHaveLength(1);
+    expect(d[0]).toMatchObject({ colli: 10, da: 'MAG-ACC-11' });
+  });
+
   it('due tappe dello stesso lotto si sommano in una riga sola', () => {
     const d = daImballare([tappa({ qty_picked: 4 }), tappa({ qty_picked: 6 })]);
     expect(d).toHaveLength(1);

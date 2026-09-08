@@ -15,6 +15,54 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.35.1 — 2026-09-08
+
+**Two flows that never reached the end, and twelve defects to get there.**
+
+Three came from the warehouse: production picking did not load the attached
+order file, a shipment preparation would not advance when the load-unit code
+was scanned, and transferring a unit from packing to shipping moved only its
+contents — the pallet stayed behind, emptied, and vanished from the list. All
+three were real. Looking for them on screen turned up nine more, and one was
+worse than any of the three.
+
+**The worst was not reported.** A preparation stop asked the bin's
+availability **without excluding its own document**. A pending delivery note
+reserves the stock — the rule the whole of 2.31 rests on — so the answer was
+zero: the card printed "0 packs in bin" in red over a full pallet, and the
+confirm stopped with "no packs available (committed to a pending note)". The
+system was telling the operator the goods were committed — by himself. No
+preparation stop could ever close, from 2.31 through 2.35.
+
+**Why the file did not load.** Reading it worked. What broke it was that
+opening the picking sub-tab recomputes the stage from the active session,
+erasing the one just set. With any route left open — even one abandoned days
+earlier — the order was read into memory while the screen still showed the
+running route, under a green notice announcing a screen it had not opened.
+
+**Why the pallet stop would not advance.** The redraw decided whether a scan
+still counted by asking "is there a location?", which on a wrapped pallet is
+false by construction: the location is never scanned there. The redraw wiped
+the code it had just accepted. The rule lived in three places and one of them
+spoke a single grammar; it now lives in one.
+
+**Why the transfer abandoned the pallet.** The move is a remove plus an add,
+and add has no argument for the unit: the row arrived as loose goods and the
+container stayed behind. `moveUdc` has done this correctly since 1.4 and
+nothing called it from there.
+
+**And one that a page reload hid.** Inside a transaction `add` does not
+write — it queues and returns nothing — so the cache received a row with no
+id, the key by which it indexes and the service identifies. Composing the unit
+right after a pick answered "the goods are not in that bin", and reloading the
+page fixed it: the sign that the defect was in the copy, not the data.
+
+Three reported, nine found by watching the screen, none by re-reading code.
+
+1,683 client tests in 65 files; 322 on the service; 101 on the benches.
+
+---
+
 ## 2.35.0 — 2026-09-08
 
 **The cycle bench had been dead, and the failures talked about something

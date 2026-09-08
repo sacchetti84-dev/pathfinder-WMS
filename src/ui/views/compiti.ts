@@ -465,6 +465,15 @@ export const VistaCompiti = {
           ${leader ? '' : '<div class="text-label-small text-sx-text-muted mt-2">Oltre Normale serve un Team Leader: se tutto è urgente, la coda torna a essere l\'ordine in cui si è chiesto.</div>'}
         </div>
       </div>
+      <!-- 2.35.1 — LA RIGA DELLA MERCE STA DENTRO IL SUO CONTENITORE.
+           ntMerceRow accendeva e spegneva le due ubicazioni; articolo, lotto
+           e colli stavano FUORI, quindi restavano accesi anche dove non
+           c'entrano niente. Su un prelievo ODP la maschera chiedeva
+           «Articolo *» e «Colli *» col loro asterisco: due campi obbligatori
+           per un'attivita' che la merce la legge dalla distinta allegata, e
+           che infatti si crea senza compilarli. Un asterisco che non serve
+           insegna a non fidarsi degli asterischi. -->
+      <div id="ntMerceIdRow">
       <div class="form-row mb-2">
         <div class="form-group"><label>Articolo <span class="req" id="ntArtReq">*</span></label>
           <input class="input input-mono uppercase" id="ntArticle" maxlength="40"
@@ -475,6 +484,7 @@ export const VistaCompiti = {
             placeholder="dalla disponibilità scelta"></div>
         <div class="form-group max-w-[110px]"><label>Colli <span class="req" id="ntQtyReq">*</span></label>
           <input class="input input-mono" id="ntQty" type="number" min="1" step="1"></div>
+      </div>
       </div>
       <!-- 1.4.2.1 — SI SCEGLIE UNA RIGA DI MAGAZZINO, NON SI DIGITA UN LOTTO.
            Lotto e ubicazione di partenza vengono dalla merce che c'e' davvero:
@@ -601,6 +611,22 @@ export const VistaCompiti = {
        su un prelievo ODP la merce la dice il file, non chi chiede. */
     mostra('ntOdpRow', tipo === 'PICK_ODP');
     mostra('ntMerceRow', vuoleArticolo(tipo));
+    /* 2.35.1 — e con loro spariscono articolo, lotto, colli e l'elenco delle
+       disponibilità: erano rimasti fuori dal contenitore, quindi accesi su
+       un prelievo ODP. Si SVUOTANO oltre a nascondersi, per la stessa
+       ragione scritta qui sotto per «A»: `doCreateTask` legge il campo, non
+       la sua visibilità. */
+    const merceOk = vuoleArticolo(tipo);
+    mostra('ntMerceIdRow', merceOk);
+    mostra('ntDisp', merceOk);
+    if (!merceOk) {
+      for (const id of ['ntArticle', 'ntLot', 'ntQty']) {
+        const e = $(id) as HTMLInputElement | null;
+        if (e) e.value = '';
+      }
+      const disp = $('ntDisp');
+      if (disp) disp.innerHTML = '';
+    }
     /* Lo Smaltimento scarica il magazzino e non porta niente da nessuna
        parte: il campo «A» lì non è di troppo, è fuorviante. Si SVUOTA oltre
        a nascondersi, perché `doCreateTask` legge il campo e non la sua
@@ -842,6 +868,23 @@ export const VistaCompiti = {
     /* Un avvio gia' in corso su un altro compito si abbandona prima: due
        maschere precompilate da due compiti diversi sono il modo di scalare
        il residuo di quello sbagliato. */
+    /* 2.35.1 — E UN'ATTIVITÀ CHIUSA NON È «APERTA IN MOVIMENTA».
+
+       `_taskRun` è un segnalibro in memoria, e fino alla 2.35 lo cancellava
+       un posto solo: la chiusura che arriva da un movimento confermato. Un
+       compito chiuso da un'altra strada — dalla 2.35.1 la chiusura del
+       percorso, ma anche un annullamento da un altro terminale — lo lasciava
+       lì, e l'attività dopo si apriva con «C'è già un'attività avviata:
+       TA-… è aperta in Movimenta», nominando una che risultava già
+       conclusa. Visto a video l'08/09 avviando un prelievo ODP subito dopo
+       aver chiuso una preparazione.
+
+       Si guarda lo stato vero, non il segnalibro: se quel compito non è più
+       aperto, il segnalibro è vecchio e si butta senza chiedere niente. */
+    if (this._taskRun && this._taskRun.task_id !== taskId
+        && !eAperto(Store.getTask(this._taskRun.task_id))) {
+      this._taskRun = null;
+    }
     if (this._taskRun && this._taskRun.task_id !== taskId) {
       const altro = Store.getTask(this._taskRun.task_id);
       if (!await Dialog.confirm({

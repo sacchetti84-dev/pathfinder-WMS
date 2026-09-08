@@ -248,8 +248,36 @@ describe('il doppio contesto dei gestori inline', () => {
    mettere, registrare il movimento e timbrare la tappa devono riuscire
    insieme o non riuscire — e le transazioni non stanno nelle maschere. La
    metà lunga sono le spiegazioni: chi rilegge questo file deve trovare
-   scritto perché due prelievi si comportano in modo diverso. */
-const TETTO_STORE = 4737;
+   scritto perché due prelievi si comportano in modo diverso.
+
+   2.35.1 — +88, e sono due gesti che mancavano.
+
+   `commitPreparazioneUdc`: una tappa di unità di carico si prepara
+   spostando il BANCALE, non la sua merce. Passando da
+   `commitPreparazioneStop` le righe arrivavano di là senza `udc_id` — il
+   pallet si scomponeva e restava indietro vuoto — e il caso più frequente,
+   il bancale già in zona imballaggio, finiva in errore invece che in una
+   tappa chiusa.
+
+   `chiudiCompitoDiPercorso`: un percorso portato in fondo chiude la sua
+   attività. `completeTask` rifiuta la chiusura a mano ed è giusto, ma un
+   giro di tredici tappe confermate non è lavoro non registrato: mancava la
+   strada, non il diritto. La condizione la verifica il metodo — sessione
+   davvero del compito, nessuna tappa ancora da percorrere — perché una
+   guardia che si fida di chi chiama non è una guardia.
+
+   2.35.1 — +38, ed è una rilettura che rimette in fila cache e disco.
+
+   Dentro una transazione `Persistence.add` non scrive: accoda e restituisce
+   `undefined`. `addItem` metteva perciò in cache una riga SENZA `_id`, che è
+   la chiave con cui la cache indicizza e il servizio riconosce: da quel
+   momento la copia in memoria e il disco parlavano di due cose diverse, e
+   comporre l'unità subito dopo un prelievo rispondeva «la merce non è in
+   quel vano» — mentre ricaricando la pagina funzionava. Il vano di
+   destinazione si rilegge dal servizio, e la riga fantasma si butta prima:
+   metterci sopra quella vera non basta, perché senza `_id` non la
+   sostituisce, le sta accanto. */
+const TETTO_STORE = 4879;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

@@ -567,6 +567,15 @@ export interface SessionePrelievo {
       chi guarda la coda che quel compito è già cominciato. Assente = il
       percorso è nato caricando un file a mano, come faceva la 2.29. */
   task_id?: string | null;
+  /** 2.31 — IL DOCUMENTO CHE QUESTA PREPARAZIONE STA SERVENDO.
+
+      Il codice lo scrive dalla 2.31 — `_prepAvvia` lo mette nel record — ma
+      il tipo non lo dichiarava, quindi leggerlo dava `unknown` e ogni uso
+      passava da un cast. E' lo stesso difetto del `causale_label` trovato a
+      video l'08/09: un campo che esiste nei dati e non nel tipo esiste solo
+      per chi sa gia' che c'e'. Assente = percorso di prelievo, non di
+      preparazione. */
+  prep_doc_id?: string | null;
   offroute?: FuoriPercorso[];
   notes?: FuoriPercorso[];
   warnings?: string[];

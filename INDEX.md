@@ -545,6 +545,92 @@ produzione fino all'ultimo giorno.
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
 
+### La 2.35.1 — costruita, non installata
+
+**DUE FLUSSI CHE NON ARRIVAVANO IN FONDO, E DODICI DIFETTI PER ARRIVARCI.**
+Andrea, l'08/09: «il prelievo ODP non carica automaticamente il file xls», «la
+preparazione della spedizione non avanza se devo scansionare il codice UDC»,
+«nel trasferimento delle UDC dalla zona imballaggi alla zona spedizioni viene
+trasferito solo il contenuto e l'UDC rimane in zona imballaggi sparendo».
+Tutti e tre veri. Cercandoli a video ne sono usciti altri nove, e uno era
+peggiore dei tre segnalati.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.35.1\` |
+| impronta | `ce6f5f6f0e5d79cdc6a1a388b1c7880966d6e2b11ff8b08acdd688d2aeb780bd` |
+| byte | **2.209.717** in **8 file**, `costruita 2026-09-08T20:27:06Z` |
+| collaudi | **1.683 in 65 file** (una saltata) · `npm run check` pulito · 171 + 100 + 43 + 8 sul servizio · 40 + 47 + 14 sui banchi |
+| provata | **a video, il giro intero due volte**: DDT → attività → percorso → tappa confermata → unità composta ed etichettata → trasferimento in banchina; e prelievo ODP con `07082026_gluc.xlsx` |
+
+**IL PEGGIORE NON ERA FRA I TRE SEGNALATI.** Una tappa di preparazione
+chiedeva la disponibilità del vano **senza escludere il proprio documento**.
+Un DDT pendente prenota la merce — è la regola su cui poggia tutta la 2.31 —
+quindi la risposta era zero: la scheda scriveva «Colli in ubicazione 0» in
+rosso sopra un bancale pieno, e la conferma si fermava con «nessun collo
+disponibile (impegnato su DDT pendente)». Il sistema diceva all'operatore che
+la merce era impegnata **da lui stesso**. `getAvailableQty` accetta
+l'esclusione di un documento da sempre: mancava di passarla, in tutti e due i
+punti che la tappa interroga. **Nessuna tappa di preparazione ha mai potuto
+chiudersi, dalla 2.31 alla 2.35.**
+
+**I TRE SEGNALATI.**
+
+**① Il file xls non si caricava.** La lettura funzionava; a rompere era
+`_pickSub('ordine')`, che RICALCOLA lo stadio dalla sessione attiva e
+cancellava l'«import» appena scritto. Con un percorso aperto — e ne basta uno
+lasciato indietro giorni prima — la distinta veniva letta e messa in
+`_routeOrdini`, ma a video restava il percorso in corso, e sopra un riscontro
+verde diceva «configura il percorso e avvia»: annunciava una schermata che non
+aveva aperto. Adesso si guarda **prima** che cosa c'è aperto: se è il percorso
+di quella stessa attività lo si riprende, altrimenti lo si dice e non si finge.
+
+**② La tappa UDC non avanzava.** Il ridisegno della scheda decideva se la
+spunta valesse ancora con `!!this._routeScan.loc`, cioè la grammatica della
+sola merce sciolta. Su un bancale l'ubicazione non si scansiona MAI: la
+condizione era falsa per costruzione, e il ridisegno cancellava il codice
+appena riconosciuto. A video: «Unità confermata», e un istante dopo «Serve il
+codice dell'unità prima di confermare», sul bancale giusto. La regola stava
+scritta in tre posti e in uno parlava una lingua sola; adesso sta in
+`modules/preparazione` e la si chiede da un posto solo.
+
+**③ Il trasferimento abbandonava il bancale.** Il cambio ubicazione è un
+`removeItem` più un `addItem`, e `addItem` non ha un argomento per l'unità: la
+riga arrivava in banchina **senza `udc_id`** e il contenitore restava indietro
+vuoto, quindi marcato `empty` e sparito dall'elenco. `Store.moveUdc` esiste
+dalla 1.4 e fa la cosa giusta — righe e contenitore insieme, transazione sola
+— e nessuno la chiamava da lì.
+
+**GLI ALTRI OTTO, IN BREVE.** La maschera del prelievo ODP chiedeva «Articolo
+\*» e «Colli \*» su un'attività che la merce la legge dalla distinta — la riga
+stava fuori dal contenitore che si accende e si spegne. La sessione del
+prelievo ODP non portava `task_id`, quindi l'attività non si chiudeva mai col
+percorso. Un compito chiuso da una strada diversa lasciava `_taskRun` in
+memoria, e l'attività dopo si apriva con «C'è già un'attività avviata»
+nominandone una conclusa. Una tappa di unità chiedeva **quali colli** prendere
+da un pallet imballato. Un bancale già in zona imballaggio si spostava lo
+stesso, perché il confronto era col vano proposto e non con la zona. Il
+documento si riallineava al vano che la merce aveva appena lasciato, perché
+l'ubicazione si leggeva dall'istantanea di prima dello spostamento. Il registro
+di sessione a video scriveva «Prelievo Produzione» su uno spostamento al banco
+d'imballo. E il rimprovero «riscansiona l'ubicazione» compariva su una scheda
+che l'ubicazione non la chiede.
+
+**IL DODICESIMO È IL PIÙ ISTRUTTIVO, e non si vedeva ricaricando la pagina.**
+Dentro una transazione `Persistence.add` non scrive: accoda e restituisce
+`undefined`. `addItem` metteva perciò in cache una riga **senza `_id`** — la
+chiave con cui la cache indicizza e il servizio riconosce — e da lì in poi la
+copia in memoria e il disco parlavano di due cose diverse. Comporre l'unità
+subito dopo il prelievo rispondeva «6001418#261571 non è in MAG-ACC-11»,
+mentre **ricaricando la pagina funzionava**: il segno che il difetto stava
+nella copia e non nei dati. La riga fantasma si butta e il vano si rilegge dal
+servizio; metterci sopra quella vera non basta, perché senza `_id` non la
+sostituisce — le sta accanto.
+
+**DOVE SONO USCITI.** Tre segnalati dal magazzino, **nove guardando lo
+schermo**. Nessuno rileggendo il codice: i due flussi hanno prove che passano
+da versioni, e passavano perché nessuna arrivava in fondo al giro.
+
 ### La 2.35.0 — costruita, non installata
 
 **IL DDT FA NASCERE IL LAVORO, NON LO FINISCE.** È il lavoro concordato con
