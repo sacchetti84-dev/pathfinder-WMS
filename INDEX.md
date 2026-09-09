@@ -584,8 +584,20 @@ se imballa o no il materiale prelevato».
 
 | | |
 |---|---|
+| pacchetto | `consegna\Pathfinder 2.38.1\` |
+| impronta | `451904ea1be31f19b54fc28c007b82b8922a5482222a81ce6b7dc7fd166adce6` |
+| byte | **2.14 MB** in **8 file** (611 kB sul filo, compressi), `costruita 2026-09-09T20:52Z` |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
 | collaudi | **1.771 in 69 file** (una saltata) · `npm run check` pulito |
 | provata | **a video**, sul caso che il banco della 2.38 non aveva: un articolo che DICHIARA le UM — 6 colli da 25 KG su 8 in ubicazione. La scheda scrive «6 Coll.» e sotto «CHE FANNO 150 KG»; la maschera dei colli si apre su **6** e dice «Escono 6 coll. · 150 KG — restano 2 × 25 KG». Prima usciva **1** |
+| **PRIMA DI INSTALLARE** | **le zone di spedizione vanno risalvate**, una per sito, in Configurazione → Siti e Zone. La spunta si vede già accesa — è il ripiego su `pf_zone` che la accende — e salvarla scrive il campo nuovo. Voce **106** |
+
+> **LA 2.37.0 È SCESA IN ARCHIVIO PRIMA DI QUESTA BUILD.** `npm run build`
+> azzera `consegna/` a ogni giro — §3 del piano 1.7 — e quel pacchetto non
+> era in `ARCHIVIO\VERSIONI PRECEDENTI\`. Non sarebbero stati byte persi: la
+> build è riproducibile e ogni versione si ricostruisce dal commit. Ma è la
+> domanda rimasta senza risposta su `app\precedente`, e questa volta si è
+> guardato prima di cancellare.
 
 **LA QUANTITÀ E LA SUA UNITÀ SI ERANO SCOLLATE.** `kg_required` porta due
 grandezze a seconda di chi costruisce il percorso — unità di misura su un
