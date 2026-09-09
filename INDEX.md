@@ -8,7 +8,16 @@ memoria, non istruzioni.
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
 Aggiornato: **09/09/2026** — **non tutti i DDT vanno preparati, e preparare
-sono tre lavori.** La **2.38** è costruita, non installata.
+sono tre lavori.** La **2.38.1** è costruita, non installata.
+
+**SEI COLLI NON SONO SEI CHILI** (2.38.1). `kg_required` conta COLLI su una
+preparazione e UNITÀ DI MISURA su un prelievo da ordine, ma l'unità scritta
+accanto era sempre quella dell'articolo: nove punti stampavano «6 KG» di sei
+colli da venticinque, e la maschera dei colli ne proponeva **uno**. Corretto
+alla sorgente — la tappa nasce con `um: 'Coll.'` — e la quantità vera viaggia
+accanto. Più i colli che il DDT ha già scelto, che adesso arrivano in corsia.
+E il pulsante rosso «Chiudi percorso» non chiude più una spedizione: la
+rimette in coda, come l'altra uscita.
 
 **UN'ATTIVITÀ DI SPEDIZIONE COPRE TRE LAVORI E NON SI CHIUDE A METÀ.** Si
 raduna, si imballa, si carica; chi la prende in carico dichiara quale dei tre
@@ -565,6 +574,61 @@ produzione fino all'ultimo giorno.
 > ricostruisce dal commit, e la build è riproducibile (§2) — ma è una domanda
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
+
+### La 2.38.1 — costruita, non installata
+
+**SEI COLLI NON SONO SEI CHILI.** Andrea, il 09/09 sulla 2.38: «la versione
+ha dei problemi nella gestione dei colli e uom nel passaggio da ddt a attività
+di prelievo preparazione, in più manca il passaggio dove l'operatore dichiara
+se imballa o no il materiale prelevato».
+
+| | |
+|---|---|
+| collaudi | **1.771 in 69 file** (una saltata) · `npm run check` pulito |
+| provata | **a video**, sul caso che il banco della 2.38 non aveva: un articolo che DICHIARA le UM — 6 colli da 25 KG su 8 in ubicazione. La scheda scrive «6 Coll.» e sotto «CHE FANNO 150 KG»; la maschera dei colli si apre su **6** e dice «Escono 6 coll. · 150 KG — restano 2 × 25 KG». Prima usciva **1** |
+
+**LA QUANTITÀ E LA SUA UNITÀ SI ERANO SCOLLATE.** `kg_required` porta due
+grandezze a seconda di chi costruisce il percorso — unità di misura su un
+prelievo da ordine, COLLI su una preparazione — ma `um` portava sempre
+l'unità dell'ARTICOLO. Nove punti scrivono `${kg_required} ${um}`: su sei
+colli di farina da 25 KG stampavano **«6 KG»**. È la bugia della 2.33 rifatta
+altrove, e più difficile da vedere perché **6 è un numero plausibile**.
+
+**E LA MASCHERA DEI COLLI RIEMPIVA FINO A SEI CHILI.** `_routeConfirmStop`
+passava `{ uom: st.kg_required }` per tutti e due i generi di percorso: su
+colli da 25 KG proponeva **un collo** invece di sei, e chi confermava senza
+rifare il conto mandava un sesto della merce. La domanda secca di ripiego
+proponeva `avail`, cioè il vano intero — otto su sei chiesti.
+
+**LA CORREZIONE STA ALLA SORGENTE, NON NEI NOVE PUNTI.** `um` è «che unità è
+il numero qui accanto», e su una preparazione quel numero è di colli: la
+tappa nasce con `um: 'Coll.'` e tutti e nove diventano veri senza un `if`
+sparso nelle viste. La quantità vera viaggia accanto — `qty_uom_doc`,
+`uom_doc` — e la scheda la scrive sotto ai colli: due grandezze, due righe.
+
+**E I COLLI IL DOCUMENTO LI AVEVA GIÀ SCELTI.** Dalla 1.8.4 un DDT registra
+QUALI colli escono, e l'evasione li riprende senza chiedere; la preparazione
+li richiedeva da capo, e su un lotto con colli di misure diverse «sei colli
+qualunque» e «questi sei colli» sono due merci diverse. Adesso la scelta
+arriva in corsia — `packs_doc` — e la maschera si apre su quella:
+`preselezioneDaUscite` la traduce da posizioni a misure, e torna `null`
+invece di arrangiarsi quando una proposta sarebbe peggio di nessuna proposta
+(una misura sparita, più colli di quanti ce ne siano, due colli aperti).
+
+**NESSUNA PROVA LO VEDEVA**, e la ragione è istruttiva: tutte guardavano
+`kg_required` — il numero, che era giusto — e nessuna guardava l'unità che
+gli sta accanto. Al banco della 2.38 l'articolo di prova non dichiarava le
+UM, `_chiediColli` usciva subito, e la maschera che sbagliava non si apriva
+mai. **Un caso di prova troppo semplice nasconde il difetto meglio di una
+prova mancante**: la prova mancante si vede nell'elenco.
+
+**IL PULSANTE ROSSO NON SAPEVA DELLE SPEDIZIONI.** Le uscite dal percorso
+sono due — «Chiudi e stampa report» e «Chiudi percorso» — e la 2.38 ne aveva
+insegnata una sola. Di lì una preparazione non vedeva mai la domanda
+dell'imballaggio, e l'attività veniva **chiusa** invece di tornare in coda: la
+spedizione spariva dall'elenco con la merce ancora al banco e nessuno che
+sapesse di doverla imballare. Resta l'uscita rapida — non chiede niente — ma
+restituisce, col marchio che il documento dichiara.
 
 ### La 2.38.0 — costruita, non installata
 
@@ -4961,7 +5025,7 @@ in Configurazione → Operatori.
 | `core/schema.ts` · `utils.ts` · `costanti.ts` | 173 · 46 · 44 | Schema IndexedDB · `debounce` e `_h` · causali e ritenzione |
 | `modules/compiti.ts` | 816 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. `registroAttivita` unisce i compiti ai campionamenti che nessun compito rivendica. Puro. **2.38**: `PREP_SHIP` si chiama **Preparazione/carico DDT** perché ne fa tre, e `in_progress → requested` è una freccia nuova — quella verso `assigned` dice «non ho fatto niente, riprendo io», questa dice «ho fatto il mio pezzo, tocca a un altro» |
 | `modules/preparazione.ts` | 511 | **2.31 — date le righe di un documento, che cosa va a prendere l'operatore**: le unità non si scompongono (una tappa per pallet, una scansione sola) e la merce sciolta resta a tre. Non sa niente del magazzino: la serpentina è di `pickRoute`. **2.38 — e a che punto è la spedizione**, letto dal documento e mai timbrato sul compito: `statoSpedizione` (da preparare / da imballare / carico pronto), `modiPossibili` (i pulsanti sensati per lo stato, e il carico c'è sempre), i due avvisi che dicono senza vietare, e `daImballareDalDoc` per chi imballa senza avere davanti la sessione di chi ha radunato. Puro |
-| `modules/misure.ts` · `colli.ts` | 319 · 578 | Le cinque unità e la suddivisione per collo · l'elenco dei colli: uscite come le capisce il servizio, ritrovamento per misura, `scelteDaTaglie`, `riempiFabbisogno`, `rettifica`. Puri |
+| `modules/misure.ts` · `colli.ts` | 319 · 644 | Le cinque unità e la suddivisione per collo · l'elenco dei colli: uscite come le capisce il servizio, ritrovamento per misura, `scelteDaTaglie`, `riempiFabbisogno`, `rettifica`. **2.38.1**: `preselezioneDaUscite` — le uscite di un documento tradotte da POSIZIONI a MISURE, che è come ragiona la maschera dalla 2.2. Torna `null` invece di arrangiarsi quando una proposta sarebbe peggio di nessuna proposta: una misura sparita, più colli di quanti ce ne siano, due colli aperti dove il campo è uno. Puri |
 | `modules/registro.ts` | 46 | **2.16 — le due domande che si fanno a una riga del registro**: quanto è cambiata (`quantoSiEMosso`) e quanti colli hanno cambiato posto (`quantitaMossa`). Stanno insieme perché confonderle è il difetto della voce 33. Puro |
 | `modules/documenti.ts` | 258 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto, e dalla 2.20 porta anche `udc_id` — da quale bancale esce la riga. **2.21**: `raggruppaPerPartita`, la riga che si STAMPA — un articolo e un lotto — mentre quella che si salva resta una per bancale. **2.24**: `distintaPerArticolo`, i tre livelli della packing list — articolo, lotto, bancale — ognuno col suo totale, con le stesse due regole del dato: unità diverse lasciano il totale **vuoto** e una scadenza discorde dentro un lotto sparisce. Somma con `sommaUom`, cioè con lo stesso arrotondamento dei totali del DDT: due totali che si scostano di un millesimo sullo stesso foglio sono una contestazione in banchina. Puro |
 | `modules/giacenzaArticolo.ts` | 175 | La giacenza di un articolo per lotto, FEFO, e la coda di conte nell'ordine dello scaffale. **Le UM non si calcolano qui**: arrivano risolte da `Store.righeLette`. Puro |

@@ -236,6 +236,62 @@ export function uscite(
   });
 }
 
+/* ═══ 2.38.1 · UNA SCELTA GIÀ FATTA, RIMESSA NELLA MASCHERA ══════════════
+
+   `scelteDaUscite` traduce le uscite di un documento in POSIZIONI dell'elenco
+   di adesso, ed è quel che serve a chi esegue: l'evasione le passa a
+   `removeItem` e la merce esce. Ma la maschera dei colli non ragiona per
+   posizioni — ragiona per MISURA, dalla 2.2: «quanti colli da 25, quanti da
+   10», più l'eventuale parte di un collo aperto.
+
+   Questa funzione fa quel passaggio, e serve a un caso solo: una tappa di
+   preparazione, dove il documento ha già scelto quali colli escono e
+   l'operatore quella scelta la deve VEDERE e confermare, non rifarla. Senza,
+   la maschera si apre vuota e chi preleva sceglie altri sacchi della stessa
+   quantità — che su un lotto con colli di misure diverse è altra merce.
+
+   TORNA `null` QUANDO NON C'È NIENTE DA PROPORRE, e chi chiama ricade sul
+   riempimento a fabbisogno. Non lancia: qui una proposta che non si può fare
+   è una proposta in meno, non un prelievo fermo. A rifiutare per davvero,
+   quando la merce non c'è più, è l'evasione — che è il posto dove un errore
+   sui colli diventa merce sbagliata su un camion. */
+export function preselezioneDaUscite(
+  gruppi: readonly { colli: number; per: number }[] | null | undefined,
+  messe: unknown,
+  uom?: string | null,
+): { righe: number[]; parte: string; parteDa: number | null } | null {
+  if (!gruppi?.length || !Array.isArray(messe) || !messe.length) return null;
+  const dec = decimali(uom);
+  const righe = gruppi.map(() => 0);
+  let parte = '';
+  let parteDa: number | null = null;
+
+  for (const u of messe as { da?: unknown; quantita?: unknown }[]) {
+    const da = arrotonda(leggiNumero(u?.da), dec);
+    const q = arrotonda(leggiNumero(u?.quantita), dec);
+    if (da === null || da <= 0 || q === null || q <= 0) return null;
+    const i = gruppi.findIndex((g) => g.per === da);
+    if (i < 0) return null;                       // quella misura non c'è più
+    if (q === da) {
+      /* Un collo intero. Più di quanti ce ne siano vuol dire che l'elenco di
+         adesso non è quello di allora: meglio nessuna proposta di una
+         sbagliata. */
+      if (righe[i]! + 1 > gruppi[i]!.colli) return null;
+      righe[i] = righe[i]! + 1;
+      continue;
+    }
+    /* UNA PARTE SOLA, E NON È UNA SEMPLIFICAZIONE: la maschera ne tiene un
+       campo solo — «e in più, una parte di un collo» — perché aprire due
+       colli per una riga è il gesto che si fa una volta l'anno. Se il
+       documento ne dichiara due, la proposta non si può fare intera e non se
+       ne fa nessuna. */
+    if (parteDa !== null) return null;
+    parte = String(q);
+    parteDa = da;
+  }
+  return { righe, parte, parteDa };
+}
+
 /** Le misure di colli che erano usciti, ritrovate nell'elenco di adesso: è
     quello che serve a uno storno, che deve togliere i colli che aveva
     rimesso e non altri di misura comoda. Due colli uguali sono due scelte

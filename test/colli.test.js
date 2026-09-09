@@ -3,7 +3,7 @@ import {
   espandi, leggiColli, validaDichiarazione,
   totaleColli, totaleUom, raggruppa, descriviColli,
   daSuddivisione, preleva, uscite, scelteDaMisure, scelteDaUscite, rettifica, verificaColli,
-  scelteDaTaglie, riempiFabbisogno,
+  scelteDaTaglie, riempiFabbisogno, preselezioneDaUscite,
 } from '../src/modules/colli';
 
 /* ── La dichiarazione: 10 x 1.000 + 1 x 900 ─────────────────────────── */
@@ -480,5 +480,76 @@ describe('riempiFabbisogno', () => {
   it('senza fabbisogno le righe nascono a zero', () => {
     expect(riempiFabbisogno(gruppi, null, 'KG')).toEqual([0, 0, 0]);
     expect(riempiFabbisogno(gruppi, { uom: null, colli: null }, 'KG')).toEqual([0, 0, 0]);
+  });
+});
+
+/* ═══ 2.38.1 · LA SCELTA DEL DOCUMENTO, RIMESSA NELLA MASCHERA ═══════════
+
+   `scelteDaUscite` traduce le uscite di un documento in POSIZIONI, ed e'
+   quel che serve a chi esegue. La maschera dei colli pero' ragiona per
+   MISURA dalla 2.2 — «quanti da 25, quanti da 10», piu' l'eventuale parte di
+   un collo aperto — e in mezzo mancava il passaggio.
+
+   Serve a un caso solo: una tappa di preparazione. Il DDT ha gia' scelto
+   quali colli escono (§1.8.4) e l'operatore quella scelta la deve VEDERE e
+   confermare, non rifarla: su un lotto con colli di misure diverse, «sei
+   colli qualunque» e «questi sei colli» sono due merci diverse.
+
+   LE PROVE QUI SOTTO CERCANO I CASI IN CUI UNA PROPOSTA SAREBBE PEGGIO DI
+   NESSUNA PROPOSTA, ed e' il motivo per cui questa funzione torna `null`
+   invece di fare del suo meglio:
+
+   · La misura CHE NON C'E' PIU'. Fra la registrazione del DDT e il prelievo
+     qualcuno ha preso quel collo: proporre la misura piu' vicina vorrebbe
+     dire far confermare merce che il documento non nomina.
+   · PIU' COLLI DI QUANTI CE NE SIANO. Stessa cosa, vista dall'altro verso.
+   · DUE COLLI APERTI. La maschera ne tiene un campo solo, e mostrarne uno
+     dei due sarebbe una proposta che dichiara meno di quel che il documento
+     chiede — e chi conferma manda meno merce. */
+describe('preselezioneDaUscite', () => {
+  const gruppi = [{ colli: 4, per: 25 }, { colli: 3, per: 10 }];
+
+  it('i colli interi diventano quanti per misura, nell ordine dei gruppi', () => {
+    const p = preselezioneDaUscite(gruppi, [
+      { da: 25, quantita: 25 }, { da: 25, quantita: 25 }, { da: 10, quantita: 10 },
+    ], 'KG');
+    expect(p.righe).toEqual([2, 1]);
+    expect(p.parte).toBe('');
+    expect(p.parteDa).toBeNull();
+  });
+
+  it('un collo aperto finisce nel campo della parte, con la misura da cui esce', () => {
+    const p = preselezioneDaUscite(gruppi, [
+      { da: 25, quantita: 25 }, { da: 10, quantita: 4 },
+    ], 'KG');
+    expect(p.righe).toEqual([1, 0]);
+    expect(p.parte).toBe('4');
+    expect(p.parteDa).toBe(10);
+  });
+
+  it('UNA MISURA CHE NON C E PIU NON SI SOSTITUISCE: nessuna proposta', () => {
+    expect(preselezioneDaUscite(gruppi, [{ da: 50, quantita: 50 }], 'KG')).toBeNull();
+  });
+
+  it('PIU COLLI DI QUANTI CE NE SIANO: nessuna proposta', () => {
+    const messe = Array.from({ length: 5 }, () => ({ da: 25, quantita: 25 }));
+    expect(preselezioneDaUscite(gruppi, messe, 'KG')).toBeNull();
+  });
+
+  it('DUE COLLI APERTI non ci stanno nella maschera: nessuna proposta', () => {
+    expect(preselezioneDaUscite(gruppi, [
+      { da: 25, quantita: 5 }, { da: 10, quantita: 3 },
+    ], 'KG')).toBeNull();
+  });
+
+  it('senza gruppi o senza uscite non esplode', () => {
+    expect(preselezioneDaUscite(null, [{ da: 25, quantita: 25 }], 'KG')).toBeNull();
+    expect(preselezioneDaUscite(gruppi, null, 'KG')).toBeNull();
+    expect(preselezioneDaUscite(gruppi, [], 'KG')).toBeNull();
+  });
+
+  it('un uscita senza misura o a quantita zero non si indovina', () => {
+    expect(preselezioneDaUscite(gruppi, [{ da: 0, quantita: 5 }], 'KG')).toBeNull();
+    expect(preselezioneDaUscite(gruppi, [{ da: 25, quantita: 0 }], 'KG')).toBeNull();
   });
 });

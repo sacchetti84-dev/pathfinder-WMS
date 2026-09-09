@@ -488,6 +488,17 @@ export interface TappaPrelievo {
   site_id?: string;
   kg_required?: number | null;
   um?: string;
+  /** 2.38.1 — SU UNA PREPARAZIONE `kg_required` CONTA COLLI, e `um` dice
+      «Coll.». La quantità in unità di misura che il documento dichiara —
+      quando la dichiara — viaggia qui accanto: sono due grandezze, e
+      scriverne una col nome dell'altra è come dire «6 KG» di sei colli da
+      venticinque. Assenti su un prelievo da ordine, che le UM le ha in
+      `kg_required` e non ha un documento dietro. */
+  qty_uom_doc?: number | null;
+  uom_doc?: string;
+  /** 2.38.1 — quali colli il documento ha già scelto (§1.8.4): la maschera
+      dei colli si apre su questi invece che vuota. */
+  packs_doc?: { da: number; quantita: number }[];
   qty_available?: number;
   qty_picked?: number;
   expiry_iso?: string;

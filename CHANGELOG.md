@@ -15,6 +15,45 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.38.1 — 2026-09-09
+
+**Six packs are not six kilos, and the quick way out must not close a shipment.**
+
+Two defects in the 2.38 flow, both reported the same day.
+
+**The quantity and its unit had come apart.** A stop carries the requested
+amount in `kg_required`, and what that number *means* depends on who built
+the route: on an order pick it is a unit of measure — the picking list asks
+150 KG — and on a preparation it is **packs**, because that is how a delivery
+note counts. But the unit printed beside it was the article's, so six packs
+of 25 KG flour rendered as **"6 KG"** in nine places across the app. The
+number was one quantity, the label next to it named another. It is the 2.33
+lying-label defect on a different screen, and harder to spot because 6 is a
+plausible number.
+
+Worse, the pack chooser was asked to fill *six units of measure* on a line
+that wanted six packs: it proposed **one pack** instead of six, and whoever
+confirmed without redoing the arithmetic shipped a sixth of the goods. The
+fallback question proposed the whole bin — eight where the note asked six.
+None of the existing tests saw it, because every one of them checked
+`kg_required` (the number, which was right) and none checked the unit
+standing beside it.
+
+The unit is now set at the source — a preparation stop says "Coll." — which
+makes all nine readers truthful without a single scattered `if`. The real
+quantity travels alongside and the stop card shows it underneath: **6 Coll.**
+and **150 KG**, two quantities shown as two. And the delivery note's own
+choice of *which* packs (recorded since 1.8.4, and honoured by despatch)
+now reaches the aisle: the chooser opens on it, and the operator confirms
+what to pick instead of picking again.
+
+**And the red "Close route" button did not know about shipments.** There are
+two ways out of a route; 2.38 taught only one. From this one a preparation
+never showed the packing question, and the activity was **closed** instead of
+returned to the queue — the shipment vanished from the list with the goods
+still on the packing bench and nobody aware they had to be packed. It stays
+the quick way out and still asks nothing, but it now hands the activity back.
+
 ## 2.38.0 — 2026-09-09
 
 **Not every delivery note needs preparing, and preparing is three jobs, not one.**

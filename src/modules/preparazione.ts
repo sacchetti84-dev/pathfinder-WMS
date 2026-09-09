@@ -58,6 +58,22 @@ export interface DaPreparare {
   /** Quante righe del documento questa cosa copre. Su una riga sciolta è 1;
       su un'unità è il numero di partite che porta. */
   righe: number;
+  /** 2.38.1 — I COLLI CHE IL DOCUMENTO HA GIÀ SCELTO.
+
+      Dalla 1.8.4 chi compone un DDT non dice soltanto QUANTI colli escono:
+      dice QUALI, per misura — `packs_out` — e l'evasione li riprende senza
+      chiedere niente, perché la merce che sale sul camion è quella che il
+      documento nomina e non un'altra della stessa quantità.
+
+      Una preparazione va a prendere esattamente quella merce, quindi quella
+      scelta deve arrivare fino alla corsia: senza, la maschera dei colli si
+      apre vuota e l'operatore ne sceglie altri: stessa quantità, sacchi
+      diversi da quelli che il DDT promette. Su un lotto con colli di misure
+      diverse è merce diversa.
+
+      Vuoto quando il documento non lo dice — i DDT scritti prima della 1.8.4
+      non lo portano — e allora si chiede come si faceva allora. */
+  packs_out: { da: number; quantita: number }[];
   /** Le partite di un'unità, per dire a video che cosa si sta muovendo.
       Vuoto su una riga sciolta. */
   contenuto: { article_code: string; lot_code: string; colli: number }[];
@@ -65,6 +81,13 @@ export interface DaPreparare {
 
 const testo = (v: unknown): string => String(v ?? '').trim();
 const chiave = (v: unknown): string => testo(v).toUpperCase();
+/** I colli che una riga di documento dichiara di far uscire, per misura.
+    Vuoto quando il documento non lo dice: si legge, non si inventa. */
+function pacchi(l: RigaDocumento): { da: number; quantita: number }[] {
+  const v = (l as { packs_out?: unknown }).packs_out;
+  return Array.isArray(v) ? (v as { da: number; quantita: number }[]).filter(Boolean) : [];
+}
+
 const numero = (v: unknown): number => {
   const n = Number(v);
   return Number.isFinite(n) ? n : 0;
@@ -114,6 +137,7 @@ export function daPreparare(
         gia.qty_uom = sommaUom(gia.qty_uom, l.qty_uom);
         if (chiave(gia.uom) !== chiave(l.uom)) gia.uom = '';
         gia.contenuto.push({ article_code: art, lot_code: lot, colli });
+        gia.packs_out.push(...pacchi(l));
         continue;
       }
       const nuova: DaPreparare = {
@@ -128,6 +152,7 @@ export function daPreparare(
         qty_uom: l.qty_uom == null ? null : numero(l.qty_uom),
         uom: testo(l.uom),
         righe: 1,
+        packs_out: pacchi(l),
         contenuto: [{ article_code: art, lot_code: lot, colli }],
       };
       unita.set(udc, nuova);
@@ -141,6 +166,10 @@ export function daPreparare(
       gia.colli += colli;
       gia.righe += 1;
       gia.qty_uom = sommaUom(gia.qty_uom, l.qty_uom);
+      /* DUE RIGHE FUSE PORTANO I COLLI DI TUTTE E DUE. Sono la stessa merce
+         nello stesso vano — una tappa sola — e la scelta del documento è la
+         somma delle due scelte, non quella della prima che si incontra. */
+      gia.packs_out.push(...pacchi(l));
       continue;
     }
     const nuova: DaPreparare = {
@@ -155,6 +184,7 @@ export function daPreparare(
       qty_uom: l.qty_uom == null ? null : numero(l.qty_uom),
       uom: testo(l.uom),
       righe: 1,
+      packs_out: pacchi(l),
       contenuto: [],
     };
     sciolte.set(k, nuova);

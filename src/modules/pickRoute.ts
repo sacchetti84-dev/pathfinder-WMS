@@ -46,6 +46,13 @@ export interface Tappa {
   expiry_iso: string;
   kg_required: number;
   um: string;
+  /** 2.38.1 — su una preparazione `kg_required` conta COLLI e `um` dice
+      «Coll.»: la quantità in unità di misura del documento sta qui accanto,
+      insieme ai colli che il documento ha già scelto. Assenti sul prelievo
+      da ordine. */
+  qty_uom_doc?: number | null;
+  uom_doc?: string;
+  packs_doc?: { da: number; quantita: number }[];
   alternatives: Alternativa[];
   qty_available: number;
   status: string;
@@ -431,7 +438,32 @@ const PickRoute = {
          farebbe uscire `0` su ogni riga che non la dichiara, e uno zero ha
          l'aria di un dato vero. */
       kg_required: c.colli,
-      um: c.uom,
+      /* ═══ 2.38.1 · E L'UNITÀ ACCANTO DEVE DIRE «COLLI» ══════════════════
+
+         `kg_required` porta i COLLI dalla 2.31, ma `um` portava l'unità di
+         misura dell'articolo: nove punti dell'applicativo scrivono
+         `${kg_required} ${um}`, e su sei colli di farina da 25 KG stampavano
+         **«6 KG»**. Il numero era dei colli, l'etichetta accanto diceva
+         un'altra grandezza — la stessa bugia della 2.33, su un'altra
+         schermata, e più difficile da vedere perché 6 è un numero
+         plausibile.
+
+         Segnalato da Andrea il 09/09 sulla 2.38, e la correzione sta QUI e
+         non nei nove punti: `um` è «che unità è il numero qui accanto», e su
+         una preparazione quel numero è di colli. Cambiarlo alla sorgente
+         rende veri tutti e nove — scheda, elenco, sosta, anteprima, report —
+         senza un solo `if` sparso nelle viste.
+
+         LA QUANTITÀ VERA NON SI PERDE: viaggia accanto, in `qty_uom_doc` e
+         `uom_doc`, e la scheda della tappa la scrive sotto ai colli. Sono
+         due grandezze, e adesso si vedono per quello che sono. */
+      um: 'Coll.',
+      qty_uom_doc: c.qty_uom,
+      uom_doc: c.uom,
+      /* 2.38.1 — e QUALI colli: la scelta che chi ha scritto il DDT ha già
+         fatto, §1.8.4. Arriva fino alla corsia perché la maschera dei colli
+         si apra su quella e non vuota. */
+      packs_doc: c.packs_out,
       alternatives: [],
       qty_available: 0,
       status: 'pending',

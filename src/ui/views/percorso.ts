@@ -987,16 +987,35 @@ export const VistaPercorso = {
     </div>`;
   },
 
+  /* \u2550\u2550\u2550 2.38.1 \u00b7 L'USCITA RAPIDA NON DEVE CHIUDERE UNA SPEDIZIONE \u2550\u2550\u2550\u2550\u2550\u2550\u2550
+
+     Le uscite dal percorso sono due \u2014 \u00abCHIUDI E STAMPA REPORT\u00bb e questo
+     pulsante rosso \u2014 e la 2.38 ne aveva insegnata una sola. Su una
+     preparazione, di qui non si vedeva mai la domanda dell'imballaggio, e
+     l'attivit\u00e0 veniva CHIUSA invece di tornare in coda: la spedizione
+     spariva dall'elenco con la merce ancora al banco d'imballo e nessuno
+     che sapesse di doverla imballare. Segnalato da Andrea il 09/09.
+
+     RESTA L'USCITA RAPIDA, e non chiede niente: chi vuole imballare adesso
+     usa l'altro pulsante. Qui si esce dalla guida al cammino, e l'attivit\u00e0
+     torna in coda col marchio che il documento dichiara \u2014 \u00abda imballare\u00bb se
+     la merce sciolta \u00e8 arrivata al banco, \u00abda preparare\u00bb se ne manca. Il
+     marchio si calcola, quindi non c'\u00e8 niente da decidere qui. */
   async _routeAbandon() {
     const s = Store.getActivePickSession();
     if (!s) return;
+    const prep = !!(s as Record<string, unknown>).prep_doc_id;
     const done = (s.stops || []).filter(x => x.status === 'done').length;
     const left = (s.stops || []).filter(x => x.status === 'pending').length;
     const ok = await Dialog.confirm({
       title: 'Chiudere il percorso?',
-      message: 'I prelievi gi\u00e0 confermati restano registrati a magazzino e a registro: sono stati scritti tappa per tappa. Viene chiusa soltanto la guida al cammino.',
+      message: prep
+        ? 'I prelievi gi\u00e0 confermati restano registrati a magazzino e a registro, e la merce sta dove '
+          + 'l\u2019hai posata. L\u2019attivit\u00e0 TORNA IN ELENCO \u2014 non si chiude \u2014 e la riprende chi imballa o chi carica. '
+          + 'Per imballare adesso si esce da \u00abChiudi e stampa report\u00bb.'
+        : 'I prelievi gi\u00e0 confermati restano registrati a magazzino e a registro: sono stati scritti tappa per tappa. Viene chiusa soltanto la guida al cammino.',
       details: Dialog.kv([
-        ['Ordine', s.odp_num],
+        [prep ? 'DDT' : 'Ordine', s.odp_num],
         ['Tappe confermate', done],
         ['Tappe non percorse', left]
       ]),
@@ -1004,12 +1023,27 @@ export const VistaPercorso = {
     });
     if (!ok) return;
     if (done) await this._emitFinalPickReport(s);
-    await this._chiudiCompitoDelPercorso(s, left);
+    /* SU UNA PREPARAZIONE NON SI CHIUDE NIENTE: si restituisce. \u00c8 la stessa
+       strada di `_routeClose`, e l'unica differenza \u00e8 che di qui non si passa
+       dalla domanda dell'imballaggio. */
+    if (prep) {
+      this._prepVerso = '';
+      try {
+        const t = await Store.rimettiInCodaSpedizione(s.task_id || '', s,
+          done ? 'Merce radunata' : 'Percorso chiuso senza prelievi');
+        this.toast(`Attivit\u00e0 ${t.task_id} torna in elenco`, 'info');
+      } catch (err) {
+        this.toast(`Percorso chiuso, ma l'attivit\u00e0 non \u00e8 tornata in elenco \u00b7 ${(err as Error).message}`, 'error');
+      }
+    } else {
+      await this._chiudiCompitoDelPercorso(s, left);
+    }
     await Store.endPickSession(s.session_id);
     this._routeStage = 'import';
     this._routeStartTime = null;
     this._formOrdine($('pickSubForm'));
     this.toast('Percorso chiuso', 'info');
+    if (this.currentView === 'tasks') this.renderTasks();
   },
 
   /* 2.35.1 — L'ATTIVITÀ SI CHIUDE COL PERCORSO, E SOLO SE È FINITO.
@@ -1456,6 +1490,14 @@ export const VistaPercorso = {
           <div class="route-stop-kv"><span>Lotto</span><b class="mono">${this._esc(st.lot_code)}</b></div>
           <div class="route-stop-kv"><span>Scadenza</span><b>${this._esc(this._isoToIt(st.expiry_iso))}</b></div>
           <div class="route-stop-kv route-stop-kg"><span>Richiesti da ordine</span><b>${this._qtaOrdine(st.kg_required, st.um)} ${this._esc(st.um)}</b></div>
+          ${/* 2.38.1 — E QUANTO FA, quando il documento lo dice. Sopra ci
+                sono i colli, che è quel che si va a prendere; qui la
+                quantità vera, che è quel che il cliente riceve. Su un
+                prelievo da ordine non c'è: là il numero sopra è già in
+                unità di misura. */''}
+          ${typeof st.qty_uom_doc === 'number' && st.uom_doc
+            ? `<div class="route-stop-kv"><span>che fanno</span><b>${this._qtaOrdine(st.qty_uom_doc, st.uom_doc)} ${this._esc(st.uom_doc)}</b></div>`
+            : ''}
           <div class="route-stop-kv${disponibili <= 0 ? ' route-stop-vuoto' : ''}"><span>Colli in ubicazione</span><b>${disponibili}</b></div>
         </div>
         ${this._routeColonnaHTML(col)}
@@ -1978,11 +2020,33 @@ export const VistaPercorso = {
     /* 2.35.1 — SU UN'UNITÀ NON SI SCEGLIE NIENTE: si prende intera. Chiedere
        quali colli portare via da un pallet imballato è la stessa domanda che
        la scansione unica esiste per non fare. */
+    /* ═══ 2.38.1 · UN ORDINE CHIEDE CHILI, UN DDT CHIEDE COLLI ══════════
+
+       `kg_required` porta due grandezze diverse a seconda di chi ha
+       costruito il percorso: su un prelievo da ordine sono UNITÀ DI MISURA —
+       la distinta dice 150 KG — e su una preparazione sono COLLI, perché è
+       così che un documento di uscita conta.
+
+       Qui c'era `{ uom: st.kg_required }` per tutti e due, e su una
+       preparazione voleva dire: «riempi fino a 6 unità di misura» su una
+       riga che ne chiedeva 6 COLLI. Su colli da 25 KG la maschera proponeva
+       **un collo** invece di sei, e chi confermava senza rifare il conto
+       mandava un sesto della merce. Segnalato da Andrea il 09/09.
+
+       E I COLLI IL DOCUMENTO LI HA GIÀ SCELTI — §1.8.4, la stessa regola che
+       l'evasione applica: la maschera si apre su quelli, e l'operatore
+       conferma quel che deve prendere invece di sceglierlo di nuovo. */
+    const ePrep = !!(session as Record<string, unknown>).prep_doc_id;
     const scelteColli = this._routeTappaEUdc(st) ? null : await this._chiediColli(
       { article_code: st.article_code, lot_code: st.lot_code, location_code: st.location_code, item_key: st.item_key,
         ...(Store.getItemsAtLocation(st.location_code).find(i => i.item_key === st.item_key) || {}) },
-      `Quali colli si prelevano · ordine ${this._qtaOrdine(st.kg_required, st.um)} ${st.um}`,
-      null, { uom: st.kg_required }, 'spaiati');
+      ePrep
+        ? `Quali colli si prelevano · il DDT ne chiede ${st.kg_required}`
+        : `Quali colli si prelevano · ordine ${this._qtaOrdine(st.kg_required, st.um)} ${st.um}`,
+      null,
+      ePrep ? { colli: st.kg_required } : { uom: st.kg_required },
+      'spaiati',
+      ePrep ? (st as { packs_doc?: unknown }).packs_doc : null);
     if (scelteColli === undefined) return this.toast('Prelievo annullato', 'info');
 
     let qty;
@@ -1994,16 +2058,26 @@ export const VistaPercorso = {
          segna come prelevato, ed e' la stessa regola del conto WIP. */
       qty = scelteColli.length;
     } else {
+      /* 2.38.1 — E LA PROPOSTA È QUEL CHE IL DOCUMENTO CHIEDE, non tutto
+         quello che c'è nel vano. Su un prelievo da ordine `avail` è giusto:
+         il numero sopra è in unità di misura e i colli li conta l'operatore.
+         Su una preparazione il documento dice SEI, e proporne otto perché
+         otto ce ne sono vuol dire che chi conferma senza rifare il conto ne
+         manda due di troppo — e il DDT ne nomina sei. */
+      const propone = ePrep && st.kg_required > 0
+        ? Math.min(Number(st.kg_required), avail) : avail;
       qty = await Dialog.qty({
         title: 'Colli prelevati',
-        message: `Ordine: ${this._qtaOrdine(st.kg_required, st.um)} ${st.um}. Indicare quanti COLLI vengono portati via.`,
+        message: ePrep
+          ? `Il DDT chiede ${st.kg_required} Coll. Indicare quanti COLLI vengono portati via.`
+          : `Ordine: ${this._qtaOrdine(st.kg_required, st.um)} ${st.um}. Indicare quanti COLLI vengono portati via.`,
         details: Dialog.kv([
           ['Ubicazione', st.location_code],
           ['Articolo', st.article_code],
           ['Lotto', st.lot_code],
           ['Colli disponibili', avail]
         ]),
-        value: avail, min: 1, max: avail, unit: 'Coll.'
+        value: propone, min: 1, max: avail, unit: 'Coll.'
       });
       if (qty === null) return;
     }

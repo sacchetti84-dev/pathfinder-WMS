@@ -13,6 +13,7 @@ import {
   espandi as espandiColli, validaDichiarazione, descriviColli as descriviElenco,
   totaleUom as totaleUomElenco, preleva as prelevaElenco, raggruppa as raggruppaColli,
   scelteDaTaglie, riempiFabbisogno, restoDaAprire, eccedenza as eccedenzaColli, type Verso,
+  preselezioneDaUscite as preselezioneDaUsciteColli,
 } from '../../modules/colli';
 import { scavalco as scavalcoStoccaggio } from '../../modules/stoccaggio';
 /* 2.8 — le due regole che non si scrivono, e i tre motivi precompilati. */
@@ -359,16 +360,20 @@ export const VistaPosiziona = {
   _colliSel: null as SceltaColli | null,
   _colliResolve: null,
 
+  /* 2.38.1 — `preselezione` è una scelta GIÀ FATTA da qualcun altro, e vince
+     sul riempimento a fabbisogno: su una tappa di preparazione i colli li ha
+     scelti chi ha scritto il DDT (§1.8.4), e l'operatore quella scelta la
+     conferma invece di rifarla. Assente dappertutto tranne che lì. */
   _scegliColli(item, elenco, uom, titolo = 'Quali colli', fabbisogno = null,
-               verso: Verso = 'pieni') {
+               verso: Verso = 'pieni', preselezione = null) {
     $('colliOverlay')?.remove();
     const gruppi = raggruppaColli(elenco, uom);
     /* 2.5 — DA QUALE MISURA SI COMINCIA A RIEMPIRE. Il prelievo da ordine
        parte dagli spaiati; tutto il resto dai pieni. La regola sta in
        `modules/colli.ts`, qui si passa solo il verso che il chiamante ha
        deciso. */
-    const righe = riempiFabbisogno(gruppi, fabbisogno, uom, verso);
-    const presi = righe.map(n => (n ? String(n) : ''));
+    const righe = preselezione?.righe ?? riempiFabbisogno(gruppi, fabbisogno, uom, verso);
+    const presi = righe.map((n: number) => (n ? String(n) : ''));
     const chiestoUom = Number.isFinite(Number(fabbisogno?.uom)) && Number(fabbisogno?.uom) > 0
       ? Number(fabbisogno!.uom) : null;
     /* 2.5 — E IL COLLO DA APRIRE, che è la seconda metà del verso `spaiati`.
@@ -380,9 +385,9 @@ export const VistaPosiziona = {
       ? restoDaAprire(gruppi, righe, chiestoUom, uom) : null;
     this._colliSel = {
       elenco, uom, chiestoUom, gruppi, presi,
-      parte: resto ? String(resto.quantita) : '',
-      parteDa: resto ? resto.per : null,
-      parteScelta: !!resto,
+      parte: preselezione ? preselezione.parte : (resto ? String(resto.quantita) : ''),
+      parteDa: preselezione ? preselezione.parteDa : (resto ? resto.per : null),
+      parteScelta: preselezione ? !!preselezione.parteDa : !!resto,
     };
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
@@ -750,7 +755,7 @@ export const VistaPosiziona = {
      tutta impegnata, e vale un annullamento — se tornasse `null` la maschera
      che chiama scriverebbe una riga senza colli. */
   async _chiediColli(item, titolo, elencoIn: number[] | null = null, fabbisogno = null,
-                     verso: Verso = 'pieni') {
+                     verso: Verso = 'pieni', pacchiGiaScelti = null) {
     const cfg = Store.getUomConfig(item?.article_code, item?.lot_code);
     const elenco = elencoIn ?? Store.colliDiRiga(item);
     if (!cfg || !elenco) return null;
@@ -769,7 +774,14 @@ export const VistaPosiziona = {
        Il fabbisogno la apre gia' compilata — l'ODP chiede chili, le altre
        maschere chiedono colli — e chi non lo sa non lo passa: le righe
        nascono a zero, che e' meglio di un numero inventato. */
-    const scelte = await this._scegliColli(item, elenco, cfg.uom, titolo, fabbisogno, verso);
+    /* 2.38.1 — la scelta del documento, tradotta in righe di maschera. Se non
+       si può proporre — una misura non c'è più, o il documento apre due colli
+       — si ricade sul fabbisogno: una proposta in meno, non un prelievo
+       fermo. */
+    const preselezione = pacchiGiaScelti
+      ? preselezioneDaUsciteColli(raggruppaColli(elenco, cfg.uom), pacchiGiaScelti, cfg.uom)
+      : null;
+    const scelte = await this._scegliColli(item, elenco, cfg.uom, titolo, fabbisogno, verso, preselezione);
     return scelte === null ? undefined : scelte;
   },
 

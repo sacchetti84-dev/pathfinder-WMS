@@ -50,6 +50,7 @@ const cosa = (extra = {}) => ({
   qty_uom: 100,
   uom: 'KG',
   righe: 1,
+  packs_out: [],
   contenuto: [],
   ...extra,
 });
@@ -180,5 +181,62 @@ describe('scansioniDiTappa', () => {
   it('un codice vuoto non fa di una tappa un\'unità', () => {
     expect(PickRoute.scansioniDiTappa({ udc_id: '' })).toEqual(['ubicazione', 'articolo', 'lotto']);
     expect(PickRoute.scansioniDiTappa(null)).toEqual(['ubicazione', 'articolo', 'lotto']);
+  });
+});
+
+/* ═══ 2.38.1 · SEI COLLI NON SONO SEI CHILI ═════════════════════════════
+
+   Il difetto, segnalato da Andrea il 09/09 sulla 2.38, e il modo in cui e'
+   passato sotto a tutte le prove che c'erano.
+
+   `kg_required` porta i COLLI dalla 2.31 — sta scritto, e c'e' una prova
+   qui sopra che lo difende. Ma `um` portava l'unita' di misura
+   dell'ARTICOLO, e nove punti dell'applicativo scrivono
+   `${kg_required} ${um}`: su sei colli di farina da 25 KG stampavano
+   **«6 KG»**. Il numero era di una grandezza, l'etichetta accanto ne
+   nominava un'altra.
+
+   E' la bugia della 2.33 rifatta altrove, con un'aggravante: «6 KG» e' un
+   numero PLAUSIBILE. Un'etichetta che dice «0 partite» la si vede; una che
+   dice sei chili invece di sei colli attraversa le versioni.
+
+   Il secondo mezzo del difetto stava nella maschera dei colli, e non si
+   vede da qui: `_routeConfirmStop` passava `{ uom: kg_required }` come
+   fabbisogno, cioe' «riempi fino a 6 unita' di misura» su una riga che ne
+   chiedeva 6 COLLI. Con colli da 25 KG la maschera ne proponeva UNO. Lo
+   difende `test/prepColliDelDocumento.test.js`, che legge il sorgente,
+   perche' quella maschera vuole un DOM.
+
+   NESSUNA PROVA LO VEDEVA perche' tutte guardavano `kg_required` — il
+   numero, che era giusto — e nessuna guardava l'unita' che gli sta
+   accanto. */
+describe('buildPreparazione — la grandezza e la sua unita', () => {
+  it('L UNITA DI UNA TAPPA DI PREPARAZIONE E «Coll.», non quella dell articolo', () => {
+    const p = PickRoute.buildPreparazione([cosa({ colli: 6, uom: 'KG' })]);
+    expect(p.stops[0].kg_required).toBe(6);
+    expect(p.stops[0].um).toBe('Coll.');
+  });
+
+  /* La quantita' vera non si perde: viaggia accanto, e la scheda la scrive
+     sotto ai colli. Sono due grandezze, e adesso si vedono per due. */
+  it('la quantita in unita di misura viaggia a parte, con la sua unita', () => {
+    const p = PickRoute.buildPreparazione([cosa({ colli: 6, qty_uom: 150, uom: 'KG' })]);
+    expect(p.stops[0].qty_uom_doc).toBe(150);
+    expect(p.stops[0].uom_doc).toBe('KG');
+  });
+
+  it('un documento che non dichiara le UM non ne inventa: resta null', () => {
+    const p = PickRoute.buildPreparazione([cosa({ colli: 6, qty_uom: null, uom: 'KG' })]);
+    expect(p.stops[0].qty_uom_doc).toBeNull();
+    expect(p.stops[0].um).toBe('Coll.');
+  });
+
+  /* §1.8.4 — i colli li ha gia' scelti chi ha scritto il documento, e quella
+     scelta deve arrivare fino alla corsia: senza, la maschera si apre vuota
+     e l'operatore prende altri sacchi della stessa quantita'. */
+  it('i colli gia scelti dal documento arrivano sulla tappa', () => {
+    const packs = [{ da: 25, quantita: 25 }, { da: 10, quantita: 4 }];
+    const p = PickRoute.buildPreparazione([cosa({ packs_out: packs })]);
+    expect(p.stops[0].packs_doc).toEqual(packs);
   });
 });
