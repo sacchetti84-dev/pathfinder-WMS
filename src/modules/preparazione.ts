@@ -447,12 +447,15 @@ export function unitaGiaPronte(
                        essere preparato, ed è il caso che ha fatto nascere
                        tutto questo giro. */
 
-export type StatoSpedizione = 'da_preparare' | 'da_imballare' | 'carico_pronto';
+export type StatoSpedizione = 'da_preparare' | 'da_imballare' | 'carico_pronto' | 'partita';
 
 export const ETICHETTE_SPEDIZIONE: Record<StatoSpedizione, string> = {
   da_preparare: 'Da preparare',
   da_imballare: 'Da imballare',
   carico_pronto: 'Carico pronto',
+  /* 2.38.2 — il documento è uscito, o è stato annullato: non c'è più lavoro,
+     e l'attività che lo nomina va chiusa. */
+  partita: 'Merce partita — da chiudere',
 };
 
 /** A che punto è la spedizione di questo documento.
@@ -469,6 +472,28 @@ export function statoSpedizione(
   doc: Partial<DocumentoUscita> | null | undefined,
   inZonaImballo: (vano: string) => boolean,
 ): StatoSpedizione {
+  /* ═══ 2.38.2 · UN DOCUMENTO CHE NON È PIÙ PENDENTE NON HA PIÙ LAVORO ═══
+
+     È il quarto punto, e mancava. Un DDT evaso è merce su un camion; uno
+     annullato è lavoro che nessuno farà. In tutti e due i casi l'attività
+     che lo nomina non ha più niente da fare, e il primo a saperlo è il
+     DOCUMENTO — che è la fonte, come per gli altri tre punti.
+
+     PERCHÉ NON BASTAVA CHIUDERE ALL'EVASIONE. `chiudiCompitiDelDocumento`
+     chiude nell'ISTANTE in cui la merce esce, ed è il gesto giusto; ma
+     dipende da una scrittura che può non riuscire — un servizio che non
+     risponde per un attimo — e fino alla 2.38.1 quel fallimento finiva in
+     `console.error` e in nessun altro posto. Il risultato lo ha visto Andrea
+     il 09/09: merce caricata, DDT evaso, e l'attività ferma «in corso» a
+     nome suo, che nessuna schermata poteva più chiudere.
+
+     Adesso lo stato lo dice il documento anche DOPO, quindi una chiusura
+     mancata si vede in coda invece di nascondersi, e si ripara premendo
+     Avvia. Le due cose non si escludono: una chiude al momento giusto,
+     l'altra fa in modo che non resti niente in mezzo se la prima non
+     riesce. */
+  const stato = testo(doc?.status).toLowerCase();
+  if (stato === 'evaded' || stato === 'cancelled') return 'partita';
   const righe = (doc?.lines || []).filter((l) => l && numero(l.qty) > 0);
   if (!righe.length) return 'da_preparare';
   const sciolte = righe.filter((l) => !chiave(l.udc_id));
@@ -490,6 +515,11 @@ export function statoSpedizione(
 export type ModoSpedizione = 'preparazione' | 'imballaggio' | 'carico';
 
 export function modiPossibili(stato: StatoSpedizione): ModoSpedizione[] {
+  /* 2.38.2 — SU MERCE PARTITA NON SI FA NIENTE, e l'elenco vuoto è la
+     risposta giusta: non c'è un gesto di magazzino da proporre, c'è
+     un'attività da chiudere. Chi chiama distingue i due casi guardando se
+     l'elenco è vuoto, invece di dover conoscere gli stati. */
+  if (stato === 'partita') return [];
   if (stato === 'da_imballare') return ['imballaggio', 'carico'];
   if (stato === 'carico_pronto') return ['carico', 'preparazione'];
   return ['preparazione', 'carico'];

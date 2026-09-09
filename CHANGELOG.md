@@ -15,6 +15,44 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.38.2 — 2026-09-09
+
+**An activity nobody could close, because the failure was silent.**
+
+Seen in the warehouse: goods loaded, delivery note despatched, and the
+activity still sitting "in progress" in the queue under the operator's name.
+Pressing Start answered *"this activity's delivery note is no longer
+pending"* and left it exactly where it was.
+
+The closing itself was in the right place — it happens the moment the goods
+leave — but it depends on a **write**, and a write can fail. Until 2.38.1
+that failure went to `console.error` and nowhere else. Nobody working a
+warehouse opens browser dev tools, and closing by hand is refused on
+purpose: an activity closes because an operation was confirmed, never
+because somebody ticked it. So one dropped write left a row that no screen
+could clear.
+
+Two changes, and they answer two different questions.
+
+**The reason now reaches whoever can show it.** The despatch reports which
+activities did not close and why. The goods still leave — refusing a
+despatch because a task did not close would mean a delivery note reading as
+pending over goods already on a lorry, and that is the worse of the two
+lies — but the silence is gone.
+
+**And the queue reads the state from the document afterwards, too.** A
+despatched note is goods on a lorry; a cancelled one is work nobody will do.
+Either way the row now says **"Goods gone — to be closed"** in red, and
+pressing Start closes it. A calculated mark cannot fall behind the goods, so
+a missed closing shows up instead of hiding — and it is repaired where it is
+found, through the same route as always: the document says the work is over,
+not the person.
+
+Also hardened: the match on the document id now guards against a `payload`
+that is not an object. Half the app already guarded it; here it did not, and
+on a record of that shape the comparison would have been against `undefined`
+— no activity closed, silently.
+
 ## 2.38.1 — 2026-09-09
 
 **Six packs are not six kilos, and the quick way out must not close a shipment.**

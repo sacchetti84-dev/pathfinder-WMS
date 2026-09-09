@@ -461,7 +461,11 @@ export const VistaCompiti = {
       if (eAperto(t)) {
         const stato = this._prepStato(t) as StatoSpedizione | null;
         if (stato) {
-          const classe = stato === 'carico_pronto' ? 'badge-green'
+          /* 2.38.2 — «Merce partita» è ROSSO, e non è una sfumatura: le
+             altre tre dicono che lavoro c'è, questa dice che l'attività non
+             doveva più essere lì. Va vista come si vede un ritardo. */
+          const classe = stato === 'partita' ? 'badge-red'
+            : stato === 'carico_pronto' ? 'badge-green'
             : stato === 'da_imballare' ? 'badge-amber' : 'badge-blue';
           pezzi.push(`<span class="badge ${classe}">${this._esc(ETICHETTE_SPEDIZIONE[stato])}</span>`);
         }
@@ -982,6 +986,50 @@ export const VistaCompiti = {
       return null;
     }
     const stato = (this._prepStato(t) || 'da_preparare') as StatoSpedizione;
+
+    /* ═══ 2.38.2 · MERCE PARTITA: NON C'È UN LAVORO, C'È UNA CHIUSURA ═════
+
+       Un DDT evaso è merce su un camion; uno annullato è lavoro che nessuno
+       farà. In tutti e due i casi `modiPossibili` torna un elenco vuoto, e
+       proporre una finestra senza pulsanti sarebbe la domanda peggiore che
+       si possa fare a chi lavora.
+
+       QUESTA È ANCHE LA RIPARAZIONE, ed è il motivo per cui sta qui e non in
+       un pulsante suo. La chiusura giusta avviene all'evasione; se non
+       riesce — un servizio che non risponde per un attimo — fino alla 2.38.1
+       l'attività restava «in corso» e NESSUNA schermata sapeva più
+       chiuderla: `completeTask` rifiuta la chiusura a mano, ed è giusto che
+       la rifiuti. Adesso la si ripara dove la si incontra, premendo Avvia,
+       e la chiusura passa dalla stessa strada di sempre — è il documento a
+       dire che il lavoro è finito, non la persona. */
+    if (stato === 'partita') {
+      const evaso = String(doc.status).toLowerCase() === 'evaded';
+      const ok = await Dialog.confirm({
+        title: evaso ? 'La merce è già partita' : 'Il DDT è stato annullato',
+        message: evaso
+          ? `Il DDT ${doc.ddt_num || doc.doc_id} è stato evaso: la merce è uscita e su questa attività non resta niente da fare. Si chiude.`
+          : `Il DDT ${doc.ddt_num || doc.doc_id} è stato annullato: quel lavoro non si fa più. L’attività si chiude con il motivo.`,
+        details: Dialog.kv([
+          ['Destinatario', doc.destination || null],
+          ['Uscito il', doc.evaded_at ? new Date(doc.evaded_at).toLocaleString('it-IT') : null],
+        ]),
+        confirmLabel: 'Chiudi l’attività', icon: 'check',
+      });
+      if (!ok) return null;
+      try {
+        const esito = await Store.chiudiCompitiDelDocumento(docId, evaso ? 'evaded' : 'cancelled');
+        if (esito.falliti.length) {
+          this.toast(`L'attività non si è chiusa · ${esito.falliti[0]!.motivo}`, 'error');
+        } else {
+          this.toast(`Attività ${t.task_id} chiusa — il DDT ${doc.ddt_num || ''} è ${evaso ? 'uscito' : 'annullato'}`, 'success');
+        }
+      } catch (err) {
+        this.toast(`L'attività non si è chiusa · ${(err as Error).message}`, 'error');
+      }
+      this.renderTasks();
+      return null;
+    }
+
     const ETICHETTA: Record<ModoSpedizione, string> = {
       preparazione: 'Preparo — vado a radunare la merce',
       imballaggio: 'Imballo — compongo l’unità e la porto in spedizione',

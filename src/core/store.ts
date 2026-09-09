@@ -3730,12 +3730,19 @@ const Store = {
      rifiuta, il carico anche, e resterebbe lì a occupare la coda per sempre. */
   async chiudiCompitiDelDocumento(docId: string, esito: 'evaded' | 'cancelled') {
     const id = String(docId || '');
-    if (!id) return [];
+    const toccati: string[] = [];
+    const falliti: { task_id: string; motivo: string }[] = [];
+    if (!id) return { chiusi: toccati, falliti };
     const miei = this._cache.tasks.filter((t) =>
       t.type === 'PREP_SHIP'
       && eAperto(t)
-      && String((t.payload as Record<string, unknown> | null)?.doc_id || '') === id);
-    const toccati: string[] = [];
+      /* IL `payload` PUÒ NON ESSERE UN OGGETTO, e mezzo applicativo se ne
+         guarda già — `_renderTaskPayload`, `doStartTask`, `_taskLancia`.
+         Qui la guardia mancava: su un record che tornasse col payload in
+         un'altra forma, il confronto sarebbe stato con `undefined` e
+         nessuna attività si sarebbe chiusa, in silenzio. */
+      && !!t.payload && typeof t.payload === 'object'
+      && String((t.payload as Record<string, unknown>).doc_id || '') === id);
     for (const t of miei) {
       try {
         if (esito === 'cancelled') {
@@ -3753,13 +3760,30 @@ const Store = {
         }
         toccati.push(t.task_id);
       } catch (err) {
-        /* LA MERCE È GIÀ USCITA. Un compito che non si chiude è una riga in
-           coda da sistemare a mano; rifiutare l'evasione a questo punto
-           vorrebbe dire un DDT pendente su merce che sta su un camion. */
+        /* ═══ 2.38.2 · LA MERCE È GIÀ USCITA, MA IL SILENZIO NO ═════════
+
+           La prima metà di questa regola è giusta e resta: se la chiusura
+           non riesce, l'evasione NON si annulla. Rifiutarla qui vorrebbe
+           dire un DDT che risulta pendente su merce che sta su un camion, e
+           fra le due bugie quella è la peggiore.
+
+           La seconda metà era sbagliata. Fino alla 2.38.1 il fallimento
+           finiva in `console.error` e in nessun altro posto: chi lavora non
+           apre gli strumenti del browser, e quel che restava a video era
+           un'attività «in corso» che nessuna schermata sapeva più chiudere.
+           Visto in magazzino il 09/09 — merce caricata, DDT evaso, attività
+           ferma in carico a chi l'aveva presa.
+
+           Adesso il motivo TORNA A CHI CHIAMA, che è l'unico che ha un
+           riscontro a video da mostrare. E l'attività non resta comunque
+           orfana: `statoSpedizione` legge lo stato del documento, quindi in
+           coda si vede «Merce partita — da chiudere» e si ripara premendo
+           Avvia. Una difesa al momento giusto, una rete sotto. */
+        falliti.push({ task_id: t.task_id, motivo: (err as Error).message || 'chiusura non riuscita' });
         console.error('[WM] chiudiCompitiDelDocumento:', t.task_id, err);
       }
     }
-    return toccati;
+    return { chiusi: toccati, falliti };
   },
 
   /* ═══════════════════════════════════════════════════════════════════
@@ -3924,9 +3948,16 @@ const Store = {
     await this._touchMeta();
     /* 2.38 — e con lui l'attività di spedizione, se ne aveva una. Il
        documento cambiato stato è già scritto: se la chiusura del compito
-       fallisce resta una riga in coda da sistemare, non un DDT a metà. */
+       fallisce resta una riga in coda da sistemare, non un DDT a metà.
+
+       2.38.2 — e quel che non è riuscito si attacca al record che si
+       restituisce, invece di finire nella sola consolle: chi ha chiamato ha
+       un riscontro a video, questo metodo no. */
     if (status === 'evaded' || status === 'cancelled') {
-      await this.chiudiCompitiDelDocumento(doc_id, status);
+      const esito = await this.chiudiCompitiDelDocumento(doc_id, status);
+      if (esito.falliti.length) {
+        (rec as unknown as Record<string, unknown>)._compitiNonChiusi = esito.falliti;
+      }
     }
     return rec;
   },

@@ -8,7 +8,15 @@ memoria, non istruzioni.
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
 Aggiornato: **09/09/2026** — **non tutti i DDT vanno preparati, e preparare
-sono tre lavori.** La **2.38.1** è costruita, non installata.
+sono tre lavori.** La **2.38.2** è costruita, non installata.
+
+**UN'ATTIVITÀ CHE NESSUNO POTEVA CHIUDERE** (2.38.2). La chiusura all'uscita
+della merce dipende da una scrittura, e una scrittura può non riuscire: fino
+alla 2.38.1 quel fallimento finiva in `console.error` e in nessun altro
+posto, e `completeTask` rifiuta la chiusura a mano — giustamente. Restava una
+riga che nessuna schermata sapeva più chiudere. Adesso il motivo torna a chi
+ha un riscontro a video, e la coda legge lo stato dal documento anche dopo:
+«Merce partita — da chiudere», e si ripara premendo Avvia.
 
 **SEI COLLI NON SONO SEI CHILI** (2.38.1). `kg_required` conta COLLI su una
 preparazione e UNITÀ DI MISURA su un prelievo da ordine, ma l'unità scritta
@@ -574,6 +582,70 @@ produzione fino all'ultimo giorno.
 > ricostruisce dal commit, e la build è riproducibile (§2) — ma è una domanda
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
+
+### La 2.38.2 — costruita, non installata
+
+**UN'ATTIVITÀ CHE NESSUNO POTEVA CHIUDERE, PERCHÉ IL FALLIMENTO ERA MUTO.**
+Andrea, il 09/09 sulla 2.38.1 installata: «ho chiuso il giro e caricato la
+merce ma l'attività rimane pendente». A video: DDT evaso, attività ferma «in
+corso» a nome suo, e premendo Avvia «Il DDT di questa attività non è più
+pendente: non c'è niente da caricare».
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.38.2\` |
+| impronta | `e2aee300d50c72b86b72613bd16f919a0332ea3d7168a30668a643f444adbf2f` |
+| byte | **2.14 MB** in **8 file** (612 kB sul filo, compressi) |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.776 in 69 file** (una saltata) · `npm run check` pulito |
+| provata | **a video**, fabbricando l'attività bloccata come l'ha vista lui: la riga in coda dice «Merce partita — da chiudere» in rosso, Avvia apre «La merce è già partita», e un gesto la chiude — `done`, firmata, timbrata |
+| **PRIMA DI INSTALLARE** | vale ancora la voce **106**: le zone di spedizione vanno risalvate una per sito |
+
+**IL DIFETTO NON ERA DOVE LA CHIUSURA AVVIENE, ERA NEL SILENZIO.**
+`chiudiCompitiDelDocumento` chiude nell'istante in cui la merce esce, ed è il
+gesto giusto — è l'evasione a dire che il lavoro è finito. Ma dipende da una
+SCRITTURA, e una scrittura può non riuscire: un servizio che non risponde per
+un attimo, e il compito resta aperto. Fino alla 2.38.1 quel fallimento
+finiva in `console.error` **e in nessun altro posto**.
+
+**E DA LÌ NON SI TORNAVA PIÙ INDIETRO.** `completeTask` rifiuta la chiusura a
+mano, e fa bene — un compito si chiude perché un'operazione è stata
+confermata, non perché qualcuno ha spuntato una casella. Quindi una scrittura
+persa lasciava una riga che **nessuna schermata sapeva più chiudere**. Il
+banco non l'aveva mai vista perché al banco le scritture riescono sempre.
+
+**DUE RIMEDI, E RISPONDONO A DUE DOMANDE DIVERSE.**
+
+① **Il motivo torna a chi ha un riscontro a video.** L'evasione dice quali
+attività non si sono chiuse e perché. La merce esce lo stesso — rifiutare
+l'evasione perché un compito non si chiude vorrebbe dire un DDT che risulta
+pendente su merce che sta su un camion, e fra le due bugie quella è la
+peggiore — ma il silenzio no.
+
+② **Lo stato si legge dal documento anche DOPO.** Un DDT evaso è merce su un
+camion; uno annullato è lavoro che nessuno farà: `statoSpedizione` torna
+**`partita`**, `modiPossibili` non propone niente, e la riga in coda dice
+«Merce partita — da chiudere» in **rosso** — le altre tre dicono che lavoro
+c'è, questa dice che l'attività non doveva più essere lì. Premendo Avvia si
+chiude, e la chiusura passa dalla strada di sempre: è il documento a dire che
+il lavoro è finito, non la persona.
+
+**LO STATO DEL DOCUMENTO VINCE SULLE RIGHE**, e non è un dettaglio d'ordine:
+un DDT evaso porta ancora le sue righe, e leggerle prima direbbe «da
+preparare» su merce già partita — mandando in corsia a prendere quel che non
+c'è. La prova che lo difende è quella che conta delle sei nuove.
+
+**PIÙ UNA GUARDIA CHE MANCAVA**: il confronto su `payload.doc_id` non
+verificava che `payload` fosse un oggetto. Mezzo applicativo se ne guarda già
+— `_renderTaskPayload`, `doStartTask`, `_taskLancia` — e qui no: su un record
+di quella forma il confronto sarebbe stato con `undefined`, e nessuna
+attività si sarebbe chiusa, in silenzio.
+
+> **LA LEZIONE, ed è la stessa della 2.38.1 vista da un'altra parte.** Là un
+> caso di prova troppo semplice (un articolo senza UM) aveva nascosto il
+> difetto; qui un banco troppo affidabile ha nascosto l'altro. **Le prove
+> girano dove tutto funziona**: quel che va provato non è solo la strada
+> giusta, ma che cosa resta a video quando una scrittura non riesce.
 
 ### La 2.38.1 — costruita, non installata
 

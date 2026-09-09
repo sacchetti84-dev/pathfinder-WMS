@@ -303,6 +303,11 @@ export const SUPERFICIE = [
      stesso lavoro da qualunque parte si arrivi — '_prepImballa' — e finisce
      in zona di spedizione ('_prepPortaInSpedizione') con il documento che
      impara che quella merce adesso sta su un bancale ('_prepRiallineaUdcDoc'). */
+  /* 2.38.2 — e uno solo: il riscontro che dice CHE COSA non si e' chiuso
+     quando la merce esce. Fino alla 2.38.1 quel motivo finiva in
+     console.error e in nessun altro posto, e in coda restava un'attivita'
+     che nessuna schermata sapeva piu' chiudere. */
+  '_avvisaCompitiNonChiusi',
   '_prepChiediModo', '_prepStato', '_prepImballa', '_prepImballaDaCompito',
   '_prepPortaInSpedizione', '_prepRiallineaUdcDoc', '_carAvviaDaCompito',
   '_prepVerso', '_prepVersoProposto', '_prepVersoHTML', '_prepVersoScelto',

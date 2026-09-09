@@ -139,32 +139,33 @@ describe('chiudiCompitiDelDocumento', () => {
 
   it('il DDT evaso chiude la sua attivita, e la firma', async () => {
     conCoda([compito()]);
-    const chiusi = await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded');
+    const { chiusi, falliti } = await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded');
     expect(chiusi).toEqual(['TA-1']);
+    expect(falliti).toEqual([]);
     expect(mosse[0].stato).toBe('done');
     expect(mosse[0].patch.completed_by).toBe('MR');
   });
 
   it('IL DOCUMENTO DI UN ALTRO DDT NON SI TOCCA', async () => {
     conCoda([compito({ task_id: 'TA-2', payload: { doc_id: 'SHIP-9' } }), compito()]);
-    const chiusi = await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded');
+    const { chiusi } = await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded');
     expect(chiusi).toEqual(['TA-1']);
   });
 
   it('UN COMPITO CHE NON E DI SPEDIZIONE NON SI CHIUDE, anche se nomina il DDT', async () => {
     conCoda([compito({ task_id: 'TA-3', type: 'COUNT' })]);
-    expect(await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded')).toEqual([]);
+    expect((await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded')).chiusi).toEqual([]);
     expect(mosse).toEqual([]);
   });
 
   it('un compito gia chiuso non si richiude', async () => {
     conCoda([compito({ status: 'done' }), compito({ task_id: 'TA-4', status: 'cancelled' })]);
-    expect(await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded')).toEqual([]);
+    expect((await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded')).chiusi).toEqual([]);
   });
 
   it('il DDT annullato ANNULLA la sua attivita, col motivo', async () => {
     conCoda([compito()]);
-    const toccati = await Store.chiudiCompitiDelDocumento('SHIP-1', 'cancelled');
+    const { chiusi: toccati } = await Store.chiudiCompitiDelDocumento('SHIP-1', 'cancelled');
     expect(toccati).toEqual(['TA-1']);
     expect(annullati[0].motivo).toMatch(/annullato/i);
     /* Non si chiude come «fatto»: nessuno l'ha fatto. */
@@ -178,12 +179,24 @@ describe('chiudiCompitiDelDocumento', () => {
       mosse.push({ id, stato, patch });
       return { task_id: id, status: stato };
     };
-    const chiusi = await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded');
+    const { chiusi, falliti } = await Store.chiudiCompitiDelDocumento('SHIP-1', 'evaded');
     expect(chiusi).toEqual(['TA-5']);
+    /* ═══ 2.38.2 · E QUEL CHE NON SI È CHIUSO TORNA A CHI CHIAMA ════════
+
+       Fino alla 2.38.1 il motivo finiva in `console.error` e in nessun
+       altro posto. Chi lavora non apre gli strumenti del browser: quel che
+       restava a video era un'attivita' «in corso» che nessuna schermata
+       sapeva piu' chiudere. Visto in magazzino il 09/09 — merce caricata,
+       DDT evaso, attivita' ferma in carico a chi l'aveva presa.
+
+       La merce esce lo stesso, e quella regola resta: rifiutare l'evasione
+       perche' un compito non si chiude vorrebbe dire un DDT pendente su
+       merce che sta su un camion. Ma il silenzio no. */
+    expect(falliti).toEqual([{ task_id: 'TA-1', motivo: 'scrittura non riuscita' }]);
   });
 
   it('senza documento non esplode', async () => {
     conCoda([compito()]);
-    expect(await Store.chiudiCompitiDelDocumento('', 'evaded')).toEqual([]);
+    expect((await Store.chiudiCompitiDelDocumento('', 'evaded')).chiusi).toEqual([]);
   });
 });

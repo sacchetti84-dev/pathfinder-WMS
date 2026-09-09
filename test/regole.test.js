@@ -327,8 +327,22 @@ describe('il doppio contesto dei gestori inline', () => {
 
    Il resto è la spiegazione di una `zona` tolta da `commitPreparazioneUdc`:
    il vano di arrivo lo scansiona l'operatore, e un vano scansionato non è
-   una proposta da interpretare. */
-const TETTO_STORE = 5071;
+   una proposta da interpretare.
+
+   2.38.2 — +31, ed è un silenzio tolto.
+
+   `chiudiCompitiDelDocumento` chiude nell'istante in cui la merce esce, ed è
+   il gesto giusto; ma dipende da una scrittura che può non riuscire, e fino
+   alla 2.38.1 quel fallimento finiva in `console.error` e in nessun altro
+   posto. Chi lavora non apre gli strumenti del browser: in magazzino, il
+   09/09, restava un'attività «in corso» che nessuna schermata sapeva più
+   chiudere — `completeTask` rifiuta la chiusura a mano, e fa bene.
+
+   Adesso il motivo torna a chi chiama, che un riscontro a video ce l'ha. Più
+   la guardia sul `payload` che non è un oggetto: mezzo applicativo se ne
+   guardava già, qui mancava, e su un record di quella forma il confronto
+   sarebbe stato con `undefined` — nessuna attività chiusa, in silenzio. */
+const TETTO_STORE = 5102;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

@@ -623,3 +623,64 @@ describe('daImballareDalDoc — imballare senza avere il percorso davanti', () =
     expect(daImballareDalDoc(null)).toEqual([]);
   });
 });
+
+/* ═══ 2.38.2 · UN DOCUMENTO USCITO NON HA PIÙ LAVORO ════════════════════
+
+   IL DIFETTO, visto in magazzino il 09/09 sulla 2.38.1: merce caricata, DDT
+   evaso, e l'attività ferma «in corso» a nome di chi l'aveva presa. Premendo
+   Avvia rispondeva «Il DDT di questa attività non è più pendente: non c'è
+   niente da caricare», e restava lì.
+
+   La chiusura c'era ed era nel posto giusto — `chiudiCompitiDelDocumento`,
+   all'istante in cui la merce esce — ma dipende da una SCRITTURA, e una
+   scrittura può non riuscire. Fino alla 2.38.1 quel fallimento finiva in
+   `console.error`: chi lavora non apre gli strumenti del browser, e
+   `completeTask` rifiuta la chiusura a mano — giustamente. Risultato:
+   un'attività che nessuna schermata sapeva più chiudere.
+
+   LA RETE È LEGGERE LO STATO DAL DOCUMENTO ANCHE DOPO. Un DDT evaso è merce
+   su un camion; uno annullato è lavoro che nessuno farà. In tutti e due i
+   casi non c'è un gesto di magazzino da proporre — c'è un'attività da
+   chiudere — e chi guarda la coda lo vede scritto invece di scoprirlo
+   premendo un pulsante.
+
+   È LA STESSA FONTE DEGLI ALTRI TRE PUNTI, ed è il motivo per cui il rimedio
+   sta qui e non in un campo nuovo sul compito: un marchio calcolato non può
+   restare indietro rispetto alla merce. */
+describe('statoSpedizione — il documento che è uscito', () => {
+  const pronto = [riga({ udc_id: 'UDC-1' })];
+
+  it('un DDT EVASO non è «carico pronto»: è partito', () => {
+    const d = { ...doc(pronto), status: 'evaded' };
+    expect(statoSpedizione(d, banco)).toBe('partita');
+  });
+
+  it('un DDT ANNULLATO è partito anche lui: quel lavoro non si fa più', () => {
+    const d = { ...doc(pronto), status: 'cancelled' };
+    expect(statoSpedizione(d, banco)).toBe('partita');
+  });
+
+  /* LO STATO DEL DOCUMENTO VINCE SULLE RIGHE, e non è un dettaglio
+     d'ordine: un DDT evaso porta ancora le sue righe, e leggerle prima
+     direbbe «da preparare» su merce che è già su un camion — mandando in
+     corsia a prendere quel che non c'è. */
+  it('LO STATO VINCE SULLE RIGHE: un evaso con merce sciolta resta partito', () => {
+    const d = { ...doc([riga({ location_code: 'MAG-A-07' })]), status: 'evaded' };
+    expect(statoSpedizione(d, banco)).toBe('partita');
+  });
+
+  it('un DDT pendente resta quello che le righe dicono', () => {
+    expect(statoSpedizione({ ...doc(pronto), status: 'pending' }, banco)).toBe('carico_pronto');
+  });
+
+  /* Un documento senza stato è dei vecchi: si legge dalle righe come prima,
+     che è l'unica lettura che non inventa niente. */
+  it('un documento senza stato si legge dalle righe', () => {
+    const { status, ...senzaStato } = doc(pronto);
+    expect(statoSpedizione(senzaStato, banco)).toBe('carico_pronto');
+  });
+
+  it('SU MERCE PARTITA NON SI PROPONE NESSUN LAVORO', () => {
+    expect(modiPossibili('partita')).toEqual([]);
+  });
+});

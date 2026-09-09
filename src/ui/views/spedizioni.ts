@@ -1185,6 +1185,24 @@ export const VistaSpedizioni = {
     }
   },
 
+  /* 2.38.2 — L'ATTIVITÀ CHE NON SI È CHIUSA VA DETTA, non lasciata alla
+     consolle. La merce è uscita e l'evasione non si annulla — quella regola
+     resta — ma chi ha appena caricato un camion deve sapere che in coda gli
+     è rimasta una riga, invece di scoprirlo domani premendo Avvia.
+
+     Segnalato il 09/09: DDT evaso, attività ferma «in corso», e nessun
+     messaggio da nessuna parte. La riga in coda adesso lo dice da sé —
+     `statoSpedizione` legge lo stato del documento — ma il riscontro qui
+     serve lo stesso: dice CHE COSA è andato storto e QUANDO. */
+  _avvisaCompitiNonChiusi(rec) {
+    const falliti = (rec as { _compitiNonChiusi?: { task_id: string; motivo: string }[] } | null)?._compitiNonChiusi;
+    if (!falliti?.length) return;
+    this.toast(
+      `La merce è uscita, ma ${falliti.length === 1 ? 'un\'attività non si è chiusa' : `${falliti.length} attività non si sono chiuse`}: `
+      + `${falliti.map((f) => `${f.task_id} (${f.motivo})`).join(' · ')}. `
+      + 'Si chiude dalla coda: l\'attività dice «Merce partita — da chiudere».', 'error');
+  },
+
   async _evadiSpedizione(doc_id) {
     if (!this._requireOperator("l'evasione del DDT")) return;   // v2.0.1 [B7]
     const doc = Store.getPendingDoc(doc_id);
@@ -1320,7 +1338,8 @@ export const VistaSpedizioni = {
       }
     }
 
-    await Store.updatePendingStatus(doc_id, 'evaded');
+    const uscito = await Store.updatePendingStatus(doc_id, 'evaded');
+    this._avvisaCompitiNonChiusi(uscito);
     /* 1.4.4 — QUI NON SI CHIUDE NIENTE. Il compito di prelievo si è chiuso
        alla registrazione del DDT: l'evasione è il ritiro del vettore, un
        fatto del magazzino che non ha un'attività sua e non ne conclude
@@ -1428,7 +1447,7 @@ export const VistaSpedizioni = {
       }
     }
 
-    await Store.updatePendingStatus(doc.doc_id, 'evaded');
+    this._avvisaCompitiNonChiusi(await Store.updatePendingStatus(doc.doc_id, 'evaded'));
     this.updateSyncIndicator();
     this.toast(`DDT ${doc.ddt_num} evaso — ${spostati} ${spostati === 1 ? 'bancale spostato' : 'bancali spostati'} in ${arrivo}`, 'success');
     if (falliti.length) {
