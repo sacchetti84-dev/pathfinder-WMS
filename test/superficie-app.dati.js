@@ -293,6 +293,19 @@ export const SUPERFICIE = [
   'renderCalendario', '_calCasellaHTML', '_calVai', '_calOggi', '_calApriGiorno',
   '_calApriDoc', '_calAnno', '_calMese',
   '_prepRiallineaDoc', '_prepVanoImballo', '_prepUdcComposte',
+  /* 2.38 — i dodici del flusso di spedizione a tre gambe. Chi avvia
+     un'attivita' sceglie che cosa sta facendo — '_prepChiediModo', con
+     '_prepStato' che legge dal documento a che punto e' la merce — e da li'
+     si va a una delle tre porte: il percorso ('_prepAvvia', gia' c'era), il
+     carico ('_carAvviaDaCompito') o l'imballaggio ('_prepImballaDaCompito').
+     Preparare vuol dire radunare, e il vano lo scansiona l'operatore: i tre
+     '_prepVerso*' sono la proposta, il campo e il controllo. Imballare e' lo
+     stesso lavoro da qualunque parte si arrivi — '_prepImballa' — e finisce
+     in zona di spedizione ('_prepPortaInSpedizione') con il documento che
+     impara che quella merce adesso sta su un bancale ('_prepRiallineaUdcDoc'). */
+  '_prepChiediModo', '_prepStato', '_prepImballa', '_prepImballaDaCompito',
+  '_prepPortaInSpedizione', '_prepRiallineaUdcDoc', '_carAvviaDaCompito',
+  '_prepVerso', '_prepVersoProposto', '_prepVersoHTML', '_prepVersoScelto',
   '_routeClearImport', '_routeClose', '_routeColonna', '_routeColonnaHTML', '_routeCompito',
   '_routeConfirmStop', '_routeCurrentHTML', '_routeRischioLottoHTML', '_COL_STATI',
   '_routeCoperturaHTML',

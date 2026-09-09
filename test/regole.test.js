@@ -306,8 +306,29 @@ describe('il doppio contesto dei gestori inline', () => {
    dipende dall'ordine di caricamento — ma difendeva vietando la realtà. Le
    tre domande che ne discendono (quanta ce n'è, dove si somma, da dove si
    toglie) stanno in `modules/righeVano.ts` e sono provate da ferme; qui c'è
-   solo chi le chiama, più il perché, che è la parte che serve fra un anno. */
-const TETTO_STORE = 4952;
+   solo chi le chiama, più il perché, che è la parte che serve fra un anno.
+
+   2.38 — +119, e sono i due capi di un'attività che non si chiude più a
+   metà.
+
+   `rimettiInCodaSpedizione`: una spedizione è tre lavori — radunare,
+   imballare, caricare — e chi ne finisce uno restituisce il compito perché
+   il prossimo lo faccia un altro. Non è `abandonTask`, che ritira un avvio
+   che non ha prodotto niente e riporta il compito a chi l'aveva: qui il
+   lavoro è stato fatto, e la sigla se ne va perché chi ha il transpallet
+   non è chi ha il muletto in banchina.
+
+   `chiudiCompitiDelDocumento`: e allora serviva un punto in cui l'attività
+   si chiude davvero. È l'uscita della merce, e sta in `updatePendingStatus`
+   perché le strade per far uscire un DDT sono tre — il carico del camion,
+   l'evasione diretta, il conto terzi che sposta invece di scaricare — e
+   tutte e tre passano di lì. Scriverlo in ognuna vorrebbe dire tre copie, e
+   la terza che qualcuno dimentica.
+
+   Il resto è la spiegazione di una `zona` tolta da `commitPreparazioneUdc`:
+   il vano di arrivo lo scansiona l'operatore, e un vano scansionato non è
+   una proposta da interpretare. */
+const TETTO_STORE = 5071;
 
 describe('il nucleo non cresce', () => {
   it(`src/core/store.ts resta entro ${TETTO_STORE} righe`, () => {

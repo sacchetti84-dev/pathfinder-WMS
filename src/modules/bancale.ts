@@ -244,14 +244,25 @@ export const ETICHETTE_STATO: Record<StatoBancale, string> = {
   vuoto: 'Vuoto',
 };
 
-/** Le zone dichiarate di prodotto finito, in tutti i siti — compresi quelli
-    di un terzista, che è dove il PF finisce quando viaggia in conto lavoro.
+/** 2.38 — LE ZONE DI SPEDIZIONE, in tutti i siti — compresi quelli di un
+    terzista, che è dove la merce finisce quando viaggia in conto lavoro.
     Restituisce le zone accoppiate al sito, perché una zona da sola non dice
-    dove sta. */
-export function zonePf(
+    dove sta.
+
+    SI CHIAMAVANO «di prodotto finito», ed è lo stesso posto. Il nome vecchio
+    diceva da dove la merce ARRIVA — il reparto — invece di dove sta andando,
+    e dalla 2.38 la stessa zona riceve anche i bancali radunati da una
+    preparazione, che prodotto finito non sono.
+
+    IL CAMPO VECCHIO SI LEGGE ANCORA, e non è una gentilezza: i siti già
+    configurati portano `pf_zone`, e chiedere di rimarcare le zone dopo un
+    aggiornamento vuol dire un magazzino fermo la mattina dopo. Si scrive
+    solo il nome nuovo — `configSiti` — quindi il ripiego si spegne da sé
+    la prima volta che qualcuno tocca quella zona. */
+export function zoneSpedizione(
   siti: readonly Sito[] | null | undefined,
 ): { sito: Sito; zona: Zona }[] {
-  return zoneMarcate(siti, 'pf_zone');
+  return zoneMarcate(siti, 'shipping_zone', 'pf_zone');
 }
 
 /** 2.21 — LE BAIE DI CARICO: dove i bancali aspettano il camion. Stesso
@@ -304,14 +315,45 @@ export function zonaImballoDi(
   return zoneImballo(siti).find((x) => String(x.sito.id).toUpperCase() === k) || null;
 }
 
+/** 2.38 — la zona di spedizione di UN sito, con la stessa regola della zona
+    di imballaggio: più d'una si corregge in Configurazione, qui si prende la
+    prima. Serve a proporre dove posare un bancale radunato, e la proposta è
+    del sito della tappa — non del primo sito dell'elenco, che su un impianto
+    a più magazzini manderebbe l'operatore in un altro capannone. */
+export function zonaSpedizioneDi(
+  siti: readonly Sito[] | null | undefined,
+  siteId: string,
+): { sito: Sito; zona: Zona } | null {
+  const k = String(siteId || '').trim().toUpperCase();
+  if (!k) return null;
+  return zoneSpedizione(siti).find((x) => String(x.sito.id).toUpperCase() === k) || null;
+}
+
+type Bandiera = 'shipping_zone' | 'pf_zone' | 'dock_zone' | 'pack_zone';
+
+/** `ripiego` è il nome che la bandiera aveva prima.
+
+    IL NOME VECCHIO VALE SOLO FINCHÉ IL NUOVO NON C'È. Non «vale in
+    alternativa»: se contassero tutti e due, togliere la spunta a una zona
+    configurata prima dell'aggiornamento scriverebbe `shipping_zone: false`
+    e lascerebbe `pf_zone: true` sotto, e la zona resterebbe marcata dopo
+    che qualcuno l'ha smarcata guardando lo schermo. Il campo nuovo, appena
+    scritto, è la sola verità — anche quando dice di no. */
+export function marcata(z: Zona | null | undefined, bandiera: Bandiera, ripiego: Bandiera | null = null): boolean {
+  if (!z) return false;
+  if (z[bandiera] !== undefined) return z[bandiera] === true;
+  return !!ripiego && z[ripiego] === true;
+}
+
 function zoneMarcate(
   siti: readonly Sito[] | null | undefined,
-  bandiera: 'pf_zone' | 'dock_zone' | 'pack_zone',
+  bandiera: Bandiera,
+  ripiego: Bandiera | null = null,
 ): { sito: Sito; zona: Zona }[] {
   const out: { sito: Sito; zona: Zona }[] = [];
   for (const s of siti || []) {
     for (const z of s.zones || []) {
-      if (z?.[bandiera] && z.active !== false) out.push({ sito: s, zona: z });
+      if (marcata(z, bandiera, ripiego) && z.active !== false) out.push({ sito: s, zona: z });
     }
   }
   return out;

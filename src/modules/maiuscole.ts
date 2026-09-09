@@ -39,6 +39,9 @@ const CAMPI_CODICE: ReadonlySet<string> = new Set([
   /* Prelievo e trasferimenti */
   'pCambioArt', 'pCambioDest', 'pCambioLot', 'pProdArt', 'pProdLot', 'pProdOrder',
   'rArt', 'rLoc', 'rLot', 'rUdc', 'trfTo',
+  /* 2.38 — il vano dove una preparazione posa la merce: un codice di
+     ubicazione come 'rLoc', e si scansiona allo stesso modo. */
+  'rVerso',
   /* Documenti e spedizioni */
   'pEditArt', 'pEditDdt', 'pEditLot', 'pShipArt', 'pShipLot', 'pShipDdt',
   'pShipDestProvince', 'pShipDestVat',

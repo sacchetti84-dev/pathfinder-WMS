@@ -13,6 +13,11 @@ import {
   operazioneDi, vuoleColli, vuoleUbicazione, vuoleDestinazione, vuoleArticolo,
   quantitaRichiesta, quantitaFatta, residuo, tipiRichiedibili,
 } from '../../modules/compiti';
+import {
+  statoSpedizione, modiPossibili, avvisoCarico, avvisoPreparazione,
+  ETICHETTE_SPEDIZIONE, type StatoSpedizione, type ModoSpedizione,
+} from '../../modules/preparazione';
+import { zoneImballo } from '../../modules/bancale';
 
 /* IL `payload` DI UN COMPITO, come lo legge e lo scrive questa maschera.
 
@@ -438,6 +443,32 @@ export const VistaCompiti = {
       if (p.location_code) pezzi.push(`area <span class="mono">${this._esc(p.location_code)}</span>`);
       if (t.source_ref) pezzi.push(`dopo il campionamento <span class="mono">${this._esc(t.source_ref)}</span>`);
       if (p.auto) pezzi.push('<strong>obbligatoria — allergeni</strong>');
+    }
+    /* ═══ 2.38 · IL DDT, E A CHE PUNTO È ════════════════════════════════
+
+       Fino alla 2.37 la riga di un'attività di spedizione diceva il solo
+       destinatario: chi guardava la coda leggeva «Preparazione spedizioni ·
+       ROSSI SPA» e per sapere QUALE documento doveva aprirlo.
+
+       E adesso serve anche il punto, perché l'attività non si chiude più a
+       fine percorso: la stessa riga può voler dire «va radunata», «va
+       imballata» o «è pronta da caricare», e sono tre lavori diversi con tre
+       persone diverse. Il marchio si CALCOLA dal documento — non è un campo
+       timbrato che invecchia — quindi dice sempre com'è la merce adesso. */
+    if (t.type === 'PREP_SHIP') {
+      const p2 = p as { ddt_num?: string; ultimo_passo?: string; ultimo_passo_da?: string };
+      if (p2.ddt_num) pezzi.unshift(`DDT <span class="mono font-bold">${this._esc(p2.ddt_num)}</span>`);
+      if (eAperto(t)) {
+        const stato = this._prepStato(t) as StatoSpedizione | null;
+        if (stato) {
+          const classe = stato === 'carico_pronto' ? 'badge-green'
+            : stato === 'da_imballare' ? 'badge-amber' : 'badge-blue';
+          pezzi.push(`<span class="badge ${classe}">${this._esc(ETICHETTE_SPEDIZIONE[stato])}</span>`);
+        }
+      }
+      if (p2.ultimo_passo) {
+        pezzi.push(`<span class="text-label-small text-sx-text-muted">${this._esc(p2.ultimo_passo)}${p2.ultimo_passo_da ? ` · ${this._esc(p2.ultimo_passo_da)}` : ''}</span>`);
+      }
     }
     const testa = pezzi.length ? pezzi.join(' · ') : '<span class="text-sx-text-muted">—</span>';
     const note = t.note ? `<div class="text-body-small text-sx-text-secondary">${this._esc(t.note)}</div>` : '';
@@ -896,6 +927,24 @@ export const VistaCompiti = {
       await this._taskAbbandona({ silenzioso: true });
     }
 
+    /* ═══ 2.38 · SU UNA SPEDIZIONE SI SCEGLIE PRIMA CHE COSA SI FA ═══════
+
+       Un'attività di spedizione è tre lavori — radunare, imballare,
+       caricare — e chi la prende in carico ne fa uno. Quale, lo dice lui:
+       il camion in banchina con i pallet già pronti si carica e basta, e
+       mandare quella persona a fare un giro di preparazione che non serve è
+       il motivo per cui questo giro di versioni esiste.
+
+       LA SCELTA STA PRIMA DI `startTask`, e non è un dettaglio di ordine:
+       avviare e poi chiedere vorrebbe dire che chi chiude la finestra lascia
+       dietro un'attività «in corso» a suo nome, che poi qualcuno deve
+       ripulire. Chi non sceglie non ha avviato niente. */
+    let modo = null;
+    if (t.type === 'PREP_SHIP') {
+      modo = await this._prepChiediModo(t);
+      if (!modo) return;
+    }
+
     try {
       if (t.status !== 'in_progress') await Store.startTask(taskId, io.initials);
     } catch (err) {
@@ -903,19 +952,86 @@ export const VistaCompiti = {
     }
     this._taskRun = { task_id: taskId, type: t.type, payload: (t.payload && typeof t.payload === 'object') ? t.payload : {}, movs: [] };
     this.renderTasks();
-    this._taskLancia(Store.getTask(taskId), op);
+    this._taskLancia(Store.getTask(taskId), op, modo);
+  },
+
+  /* A che punto è la spedizione di questo compito. Il documento è la fonte:
+     il compito ne porta il riferimento, e le righe dicono dov'è la merce
+     ADESSO — `statoSpedizione`. */
+  _prepStato(t): StatoSpedizione | null {
+    const docId = String((t?.payload as Record<string, unknown> | null)?.doc_id || '');
+    if (!docId) return null;
+    const doc = Store.getAllOutbound().find((d) => d.doc_id === docId);
+    if (!doc) return null;
+    const imballo = new Set(zoneImballo(Store.getSites())
+      .map((z) => `${String(z.sito.id).toUpperCase()}|${String(z.zona.id).toUpperCase()}`));
+    const geo = Store.buildLocationGeometry();
+    return statoSpedizione(doc, (vano) => {
+      const g = geo.get(String(vano || '').toUpperCase());
+      return !!g && imballo.has(`${String(g.site_id).toUpperCase()}|${String(g.zone_id).toUpperCase()}`);
+    });
+  },
+
+  /* Quale dei tre lavori si sta per fare. `null` = non si è scelto, e allora
+     non si avvia niente. */
+  async _prepChiediModo(t) {
+    const docId = String((t?.payload as Record<string, unknown> | null)?.doc_id || '');
+    const doc = Store.getAllOutbound().find((d) => d.doc_id === docId);
+    if (!doc) {
+      this.toast(`Il documento ${docId || '(assente)'} non esiste più: l'attività non ha più merce da nominare.`, 'error');
+      return null;
+    }
+    const stato = (this._prepStato(t) || 'da_preparare') as StatoSpedizione;
+    const ETICHETTA: Record<ModoSpedizione, string> = {
+      preparazione: 'Preparo — vado a radunare la merce',
+      imballaggio: 'Imballo — compongo l’unità e la porto in spedizione',
+      carico: 'Carico — porto i bancali in baia',
+    };
+    const scelto = await Dialog.scelta<ModoSpedizione>({
+      title: `DDT ${doc.ddt_num || doc.doc_id} — che cosa stai facendo?`,
+      message: 'L’attività resta la stessa: quel che cambia è il pezzo di lavoro che si apre adesso.',
+      details: Dialog.kv([
+        ['Destinatario', doc.destination || null],
+        ['A che punto è', ETICHETTE_SPEDIZIONE[stato]],
+        ['Righe', (doc.lines || []).length],
+      ]),
+      opzioni: modiPossibili(stato).map((m) => ({ label: ETICHETTA[m], value: m })),
+      icon: 'truck',
+    });
+    if (!scelto) return null;
+
+    /* L'AVVISO NON È UN DIVIETO — §2.35.2. Si dice quel che il magazzino non
+       vede dalla riga di coda, e si lascia decidere a chi ha il documento in
+       mano e il camion davanti. */
+    const avviso = scelto === 'carico' ? avvisoCarico(doc, stato)
+      : scelto === 'preparazione' ? avvisoPreparazione(stato)
+      : null;
+    if (avviso && !await Dialog.confirm({
+      title: 'Prima di andare avanti',
+      message: avviso,
+      confirmLabel: 'Vai avanti', icon: 'alert-triangle',
+    })) return null;
+    return scelto;
   },
 
   /* Apre la maschera e ci mette dentro cio' che il compito sa gia'. Ogni
      tipo compila i campi che gli servono: la merce si identifica sempre a
      scaffale, quindi le verifiche di scansione NON si saltano — quello che
      si salta e' la ricerca, non il controllo. */
-  _taskLancia(t, op) {
+  _taskLancia(t, op, modo = null) {
     /* 2.31 — LA PREPARAZIONE NON PRECOMPILA UNA MASCHERA: COSTRUISCE UN
        PERCORSO. Gli altri sei tipi aprono Movimenta e riempiono dei campi;
        questo rilegge il documento, ne ricava le tappe e apre il giro. Esce
-       prima, quindi, e non passa da `startMov`. */
-    if (t?.type === 'PREP_SHIP') { void this._prepAvvia(t); return; }
+       prima, quindi, e non passa da `startMov`.
+
+       2.38 — e adesso sono TRE porte, non una: il modo l'ha già scelto chi
+       ha premuto Avvia — `_prepChiediModo` — e qui si va dove ha detto. */
+    if (t?.type === 'PREP_SHIP') {
+      if (modo === 'carico') { void this._carAvviaDaCompito(t); return; }
+      if (modo === 'imballaggio') { void this._prepImballaDaCompito(t); return; }
+      void this._prepAvvia(t);
+      return;
+    }
     /* 2.32 — e il prelievo ODP scarica la distinta allegata e la apre nella
        scheda del prelievo automatico. Anche lui esce prima: non c'e' nessuna
        maschera da precompilare, c'e' un file da leggere. */

@@ -309,8 +309,8 @@ export function richiestaPreparazione(
 export function daImballare(
   tappe: readonly {
     status?: string; udc_id?: string | null; item_key?: string;
-    article_code?: string; lot_code?: string; qty_picked?: number;
-    kg_required?: number; um?: string;
+    article_code?: string; lot_code?: string; qty_picked?: number | null;
+    kg_required?: number | null; um?: string;
   }[] | null | undefined,
 ): { item_key: string; article_code: string; lot_code: string; colli: number; um: string; da: string }[] {
   const out = new Map<string, { item_key: string; article_code: string; lot_code: string; colli: number; um: string; da: string }>();
@@ -341,6 +341,42 @@ export function daImballare(
   return [...out.values()];
 }
 
+/** 2.38 — LO STESSO ELENCO, LETTO DAL DOCUMENTO INVECE CHE DALLE TAPPE.
+
+    Chi prende in carico un'attività «da imballare» non ha nessuna sessione
+    di prelievo davanti: il percorso l'ha fatto e chiuso un altro, magari
+    ieri. Quel che c'è da imballare lo dicono le righe sciolte del DDT — la
+    merce che non sta ancora su un bancale — e il vano da cui prenderla è
+    quello che la riga porta adesso, perché chi ha radunato l'ha riallineata
+    spostandola.
+
+    LA FORMA È QUELLA DI `daImballare`, e non per comodità: da qui in poi
+    imballare è lo stesso lavoro, e due forme diverse vorrebbero dire due
+    strade che si somigliano finché qualcuno ne corregge una sola. */
+export function daImballareDalDoc(
+  doc: Partial<DocumentoUscita> | null | undefined,
+): { item_key: string; article_code: string; lot_code: string; colli: number; um: string; da: string }[] {
+  const out = new Map<string, { item_key: string; article_code: string; lot_code: string; colli: number; um: string; da: string }>();
+  for (const l of doc?.lines || []) {
+    if (!l) continue;
+    if (chiave(l.udc_id)) continue;              // già su un bancale
+    const colli = numero(l.qty);
+    if (colli <= 0) continue;
+    const k = chiave(l.item_key) || `${chiave(l.article_code)}#${chiave(l.lot_code)}`;
+    const gia = out.get(k);
+    if (gia) { gia.colli += colli; continue; }
+    out.set(k, {
+      item_key: k,
+      article_code: testo(l.article_code),
+      lot_code: testo(l.lot_code),
+      colli,
+      um: testo(l.uom),
+      da: chiave(l.location_code),
+    });
+  }
+  return [...out.values()];
+}
+
 /** Le unità già prelevate intere: passano in zona imballaggio come stanno.
 
     Servono a dirlo a chi chiude — «questi tre pallet sono già pronti, non
@@ -357,27 +393,101 @@ export function unitaGiaPronte(
   return [...viste];
 }
 
-/** Il lavoro di preparazione è finito?
+/* ═══ 2.38 · A CHE PUNTO È LA SPEDIZIONE, LETTO DAL DOCUMENTO ════════════
 
-    NON BASTA CHE IL PERCORSO SIA FINITO. Finché resta merce sciolta senza
-    un'unità che la porti, quel che sta sul carrello non può salire sul
-    camion. Torna il motivo, o `null` se si può chiudere.
+   Dalla 2.38 un'attività di spedizione non si chiude alla fine del percorso:
+   ne fa tre pezzi — si prepara, si imballa, si carica — e fra un pezzo e
+   l'altro torna in coda perché a farli sono spesso persone diverse.
 
-    UNA TAPPA NON TROVATA NON IMPEDISCE LA CHIUSURA, ed è deliberato: se la
-    merce non c'è, tenere aperta l'attività non la fa comparire. Il documento
-    resterà incompleto, e quello lo vede chi evade — `_evadiSpedizione`
-    rifiuta di evadere un DDT a cui manca merce. */
-export function motivoNonChiudibile(
-  tappe: readonly { status?: string; udc_id?: string | null }[] | null | undefined,
-  udcComposte: readonly string[] | null | undefined,
+   IL PUNTO IN CUI SI TROVA NON SI SCRIVE: SI LEGGE DAL DOCUMENTO. Un campo
+   sul compito direbbe quello che qualcuno ha timbrato l'ultima volta; le
+   righe del DDT dicono dov'è la merce ADESSO, e sono la stessa fonte che
+   l'evasione andrà a leggere. Se qualcuno sposta un pallet dalla mappa, o
+   corregge il documento, il marchio si corregge da sé — e un marchio che
+   mente su un DDT è il difetto della 2.33 rifatto su un'altra schermata.
+
+   TRE PUNTI, E NON DI PIÙ:
+   · `da_preparare`  — c'è merce che non è ancora stata radunata.
+   · `da_imballare`  — tutto radunato, ma della merce è ancora sciolta: va
+                       composta in un'unità, etichettata e portata in
+                       spedizione.
+   · `carico_pronto` — ogni riga sta su un bancale. Non manca niente, e
+                       questo vale anche per un DDT nato così, di sole unità
+                       già composte: quello non ha mai avuto bisogno di
+                       essere preparato, ed è il caso che ha fatto nascere
+                       tutto questo giro. */
+
+export type StatoSpedizione = 'da_preparare' | 'da_imballare' | 'carico_pronto';
+
+export const ETICHETTE_SPEDIZIONE: Record<StatoSpedizione, string> = {
+  da_preparare: 'Da preparare',
+  da_imballare: 'Da imballare',
+  carico_pronto: 'Carico pronto',
+};
+
+/** A che punto è la spedizione di questo documento.
+
+    `inZonaImballo` risponde «questo vano è un banco d'imballo?». Sta fuori
+    perché è una domanda sulla CONFIGURAZIONE del magazzino, e questo modulo
+    del magazzino non sa niente — è la stessa separazione per cui la
+    serpentina sta in `pickRoute`.
+
+    UN DOCUMENTO SENZA RIGHE È `da_preparare`, non pronto. `[].every()` è
+    vero, e lasciarlo passare vorrebbe dire un DDT vuoto che si annuncia
+    pronto a salire sul camion. */
+export function statoSpedizione(
+  doc: Partial<DocumentoUscita> | null | undefined,
+  inZonaImballo: (vano: string) => boolean,
+): StatoSpedizione {
+  const righe = (doc?.lines || []).filter((l) => l && numero(l.qty) > 0);
+  if (!righe.length) return 'da_preparare';
+  const sciolte = righe.filter((l) => !chiave(l.udc_id));
+  if (!sciolte.length) return 'carico_pronto';
+  return sciolte.every((l) => inZonaImballo(chiave(l.location_code)))
+    ? 'da_imballare'
+    : 'da_preparare';
+}
+
+/** I gesti che hanno senso su questo documento, nell'ordine in cui si
+    propongono. Il primo è quello che il magazzino farebbe adesso.
+
+    IL CARICO C'È SEMPRE, ed è la risposta alla domanda da cui è partito
+    tutto: non tutti i DDT hanno bisogno di essere preparati. Chi ha il
+    camion in banchina e i pallet già pronti carica, e il sistema non lo
+    manda a fare un giro che non serve. Se poi quel DDT non è pronto davvero,
+    lo dice `avvisoCarico` — un avviso, non un divieto: §2.35.2, il sistema
+    aiuta e non blocca. */
+export type ModoSpedizione = 'preparazione' | 'imballaggio' | 'carico';
+
+export function modiPossibili(stato: StatoSpedizione): ModoSpedizione[] {
+  if (stato === 'da_imballare') return ['imballaggio', 'carico'];
+  if (stato === 'carico_pronto') return ['carico', 'preparazione'];
+  return ['preparazione', 'carico'];
+}
+
+/** Quel che va detto a chi sceglie «carico» su questo documento, o `null` se
+    non c'è niente da dire. Non ferma niente: si conferma e si prosegue. */
+export function avvisoCarico(
+  doc: Partial<DocumentoUscita> | null | undefined,
+  stato: StatoSpedizione,
 ): string | null {
-  const pendenti = (tappe || []).filter((t) => t && t.status === 'pending').length;
-  if (pendenti) return `Restano ${pendenti} tappe da fare.`;
-  const sciolte = daImballare(tappe as never);
-  if (sciolte.length && !(udcComposte || []).length) {
-    return 'La merce sciolta non è ancora stata composta in unità di carico.';
+  if (stato === 'carico_pronto') return null;
+  const righe = (doc?.lines || []).filter((l) => l && numero(l.qty) > 0);
+  const conUdc = righe.filter((l) => chiave(l.udc_id)).length;
+  if (!conUdc) {
+    return 'Nessuna riga di questo DDT sta su un bancale: non c’è niente da scansionare in baia, '
+      + 'e la merce si dichiara caricata a mano. Di solito prima si prepara.';
   }
-  return null;
+  return `${righe.length - conUdc} righe di questo DDT non stanno su un bancale: `
+    + 'si caricano a mano e non si scansionano. Il DDT si evade lo stesso.';
+}
+
+/** Quel che va detto a chi sceglie «preparazione» su un DDT già pronto. */
+export function avvisoPreparazione(stato: StatoSpedizione): string | null {
+  return stato === 'carico_pronto'
+    ? 'Ogni riga di questo DDT sta già su un bancale: il percorso rifarà le tappe dei bancali, '
+      + 'chiedendo di nuovo dove riposarli. Non c’è merce sciolta da radunare.'
+    : null;
 }
 
 /** Il documento è pronto per diventare un'attività di preparazione?

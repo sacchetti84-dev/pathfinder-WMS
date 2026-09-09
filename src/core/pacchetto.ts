@@ -42,7 +42,7 @@ export const FORMATO = 'warehouse-mapper-v1.5';
     `server/pathfinder-server.js`. A tenerli allineati adesso c'e'
     `test/versioni.test.js`, che li legge tutti e quattro e fallisce se uno
     diverge. */
-export const VERSIONE_APP = '2.37.0';
+export const VERSIONE_APP = '2.38.0';
 
 /* L'ELENCO DELLE COLLEZIONI DA ESPORTARE STA IN UN POSTO SOLO.
    Fino alla 1.4.0 era scritto a mano in tre — `exportAll`, `_countsOf`,

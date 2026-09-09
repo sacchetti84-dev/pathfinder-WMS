@@ -13,7 +13,7 @@ import { decimali as decimaliUom, formattaQuantita } from '../../modules/misure'
 import { componi, alClic, segno, STATO_VUOTO } from '../../modules/tabella';
 import type { Colonna, Stato } from '../../modules/tabella';
 import {
-  ePf, riepiloga, bancaliImpegnati, descriviContenuto, ETICHETTE_STATO, zonePf, zoneImballo,
+  ePf, riepiloga, bancaliImpegnati, descriviContenuto, ETICHETTE_STATO, zoneSpedizione, zoneImballo,
   spedizioniDiBancale,
 } from '../../modules/bancale';
 import type { RiepilogoBancale } from '../../modules/bancale';
@@ -96,7 +96,7 @@ export const VistaProdottoFinito = {
   _pfSel: new Set<string>(),
 
   _formProdottoFinito(el: HTMLElement) {
-    const zone = zonePf(Store.getSites());
+    const zone = zoneSpedizione(Store.getSites());
     el.innerHTML = `
       ${!zone.length ? `<div class="mov-preview mov-preview-warn mb-6 leading-larga">
         <strong>Nessuna zona è dichiarata di prodotto finito.</strong> Si marca in
@@ -140,7 +140,7 @@ export const VistaProdottoFinito = {
        è un errore — i bancali si posano accanto — e lasciare il campo vuoto
        obbligherebbe a digitare un codice di quindici caratteri coi guanti. */
     let ripiego = '';
-    for (const { sito, zona } of zonePf(Store.getSites())) {
+    for (const { sito, zona } of zoneSpedizione(Store.getSites())) {
       for (const u of Store.generateLocations(sito.id, zona.id)) {
         const stato = Store.getLocationStatus(u.code);
         if (stato === 'blocked' || stato === 'disabled') continue;
@@ -1080,7 +1080,7 @@ export const VistaProdottoFinito = {
   },
 
   _pfElencoHTML() {
-    const zona = zonePf(Store.getSites())[0];
+    const zona = zoneSpedizione(Store.getSites())[0];
     const scelta = (id: string, etichetta: string) =>
       `<button class="level-btn ${this._pfFiltroStato === id ? 'active' : ''}"
          onclick="App._pfStato('${id}')">${etichetta}</button>`;
@@ -1118,7 +1118,7 @@ export const VistaProdottoFinito = {
      prodotto finito e col filtro acceso. Una seconda pianta da tenere
      allineata alle zone sarebbe una seconda verità sullo stesso magazzino. */
   _pfVediInMappa() {
-    const zona = zonePf(Store.getSites())[0];
+    const zona = zoneSpedizione(Store.getSites())[0];
     if (!zona) return this.toast('Nessuna zona è dichiarata di prodotto finito', 'warning');
     this._mapFiltroPf = true;
     this.openZone(zona.sito.id, zona.zona.id);

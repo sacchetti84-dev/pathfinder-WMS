@@ -3661,6 +3661,107 @@ const Store = {
     }
   },
 
+  /* ═══ 2.38 · UN PEZZO FINITO NON È L'ATTIVITÀ FINITA ═════════════════
+
+     Una spedizione è tre lavori: si raduna la merce, si imballa, si carica.
+     Fino alla 2.37 il primo li chiudeva tutti — il percorso finiva e
+     l'attività spariva dalla coda — e i due che restavano vivevano a voce,
+     esattamente la cosa che questa coda esiste per togliere.
+
+     Adesso il pezzo finito rimette l'attività IN CODA, libera. Non
+     «assegnata a chi l'aveva»: chi ha radunato i bancali col transpallet
+     spesso non è chi guiderà il muletto in banchina, e un'attività che
+     porta ancora un nome è un'attività che gli altri saltano.
+
+     NON SI PASSA DA `abandonTask`, che è un'altra cosa. Quello ritira un
+     avvio che non ha prodotto niente e riporta il compito a chi l'aveva;
+     qui il lavoro È stato fatto, e lo dicono i movimenti del percorso.
+
+     LA CONDIZIONE LA VERIFICA QUESTO METODO, come `chiudiCompitoDiPercorso`:
+     si rimette in coda solo se la sessione è DAVVERO quella del compito.
+     Senza, un percorso qualunque potrebbe scaricare un'attività qualunque. */
+  async rimettiInCodaSpedizione(taskId: string, sessione: SessionePrelievo | null, nota: string = '') {
+    const id = String(taskId || '');
+    if (!id) throw new Error('Nessun compito da rimettere in coda');
+    if (!sessione || String(sessione.task_id || '') !== id) {
+      throw new Error(`La sessione non è quella del compito ${id}`);
+    }
+    const cur = this.getTask(id);
+    if (!cur) throw new Error(`Il compito ${id} non esiste`);
+    if (cur.status === 'done' || cur.status === 'cancelled') return cur;
+    const v = String(this.getCurrentIdentity().initials || '').toUpperCase().trim();
+    const m = String(nota || '').trim();
+    return await this._moveTask(id, 'requested', {
+      assigned_to: null,
+      /* L'AVVIO SI AZZERA PERCHÉ NE COMINCIA UN ALTRO. `misure()` conta da
+         `started_at` alla chiusura: tenerlo vorrebbe dire che il tempo del
+         carico comprende la notte fra chi ha preparato e chi carica. Quel
+         che il pezzo appena finito ha prodotto sta nei movimenti, non qui. */
+      started_at: null,
+      payload: {
+        ...(cur.payload && typeof cur.payload === 'object' ? cur.payload : {}),
+        /* Chi ha fatto il pezzo e quando: la riga di coda lo dice a chi
+           passa, e senza questo l'attività tornerebbe indietro senza
+           nessuna traccia di essere già stata in mano a qualcuno. */
+        ultimo_passo: m || null,
+        ultimo_passo_da: v || null,
+        ultimo_passo_at: Date.now(),
+      },
+    });
+  },
+
+  /* ═══ 2.38 · IL DOCUMENTO EVASO CHIUDE LA SUA ATTIVITÀ ════════════════
+
+     Con l'attività che non si chiude più a fine percorso, serviva un punto
+     in cui si chiude davvero — e il punto è l'uscita della merce: quando il
+     DDT è evaso non c'è più niente da fare su quel documento, chiunque
+     l'abbia evaso e da qualunque schermata.
+
+     STA QUI E NON NELLA MASCHERA DEL CARICO, ed è la ragione per cui il
+     carico si può ancora avviare a mano da Spedizioni senza lasciare code
+     sporche: le strade per far uscire un DDT sono tre — il carico del
+     camion, l'evasione diretta, il conto terzi che sposta invece di
+     scaricare — e tutte e tre passano da `updatePendingStatus`. Scriverlo in
+     ognuna vorrebbe dire tre copie, e la terza che qualcuno dimentica.
+
+     UN DDT ANNULLATO ANNULLA LA SUA, col motivo. Non è simmetria: dalla 2.38
+     l'attività sopravvive alla preparazione, quindi un documento annullato
+     lascerebbe in coda del lavoro che nessuno può più fare — `_prepAvvia` lo
+     rifiuta, il carico anche, e resterebbe lì a occupare la coda per sempre. */
+  async chiudiCompitiDelDocumento(docId: string, esito: 'evaded' | 'cancelled') {
+    const id = String(docId || '');
+    if (!id) return [];
+    const miei = this._cache.tasks.filter((t) =>
+      t.type === 'PREP_SHIP'
+      && eAperto(t)
+      && String((t.payload as Record<string, unknown> | null)?.doc_id || '') === id);
+    const toccati: string[] = [];
+    for (const t of miei) {
+      try {
+        if (esito === 'cancelled') {
+          await this.cancelTask(t.task_id, 'Il DDT è stato annullato');
+        } else {
+          const v = String(this.getCurrentIdentity().initials || '').toUpperCase().trim();
+          this._chiusuraAmmessa = true;
+          try {
+            await this._moveTask(t.task_id, 'done', {
+              completed_at: Date.now(), completed_by: v || null,
+            });
+          } finally {
+            this._chiusuraAmmessa = false;
+          }
+        }
+        toccati.push(t.task_id);
+      } catch (err) {
+        /* LA MERCE È GIÀ USCITA. Un compito che non si chiude è una riga in
+           coda da sistemare a mano; rifiutare l'evasione a questo punto
+           vorrebbe dire un DDT pendente su merce che sta su un camion. */
+        console.error('[WM] chiudiCompitiDelDocumento:', t.task_id, err);
+      }
+    }
+    return toccati;
+  },
+
   /* ═══════════════════════════════════════════════════════════════════
      1.4.2.1 — IL MOVIMENTO CONFERMATO SCALA IL RESIDUO
      © Andrea Sacchetti — Dietopack S.r.l.
@@ -3821,6 +3922,12 @@ const Store = {
     this._applyToCache('pending_outbound', 'put', rec);
     await Persistence.put('pending_outbound', rec);
     await this._touchMeta();
+    /* 2.38 — e con lui l'attività di spedizione, se ne aveva una. Il
+       documento cambiato stato è già scritto: se la chiusura del compito
+       fallisce resta una riga in coda da sistemare, non un DDT a metà. */
+    if (status === 'evaded' || status === 'cancelled') {
+      await this.chiudiCompitiDelDocumento(doc_id, status);
+    }
     return rec;
   },
 
@@ -4180,31 +4287,34 @@ const Store = {
      spostare, c'è da confermare che il bancale è quello giusto. Prima si
      rispondeva «La merce è già nella zona di imballaggio» e la tappa non si
      chiudeva. */
-  async commitPreparazioneUdc({ session, stop, zona, verso, movement }: {
-    session: SessionePrelievo; stop: Record<string, any>;
-    zona: { sito: { id: string }; zona: { id: string } }; verso: string;
+  async commitPreparazioneUdc({ session, stop, verso, movement }: {
+    session: SessionePrelievo; stop: Record<string, any>; verso: string;
     movement: Partial<Movimento> & { type: MovTipo };
   }) {
     if (!session?.session_id) throw new Error('Sessione di prelievo priva di identificativo');
     if (!stop?.udc_id) throw new Error('Questa tappa non nomina nessuna unità di carico');
+    if (!String(verso || '').trim()) throw new Error('Nessun vano di destinazione: il bancale non ha dove andare');
     const id = String(stop.udc_id);
     const u = this.getUdc(id);
     if (!u) throw new Error(`${id} non esiste più`);
 
-    /* SI GUARDA LA ZONA, NON IL VANO. `_prepVanoImballo` propone UN vano
-       della zona d'imballaggio — il primo libero — e quasi mai è quello dove
-       il bancale sta già. Confrontare col vano proposto vorrebbe dire
-       spostare un pallet da un posto giusto a un altro posto giusto, con un
-       movimento a registro che non racconta niente: al banco, l'08/09, un
-       bancale nato in MAG-ACC-11 è stato portato in MAG-ACC-12 per questo.
-       Quel che conta è che sia in zona d'imballaggio, e ci era già. */
+    /* 2.38 — SI CONFRONTANO DUE VANI, E BASTA.
+
+       Fino alla 2.37 qui si guardava la ZONA: il vano di arrivo lo sceglieva
+       il sistema — il primo libero della zona d'imballaggio — e quasi mai era
+       quello dove il bancale stava già, quindi confrontare i due vani
+       avrebbe spostato un pallet da un posto giusto a un altro posto giusto.
+       Al banco, l'08/09: un bancale nato in MAG-ACC-11 portato in MAG-ACC-12
+       per questo.
+
+       Adesso il vano di arrivo lo SCANSIONA chi raduna, e un vano scansionato
+       non è una proposta da interpretare: se è quello dove il bancale sta
+       già, l'operatore sta dicendo «resta qui» e non c'è niente da muovere;
+       se è un altro, ci va — anche dentro la stessa zona, perché radunare
+       dieci pallet vuol dire proprio metterli in dieci posizioni scelte. */
     const dove = String(u.location_code || '').toUpperCase();
-    const suo = this.buildLocationGeometry().get(dove);
-    const giaLi = !!suo
-      && String(suo.site_id).toUpperCase() === String(zona.sito.id).toUpperCase()
-      && String(suo.zone_id).toUpperCase() === String(zona.zona.id).toUpperCase();
     const meta = String(verso || '').toUpperCase();
-    const daMuovere = !giaLi && !!meta && dove !== meta;
+    const daMuovere = !!meta && dove !== meta;
 
     if (daMuovere) {
       await this.moveUdc(id, meta, { ...movement, dest_location: meta });
@@ -4235,9 +4345,18 @@ const Store = {
   }) {
     if (!session?.session_id) throw new Error('Sessione di prelievo priva di identificativo');
     if (!stop) throw new Error('Tappa non identificata');
-    if (!verso) throw new Error('Nessuna zona di imballaggio: la merce non ha dove andare');
+    if (!verso) throw new Error('Nessun vano di destinazione: la merce non ha dove andare');
+    /* 2.38 — SCANSIONARE IL VANO DI PARTENZA NON È UN ERRORE, È UN RIFIUTO.
+
+       Fino alla 2.37 qui c'era un `throw`: «la merce è già nella zona di
+       imballaggio». Aveva senso quando il vano di arrivo lo sceglieva il
+       sistema — se coincideva, la merce era già a destinazione. Adesso lo
+       scansiona l'operatore, e scansionare il vano da cui si sta prendendo
+       vuol dire aver puntato il lettore sull'etichetta sbagliata: quella
+       davanti, invece di quella del posto dove si va. Muovere la merce da un
+       vano a se stesso scriverebbe un movimento che non è successo. */
     if (String(verso).toUpperCase() === String(stop.location_code).toUpperCase()) {
-      throw new Error('La merce è già nella zona di imballaggio');
+      throw new Error(`${verso} è il vano da cui stai prendendo: scansiona quello dove posi la merce`);
     }
 
     let mosso: Record<string, any> | null = null;

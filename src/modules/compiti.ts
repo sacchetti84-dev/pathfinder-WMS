@@ -39,8 +39,20 @@ export const TIPI_COMPITO = {
      sempre stata la CAUSALE del documento, non il lavoro di magazzino: in
      corsia si va a prendere la stessa merce nello stesso modo. I due vecchi
      restano dichiarati perché l'archivio li porta — un compito chiuso il
-     mese scorso deve continuare a dire come si chiamava. */
-  PREP_SHIP:  { label: 'Preparazione spedizioni', icona: 'truck' },
+     mese scorso deve continuare a dire come si chiamava.
+
+     2.38 — E ADESSO NE FA TRE, non uno. Fino alla 2.37 questa attività
+     nasceva col DDT e si chiudeva alla fine del percorso di prelievo; il
+     carico del camion era una schermata a parte che nessuna coda nominava.
+     Ma fra la merce radunata e il camion ci sono ancora due gesti —
+     imballare, e caricare — e a farli sono spesso persone diverse dalla
+     prima. Quindi l'attività torna in coda invece di chiudersi, e si chiude
+     quando il documento esce: `chiudiCompitiDelDocumento`.
+
+     IL NOME LO DICE. «Preparazione spedizioni» descriveva solo il primo dei
+     tre, e chi prendeva in carico l'attività per caricare un camion leggeva
+     il nome di un lavoro che non stava facendo. */
+  PREP_SHIP:  { label: 'Preparazione/carico DDT', icona: 'truck' },
   /* 2.32 — IL PRELIEVO DI UN ORDINE DI PRODUZIONE, chiesto in anticipo.
 
      Il giro di prelievo da file c'è dalla 2.12 e non cambia: si carica un
@@ -180,11 +192,25 @@ export const etichettaStato = (s: string): string => STATI[s] ?? String(s);
    `started_at` torna a `null`. È l'unico punto del progetto in cui si
    cancella un istante già scritto, ed è deliberato: un avvio che non ha
    mosso un collo non è storia. Non porta a `requested` — chi l'aveva in
-   mano ce l'ha ancora. */
+   mano ce l'ha ancora.
+
+   2.38 — `in_progress → requested` È UNA FRECCIA NUOVA, E NON È QUELLA
+   SOPRA. Quella dice «non ho fatto niente, riprendo io»; questa dice «HO
+   FATTO IL MIO PEZZO, tocca a un altro». Una spedizione è tre lavori — si
+   raduna, si imballa, si carica — e a farli sono spesso tre persone: chi
+   scende in corsia col transpallet non è chi guida il muletto in banchina.
+   Tenere l'attività in carico a chi ha finito il primo pezzo vorrebbe dire
+   che il secondo non parte finché quella persona non se ne ricorda.
+
+   LA SIGLA SE NE VA CON LEI — `rimettiInCodaSpedizione` azzera
+   `assigned_to` — perché un'attività «in coda» che porta ancora il nome di
+   qualcuno è la coda che nessuno guarda: chi passa legge un nome e tira
+   dritto. Quel che è stato fatto resta scritto dove è successo davvero: nei
+   movimenti del percorso e sul documento. */
 const TRANSIZIONI: Record<string, readonly string[]> = {
   requested:   ['assigned', 'in_progress', 'cancelled'],
   assigned:    ['requested', 'in_progress', 'cancelled'],
-  in_progress: ['assigned', 'done', 'cancelled'],
+  in_progress: ['assigned', 'requested', 'done', 'cancelled'],
   done:        [],
   cancelled:   [],
 };

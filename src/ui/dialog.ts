@@ -320,6 +320,39 @@ const Dialog = {
     });
   },
 
+  /* 2.38 — SCEGLIERE FRA PIÙ COSE, NON FRA SÌ E NO.
+
+     `confirm` ha due pulsanti e uno dei due è l'uscita: usarlo per «prepari
+     o carichi?» vorrebbe dire che uno dei due lavori sta dove il magazzino
+     ha imparato che c'è «Annulla». Chi tira dritto sul lettore ne avvierebbe
+     uno per abitudine.
+
+     Qui i pulsanti sono quelli che si passano, e l'uscita resta l'uscita:
+     chiudere la finestra dà `null`, e `null` non è nessuna delle scelte. */
+  scelta<T extends string>({ title, message = '', details = null, opzioni, icon = 'help', cancelLabel = 'Annulla' }: {
+    title: string; message?: string; details?: Node | null;
+    opzioni: { label: string; value: T; danger?: boolean }[];
+    icon?: Icona | null; cancelLabel?: string;
+  }): Promise<T | null> {
+    return this._open<T>({
+      icon: icon || 'help',
+      title,
+      bodyNode: this._mkBody(message, details),
+      kind: 'confirm',
+      actions: [
+        { label: cancelLabel, value: false, cls: '' },
+        ...opzioni.map((o, i) => ({
+          label: o.label, value: o.value,
+          cls: o.danger ? 'btn-danger' : i === 0 ? 'btn-accent' : '',
+        })),
+      ],
+      /* IL FUOCO NON STA SUL PRIMO. `_open` lo mette sul pulsante che vale
+         `false`, cioè sull'uscita: una finestra che chiede quale lavoro si
+         sta facendo non deve poterne avviare uno con un a-capo del
+         lettore. */
+    }).then((v) => (typeof v === 'string' ? (v as T) : null));
+  },
+
   alert({ title, message = '', details = null, icon = 'info-circle', okLabel = 'Ho capito' }: {
     title: string; message?: string; details?: Node | null; icon?: Icona; okLabel?: string;
   }): Promise<boolean | null> {

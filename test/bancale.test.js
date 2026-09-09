@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import {
-  ePf, bancaliImpegnati, riepiloga, descriviContenuto, zonePf, zoneCarico,
+  ePf, bancaliImpegnati, riepiloga, descriviContenuto, zoneSpedizione, zoneCarico,
   spedizioniDiBancale,
   zoneImballo, sitiSenzaImballo, zonaImballoDi,
 } from '../src/modules/bancale';
@@ -124,7 +124,7 @@ describe('descriviContenuto', () => {
   });
 });
 
-describe('zonePf', () => {
+describe('zoneSpedizione', () => {
   const siti = [
     { id: 'MAG1', name: 'Magazzino 1', zones: [
       { site_id: 'MAG1', id: 'SPED', name: 'Spedizioni', pf_zone: true },
@@ -137,16 +137,53 @@ describe('zonePf', () => {
   ];
 
   it('elenca le zone dichiarate, anche quelle di un terzista', () => {
-    expect(zonePf(siti).map(z => `${z.sito.id}/${z.zona.id}`)).toEqual(['MAG1/SPED', 'TRZ1/DEP']);
+    expect(zoneSpedizione(siti).map(z => `${z.sito.id}/${z.zona.id}`)).toEqual(['MAG1/SPED', 'TRZ1/DEP']);
   });
 
   it('una zona disattivata non e una destinazione', () => {
-    expect(zonePf(siti).some(z => z.zona.id === 'VEC')).toBe(false);
+    expect(zoneSpedizione(siti).some(z => z.zona.id === 'VEC')).toBe(false);
   });
 
   it('senza siti non esplode', () => {
-    expect(zonePf(null)).toEqual([]);
-    expect(zonePf([{ id: 'X', name: 'X' }])).toEqual([]);
+    expect(zoneSpedizione(null)).toEqual([]);
+    expect(zoneSpedizione([{ id: 'X', name: 'X' }])).toEqual([]);
+  });
+
+  /* ═══ 2.38 · IL NOME VECCHIO, E QUANDO SMETTE DI VALERE ═══════════════
+
+     `pf_zone` si chiama `shipping_zone` dalla 2.38. I siti gia' configurati
+     portano il nome vecchio, quindi si legge ancora — ma solo FINCHE' IL
+     NUOVO NON C'E'.
+
+     La terza prova qui sotto e' quella che conta, ed e' il difetto che
+     questa distinzione esiste per chiudere: se i due nomi contassero in
+     alternativa, togliere la spunta a una zona configurata prima
+     dell'aggiornamento scriverebbe `shipping_zone: false` lasciando
+     `pf_zone: true` sotto — e la zona resterebbe marcata dopo che qualcuno
+     l'ha smarcata guardando lo schermo. Un magazzino che continua a
+     proporre un posto che l'impiegato ha appena tolto. */
+  describe('il nome vecchio pf_zone', () => {
+    const conVecchio = [{ id: 'M', name: 'M', zones: [
+      { site_id: 'M', id: 'Z', name: 'Z', pf_zone: true },
+    ] }];
+
+    it('vale quanto il nuovo, finche il nuovo non e mai stato scritto', () => {
+      expect(zoneSpedizione(conVecchio).map(z => z.zona.id)).toEqual(['Z']);
+    });
+
+    it('il nome nuovo da solo basta', () => {
+      const nuovo = [{ id: 'M', name: 'M', zones: [
+        { site_id: 'M', id: 'Z', name: 'Z', shipping_zone: true },
+      ] }];
+      expect(zoneSpedizione(nuovo).map(z => z.zona.id)).toEqual(['Z']);
+    });
+
+    it('IL NUOVO A FALSO SPEGNE IL VECCHIO A VERO — chi smarca, smarca', () => {
+      const smarcata = [{ id: 'M', name: 'M', zones: [
+        { site_id: 'M', id: 'Z', name: 'Z', pf_zone: true, shipping_zone: false },
+      ] }];
+      expect(zoneSpedizione(smarcata)).toEqual([]);
+    });
   });
 });
 
@@ -171,7 +208,7 @@ describe('zoneCarico', () => {
     const doppia = [{ id: 'M', name: 'M', zones: [
       { site_id: 'M', id: 'Z', name: 'Z', pf_zone: true, dock_zone: true },
     ] }];
-    expect(zonePf(doppia)).toHaveLength(1);
+    expect(zoneSpedizione(doppia)).toHaveLength(1);
     expect(zoneCarico(doppia)).toHaveLength(1);
   });
 
@@ -389,7 +426,7 @@ describe('le zone di imballaggio', () => {
       { site_id: 'A', id: 'ENTRAMBE', name: 'Doppia', pack_zone: true, pf_zone: true },
     ] }];
     expect(zoneImballo(misto).map(z => z.zona.id)).toEqual(['ENTRAMBE']);
-    expect(zonePf(misto).map(z => z.zona.id)).toEqual(['PF', 'ENTRAMBE']);
+    expect(zoneSpedizione(misto).map(z => z.zona.id)).toEqual(['PF', 'ENTRAMBE']);
     expect(zoneCarico(misto).map(z => z.zona.id)).toEqual(['BAIA']);
   });
 });

@@ -7,8 +7,29 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **08/09/2026** — **quello che è già in reparto non si va a
-prendere.** La **2.29** è costruita; la **2.28** è installata e in servizio.
+Aggiornato: **09/09/2026** — **non tutti i DDT vanno preparati, e preparare
+sono tre lavori.** La **2.38** è costruita, non installata.
+
+**UN'ATTIVITÀ DI SPEDIZIONE COPRE TRE LAVORI E NON SI CHIUDE A METÀ.** Si
+raduna, si imballa, si carica; chi la prende in carico dichiara quale dei tre
+sta facendo, e fra un pezzo e l'altro l'attività **torna in coda libera** —
+chi ha il transpallet non è chi ha il muletto in banchina. A chiuderla è
+l'uscita della merce, non la fine del percorso.
+
+**A CHE PUNTO È SI LEGGE DAL DOCUMENTO, NON SI TIMBRA.** Ogni riga su un
+bancale = carico pronto; sciolta al banco = da imballare; altrimenti da
+preparare. Un marchio calcolato non invecchia — e si accende da solo su un DDT
+nato di sole unità, che è il caso da cui è partita la richiesta: quello in
+corsia non ci deve andare.
+
+**PREPARARE VUOL DIRE RADUNARE, E IL VANO LO SCEGLIE CHI RADUNA.** Il campo
+del vano di arrivo si scansiona, tappa per tappa, con la proposta della zona
+giusta di quel sito e poi dell'ultimo vano usato. Su un bancale sono due
+scansioni sole: il codice e il posto. La **zona di prodotto finito diventa
+zona di spedizione**, campo compreso (`shipping_zone`, col nome vecchio letto
+finché il nuovo non c'è).
+
+Prima di questo — **un vano porta i bancali che ci stanno.**
 
 **SI CARICA UN ODP E IL PERCORSO MANDAVA A PRENDERE ANCHE QUELLO CHE STAVA
 GIÀ DI LÀ.** Un ordine prelevato a metà e ricaricato, o un fondo lasciato nel
@@ -544,6 +565,78 @@ produzione fino all'ultimo giorno.
 > ricostruisce dal commit, e la build è riproducibile (§2) — ma è una domanda
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
+
+### La 2.38.0 — costruita, non installata
+
+**NON TUTTI I DDT VANNO PREPARATI, E PREPARARE SONO TRE LAVORI.** Andrea, il
+09/09: «l'impiegato prepara il ddt → viene creata una attività di
+preparazione/carico ddt → l'operatore avvia l'attività e dichiara se sta
+preparando o caricando». E poi, sul cuore della preparazione: «preparare una
+spedizione vuol dire radunare fisicamente i bancali in ubicazioni scelte
+dall'operatore».
+
+| | |
+|---|---|
+| collaudi | **1.752 in 68 file** (una saltata) · `npm run check` pulito |
+| provata | **a video**, tutti e tre i pezzi e tutti e due i rami, su un banco con SQLite pulito: DDT registrato → percorso con vano scansionato → «lo imballi tu?» → coda «da imballare» → imballaggio preso in carico da lì → coda «carico pronto» → carico in baia → evasione → attività chiusa. E un DDT di sole unità: nasce **verde** senza che nessuno l'abbia preparato |
+
+**IL PEZZO FINITO NON CHIUDE L'ATTIVITÀ, LA RESTITUISCE.** Fino alla 2.37 la
+fine del percorso chiudeva tutto, e i due lavori che restano — imballare e
+caricare — vivevano a voce, cioè la cosa che la coda esiste per togliere. Ora
+l'attività copre l'intera spedizione, si chiama **Preparazione/carico DDT**, e
+fra un pezzo e l'altro torna in coda **libera**: chi ha il transpallet non è
+chi ha il muletto in banchina, e un'attività che porta ancora un nome è la
+coda che gli altri saltano. A chiuderla è **l'uscita della merce** —
+`chiudiCompitiDelDocumento`, agganciata a `updatePendingStatus`, perché le tre
+strade per far uscire un DDT passano tutte di lì.
+
+**IL PUNTO IN CUI SI TROVA SI LEGGE DAL DOCUMENTO, NON SI TIMBRA SUL
+COMPITO.** Ogni riga su un bancale = *carico pronto*; merce sciolta tutta al
+banco d'imballo = *da imballare*; altrimenti *da preparare*. Un marchio
+calcolato non invecchia, si corregge da sé se qualcuno sposta un pallet o
+corregge il DDT, e **si accende da solo su un documento nato pronto** — che è
+esattamente il caso da cui è partita la richiesta. `statoSpedizione` è puro e
+prende la configurazione da fuori: la prova che conta è il documento VUOTO,
+perché `[].every()` è vero e un DDT senza righe si annuncerebbe pronto a
+salire sul camion.
+
+**I PULSANTI SONO QUELLI SENSATI PER LO STATO**, e il carico c'è sempre: chi
+ha il camion in banchina e i pallet pronti carica, e mandarlo in corsia è il
+viaggio che questa versione esiste per non fare. Un DDT senza bancali si
+carica lo stesso, **avvisando** — §2.35.2, il sistema aiuta e non blocca — e
+la merce sale a mano.
+
+**PREPARARE VUOL DIRE RADUNARE, E IL VANO LO SCANSIONA CHI RADUNA.** Fino alla
+2.37 la tappa portava la merce nel vano che il SISTEMA sceglieva: il primo
+libero della zona d'imballaggio. Adesso c'è un campo in più sulla scheda della
+tappa — **④ dove si posa** — proposto sulla zona giusta di QUEL sito
+(imballaggio per la merce sciolta, spedizione per un bancale) e, dalla seconda
+tappa, sull'ultimo vano usato. Su un'unità sono **due scansioni sole**: il
+codice del pallet e il vano di arrivo, pick and place.
+
+**L'IMBALLAGGIO È UN LAVORO, E SI PUÒ NON FARLO.** A fine percorso si chiede
+«lo imballi tu?». Sì → l'unità nasce **dove la merce sta già** (`moved_to`,
+non un vano nuovo), si stampa **subito** l'etichetta perché la stampante è al
+banco, e solo dopo si scansiona dove la si porta in zona di spedizione: l'ordine
+è un vincolo fisico, non una preferenza. No → l'attività torna in coda «da
+imballare», e chi la prende ritrova le righe **dal documento**, che la
+sessione di chi ha radunato è chiusa da un pezzo.
+
+**LA ZONA DI PRODOTTO FINITO È LA ZONA DI SPEDIZIONE**, nel nome e nel campo:
+`shipping_zone`. Il nome vecchio diceva da dove la merce ARRIVA — il reparto —
+e la stessa zona adesso riceve anche i bancali radunati da una preparazione,
+che prodotto finito non sono. **`pf_zone` si legge ancora**, ma solo finché il
+nome nuovo non c'è mai stato scritto: contarli in alternativa vorrebbe dire che
+togliere la spunta a una zona configurata prima dell'aggiornamento la lascia
+marcata. È la prova che morde di più delle tre sul ripiego.
+
+> **QUEL CHE IL BANCO NON PUÒ DIRE.** Il giro è stato fatto su due DDT, due
+> partite e un pallet, con un magazzino di ventiquattro vani. Non dice se «una
+> proposta e un vano scansionato» regga quando i bancali sono venti e vanno in
+> posti diversi, né se «lo imballi tu?» sia la domanda giusta nel momento in
+> cui la si fa — a fine giro, col carrello ancora in mano. **Serve una passata
+> in reparto**, e prima di installare vanno rimarcate le zone: la spunta della
+> spedizione si risalva una volta per zona, se ne aggiorna il campo.
 
 ### La 2.37.0 — costruita, non installata
 
@@ -3293,6 +3386,8 @@ scelta e non per dimenticanza (§8).
 ### Aperte — da pianificare
 | # | Cosa | Passo successivo |
 |---|---|---|
+| **107** | **IL FLUSSO A TRE PEZZI NON HA MAI VISTO UN CAMION, NÉ UN BANCO D'IMBALLO VERO.** Provato a video da capo a fondo il 09/09, tutti e due i rami, ma su ventiquattro vani, due partite e un pallet. **Quel che il banco non può dire**: se «una proposta e un vano da scansionare» regga quando i bancali sono venti e vanno in posti diversi; se «lo imballi tu?» sia la domanda giusta nel momento in cui la si fa — a fine giro, col carrello ancora in mano — o se chi raduna la salti sempre per abitudine; e se il marchio calcolato basti a chi guarda la coda, o se serva anche dire DA QUANTO una spedizione è ferma su un pezzo | **Una passata in reparto e una in banchina**, con un carico vero. Poi si decide se la domanda dell'imballaggio vada spostata, e se la riga di coda debba portare un'attesa per pezzo |
+| **106** | **LA RINOMINA `pf_zone` → `shipping_zone` NON È MAI PASSATA SU UN SITO GIÀ CONFIGURATO.** Il ripiego è provato da fermo — tre prove in `test/bancale.test.js`, e quella che conta è «il nuovo a falso spegne il vecchio a vero» — ma il banco del 09/09 era un database pulito: le zone sono nate col nome nuovo. Su un'installazione vera le zone portano `pf_zone`, e il ripiego è l'unica cosa che le tiene marcate finché nessuno le risalva | **Prima di installare**: aprire una zona di spedizione in Configurazione → Siti e Zone e risalvarla, una per sito. La spunta si vede già accesa — è il ripiego che la accende — e salvarla scrive il campo nuovo |
 | **104** | **NESSUNA PROVA GUARDA CON QUALE DATABASE UN BANCO SI E' ACCESO.** Dalla 2.35 ogni banco dichiara `PATHFINDER_PG: ''` e scollega le `PATHFINDER_TLS_*`, e `test/bancoNonEredita.test.js` lo pretende **leggendo il sorgente**. Ma leggere il sorgente non e' guardare il fatto: se domani `scollegaTls` smettesse di togliere una delle quattro, o `server/lib/db.js` cambiasse la precedenza fra `PATHFINDER_PG` e `PATHFINDER_DB`, la rete resterebbe verde | **Il servizio gia' lo dice all'avvio** — stampa in chiaro quale database ha aperto e con che saluto. Basta che un banco **legga la propria riga d'avvio** e pretenda «SQLite» e il percorso del file usa-e-getta. Costa poco e sposta la prova dal testo del programma a quel che il programma ha fatto |
 | **102** | **`Udc.status: 'closed'` È DICHIARATO E NON LO SCRIVE NESSUNO.** Il tipo elenca quattro stati; il codice ne scrive tre — `open`, `empty`, `shipped`. E `closed_at` nasce `null` e non viene mai aggiornato. Non fa danno: nessuno lo legge. Ma un tipo che dichiara uno stato che non esiste è un tipo che mente a chi lo legge per capire come funziona | **Si guarda con l'elenco delle unità davanti**, e si decide: o lo stato serve — e allora c'è un gesto che manca — o non serve, e si toglie insieme a `closed_at`. Togliere uno stato dichiarato è una decisione sui dati, non sul codice |
 | **101** | **`OPERAZIONE.TRANSFER` DICHIARA `modo: 'move'`, CHE NON È UN MODO.** `ModoMovimenta` conosce `io pick inv quarantine shipping sampling udc pf`; `'move'` non c'è. `startMov('move')` non trova niente in `forms`, l'optional chaining ingoia, e la maschera la disegna la riga DOPO — `_pickSub('cambio')`. Funziona per una coincidenza, non per disegno: il giorno che qualcuno riordina quelle due righe, il Trasferimento si apre vuoto | **Due strade, e la seconda è meglio**: dare a `TRANSFER` il modo vero (`pick`, sottoscheda `cambio`), come fa `PREP_SHIP` dalla 2.31; oppure una prova che pretenda che ogni `modo` di `OPERAZIONE` stia in `ModoMovimenta`. La prova serve comunque — è quella che avrebbe fatto vedere il difetto |
@@ -4859,12 +4954,13 @@ in Configurazione → Operatori.
 | File | Righe | Ruolo |
 |---|---:|---|
 | `ui/app.ts` | 1.328 | **Quel che non è una vista**: avvio e riallineamento, identità e sessione, il telaio (`switchView`, sidebar, `showModal`, `toast`, scorciatoie), l'annulla, le utilità comuni (`_esc`, `_requireOperator`, `_pickLoc`). In coda, il rientro delle viste |
-| `core/store.ts` | 4.606 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence` |
+| `core/store.ts` | 5.071 | **Le mutazioni**: tutto ciò che scrive e parla con `Persistence`. **2.38** — i due capi di un'attività di spedizione che non si chiude più a metà: `rimettiInCodaSpedizione` (il pezzo finito la restituisce alla coda, libera — non è `abandonTask`, che ritira un avvio senza lavoro) e `chiudiCompitiDelDocumento`, chiamata da `updatePendingStatus` perché le tre strade per far uscire un DDT passano tutte di lì |
 | `core/cache.ts` | 321 | Punto unico di mutazione della cache: 5 forme, 4 indici derivati |
 | `core/statistiche.ts` · `pacchetto.ts` · `geometria.ts` · `giacenza.ts` | 181 · 154 · 123 · 94 | Stato di una cella e cruscotto · export e `VERSIONE_APP` · le ubicazioni generate dalla zona · FEFO e ricerca |
 | `core/persistence/index.ts` · `remote.ts` · `local.ts` | 15 · 267 · 262 | Sceglie l'adapter: servito → HTTP, da file → Dexie |
 | `core/schema.ts` · `utils.ts` · `costanti.ts` | 173 · 46 · 44 | Schema IndexedDB · `debounce` e `_h` · causali e ritenzione |
-| `modules/compiti.ts` | 555 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. `registroAttivita` unisce i compiti ai campionamenti che nessun compito rivendica. Puro |
+| `modules/compiti.ts` | 816 | Ciclo di vita, coda, misure, urgenza calcolata, residuo, le due famiglie di chiusura. `registroAttivita` unisce i compiti ai campionamenti che nessun compito rivendica. Puro. **2.38**: `PREP_SHIP` si chiama **Preparazione/carico DDT** perché ne fa tre, e `in_progress → requested` è una freccia nuova — quella verso `assigned` dice «non ho fatto niente, riprendo io», questa dice «ho fatto il mio pezzo, tocca a un altro» |
+| `modules/preparazione.ts` | 511 | **2.31 — date le righe di un documento, che cosa va a prendere l'operatore**: le unità non si scompongono (una tappa per pallet, una scansione sola) e la merce sciolta resta a tre. Non sa niente del magazzino: la serpentina è di `pickRoute`. **2.38 — e a che punto è la spedizione**, letto dal documento e mai timbrato sul compito: `statoSpedizione` (da preparare / da imballare / carico pronto), `modiPossibili` (i pulsanti sensati per lo stato, e il carico c'è sempre), i due avvisi che dicono senza vietare, e `daImballareDalDoc` per chi imballa senza avere davanti la sessione di chi ha radunato. Puro |
 | `modules/misure.ts` · `colli.ts` | 319 · 578 | Le cinque unità e la suddivisione per collo · l'elenco dei colli: uscite come le capisce il servizio, ritrovamento per misura, `scelteDaTaglie`, `riempiFabbisogno`, `rettifica`. Puri |
 | `modules/registro.ts` | 46 | **2.16 — le due domande che si fanno a una riga del registro**: quanto è cambiata (`quantoSiEMosso`) e quanti colli hanno cambiato posto (`quantitaMossa`). Stanno insieme perché confonderle è il difetto della voce 33. Puro |
 | `modules/documenti.ts` | 258 | La riga di un documento di uscita, ricostruita **in un posto solo**. Nasce da un difetto, e dalla 2.20 porta anche `udc_id` — da quale bancale esce la riga. **2.21**: `raggruppaPerPartita`, la riga che si STAMPA — un articolo e un lotto — mentre quella che si salva resta una per bancale. **2.24**: `distintaPerArticolo`, i tre livelli della packing list — articolo, lotto, bancale — ognuno col suo totale, con le stesse due regole del dato: unità diverse lasciano il totale **vuoto** e una scadenza discorde dentro un lotto sparisce. Somma con `sommaUom`, cioè con lo stesso arrotondamento dei totali del DDT: due totali che si scostano di un millesimo sullo stesso foglio sono una contestazione in banchina. Puro |
@@ -4875,7 +4971,7 @@ in Configurazione → Operatori.
 | `modules/cruscotto.ts` | 190 | Il layout del cruscotto — riquadri, ordine, larghezza, quali scorciatoie si mostrano — e **dalla 2.29.1 `TASTI_FUNZIONE` e `tastoPer`**: l'unico elenco dei tasti funzione, che la tastiera ascolta e le schede interrogano. `sub` fa parte della chiave, ed è quello che mancava: senza, «prelievo» e «prelievo di produzione» erano la stessa cosa e due schede annunciavano lo stesso F3. Puro |
 | `modules/udc.ts` | 162 | Il codice sull'etichetta: interno o SSCC con la cifra di controllo GS1. Sta da solo perché **un'etichetta dura**. Dalla 2.20 lo stesso codice identifica anche un **bancale di prodotto finito** — `modules/bancale.ts`. Puro |
 | `modules/imballo.ts` | 199 | **2.20 — com'è fatto un bancale prima che il bancale esista**: i modelli di imballo, la loro convalida, `colliAttesi` e `pesoLordo`. Sta da solo perché la composizione è un DATO e non un campo su 11.197 articoli. **Il modello propone**: chi imballa riscrive il numero senza dover dire perché. **2.21**: `modelloAppreso` e `modelloConColli` — il formato che si IMPARA dal primo bancale invece di essere compilato su 11.197 articoli. Puro |
-| `modules/bancale.ts` | 277 | **2.20 — come si LEGGE un bancale di prodotto finito**, in un posto solo: mono o misto, colli, UM (diverse → MISTA, mai una somma), e i quattro stati — pronto, impegnato su un DDT, spedito, vuoto. La stessa domanda la fanno l'elenco, la mappa, l'etichetta e la packing list: quattro copie sarebbero quattro risposte. `zonePf` elenca le zone dichiarate, terzisti compresi. **2.21**: `zoneCarico` (le baie), `spedizioniDiBancale` — con quale DDT e quando un bancale è partito, **riletto dai documenti evasi** — e un bancale spedito che legge il suo contenuto da quel documento, perché in giacenza non ha più niente. Puro |
+| `modules/bancale.ts` | 360 | **2.20 — come si LEGGE un bancale di prodotto finito**, in un posto solo: mono o misto, colli, UM (diverse → MISTA, mai una somma), e i quattro stati — pronto, impegnato su un DDT, spedito, vuoto. La stessa domanda la fanno l'elenco, la mappa, l'etichetta e la packing list: quattro copie sarebbero quattro risposte. **2.38**: `zonePf` si chiama **`zoneSpedizione`** e legge `shipping_zone`, col nome vecchio `pf_zone` come ripiego — ma il ripiego vale solo FINCHÉ IL NUOVO NON C'È MAI STATO SCRITTO (`marcata`): contarli in alternativa vorrebbe dire che smarcare una zona configurata prima dell'aggiornamento non la smarca. Più `zonaSpedizioneDi`, che risponde per UN sito — la proposta di dove posare un bancale è del sito della tappa, non del primo dell'elenco. **2.21**: `zoneCarico` (le baie), `spedizioniDiBancale` — con quale DDT e quando un bancale è partito, **riletto dai documenti evasi** — e un bancale spedito che legge il suo contenuto da quel documento, perché in giacenza non ha più niente. Puro |
 | `modules/stampanti.ts` | 377 | **2.19** — la forma di una stampante Zebra, la sua convalida, e `disponi`: dove finisce ogni riga dell'etichetta in millimetri. `proponiStampante` sceglie quella giusta — l'ultima usata, poi quella del sito. **2.20**: i cataloghi di campi sono **due** — merce e bancale — e il genere è un parametro di `leggiRiga`, `leggiLayout` e `disponi`, non una seconda copia. **Non c'è lo ZPL**: le barre e i comandi li scrive il servizio, perché un'etichetta è un documento e un documento costruito dal browser si falsifica in una console. Puro |
 | `modules/stoccaggio.ts` | 613 | Dove si mette la merce: vincoli **duri**, poi punteggio. Le regole sono un dato di `storage_rules`; ogni proposta dice perché. **2.8**: pericolosità, portata, la casa del lotto in cima, la categoria come terzo bersaglio con **un solo livello**. Puro |
 | `modules/regoleBase.ts` | 448 | **2.8** — le due regole che NON si scrivono, più i tre motivi precompilati dello scavalco. Sta da solo perché quelle di `stoccaggio.ts` sono regole di **politica**, queste sono il modo in cui un magazzino resta leggibile. Puro |
@@ -4906,12 +5002,12 @@ rimette dentro, e **esplode se un metodo è rimasto anche di qua** — estrarre 
 spostare, e un doppione verrebbe sovrascritto in silenzio.
 | File | Righe | Cosa disegna |
 |---|---:|---|
-| `percorso.ts` | 1.998 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano. **2.22**: la **campata vista di fronte** accanto ai dati — `_routeColonna` la chiede a `modules/colonna.ts`, `_routeColonnaHTML` la disegna, `_routeRischioLottoHTML` avvisa dello stesso articolo con un altro lotto. Si guarda e basta: nessun gestore. **2.29**: `_routeCoperturaHTML` — il riquadro di quel che è **già in reparto**, sopra gli avvisi. Disegna e basta: nessun `onclick`, nessuna tappa toccata |
+| `percorso.ts` | 2.940 | Prelievo guidato: ODP, serpentina, corsia, chiusura, il trasferimento chiesto dall'ordine. **2.12 — il giro e la sosta**: più `.xlsx` che si aggiungono, la quantità ricalibrabile, il **capofila**, e `_routeSosta` che raggruppa le tappe pendenti contigue nello stesso vano. **2.22**: la **campata vista di fronte** accanto ai dati — `_routeColonna` la chiede a `modules/colonna.ts`, `_routeColonnaHTML` la disegna, `_routeRischioLottoHTML` avvisa dello stesso articolo con un altro lotto. Si guarda e basta: nessun gestore. **2.29**: `_routeCoperturaHTML` — il riquadro di quel che è **già in reparto**, sopra gli avvisi. Disegna e basta: nessun `onclick`, nessuna tappa toccata. **2.38 — preparare vuol dire radunare**: `_prepVersoHTML` e `_prepVersoScelto` — il vano di arrivo si SCANSIONA, tappa per tappa — con `_prepVersoProposto` (la zona giusta di QUEL sito, poi l'ultimo vano usato); `_prepImballa`, perché imballare è lo stesso lavoro sia che si arrivi dalla chiusura del percorso sia dalla coda, con `_prepPortaInSpedizione` e `_prepRiallineaUdcDoc` (il documento impara che quella merce adesso sta su un bancale, e senza quella riga il carico non troverebbe niente da scansionare); `_prepImballaDaCompito` per chi prende in carico un imballaggio senza avere nessun percorso davanti. E `_routeClose` non chiude più il compito: lo rimette in coda |
 | `spedizioni.ts` | 1.824 | DDT: testata, carrello, documento pendente, evasione, stampa. **2.20**: il carrello si riempie **dai bancali** (`_shipCaricaDaBancali` — sta qui perché il carrello è qui), la **packing list** che raggruppa le righe per bancale, e `_evadiTrasferendo`, l'evasione del **conto terzi** che sposta la merce invece di scaricarla. **2.21**: `_shipRigheDaBancali` — come una riga di DDT nasce da un pallet, in un posto solo, perché la chiedono in due — il DDT che **stampa** una riga per articolo#lotto, e la packing list che dice com'è fatto il collo. **2.24**: il **foglio si separa dalla stampa** — `_ddtFoglioHTML` e `_packingFoglioHTML` compongono, `_printDDT` e `_printPackingList` leggono dallo Store e stampano — perché il banco a video sui documenti a database non misurava mai il caso che rompe un foglio: quello che non ci sta. E la packing list si legge per **articolo → lotto → bancale** (`_packingDistintaHTML`), col numero e la sua unità in due celle (`_packingQta`) |
 | `inventario.ts` | 1.035 | Inventario di vano, conta mirata, ramo «Per articolo» col giro di conte |
 | `configDati.ts` | 975 | Dati, resilienza, i tre fogli Excel, reset (che chiede il PIN dell'Admin) |
 | `cruscotto.ts` | 900 | I tredici riquadri componibili e le sette scorciatoie |
-| `compiti.ts` | 885 | Attività: coda, misure, registro, richiesta, i quattro gesti |
+| `compiti.ts` | 1.254 | Attività: coda, misure, registro, richiesta, i quattro gesti. **2.38**: `_prepChiediModo` — su una spedizione si sceglie PRIMA di avviare quale dei tre lavori si fa, così chi chiude la finestra non lascia dietro un'attività «in corso» a suo nome — e `_prepStato`, che legge dal documento a che punto è la merce: da lì escono i pulsanti sensati per lo stato e il marchio nella colonna «Cosa» |
 | `posiziona.ts` | 781 | Posizionamento, la dichiarazione dei colli, `_scegliColli` e `_ridichiaraColli` (condivisa con inventario e Conta) |
 | `quarantena.ts` | 755 | Blocco, rilascio, cartellino di non conformità |
 | `wip.ts` | 1.066 | **Il conto di produzione**: conto, reso, chiusura, rendiconto. **2.12**: un ordine servito da un giro dice **dove sta il suo conto**; il capofila elenca chi sta servendo; la chiusura scrive la ripartizione. **2.14**: la schermata parte dalla **lista di quello che è fermo in lavorazione** (ordinabile e filtrabile), i conti aperti stanno in un elenco compatto, **l'archivio è uscito di qui** e un reso sbagliato **si storna** |
@@ -4924,7 +5020,7 @@ spostare, e un doppione verrebbe sovrascritto in silenzio.
 | `campionamento.ts` · `movimenta.ts` | 359 · 354 | Campionamento GMP e verbale · il telaio dei moduli e il registro di sessione |
 | `udc.ts` | 322 | Le unità di carico: elenco, creazione, carico, spostamento, etichetta |
 | `prodottoFinito.ts` | 1.071 | **2.20 — il magazzino del prodotto finito.** La maschera del reparto che chiude un bancale in un gesto e ne stampa l'etichetta, e l'elenco di chi spedisce: ordinabile, filtrabile, con la spunta che carica il DDT. Il pulsante «Vedi in mappa» non disegna niente — apre la mappa sulla zona PF col filtro acceso. **2.21**: la maschera è quella del carico merce (① articolo → ② lotto → ③ colli pieni × quanto dentro), il modello di carico si **impara**, l'etichetta esce **prima** dell'ubicazione, l'elenco porta articolo e lotto in due colonne più DDT e data, e lo **scarico a mano** fa uscire i bancali con un numero già emesso dal gestionale |
-| `caricoSpedizione.ts` | 611 | **2.21 — il carico del camion.** È il giro di prelievo di chi spedisce, e le tappe sono **bancali**: si scansiona solo il codice del pallet, i prelevati vanno in **baia**, e finito un DDT il sistema chiede se se ne carica un altro. Alla fine evade i documenti completi e lascia pendenti quelli a cui manca un bancale. La sessione si salva in `meta` e si riprende |
+| `caricoSpedizione.ts` | 759 | **2.21 — il carico del camion.** È il giro di prelievo di chi spedisce, e le tappe sono **bancali**: si scansiona solo il codice del pallet, i prelevati vanno in **baia**, e finito un DDT il sistema chiede se se ne carica un altro. Alla fine evade i documenti completi e lascia pendenti quelli a cui manca un bancale. La sessione si salva in `meta` e si riprende. **2.38**: `_carAvviaDaCompito` — il carico si apre anche da un'attività di spedizione, la baia si chiede solo se ce n'è più d'una, un carico già aperto si accoglie il DDT dentro, e un documento senza bancali entra lo stesso a zero tappe: chi ha scelto «carico» l'avviso l'ha già letto, e la merce sale a mano |
 | `stampaEtichette.ts` | 204 | **2.19** — la maschera fra il pulsante e l'etichetta: **quale stampante** (si ricorda) e **quante copie** (tornano sempre a 1). In un file suo perché la chiamano in tre — l'unità di carico, la merce e, dalla 2.20, il bancale. Il riscontro dice **quale fatto sta mostrando**: inviata, oppure stampata |
 | `ricerca.ts` · `destinatari.ts` · `archivio.ts` · `registro.ts` · `parametri.ts` | 227 · 226 · **286** · 191 · **287** | Ricerca in barra · rubrica DDT · **i cinque generi di documento — dalla 2.14 anche gli ordini di produzione chiusi**, e dalla 2.20 un secondo foglio sui DDT che portano bancali · registro movimenti · le quattro schede che sono un dato, **più i modelli di imballo** |
 | `vista.ts` · `globale.d.ts` | 36 · 10 | Il tipo `Vista` e `$`/`$q` · `declare const App` |

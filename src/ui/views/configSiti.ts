@@ -2,6 +2,7 @@ import { type Vista, $, $sel } from './vista';
 import { Store } from '../../core/store';
 import type { Zona } from '../../types/entita';
 import { Validate } from '../../modules/validate';
+import { marcata } from '../../modules/bancale';
 import { Dialog } from '../dialog';
 
 export const VistaConfigSiti = {
@@ -234,13 +235,19 @@ export const VistaConfigSiti = {
        zona come gli altri due e scende a tutte le sue celle: un gesto solo,
        e il motore di verifica legge dove legge gia'. */
     const pericolosa = zone?.hazard_zone === true;
-    /* 2.20 — la zona del prodotto finito. Sta insieme agli altri tre perche'
-       si compila nello stesso momento, ma non e' un attributo di
-       destinazione d'uso: non verifica niente e non esclude nessuno. */
-    const prodottoFinito = zone?.pf_zone === true;
-    /* 2.21 — la baia di carico. Sta accanto alla zona di prodotto finito
-       perche' sono i due capi dello stesso viaggio: da dove parte un bancale
-       e dove aspetta il camion. */
+    /* 2.38 — la zona di SPEDIZIONE, che fino alla 2.37 si chiamava «di
+       prodotto finito». Sta insieme agli altri tre perche' si compila nello
+       stesso momento, ma non e' un attributo di destinazione d'uso: non
+       verifica niente e non esclude nessuno.
+
+       SI LEGGONO TUTTI E DUE I NOMI, si scrive solo il nuovo: una zona
+       marcata prima dell'aggiornamento porta `pf_zone`, e ritrovarla senza
+       spunta vorrebbe dire che il magazzino si riconfigura la mattina in cui
+       si installa. */
+    const spedizione = marcata(zone, 'shipping_zone', 'pf_zone');
+    /* 2.21 — la baia di carico. Sta accanto alla zona di spedizione perche'
+       sono i due capi dello stesso viaggio: dove un bancale aspetta, e dove
+       aspetta il camion. */
     const baiaCarico = zone?.dock_zone === true;
     /* 2.30 — la zona di imballaggio. È la terza dello stesso gruppo, e
        l'unica di cui ne SERVE una per sito: è dove nasce l'unità di carico
@@ -284,14 +291,15 @@ export const VistaConfigSiti = {
             : `<div class="text-label-small text-sx-text-muted">Nessuna pericolosità configurata — si aggiungono in Configurazione → Parametri articolo.</div>`}</div>
         <div class="form-group mb-4 [border-top:1px_dashed_var(--sx-border)] pt-6">
           <label class="flex items-center gap-4 cursor-pointer normal-case text-body-small">
-            <input class="w-casella h-casella cursor-pointer" type="checkbox" id="ezPfZone" ${prodottoFinito ? 'checked' : ''}>
-            <span>Zona di <strong>prodotto finito</strong> — qui il reparto posa i bancali in attesa di partire</span>
+            <input class="w-casella h-casella cursor-pointer" type="checkbox" id="ezPfZone" ${spedizione ? 'checked' : ''}>
+            <span>Zona di <strong>spedizione</strong> — qui i bancali pronti aspettano di partire</span>
           </label>
           <div class="text-label-small text-sx-text-muted mt-2">
-            Non è un vincolo di stoccaggio e non esclude niente: dice dove la maschera del
-            prodotto finito propone di posare un bancale, e dove l'elenco delle spedizioni
-            va a guardare. <strong>Vale anche su un sito terzista</strong>, che è dove il
-            prodotto finito finisce quando viaggia in conto lavorazione.
+            Non è un vincolo di stoccaggio e non esclude niente: dice dove il reparto propone
+            di posare un bancale finito, dove finisce un'unità appena imballata per una
+            spedizione, e dove l'elenco delle spedizioni va a guardare.
+            <strong>Vale anche su un sito terzista</strong>, che è dove la merce finisce
+            quando viaggia in conto lavorazione.
           </div>
         </div>
         <div class="form-group mb-4">
@@ -344,7 +352,11 @@ export const VistaConfigSiti = {
       allergens: riservata && allergens.length ? allergens : undefined,
       hazard_zone: pericolosa,
       hazards: pericolosa && hazards.length ? hazards : undefined,
-      pf_zone: $('ezPfZone')?.checked === true,
+      /* 2.38 — si scrive il nome nuovo e basta. Riscrivere anche `pf_zone`
+         vorrebbe dire due campi che dicono la stessa cosa e possono
+         discordare: chi legge ripiega sul vecchio finché c'è, e questa
+         salvataggio lo lascia indietro senza toglierlo di mano a nessuno. */
+      shipping_zone: $('ezPfZone')?.checked === true,
       dock_zone: $('ezDockZone')?.checked === true,
       pack_zone: $('ezPackZone')?.checked === true,
     };

@@ -49,10 +49,24 @@ export interface Zona {
   hazard_zone?: boolean;
   /** Se valorizzato, le sole pericolosita' ammesse. Vuoto su zona pericolosa = tutte. */
   hazards?: string[];
-  /** 2.20 — la zona tiene il PRODOTTO FINITO in attesa di partire. Non e' un
-      vincolo di stoccaggio: e' dove la maschera del reparto propone di
-      posare un bancale e dove l'elenco delle spedizioni va a guardare.
-      Assente = zona come prima. */
+  /** 2.38 — la ZONA DI SPEDIZIONE: dove i bancali pronti aspettano di
+      partire. Non e' un vincolo di stoccaggio: e' dove la maschera del
+      reparto propone di posare un bancale, dove finisce un'unita' appena
+      imballata, e dove l'elenco delle spedizioni va a guardare.
+      Assente = zona come prima.
+
+      SI CHIAMAVA `pf_zone`, ED E' LO STESSO POSTO. Fino alla 2.37 il nome
+      diceva da dove la merce ARRIVA — il reparto — invece di dove sta
+      andando; e dalla 2.38 la stessa zona riceve anche i bancali radunati
+      da una preparazione, che prodotto finito non sono.
+
+      IL CAMPO VECCHIO SI LEGGE ANCORA. I siti gia' configurati portano
+      `pf_zone`, e una configurazione che si azzera all'aggiornamento e' un
+      magazzino fermo la mattina dopo: `zoneSpedizione` ripiega su quello, e
+      la maschera di Configurazione scrive solo il nome nuovo. */
+  shipping_zone?: boolean;
+  /** Il nome che il campo qui sopra aveva fino alla 2.37. Si legge, non si
+      scrive piu'. */
   pf_zone?: boolean;
   /** 2.21 — la zona è una BAIA DI CARICO: il posto dove i bancali aspettano
       di salire sul camion. Non è un vincolo di stoccaggio e non verifica

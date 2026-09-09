@@ -29,7 +29,8 @@
 import { describe, it, expect } from 'vitest';
 import {
   daPreparare, scansioniRichieste, motivoNonPreparabile, richiestaPreparazione,
-  daImballare, unitaGiaPronte, motivoNonChiudibile,
+  daImballare, daImballareDalDoc, unitaGiaPronte,
+  statoSpedizione, modiPossibili, avvisoCarico, avvisoPreparazione,
 } from '../src/modules/preparazione';
 
 const riga = (extra = {}) => ({
@@ -461,37 +462,164 @@ describe('unitaGiaPronte', () => {
   });
 });
 
-describe('motivoNonChiudibile', () => {
-  it('con tappe ancora aperte non si chiude, e dice quante', () => {
-    const m = motivoNonChiudibile([tappa(), tappa({ status: 'pending' })], []);
-    expect(m).toMatch(/1 tappe/);
+
+/* ═══ 2.38 · A CHE PUNTO È LA SPEDIZIONE ════════════════════════════════
+
+   Un'attività di spedizione non si chiude più a fine percorso: si raduna, si
+   imballa, si carica, e fra un pezzo e l'altro torna in coda. Il punto in
+   cui si trova NON si scrive sul compito — si legge dal documento, perché
+   le righe dicono dov'è la merce adesso e sono la stessa fonte che
+   l'evasione andrà a leggere.
+
+   LE PROVE QUI SOTTO CERCANO DI FARLO SBAGLIARE. I casi che contano sono
+   quelli in cui una lettura sbrigativa direbbe il contrario del vero:
+
+   · Il documento VUOTO. `[].every()` è vero, quindi «tutte le righe stanno
+     su un bancale» è vero su zero righe: un DDT senza niente si
+     annuncerebbe pronto a salire sul camion.
+   · La riga A ZERO COLLI. Resta nei documenti quando qualcuno corregge
+     invece di togliere. Se contasse, un DDT pronto risulterebbe da
+     preparare per una riga che non è merce.
+   · La merce radunata a METÀ. Due partite sciolte, una portata al banco e
+     una ancora a scaffale: «da imballare» direbbe a chi lo prende che il
+     giro è finito, e quello imballerebbe metà DDT.
+   · Il DDT NATO PRONTO, di sole unità già composte. È il caso che ha fatto
+     nascere tutto questo: non ha mai avuto bisogno di essere preparato, e
+     mandarlo in corsia è il viaggio che questa versione esiste per non
+     fare. */
+
+/* Nessun vano è zona di imballaggio: la risposta più severa. */
+const nessunBanco = () => false;
+/* Solo BANCO-01 lo è. */
+const banco = (v) => String(v || '').toUpperCase() === 'BANCO-01';
+
+const doc = (lines) => ({ doc_id: 'SHIP-1', ddt_num: 'DDT-1', status: 'pending', lines });
+
+describe('statoSpedizione', () => {
+  it('ogni riga su un bancale = carico pronto, e non serve nessuna zona', () => {
+    const d = doc([
+      riga({ udc_id: 'UDC-1' }),
+      riga({ udc_id: 'UDC-2', lot_code: 'L2', item_key: 'A#L2' }),
+    ]);
+    expect(statoSpedizione(d, nessunBanco)).toBe('carico_pronto');
   });
 
-  /* IL CASO CHE CONTA: percorso finito, ma la merce sciolta e' ancora un
-     mucchio di colli. Chiudere qui vorrebbe dire dichiarare pronto per il
-     camion qualcosa che non ha ne' imballo ne' etichetta. */
-  it('percorso finito ma merce sciolta senza unita: non si chiude', () => {
-    expect(motivoNonChiudibile([tappa()], [])).toMatch(/unit/i);
+  it('UN DOCUMENTO VUOTO NON E PRONTO — [].every() e vero, e mentirebbe', () => {
+    expect(statoSpedizione(doc([]), banco)).toBe('da_preparare');
+    expect(statoSpedizione(doc(null), banco)).toBe('da_preparare');
+    expect(statoSpedizione(null, banco)).toBe('da_preparare');
   });
 
-  it('composta l unita, si chiude', () => {
-    expect(motivoNonChiudibile([tappa()], ['UDC-9'])).toBeNull();
+  it('UNA RIGA A ZERO COLLI NON CONTA: il DDT resta pronto', () => {
+    const d = doc([
+      riga({ udc_id: 'UDC-1' }),
+      riga({ qty: 0, lot_code: 'L9', item_key: 'A#L9', location_code: 'MAG-ACC-01' }),
+    ]);
+    expect(statoSpedizione(d, banco)).toBe('carico_pronto');
   });
 
-  /* Un giro di soli pallet non ha niente da imballare: i pallet sono gia'
-     unita', e pretendere una composizione bloccherebbe un lavoro finito. */
-  it('un giro di soli pallet si chiude senza comporre niente', () => {
-    expect(motivoNonChiudibile([tappa({ udc_id: 'UDC-1' })], [])).toBeNull();
+  it('merce sciolta tutta al banco = da imballare', () => {
+    const d = doc([
+      riga({ location_code: 'BANCO-01' }),
+      riga({ location_code: 'BANCO-01', lot_code: 'L2', item_key: 'A#L2' }),
+      riga({ udc_id: 'UDC-1', location_code: 'BANCO-01' }),
+    ]);
+    expect(statoSpedizione(d, banco)).toBe('da_imballare');
   });
 
-  /* UNA TAPPA NON TROVATA NON IMPEDISCE LA CHIUSURA: se la merce non c'e',
-     tenere aperta l'attivita' non la fa comparire. A rifiutare il documento
-     incompleto e' l'evasione, che e' il posto giusto. */
-  it('una tappa non trovata non tiene in ostaggio l attivita', () => {
-    expect(motivoNonChiudibile([tappa({ status: 'missing' })], [])).toBeNull();
+  it('RADUNATA A META NON E DA IMBALLARE: una sola riga fuori basta', () => {
+    const d = doc([
+      riga({ location_code: 'BANCO-01' }),
+      riga({ location_code: 'MAG-A-07', lot_code: 'L2', item_key: 'A#L2' }),
+    ]);
+    expect(statoSpedizione(d, banco)).toBe('da_preparare');
   });
 
-  it('senza tappe non esplode', () => {
-    expect(motivoNonChiudibile(null, null)).toBeNull();
+  it('senza nessuna zona di imballaggio dichiarata, la merce sciolta resta da preparare', () => {
+    const d = doc([riga({ location_code: 'BANCO-01' })]);
+    expect(statoSpedizione(d, nessunBanco)).toBe('da_preparare');
+  });
+});
+
+describe('modiPossibili — i pulsanti che l operatore vede', () => {
+  /* IL CARICO C'E' SEMPRE, ed e' la risposta alla domanda da cui e' partito
+     tutto: non tutti i DDT hanno bisogno di essere preparati. */
+  it('il carico compare in tutti e tre gli stati', () => {
+    for (const s of ['da_preparare', 'da_imballare', 'carico_pronto']) {
+      expect(modiPossibili(s)).toContain('carico');
+    }
+  });
+
+  it('su un DDT pronto il carico e il primo, e preparare resta possibile', () => {
+    expect(modiPossibili('carico_pronto')).toEqual(['carico', 'preparazione']);
+  });
+
+  it('su uno da imballare non si propone di ripreparare', () => {
+    expect(modiPossibili('da_imballare')).toEqual(['imballaggio', 'carico']);
+  });
+
+  it('su uno da preparare non si propone di imballare: non c e ancora niente al banco', () => {
+    expect(modiPossibili('da_preparare')).toEqual(['preparazione', 'carico']);
+  });
+});
+
+describe('gli avvisi — si dice, non si vieta', () => {
+  it('su un DDT pronto il carico non ha niente da dire', () => {
+    expect(avvisoCarico(doc([riga({ udc_id: 'UDC-1' })]), 'carico_pronto')).toBeNull();
+  });
+
+  it('caricare un DDT senza nessun bancale avvisa che non c e niente da scansionare', () => {
+    const d = doc([riga({ location_code: 'MAG-A-07' })]);
+    expect(avvisoCarico(d, 'da_preparare')).toMatch(/nessuna riga/i);
+  });
+
+  it('caricare un DDT a meta dice quante righe salgono a mano', () => {
+    const d = doc([
+      riga({ udc_id: 'UDC-1' }),
+      riga({ lot_code: 'L2', item_key: 'A#L2', location_code: 'MAG-A-07' }),
+    ]);
+    expect(avvisoCarico(d, 'da_preparare')).toMatch(/^1 righe/);
+  });
+
+  it('ripreparare un DDT gia pronto avvisa; prepararne uno da fare no', () => {
+    expect(avvisoPreparazione('carico_pronto')).toMatch(/gi.\s*su un bancale/i);
+    expect(avvisoPreparazione('da_preparare')).toBeNull();
+    expect(avvisoPreparazione('da_imballare')).toBeNull();
+  });
+});
+
+describe('daImballareDalDoc — imballare senza avere il percorso davanti', () => {
+  /* Chi prende in carico un'attivita' «da imballare» non ha nessuna
+     sessione: il percorso l'ha chiuso un altro, magari ieri. Quel che c'e'
+     da imballare lo dicono le righe sciolte del documento. */
+  it('legge le sole righe che non stanno su un bancale, col vano di adesso', () => {
+    const r = daImballareDalDoc(doc([
+      riga({ location_code: 'BANCO-01', qty: 4 }),
+      riga({ udc_id: 'UDC-1', location_code: 'BANCO-01' }),
+    ]));
+    expect(r).toHaveLength(1);
+    expect(r[0].da).toBe('BANCO-01');
+    expect(r[0].colli).toBe(4);
+  });
+
+  it('due righe della stessa partita fanno una cosa sola, coi colli sommati', () => {
+    const r = daImballareDalDoc(doc([
+      riga({ location_code: 'BANCO-01', qty: 4 }),
+      riga({ location_code: 'BANCO-01', qty: 6 }),
+    ]));
+    expect(r).toHaveLength(1);
+    expect(r[0].colli).toBe(10);
+  });
+
+  it('una riga a zero colli non e merce da imballare', () => {
+    expect(daImballareDalDoc(doc([riga({ qty: 0 })]))).toEqual([]);
+  });
+
+  it('un DDT tutto su bancali non ha niente da imballare', () => {
+    expect(daImballareDalDoc(doc([riga({ udc_id: 'UDC-1' })]))).toEqual([]);
+  });
+
+  it('senza documento non esplode', () => {
+    expect(daImballareDalDoc(null)).toEqual([]);
   });
 });

@@ -591,8 +591,30 @@ describe('transizioni — l\'avvio che non ha prodotto niente', () => {
     expect(transizioneAmmessa('in_progress', 'assigned')).toBe(true);
   });
 
-  it('ma non si torna in coda saltando l\'assegnazione', () => {
-    expect(transizioneAmmessa('in_progress', 'requested')).toBe(false);
+  /* ═══ 2.38 · DUE FRECCE CHE PARTONO DALLO STESSO STATO E DICONO IL
+         CONTRARIO ═══════════════════════════════════════════════════════
+
+     Fino alla 2.37 `in_progress → requested` era VIETATA, e la prova qui
+     sotto lo difendeva: chi apriva una maschera e la chiudeva senza
+     confermare non doveva perdere il compito che aveva in mano.
+
+     Quella regola vale ancora, ed e' la freccia verso `assigned` — che e'
+     l'unica che `abandonTask` percorre, e solo se non si e' mosso un collo
+     (`avvioRitirabile`).
+
+     Ma dalla 2.38 c'e' un secondo gesto, che non e' un ripensamento: una
+     spedizione e' tre lavori — radunare, imballare, caricare — e chi ne
+     finisce uno RESTITUISCE il compito perche' il prossimo lo faccia un
+     altro. La sigla se ne va con lui: chi ha il transpallet non e' chi ha
+     il muletto in banchina, e un'attivita' «in coda» che porta ancora un
+     nome e' la coda che gli altri saltano.
+
+     Le due frecce restano distinte perche' le percorrono due metodi
+     diversi, ognuno col suo controllo — `abandonTask` guarda che non si sia
+     mosso niente, `rimettiInCodaSpedizione` guarda che la sessione sia
+     davvero quella del compito. */
+  it('e si torna anche in coda, ma e un altro gesto — 2.38', () => {
+    expect(transizioneAmmessa('in_progress', 'requested')).toBe(true);
   });
 
   it('e da chiuso non si torna comunque da nessuna parte', () => {

@@ -230,6 +230,83 @@ export const VistaCaricoSpedizione = {
     this._carRidisegna();
   },
 
+  /* ═══ 2.38 · IL CARICO AVVIATO DA UN'ATTIVITÀ ════════════════════════
+     Fino alla 2.37 il carico si apriva solo da qui dentro: si sceglieva la
+     baia, si sceglieva il DDT, si partiva. Chi in coda aveva un'attività di
+     spedizione non aveva modo di dire «io sto caricando questo».
+
+     LA BAIA SI CHIEDE LO STESSO, ed è l'unica cosa che il compito non sa:
+     il DDT dice che cosa esce, non da quale banchina. Se un carico è già
+     aperto la baia è quella, e questo DDT gli si aggiunge — è il caso del
+     camion con sei documenti, che il carico sa già fare.
+
+     UN DDT SENZA BANCALI PARTE LO STESSO, con zero tappe. Chi ha scelto
+     «carico» sapendo che non c'è niente da scansionare — l'avviso gliel'ha
+     detto — sta dichiarando che la merce sale a mano, e alla chiusura quel
+     documento risulta completo e si evade. Rifiutarlo qui vorrebbe dire
+     rimangiarsi la risposta data due schermate prima. */
+  async _carAvviaDaCompito(t) {
+    const docId = String((t?.payload as Record<string, unknown> | null)?.doc_id || '');
+    const doc = Store.getPendingDoc(docId) as DocumentoUscita | undefined;
+    if (!doc || doc.status !== 'pending') {
+      return this.toast(`Il DDT di questa attività non è più pendente: non c'è niente da caricare.`, 'error');
+    }
+    if (!this._requireOperator('il carico di una spedizione')) return;
+
+    this.switchView('movimenta');
+    /* `load` è il nome vecchio della tessera, e apre Spedizioni già sulla
+       scheda del carico: una chiamata sola, un disegno solo. */
+    this.startMov('load');
+
+    const c = Store.getCaricoInCorso() as Carico | null;
+    if (c) {
+      if (c.documenti.some((d) => d.doc_id === docId)) {
+        this._carRidisegna();
+        return this.toast(`DDT ${doc.ddt_num} è già in questo carico`, 'info');
+      }
+      await this._carScegliDdt(docId);
+      return;
+    }
+
+    const baie = zoneCarico(Store.getSites());
+    if (!baie.length) {
+      this._carRidisegna();
+      return this.toast('Nessuna zona è dichiarata baia di carico: si marca in Configurazione → Siti e Zone', 'error');
+    }
+    const scelta = baie.length === 1
+      ? `${baie[0]!.sito.id}|${baie[0]!.zona.id}`
+      : await Dialog.scelta<string>({
+        title: 'Da quale baia si carica?',
+        message: `I bancali del DDT ${doc.ddt_num || docId} vengono spostati qui, una posizione per bancale.`,
+        opzioni: baie.map(({ sito, zona }) => ({
+          label: `${sito.id} · ${zona.name || zona.id}`, value: `${sito.id}|${zona.id}`,
+        })),
+        icon: 'tir',
+      });
+    if (!scelta) { this._carRidisegna(); return; }
+    const [sito, zona] = String(scelta).split('|');
+    if (!sito || !zona) { this._carRidisegna(); return; }
+
+    const tappe = this._carTappeDaDoc(doc) as TappaCarico[];
+    const carico: Carico = {
+      carico_id: `CAR-${Date.now().toString(36).toUpperCase()}`,
+      operator: Store.getCurrentIdentity().initials || '',
+      status: 'active',
+      created_at: Date.now(),
+      baia_sito: sito, baia_zona: zona,
+      documenti: [this._carDocDelCarico(doc, tappe)],
+    };
+    try { await Store.salvaCarico(carico); }
+    catch (e) { return this.toast((e as Error).message || 'Avvio non riuscito', 'error'); }
+    this._carEsito = '';
+    this.toast(tappe.length
+      ? `Carico avviato · DDT ${doc.ddt_num} · ${tappe.length} bancali`
+      : `Carico avviato · DDT ${doc.ddt_num} · nessun bancale da scansionare, la merce sale a mano`,
+      tappe.length ? 'success' : 'warning');
+    this.updateSyncIndicator();
+    this._carRidisegna();
+  },
+
   _carDocDelCarico(doc: DocumentoUscita, tappe: TappaCarico[]): DocDelCarico {
     return {
       doc_id: doc.doc_id,
@@ -552,11 +629,19 @@ export const VistaCaricoSpedizione = {
     const doc = Store.getPendingDoc(docId) as DocumentoUscita | undefined;
     if (!doc || doc.status !== 'pending') return this.toast('Documento non trovato o già evaso', 'error');
     const tappe = this._carTappeDaDoc(doc) as TappaCarico[];
-    if (!tappe.length) return this.toast(`${doc.ddt_num || docId}: nessun bancale da caricare`, 'error');
+    /* 2.38 — UN DDT SENZA BANCALI ENTRA LO STESSO, e non è un cedimento.
+       L'elenco «+ Carica un altro DDT» non lo propone nemmeno, quindi di
+       qui non ci si arriva per sbaglio; ci si arriva da un'attività, dove
+       chi ha scelto «carico» ha già letto l'avviso che dice che non c'è
+       niente da scansionare. Il giro parte a zero tappe, il documento
+       risulta completo, e alla chiusura si evade: la merce sale a mano. */
+    if (!tappe.length) {
+      this.toast(`${doc.ddt_num || docId}: nessun bancale da scansionare, la merce sale a mano`, 'warning');
+    }
     c.documenti.push(this._carDocDelCarico(doc, tappe));
     await Store.salvaCarico(c);
     this._carEsito = '';
-    this.toast(`DDT ${doc.ddt_num} · ${tappe.length} bancali da caricare`, 'success');
+    if (tappe.length) this.toast(`DDT ${doc.ddt_num} · ${tappe.length} bancali da caricare`, 'success');
     this._carRidisegna();
   },
 

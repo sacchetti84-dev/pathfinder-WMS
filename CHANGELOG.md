@@ -15,6 +15,51 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.38.0 — 2026-09-09
+
+**Not every delivery note needs preparing, and preparing is three jobs, not one.**
+
+Since 2.31 a shipment worked one way only: registering the delivery note
+opened a preparation activity, someone walked the aisles, and the moment the
+route ended the activity closed. Everything after that — packing the loose
+goods, and loading the truck — lived by word of mouth, which is the thing the
+task queue exists to remove. And a delivery note already made of finished
+pallets was sent round the aisles anyway, for nothing.
+
+The activity now spans the whole shipment and is named for it —
+*Preparazione/carico DDT*. Whoever picks it up **says which of the three jobs
+they are doing**, and the buttons offered match where the goods actually are:
+gather, pack, or load. Between jobs the activity goes **back to the queue,
+unassigned**, because the person with the pallet truck is rarely the person
+with the forklift in the bay. It closes when the goods leave — at the
+delivery note's despatch, wherever that despatch is triggered from.
+
+Where the shipment stands is **read from the document, never stamped on the
+task**: every line on a pallet means *ready to load*; loose goods all at the
+packing bench mean *to be packed*; anything else means *to be gathered*. A
+mark that is calculated cannot go stale, and it lights up on its own for a
+delivery note born ready — which is exactly the case that started this.
+
+**Preparing means gathering, and whoever gathers chooses where.** Until 2.37
+a stop moved the goods to a bin the system picked — the first free one in the
+packing zone. Real gathering puts the pallets of one delivery note together,
+somewhere the person holding the pallet truck decides. So the destination is
+now **scanned**, one per stop, with the system proposing the right zone for
+that site and, from the second stop on, the bin just used. A pallet stop is
+pick-and-place: scan the unit, scan where it goes.
+
+Packing composes the unit **where the goods already are**, prints the label
+there — the printer is at the bench, and sending someone to the shipping rack
+and back is the trip that stops being made by the third pallet — and only
+then asks where in the shipping zone it goes.
+
+The **finished-goods zone is now the shipping zone**, in name and in the
+field that records it (`shipping_zone`). The old name said where the goods
+come *from*; the same zone now also receives pallets gathered by a
+preparation, which are not finished goods. Sites configured before this
+version keep working: the old field is still read, until someone saves that
+zone.
+
 ## 2.37.0 — 2026-09-09
 
 **A bin holds as many pallets as fit, and reality decides how many.**
