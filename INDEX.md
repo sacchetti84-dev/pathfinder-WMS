@@ -7,8 +7,17 @@ memoria, non istruzioni.
 
 Autore: Andrea Sacchetti — Dietopack S.r.l. (Naturacare Group) · uso interno
 Repo privato `sacchetti84-dev/pathfinder-WMS`, branch `main` (unico ramo)
-Aggiornato: **09/09/2026** — **non tutti i DDT vanno preparati, e preparare
-sono tre lavori.** La **2.38.2** è costruita, non installata.
+Aggiornato: **10/09/2026** — **non tutti i DDT vanno preparati, e preparare
+sono tre lavori.** La **2.38.3** è costruita, non installata.
+
+**UN'ICONA CHE MOSTRA IL PROPRIO MARKUP** (2.38.3). Il riscontro della
+scansione in baia scriveva `<svg class="ico"…` invece di una spunta: la
+protezione era giusta — quel punto scappa il testo perché ci arrivano codici
+da un lettore — e chi chiamava le passava l'icona dentro il testo. Adesso il
+nome dell'icona lo sceglie il GENERE del riscontro, e un chiamante non ha più
+un modo di infilarci markup. **È il quinto sink della famiglia 2.29.2**, e la
+rete nuova non ha un elenco di nomi: legge i corpi, trova i punti che
+scappano, e guarda **dentro** le parentesi di chi li chiama.
 
 **UN'ATTIVITÀ CHE NESSUNO POTEVA CHIUDERE** (2.38.2). La chiusura all'uscita
 della merce dipende da una scrittura, e una scrittura può non riuscire: fino
@@ -582,6 +591,55 @@ produzione fino all'ultimo giorno.
 > ricostruisce dal commit, e la build è riproducibile (§2) — ma è una domanda
 > rimasta senza risposta: quale versione ci fosse prima della 2.13. I pacchetti
 > stanno in `ARCHIVIO\VERSIONI PRECEDENTI\`.
+
+### La 2.38.3 — costruita, non installata
+
+**UN'ICONA CHE MOSTRA IL PROPRIO MARKUP, E LA QUINTA STRADA PER FARLO.**
+Andrea, il 10/09, con una schermata di baia sotto gli occhi: il riscontro
+della scansione scriveva `<svg class="ico" aria-hidden="true"
+focusable="false"><use href="#i-check"/></svg> UDC-000002 → MAG1-BAI1-01-01 ·
+24 colli` invece di una spunta.
+
+| | |
+|---|---|
+| pacchetto | `consegna\Pathfinder 2.38.3\` |
+| impronta | `47d3f43047c4775c74c702b36479993001703da13369df0ee027cfeca5edbf8d` |
+| byte | **2.14 MB** in **8 file** (612 kB sul filo, compressi) |
+| numero | nei quattro posti di §7, e `test/versioni.test.js` è verde |
+| collaudi | **1.777 in 69 file** (una saltata) · `npm run check` pulito |
+| provata | **a video**: due bancali su un DDT, scansionato il primo, e il riscontro esce `✓ UDC-000951 → MAG1-BAIA-01-02-T · 3 colli` — spunta disegnata, testo scappato |
+| **PRIMA DI INSTALLARE** | vale ancora la voce **106**: le zone di spedizione vanno risalvate una per sito |
+
+**LA PROTEZIONE ERA GIUSTA, IL PASSAGGIO NO.** `_carRiscontro` scappa il suo
+testo, e deve: lì arrivano codici da un lettore, e un codice non deve poter
+iniettare markup. Sbagliato era passarle l'icona DENTRO quel testo —
+`${this._ico('check')} …` — e `_esc` ha fatto esattamente il suo mestiere.
+
+**IL RIMEDIO NON È MAI INDEBOLIRE LA PROTEZIONE**, ed è la regola scritta
+nella 2.29.2: non si toglie `_esc`, si dà l'icona nella forma che quel punto
+sa già trattare. Adesso il nome lo decide il GENERE del riscontro — `ok`,
+`warn`, `error` — ed è markup composto lì dentro; il testo resta testo. Un
+chiamante non ha più un modo di infilarci markup **nemmeno volendo**, che è la
+differenza fra correggere un'occorrenza e chiudere una strada.
+
+**È IL QUINTO SINK DELLA FAMIGLIA.** La 2.29.2 ne aveva chiusi quattro —
+`toast`, `textContent`, i `message:`/`title:` di Dialog, gli attributi — e la
+rete di `test/icone.test.js` li cerca **per nome**. `_esc` non era fra quelli:
+**una rete che ispeziona trova quel che le hanno insegnato a cercare**, e
+questa strada non gliel'aveva insegnata nessuno. Era già la lezione della
+2.29.2, scritta a parole: *una prova va scritta per ogni sink e non una per
+«icona»*.
+
+**LA RETE NUOVA NON HA UN ELENCO DI NOMI**: legge i corpi, trova i metodi che
+scappano un loro parametro — `_esc(p)` — e poi guarda chi li chiama con
+un'icona in mano. Difende anche i punti che non esistono ancora.
+
+> **E GUARDA DENTRO LE PARENTESI, non sulla riga.** La prima stesura segnalava
+> sei punti sani: un pulsante scritto
+> `<button onclick="App._udcChiediSposta('${this._esc(id)}')">${this._ico('x')}</button>`
+> ha il metodo che scappa e l'icona sulla stessa riga, ma l'icona sta
+> nell'ETICHETTA, fuori dalla chiamata. **Una rete che grida su codice sano si
+> impara a ignorare, ed è peggio di non averla**: si conta le parentesi.
 
 ### La 2.38.2 — costruita, non installata
 

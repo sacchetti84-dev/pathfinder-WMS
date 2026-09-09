@@ -301,6 +301,45 @@ The zone is not limited in capacity on purpose: the space is governed by eye
 on the floor, and a system-side limit would only produce a number nobody can
 reconcile with the pallets actually standing there.
 
+### The shipping zone — renamed in 2.38
+
+What used to be the **finished-goods zone** is now the **shipping zone**, in
+the label and in the field that records it (`shipping_zone`). The old name
+said where the goods come *from* — the production floor — and the same zone
+now also receives pallets gathered by a shipment preparation, which are not
+finished goods.
+
+**Sites configured before 2.38 keep working**: the old `pf_zone` field is
+still read, but only while the new one has never been written. Counting them
+as alternatives would mean that unticking a zone configured before the upgrade
+would leave it marked — the screen would say one thing and the system another.
+
+> **Before installing 2.38 on an existing site**: open each shipping zone in
+> **Configuration → Sites and Zones** and save it once. The tick already shows
+> as set — that is the fallback showing it — and saving writes the new field.
+
+### Shipments are three jobs — from 2.38
+
+Registering a delivery note opens one activity, *Preparazione/carico DDT*,
+that covers the whole shipment. Whoever picks it up says which of the three
+jobs they are doing — **gather**, **pack**, **load** — and the buttons offered
+match where the goods actually are. Between jobs the activity goes **back to
+the queue unassigned**, because the person with the pallet truck is rarely the
+person with the forklift in the bay. It closes when the goods leave.
+
+Where the shipment stands is **read from the document, never stamped on the
+activity**: every line on a pallet means *ready to load*; loose goods all at
+the packing bench mean *to be packed*; anything else means *to be gathered*;
+a despatched or cancelled note means *goods gone — to be closed*. A calculated
+mark cannot fall behind the goods, and it lights up on its own for a delivery
+note born ready — the case where sending anyone down the aisles is a wasted
+trip.
+
+**Preparing means gathering, and whoever gathers chooses where.** The
+destination bin is scanned, one per stop, with the system proposing the right
+zone for that site and then the bin just used. A pallet stop is pick-and-place:
+scan the unit, scan where it goes.
+
 ### Label printers — from 2.19
 
 Goods and load-unit labels print on **networked Zebra printers**. The
@@ -645,6 +684,8 @@ The ones a reviewer should know about:
 | **79** | The jump from the warehouse's 1.4 release is proven on an archived export (14 checks) but has not been run against a live export from the warehouse machine |
 | **76** | A cycle-balance defect (0.75 kg unaccounted for) was raised once and has not reproduced in twelve runs |
 | **5 · 58** | Zone and article attributes are largely unfilled, so the compliance check has nothing to compare against on most rows. Data entry, not code |
+| **106** | The `pf_zone` → `shipping_zone` rename is proven on a clean bench, but has never been run against a site configured before 2.38. The fallback holds those zones marked until someone saves them once — see [The shipping zone](#the-shipping-zone--renamed-in-238) |
+| **107** | The three-part shipment flow has never seen a lorry, nor a real packing bench: proven end to end on 24 bins, two batches and one pallet. Whether "one proposal and a scanned bin" holds when there are twenty pallets, and whether *"are you packing it?"* is the right question at the moment it is asked, only the floor can say |
 
 ---
 

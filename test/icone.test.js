@@ -445,3 +445,117 @@ test('nessuna icona come stringa dentro _h: la aggiungerebbe come testo', () => 
   }
   expect(guai, guai.join('\n')).toEqual([]);
 });
+
+/* ═══ 2.38.3 · IL QUINTO SINK: UN'ICONA CHE FINISCE DENTRO `_esc` ════════
+
+   Visto a video in baia, sulla 2.38.2 installata: il riscontro della
+   scansione mostrava
+
+       <svg class="ico" aria-hidden="true" focusable="false"><use
+       href="#i-check"/></svg> UDC-000002 → MAG1-BAI1-01-01 · 24 colli
+
+   cioe' il proprio markup invece dell'icona, sulla schermata che si guarda
+   con un pallet in mano.
+
+   LA PROTEZIONE ERA GIUSTA, il passaggio no. `_carRiscontro` scappa il suo
+   testo — ci arrivano codici da un lettore, e un codice non deve poter
+   iniettare markup — e chi la chiamava le passava l'icona DENTRO quel testo.
+   `_esc` ha fatto il suo mestiere.
+
+   E' LA STESSA FAMIGLIA DELLA 2.29.2, con una destinazione in piu'. La rete
+   qui sopra — «nessuna icona finisce dove si scrive testo» — cerca quattro
+   nomi: `toast`, `textContent`, i `message:`/`title:` di Dialog, `Dialog.kv`.
+   `_esc` non era fra quelli, e una rete che ispeziona trova quel che le hanno
+   insegnato a cercare. La lezione della 2.29.2 era scritta e valeva anche
+   qui: **una prova va scritta per ogni SINK, non una per «icona»**.
+
+   PERCHE' SI CERCANO I CHIAMANTI E NON LE FUNZIONI. Il difetto non sta dentro
+   la funzione che scappa — quella e' corretta — ma in chi le porge del
+   markup. Quindi si raccolgono prima i metodi che scappano un loro
+   parametro, e poi si guarda chi li chiama con un'icona in mano. */
+
+/** I metodi di una vista che scappano un loro parametro: `nome(…, p …) {`
+    con `this._esc(p)` nel corpo. Sono i punti dove un'icona non deve
+    arrivare. */
+function metodiCheScappano(testo) {
+  const trovati = new Set();
+  /* Firma di un metodo dell'oggetto letterale: due spazi, nome, parentesi. */
+  for (const m of testo.matchAll(/^ {2}(?:async )?(_[A-Za-z0-9_]+)\(([^)]*)\)[^{]*\{/gm)) {
+    const [intero, nome, argomenti] = m;
+    const parametri = argomenti.split(',')
+      .map((a) => (a.split(':')[0] || '').replace(/[?=].*$/, '').trim())
+      .filter((a) => /^[A-Za-z_$][\w$]*$/.test(a));
+    if (!parametri.length) continue;
+    /* Il corpo: dalla firma alla riga che chiude il metodo. */
+    const da = m.index + intero.length;
+    const a = testo.indexOf('\n  },', da);
+    const corpo = testo.slice(da, a < 0 ? testo.length : a);
+    for (const p of parametri) {
+      if (new RegExp(`_esc\\(\\s*${p}\\s*\\)`).test(corpo)) { trovati.add(nome); break; }
+    }
+  }
+  return trovati;
+}
+
+/** Gli argomenti di ogni chiamata a `nome(` su questa riga, presi contando
+    le parentesi.
+
+    SERVE PERCHE' «SULLA STESSA RIGA» NON VUOL DIRE «DENTRO LA CHIAMATA», ed
+    e' la differenza fra una rete e un fastidio. Un pulsante scritto come
+
+        <button onclick="App._udcChiediSposta('${this._esc(id)}')">${this._ico('x')}</button>
+
+    ha il metodo che scappa e l'icona sulla stessa riga, ma l'icona sta
+    nell'ETICHETTA, fuori dalla chiamata: la prima stesura di questa prova ne
+    segnalava sei cosi'. Una rete che grida su codice sano si impara a
+    ignorare, ed e' peggio di non averla. */
+function argomentiDi(riga, nome) {
+  const fuori = [];
+  let da = 0;
+  for (;;) {
+    const i = riga.indexOf(`${nome}(`, da);
+    if (i < 0) return fuori;
+    let livello = 0;
+    let j = i + nome.length;
+    for (; j < riga.length; j++) {
+      if (riga[j] === '(') livello++;
+      else if (riga[j] === ')') { livello--; if (livello === 0) break; }
+    }
+    fuori.push(riga.slice(i + nome.length + 1, j));
+    da = j > i ? j : i + 1;
+  }
+}
+
+test('nessuna icona finisce dentro un punto che scappa il testo', () => {
+  const sorgenti = [];
+  (function raccogli(dir) {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) raccogli(p);
+      else if (/\.ts$/.test(e.name)) sorgenti.push(p);
+    }
+  })(path.join(RADICE, 'src'));
+
+  const testi = new Map(sorgenti.map((f) => [f, fs.readFileSync(f, 'utf8')]));
+
+  /* I nomi si raccolgono su TUTTI i file: una vista puo' chiamare un metodo
+     che sta in un'altra — `App` e' un oggetto solo. */
+  const scappano = new Set();
+  for (const t of testi.values()) for (const n of metodiCheScappano(t)) scappano.add(n);
+  expect(scappano.size, 'la rete non riconosce piu' + ' nessun punto che scappa: e\' rotta, non pulita').toBeGreaterThan(0);
+
+  const guai = [];
+  for (const [file, testo] of testi) {
+    testo.split('\n').forEach((r, n) => {
+      if (!/_ico\(/.test(r)) return;
+      for (const nome of scappano) {
+        for (const dentro of argomentiDi(r, nome)) {
+          if (/_ico\(/.test(dentro)) {
+            guai.push(`${path.relative(RADICE, file).replace(/\\/g, '/')}:${n + 1} — ${nome}`);
+          }
+        }
+      }
+    });
+  }
+  expect(guai, 'un\'icona passata a un punto che scappa esce come testo a video').toEqual([]);
+});

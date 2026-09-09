@@ -15,6 +15,37 @@ summary for readers who need the shape of the history without the detail.
 
 ---
 
+## 2.38.3 — 2026-09-10
+
+**An icon showing its own markup, and the fifth way it can happen.**
+
+Seen on the loading screen, with a pallet in hand: the scan feedback read
+`<svg class="ico" aria-hidden="true" focusable="false"><use href="#i-check"/>
+</svg> UDC-000002 → MAG1-BAI1-01-01 · 24 colli` instead of a tick.
+
+The protection was right and the passing was wrong. That feedback escapes its
+text — codes arrive there from a barcode reader, and a code must not be able
+to inject markup — and the caller handed it the icon *inside* the text. The
+escaping did exactly its job.
+
+**The remedy is never to weaken the protection.** That rule was written in
+2.29.2 and applies here too: the escaping stays, and the icon is given in the
+form this place already knows how to handle. The icon name is now chosen by
+the **kind** of the feedback — ok, warn, error — and composed as markup where
+it belongs; the text stays text and stays escaped. A caller no longer has a
+way to slip markup in, even deliberately, which is the difference between
+fixing an occurrence and closing a road.
+
+**This was the fifth sink of that family.** 2.29.2 closed four — `toast`,
+`textContent`, Dialog's `message:`/`title:`, and HTML attributes — and the net
+in `test/icone.test.js` looks for them by name. Escaping helpers were not on
+that list: a net that inspects finds what somebody taught it to look for, and
+nobody had taught it this road. The new net finds the escaping helpers by
+reading their bodies, then checks who calls them with an icon in hand — and it
+looks *inside* the call's parentheses, because "on the same line" is not "in
+the argument", and a net that shouts at healthy code is one people learn to
+ignore.
+
 ## 2.38.2 — 2026-09-09
 
 **An activity nobody could close, because the failure was silent.**

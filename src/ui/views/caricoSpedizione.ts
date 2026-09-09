@@ -514,7 +514,9 @@ export const VistaCaricoSpedizione = {
     tappa.baia = vano;
     tappa.done_at = Date.now();
     await Store.salvaCarico(c);
-    this._carEsito = this._carRiscontro('ok', `${this._ico('check')} ${tappa.udc_id} → ${vano} · ${tappa.contenuto} · ${tappa.colli} colli`);
+    /* 2.38.3 — niente icona nel testo: la mette `_carRiscontro`, che sa
+       quale va con «ok». Qui passava `_ico('check')` e usciva il markup. */
+    this._carEsito = this._carRiscontro('ok', `${tappa.udc_id} → ${vano} · ${tappa.contenuto} · ${tappa.colli} colli`);
     this.updateSyncIndicator();
     this._carRidisegna();
   },
@@ -563,9 +565,36 @@ export const VistaCaricoSpedizione = {
     $('carScan')?.focus();
   },
 
+  /* ═══ 2.38.3 · L'ICONA LA SCEGLIE IL GENERE, NON CHI SCRIVE IL TESTO ═══
+
+     A video, in baia: `<svg class="ico" aria-hidden="true" focusable="false">
+     <use href="#i-check"/></svg> UDC-000002 → MAG1-BAI1-01-01 · 24 colli`.
+     Il riscontro della scansione mostrava il proprio markup invece
+     dell'icona, sulla schermata che si guarda con un pallet in mano.
+
+     LA CAUSA È UN SINK CHE SCAPPA, e la protezione è giusta: il testo qui
+     porta codici arrivati da un lettore — `_esc` c'è perché un codice non
+     deve poter iniettare markup. Sbagliato era passargli l'icona DENTRO il
+     testo: chi chiamava scriveva `${this._ico('check')} …`, e `_esc` faceva
+     esattamente il suo mestiere trasformandola in caratteri.
+
+     IL RIMEDIO NON È MAI INDEBOLIRE LA PROTEZIONE — è la regola della
+     2.29.2, e vale anche qui: non si toglie `_esc`, si dà l'icona nella
+     forma che questo punto sa già trattare. Adesso il nome dell'icona lo
+     decide il GENERE del riscontro, ed è markup composto qui; il testo
+     resta testo e resta scappato. Un chiamante non ha più un modo di
+     infilarci markup, nemmeno volendo — che è la differenza fra correggere
+     un'occorrenza e chiudere una strada.
+
+     È IL QUINTO SINK DELLA FAMIGLIA. La 2.29.2 ne aveva chiusi quattro —
+     `toast`, `textContent`, `message:`/`title:` di Dialog, gli attributi —
+     e la rete di `test/icone.test.js` li cerca per nome. `_esc` non era
+     nell'elenco: una rete che ispeziona trova quel che le hanno insegnato a
+     cercare, e questa strada non gliel'aveva insegnata nessuno. */
   _carRiscontro(genere: 'ok' | 'error' | 'warn', testo: string) {
     const classe = genere === 'ok' ? 'mov-preview-ok' : genere === 'error' ? 'mov-preview-err' : 'mov-preview-warn';
-    return `<div class="mov-preview ${classe} leading-larga">${this._esc(testo)}</div>`;
+    const icona = genere === 'ok' ? 'check' : genere === 'error' ? 'circle-x' : 'alert-triangle';
+    return `<div class="mov-preview ${classe} leading-larga">${this._ico(icona)} ${this._esc(testo)}</div>`;
   },
 
   /* ── Saltare una tappa ───────────────────────────────────────────────── */
